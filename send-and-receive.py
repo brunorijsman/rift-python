@@ -4,11 +4,10 @@ import time
 import os
 import select
 import datetime
+import timer
 
 multicast_address = '224.0.1.200'
 multicast_port = 10000
-
-interface_address = '10.65.13.221'
 
 send_interval_secs = 5.0
 
@@ -42,19 +41,13 @@ def receive_message (sock):
 tx_sock = create_multicast_send_socket()
 rx_sock = create_multicast_receive_socket()
 
-time_until_next_send = send_interval_secs
+send_timer = timer.Timer(1.0, lambda: send_message(tx_sock))
 
 while True:
 
-    before_time = datetime.datetime.now()
-    rx_ready, _, _ = select.select([rx_sock], [], [], time_until_next_send)
-    after_time = datetime.datetime.now()
-    elapsed_sec = (after_time - before_time).total_seconds()
+    timeout = timer.scheduler.trigger_all_expired_timers_and_return_time_until_next_expire()
 
-    time_until_next_send -= elapsed_sec
-    if time_until_next_send <= 0.0:
-        send_message(tx_sock)
-        time_until_next_send = send_interval_secs
+    rx_ready, _, _ = select.select([rx_sock], [], [], timeout)
 
     for s in rx_ready:
         receive_message(s)
