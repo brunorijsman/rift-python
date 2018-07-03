@@ -15,7 +15,7 @@ class MulticastReceiveHandler:
         self._sock.bind((multicast_address, port))
         req = struct.pack("4sl", socket.inet_aton(multicast_address), socket.INADDR_ANY)
         self._sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, req)
-        socket_scheduler.register_handler(self)
+        socket_scheduler.register_handler(self, True, False)
 
     def __del__(self):
         socket_scheduler.unregister_handler(self)
@@ -23,9 +23,6 @@ class MulticastReceiveHandler:
 
     def socket(self):
         return self._sock
-
-    def ready_to_write(self):
-        pass
 
     def ready_to_read(self):
         message = self._sock.recv(self.MAXIMUM_MESSAGE_SIZE)
