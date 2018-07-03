@@ -6,7 +6,6 @@ class TimerScheduler:
     def __init__(self):
         self._epoch = datetime.now()
         self._timers_by_expire_time = SortedDict()
-        pass
 
     def now(self):
         absolute_now = datetime.now()
@@ -43,7 +42,7 @@ class TimerScheduler:
             for timer in expired_timers:
                 timer.trigger_expire()
 
-scheduler = TimerScheduler()
+timer_scheduler = TimerScheduler()
 
 class Timer:
 
@@ -66,18 +65,18 @@ class Timer:
         return self._expire_time
 
     def _update_expire_time(self):
-        self._expire_time = scheduler.now() + self._interval
+        self._expire_time = timer_scheduler.now() + self._interval
 
     def start(self):
         if self._running:
             self.stop()
         self._running = True
         self._update_expire_time()
-        scheduler.schedule(self)       
+        timer_scheduler.schedule(self)       
 
     def stop(self):
         if self._running:
-            scheduler.unschedule(self)
+            timer_scheduler.unschedule(self)
             self._running = False
             self._expire_time = None
 
@@ -85,7 +84,7 @@ class Timer:
         self._expire_function()
         if self._periodic:
             self._update_expire_time()
-            scheduler.schedule(self)
+            timer_scheduler.schedule(self)
         else:
             self._running = False
             self._expire_time = None
