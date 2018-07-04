@@ -1,0 +1,14 @@
+3-Jul-2018
+
+I used brew to install Thrift on MacOS High Sierra (version 10.13.3):
+
+brew install thrift
+
+This downloaded and installed version 0.11.0 of Thrift, which (according to
+https://thrift.apache.org/download) is the latest stable version as of 
+3-Jul-2018
+
+Generate Python code:
+
+thrift --gen py common.thrift
+thrift --gen py encoding.thrift

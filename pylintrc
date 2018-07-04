@@ -1,0 +1,20 @@
+[MASTER]
+
+# Look for Thrift generated modules in the gen-py directory
+#
+init-hook='import sys; sys.path.append("gen-py")'
+
+[MESSAGES CONTROL]
+
+# C0413:Import "from ... import ..." should be placed at the top of the module
+# We need to call sys.path.append("gen-py") before the import for Thrift 
+#
+disable=C0413
+
+# C0111:Missing ... docstring
+# Not spending time on adding docstrings while the code is still in too much flux
+# TODO: Re-enable this and add the missing docstrings
+#
+disable=C0111
+
+

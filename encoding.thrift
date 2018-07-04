@@ -1,4 +1,4 @@
-**
+/**
     Thrift file for packet encodings for RIFT
 */
 
