@@ -12,3 +12,9 @@ Generate Python code:
 
 thrift --gen py common.thrift
 thrift --gen py encoding.thrift
+
+TODO list:
+
+* Send LIE packets with network control precedence.
+
+* Add IPv6 support
