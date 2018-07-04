@@ -18,10 +18,10 @@ class SocketScheduler:
     def unregister_handler(self, handler):
         del self._handlers_by_fd[handler.socket().fileno()]
         sock = handler.socket()
-        if sock in self.rx_sockets:
-            self.rx_sockets.remove(sock)
-        if sock in self.tx_sockets:
-            self.tx_sockets.remove(sock)
+        if sock in self._rx_sockets:
+            self._rx_sockets.remove(sock)
+        if sock in self._tx_sockets:
+            self._tx_sockets.remove(sock)
 
     def run(self):
         while True:

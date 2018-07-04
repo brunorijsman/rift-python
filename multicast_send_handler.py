@@ -23,4 +23,4 @@ class MulticastSendHandler:
 
     def send_message(self, message):
         multicast_group = (self._multicast_address, self._port)
-        self._sock.sendto(message.encode(), multicast_group)
+        self._sock.sendto(message, multicast_group)
