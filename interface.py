@@ -2,7 +2,7 @@ import os
 from multicast_send_handler import MulticastSendHandler
 from multicast_receive_handler import MulticastReceiveHandler
 from timer import Timer
-from lie_packet import *
+from packet_encoding import *
 
 # TODO: make it possible to enable or disable RIFT on a per interface basis
 # TODO: send and receive LIE message on a per interface basis
@@ -31,8 +31,9 @@ class Interface:
             self.send_lie_protocol_packet)
 
     def receive_multicast_message(self, message):
-        # TODO: for now, we assume it is a LIE packet. 
-        print("Receive {}".format(message))
+        protocol_packet = decode_protocol_packet(message)
+        # TODO: Dispatch, depending on message type
+        print("Received Protocol Packet {}".format(protocol_packet))
 
     def send_lie_protocol_packet(self):
         protocol_packet = create_lie_protocol_packet(self._config)
