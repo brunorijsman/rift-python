@@ -6,7 +6,8 @@ from multicast_send_handler import MulticastSendHandler
 from multicast_receive_handler import MulticastReceiveHandler
 from timer import Timer
 from packet_common import create_packet_header, encode_protocol_packet, decode_protocol_packet
-from encoding.ttypes import PacketHeader, PacketContent, LIEPacket, ProtocolPacket
+from encoding.ttypes import PacketHeader, PacketContent, NodeCapabilities, LIEPacket, ProtocolPacket
+from common.ttypes import LeafIndications
 
 # TODO: make it possible to enable or disable RIFT on a per interface basis
 # TODO: send and receive LIE message on a per interface basis
@@ -60,6 +61,9 @@ class Interface:
 
     def create_lie_protocol_packet(self):
         packet_header = create_packet_header(self._node)
+        capabilities = NodeCapabilities(
+            flood_reduction = True,
+            leaf_indications = LeafIndications.leaf_only_and_leaf_2_leaf_procedures)
         # TODO use information in config to create LIE Packet
         lie_packet = LIEPacket(
             name = self._long_name,
@@ -69,7 +73,7 @@ class Interface:
             neighbor = None,
             pod = self._pod,
             nonce = Interface.generate_nonce(),
-            capabilities = None,
+            capabilities = capabilities,
             holdtime = 3,            # TODO: Should this be hold_time?
             not_a_ztp_offer = False,
             you_are_not_flood_repeater = False,
