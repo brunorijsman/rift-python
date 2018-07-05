@@ -15,6 +15,9 @@ from encoding.ttypes import PacketHeader, PacketContent, LIEPacket, ProtocolPack
 
 class Interface:
 
+    # TODO: Implement configuration of POD numbers
+    UNDEFINED_OR_ANY_POD = 0
+
     @staticmethod
     def generate_long_name(short_name, system_id):
         hostname = socket.gethostname()
@@ -36,6 +39,7 @@ class Interface:
         self._long_name = Interface.generate_long_name(short_name, node.system_id)
         self._local_id = node.allocate_interface_id()
         self._mtu = Interface.get_mtu(short_name)
+        self._pod = self.UNDEFINED_OR_ANY_POD
         self._multicast_send_handler = MulticastSendHandler(
             node.lie_ipv4_multicast_address, 
             node.lie_destination_port)
@@ -56,7 +60,7 @@ class Interface:
             flood_port = self._node.tie_destination_port,
             link_mtu_size = self._mtu,
             neighbor = None,
-            pod = 0,
+            pod = self._pod,
             nonce = None,
             capabilities = None,
             holdtime = 3,            # TODO: Should this be hold_time?
