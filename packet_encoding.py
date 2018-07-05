@@ -41,7 +41,7 @@ def encode_protocol_packet(protocol_packet):
     return encoded_protocol_packet
 
 def decode_protocol_packet(encoded_protocol_packet):
-    transport_in = TTransport.TMemoryBuffer(encoded_lie_packet)
+    transport_in = TTransport.TMemoryBuffer(encoded_protocol_packet)
     protocol_in = TBinaryProtocol.TBinaryProtocol(transport_in)
     protocol_packet = ProtocolPacket()
     protocol_packet.read(protocol_in)

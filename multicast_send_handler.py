@@ -8,10 +8,8 @@ class MulticastSendHandler:
         self._multicast_address = multicast_address
         self._port = port
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-        ttl = struct.pack('b', 1)
-        self._sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, ttl)
-        loop = struct.pack('b', 0)
-        self._sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, loop)
+        self._sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 1)
+        self._sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, 1)
         socket_scheduler.register_handler(self, False, False)
 
     def __del__(self):
