@@ -22,9 +22,10 @@ class Interface:
         return hostname + '-' + format(pid) + '-' + short_name
 
     def __init__(self, short_name, node):
+        self._node = node
         self._short_name = short_name
         self._long_name = Interface.generate_long_name(short_name, node.system_id)
-        self._node = node
+        self._local_id = node.allocate_interface_id()
         self._multicast_send_handler = MulticastSendHandler(
             node.lie_ipv4_multicast_address, 
             node.lie_destination_port)
@@ -41,7 +42,7 @@ class Interface:
         # TODO use information in config to create LIE Packet
         lie_packet = LIEPacket(
             name = self._long_name,
-            local_id = None,
+            local_id = self._local_id,
             flood_port = 912,        # TODO: Is this the right default?
             link_mtu_size = 1400,
             neighbor = None,
