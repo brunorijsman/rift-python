@@ -2,7 +2,7 @@
 
 class Config:
 
-    DEFAULT_LIE_IPV4_MULTICAST_ADDRESS = '224.0.1.120'    # TODO: Change to 224.0.0.120
+    DEFAULT_LIE_IPV4_MULTICAST_ADDRESS = '224.0.0.120'
     DEFAULT_LIE_IPV6_MULTICAST_ADDRESS = 'FF02::0078'     # TODO: Add IPv6 support
     DEFAULT_LIE_DESTINATION_PORT = 10000    # TODO: Change to 911 (needs root privs)
     DEFAULT_LIE_SEND_INTERVAL_SECS = 1.0    # TODO: What does the draft say?

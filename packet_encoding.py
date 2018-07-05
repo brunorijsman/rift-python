@@ -6,7 +6,7 @@ sys.path.append('gen-py')
 
 from thrift.protocol import TBinaryProtocol
 from thrift.transport import TTransport
-from encoding.ttypes import PacketHeader, LIEPacket, ProtocolPacket
+from encoding.ttypes import PacketHeader, PacketContent, LIEPacket, ProtocolPacket
 
 def create_lie_protocol_packet(config):
     # TODO use information in config to create packet header
@@ -30,7 +30,8 @@ def create_lie_protocol_packet(config):
         not_a_ztp_offer = False,
         you_are_not_flood_repeater = False,
         label = None)
-    protocol_packet = ProtocolPacket(packet_header, lie_packet)
+    packet_content = PacketContent(lie = lie_packet)
+    protocol_packet = ProtocolPacket(packet_header, packet_content)
     return protocol_packet
 
 def encode_protocol_packet(protocol_packet):
