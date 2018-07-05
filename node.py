@@ -14,6 +14,8 @@ class Node:
     DEFAULT_LIE_DESTINATION_PORT = 10000    # TODO: Change to 911 (needs root privs)
     DEFAULT_LIE_SEND_INTERVAL_SECS = 1.0    # TODO: What does the draft say?
 
+    DEFAULT_TIE_DESTINATION_PORT = 10001    # TODO: Change to 912 (needs root privs)
+    
     @staticmethod
     def _system_id():
         mac_address = uuid.getnode()
@@ -29,6 +31,7 @@ class Node:
         self._lie_ipv6_multicast_address = self.DEFAULT_LIE_IPV6_MULTICAST_ADDRESS
         self._lie_destination_port = self.DEFAULT_LIE_DESTINATION_PORT
         self._lie_send_interval_secs = self.DEFAULT_LIE_SEND_INTERVAL_SECS
+        self._tie_destination_port = self.DEFAULT_TIE_DESTINATION_PORT
 
     def allocate_interface_id(self):
         # We assume an i32 is never going to happen (i.e. no more than ~2M interfaces)
@@ -64,3 +67,7 @@ class Node:
     @property
     def lie_send_interval_secs(self):
         return self._lie_send_interval_secs
+
+    @property
+    def tie_destination_port(self):
+        return self._tie_destination_port

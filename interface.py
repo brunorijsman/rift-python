@@ -43,7 +43,7 @@ class Interface:
         lie_packet = LIEPacket(
             name = self._long_name,
             local_id = self._local_id,
-            flood_port = 912,        # TODO: Is this the right default?
+            flood_port = self._node.tie_destination_port,
             link_mtu_size = 1400,
             neighbor = None,
             pod = 0,
