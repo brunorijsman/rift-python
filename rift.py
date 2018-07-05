@@ -1,4 +1,4 @@
-from config import Config
+from node import Node
 from interface import Interface
 from socket_scheduler import socket_scheduler
 
@@ -7,8 +7,8 @@ from socket_scheduler import socket_scheduler
 class Rift:
 
     def __init__(self):
-        self._config = Config()
-        self._interface = Interface('en0', self._config)
+        self._node = Node()
+        self._interface = Interface('en0', self._node)
 
     def run(self):
         socket_scheduler.run()

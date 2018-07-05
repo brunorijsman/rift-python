@@ -2,8 +2,12 @@ import uuid
 import os
 
 # TODO: Add hierarchical configuration with inheritance
+# TODO: Add support for non-configured levels
+#       - Allow configured_level to be None
+#       - In which case the Level Determination Procedure (section 4.2.9.4 of draft-ietf-rift-rift-02)
+#         must be used
 
-class Config:
+class Node:
 
     DEFAULT_LIE_IPV4_MULTICAST_ADDRESS = '224.0.0.120'
     DEFAULT_LIE_IPV6_MULTICAST_ADDRESS = 'FF02::0078'     # TODO: Add IPv6 support
@@ -18,6 +22,7 @@ class Config:
 
     def __init__(self):
         self._system_id = self._system_id()
+        self._configured_level = 0
         self._lie_ipv4_multicast_address = self.DEFAULT_LIE_IPV4_MULTICAST_ADDRESS
         self._lie_ipv6_multicast_address = self.DEFAULT_LIE_IPV6_MULTICAST_ADDRESS
         self._lie_destination_port = self.DEFAULT_LIE_DESTINATION_PORT
@@ -26,6 +31,15 @@ class Config:
     @property
     def system_id(self):
         return self._system_id
+
+    @property
+    def configured_level(self):
+        return self._configured_level
+
+    @property
+    def advertised_level(self):
+        # TODO: Handle configured_level == None (see TODO at top of file)
+        return self.configured_level
 
     @property
     def lie_ipv4_multicast_address(self):

@@ -8,13 +8,15 @@ from thrift.protocol import TBinaryProtocol
 from thrift.transport import TTransport
 from encoding.ttypes import PacketHeader, PacketContent, LIEPacket, ProtocolPacket
 
-def create_lie_protocol_packet(config):
-    # TODO use information in config to create packet header
+RIFT_MAJOR_VERSION = 11
+RIFT_MINOR_VERSION = 0
+
+def create_lie_protocol_packet(node):
     packet_header = PacketHeader(
-        major_version = 11,
-        minor_version = 0,
-        sender = config.system_id,
-        level = None
+        major_version = RIFT_MAJOR_VERSION,
+        minor_version = RIFT_MINOR_VERSION,
+        sender = node.system_id,
+        level = node.advertised_level
     )
     # TODO use information in config to create LIE Packet
     lie_packet = LIEPacket(
