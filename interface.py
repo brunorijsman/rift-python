@@ -1,5 +1,6 @@
 import os
 import socket
+import random
 from fcntl import ioctl
 from multicast_send_handler import MulticastSendHandler
 from multicast_receive_handler import MulticastReceiveHandler
@@ -33,6 +34,12 @@ class Interface:
         mtu = 1500
         return mtu
 
+    @staticmethod
+    def generate_nonce():
+        # 63 bits instead of 64 because nonce field is a signed i64
+        nonce = random.getrandbits(63)
+        return nonce
+
     def __init__(self, short_name, node):
         self._node = node
         self._short_name = short_name
@@ -61,7 +68,7 @@ class Interface:
             link_mtu_size = self._mtu,
             neighbor = None,
             pod = self._pod,
-            nonce = None,
+            nonce = Interface.generate_nonce(),
             capabilities = None,
             holdtime = 3,            # TODO: Should this be hold_time?
             not_a_ztp_offer = False,
