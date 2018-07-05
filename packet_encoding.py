@@ -13,7 +13,7 @@ def create_lie_protocol_packet(config):
     packet_header = PacketHeader(
         major_version = 11,
         minor_version = 0,
-        sender = None,
+        sender = config.system_id,
         level = None
     )
     # TODO use information in config to create LIE Packet
