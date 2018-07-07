@@ -1,7 +1,9 @@
 from table import Table
 
-# TODO: Add Table class for pretty-printing tables
 # TODO: Check completeness of FSM
+# TODO: Report superfluous transitions (same effect in every state)
+# TODO: Report could-be-implicit transitions (no effect: no actions, no pushed events, back to same state)
+# TODO: Report implicit transitions
 
 class FiniteStateMachine:
 

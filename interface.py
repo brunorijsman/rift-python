@@ -33,7 +33,7 @@ class Interface:
 
     @unique
     class Event(Enum):
-        SEND_LIE_TIMER_TICK = 1
+        TIMER_TICK = 1
         LEVEL_CHANGED = 2
         HAL_CHANGED = 3
         HAT_CHANGED = 4
@@ -45,92 +45,93 @@ class Interface:
         NEIGHBOR_CHANGED_LEVEL = 10
         NEIGHBOR_CHANGED_ADDRESS = 11
         UNACCEPTABLE_HEADER = 12
-        HOLD_TIMER_EXPIRED = 13
+        HOLD_TIME_EXPIRED = 13
         MULTIPLE_NEIGHBORS = 14
         LIE_CORRUPT = 15
         SEND_LIE = 16
         UPDATE_ZTP_OFFER = 17
 
     def action_store_hal(self):
+        # TODO
+        pass
+
+    def action_store_hat(self):
+        # TODO
+        pass
+
+    def action_store_hals(self):
+        # TODO
         pass
 
     def action_send_offer_to_ztp_fsm(self):
+        # TODO
+        pass
+
+    def action_update_level(self):
+        # TODO
+        pass
+
+    def action_send_lie(self):
+        # TODO
+        pass
+
+    def action_process_lie(self):
+        # TODO
+        pass
+
+    def action_check_hold_timer_expired(self):
+        # TODO
         pass
 
     state_one_way_transitions = {
-        Event.SEND_LIE_TIMER_TICK: (
-            None,
-            [],
-            [Event.SEND_LIE]
-        ),
-#        LEVEL_CHANGED:
-        Event.HAL_CHANGED: (
-            None,
-            [action_store_hal]
-        ),
-#        HAT_CHANGED:
-#        HALS_CHANGED:
-#        LIE_RECEIVED:
-#        NEW_NEIGHBOR:
-#        VALID_REFLECTION:
-#        NEIGHBOR_DROPPED_REFLECTION:
-#        NEIGHBOR_CHANGED_LEVEL:
-#        NEIGHBOR_CHANGED_ADDRESS:
-#        UNACCEPTABLE_HEADER:
-#        HOLD_TIMER_EXPIRED:
-#        MULTIPLE_NEIGHBORS:
-#        LIE_CORRUPT:
-#        SEND_LIE:
-#        UPDATE_ZTP_OFFER:
+        Event.TIMER_TICK: (None, [], [Event.SEND_LIE]),
+        Event.LEVEL_CHANGED: (State.ONE_WAY, [action_update_level], [Event.SEND_LIE]),
+        Event.HAL_CHANGED: (None, [action_store_hal]),
+        Event.HAT_CHANGED: (None, [action_store_hat]),
+        Event.HALS_CHANGED: (None, [action_store_hals]),
+        Event.LIE_RECEIVED: (None, [action_process_lie]),
+        Event.NEW_NEIGHBOR: (State.TWO_WAY, [], [Event.SEND_LIE]),
+        Event.UNACCEPTABLE_HEADER: (State.ONE_WAY, []),
+        Event.HOLD_TIME_EXPIRED: (None, []),
+        Event.SEND_LIE: (None, [action_send_lie]),
+        Event.UPDATE_ZTP_OFFER: (None, [action_send_offer_to_ztp_fsm])
     }
 
     state_two_way_transitions = {
-#         SEND_LIE_TIMER_TICK:
-#         LEVEL_CHANGED:
-        Event.HAL_CHANGED: (
-            None,
-            [action_store_hal]
-        ),
-#         HAT_CHANGED:
-#         HALS_CHANGED:
-#         LIE_RECEIVED:
-#         NEW_NEIGHBOR:
-#         VALID_REFLECTION:
-#         NEIGHBOR_DROPPED_REFLECTION:
-#         NEIGHBOR_CHANGED_LEVEL:
-#         NEIGHBOR_CHANGED_ADDRESS:
-#         UNACCEPTABLE_HEADER:
-#         HOLD_TIMER_EXPIRED:
-#         MULTIPLE_NEIGHBORS:
-#         LIE_CORRUPT:
-#         SEND_LIE:
-        Event.UPDATE_ZTP_OFFER: (
-            None,
-            [action_send_offer_to_ztp_fsm]
-        ),
+        Event.TIMER_TICK: (None, [action_check_hold_timer_expired], [Event.SEND_LIE]),
+        Event.LEVEL_CHANGED: (State.ONE_WAY, [action_update_level]),
+        Event.HAL_CHANGED: (None, [action_store_hal]),
+        Event.HAT_CHANGED: (None, [action_store_hat]),
+        Event.HALS_CHANGED: (None, [action_store_hals]),
+        Event.HALS_CHANGED: (None, [action_store_hals]),
+        Event.LIE_RECEIVED: (None, [action_process_lie]),
+        Event.VALID_REFLECTION: (State.THREE_WAY, []),
+        Event.NEIGHBOR_CHANGED_LEVEL: (State.ONE_WAY, []),
+        Event.NEIGHBOR_CHANGED_ADDRESS: (State.ONE_WAY, []),
+        Event.UNACCEPTABLE_HEADER: (State.ONE_WAY, []),
+        Event.HOLD_TIME_EXPIRED: (State.ONE_WAY, []),
+        Event.MULTIPLE_NEIGHBORS: (State.ONE_WAY, []),
+        Event.LIE_CORRUPT: (State.ONE_WAY, []),             # This transition is not in draft
+        Event.SEND_LIE: (None, [action_send_lie]),
+        Event.UPDATE_ZTP_OFFER: (None, [action_send_offer_to_ztp_fsm]),
      }
      
     state_three_way_transitions = {
-#         SEND_LIE_TIMER_TICK:
-#         LEVEL_CHANGED:
-        Event.HAL_CHANGED: (
-            None,
-            [action_store_hal]
-        ),
-#         HAT_CHANGED:
-#         HALS_CHANGED:
-#         LIE_RECEIVED:
-#         NEW_NEIGHBOR:
-#         VALID_REFLECTION:
-#         NEIGHBOR_DROPPED_REFLECTION:
-#         NEIGHBOR_CHANGED_LEVEL:
-#         NEIGHBOR_CHANGED_ADDRESS:
-#         UNACCEPTABLE_HEADER:
-#         HOLD_TIMER_EXPIRED:
-#         MULTIPLE_NEIGHBORS:
-#         LIE_CORRUPT:
-#         SEND_LIE:
-#         UPDATE_ZTP_OFFER:
+        Event.TIMER_TICK: (None, [action_check_hold_timer_expired], [Event.SEND_LIE]),
+        Event.LEVEL_CHANGED: (State.ONE_WAY, [action_update_level]),
+        Event.HAL_CHANGED: (None, [action_store_hal]),
+        Event.HAT_CHANGED: (None, [action_store_hat]),
+        Event.HALS_CHANGED: (None, [action_store_hals]),
+        Event.LIE_RECEIVED: (None, [action_process_lie]),
+        Event.NEIGHBOR_DROPPED_REFLECTION: (State.TWO_WAY, []),
+        Event.NEIGHBOR_CHANGED_LEVEL: (State.ONE_WAY, []),
+        Event.NEIGHBOR_CHANGED_ADDRESS: (State.ONE_WAY, []),
+        Event.UNACCEPTABLE_HEADER: (State.ONE_WAY, []),
+        Event.HOLD_TIME_EXPIRED: (State.ONE_WAY, []),
+        Event.MULTIPLE_NEIGHBORS: (State.ONE_WAY, []),
+        Event.LIE_CORRUPT: (State.ONE_WAY, []),             # This transition is not in draft
+        Event.SEND_LIE: (None, [action_send_lie]),
+        Event.UPDATE_ZTP_OFFER: (None, [action_send_offer_to_ztp_fsm])
     }
 
     transitions = {
