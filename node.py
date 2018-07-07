@@ -31,6 +31,7 @@ class Node:
         self._log.info("[{}] Create node".format(self._log_id))
         self._configured_level = 0
         self._next_interface_id = 1
+        self._multicast_loop = True      # TODO: make configurable
         self._lie_ipv4_multicast_address = self.DEFAULT_LIE_IPV4_MULTICAST_ADDRESS
         self._lie_ipv6_multicast_address = self.DEFAULT_LIE_IPV6_MULTICAST_ADDRESS
         self._lie_destination_port = self.DEFAULT_LIE_DESTINATION_PORT
@@ -43,6 +44,7 @@ class Node:
         self._next_interface_id += 1
         return interface_id
 
+    # TODO: get rid of these properties, more complicated than needed. Just remote _ instead
     @property
     def system_id(self):
         return self._system_id
@@ -75,3 +77,7 @@ class Node:
     @property
     def tie_destination_port(self):
         return self._tie_destination_port
+
+    @property
+    def multicast_loop(self):
+        return self._multicast_loop

@@ -11,10 +11,12 @@ class FiniteStateMachine:
     _event_queue = deque()
 
     def info(self, msg):
-        self._log.info("[{}] {}".format(self._log_id, msg))
+        if self._log:
+            self._log.info("[{}] {}".format(self._log_id, msg))
 
     def warning(self, msg):
-        self._log.warning("[{}] {}".format(self._log_id, msg))
+        if self._log:
+            self._log.warning("[{}] {}".format(self._log_id, msg))
 
     def __init__(self, state_enum, event_enum, transitions, initial_state, action_handler, log, log_id):
         self._log = log
@@ -27,6 +29,7 @@ class FiniteStateMachine:
         self.info("Create FSM, state={}".format(self._state.name))
 
     def push_event(self, event, event_data = None):
+        self.info("FSM push event, event={}".format(event.name))
         fsm = self
         event_tuple = (fsm, event, event_data)
         self._event_queue.append(event_tuple)
@@ -61,12 +64,14 @@ class FiniteStateMachine:
                 push_events = []
             for action in actions:
                 self.info("FSM invoke action, action={}".format(self._action_to_name(action)))
-                action(self=self._action_handler)
+                if event_data:
+                    action(self._action_handler, event_data)
+                else:
+                    action(self._action_handler)
             for push_event in push_events:
-                self.info("FSM push event, event={}".format(push_event.name))
                 self.push_event(push_event)
             if to_state != None:
-                print("FSM transition, from_state={} to_state={}".format(_self._state.name, to_state.name))
+                self.info("FSM transition from state {} to state {}".format(from_state.name, to_state.name))
                 self._state = to_state
         else:
             self.warning("FSM missing transition, state={} event={}".format(self._state.name, event.name))
@@ -130,8 +135,3 @@ class FiniteStateMachine:
         event_name = event.name
         table.add_row([from_state_name, event_name, '* MISSING *', 
             Table.Format.EXTEND_LEFT_CELL, Table.Format.EXTEND_LEFT_CELL])
-
-    def _transition_to_state(self, state):
-        print("Transition from state {} to state {}".format(state_to_string(self._state), state_to_string(state)))
-        self._state = state
-
