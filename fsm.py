@@ -10,12 +10,21 @@ class FiniteStateMachine:
 
     _event_queue = deque()
 
-    def __init__(self, state_enum, event_enum, transitions, action_handler, initial_state):
+    def info(self, msg):
+        self._log.info("[{}] {}".format(self._log_id, msg))
+
+    def warning(self, msg):
+        self._log.warning("[{}] {}".format(self._log_id, msg))
+
+    def __init__(self, state_enum, event_enum, transitions, initial_state, action_handler, log, log_id):
+        self._log = log
+        self._log_id = log_id
         self._state_enum = state_enum
         self._event_enum = event_enum
         self._transitions = transitions
-        self._action_handler = action_handler
         self._state = initial_state
+        self._action_handler = action_handler
+        self.info("Create FSM, state={}".format(self._state.name))
 
     def push_event(self, event, event_data = None):
         fsm = self
@@ -32,7 +41,11 @@ class FiniteStateMachine:
             fsm.process_event(event, event_data)
 
     def process_event(self, event, event_data):
-        print("FSM: process event state={} event={} event_data={}".format(self._state.name, event.name, event_data))
+        if event_data:
+            self.info("FSM process event, state={} event={} event_data={}".format(
+                self._state.name, event.name, event_data))
+        else:
+            self.info("FSM process event, state={} event={}".format(self._state.name, event.name))
         from_state = self._state
         if from_state in self._transitions:
             from_state_transitions = self._transitions[from_state]
@@ -47,16 +60,16 @@ class FiniteStateMachine:
             else:
                 push_events = []
             for action in actions:
-                print("FSM: invoke action {}".format(action.__name__))
+                self.info("FSM invoke action, action={}".format(self._action_to_name(action)))
                 action(self=self._action_handler)
             for push_event in push_events:
-                print("FSM: push event {}".format(push_event.name))
+                self.info("FSM push event, event={}".format(push_event.name))
                 self.push_event(push_event)
             if to_state != None:
-                print("FSM: transition to state {}".format(to_state.name))
+                print("FSM transition, from_state={} to_state={}".format(_self._state.name, to_state.name))
                 self._state = to_state
         else:
-            print("FSM: no transition found")
+            self.warning("FSM missing transition, state={} event={}".format(self._state.name, event.name))
 
     def make_transition_table(self, report_missing = False):
         table = Table()
@@ -115,7 +128,8 @@ class FiniteStateMachine:
     def _add_missing_transition_to_table(self, table, from_state, event):
         from_state_name = from_state.name
         event_name = event.name
-        table.add_row([from_state_name, event_name, '* MISSING *', Table.Format.EXTEND_LEFT_CELL, Table.Format.EXTEND_LEFT_CELL])
+        table.add_row([from_state_name, event_name, '* MISSING *', 
+            Table.Format.EXTEND_LEFT_CELL, Table.Format.EXTEND_LEFT_CELL])
 
     def _transition_to_state(self, state):
         print("Transition from state {} to state {}".format(state_to_string(self._state), state_to_string(state)))

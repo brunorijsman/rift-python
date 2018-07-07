@@ -1,3 +1,4 @@
+import logging
 from node import Node
 from interface import Interface
 from scheduler import scheduler
@@ -7,6 +8,10 @@ from scheduler import scheduler
 class Rift:
 
     def __init__(self):
+        logging.basicConfig(
+            filename = 'rift.log', 
+            format = '%(asctime)s:%(levelname)s:%(name)s:%(message)s', 
+            level = logging.DEBUG)
         self._node = Node()
         self._interface = Interface('en0', self._node)
 

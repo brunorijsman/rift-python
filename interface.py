@@ -114,7 +114,7 @@ class Interface:
         protocol_packet = ProtocolPacket(packet_header, packet_content)
         encoded_protocol_packet = encode_protocol_packet(protocol_packet)
         self._multicast_send_handler.send_message(encoded_protocol_packet)
-        print("Action send-lie {}".format(protocol_packet))
+        self.info(self._tx_log, "Send LIE {}".format(protocol_packet))
 
     def action_process_lie(self):
         # TODO
@@ -181,14 +181,30 @@ class Interface:
         State.THREE_WAY: state_three_way_transitions
     }
 
+    def info(self, logger, msg):
+        logger.info("[{}] {}".format(self._log_id, msg))
+
     def __init__(self, short_name, node):
         self._node = node
         self._short_name = short_name
         self._long_name = Interface.generate_long_name(short_name, node.system_id)
+        self._log_id = node._log_id + "-{}".format(short_name)
+        self._log = node._log.getChild("if")
+        self.info(self._log, "Create interface")
+        self._rx_log = self._log.getChild("rx")
+        self._tx_log = self._log.getChild("tx")
+        self._fsm_log = self._log.getChild("fsm")
         self._local_id = node.allocate_interface_id()
         self._mtu = Interface.get_mtu(short_name)
         self._pod = self.UNDEFINED_OR_ANY_POD
-        self._fsm = FiniteStateMachine(self.State, self.Event, self.transitions, self, self.State.ONE_WAY)
+        self._fsm = FiniteStateMachine(
+            state_enum = self.State, 
+            event_enum = self.Event, 
+            transitions = self.transitions, 
+            initial_state = self.State.ONE_WAY,
+            action_handler = self,
+            log = self._fsm_log,
+            log_id = self._log_id)
         self._multicast_send_handler = MulticastSendHandler(
             node.lie_ipv4_multicast_address, 
             node.lie_destination_port)
@@ -200,5 +216,5 @@ class Interface:
 
     def receive_multicast_message(self, message):
         protocol_packet = decode_protocol_packet(message)
+        self.info(self._rx_log, "Receive {}".format(protocol_packet))
         # TODO: Dispatch, depending on message type
-        print("Received Protocol Packet {}".format(protocol_packet))

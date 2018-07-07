@@ -1,5 +1,6 @@
-import uuid
+import logging
 import os
+import uuid
 
 # TODO: Add hierarchical configuration with inheritance
 # TODO: Add support for non-configured levels
@@ -25,6 +26,9 @@ class Node:
 
     def __init__(self):
         self._system_id = Node._system_id()
+        self._log_id = "{:016x}".format(self._system_id)
+        self._log = logging.getLogger("node")
+        self._log.info("[{}] Create node".format(self._log_id))
         self._configured_level = 0
         self._next_interface_id = 1
         self._lie_ipv4_multicast_address = self.DEFAULT_LIE_IPV4_MULTICAST_ADDRESS
