@@ -15,7 +15,7 @@ from fsm import FiniteStateMachine
 # TODO: send and receive LIE message on a per interface basis
 # TODO: Bind the socket to the interface (send and receive packets on that specific interface)
 # TODO: LIEs arriving with a TTL larger than 1 MUST be ignored.
-# TODO: Find a way to detect MTU changes
+# TODO: Find a way to detect MTU changes on an interface
 # TODO: Currently, adjacencies are tied to interfaces, so I don't have a separate class for Adjacencies.
 #       That may change if multipoint interfaces are supported
 # TODO: Implement configuration of POD numbers
@@ -24,6 +24,27 @@ from fsm import FiniteStateMachine
 class Interface:
 
     UNDEFINED_OR_ANY_POD = 0
+
+    @staticmethod
+    def generate_long_name(short_name, system_id):
+        hostname = socket.gethostname()
+        pid = os.getpid() 
+        if not hostname:
+            hostname = format(system_id, 'x')
+        return hostname + '-' + format(pid) + '-' + short_name
+
+    @staticmethod
+    def get_mtu(interface_name):
+        # TODO: Find a portable (or even non-portable) way to get the interface MTU
+        # TODO: Find a way to be informed whenever the interface MTU changes
+        mtu = 1500
+        return mtu
+
+    @staticmethod
+    def generate_nonce():
+        # 63 bits instead of 64 because nonce field is a signed i64
+        nonce = random.getrandbits(63)
+        return nonce
 
     @unique
     class State(Enum):
@@ -72,8 +93,28 @@ class Interface:
         pass
 
     def action_send_lie(self):
-        # TODO
-        pass
+        packet_header = create_packet_header(self._node)
+        capabilities = NodeCapabilities(
+            flood_reduction = True,
+            leaf_indications = LeafIndications.leaf_only_and_leaf_2_leaf_procedures)
+        lie_packet = LIEPacket(
+            name = self._long_name,
+            local_id = self._local_id,
+            flood_port = self._node.tie_destination_port,
+            link_mtu_size = self._mtu,
+            neighbor = None,
+            pod = self._pod,
+            nonce = Interface.generate_nonce(),
+            capabilities = capabilities,
+            holdtime = 3,
+            not_a_ztp_offer = False,
+            you_are_not_flood_repeater = False,
+            label = None)
+        packet_content = PacketContent(lie = lie_packet)
+        protocol_packet = ProtocolPacket(packet_header, packet_content)
+        encoded_protocol_packet = encode_protocol_packet(protocol_packet)
+        self._multicast_send_handler.send_message(encoded_protocol_packet)
+        print("Action send-lie {}".format(protocol_packet))
 
     def action_process_lie(self):
         # TODO
@@ -140,33 +181,6 @@ class Interface:
         State.THREE_WAY: state_three_way_transitions
     }
 
-    fsm = FiniteStateMachine(State, Event, transitions)
-
-    @staticmethod
-    def print_fsm(report_missing):
-        pass
-
-    @staticmethod
-    def generate_long_name(short_name, system_id):
-        hostname = socket.gethostname()
-        pid = os.getpid() 
-        if not hostname:
-            hostname = format(system_id, 'x')
-        return hostname + '-' + format(pid) + '-' + short_name
-
-    @staticmethod
-    def get_mtu(interface_name):
-        # TODO: Find a portable (or even non-portable) way to get the interface MTU
-        # TODO: Find a way to be informed whenever the interface MTU changes
-        mtu = 1500
-        return mtu
-
-    @staticmethod
-    def generate_nonce():
-        # 63 bits instead of 64 because nonce field is a signed i64
-        nonce = random.getrandbits(63)
-        return nonce
-
     def __init__(self, short_name, node):
         self._node = node
         self._short_name = short_name
@@ -174,7 +188,7 @@ class Interface:
         self._local_id = node.allocate_interface_id()
         self._mtu = Interface.get_mtu(short_name)
         self._pod = self.UNDEFINED_OR_ANY_POD
-        self._state = self.State.ONE_WAY
+        self._fsm = FiniteStateMachine(self.State, self.Event, self.transitions, self, self.State.ONE_WAY)
         self._multicast_send_handler = MulticastSendHandler(
             node.lie_ipv4_multicast_address, 
             node.lie_destination_port)
@@ -182,57 +196,9 @@ class Interface:
             node.lie_ipv4_multicast_address, 
             node.lie_destination_port,
             self.receive_multicast_message)
-# TODO: put back
-#        self._send_lie_timer = Timer(
-#            node.lie_send_interval_secs,
-#            lambda: self.process_event(SEND_LIE_TIMER_TICK))
-
-    def create_lie_protocol_packet(self):
-        packet_header = create_packet_header(self._node)
-        capabilities = NodeCapabilities(
-            flood_reduction = True,
-            leaf_indications = LeafIndications.leaf_only_and_leaf_2_leaf_procedures)
-        lie_packet = LIEPacket(
-            name = self._long_name,
-            local_id = self._local_id,
-            flood_port = self._node.tie_destination_port,
-            link_mtu_size = self._mtu,
-            neighbor = None,
-            pod = self._pod,
-            nonce = Interface.generate_nonce(),
-            capabilities = capabilities,
-            holdtime = 3,
-            not_a_ztp_offer = False,
-            you_are_not_flood_repeater = False,
-            label = None)
-        packet_content = PacketContent(lie = lie_packet)
-        protocol_packet = ProtocolPacket(packet_header, packet_content)
-        return protocol_packet
+        self._one_second_timer = Timer(1.0, lambda: self._fsm.push_event(self.Event.TIMER_TICK))
 
     def receive_multicast_message(self, message):
         protocol_packet = decode_protocol_packet(message)
         # TODO: Dispatch, depending on message type
         print("Received Protocol Packet {}".format(protocol_packet))
-
-    def action_send_lie(self):
-        protocol_packet = self.create_lie_protocol_packet()
-        encoded_protocol_packet = encode_protocol_packet(protocol_packet)
-        self._multicast_send_handler.send_message(encoded_protocol_packet)
-        print("Action send-lie {}".format(protocol_packet))
-
-    def transition_to_state(self, state):
-        print("Transition from state {} to state {}".format(state_to_string(self._state), state_to_string(state)))
-        self._state = state
-
-#    def process_event(self, event):
-#        print("In state {} process event {}".format(state_to_string(self._state), to_string(event))
-#        if (self._state == STATE_ONE_WAY):
-#            self.state_one_way_process_event(event)
-#        else if (self._state == STATE_ONE_WAY):
-#            self.state_two_way_process_event(event)
-#        else if (self._state == STATE_THREE_WAY):
-#            self.state_three_way_process_event(event)
-#        else:  
-#            assert False, "Interface in unknown state {}".format(self._state)
-
-

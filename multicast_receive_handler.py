@@ -1,6 +1,6 @@
 import socket
 import struct
-from socket_scheduler import socket_scheduler
+from scheduler import scheduler
 
 class MulticastReceiveHandler:
 
@@ -17,10 +17,10 @@ class MulticastReceiveHandler:
         req = struct.pack("4sl", socket.inet_aton(multicast_address), socket.INADDR_ANY)
         self._sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, req)
         self._sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, 1)   # TODO: Should not be needed; this is the default
-        socket_scheduler.register_handler(self, True, False)
+        scheduler.register_handler(self, True, False)
 
     def __del__(self):
-        socket_scheduler.unregister_handler(self)
+        scheduler.unregister_handler(self)
         self._sock.close()
 
     def socket(self):

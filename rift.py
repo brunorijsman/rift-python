@@ -1,6 +1,6 @@
 from node import Node
 from interface import Interface
-from socket_scheduler import socket_scheduler
+from scheduler import scheduler
 
 # TODO: Support multiple (configurable) interfaces per RIFT instance
 
@@ -11,7 +11,7 @@ class Rift:
         self._interface = Interface('en0', self._node)
 
     def run(self):
-        socket_scheduler.run()
+        scheduler.run()
 
 if __name__ == "__main__":
     rift = Rift()

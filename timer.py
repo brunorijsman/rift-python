@@ -34,7 +34,7 @@ class TimerScheduler:
         now = self.now()
         while True:
             if not self._timers_by_expire_time:
-                return 0.0
+                return None
             next_expire_time = self._timers_by_expire_time.peekitem(0)[0]
             if next_expire_time > now:
                 return next_expire_time - now

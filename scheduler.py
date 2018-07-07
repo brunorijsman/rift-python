@@ -1,7 +1,8 @@
 import select 
 from timer import timer_scheduler
+from fsm import FiniteStateMachine
 
-class SocketScheduler:
+class Scheduler:
 
     def __init__(self):
         self._handlers_by_fd = {}
@@ -25,6 +26,8 @@ class SocketScheduler:
 
     def run(self):
         while True:
+            # Process timers in two places because FSM event processing might cause timers to be created,
+            # and timer expire processing might cause FSM events to be queued.
             timeout = timer_scheduler.trigger_all_expired_timers_and_return_time_until_next_expire()
             rx_ready, tx_ready, _ = select.select(self._rx_sockets, self._tx_sockets, [], timeout)
             for sock in rx_ready:
@@ -33,5 +36,7 @@ class SocketScheduler:
             for sock in tx_ready:
                 handler = self._handlers_by_fd[sock.fileno()]
                 handler.ready_to_write()
+            timer_scheduler.trigger_all_expired_timers_and_return_time_until_next_expire()
+            FiniteStateMachine.process_queued_events()
 
-socket_scheduler = SocketScheduler()
+scheduler = Scheduler()

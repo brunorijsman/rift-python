@@ -1,6 +1,6 @@
 import socket
 import struct
-from socket_scheduler import socket_scheduler
+from scheduler import scheduler
 
 class MulticastSendHandler:
 
@@ -10,10 +10,10 @@ class MulticastSendHandler:
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
         self._sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 1)
         self._sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, 1)
-        socket_scheduler.register_handler(self, False, False)
+        scheduler.register_handler(self, False, False)
 
     def __del__(self):
-        socket_scheduler.unregister_handler(self)
+        scheduler.unregister_handler(self)
         self._sock.close()
 
     def socket(self):
