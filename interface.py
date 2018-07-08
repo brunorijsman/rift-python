@@ -9,6 +9,7 @@ from timer import Timer
 from packet_common import create_packet_header, encode_protocol_packet, decode_protocol_packet
 from encoding.ttypes import PacketContent, NodeCapabilities, LIEPacket, ProtocolPacket
 import encoding.ttypes   # TODO: better way to handle Neighbor
+import common.constants
 from encoding.constants import protocol_major_version
 from common.ttypes import LeafIndications
 from fsm import FiniteStateMachine
@@ -75,23 +76,23 @@ class Interface:
         UPDATE_ZTP_OFFER = 18
 
     def action_store_hal(self):
-        # TODO
+        # TODO: Need to implement ZTP state machine first
         pass
 
     def action_store_hat(self):
-        # TODO
+        # TODO: Need to implement ZTP state machine first
         pass
 
     def action_store_hals(self):
-        # TODO
+        # TODO: Need to implement ZTP state machine first
         pass
 
     def action_send_offer_to_ztp_fsm(self):
-        # TODO
+        # TODO: Need to implement ZTP state machine first
         pass
 
     def action_update_level(self):
-        # TODO
+        # TODO: Need to implement ZTP state machine and/or configuration first
         pass
 
     def action_send_lie(self):
@@ -124,10 +125,8 @@ class Interface:
         self._multicast_send_handler.send_message(encoded_protocol_packet)
         self.info(self._tx_log, "Send LIE {}".format(protocol_packet))
 
-    def cleanup(self):
-        self.info(self._log, "Cleanup")  # DEBUG
+    def action_cleanup(self):
         self._neighbor = None
-
 
     def check_reflection(self):
         # Does the received LIE packet (which is now stored in _neighbor) report us as the neighbor?
@@ -143,7 +142,7 @@ class Interface:
 
     def check_three_way(self):
         # Section B.1.5
-        # TODO: This is a little bit different from the specificaiton (see comment [CheckThreeWay])
+        # CHANGE: This is a little bit different from the specificaiton (see comment [CheckThreeWay])
         if self._fsm._state == self.State.ONE_WAY:
             pass 
         elif self._fsm._state == self.State.TWO_WAY:
@@ -199,9 +198,11 @@ class Interface:
     def action_process_lie(self, protocol_packet):
         # Section B.1.4.1
         if not self.check_header(protocol_packet.header):
-            self.cleanup()
-            self._fsm.push_event(self.Event.UNACCEPTABLE_HEADER)   # TODO: Draft doesn't have this
+            self.action_cleanup()                                  # TODO: Don't need this because of the OneWay state entry action
+            self._fsm.push_event(self.Event.UNACCEPTABLE_HEADER)   # TODO: Draft doesn't have this; need something to transition to state OneWay
             return
+        # TODO: This is a simplistic way of implementing the hold timer. Use a real timer instead.
+        self._time_ticks_since_lie_received = 0
         # TODO: Add checks in PROCESS_LIE step B.1.4.3.2
         # Section B.1.4.3
         self._fsm.push_event(self.Event.UPDATE_ZTP_OFFER)   # TODO: Do we really want to do this for every received LIE? 
@@ -209,12 +210,12 @@ class Interface:
         if not self._neighbor:
             self.info(self._log, "New neighbor detected with system-id {:16x}".format(protocol_packet.header.sender))
             self._neighbor = new_neighbor
-            self._fsm.push_event(self.Event.NEW_NEIGHBOR)   # TODO: Does this do anything?
+            self._fsm.push_event(self.Event.NEW_NEIGHBOR)
             self.check_three_way()
             return
         # Section B.1.4.3.1
         if new_neighbor.system_id != self._neighbor.system_id:
-            self.info(self._log, "Neighbor system-id changed from {} to {}"
+            self.info(self._log, "Neighbor system-id changed from {:16x} to {:16x}"
                 .format(self._neighbor.system_id, new_neighbor.system_id))
             self._fsm.push_event(self.Event.MULTIPLE_NEIGHBORS)
             return
@@ -237,9 +238,20 @@ class Interface:
         # Section B.1.4.3.5
         self.check_three_way()
 
-    def action_check_hold_timer_expired(self):
+    def action_check_hold_time_expired(self):
         # TODO: This is a (too) simplistic way of managing timers in the draft; use an explicit timer
-        pass
+        # If time_ticks_since_lie_received is None, it means the timer is not running
+        self.info(self._log, "_time_ticks_since_lie_received = {}"
+            .format(self._time_ticks_since_lie_received)) # DEBUG
+        if self._time_ticks_since_lie_received == None:
+            return False
+        self._time_ticks_since_lie_received += 1
+        if self._neighbor and self._neighbor.holdtime:
+            holdtime = self._neighbor.holdtime
+        else:
+            holdtime = common.constants.default_holdtime
+        if self._time_ticks_since_lie_received >= holdtime:
+            self._fsm.push_event(self.Event.HOLD_TIME_EXPIRED)
 
     state_one_way_transitions = {
         Event.TIMER_TICK: (None, [], [Event.SEND_LIE]),
@@ -256,7 +268,7 @@ class Interface:
     }
 
     state_two_way_transitions = {
-        Event.TIMER_TICK: (None, [action_check_hold_timer_expired], [Event.SEND_LIE]),
+        Event.TIMER_TICK: (None, [action_check_hold_time_expired], [Event.SEND_LIE]),
         Event.LEVEL_CHANGED: (State.ONE_WAY, [action_update_level]),
         Event.HAL_CHANGED: (None, [action_store_hal]),
         Event.HAT_CHANGED: (None, [action_store_hat]),
@@ -275,7 +287,7 @@ class Interface:
      }
      
     state_three_way_transitions = {
-        Event.TIMER_TICK: (None, [action_check_hold_timer_expired], [Event.SEND_LIE]),
+        Event.TIMER_TICK: (None, [action_check_hold_time_expired], [Event.SEND_LIE]),
         Event.LEVEL_CHANGED: (State.ONE_WAY, [action_update_level]),
         Event.HAL_CHANGED: (None, [action_store_hal]),
         Event.HAT_CHANGED: (None, [action_store_hat]),
@@ -298,6 +310,10 @@ class Interface:
         State.THREE_WAY: state_three_way_transitions
     }
 
+    state_entry_actions = {
+        State.ONE_WAY: [action_cleanup]
+    }
+
     def info(self, logger, msg):
         logger.info("[{}] {}".format(self._log_id, msg))
 
@@ -318,10 +334,12 @@ class Interface:
         self._mtu = Interface.get_mtu(short_name)
         self._pod = self.UNDEFINED_OR_ANY_POD
         self._neighbor = None
+        self._time_ticks_since_lie_received = None
         self._fsm = FiniteStateMachine(
             state_enum = self.State, 
             event_enum = self.Event, 
             transitions = self.transitions, 
+            state_entry_actions = self.state_entry_actions,
             initial_state = self.State.ONE_WAY,
             action_handler = self,
             log = self._fsm_log,

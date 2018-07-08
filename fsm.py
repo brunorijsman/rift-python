@@ -18,15 +18,18 @@ class FiniteStateMachine:
         if self._log:
             self._log.warning("[{}] {}".format(self._log_id, msg))
 
-    def __init__(self, state_enum, event_enum, transitions, initial_state, action_handler, log, log_id):
+    def __init__(self, state_enum, event_enum, transitions, state_entry_actions, initial_state, action_handler, log, 
+                 log_id):
         self._log = log
         self._log_id = log_id
         self._state_enum = state_enum
         self._event_enum = event_enum
         self._transitions = transitions
+        self._state_entry_actions = state_entry_actions
         self._state = initial_state
         self._action_handler = action_handler
         self.info("Create FSM, state={}".format(self._state.name))
+        self.invoke_state_entry_actions(initial_state)
 
     def push_event(self, event, event_data = None):
         self.info("FSM push event, event={}".format(event.name))
@@ -42,6 +45,18 @@ class FiniteStateMachine:
             event = event_tuple[1]
             event_data = event_tuple[2]
             fsm.process_event(event, event_data)
+
+    def invoke_actions(self, actions, type_of_action, event_data = None):
+        for action in actions:
+            self.info("FSM invoke {} action, action={}".format(type_of_action, self._action_to_name(action)))
+            if event_data:
+                action(self._action_handler, event_data)
+            else:
+                action(self._action_handler)
+
+    def invoke_state_entry_actions(self, state):
+        if state in self._state_entry_actions:
+            self.invoke_actions(self._state_entry_actions[state], "state-entry")
 
     def process_event(self, event, event_data):
         if event_data:
@@ -62,17 +77,13 @@ class FiniteStateMachine:
                 push_events = transition[2]
             else:
                 push_events = []
-            for action in actions:
-                self.info("FSM invoke action, action={}".format(self._action_to_name(action)))
-                if event_data:
-                    action(self._action_handler, event_data)
-                else:
-                    action(self._action_handler)
+            self.invoke_actions(actions, "state-transition", event_data)
             for push_event in push_events:
                 self.push_event(push_event)
             if to_state != None:
                 self.info("FSM transition from state {} to state {}".format(from_state.name, to_state.name))
                 self._state = to_state
+                self.invoke_state_entry_actions(to_state)
         else:
             self.warning("FSM missing transition, state={} event={}".format(self._state.name, event.name))
 
