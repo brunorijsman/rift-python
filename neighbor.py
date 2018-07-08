@@ -18,7 +18,12 @@ class Neighbor:
         self.local_id = lie.local_id
         self.flood_port = lie.flood_port
         self.link_mtu_size = lie.link_mtu_size
-        self.neighbor_system_id = lie.neighbor
+        if lie.neighbor:
+            self.neighbor_system_id = lie.neighbor.originator
+            self.neighbor_link_id = lie.neighbor.remote_id
+        else:
+            self.neighbor_system_id = None
+            self.neighbor_link_id = None
         self.pod = lie.pod
         self.capabilities = lie.capabilities
         self.holdtime = lie.holdtime

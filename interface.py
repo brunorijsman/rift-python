@@ -7,7 +7,8 @@ from multicast_send_handler import MulticastSendHandler
 from multicast_receive_handler import MulticastReceiveHandler
 from timer import Timer
 from packet_common import create_packet_header, encode_protocol_packet, decode_protocol_packet
-from encoding.ttypes import PacketHeader, PacketContent, NodeCapabilities, LIEPacket, ProtocolPacket
+from encoding.ttypes import PacketContent, NodeCapabilities, LIEPacket, ProtocolPacket
+import encoding.ttypes   # TODO: better way to handle Neighbor
 from encoding.constants import protocol_major_version
 from common.ttypes import LeafIndications
 from fsm import FiniteStateMachine
@@ -17,11 +18,9 @@ from neighbor import Neighbor
 # TODO: send and receive LIE message on a per interface basis
 # TODO: Bind the socket to the interface (send and receive packets on that specific interface)
 # TODO: LIEs arriving with a TTL larger than 1 MUST be ignored.
-# TODO: Find a way to detect MTU changes on an interface
 # TODO: Currently, adjacencies are tied to interfaces, so I don't have a separate class for Adjacencies.
 #       That may change if multipoint interfaces are supported
 # TODO: Implement configuration of POD numbers
-# TODO: Use propper Python logging instead of prints
 
 class Interface:
 
@@ -100,12 +99,18 @@ class Interface:
         capabilities = NodeCapabilities(
             flood_reduction = True,
             leaf_indications = LeafIndications.leaf_only_and_leaf_2_leaf_procedures)
+        if self._neighbor:
+            neighbor_system_id = self._neighbor.system_id
+            neighbor_link_id = self._neighbor.local_id
+            lie_neighbor = encoding.ttypes.Neighbor(neighbor_system_id, neighbor_link_id)
+        else:
+            lie_neighbor = None
         lie_packet = LIEPacket(
             name = self._long_name,
             local_id = self._local_id,
             flood_port = self._node.tie_destination_port,
             link_mtu_size = self._mtu,
-            neighbor = None,                        # TODO: Reflect neighbor
+            neighbor = lie_neighbor,
             pod = self._pod,
             nonce = Interface.generate_nonce(),
             capabilities = capabilities,
@@ -119,15 +124,57 @@ class Interface:
         self._multicast_send_handler.send_message(encoded_protocol_packet)
         self.info(self._tx_log, "Send LIE {}".format(protocol_packet))
 
-    def check_three_way(self, temp_neighbor):
-        if (temp_neighbor._system_id != self._neighbor.system_id) and (self._fsm._state == self.State.THREE_WAY):
-            self._fsm.push_event(self.Event.NEIGHBOR_DROPPED_REFLECTION)
-        elif (temp_neighbor._system_id == self._neighbor.system_id) and (self._fsm._state == self.State.THREE_WAY):
-            self._fsm.push_event(self.Event.NEIGHBOR_VALID_REFLECTION)
-        else:
-            self._fsm.push_event(self.Event.MULTIPLE_NEIGHBORS)
+    def cleanup(self):
+        self.info(self._log, "Cleanup")  # DEBUG
+        self._neighbor = None
 
-    def action_process_lie(self, protocol_packet):
+
+    def check_reflection(self):
+        # Does the received LIE packet (which is now stored in _neighbor) report us as the neighbor?
+        if self._neighbor.neighbor_system_id != self._node.system_id:
+            self.info(self._log, "Neighbor does not report us as neighbor (system-id {:16x} instead of {:16x}"
+                .format(self._neighbor.neighbor_system_id, self._node.system_id))
+            return False
+        if self._neighbor.neighbor_link_id != self._local_id:
+            self.info(self._log, "Neighbor does not report us as neighbor (link-id {} instead of {}"
+                .format(self._neighbor.neighbor_link_id, self._local_id))
+            return False
+        return True
+
+    def check_three_way(self):
+        # Section B.1.5
+        # TODO: This is a little bit different from the specificaiton (see comment [CheckThreeWay])
+        if self._fsm._state == self.State.ONE_WAY:
+            pass 
+        elif self._fsm._state == self.State.TWO_WAY:
+            if self._neighbor.neighbor_system_id == None:
+                pass
+            elif self.check_reflection():
+                self._fsm.push_event(self.Event.VALID_REFLECTION)
+            else:
+                self._fsm.push_event(self.Event.MULTIPLE_NEIGHBORS)
+        else: # state is THREE_WAY
+            if self._neighbor.neighbor_system_id == None:
+                self._fsm.push_event(self.Event.NEIGHBOR_DROPPED_REFLECTION)
+            elif self.check_reflection():
+                pass
+            else:
+                self._fsm.push_event(self.Event.MULTIPLE_NEIGHBORS)
+
+    def check_header(self, header):
+        if not header:
+            self.warning(self._rx_log, "Received packet without header")
+            return False
+        if header.major_version != protocol_major_version:
+            self.warning(self._rx_log, "Received packet with wrong major version (expected {} but got {})".format(
+                protocol_major_version, header.major_version))
+            return False
+        if not self.is_valid_received_system_id(header.sender):
+            self.warning(self._rx_log, "Received packet with invalid system id")
+            return False
+        return True
+
+    def check_minor_change(self, new_neighbor):
         # TODO: what if link_mtu_size changes?
         # TODO: what if pod changes?
         # TODO: what if capabilities changes?
@@ -135,48 +182,60 @@ class Interface:
         # TODO: what if not_a_ztp_offer changes?
         # TODO: what if you_are_not_flood_repeater changes?
         # TODO: what if label changes?
-        if self._node.multicast_loop and (self._node.system_id == protocol_packet.header.sender):
-            self.info(self._log, "Ignore looped back LIE packet")
-            return
-        self._fsm.push_event(self.Event.UPDATE_ZTP_OFFER)   # TODO: Do we really want to do this for every received LIE? 
-        temp_neighbor = Neighbor(protocol_packet)
-        major_change = False
         minor_change = False
-        if not self._neighbor:
-            self.info(self._log, "New neighbor detected with system-id {:16x}".format(protocol_packet.header.sender))
-            major_change = True
-            self._fsm.push_event(self.Event.NEW_NEIGHBOR)   # TODO: Does this do anything?
-        elif temp_neighbor.system_id != self._neighbor.system_id:
-            self.info(self._log, "Neighbor system-id changed from {} to {}"
-                .format(self._neighbor.system_id, temp_neighbor.system_id))
-            major_change = True
-            self._fsm.push_event(self.Event.MULTIPLE_NEIGHBORS)
-        elif temp_neighbor.level != self._neighbor.level:
-            self.info(self._log, "Neighbor level changed from {} to {}"
-                .format(self._neighbor.level, temp_neighbor.level))
-            major_change = True
-            self._fsm.push_event(self.Event.NEIGHBOR_CHANGED_LEVEL)
-        elif temp_neighbor.address != self._neighbor.address:
-            self.info(self._log, "Neighbor address changed from {} to {}"
-                .format(self._neighbor.address, temp_neighbor.address))
-            major_change = True
-            self._fsm.push_event(self.Event.NEIGHBOR_CHANGED_ADDRESS)
-        elif temp_neighbor.flood_port != self._neighbor.flood_port:
-            self.info(self._log, "Neighbor flood-port changed from {} to {}"
-                .format(self._neighbor.flood_port, temp_neighbor.flood_port))
+        if new_neighbor.flood_port != self._neighbor.flood_port:
+            msg = "Neighbor flood-port changed from {} to {}".format(self._neighbor.flood_port, new_neighbor.flood_port)
             minor_change = True
-        elif temp_neighbor.name != self._neighbor.name:
-            self.info(self._log, "Neighbor name changed from {} to {}"
-                .format(self._neighbor.name, temp_neighbor.name))
+        elif new_neighbor.name != self._neighbor.name:
+            msg = "Neighbor name changed from {} to {}".format(self._neighbor.name, new_neighbor.name)
             minor_change = True
-        elif temp_neighbor.local_id != self._neighbor.local_id:
-            self.info(self._log, "Neighbor local-id changed from {} to {}"
-                .format(self._neighbor.local_id, temp_neighbor.local_id))
+        elif new_neighbor.local_id != self._neighbor.local_id:
+            msg = "Neighbor local-id changed from {} to {}".format(self._neighbor.local_id, new_neighbor.local_id)
             minor_change = True
         if minor_change:
             self._fsm.push_event(self.Event.NEIGHBOR_CHANGE_MINOR_FIELDS)
+        return minor_change
+        
+    def action_process_lie(self, protocol_packet):
+        # Section B.1.4.1
+        if not self.check_header(protocol_packet.header):
+            self.cleanup()
+            self._fsm.push_event(self.Event.UNACCEPTABLE_HEADER)   # TODO: Draft doesn't have this
+            return
+        # TODO: Add checks in PROCESS_LIE step B.1.4.3.2
+        # Section B.1.4.3
+        self._fsm.push_event(self.Event.UPDATE_ZTP_OFFER)   # TODO: Do we really want to do this for every received LIE? 
+        new_neighbor = Neighbor(protocol_packet)
+        if not self._neighbor:
+            self.info(self._log, "New neighbor detected with system-id {:16x}".format(protocol_packet.header.sender))
+            self._neighbor = new_neighbor
+            self._fsm.push_event(self.Event.NEW_NEIGHBOR)   # TODO: Does this do anything?
             self.check_three_way()
-        self._neighbor = temp_neighbor      # TODO: The draft doesn't explicitly say to do this for all above scenarios
+            return
+        # Section B.1.4.3.1
+        if new_neighbor.system_id != self._neighbor.system_id:
+            self.info(self._log, "Neighbor system-id changed from {} to {}"
+                .format(self._neighbor.system_id, new_neighbor.system_id))
+            self._fsm.push_event(self.Event.MULTIPLE_NEIGHBORS)
+            return
+        # Section B.1.4.3.2
+        if new_neighbor.level != self._neighbor.level:
+            self.info(self._log, "Neighbor level changed from {} to {}"
+                .format(self._neighbor.level, new_neighbor.level))
+            self._fsm.push_event(self.Event.NEIGHBOR_CHANGED_LEVEL)
+            return
+        # Section B.1.4.3.3
+        if new_neighbor.address != self._neighbor.address:
+            self.info(self._log, "Neighbor address changed from {} to {}"
+                .format(self._neighbor.address, new_neighbor.address))
+            self._fsm.push_event(self.Event.NEIGHBOR_CHANGED_ADDRESS)
+            return
+        # Section B.1.4.3.4
+        if self.check_minor_change(new_neighbor): 
+            self._fsm.push_event(self.Event.NEIGHBOR_CHANGE_MINOR_FIELDS)
+        self._neighbor = new_neighbor      # TODO: The draft does not specify this, but it is needed
+        # Section B.1.4.3.5
+        self.check_three_way()
 
     def action_check_hold_timer_expired(self):
         # TODO: This is a (too) simplistic way of managing timers in the draft; use an explicit timer
@@ -281,33 +340,19 @@ class Interface:
         if system_id == 0:
             return False
         return True
-
-    def check_header(self, header):
-        if not header:
-            self.warning(self._rx_log, "Received packet without header")
-            return False
-        if header.major_version != protocol_major_version:
-            self.warning(self._rx_log, "Received packet with wrong major version (expected {} but got {})".format(
-                protocol_major_version, header.major_version))
-            return False
-        if not self.is_valid_received_system_id(header.sender):
-            self.warning(self._rx_log, "Received packet with invalid system id")
-            return False
-        return True
         
     def receive_multicast_message(self, message):
         # TODO: Handle decoding errors (does decode_protocol_packet throw an exception in that case? Try it...)
         protocol_packet = decode_protocol_packet(message)
         self.info(self._rx_log, "Receive {}".format(protocol_packet))
-        acceptable_header = self.check_header(protocol_packet.header)
         if not protocol_packet.content:
             self.warning(self._rx_log, "Received packet without content")
             return
         if protocol_packet.content.lie:
-            if acceptable_header:
-                self._fsm.push_event(self.Event.LIE_RECEIVED, protocol_packet)
+            if self._node.multicast_loop and (self._node.system_id == protocol_packet.header.sender):
+                self.info(self._log, "Ignore looped back LIE packet")
             else:
-                self._fsm.push_event(self.Event.UNACCEPTABLE_HEADER)   # TODO: Draft says CLEANUP instead
+                self._fsm.push_event(self.Event.LIE_RECEIVED, protocol_packet)
         if protocol_packet.content.tide:
             # TODO: process TIDE
             pass
