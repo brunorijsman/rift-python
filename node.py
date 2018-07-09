@@ -23,6 +23,7 @@ class Node:
     DEFAULT_TIE_DESTINATION_PORT = 10001    # TODO: Change to 912 (needs root privs)
 
     def command_show_interfaces(self, cli_session):
+        # TODO: Report neighbor uptime (time in THREE_WAY state)
         table = Table()
         table.add_row(Interface.cli_summary_headers())
         for interface in self._interfaces.values():
@@ -34,9 +35,18 @@ class Node:
         if not interface_name in self._interfaces:
             cli_session.print("Error: interface {} not present".format(interface_name))
             return
-        table = Table()
-        table.add_rows(self._interfaces[interface_name].cli_detailed_attributes())
+        inteface_attributes = self._interfaces[interface_name].cli_detailed_attributes()
+        table = Table(separators = False)
+        table.add_rows(inteface_attributes)
+        cli_session.print("Interface:")
         cli_session.print(table.to_string())
+        neighbor_attributes = self._interfaces[interface_name].cli_detailed_neighbor_attributes()
+        if neighbor_attributes:
+            table = Table(separators = False)
+            table.add_rows(neighbor_attributes)
+            cli_session.print("Neighbor:")
+            cli_session.print(table.to_string())
+
 
     command_tree = {
         "show": {

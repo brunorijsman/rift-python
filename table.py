@@ -8,9 +8,9 @@ class Table:
         EXTEND_LEFT_CELL = 1
         EXTEND_ABOVE_CELL = 2
 
-    def __init__(self):
+    def __init__(self, separators = True):
+        self._separators = separators
         self._rows = []
-        pass
 
     def add_row(self, row):
         self._rows.append(row)
@@ -89,6 +89,9 @@ class Table:
         table_str += self.separator_string()
         for row in self._rows:
             table_str += self.row_string(row)
+            if self._separators:
+                table_str += self.separator_string()
+        if not self._separators:
             table_str += self.separator_string()
         return table_str
 

@@ -33,7 +33,15 @@ class Neighbor:
     
     def cli_detailed_attributes(self):
         # TODO: Report capabilities (is it possible to report the unknown ones too?"
-        return [
+        if self.neighbor_system_id:
+            your_system_id_str = "{:016x}".format(self.neighbor_system_id)
+        else:
+            your_system_id_str = ""
+        if self.neighbor_system_id:
+            your_link_id_str = "{}".format(self.neighbor_link_id)
+        else:
+            your_link_id_str = ""
+        attributes = [
             ["Name", self.name],
             ["System ID", "{:016x}".format(self.system_id)],
             ["Address", self.address],
@@ -45,7 +53,7 @@ class Neighbor:
             ["Hold Time", self.holdtime],
             ["Not a ZTP Offer", self.not_a_ztp_offer],
             ["You Are Not a ZTP Flood Repeater", self.not_a_ztp_offer],
-            ["Your System ID", "{:016x}".format(self.neighbor_system_id)],
-            ["Your Local ID", self.neighbor_link_id],
+            ["Your System ID", your_system_id_str],
+            ["Your Local ID", your_link_id_str],
         ]
-        return interface_attributes
+        return attributes

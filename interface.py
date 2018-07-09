@@ -404,18 +404,19 @@ class Interface:
                 self._fsm._state.name]
 
     def cli_detailed_attributes(self):
-        attributes = [
+        return [
             ["Interface Name", self._short_name],
+            ["System ID", "{:016x}".format(self._node._system_id)],
             ["Advertised Name", self._long_name],
             ["Local ID", self._local_id],
             ["MTU", self._mtu],
             ["POD", self._pod],
+            ["State", self._fsm._state.name],
+            ["Neighbor", "Yes" if self._neighbor else "No"]
         ]
+
+    def cli_detailed_neighbor_attributes(self):
         if self._neighbor:
-            attributes.append(["Neighbor", "Yes"])
-            neighbor_attributes = self._neighbor.cli_detailed_attributes()
-            for [name, value] in neighbor_attributes:
-                attributes.append(["Neighbor " + name, value])    
+            return self._neighbor.cli_detailed_attributes()
         else:
-            attributes.append(["Neighbor", "No"])
-        return attributes
+            return None
