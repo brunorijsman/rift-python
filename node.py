@@ -19,7 +19,23 @@ class Node:
 
     DEFAULT_TIE_DESTINATION_PORT = 10001    # TODO: Change to 912 (needs root privs)
 
-    command_tree = []
+    # TODO
+    def command_show_interfaces(self):
+        print("command_show_interfaces")
+
+    # TODO
+    def command_show_interface(self, parameters):
+        interface_name = parameters['interface-name']
+        print("command_show_interface interface_name={}".format(interface_name))
+
+    command_tree = {
+        "show": {
+            "interfaces": command_show_interfaces,
+            "interface": {
+                "<interface-name>": command_show_interface,
+            }
+        }
+    }
 
     @staticmethod
     def _system_id():
@@ -41,7 +57,7 @@ class Node:
         self._lie_destination_port = self.DEFAULT_LIE_DESTINATION_PORT
         self._lie_send_interval_secs = self.DEFAULT_LIE_SEND_INTERVAL_SECS
         self._tie_destination_port = self.DEFAULT_TIE_DESTINATION_PORT
-        self._cli_listen_handler = CliListenHandler(self.command_tree, self._log_id)
+        self._cli_listen_handler = CliListenHandler(self.command_tree, self, self._log_id)
 
     def allocate_interface_id(self):
         # We assume an i32 is never going to happen (i.e. no more than ~2M interfaces)

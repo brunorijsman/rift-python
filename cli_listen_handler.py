@@ -6,8 +6,9 @@ from cli_session_handler import CliSessionHandler
 
 class CliListenHandler:
 
-    def __init__(self, command_tree, prompt, port = 0):
+    def __init__(self, command_tree, command_handler, prompt, port = 0):
         self._command_tree = command_tree
+        self._command_handler = command_handler
         self._prompt = prompt
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -29,6 +30,7 @@ class CliListenHandler:
         (session_sock, session_remote_address) = self._sock.accept()
         cli_session_handler = CliSessionHandler(
             session_sock, 
-            session_remote_address, 
+            session_remote_address,
             self._command_tree,
+            self._command_handler,
             self._prompt)
