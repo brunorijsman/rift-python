@@ -1,6 +1,8 @@
 import socket
 from scheduler import scheduler
 
+# TODO: Finish implementation of optional keywords and test
+
 class CliSessionHandler:
 
     def __init__(self, sock, remote_address, command_tree, command_handler, prompt):
