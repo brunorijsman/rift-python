@@ -381,31 +381,41 @@ class Interface:
             # TODO: process TIDE
             pass
 
-    @property
-    def interface_name(self):
-        return self._short_name
+    @staticmethod
+    def cli_summary_headers():
+        return [
+            ["Interface", "Name"],
+            ["Neighbor", "Name"],
+            ["Neighbor", "System ID"],
+            ["Neighbor", "State"]]
 
-    @property
-    def neighbor_name(self):
+    def cli_summary_attributes(self):
         if self._neighbor:
-            return self._neighbor.name
+            return [
+                self._short_name,
+                self._neighbor.name,
+                "{:016x}".format(self._neighbor.system_id),
+                self._fsm._state.name]
         else:
-            return ""
+            return [
+                self._short_name,
+                "",
+                "",
+                self._fsm._state.name]
 
-    @property
-    def neighbor_name(self):
+    def cli_detailed_attributes(self):
+        attributes = [
+            ["Interface Name", self._short_name],
+            ["Advertised Name", self._long_name],
+            ["Local ID", self._local_id],
+            ["MTU", self._mtu],
+            ["POD", self._pod],
+        ]
         if self._neighbor:
-            return self._neighbor.name
+            attributes.append(["Neighbor", "Yes"])
+            neighbor_attributes = self._neighbor.cli_detailed_attributes()
+            for [name, value] in neighbor_attributes:
+                attributes.append(["Neighbor " + name, value])    
         else:
-            return ""
-
-    @property
-    def neighbor_system_id_str(self):
-        if self._neighbor:
-            return "{:016x}".format(self._neighbor.system_id)
-        else:
-            return ""
-
-    @property
-    def neighbor_state_str(self):
-        return self._fsm._state.name
+            attributes.append(["Neighbor", "No"])
+        return attributes

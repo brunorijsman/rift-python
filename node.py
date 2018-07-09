@@ -4,6 +4,7 @@ import uuid
 from cli_listen_handler import CliListenHandler
 from sortedcontainers import SortedDict
 from table import Table
+from interface import Interface
 
 # TODO: Add hierarchical configuration with inheritance
 # TODO: Add support for non-configured levels
@@ -23,23 +24,19 @@ class Node:
 
     def command_show_interfaces(self, cli_session):
         table = Table()
-        table.add_row([
-            ["Interface", "Name"], 
-            ["Neighbor", "Name"],
-            ["Neighbor", "System-ID"],
-            ["Neighbor", "State"]])
+        table.add_row(Interface.cli_summary_headers())
         for interface in self._interfaces.values():
-            table.add_row([
-                interface.interface_name,
-                interface.neighbor_name,
-                interface.neighbor_system_id_str,
-                interface.neighbor_state_str])
+            table.add_row(interface.cli_summary_attributes())
         cli_session.print(table.to_string())
 
-    # TODO
     def command_show_interface(self, cli_session, parameters):
         interface_name = parameters['interface-name']
-        cli_session.print("command_show_interface interface_name={}".format(interface_name))
+        if not interface_name in self._interfaces:
+            cli_session.print("Error: interface {} not present".format(interface_name))
+            return
+        table = Table()
+        table.add_rows(self._interfaces[interface_name].cli_detailed_attributes())
+        cli_session.print(table.to_string())
 
     command_tree = {
         "show": {

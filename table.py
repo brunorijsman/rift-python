@@ -15,6 +15,10 @@ class Table:
     def add_row(self, row):
         self._rows.append(row)
 
+    def add_rows(self, rows):
+        for row in rows:
+            self._rows.append(row)
+
     def make_line_list(self, line):
         if type(line) == list:
             return line
@@ -34,6 +38,8 @@ class Table:
                     self._column_widths[column_nr] = 0
                 line_list = self.make_line_list(column)
                 for line in line_list:
+                    if not isinstance(line, str):
+                        line = "{}".format(line)
                     if len(line) > self._column_widths[column_nr]:
                         self._column_widths[column_nr] = len(line)
                 column_nr += 1
@@ -58,6 +64,8 @@ class Table:
                     line = line_list[line_nr]
                 else:
                     line = ""
+                if not isinstance(line, str):
+                    line = "{}".format(line)
                 width = self._column_widths[column_nr]
                 row_str += " {line:{width}}".format(line=line, width=width) + " "
                 if (len(row) > column_nr+1) and (row[column_nr+1] == self.Format.EXTEND_LEFT_CELL):
