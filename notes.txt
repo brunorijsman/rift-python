@@ -1,5 +1,19 @@
 3-Jul-2018
 
+*** Python virtual environment ***
+
+Install virtualenv           : python3 -m pip install --user virtualenv
+Create virtual environment   : python3 -m virtualenv env
+Activate virtual environment : source env/bin/activate
+
+*** PIP installed packages ***
+
+pip install thrift
+pip install sortedcontainers
+pip install netifaces
+
+*** Thrift compiler ****
+
 I used brew to install Thrift on MacOS High Sierra (version 10.13.3):
 
 brew install thrift
@@ -13,8 +27,3 @@ Generate Python code:
 thrift --gen py common.thrift
 thrift --gen py encoding.thrift
 
-TODO list:
-
-* Send LIE packets with network control precedence.
-
-* Add IPv6 support

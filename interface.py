@@ -1,6 +1,7 @@
 import os
 import socket
 import random
+import netifaces
 from enum import Enum, unique
 from fcntl import ioctl
 from multicast_send_handler import MulticastSendHandler
@@ -16,12 +17,28 @@ from fsm import FiniteStateMachine
 from neighbor import Neighbor
 
 # TODO: make it possible to enable or disable RIFT on a per interface basis
+
 # TODO: send and receive LIE message on a per interface basis
+
 # TODO: Bind the socket to the interface (send and receive packets on that specific interface)
+
 # TODO: LIEs arriving with a TTL larger than 1 MUST be ignored.
+
 # TODO: Currently, adjacencies are tied to interfaces, so I don't have a separate class for Adjacencies.
 #       That may change if multipoint interfaces are supported
+
 # TODO: Implement configuration of POD numbers
+
+# TODO: Send LIE packets with network control precedence.
+
+# TODO: Add IPv6 support
+
+# TODO: Allow a RIFT interface to be configured for an interface that does not (yet) exist
+
+# TODO: Allow a RIFT interface to be configured to an interface that does not (yet) have
+#       an IPv4 or IPv6 address.
+
+# TODO: Have a mechanism to detect IPv4 or IPv6 address changes on an interface
 
 class Interface:
 
@@ -320,11 +337,23 @@ class Interface:
     def warning(self, logger, msg):
         logger.warning("[{}] {}".format(self._log_id, msg))
 
+    def interface_ipv4_address(self, interface_name):
+        interface_addresses = netifaces.interfaces()
+        if not interface_name in netifaces.interfaces():
+            self.warning('Cannot determine IPv4 address: interface {} does not exists'.format(interface_name))
+            return ''
+        interface_addresses = netifaces.ifaddresses(interface_name)
+        if not netifaces.AF_INET in interface_addresses:
+            self.warning('Interface {} does not have an IPv4 address'.format(interface_name))
+            return ''
+        return interface_addresses[netifaces.AF_INET][0]['addr']
+
     def __init__(self, short_name, node):
         self._node = node
-        self._short_name = short_name
-        self._long_name = Interface.generate_long_name(short_name, node.system_id)
+        self._short_name = short_name   # TODO: rename to interface_name
+        self._long_name = Interface.generate_long_name(short_name, node.system_id)   # TODO: rename to advertised_name
         self._log_id = node._log_id + "-{}".format(short_name)
+        self._ipv4_address = self.interface_ipv4_address(short_name)
         self._log = node._log.getChild("if")
         self.info(self._log, "Create interface")
         self._rx_log = self._log.getChild("rx")
@@ -406,6 +435,7 @@ class Interface:
     def cli_detailed_attributes(self):
         return [
             ["Interface Name", self._short_name],
+            ["IPv4 Address", self._ipv4_address],
             ["System ID", "{:016x}".format(self._node._system_id)],
             ["Advertised Name", self._long_name],
             ["Local ID", self._local_id],
