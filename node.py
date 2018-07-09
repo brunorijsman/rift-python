@@ -22,6 +22,11 @@ class Node:
 
     DEFAULT_TIE_DESTINATION_PORT = 10001    # TODO: Change to 912 (needs root privs)
 
+    def command_show_node(self, cli_session):
+        table = Table(separators = False)
+        table.add_rows(self.cli_detailed_attributes())
+        cli_session.print(table.to_string())
+
     def command_show_interfaces(self, cli_session):
         # TODO: Report neighbor uptime (time in THREE_WAY state)
         table = Table()
@@ -47,9 +52,9 @@ class Node:
             cli_session.print("Neighbor:")
             cli_session.print(table.to_string())
 
-
     command_tree = {
         "show": {
+            "node": command_show_node,
             "interfaces": command_show_interfaces,
             "interface": {
                 "<interface-name>": command_show_interface,
@@ -79,6 +84,18 @@ class Node:
         self._lie_send_interval_secs = self.DEFAULT_LIE_SEND_INTERVAL_SECS
         self._tie_destination_port = self.DEFAULT_TIE_DESTINATION_PORT
         self._cli_listen_handler = CliListenHandler(self.command_tree, self, self._log_id)
+
+    def cli_detailed_attributes(self):
+        return [
+            ["System ID", "{:016x}".format(self._system_id)],
+            ["Configured Level", self._configured_level],
+            ["Multicast Loop", self._multicast_loop],
+            ["LIE IPv4 Multicast Address", self._lie_ipv4_multicast_address],
+            ["LIE IPv6 Multicast Address", self._lie_ipv6_multicast_address],
+            ["LIE Destination Port", self._lie_destination_port],
+            ["LIE Send Interval", "{} secs".format(self._lie_send_interval_secs)],
+            ["TIE Destination Port", self._tie_destination_port],
+        ]
 
     def allocate_interface_id(self):
         # We assume an i32 is never going to happen (i.e. no more than ~2M interfaces)
