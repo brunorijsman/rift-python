@@ -1,12 +1,14 @@
 import logging
 import os
 import uuid
+from cli_listen_handler import CliListenHandler
 
 # TODO: Add hierarchical configuration with inheritance
 # TODO: Add support for non-configured levels
 #       - Allow configured_level to be None
 #       - In which case the Level Determination Procedure (section 4.2.9.4 of draft-ietf-rift-rift-02)
 #         must be used
+# TODO: Command line argument and/or configuration option for CLI port
 
 class Node:
 
@@ -16,7 +18,9 @@ class Node:
     DEFAULT_LIE_SEND_INTERVAL_SECS = 1.0    # TODO: What does the draft say?
 
     DEFAULT_TIE_DESTINATION_PORT = 10001    # TODO: Change to 912 (needs root privs)
-    
+
+    command_tree = []
+
     @staticmethod
     def _system_id():
         mac_address = uuid.getnode()
@@ -37,6 +41,7 @@ class Node:
         self._lie_destination_port = self.DEFAULT_LIE_DESTINATION_PORT
         self._lie_send_interval_secs = self.DEFAULT_LIE_SEND_INTERVAL_SECS
         self._tie_destination_port = self.DEFAULT_TIE_DESTINATION_PORT
+        self._cli_listen_handler = CliListenHandler(self.command_tree, self._log_id)
 
     def allocate_interface_id(self):
         # We assume an i32 is never going to happen (i.e. no more than ~2M interfaces)
