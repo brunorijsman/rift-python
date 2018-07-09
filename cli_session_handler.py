@@ -2,6 +2,7 @@ import socket
 from scheduler import scheduler
 
 # TODO: Finish implementation of optional keywords and test
+# TODO: Make cursor up and down keys work...
 
 class CliSessionHandler:
 
@@ -45,9 +46,9 @@ class CliSessionHandler:
         command_function = self.default_command_function(remaining_command_subtree)
         if command_function:
             if parameters:
-                command_function(self._command_handler, parameters)
+                command_function(self._command_handler, self, parameters)
             else:
-                command_function(self._command_handler)
+                command_function(self._command_handler, self)
         else:
             self.print('Missing input, valid completions:')
             self.print_help(remaining_command_subtree)

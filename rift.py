@@ -13,7 +13,9 @@ class Rift:
             format = '%(asctime)s:%(levelname)s:%(name)s:%(message)s', 
             level = logging.DEBUG)
         self._node = Node()
-        self._interface = Interface('en0', self._node)
+        interface_name = 'en0'
+        self._interface = Interface(interface_name, self._node)
+        self._node.register_interface(interface_name, self._interface)
 
     def run(self):
         scheduler.run()

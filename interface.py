@@ -380,3 +380,32 @@ class Interface:
         if protocol_packet.content.tie:
             # TODO: process TIDE
             pass
+
+    @property
+    def interface_name(self):
+        return self._short_name
+
+    @property
+    def neighbor_name(self):
+        if self._neighbor:
+            return self._neighbor.name
+        else:
+            return ""
+
+    @property
+    def neighbor_name(self):
+        if self._neighbor:
+            return self._neighbor.name
+        else:
+            return ""
+
+    @property
+    def neighbor_system_id_str(self):
+        if self._neighbor:
+            return "{:016x}".format(self._neighbor.system_id)
+        else:
+            return ""
+
+    @property
+    def neighbor_state_str(self):
+        return self._fsm._state.name

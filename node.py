@@ -2,6 +2,8 @@ import logging
 import os
 import uuid
 from cli_listen_handler import CliListenHandler
+from sortedcontainers import SortedDict
+from table import Table
 
 # TODO: Add hierarchical configuration with inheritance
 # TODO: Add support for non-configured levels
@@ -19,14 +21,25 @@ class Node:
 
     DEFAULT_TIE_DESTINATION_PORT = 10001    # TODO: Change to 912 (needs root privs)
 
-    # TODO
-    def command_show_interfaces(self):
-        print("command_show_interfaces")
+    def command_show_interfaces(self, cli_session):
+        table = Table()
+        table.add_row([
+            ["Interface", "Name"], 
+            ["Neighbor", "Name"],
+            ["Neighbor", "System-ID"],
+            ["Neighbor", "State"]])
+        for interface in self._interfaces.values():
+            table.add_row([
+                interface.interface_name,
+                interface.neighbor_name,
+                interface.neighbor_system_id_str,
+                interface.neighbor_state_str])
+        cli_session.print(table.to_string())
 
     # TODO
-    def command_show_interface(self, parameters):
+    def command_show_interface(self, cli_session, parameters):
         interface_name = parameters['interface-name']
-        print("command_show_interface interface_name={}".format(interface_name))
+        cli_session.print("command_show_interface interface_name={}".format(interface_name))
 
     command_tree = {
         "show": {
@@ -51,6 +64,7 @@ class Node:
         self._log.info("[{}] Create node".format(self._log_id))
         self._configured_level = 0
         self._next_interface_id = 1
+        self._interfaces = SortedDict()
         self._multicast_loop = True      # TODO: make configurable
         self._lie_ipv4_multicast_address = self.DEFAULT_LIE_IPV4_MULTICAST_ADDRESS
         self._lie_ipv6_multicast_address = self.DEFAULT_LIE_IPV6_MULTICAST_ADDRESS
@@ -64,6 +78,12 @@ class Node:
         interface_id = self._next_interface_id
         self._next_interface_id += 1
         return interface_id
+
+    def register_interface(self, interface_name, interface):
+        self._interfaces[interface_name] = interface
+
+    def unregister_interface(self, interface_name):
+        del self._interfaces[interface_name]
 
     # TODO: get rid of these properties, more complicated than needed. Just remote _ instead
     @property
