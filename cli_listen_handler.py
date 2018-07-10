@@ -19,7 +19,7 @@ class CliListenHandler:
         scheduler.register_handler(self, True, False)
         print("Command Line Interface (CLI) available on port {}".format(self._port))
 
-    def __del__(self):
+    def close(self):
         scheduler.unregister_handler(self)
         self._sock.close()
 

@@ -1,18 +1,23 @@
 import socket
 import struct
+import utils
 from scheduler import scheduler
 
 class MulticastSendHandler:
 
-    def __init__(self, multicast_address, port):
-        self._multicast_address = multicast_address
+    def __init__(self, interface_name, multicast_ipv4_address, port):
+        self._multicast_ipv4_address = multicast_ipv4_address
         self._port = port
+        self._interface_ipv4_address = utils.interface_ipv4_address(interface_name)
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-        self._sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 1)   # TODO: should not be needed
-# TODO: remove        self._sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, 1)
+        # TODO: should not be needed since TTL is 1 by default (check this before deleting it for real)
+        # self._sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 1)   
+        multicast_group = (self._multicast_ipv4_address, self._port)
+        self._sock.connect(multicast_group)
+        self._sock.setsockopt(socket.SOL_IP, socket.IP_MULTICAST_IF, socket.inet_aton(self._interface_ipv4_address))
         scheduler.register_handler(self, False, False)
 
-    def __del__(self):
+    def close(self):
         scheduler.unregister_handler(self)
         self._sock.close()
 
@@ -20,5 +25,8 @@ class MulticastSendHandler:
         return self._sock
 
     def send_message(self, message):
-        multicast_group = (self._multicast_address, self._port)
-        self._sock.sendto(message, multicast_group)
+        self._sock.send(message)
+
+    def source_address_and_port(self):
+        return self._sock.getsockname()
+

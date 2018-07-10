@@ -1,7 +1,7 @@
 import os
 import socket
 import random
-import netifaces
+import utils
 from enum import Enum, unique
 from fcntl import ioctl
 from multicast_send_handler import MulticastSendHandler
@@ -45,7 +45,7 @@ class Interface:
     UNDEFINED_OR_ANY_POD = 0
 
     @staticmethod
-    def generate_long_name(short_name, system_id):
+    def generate_advertised_name(short_name, system_id):
         hostname = socket.gethostname()
         pid = os.getpid() 
         if not hostname:
@@ -124,7 +124,7 @@ class Interface:
         else:
             lie_neighbor = None
         lie_packet = LIEPacket(
-            name = self._long_name,
+            name = self._advertised_name,
             local_id = self._local_id,
             flood_port = self._node.tie_destination_port,
             link_mtu_size = self._mtu,
@@ -212,7 +212,8 @@ class Interface:
             self._fsm.push_event(self.Event.NEIGHBOR_CHANGE_MINOR_FIELDS)
         return minor_change
         
-    def action_process_lie(self, protocol_packet):
+    def action_process_lie(self, event_data):
+        (protocol_packet, (from_address, from_port)) = event_data
         # Section B.1.4.1
         if not self.check_header(protocol_packet.header):
             self.action_cleanup()                                  # TODO: Don't need this because of the OneWay state entry action
@@ -223,7 +224,7 @@ class Interface:
         # TODO: Add checks in PROCESS_LIE step B.1.4.3.2
         # Section B.1.4.3
         self._fsm.push_event(self.Event.UPDATE_ZTP_OFFER)   # TODO: Do we really want to do this for every received LIE? 
-        new_neighbor = Neighbor(protocol_packet)
+        new_neighbor = Neighbor(protocol_packet, from_address, from_port)
         if not self._neighbor:
             self.info(self._log, "New neighbor detected with system-id {:16x}".format(protocol_packet.header.sender))
             self._neighbor = new_neighbor
@@ -258,8 +259,7 @@ class Interface:
     def action_check_hold_time_expired(self):
         # TODO: This is a (too) simplistic way of managing timers in the draft; use an explicit timer
         # If time_ticks_since_lie_received is None, it means the timer is not running
-        self.info(self._log, "_time_ticks_since_lie_received = {}"
-            .format(self._time_ticks_since_lie_received)) # DEBUG
+        self.info(self._log, "_time_ticks_since_lie_received = {}")
         if self._time_ticks_since_lie_received == None:
             return False
         self._time_ticks_since_lie_received += 1
@@ -337,30 +337,19 @@ class Interface:
     def warning(self, logger, msg):
         logger.warning("[{}] {}".format(self._log_id, msg))
 
-    def interface_ipv4_address(self, interface_name):
-        interface_addresses = netifaces.interfaces()
-        if not interface_name in netifaces.interfaces():
-            self.warning('Cannot determine IPv4 address: interface {} does not exists'.format(interface_name))
-            return ''
-        interface_addresses = netifaces.ifaddresses(interface_name)
-        if not netifaces.AF_INET in interface_addresses:
-            self.warning('Interface {} does not have an IPv4 address'.format(interface_name))
-            return ''
-        return interface_addresses[netifaces.AF_INET][0]['addr']
-
-    def __init__(self, short_name, node):
+    def __init__(self, interface_name, node):
         self._node = node
-        self._short_name = short_name   # TODO: rename to interface_name
-        self._long_name = Interface.generate_long_name(short_name, node.system_id)   # TODO: rename to advertised_name
-        self._log_id = node._log_id + "-{}".format(short_name)
-        self._ipv4_address = self.interface_ipv4_address(short_name)
+        self._interface_name = interface_name   # TODO: rename to interface_name
+        self._advertised_name = Interface.generate_advertised_name(interface_name, node.system_id)   # TODO: rename to advertised_name
+        self._log_id = node._log_id + "-{}".format(interface_name)
+        self._ipv4_address = utils.interface_ipv4_address(interface_name)
         self._log = node._log.getChild("if")
         self.info(self._log, "Create interface")
         self._rx_log = self._log.getChild("rx")
         self._tx_log = self._log.getChild("tx")
         self._fsm_log = self._log.getChild("fsm")
         self._local_id = node.allocate_interface_id()
-        self._mtu = Interface.get_mtu(short_name)
+        self._mtu = Interface.get_mtu(interface_name)
         self._pod = self.UNDEFINED_OR_ANY_POD
         self._neighbor = None
         self._time_ticks_since_lie_received = None
@@ -374,9 +363,13 @@ class Interface:
             log = self._fsm_log,
             log_id = self._log_id)
         self._multicast_send_handler = MulticastSendHandler(
+            interface_name,
             node.lie_ipv4_multicast_address, 
             node.lie_destination_port)
+        (source_address, source_port) = self._multicast_send_handler.source_address_and_port()
+        self._lie_udp_source_port = source_port
         self._multicast_receive_handler = MulticastReceiveHandler(
+            interface_name,
             node.lie_ipv4_multicast_address, 
             node.lie_destination_port,
             node.multicast_loop,
@@ -388,7 +381,7 @@ class Interface:
             return False
         return True
         
-    def receive_multicast_message(self, message):
+    def receive_multicast_message(self, message, from_address_and_port):
         # TODO: Handle decoding errors (does decode_protocol_packet throw an exception in that case? Try it...)
         protocol_packet = decode_protocol_packet(message)
         self.info(self._rx_log, "Receive {}".format(protocol_packet))
@@ -399,7 +392,8 @@ class Interface:
             if self._node.multicast_loop and (self._node.system_id == protocol_packet.header.sender):
                 self.info(self._log, "Ignore looped back LIE packet")
             else:
-                self._fsm.push_event(self.Event.LIE_RECEIVED, protocol_packet)
+                event_data = (protocol_packet, from_address_and_port)
+                self._fsm.push_event(self.Event.LIE_RECEIVED, event_data)
         if protocol_packet.content.tide:
             # TODO: process TIDE
             pass
@@ -421,23 +415,24 @@ class Interface:
     def cli_summary_attributes(self):
         if self._neighbor:
             return [
-                self._short_name,
+                self._interface_name,
                 self._neighbor.name,
                 "{:016x}".format(self._neighbor.system_id),
                 self._fsm._state.name]
         else:
             return [
-                self._short_name,
+                self._interface_name,
                 "",
                 "",
                 self._fsm._state.name]
 
     def cli_detailed_attributes(self):
         return [
-            ["Interface Name", self._short_name],
+            ["Interface Name", self._interface_name],
             ["IPv4 Address", self._ipv4_address],
+            ["LIE UDP Source Port", self._lie_udp_source_port],
             ["System ID", "{:016x}".format(self._node._system_id)],
-            ["Advertised Name", self._long_name],
+            ["Advertised Name", self._advertised_name],
             ["Local ID", self._local_id],
             ["MTU", self._mtu],
             ["POD", self._pod],

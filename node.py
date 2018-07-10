@@ -92,7 +92,7 @@ class Node:
             ["Multicast Loop", self._multicast_loop],
             ["LIE IPv4 Multicast Address", self._lie_ipv4_multicast_address],
             ["LIE IPv6 Multicast Address", self._lie_ipv6_multicast_address],
-            ["LIE Destination Port", self._lie_destination_port],
+            ["LIE UDP Destination Port", self._lie_destination_port],
             ["LIE Send Interval", "{} secs".format(self._lie_send_interval_secs)],
             ["TIE Destination Port", self._tie_destination_port],
         ]

@@ -3,7 +3,8 @@ from node import Node
 from interface import Interface
 from scheduler import scheduler
 
-# TODO: Support multiple (configurable) interfaces per RIFT instance
+# TODO: Bind the send socket to a particular interface. We already did this for receive sockets
+#       in multicast_receive_handler but not yet for send sockets.
 
 class Rift:
 
@@ -18,7 +19,7 @@ class Rift:
         self._node.register_interface(interface_name, self._interface)
 
     def run(self):
-        scheduler.run()
+        scheduler.run() 
 
 if __name__ == "__main__":
     rift = Rift()

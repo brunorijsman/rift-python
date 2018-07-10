@@ -9,10 +9,11 @@
 
 class Neighbor:
 
-    def __init__(self, lie_protocol_packet):
+    def __init__(self, lie_protocol_packet, neighbor_address, neighbor_port):
         self.system_id = lie_protocol_packet.header.sender
         self.level = lie_protocol_packet.header.level
-        self.address = None                                 # TODO: use source address of received LIE packet
+        self.address = neighbor_address
+        self.port = neighbor_port
         lie = lie_protocol_packet.content.lie
         self.name = lie.name
         self.local_id = lie.local_id
@@ -44,10 +45,11 @@ class Neighbor:
         attributes = [
             ["Name", self.name],
             ["System ID", "{:016x}".format(self.system_id)],
-            ["Address", self.address],
+            ["IPv4 Address", self.address],
+            ["LIE UDP Source Port", self.port],
             ["Link ID", self.local_id],
             ["Level", self.level],
-            ["Flood Port", self.flood_port],
+            ["Flood UDP Port", self.flood_port],
             ["MTU", self.link_mtu_size],
             ["POD", self.pod],
             ["Hold Time", self.holdtime],
