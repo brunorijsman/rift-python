@@ -14,16 +14,16 @@ class MulticastReceiveHandler:
 
     MAXIMUM_MESSAGE_SIZE = 65535
 
-    def __init__(self, interface_name, multicast_address, port, loopback, receive_function):
+    def __init__(self, interface_name, multicast_ipv4_address, port, loopback, receive_function):
         self._interface_ipv4_address = utils.interface_ipv4_address(interface_name)
-        self._multicast_address = multicast_address
+        self._multicast_ipv4_address = multicast_ipv4_address
         self._port = port
         self._receive_function = receive_function
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
         self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)     # TODO: Not supported on all OSs
-        self._sock.bind((multicast_address, port))   # TODO: Is this correct? Do we bind to the multicast address?
-        req = struct.pack("=4s4s", socket.inet_aton(multicast_address), socket.inet_aton(self._interface_ipv4_address))  # TODO: Is this right? It appears to work.
+        self._sock.bind((multicast_ipv4_address, port))   # TODO: Is this correct? Do we bind to the multicast address?
+        req = struct.pack("=4s4s", socket.inet_aton(multicast_ipv4_address), socket.inet_aton(self._interface_ipv4_address))  # TODO: Is this right? It appears to work.
         self._sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, req)
         if loopback:
             self._sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, 1)
