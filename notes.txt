@@ -27,3 +27,19 @@ Generate Python code:
 thrift --gen py common.thrift
 thrift --gen py encoding.thrift
 
+*** Helpful commands for debugging
+
+Detailed listing of UDP sockets:
+netstat -f inet -n -p udp -l -v
+
+List multicast groups:
+netstat -g -n -v 
+
+*** Helpful commands for creating virtual topologies
+
+Create bridge0 with IP address 99.99.99.1:
+sudo ifconfig bridge0 create 99.99.99.1/24
+
+Destroy bridge0:
+sudo ifconfig bridge0 destroy
+
