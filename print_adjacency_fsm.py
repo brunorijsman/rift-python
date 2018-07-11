@@ -8,12 +8,14 @@ from interface import Interface
 #       s = state-independent = the event E is handled exactly the same in every state S and goes back to S
 # TODO: report state-entry actions
 
-parser = ArgumentParser(description='Print adjacency Finite State Machine (FSM)')
-parser.add_argument('--report-missing', action='store_true', help='Report missing transitions')
-args = parser.parse_args()
+if __name__ == "__main__":
 
-node = Node()
-interface = Interface("dummy", node)
+    parser = ArgumentParser(description='Print adjacency Finite State Machine (FSM)')
+    parser.add_argument('--report-missing', action='store_true', help='Report missing transitions')
+    args = parser.parse_args()
 
-interface._fsm.print_transition_table(args.report_missing)
-exit(0)
+    node = Node()
+    interface = Interface("dummy", node)
+
+    interface._fsm.print_transition_table(args.report_missing)
+    exit(0)
