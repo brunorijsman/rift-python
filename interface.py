@@ -1,26 +1,23 @@
+# TODO: Replace from...import... with import...
+
+import enum
 import os
 import socket
 import random
+
+import fsm
 import utils
-from enum import Enum, unique
-from fcntl import ioctl
-from multicast_send_handler import MulticastSendHandler
-from multicast_receive_handler import MulticastReceiveHandler
-from timer import Timer
-from packet_common import create_packet_header, encode_protocol_packet, decode_protocol_packet
-from encoding.ttypes import PacketContent, NodeCapabilities, LIEPacket, ProtocolPacket
-import encoding.ttypes   # TODO: better way to handle Neighbor
-import common.constants
-from encoding.constants import protocol_major_version
-from common.ttypes import LeafIndications
-from fsm import FiniteStateMachine
+import multicast_send_handler
+import multicast_receive_handler
 from neighbor import Neighbor
+import timer
+from packet_common import create_packet_header, encode_protocol_packet, decode_protocol_packet
 
-# TODO: make it possible to enable or disable RIFT on a per interface basis
-
-# TODO: send and receive LIE message on a per interface basis
-
-# TODO: Bind the socket to the interface (send and receive packets on that specific interface)
+import common.constants
+import common.ttypes
+from encoding.ttypes import PacketContent, NodeCapabilities, LIEPacket, ProtocolPacket
+import encoding.ttypes
+from encoding.constants import protocol_major_version
 
 # TODO: LIEs arriving with a TTL larger than 1 MUST be ignored.
 
@@ -33,10 +30,7 @@ from neighbor import Neighbor
 
 # TODO: Add IPv6 support
 
-# TODO: Allow a RIFT interface to be configured for an interface that does not (yet) exist
-
-# TODO: Allow a RIFT interface to be configured to an interface that does not (yet) have
-#       an IPv4 or IPv6 address.
+# TODO: Have a mechanism to detect that an interface comes into / goes out of existence
 
 # TODO: Have a mechanism to detect IPv4 or IPv6 address changes on an interface
 
@@ -65,14 +59,14 @@ class Interface:
         nonce = random.getrandbits(63)
         return nonce
 
-    @unique
-    class State(Enum):
+    @enum.unique
+    class State(enum.Enum):
         ONE_WAY = 1
         TWO_WAY = 2
         THREE_WAY = 3
 
-    @unique
-    class Event(Enum):
+    @enum.unique
+    class Event(enum.Enum):
         TIMER_TICK = 1
         LEVEL_CHANGED = 2
         HAL_CHANGED = 3
@@ -116,7 +110,7 @@ class Interface:
         packet_header = create_packet_header(self._node)
         capabilities = NodeCapabilities(
             flood_reduction = True,
-            leaf_indications = LeafIndications.leaf_only_and_leaf_2_leaf_procedures)
+            leaf_indications = common.ttypes.LeafIndications.leaf_only_and_leaf_2_leaf_procedures)
         if self._neighbor:
             neighbor_system_id = self._neighbor.system_id
             neighbor_link_id = self._neighbor.local_id
@@ -361,7 +355,7 @@ class Interface:
         self._pod = self.UNDEFINED_OR_ANY_POD
         self._neighbor = None
         self._time_ticks_since_lie_received = None
-        self._fsm = FiniteStateMachine(
+        self._fsm = fsm.FiniteStateMachine(
             state_enum = self.State, 
             event_enum = self.Event, 
             transitions = self.transitions, 
@@ -370,19 +364,19 @@ class Interface:
             action_handler = self,
             log = self._fsm_log,
             log_id = self._log_id)
-        self._multicast_send_handler = MulticastSendHandler(
+        self._multicast_send_handler = multicast_send_handler.MulticastSendHandler(
             self._interface_name,
             node.lie_ipv4_multicast_address, 
             node.lie_destination_port)
         (source_address, source_port) = self._multicast_send_handler.source_address_and_port()
         self._lie_udp_source_port = source_port
-        self._multicast_receive_handler = MulticastReceiveHandler(
+        self._multicast_receive_handler = multicast_receive_handler.MulticastReceiveHandler(
             self._interface_name,
             node.lie_ipv4_multicast_address, 
             node.lie_destination_port,
             node.multicast_loop,
             self.receive_multicast_message)
-        self._one_second_timer = Timer(1.0, lambda: self._fsm.push_event(self.Event.TIMER_TICK))
+        self._one_second_timer = timer.Timer(1.0, lambda: self._fsm.push_event(self.Event.TIMER_TICK))
 
     def is_valid_received_system_id(self, system_id):
         if system_id == 0:
