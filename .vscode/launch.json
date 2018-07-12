@@ -5,6 +5,13 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "RIFT one.yaml",
+            "type": "python",
+            "request": "launch",
+            "program": "rift.py",
+            "args": ["one.yaml"] 
+        },
+        {
             "name": "Python: Current File",
             "type": "python",
             "request": "launch",

@@ -337,19 +337,27 @@ class Interface:
     def warning(self, logger, msg):
         logger.warning("[{}] {}".format(self._log_id, msg))
 
-    def __init__(self, interface_name, node):
+    def __init__(self, node, config):
+        # TODO: process metric field in config
+        # TODO: process bandwidth field in config
+        # TODO: process tx_lie_port field in config
+        # TODO: process rx_lie_port field in config
+        # TODO: process rx_tie_port field in config
         self._node = node
-        self._interface_name = interface_name   # TODO: rename to interface_name
-        self._advertised_name = Interface.generate_advertised_name(interface_name, node.system_id)   # TODO: rename to advertised_name
-        self._log_id = node._log_id + "-{}".format(interface_name)
-        self._ipv4_address = utils.interface_ipv4_address(interface_name)
+        self._interface_name = config['name']
+        # TODO: rename advertised name to advertised node name
+        # TODO: use node name if configured
+        # TODO: make node name optional and use hostname + process-id if not configured
+        self._advertised_name = Interface.generate_advertised_name(self._interface_name, node.system_id)   # TODO: rename to advertised_name
+        self._log_id = node._log_id + "-{}".format(self._interface_name)
+        self._ipv4_address = utils.interface_ipv4_address(self._interface_name)
         self._log = node._log.getChild("if")
         self.info(self._log, "Create interface")
         self._rx_log = self._log.getChild("rx")
         self._tx_log = self._log.getChild("tx")
         self._fsm_log = self._log.getChild("fsm")
         self._local_id = node.allocate_interface_id()
-        self._mtu = Interface.get_mtu(interface_name)
+        self._mtu = Interface.get_mtu(self._interface_name)
         self._pod = self.UNDEFINED_OR_ANY_POD
         self._neighbor = None
         self._time_ticks_since_lie_received = None
@@ -363,13 +371,13 @@ class Interface:
             log = self._fsm_log,
             log_id = self._log_id)
         self._multicast_send_handler = MulticastSendHandler(
-            interface_name,
+            self._interface_name,
             node.lie_ipv4_multicast_address, 
             node.lie_destination_port)
         (source_address, source_port) = self._multicast_send_handler.source_address_and_port()
         self._lie_udp_source_port = source_port
         self._multicast_receive_handler = MulticastReceiveHandler(
-            interface_name,
+            self._interface_name,
             node.lie_ipv4_multicast_address, 
             node.lie_destination_port,
             node.multicast_loop,
@@ -429,7 +437,7 @@ class Interface:
     def cli_detailed_attributes(self):
         return [
             ["Interface Name", self._interface_name],
-            ["IPv4 Address", self._ipv4_address],
+            ["Interface IPv4 Address", self._ipv4_address],
             ["LIE UDP Source Port", self._lie_udp_source_port],
             ["System ID", "{:016x}".format(self._node._system_id)],
             ["Advertised Name", self._advertised_name],

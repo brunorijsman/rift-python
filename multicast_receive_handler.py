@@ -23,7 +23,10 @@ class MulticastReceiveHandler:
         self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)     # TODO: Not supported on all OSs
         self._sock.bind((multicast_ipv4_address, port))   # TODO: Is this correct? Do we bind to the multicast address?
-        req = struct.pack("=4s4s", socket.inet_aton(multicast_ipv4_address), socket.inet_aton(self._interface_ipv4_address))  # TODO: Is this right? It appears to work.
+        if self._interface_ipv4_address:
+            req = struct.pack("=4s4s", socket.inet_aton(multicast_ipv4_address), socket.inet_aton(self._interface_ipv4_address))  # TODO: Is this right? It appears to work.
+        else:
+            req = struct.pack("=4sl", socket.inet_aton(multicast_ipv4_address), socket.INADDR_ANY)
         self._sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, req)
         if loopback:
             self._sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, 1)

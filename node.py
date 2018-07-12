@@ -1,10 +1,12 @@
 import logging
 import os
+import socket
+import sortedcontainers
 import uuid
-from cli_listen_handler import CliListenHandler
-from sortedcontainers import SortedDict
-from table import Table
-from interface import Interface
+
+import cli_listen_handler
+import interface
+import table
 
 # TODO: Add hierarchical configuration with inheritance
 # TODO: Add support for non-configured levels
@@ -23,17 +25,17 @@ class Node:
     DEFAULT_TIE_DESTINATION_PORT = 10001    # TODO: Change to 912 (needs root privs)
 
     def command_show_node(self, cli_session):
-        table = Table(separators = False)
-        table.add_rows(self.cli_detailed_attributes())
-        cli_session.print(table.to_string())
+        tab = table.Table(separators = False)
+        tab.add_rows(self.cli_detailed_attributes())
+        cli_session.print(tab.to_string())
 
     def command_show_interfaces(self, cli_session):
         # TODO: Report neighbor uptime (time in THREE_WAY state)
-        table = Table()
-        table.add_row(Interface.cli_summary_headers())
-        for interface in self._interfaces.values():
-            table.add_row(interface.cli_summary_attributes())
-        cli_session.print(table.to_string())
+        tab = table.Table()
+        tab.add_row(interface.Interface.cli_summary_headers())
+        for intf in self._interfaces.values():
+            tab.add_row(intf.cli_summary_attributes())
+        cli_session.print(tab.to_string())
 
     def command_show_interface(self, cli_session, parameters):
         interface_name = parameters['interface-name']
@@ -41,16 +43,16 @@ class Node:
             cli_session.print("Error: interface {} not present".format(interface_name))
             return
         inteface_attributes = self._interfaces[interface_name].cli_detailed_attributes()
-        table = Table(separators = False)
-        table.add_rows(inteface_attributes)
+        tab = table.Table(separators = False)
+        tab.add_rows(inteface_attributes)
         cli_session.print("Interface:")
-        cli_session.print(table.to_string())
+        cli_session.print(tab.to_string())
         neighbor_attributes = self._interfaces[interface_name].cli_detailed_neighbor_attributes()
         if neighbor_attributes:
-            table = Table(separators = False)
-            table.add_rows(neighbor_attributes)
+            tab = table.Table(separators = False)
+            tab.add_rows(neighbor_attributes)
             cli_session.print("Neighbor:")
-            cli_session.print(table.to_string())
+            cli_session.print(tab.to_string())
 
     command_tree = {
         "show": {
@@ -69,30 +71,50 @@ class Node:
         system_id = ((mac_address & 0xffffffffff) << 24) | (pid & 0xffff)
         return system_id
 
-    def __init__(self):
+    def __init__(self, config):
+        # TODO: process passive field in config
+        # TODO: process level field in config
+        # TODO: process systemid field in config
+        # TODO: process rx_lie_mcast_address field in config
+        # TODO: process rx_lie_v6_mcast_address field in config
+        # TODO: process rx_lie_port field in config
+        # TODO: process state_thrift_services_port field in config
+        # TODO: process config_thrift_services_port field in config
+        # TODO: process v4prefixes field in config
+        # TODO: process v6prefixes field in config
+        self._config = config
+        self._name = config['name']
         self._system_id = Node._system_id()
         self._log_id = "{:016x}".format(self._system_id)
         self._log = logging.getLogger("node")
         self._log.info("[{}] Create node".format(self._log_id))
         self._configured_level = 0
         self._next_interface_id = 1
-        self._interfaces = SortedDict()
+        self._interfaces = sortedcontainers.SortedDict()
         self._multicast_loop = True      # TODO: make configurable
         self._lie_ipv4_multicast_address = self.DEFAULT_LIE_IPV4_MULTICAST_ADDRESS
         self._lie_ipv6_multicast_address = self.DEFAULT_LIE_IPV6_MULTICAST_ADDRESS
         self._lie_destination_port = self.DEFAULT_LIE_DESTINATION_PORT
         self._lie_send_interval_secs = self.DEFAULT_LIE_SEND_INTERVAL_SECS
         self._tie_destination_port = self.DEFAULT_TIE_DESTINATION_PORT
-        self._cli_listen_handler = CliListenHandler(self.command_tree, self, self._log_id)
+        self._cli_listen_handler = cli_listen_handler.CliListenHandler(self.command_tree, self, self._log_id)
+        if 'interfaces' in config:
+            for interface_config in self._config['interfaces']:
+                self.create_interface(interface_config)
+
+    def create_interface(self, interface_config):
+        interface_name = interface_config['name']
+        self._interfaces[interface_name] = interface.Interface(self, interface_config)
 
     def cli_detailed_attributes(self):
         return [
+            ["Name", self._name],
             ["System ID", "{:016x}".format(self._system_id)],
             ["Configured Level", self._configured_level],
             ["Multicast Loop", self._multicast_loop],
             ["LIE IPv4 Multicast Address", self._lie_ipv4_multicast_address],
             ["LIE IPv6 Multicast Address", self._lie_ipv6_multicast_address],
-            ["LIE UDP Destination Port", self._lie_destination_port],
+            ["LIE Destination Port", self._lie_destination_port],
             ["LIE Send Interval", "{} secs".format(self._lie_send_interval_secs)],
             ["TIE Destination Port", self._tie_destination_port],
         ]
@@ -102,12 +124,6 @@ class Node:
         interface_id = self._next_interface_id
         self._next_interface_id += 1
         return interface_id
-
-    def register_interface(self, interface_name, interface):
-        self._interfaces[interface_name] = interface
-
-    def unregister_interface(self, interface_name):
-        del self._interfaces[interface_name]
 
     # TODO: get rid of these properties, more complicated than needed. Just remote _ instead
     @property

@@ -1,0 +1,21 @@
+shards:
+  - id: 0
+    nodes:
+      - name: node1
+        level: 1
+        systemid: 111
+        rx_lie_mcast_address: 224.0.1.201
+        rx_lie_port: 20001
+        v4prefixes:
+          - address: 1.1.1.1
+            mask: 32
+        v6prefixes:
+          - address: fe80::1.1.1.1
+            mask: 128
+        interfaces:
+          - name: if1
+            tx_lie_port: 20001
+            rx_lie_port: 20002
+          - name: if2
+            tx_lie_port: 20003
+            rx_lie_port: 20004

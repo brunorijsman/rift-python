@@ -33,7 +33,6 @@ schema = {
                         'type': 'dict',
                         'schema': {
                             'name': {
-                                'required': True,
                                 'type': 'string',
                             },
                             'passive': {
@@ -138,6 +137,27 @@ schema = {
     }
 }
 
+def default_interface_name():
+    # TODO: use eth0 on Linux
+    return 'en0'
+
+default_config = {
+    'shards': [
+        {
+            'id': 0,
+            'nodes': [
+                {
+                    'interfaces': [
+                        {
+                            'name': default_interface_name()
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}
+
 class RiftValidator(cerberus.Validator):
 
     def _validate_type_ipv4address(self, value):
@@ -190,13 +210,15 @@ class RiftValidator(cerberus.Validator):
         else:
             return (level >= 0) and (level <= 3)
 
-def parse_config_file(filename):
-
-    with open(filename, 'r') as stream:
-        try:
-            config = yaml.load(stream)
-        except yaml.YAMLError as exception:
-            raise exception
+def parse_configuration(filename):
+    if filename:
+        with open(filename, 'r') as stream:
+            try:
+                config = yaml.load(stream)
+            except yaml.YAMLError as exception:
+                raise exception
+    else:
+        config = default_config
     validator = RiftValidator(schema)
     if not validator.validate(config, schema):
         # TODO: Better error handling (report in human-readable format and don't just exit)
@@ -204,11 +226,3 @@ def parse_config_file(filename):
         pp.pprint(validator.errors)
         exit(1)
     return config
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Parse a RIFT configuration file')
-    parser.add_argument('filename', help='Configuration filename')
-    args = parser.parse_args()
-    config = parse_config_file(args.filename)
-    pp = pprint.PrettyPrinter()
-    pp.pprint(config)
