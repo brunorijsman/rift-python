@@ -9,12 +9,8 @@ schema = {
         'type': 'dict',
         'nullable': True,
         'schema': {
-            'rx_mcast_address': {
-                'type': 'ipv4address'
-            },
-            'lie_mcast_address': {
-                'type': 'ipv4address'
-            }
+            'rx_mcast_address': {'type': 'ipv4address'},
+            'lie_mcast_address': {'type': 'ipv4address'}
         },
     },
     'shards': {
@@ -22,61 +18,33 @@ schema = {
         'schema': {
             'type': 'dict',
             'schema': {
-                'id': {
-                    'required': True,
-                    'type': 'integer',
-                    'min': 0,
-                },
+                'id': {'required': True, 'type': 'integer', 'min': 0},
                 'nodes': {
                     'type': 'list',
                     'schema': {
                         'type': 'dict',
                         'schema': {
-                            'name': {
-                                'type': 'string',
-                            },
-                            'passive': {
-                                'type': 'boolean',
-                            },
-                            'level': {
-                                'type': 'level',
-                            },
-                            'systemid': {
-                                'type': 'integer',
-                                'min': 0
-                            },
-                            'rx_lie_mcast_address': {
-                                'type': 'ipv4address'
-                            },
-                            'rx_lie_v6_mcast_address': {
-                                'type': 'ipv6address'
-                            },
-                            'rx_lie_port': {
-                                'type': 'port'
-                            },
-                            'state_thrift_services_port': {
-                                'type': 'port'
-                            },
-                            'config_thrift_services_port': {
-                                'type': 'port'
-                            },
+                            'name': {'type': 'string'},
+                            'passive': {'type': 'boolean'},
+                            'level': {'type': 'level'},
+                            'systemid': {'type': 'integer', 'min': 0},
+                            'rx_lie_mcast_address': {'type': 'ipv4address'},
+                            'tx_lie_mcast_address': {'type': 'ipv4address'},
+                            'rx_lie_v6_mcast_address': {'type': 'ipv6address'},
+                            'tx_lie_v6_mcast_address': {'type': 'ipv6address'},
+                            'rx_lie_port': {'type': 'port'},
+                            'tx_lie_port': {'type': 'port'},
+                            'rx_tie_port': {'type': 'port'},
+                            'state_thrift_services_port': {'type': 'port'},
+                            'config_thrift_services_port': {'type': 'port'},
                             'v4prefixes': {
                                 'type': 'list',
                                 'schema': {
                                     'type': 'dict',
                                     'schema': {
-                                        'address': {
-                                            'required': True,
-                                            'type': 'ipv4address',
-                                        },
-                                        'mask': {
-                                            'required': True,
-                                            'type': 'ipv4mask',
-                                        },
-                                        'metric': {
-                                            'type': 'integer',
-                                            'min': 1
-                                        }
+                                        'address': {'required': True, 'type': 'ipv4address'},
+                                        'mask': {'required': True, 'type': 'ipv4mask'},
+                                        'metric': {'type': 'integer', 'min': 1},
                                     }
                                 }
                             },
@@ -85,18 +53,9 @@ schema = {
                                 'schema': {
                                     'type': 'dict',
                                     'schema': {
-                                        'address': {
-                                            'required': True,
-                                            'type': 'ipv6address',
-                                        },
-                                        'mask': {
-                                            'required': True,
-                                            'type': 'ipv6mask',
-                                        },
-                                        'metric': {
-                                            'type': 'integer',
-                                            'min': 1
-                                        }
+                                        'address': {'required': True, 'type': 'ipv6address'},
+                                        'mask': {'required': True, 'type': 'ipv6mask'},
+                                        'metric': {'type': 'integer', 'min': 1},
                                     }
                                 }
                             },
@@ -105,27 +64,16 @@ schema = {
                                 'schema': {
                                     'type': 'dict',
                                     'schema': {
-                                        'name': {
-                                            'required': True,
-                                            'type': 'string',
-                                        },
-                                        'metric': {
-                                            'type': 'integer',
-                                            'min': 1
-                                        },
-                                        'bandwidth': {
-                                            'type': 'integer',
-                                            'min': 1
-                                        },
-                                        'tx_lie_port': {
-                                            'type': 'port'
-                                        },
-                                        'rx_lie_port': {
-                                            'type': 'port'
-                                        },
-                                        'rx_tie_port': {
-                                            'type': 'port'
-                                        }
+                                        'name': {'required': True, 'type': 'string'},
+                                        'metric': {'type': 'integer', 'min': 1},
+                                        'bandwidth': {'type': 'integer', 'min': 1},
+                                        'rx_lie_mcast_address': {'type': 'ipv4address'},
+                                        'tx_lie_mcast_address': {'type': 'ipv4address'},
+                                        'rx_lie_v6_mcast_address': {'type': 'ipv6address'},
+                                        'tx_lie_v6_mcast_address': {'type': 'ipv6address'},
+                                        'rx_lie_port': {'type': 'port'},
+                                        'tx_lie_port': {'type': 'port'},
+                                        'rx_tie_port': {'type': 'port'},
                                     }
                                 }
                             }
@@ -209,6 +157,96 @@ class RiftValidator(cerberus.Validator):
             return False
         else:
             return (level >= 0) and (level <= 3)
+
+def apply_inheritance_and_inferences(config):
+    if 'shards' in self._config:
+        for shard_config in self._config['shards']:
+            if 'nodes' in shard_config:
+                for node_config in shard_config['nodes']:
+                    node_apply_inheritance_and_inferences(node_config)
+
+def place_holder():
+    if 'rx_lie_mcast_address' in config:
+        node_rx_lie_mcast_address = config['rx_lie_mcast_address']
+    else:
+        node_rx_lie_mcast_address = None
+    if 'rx_lie_ipv6_mcast_address' in config:
+        node_rx_lie_ipv6_mcast_address = config['rx_lie_ipv6_mcast_address']
+    else:
+        node_rx_lie_ipv6_mcast_address = None
+
+def node_apply_inheritance_and_inferences(node_config):
+    if 'interfaces' in node_config:
+        for interface_config in node_config['interfaces']:
+            interface_apply_inheritance(node_config, interface_config)
+        for interface_config in node_config['interfaces']:
+            interface_apply_inferences(node_config, interface_config)
+            
+def interface_apply_inheritance(node_config, interface_config):
+    interface_inherit_attribute_from_node('rx_lie_mcast_address', node_config, attribute_config)
+    interface_inherit_attribute_from_node('tx_lie_mcast_address', node_config, attribute_config)
+    interface_inherit_attribute_from_node('rx_lie_ipv6_mcast_address', node_config, attribute_config)
+    interface_inherit_attribute_from_node('tx_lie_ipv6_mcast_address', node_config, attribute_config)
+    interface_inherit_attribute_from_node('rx_lie_port', node_config, attribute_config)
+    interface_inherit_attribute_from_node('tx_lie_port', node_config, attribute_config)
+    
+def interface_inherit_attribute_from_node(attribute, node_config, interface_config):
+    if (not attribute in interface_config) and (attribute in node_config):
+        interface_config[attribute] = node_config[attribute]
+
+def interface_apply_interences(node_config, interface_config):
+    neighbor_interface_config = interface_find_neighbor_config(node_config, interface_config)
+    if not neighbor_interface_config:
+        return
+    interface_infer_attribute_from_neighbor(
+        interface, 'rx_lie_mcast_address', neighbor_interface_config, 'tx_lie_mcast_address')
+    interface_infer_attribute_from_neighbor(
+        interface, 'tx_lie_mcast_address', neighbor_interface_config, 'rx_lie_mcast_address')
+    interface_infer_attribute_from_neighbor(
+        interface, 'rx_lie_v6_mcast_address', neighbor_interface_config, 'tx_lie_v6_mcast_address')
+    interface_infer_attribute_from_neighbor(
+        interface, 'tx_lie_v6_mcast_address', neighbor_interface_config, 'rx_lie_v6_mcast_address')
+    interface_infer_attribute_from_neighbor(interface, 'rx_lie_port', neighbor_interface_config, 'tx_lie_port')
+    interface_infer_attribute_from_neighbor(interface, 'tx_lie_port', neighbor_interface_config, 'rx_lie_port')
+    interface_infer_attribute_from_neighbor(interface, 'rx_tie_port', neighbor_interface_config, 'tx_tie_port')
+
+def interface_find_neighbor_config(node_config, interface_config):
+    if 'rx_lie_port' in interface_config:
+        neighbor_interface = find_remote_interface_config_by_tx_lie_port(node_config, interface_config['rx_lie_port'])
+    elif 'tx_lie_port' in interface_config:
+        neighbor_interface = find_remote_interface_config_by_rx_lie_port(node_config, interface_config['tx_lie_port'])
+    else:
+        return None
+
+def interface_infer_attribute_from_neighbor(intf_config, intf_attribute, neighbor_intf_config, neighbor_intf_attribute):
+    if intf_attribute in intf_config:
+        # Interface attribute is already known, make sure it is consistent with the neighbor
+        if (neighbor_intf_attribute in neighbor_intf_config):
+            if intf_config[intf_attribute] != neighbor_intf_config[neighbor_intf_attribute]:
+                print("Configuration error: {} for interface {} ({}) must be same as {} for interface {} ({})".format(
+                    intf_attribute,
+                    intf_config['name'],
+                    intf_config[intf_attribute],
+                    neihgbor_intf_attribute,
+                    neighbor_intf_config['name'],
+                    neighbor_intf_config[intf_attribute]))
+                os.exit(1)
+    else:
+        # Interface attribute is not already known, infer it from the neighbor's configuration if possible
+        if (neighbor_intf_attribute in neighbor_intf_config):
+            intf_config[intf_attribute] = neighbor_intf_config[neighbor_intf_attribute]
+
+def find_remote_interface_config_by_tx_lie_port(node_config, tx_lie_port):
+    for interface_config in node_config['interfaces']:
+        if ('tx_lie_port' in interface_config) and (interface_config['tx_lie_port'] == tx_lie_port):
+            return interface_config
+    return None
+
+def find_remote_interface_config_by_rx_lie_port(node_config, rx_lie_port):
+    for interface_config in node_config['interfaces']:
+        if ('rx_lie_port' in interface_config) and (interface_config['rx_lie_port'] == rx_lie_port):
+            return interface_config
+    return None
 
 def parse_configuration(filename):
     if filename:

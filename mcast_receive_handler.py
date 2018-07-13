@@ -10,23 +10,23 @@ from scheduler import scheduler
 #         as the source address, but only receiving packets on the specified interface)? I would
 #         like to use SO_BINDTODEVICE but that is not portable (available on Linux but not MacOS X)
 
-class MulticastReceiveHandler:
+class McastReceiveHandler:
 
     MAXIMUM_MESSAGE_SIZE = 65535
 
-    def __init__(self, interface_name, multicast_ipv4_address, port, loopback, receive_function):
+    def __init__(self, interface_name, mcast_ipv4_address, port, loopback, receive_function):
         self._interface_ipv4_address = utils.interface_ipv4_address(interface_name)
-        self._multicast_ipv4_address = multicast_ipv4_address
+        self._mcast_ipv4_address = mcast_ipv4_address
         self._port = port
         self._receive_function = receive_function
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
         self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)     # TODO: Not supported on all OSs
-        self._sock.bind((multicast_ipv4_address, port))   # TODO: Is this correct? Do we bind to the multicast address?
+        self._sock.bind((mcast_ipv4_address, port))   # TODO: Is this correct? Do we bind to the mcast address?
         if self._interface_ipv4_address:
-            req = struct.pack("=4s4s", socket.inet_aton(multicast_ipv4_address), socket.inet_aton(self._interface_ipv4_address))  # TODO: Is this right? It appears to work.
+            req = struct.pack("=4s4s", socket.inet_aton(mcast_ipv4_address), socket.inet_aton(self._interface_ipv4_address))  # TODO: Is this right? It appears to work.
         else:
-            req = struct.pack("=4sl", socket.inet_aton(multicast_ipv4_address), socket.INADDR_ANY)
+            req = struct.pack("=4sl", socket.inet_aton(mcast_ipv4_address), socket.INADDR_ANY)
         self._sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, req)
         if loopback:
             self._sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, 1)

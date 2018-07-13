@@ -4,7 +4,8 @@ shards:
       - name: node1
         level: 1
         systemid: 111
-        rx_lie_mcast_address: 224.0.1.201
+#        rx_lie_mcast_address: 224.0.1.20     TODO: Get network unreachable error (on airplane) for this mcast address
+        rx_lie_mcast_address: 224.0.0.201
         rx_lie_port: 20001
         v4prefixes:
           - address: 1.1.1.1
