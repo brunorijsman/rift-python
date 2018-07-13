@@ -78,6 +78,7 @@ class Node:
         # TODO: process rx_lie_mcast_address field in config
         # TODO: process rx_lie_v6_mcast_address field in config
         # TODO: process rx_lie_port field in config
+        # TODO: process tx_lie_port field in config
         # TODO: process state_thrift_services_port field in config
         # TODO: process config_thrift_services_port field in config
         # TODO: process v4prefixes field in config
