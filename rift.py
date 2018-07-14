@@ -9,8 +9,6 @@ import scheduler
 
 class Rift:
 
-    _next_node_nr = 1
-
     def __init__(self):
         logging.basicConfig(
             filename = 'rift.log', 
@@ -38,15 +36,11 @@ class Rift:
     def create_shard(self, shard_config):
         if 'nodes' in shard_config:
             for node_config in shard_config['nodes']:
-                node_nr = self._next_node_nr
-                self._next_node_nr += 1
-                if not 'name' in node_config:
-                    node_config['name'] = socket.gethostname().split('.')[0] + str(node_nr)
                 self.create_node(node_config)
 
     def create_node(self, node_config):
-        name = node_config['name']
-        self._nodes[name] = node.Node(node_config)
+        new_node = node.Node(node_config)
+        self._nodes[new_node.name] = new_node
 
     def run(self):
         scheduler.scheduler.run() 

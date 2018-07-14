@@ -375,14 +375,14 @@ class Interface:
             log_id = self._log_id)
         self._mcast_send_handler = mcast_send_handler.McastSendHandler(
             self._interface_name,
-            node.lie_ipv4_mcast_address, 
-            node.lie_destination_port)
+            self._tx_lie_ipv4_mcast_address, 
+            self._tx_lie_port)
         (source_address, source_port) = self._mcast_send_handler.source_address_and_port()
         self._lie_udp_source_port = source_port
         self._mcast_receive_handler = mcast_receive_handler.McastReceiveHandler(
             self._interface_name,
-            node.lie_ipv4_mcast_address, 
-            node.lie_destination_port,
+            self._rx_lie_ipv4_mcast_address, 
+            self._rx_lie_port,
             node.mcast_loop,
             self.receive_mcast_message)
         self._one_second_timer = timer.Timer(1.0, lambda: self._fsm.push_event(self.Event.TIMER_TICK))

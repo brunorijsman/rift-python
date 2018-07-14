@@ -158,65 +158,88 @@ class RiftValidator(cerberus.Validator):
         else:
             return (level >= 0) and (level <= 3)
 
-def apply_inheritance_and_inferences(config):
-    if 'shards' in self._config:
-        for shard_config in self._config['shards']:
+def apply_inheritance(config):
+    if 'shards' in config:
+        for shard_config in config['shards']:
             if 'nodes' in shard_config:
                 for node_config in shard_config['nodes']:
-                    node_apply_inheritance_and_inferences(node_config)
+                    node_apply_inheritance(node_config)
 
-def place_holder():
-    if 'rx_lie_mcast_address' in config:
-        node_rx_lie_mcast_address = config['rx_lie_mcast_address']
-    else:
-        node_rx_lie_mcast_address = None
-    if 'rx_lie_ipv6_mcast_address' in config:
-        node_rx_lie_ipv6_mcast_address = config['rx_lie_ipv6_mcast_address']
-    else:
-        node_rx_lie_ipv6_mcast_address = None
-
-def node_apply_inheritance_and_inferences(node_config):
+def node_apply_inheritance(node_config):
     if 'interfaces' in node_config:
         for interface_config in node_config['interfaces']:
-            interface_apply_inheritance(node_config, interface_config)
-        for interface_config in node_config['interfaces']:
-            interface_apply_inferences(node_config, interface_config)
+            interface_apply_inheritance(interface_config, node_config)
             
-def interface_apply_inheritance(node_config, interface_config):
-    interface_inherit_attribute_from_node('rx_lie_mcast_address', node_config, attribute_config)
-    interface_inherit_attribute_from_node('tx_lie_mcast_address', node_config, attribute_config)
-    interface_inherit_attribute_from_node('rx_lie_ipv6_mcast_address', node_config, attribute_config)
-    interface_inherit_attribute_from_node('tx_lie_ipv6_mcast_address', node_config, attribute_config)
-    interface_inherit_attribute_from_node('rx_lie_port', node_config, attribute_config)
-    interface_inherit_attribute_from_node('tx_lie_port', node_config, attribute_config)
+def interface_apply_inheritance(interface_config, node_config):
+    interface_inherit_attribute_from_node(interface_config, 'rx_lie_mcast_address', node_config)
+    interface_inherit_attribute_from_node(interface_config, 'tx_lie_mcast_address', node_config)
+    interface_inherit_attribute_from_node(interface_config, 'rx_lie_ipv6_mcast_address', node_config)
+    interface_inherit_attribute_from_node(interface_config, 'tx_lie_ipv6_mcast_address', node_config)
+    interface_inherit_attribute_from_node(interface_config, 'rx_lie_port', node_config)
+    interface_inherit_attribute_from_node(interface_config, 'tx_lie_port', node_config)
     
-def interface_inherit_attribute_from_node(attribute, node_config, interface_config):
+def interface_inherit_attribute_from_node(interface_config, attribute, node_config):
     if (not attribute in interface_config) and (attribute in node_config):
         interface_config[attribute] = node_config[attribute]
 
-def interface_apply_interences(node_config, interface_config):
-    neighbor_interface_config = interface_find_neighbor_config(node_config, interface_config)
+def apply_inferences(config):
+    if 'shards' in config:
+        for shard_config in config['shards']:
+            if 'nodes' in shard_config:
+                for node_config in shard_config['nodes']:
+                    node_apply_inferences(node_config, config)
+
+def node_apply_inferences(node_config, config):
+    if 'interfaces' in node_config:
+        for interface_config in node_config['interfaces']:
+            interface_apply_inferences(interface_config, node_config, config)
+            
+def interface_apply_inferences(interface_config, node_config, config):
+    neighbor_interface_config = interface_find_neighbor_config(interface_config, node_config, config)
     if not neighbor_interface_config:
         return
     interface_infer_attribute_from_neighbor(
-        interface, 'rx_lie_mcast_address', neighbor_interface_config, 'tx_lie_mcast_address')
+        interface_config, 'rx_lie_mcast_address', neighbor_interface_config, 'tx_lie_mcast_address')
     interface_infer_attribute_from_neighbor(
-        interface, 'tx_lie_mcast_address', neighbor_interface_config, 'rx_lie_mcast_address')
+        interface_config, 'tx_lie_mcast_address', neighbor_interface_config, 'rx_lie_mcast_address')
     interface_infer_attribute_from_neighbor(
-        interface, 'rx_lie_v6_mcast_address', neighbor_interface_config, 'tx_lie_v6_mcast_address')
+        interface_config, 'rx_lie_v6_mcast_address', neighbor_interface_config, 'tx_lie_v6_mcast_address')
     interface_infer_attribute_from_neighbor(
-        interface, 'tx_lie_v6_mcast_address', neighbor_interface_config, 'rx_lie_v6_mcast_address')
-    interface_infer_attribute_from_neighbor(interface, 'rx_lie_port', neighbor_interface_config, 'tx_lie_port')
-    interface_infer_attribute_from_neighbor(interface, 'tx_lie_port', neighbor_interface_config, 'rx_lie_port')
-    interface_infer_attribute_from_neighbor(interface, 'rx_tie_port', neighbor_interface_config, 'tx_tie_port')
+        interface_config, 'tx_lie_v6_mcast_address', neighbor_interface_config, 'rx_lie_v6_mcast_address')
+    interface_infer_attribute_from_neighbor(
+        interface_config, 'rx_lie_port', neighbor_interface_config, 'tx_lie_port')
+    interface_infer_attribute_from_neighbor(
+        interface_config, 'tx_lie_port', neighbor_interface_config, 'rx_lie_port')
+    interface_infer_attribute_from_neighbor(
+        interface_config, 'rx_tie_port', neighbor_interface_config, 'tx_tie_port')
 
-def interface_find_neighbor_config(node_config, interface_config):
+def interface_find_neighbor_config(interface_config, node_config, config):
+    print("Find neighbor for node {} interface {}".format(node_config['name'], interface_config['name'])) # DEBUG!
     if 'rx_lie_port' in interface_config:
-        neighbor_interface = find_remote_interface_config_by_tx_lie_port(node_config, interface_config['rx_lie_port'])
+        neighbor_interface = find_remote_interface_config_by_attribute(
+            config, 'tx_lie_port', interface_config['rx_lie_port'])
     elif 'tx_lie_port' in interface_config:
-        neighbor_interface = find_remote_interface_config_by_rx_lie_port(node_config, interface_config['tx_lie_port'])
+        neighbor_interface = find_remote_interface_config_by_attribute(
+            config, 'rx_lie_port', interface_config['tx_lie_port'])
     else:
-        return None
+        neighbor_interface = None
+    # DEBUG!
+    if neighbor_interface:
+        print(" Found interface {}".format(neighbor_interface['name']))
+    else:
+        print(" Not found")
+    return neighbor_interface
+
+def find_remote_interface_config_by_attribute(config, attr_name, attr_value):
+    if 'shards' in config:
+        for shard_config in config['shards']:
+            if 'nodes' in shard_config:
+                for node_config in shard_config['nodes']:
+                    if 'interfaces' in node_config:
+                        for interface_config in node_config['interfaces']:
+                            if (attr_name in interface_config) and (interface_config[attr_name] == attr_value):
+                                return interface_config
+    return None
 
 def interface_infer_attribute_from_neighbor(intf_config, intf_attribute, neighbor_intf_config, neighbor_intf_attribute):
     if intf_attribute in intf_config:
@@ -235,18 +258,7 @@ def interface_infer_attribute_from_neighbor(intf_config, intf_attribute, neighbo
         # Interface attribute is not already known, infer it from the neighbor's configuration if possible
         if (neighbor_intf_attribute in neighbor_intf_config):
             intf_config[intf_attribute] = neighbor_intf_config[neighbor_intf_attribute]
-
-def find_remote_interface_config_by_tx_lie_port(node_config, tx_lie_port):
-    for interface_config in node_config['interfaces']:
-        if ('tx_lie_port' in interface_config) and (interface_config['tx_lie_port'] == tx_lie_port):
-            return interface_config
-    return None
-
-def find_remote_interface_config_by_rx_lie_port(node_config, rx_lie_port):
-    for interface_config in node_config['interfaces']:
-        if ('rx_lie_port' in interface_config) and (interface_config['rx_lie_port'] == rx_lie_port):
-            return interface_config
-    return None
+            print("Interface {} inferred {} value {}".format(intf_config['name'], intf_attribute, intf_config[intf_attribute])) ## !DEBUG
 
 def parse_configuration(filename):
     if filename:
@@ -263,4 +275,6 @@ def parse_configuration(filename):
         pp = pprint.PrettyPrinter()
         pp.pprint(validator.errors)
         exit(1)
+    apply_inheritance(config)
+    apply_inferences(config)
     return config

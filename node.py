@@ -9,14 +9,17 @@ import constants
 import interface
 import table
 
-# TODO: Add hierarchical configuration with inheritance
 # TODO: Add support for non-configured levels
 #       - Allow configured_level to be None
 #       - In which case the Level Determination Procedure (section 4.2.9.4 of draft-ietf-rift-rift-02)
 #         must be used
+
 # TODO: Command line argument and/or configuration option for CLI port
 
+
 class Node:
+
+    _next_node_nr = 1
 
     def command_show_node(self, cli_session):
         tab = table.Table(separators = False)
@@ -58,12 +61,14 @@ class Node:
         }
     }
 
-    @staticmethod
-    def _system_id():
+    def generate_system_id(self):
         mac_address = uuid.getnode()
         pid = os.getpid()
-        system_id = ((mac_address & 0xffffffffff) << 24) | (pid & 0xffff)
+        system_id = ((mac_address & 0xffffffffff) << 24) | (pid & 0xffff) << 8 | (self._node_nr & 0xff)
         return system_id
+
+    def generate_name(self):
+        socket.gethostname().split('.')[0] + str(self._node_nr)
 
     def __init__(self, config):
         # TODO: process passive field in config
@@ -74,8 +79,10 @@ class Node:
         # TODO: process v4prefixes field in config
         # TODO: process v6prefixes field in config
         self._config = config
-        self._name = config['name']
-        self._system_id = Node._system_id()
+        self._node_nr = Node._next_node_nr
+        Node._next_node_nr += 1
+        self._name = self.get_config_attribute(config, 'name', self.generate_name())
+        self._system_id = self.generate_system_id()   # !TODO: get from config
         self._log_id = "{:016x}".format(self._system_id)
         self._log = logging.getLogger('node')
         self._log.info("[{}] Create node".format(self._log_id))
@@ -131,6 +138,10 @@ class Node:
         interface_id = self._next_interface_id
         self._next_interface_id += 1
         return interface_id
+
+    @property
+    def name(self):
+        return self._name
 
     # TODO: get rid of these properties, more complicated than needed. Just remote _ instead
     @property
