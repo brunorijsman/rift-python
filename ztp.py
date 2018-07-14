@@ -1,6 +1,9 @@
 import common.constants
 
 class Ztp:
+
+    ZTP_MIN_NUMBER_OF_PEER_FOR_LEVEL = 3
+
     @enum.unique
     class State(enum.Enum):
         UPDATING_CLIENTS = 1
@@ -79,6 +82,25 @@ class Ztp:
 # on LostHAT in ComputeBestOffer finishes in ComputeBestOffer:
     #       LEVEL_COMPUTE
 
+    def compute_best_offer(self):
+
+        # highest_level = max(al.keys())
+        # if len(al[highest_level]) >=  ZTP_MIN_NUMBER_OF_PEER_FOR_LEVEL
+        #     return highest_level
+
+        highest_level = common.constants.leaf_level
+        for level in al.keys():
+            if len(al[level]) >=  ZTP_MIN_NUMBER_OF_PEER_FOR_LEVEL
+                if level >= highest_level
+                    highest_level = level
+
+        if highest_level != common.constants.leaf_level
+            return highest_level
+
+        return max(al.keys())
+
+
+
     def action_no_action(self):
         pass
 
@@ -104,11 +126,14 @@ class Ztp:
         # TODO:
         #          if no level offered REMOVE_OFFER else
         #          if level > leaf then UPDATE_OFFER else REMOVE_OFFER
-        if offer is not None
-            if offer.level is not None
-                if offer.level is not common.constants.leaf_level
-                    if not offer.level in al
-                        al{offer.level, {offer.systemId, offer}}
+        if offer is not None and offer.is_a_ztp_offer
+            if not offer.level in self.al
+                self.al[offer.level] = {offer.systemId, offer}
+            else
+                self.al[offer.level][offer.systemId] = offer
+        current_hal = self.hal
+        self.hal = self.compute_best_offer()
+        # TODO: trigger something if it changed
 
     #
     def action_store_level(self):
@@ -182,7 +207,6 @@ class Ztp:
         State.UPDATING_CLIENTS: state_updating_clients_transitions,
         State.HOLDING_DOWN: state_holding_down_transitions,
         State.COMPUTE_BEST_OFFER: state_compute_best_offer_transitions
-        # Iliya
     }
 
     state_entry_actions = {
@@ -201,7 +225,8 @@ class Ztp:
 
         self._node = node
         self._name = 'ztp'
-        seld.al={0:{}}
+        self.al={0:{}}
+        self.hal = common.constants.leaf_level
         # TODO: Make the default metric/bandwidth depend on the speed of the interface
         self._log = node._log.getChild("ztp")
         self.info(self._log, "Zero touch provisioning state machine")

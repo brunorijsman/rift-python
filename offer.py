@@ -1,4 +1,5 @@
 import utils
+import common.constants
 
 # TODO: Should we rename this to adjacency? The current draft mixes terms neighbor and adjacency.
 
@@ -28,7 +29,17 @@ class Offer:
         self.pod = lie.pod
         self.capabilities = lie.capabilities
         self.not_a_ztp_offer = lie.not_a_ztp_offer
-    
+
+    def is_a_ztp_offer(self):
+        if self.level is None
+            return False
+        if self.level == common.constants.leaf_level
+            return False
+        if self.not_a_ztp_offer
+            return False
+        return True
+
+
     def cli_detailed_attributes(self):
         # TODO: Report capabilities (is it possible to report the unknown ones too?"
         if self.neighbor_system_id:
