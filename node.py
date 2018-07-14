@@ -8,6 +8,7 @@ import cli_listen_handler
 import constants
 import interface
 import table
+import utils
 
 # TODO: Add support for non-configured levels
 #       - Allow configured_level to be None
@@ -15,7 +16,6 @@ import table
 #         must be used
 
 # TODO: Command line argument and/or configuration option for CLI port
-
 
 class Node:
 
@@ -68,7 +68,7 @@ class Node:
         return system_id
 
     def generate_name(self):
-        socket.gethostname().split('.')[0] + str(self._node_nr)
+        return socket.gethostname().split('.')[0] + str(self._node_nr)
 
     def __init__(self, config):
         # TODO: process passive field in config
@@ -82,8 +82,8 @@ class Node:
         self._node_nr = Node._next_node_nr
         Node._next_node_nr += 1
         self._name = self.get_config_attribute(config, 'name', self.generate_name())
-        self._system_id = self.generate_system_id()   # !TODO: get from config
-        self._log_id = "{:016x}".format(self._system_id)
+        self._system_id = self.get_config_attribute(config, 'systemid', self.generate_system_id())
+        self._log_id = utils.system_id_str(self._system_id)
         self._log = logging.getLogger('node')
         self._log.info("[{}] Create node".format(self._log_id))
         self._configured_level = 0
@@ -120,7 +120,7 @@ class Node:
     def cli_detailed_attributes(self):
         return [
             ["Name", self._name],
-            ["System ID", "{:016x}".format(self._system_id)],
+            ["System ID", utils.system_id_str(self._system_id)],
             ["Configured Level", self._configured_level],
             ["Multicast Loop", self._mcast_loop],
             ["Receive LIE IPv4 Multicast Address", self._rx_lie_ipv4_mcast_address],

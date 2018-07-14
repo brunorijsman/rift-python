@@ -214,7 +214,6 @@ def interface_apply_inferences(interface_config, node_config, config):
         interface_config, 'rx_tie_port', neighbor_interface_config, 'tx_tie_port')
 
 def interface_find_neighbor_config(interface_config, node_config, config):
-    print("Find neighbor for node {} interface {}".format(node_config['name'], interface_config['name'])) # DEBUG!
     if 'rx_lie_port' in interface_config:
         neighbor_interface = find_remote_interface_config_by_attribute(
             config, 'tx_lie_port', interface_config['rx_lie_port'])
@@ -223,11 +222,6 @@ def interface_find_neighbor_config(interface_config, node_config, config):
             config, 'rx_lie_port', interface_config['tx_lie_port'])
     else:
         neighbor_interface = None
-    # DEBUG!
-    if neighbor_interface:
-        print(" Found interface {}".format(neighbor_interface['name']))
-    else:
-        print(" Not found")
     return neighbor_interface
 
 def find_remote_interface_config_by_attribute(config, attr_name, attr_value):
@@ -258,7 +252,6 @@ def interface_infer_attribute_from_neighbor(intf_config, intf_attribute, neighbo
         # Interface attribute is not already known, infer it from the neighbor's configuration if possible
         if (neighbor_intf_attribute in neighbor_intf_config):
             intf_config[intf_attribute] = neighbor_intf_config[neighbor_intf_attribute]
-            print("Interface {} inferred {} value {}".format(intf_config['name'], intf_attribute, intf_config[intf_attribute])) ## !DEBUG
 
 def parse_configuration(filename):
     if filename:

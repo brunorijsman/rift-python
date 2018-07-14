@@ -425,7 +425,7 @@ class Interface:
             return [
                 self._interface_name,
                 self._neighbor.name,
-                "{:016x}".format(self._neighbor.system_id),
+                utils.system_id_str(self._neighbor.system_id),
                 self._fsm._state.name]
         else:
             return [
@@ -447,7 +447,7 @@ class Interface:
             ["Receive LIE Port", self._rx_lie_port],
             ["Transmit LIE Port", self._tx_lie_port],
             ["Receive TIE Port", self._rx_tie_port],
-            ["System ID", "{:016x}".format(self._node._system_id)],
+            ["System ID", utils.system_id_str(self._node._system_id)],
             ["Local ID", self._local_id],
             ["MTU", self._mtu],
             ["POD", self._pod],
