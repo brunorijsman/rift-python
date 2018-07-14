@@ -141,7 +141,7 @@ class Ztp:
             self._fsm.push_event(self.Event.HOLD_DOWN_EXPIRED)
 
 
-<<<<<<< Updated upstream
+
     def action_update_all_lie_fsm_with_computation_results(self):
         # TODO:
         pass
@@ -155,17 +155,24 @@ class Ztp:
 
         # TODO:
         pass
-=======
-#pascal
->>>>>>> Stashed changes
+
+        #
+
 
     #
+#Event.TIMER_TICK: (None, [action_check_hold_time_expired], [Event.SEND_LIE]),
+    state_updating_clients_transitions = {
 
-    def action_update_holddown_timer_on_lost_hal(self):
-        # TODO:
-        pass
+    }
 
-    #
+    state_holding_down_transitions = {
+
+    }
+
+    state_compute_best_offer_transitions = {
+
+    }
+
     transitions = {
         State.UPDATING_CLIENTS: state_updating_clients_transitions,
         State.HOLDING_DOWN: state_holding_down_transitions,
