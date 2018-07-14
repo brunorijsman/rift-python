@@ -1,4 +1,4 @@
-
+import common.constants
 
 class Ztp:
     @enum.unique
@@ -104,7 +104,12 @@ class Ztp:
         # TODO:
         #          if no level offered REMOVE_OFFER else
         #          if level > leaf then UPDATE_OFFER else REMOVE_OFFER
-        if offer
+        if offer is not None
+            if offer.level is not None
+                if offer.level is not common.constants.leaf_level
+                    if not offer.level in al
+                        al{offer.level, {offer.systemId, offer}}
+
     #
     def action_store_level(self):
         # TODO:
