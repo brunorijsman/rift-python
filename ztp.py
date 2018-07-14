@@ -21,23 +21,64 @@ class Ztp:
         COMPUTATION_DONE = 9
         HOLDDOWN_EXPIRED = 10
 
+
     # on LostHAT in ComputeBestOffer finishes in ComputeBestOffer:
     #       LEVEL_COMPUTE
-
-    def action_level_compute(self):
-        # TODO: Need to implement ZTP
+    def action_compute_level(self):
+        # TODO:
         pass
 
     #
     def action_store_leaf_flag(self):
-        # TODO: Need to implement ZTP state machine first
+        # TODO:
         pass
+
+
+    #
+    def action_store_leaf_flag_and_compute_level(self):
+        #
+        self.action_store_leaf_flag()
+        self.action_compute_level()
 
     #
     def action_update_offer_if_non_null(self):
+        # TODO:
         #          if no level offered REMOVE_OFFER else
         #          if level > leaf then UPDATE_OFFER else REMOVE_OFFER
         pass
+
+    #
+    def action_store_level(self):
+        # TODO:
+        pass
+
+    #
+
+    def action_store_level_and_compute_level(self):
+        #
+        self.action_store_level()
+        self.action_compute_level()
+
+    #
+    def action_purge_offers(self):
+        # TODO:
+        pass
+    #
+
+    def action_remove_offer(self):
+        # TODO:
+        pass
+    #
+    def action_check_hold_time_expired(self):
+        # on LostHAL in ComputeBestOffer finishes in HoldingDown: if any
+        # southbound adjacencies present update holddown timer to normal
+        # duration else fire holddown timer immediately
+        self.info(self._log, "_time_ticks_since_lie_received = {}")
+        if self._time_ticks_since_lie_received == None:
+            return False
+        self._time_ticks_since_lie_received += 1
+        if self._time_ticks_since_lie_received >= self.holdtime:
+            self._fsm.push_event(self.Event.HOLD_DOWN_EXPIRED)
 
 
 
