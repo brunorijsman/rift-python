@@ -102,7 +102,7 @@ class Node:
         self._tx_lie_port = self.get_config_attribute(config, 'tx_lie_port', constants.DEFAULT_LIE_PORT)
         self._lie_send_interval_secs = constants.DEFAULT_LIE_SEND_INTERVAL_SECS   # TODO: make configurable
         self._rx_tie_port = self.get_config_attribute(config, 'rx_tie_port', constants.DEFAULT_TIE_PORT)
-        self._cli_listen_handler = cli_listen_handler.CliListenHandler(self.command_tree, self, self._log_id)
+        self._cli_listen_handler = cli_listen_handler.CliListenHandler(self.command_tree, self, self._name)
         if 'interfaces' in config:
             for interface_config in self._config['interfaces']:
                 self.create_interface(interface_config)
