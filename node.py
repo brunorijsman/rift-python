@@ -5,24 +5,21 @@ import sortedcontainers
 import uuid
 
 import cli_listen_handler
+import constants
 import interface
 import table
+import utils
 
-# TODO: Add hierarchical configuration with inheritance
 # TODO: Add support for non-configured levels
 #       - Allow configured_level to be None
 #       - In which case the Level Determination Procedure (section 4.2.9.4 of draft-ietf-rift-rift-02)
 #         must be used
+
 # TODO: Command line argument and/or configuration option for CLI port
 
 class Node:
 
-    DEFAULT_LIE_IPV4_MULTICAST_ADDRESS = '224.0.0.120'
-    DEFAULT_LIE_IPV6_MULTICAST_ADDRESS = 'FF02::0078'     # TODO: Add IPv6 support
-    DEFAULT_LIE_DESTINATION_PORT = 10000    # TODO: Change to 911 (needs root privs)
-    DEFAULT_LIE_SEND_INTERVAL_SECS = 1.0    # TODO: What does the draft say?
-
-    DEFAULT_TIE_DESTINATION_PORT = 10001    # TODO: Change to 912 (needs root privs)
+    _next_node_nr = 1
 
     def command_show_node(self, cli_session):
         tab = table.Table(separators = False)
@@ -64,43 +61,57 @@ class Node:
         }
     }
 
-    @staticmethod
-    def _system_id():
+    def generate_system_id(self):
         mac_address = uuid.getnode()
         pid = os.getpid()
-        system_id = ((mac_address & 0xffffffffff) << 24) | (pid & 0xffff)
+        system_id = ((mac_address & 0xffffffffff) << 24) | (pid & 0xffff) << 8 | (self._node_nr & 0xff)
         return system_id
+
+    def generate_name(self):
+        return socket.gethostname().split('.')[0] + str(self._node_nr)
 
     def __init__(self, config):
         # TODO: process passive field in config
         # TODO: process level field in config
         # TODO: process systemid field in config
-        # TODO: process rx_lie_mcast_address field in config
-        # TODO: process rx_lie_v6_mcast_address field in config
-        # TODO: process rx_lie_port field in config
         # TODO: process state_thrift_services_port field in config
         # TODO: process config_thrift_services_port field in config
         # TODO: process v4prefixes field in config
         # TODO: process v6prefixes field in config
         self._config = config
-        self._name = config['name']
-        self._system_id = Node._system_id()
-        self._log_id = "{:016x}".format(self._system_id)
-        self._log = logging.getLogger("node")
+        self._node_nr = Node._next_node_nr
+        Node._next_node_nr += 1
+        self._name = self.get_config_attribute(config, 'name', self.generate_name())
+        self._system_id = self.get_config_attribute(config, 'systemid', self.generate_system_id())
+        self._log_id = utils.system_id_str(self._system_id)
+        self._log = logging.getLogger('node')
         self._log.info("[{}] Create node".format(self._log_id))
         self._configured_level = 0
         self._next_interface_id = 1
         self._interfaces = sortedcontainers.SortedDict()
-        self._multicast_loop = True      # TODO: make configurable
-        self._lie_ipv4_multicast_address = self.DEFAULT_LIE_IPV4_MULTICAST_ADDRESS
-        self._lie_ipv6_multicast_address = self.DEFAULT_LIE_IPV6_MULTICAST_ADDRESS
-        self._lie_destination_port = self.DEFAULT_LIE_DESTINATION_PORT
-        self._lie_send_interval_secs = self.DEFAULT_LIE_SEND_INTERVAL_SECS
-        self._tie_destination_port = self.DEFAULT_TIE_DESTINATION_PORT
-        self._cli_listen_handler = cli_listen_handler.CliListenHandler(self.command_tree, self, self._log_id)
+        self._mcast_loop = True      # TODO: make configurable
+        self._rx_lie_ipv4_mcast_address = self.get_config_attribute(
+            config, 'rx_lie_mcast_address', constants.DEFAULT_LIE_IPV4_MCAST_ADDRESS)
+        self._tx_lie_ipv4_mcast_address = self.get_config_attribute(
+            config, 'tx_lie_mcast_address', constants.DEFAULT_LIE_IPV4_MCAST_ADDRESS)
+        self._rx_lie_ipv6_mcast_address = self.get_config_attribute(
+            config, 'rx_lie_v6_mcast_address', constants.DEFAULT_LIE_IPV6_MCAST_ADDRESS)
+        self._tx_lie_ipv6_mcast_address = self.get_config_attribute(
+            config, 'tx_lie_v6_mcast_address', constants.DEFAULT_LIE_IPV6_MCAST_ADDRESS)
+        self._rx_lie_port = self.get_config_attribute(config, 'rx_lie_port', constants.DEFAULT_LIE_PORT)
+        self._tx_lie_port = self.get_config_attribute(config, 'tx_lie_port', constants.DEFAULT_LIE_PORT)
+        self._lie_send_interval_secs = constants.DEFAULT_LIE_SEND_INTERVAL_SECS   # TODO: make configurable
+        self._rx_tie_port = self.get_config_attribute(config, 'rx_tie_port', constants.DEFAULT_TIE_PORT)
+        self._cli_listen_handler = cli_listen_handler.CliListenHandler(self.command_tree, self, self._name)
         if 'interfaces' in config:
             for interface_config in self._config['interfaces']:
                 self.create_interface(interface_config)
+
+    def get_config_attribute(self, config, attribute, default):
+        if attribute in config:
+            return config[attribute]
+        else:
+            return default
 
     def create_interface(self, interface_config):
         interface_name = interface_config['name']
@@ -109,14 +120,17 @@ class Node:
     def cli_detailed_attributes(self):
         return [
             ["Name", self._name],
-            ["System ID", "{:016x}".format(self._system_id)],
+            ["System ID", utils.system_id_str(self._system_id)],
             ["Configured Level", self._configured_level],
-            ["Multicast Loop", self._multicast_loop],
-            ["LIE IPv4 Multicast Address", self._lie_ipv4_multicast_address],
-            ["LIE IPv6 Multicast Address", self._lie_ipv6_multicast_address],
-            ["LIE Destination Port", self._lie_destination_port],
+            ["Multicast Loop", self._mcast_loop],
+            ["Receive LIE IPv4 Multicast Address", self._rx_lie_ipv4_mcast_address],
+            ["Transmit LIE IPv4 Multicast Address", self._tx_lie_ipv4_mcast_address],
+            ["Receive LIE IPv6 Multicast Address", self._rx_lie_ipv6_mcast_address],
+            ["Transmit LIE IPv6 Multicast Address", self._tx_lie_ipv6_mcast_address],
+            ["Receive LIE Port", self._rx_lie_port],
+            ["Transmit LIE Port", self._tx_lie_port],
             ["LIE Send Interval", "{} secs".format(self._lie_send_interval_secs)],
-            ["TIE Destination Port", self._tie_destination_port],
+            ["Receive TIE Port", self._rx_tie_port]
         ]
 
     def allocate_interface_id(self):
@@ -124,6 +138,10 @@ class Node:
         interface_id = self._next_interface_id
         self._next_interface_id += 1
         return interface_id
+
+    @property
+    def name(self):
+        return self._name
 
     # TODO: get rid of these properties, more complicated than needed. Just remote _ instead
     @property
@@ -140,25 +158,21 @@ class Node:
         return self.configured_level
 
     @property
-    def lie_ipv4_multicast_address(self):
-        return self._lie_ipv4_multicast_address
+    def lie_ipv4_mcast_address(self):
+        return self._rx_lie_ipv4_mcast_address
 
     @property
-    def lie_ipv6_multicast_address(self):
-        return self._lie_ipv6_multicast_address
+    def lie_ipv6_mcast_address(self):
+        return self._rx_lie_ipv6_mcast_address
 
     @property
     def lie_destination_port(self):
-        return self._lie_destination_port
+        return self._tx_lie_port
 
     @property
     def lie_send_interval_secs(self):
         return self._lie_send_interval_secs
 
     @property
-    def tie_destination_port(self):
-        return self._tie_destination_port
-
-    @property
-    def multicast_loop(self):
-        return self._multicast_loop
+    def mcast_loop(self):
+        return self._mcast_loop

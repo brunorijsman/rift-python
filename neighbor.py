@@ -1,4 +1,4 @@
-#from encoding.ttypes import PacketHeader, PacketContent, ProtocolPacket, LIEPacket
+import utils
 
 # TODO: Should we rename this to adjacency? The current draft mixes terms neighbor and adjacency.
 
@@ -35,16 +35,16 @@ class Neighbor:
     def cli_detailed_attributes(self):
         # TODO: Report capabilities (is it possible to report the unknown ones too?"
         if self.neighbor_system_id:
-            your_system_id_str = "{:016x}".format(self.neighbor_system_id)
+            your_system_id_str = utils.system_id_str(self.neighbor_system_id)
         else:
             your_system_id_str = ""
-        if self.neighbor_system_id:
+        if self.neighbor_link_id:
             your_link_id_str = "{}".format(self.neighbor_link_id)
         else:
             your_link_id_str = ""
         attributes = [
             ["Name", self.name],
-            ["System ID", "{:016x}".format(self.system_id)],
+            ["System ID", utils.system_id_str(self.system_id)],
             ["IPv4 Address", self.address],
             ["LIE UDP Source Port", self.port],
             ["Link ID", self.local_id],

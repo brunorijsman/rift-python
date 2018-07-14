@@ -5,10 +5,11 @@ import os
 import socket
 import random
 
+import constants
 import fsm
 import utils
-import multicast_send_handler
-import multicast_receive_handler
+import mcast_send_handler
+import mcast_receive_handler
 from neighbor import Neighbor
 import timer
 from packet_common import create_packet_header, encode_protocol_packet, decode_protocol_packet
@@ -17,7 +18,6 @@ import common.constants
 import common.ttypes
 from encoding.ttypes import PacketContent, NodeCapabilities, LIEPacket, ProtocolPacket
 import encoding.ttypes
-from encoding.constants import protocol_major_version
 
 # TODO: LIEs arriving with a TTL larger than 1 MUST be ignored.
 
@@ -38,16 +38,10 @@ class Interface:
 
     UNDEFINED_OR_ANY_POD = 0
 
-    @staticmethod
-    def generate_advertised_name(short_name, system_id):
-        hostname = socket.gethostname()
-        pid = os.getpid() 
-        if not hostname:
-            hostname = format(system_id, 'x')
-        return hostname + '-' + format(pid) + '-' + short_name
+    def generate_advertised_name(self):
+        return self._node.name + '-' + self._interface_name
 
-    @staticmethod
-    def get_mtu(interface_name):
+    def get_mtu(self):
         # TODO: Find a portable (or even non-portable) way to get the interface MTU
         # TODO: Find a way to be informed whenever the interface MTU changes
         mtu = 1500
@@ -120,7 +114,7 @@ class Interface:
         lie_packet = LIEPacket(
             name = self._advertised_name,
             local_id = self._local_id,
-            flood_port = self._node.tie_destination_port,
+            flood_port = self._node._rx_tie_port,
             link_mtu_size = self._mtu,
             neighbor = lie_neighbor,
             pod = self._pod,
@@ -133,7 +127,7 @@ class Interface:
         packet_content = PacketContent(lie = lie_packet)
         protocol_packet = ProtocolPacket(packet_header, packet_content)
         encoded_protocol_packet = encode_protocol_packet(protocol_packet)
-        self._multicast_send_handler.send_message(encoded_protocol_packet)
+        self._mcast_send_handler.send_message(encoded_protocol_packet)
         self.info(self._tx_log, "Send LIE {}".format(protocol_packet))
 
     def action_cleanup(self):
@@ -175,9 +169,9 @@ class Interface:
         if not header:
             self.warning(self._rx_log, "Received packet without header")
             return False
-        if header.major_version != protocol_major_version:
+        if header.major_version != constants.RIFT_MAJOR_VERSION:
             self.warning(self._rx_log, "Received packet with wrong major version (expected {} but got {})".format(
-                protocol_major_version, header.major_version))
+                constants.RIFT_MAJOR_VERSION, header.major_version))
             return False
         if not self.is_valid_received_system_id(header.sender):
             self.warning(self._rx_log, "Received packet with invalid system id")
@@ -203,7 +197,7 @@ class Interface:
             msg = "Neighbor local-id changed from {} to {}".format(self._neighbor.local_id, new_neighbor.local_id)
             minor_change = True
         if minor_change:
-            self._fsm.push_event(self.Event.NEIGHBOR_CHANGE_MINOR_FIELDS)
+            self.info(self._log, msg)
         return minor_change
         
     def action_process_lie(self, event_data):
@@ -245,7 +239,7 @@ class Interface:
             return
         # Section B.1.4.3.4
         if self.check_minor_change(new_neighbor): 
-            self._fsm.push_event(self.Event.NEIGHBOR_CHANGE_MINOR_FIELDS)
+            self._fsm.push_event(self.Event.NEIGHBOR_CHANGED_MINOR_FIELDS)
         self._neighbor = new_neighbor      # TODO: The draft does not specify this, but it is needed
         # Section B.1.4.3.5
         self.check_three_way()
@@ -332,26 +326,32 @@ class Interface:
         logger.warning("[{}] {}".format(self._log_id, msg))
 
     def __init__(self, node, config):
-        # TODO: process metric field in config
         # TODO: process bandwidth field in config
-        # TODO: process tx_lie_port field in config
-        # TODO: process rx_lie_port field in config
-        # TODO: process rx_tie_port field in config
         self._node = node
         self._interface_name = config['name']
-        # TODO: rename advertised name to advertised node name
-        # TODO: use node name if configured
-        # TODO: make node name optional and use hostname + process-id if not configured
-        self._advertised_name = Interface.generate_advertised_name(self._interface_name, node.system_id)   # TODO: rename to advertised_name
+        # TODO: Make the default metric/bandwidth depend on the speed of the interface
+        self._metric  = self.get_config_attribute(config, 'metric', common.constants.default_bandwidth)
+        self._advertised_name = self.generate_advertised_name()
         self._log_id = node._log_id + "-{}".format(self._interface_name)
         self._ipv4_address = utils.interface_ipv4_address(self._interface_name)
+        self._rx_lie_ipv4_mcast_address = self.get_config_attribute(
+            config, 'rx_lie_mcast_address', constants.DEFAULT_LIE_IPV4_MCAST_ADDRESS)
+        self._tx_lie_ipv4_mcast_address = self.get_config_attribute(
+            config, 'tx_lie_mcast_address', constants.DEFAULT_LIE_IPV4_MCAST_ADDRESS)
+        self._rx_lie_ipv6_mcast_address = self.get_config_attribute(
+            config, 'rx_lie_v6_mcast_address', constants.DEFAULT_LIE_IPV6_MCAST_ADDRESS)
+        self._tx_lie_ipv6_mcast_address = self.get_config_attribute(
+            config, 'tx_lie_v6_mcast_address', constants.DEFAULT_LIE_IPV6_MCAST_ADDRESS)
+        self._rx_lie_port = self.get_config_attribute(config, 'rx_lie_port', constants.DEFAULT_LIE_PORT)
+        self._tx_lie_port = self.get_config_attribute(config, 'tx_lie_port', constants.DEFAULT_LIE_PORT)
+        self._rx_tie_port = self.get_config_attribute(config, 'rx_tie_port', constants.DEFAULT_TIE_PORT)
         self._log = node._log.getChild("if")
         self.info(self._log, "Create interface")
         self._rx_log = self._log.getChild("rx")
         self._tx_log = self._log.getChild("tx")
         self._fsm_log = self._log.getChild("fsm")
         self._local_id = node.allocate_interface_id()
-        self._mtu = Interface.get_mtu(self._interface_name)
+        self._mtu = self.get_mtu()
         self._pod = self.UNDEFINED_OR_ANY_POD
         self._neighbor = None
         self._time_ticks_since_lie_received = None
@@ -364,26 +364,32 @@ class Interface:
             action_handler = self,
             log = self._fsm_log,
             log_id = self._log_id)
-        self._multicast_send_handler = multicast_send_handler.MulticastSendHandler(
+        self._mcast_send_handler = mcast_send_handler.McastSendHandler(
             self._interface_name,
-            node.lie_ipv4_multicast_address, 
-            node.lie_destination_port)
-        (source_address, source_port) = self._multicast_send_handler.source_address_and_port()
+            self._tx_lie_ipv4_mcast_address, 
+            self._tx_lie_port)
+        (source_address, source_port) = self._mcast_send_handler.source_address_and_port()
         self._lie_udp_source_port = source_port
-        self._multicast_receive_handler = multicast_receive_handler.MulticastReceiveHandler(
+        self._mcast_receive_handler = mcast_receive_handler.McastReceiveHandler(
             self._interface_name,
-            node.lie_ipv4_multicast_address, 
-            node.lie_destination_port,
-            node.multicast_loop,
-            self.receive_multicast_message)
+            self._rx_lie_ipv4_mcast_address, 
+            self._rx_lie_port,
+            node.mcast_loop,
+            self.receive_mcast_message)
         self._one_second_timer = timer.Timer(1.0, lambda: self._fsm.push_event(self.Event.TIMER_TICK))
 
+    def get_config_attribute(self, config, attribute, default):
+        if attribute in config:
+            return config[attribute]
+        else:
+            return default
+            
     def is_valid_received_system_id(self, system_id):
         if system_id == 0:
             return False
         return True
         
-    def receive_multicast_message(self, message, from_address_and_port):
+    def receive_mcast_message(self, message, from_address_and_port):
         # TODO: Handle decoding errors (does decode_protocol_packet throw an exception in that case? Try it...)
         protocol_packet = decode_protocol_packet(message)
         self.info(self._rx_log, "Receive {}".format(protocol_packet))
@@ -391,7 +397,7 @@ class Interface:
             self.warning(self._rx_log, "Received packet without content")
             return
         if protocol_packet.content.lie:
-            if self._node.multicast_loop and (self._node.system_id == protocol_packet.header.sender):
+            if self._node.mcast_loop and (self._node.system_id == protocol_packet.header.sender):
                 self.info(self._log, "Ignore looped back LIE packet")
             else:
                 event_data = (protocol_packet, from_address_and_port)
@@ -419,7 +425,7 @@ class Interface:
             return [
                 self._interface_name,
                 self._neighbor.name,
-                "{:016x}".format(self._neighbor.system_id),
+                utils.system_id_str(self._neighbor.system_id),
                 self._fsm._state.name]
         else:
             return [
@@ -431,10 +437,17 @@ class Interface:
     def cli_detailed_attributes(self):
         return [
             ["Interface Name", self._interface_name],
-            ["Interface IPv4 Address", self._ipv4_address],
-            ["LIE UDP Source Port", self._lie_udp_source_port],
-            ["System ID", "{:016x}".format(self._node._system_id)],
             ["Advertised Name", self._advertised_name],
+            ["Interface IPv4 Address", self._ipv4_address],
+            ["Metric", self._metric],
+            ["Receive LIE IPv4 Multicast Address", self._rx_lie_ipv4_mcast_address],
+            ["Transmit LIE IPv4 Multicast Address", self._tx_lie_ipv4_mcast_address],
+            ["Receive LIE IPv6 Multicast Address", self._rx_lie_ipv6_mcast_address],
+            ["Transmit LIE IPv6 Multicast Address", self._tx_lie_ipv6_mcast_address],
+            ["Receive LIE Port", self._rx_lie_port],
+            ["Transmit LIE Port", self._tx_lie_port],
+            ["Receive TIE Port", self._rx_tie_port],
+            ["System ID", utils.system_id_str(self._node._system_id)],
             ["Local ID", self._local_id],
             ["MTU", self._mtu],
             ["POD", self._pod],
