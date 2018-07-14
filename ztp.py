@@ -39,7 +39,7 @@ class Ztp:
         #          if level > leaf then UPDATE_OFFER else REMOVE_OFFER
         pass
 
-    
+
 
 
     transitions = {
