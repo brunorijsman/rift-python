@@ -20,23 +20,27 @@ class Ztp:
         COMPUTATION_DONE = 9
         HOLDDOWN_EXPIRED = 10
 
-    # on  LostHAT in ComputeBestOffer finishes in ComputeBestOffer:  LEVEL_COMPUTE
-    # on  LostHAT in HoldingDown   finishes in HoldingDown: NO_ACTION
-    # on    LostHAL in HoldingDown    finishes in HoldingDown: NO_ACTION
-    # on   ChangeLocalLeafIndications in UpdatingClients    finishes in    ComputeBestOffer: STORE_LEAF_FLAGS
-    # on    LostHAT in UpdatingClients    finishes in ComputeBestOffer: no    action
-    # on    BetterHAT in HoldingDown    finishes in HoldingDown: NO_ACTION
+    # on  LOST_HAT in ComputeBestOffer finishes in ComputeBestOffer:  LEVEL_COMPUTE
+    # on  LOST_HAT in HOLDING_DOWN   finishes in HOLDING_DOWN: NO_ACTION
+    # on  LOST_HAL in HOLDING_DOWN    finishes in HOLDING_DOWN: NO_ACTION
+    # on  CHANGE_LOCAL_LEAF_INDICATIONS in UpdatingClients    finishes in    ComputeBestOffer: STORE_LEAF_FLAGS
+    # on  LOST_HAT in UpdatingClients    finishes in ComputeBestOffer: NO_ACTION
+    # on    BETTER_HAT in HOLDING_DOWN    finishes in HoldingDown: NO_ACTION
     # on    NeighborOffer in ComputeBestOffer    finishes in ComputeBestOffer: NO_ACTION
-    #     if no level offered REMOVE_OFFER else
-    #     if level > leaf then UPDATE_OFFER else REMOVE_OFFER
+    #     if no level offered
+    #           then REMOVE_OFFER
+    #           else  if level > leaf
+    #                   then UPDATE_OFFER
+    #                   else REMOVE_OFFER
     # on    BetterHAT in UpdatingClients    finishes in ComputeBestOffer: NO_ACTION
-    # on    ChangeLocalConfiguredLevel in HoldingDown    finishes in    ComputeBestOffer: STORE_LEVEL
+    # on    ChangeLocalConfiguredLevel in HOLDING_DOWN    finishes in    ComputeBestOffer: STORE_LEVEL
     # on    BetterHAL in ComputeBestOffer    finishes in ComputeBestOffer:    LEVEL_COMPUTE
-    # on    HoldDownExpired in HoldingDown    finishes in ComputeBestOffer:    PURGE_OFFERS
-    # on    ShortTic in HoldingDown    finishes in HoldingDown:
-    #    if HOLDDOWN_TIMER_EXPIRED        PUSH_EVENT        holddownexpired
+    # on    HoldDownExpired in HOLDING_DOWN    finishes in ComputeBestOffer:    PURGE_OFFERS
+    # on    ShortTic in HOLDING_DOWN    finishes in HOLDING_DOWN:
+    #    if HOLDDOWN_TIMER_EXPIRED
+    #           then PUSH_EVENT   HOLDDOWN_EXPIRED
     # on    ComputationDone in ComputeBestOffer    finishes in    UpdatingClients: NO_ACTION
-    # on    LostHAL in UpdatingClients    finishes in HoldingDown:
+    # on    LostHAL in UpdatingClients    finishes in HOLDING_DOWN:
     #     if any southbound adjacencies present
     #         then update holddown timer to normal duration
     #         else fire   holddown    timer    immediately
@@ -74,6 +78,10 @@ class Ztp:
 
 # on LostHAT in ComputeBestOffer finishes in ComputeBestOffer:
     #       LEVEL_COMPUTE
+
+    def action_no_action(self):
+        pass
+
     def action_level_compute(self):
         # TODO:
         pass
