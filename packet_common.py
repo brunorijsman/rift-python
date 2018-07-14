@@ -11,6 +11,23 @@ from encoding.ttypes import PacketHeader, ProtocolPacket
 RIFT_MAJOR_VERSION = 11
 RIFT_MINOR_VERSION = 0
 
+# What follows are some horrible hacks to deal with the fact that Thrift only support signed 16, 32, and 64 bit numbers
+# and not unsigned 16, 32, and 64 bit numbers. The RIFT specification has several fields are intended to contain an 
+# unsigned 16, 32 or 64 bit number, but that are actually specified as a signed 32 or 64 bit number. Just look for the 
+# following text in the specification:
+#   MUST be interpreted in implementation as unsigned ...
+# where ... can be 8 bits, or 1
+#   MUST be interpreted in implementation as unsigned 16 bits
+#   MUST be interpreted in implementation as unsigned 32 bits
+#   MUST be interpreted in implementation as unsigned 64 bits
+#
+# 
+# does not support unsigned 32 bit number or
+# unsigned 64 bit numbers. We need to encode
+
+# def encode_i64(u64):
+# !TODO: Continue from here after I implement the passive flag
+
 def create_packet_header(node):
     packet_header = PacketHeader(
         major_version = RIFT_MAJOR_VERSION,

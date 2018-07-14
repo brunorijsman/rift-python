@@ -4,6 +4,7 @@ import socket
 import sortedcontainers
 import uuid
 
+import rift
 import cli_listen_handler
 import constants
 import interface
@@ -70,7 +71,7 @@ class Node:
     def generate_name(self):
         return socket.gethostname().split('.')[0] + str(self._node_nr)
 
-    def __init__(self, config):
+    def __init__(self, rift, config):
         # TODO: process passive field in config
         # TODO: process level field in config
         # TODO: process systemid field in config
@@ -78,10 +79,13 @@ class Node:
         # TODO: process config_thrift_services_port field in config
         # TODO: process v4prefixes field in config
         # TODO: process v6prefixes field in config
+        self._rift = rift
         self._config = config
         self._node_nr = Node._next_node_nr
         Node._next_node_nr += 1
         self._name = self.get_config_attribute(config, 'name', self.generate_name())
+        self._passive = self.get_config_attribute(config, 'passive', False)
+        self._running = self.is_running()
         self._system_id = self.get_config_attribute(config, 'systemid', self.generate_system_id())
         self._log_id = utils.system_id_str(self._system_id)
         self._log = logging.getLogger('node')
@@ -107,6 +111,15 @@ class Node:
             for interface_config in self._config['interfaces']:
                 self.create_interface(interface_config)
 
+    def is_running(self):
+        if self._rift.active_nodes == rift.Rift.ActiveNodes.ONLY_PASSIVE_NODES:
+            running = self._passive
+        elif self._rift.active_nodes == rift.Rift.ActiveNodes.ALL_NODES_EXCEPT_PASSIVE_NODES:
+            running = not self._passive
+        else:
+            running = True
+        return running
+
     def get_config_attribute(self, config, attribute, default):
         if attribute in config:
             return config[attribute]
@@ -120,6 +133,8 @@ class Node:
     def cli_detailed_attributes(self):
         return [
             ["Name", self._name],
+            ["Passive", self._passive],
+            ["Running", self.is_running()],
             ["System ID", utils.system_id_str(self._system_id)],
             ["Configured Level", self._configured_level],
             ["Multicast Loop", self._mcast_loop],
@@ -176,3 +191,7 @@ class Node:
     @property
     def mcast_loop(self):
         return self._mcast_loop
+
+    @property
+    def running(self):
+        return self._running
