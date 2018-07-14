@@ -38,16 +38,10 @@ class Interface:
 
     UNDEFINED_OR_ANY_POD = 0
 
-    @staticmethod
-    def generate_advertised_name(short_name, system_id):
-        hostname = socket.gethostname()
-        pid = os.getpid() 
-        if not hostname:
-            hostname = format(system_id, 'x')
-        return hostname + '-' + format(pid) + '-' + short_name
+    def generate_advertised_name(self):
+        return self._node.name + '-' + self._interface_name
 
-    @staticmethod
-    def get_mtu(interface_name):
+    def get_mtu(self):
         # TODO: Find a portable (or even non-portable) way to get the interface MTU
         # TODO: Find a way to be informed whenever the interface MTU changes
         mtu = 1500
@@ -337,10 +331,7 @@ class Interface:
         self._interface_name = config['name']
         # TODO: Make the default metric/bandwidth depend on the speed of the interface
         self._metric  = self.get_config_attribute(config, 'metric', common.constants.default_bandwidth)
-        # TODO: rename advertised name to advertised node name
-        # TODO: use node name if configured
-        # TODO: make node name optional and use hostname + process-id if not configured
-        self._advertised_name = Interface.generate_advertised_name(self._interface_name, node.system_id)
+        self._advertised_name = self.generate_advertised_name()
         self._log_id = node._log_id + "-{}".format(self._interface_name)
         self._ipv4_address = utils.interface_ipv4_address(self._interface_name)
         self._rx_lie_ipv4_mcast_address = self.get_config_attribute(
@@ -360,7 +351,7 @@ class Interface:
         self._tx_log = self._log.getChild("tx")
         self._fsm_log = self._log.getChild("fsm")
         self._local_id = node.allocate_interface_id()
-        self._mtu = Interface.get_mtu(self._interface_name)
+        self._mtu = self.get_mtu()
         self._pod = self.UNDEFINED_OR_ANY_POD
         self._neighbor = None
         self._time_ticks_since_lie_received = None
@@ -446,6 +437,7 @@ class Interface:
     def cli_detailed_attributes(self):
         return [
             ["Interface Name", self._interface_name],
+            ["Advertised Name", self._advertised_name],
             ["Interface IPv4 Address", self._ipv4_address],
             ["Metric", self._metric],
             ["Receive LIE IPv4 Multicast Address", self._rx_lie_ipv4_mcast_address],
@@ -456,7 +448,6 @@ class Interface:
             ["Transmit LIE Port", self._tx_lie_port],
             ["Receive TIE Port", self._rx_tie_port],
             ["System ID", "{:016x}".format(self._node._system_id)],
-            ["Advertised Name", self._advertised_name],
             ["Local ID", self._local_id],
             ["MTU", self._mtu],
             ["POD", self._pod],
