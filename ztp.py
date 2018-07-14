@@ -99,12 +99,12 @@ class Ztp:
         self.action_level_compute()
 
     #
-    def action_update_or_remove_offer(self):
+    def action_update_or_remove_offer(self, offer):
+
         # TODO:
         #          if no level offered REMOVE_OFFER else
         #          if level > leaf then UPDATE_OFFER else REMOVE_OFFER
-        pass
-
+        if offer
     #
     def action_store_level(self):
         # TODO:
@@ -141,6 +141,7 @@ class Ztp:
             self._fsm.push_event(self.Event.HOLD_DOWN_EXPIRED)
 
 
+<<<<<<< Updated upstream
     def action_update_all_lie_fsm_with_computation_results(self):
         # TODO:
         pass
@@ -154,6 +155,9 @@ class Ztp:
 
         # TODO:
         pass
+=======
+#pascal
+>>>>>>> Stashed changes
 
     #
 
@@ -166,6 +170,7 @@ class Ztp:
         State.UPDATING_CLIENTS: state_updating_clients_transitions,
         State.HOLDING_DOWN: state_holding_down_transitions,
         State.COMPUTE_BEST_OFFER: state_compute_best_offer_transitions
+        # Iliya
     }
 
     state_entry_actions = {
@@ -184,6 +189,7 @@ class Ztp:
 
         self._node = node
         self._name = 'ztp'
+        seld.al={0:{}}
         # TODO: Make the default metric/bandwidth depend on the speed of the interface
         self._log = node._log.getChild("ztp")
         self.info(self._log, "Zero touch provisioning state machine")
