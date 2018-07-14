@@ -1,5 +1,4 @@
 
-import common
 
 class Ztp:
     @enum.unique
@@ -21,24 +20,75 @@ class Ztp:
         COMPUTATION_DONE = 9
         HOLDDOWN_EXPIRED = 10
 
+    # on  LostHAT in ComputeBestOffer finishes in ComputeBestOffer:  LEVEL_COMPUTE
+    # on  LostHAT in HoldingDown   finishes in HoldingDown: NO_ACTION
+    # on    LostHAL in HoldingDown    finishes in HoldingDown: NO_ACTION
+    # on   ChangeLocalLeafIndications in UpdatingClients    finishes in    ComputeBestOffer: STORE_LEAF_FLAGS
+    # on    LostHAT in UpdatingClients    finishes in ComputeBestOffer: no    action
+    # on    BetterHAT in HoldingDown    finishes in HoldingDown: NO_ACTION
+    # on    NeighborOffer in ComputeBestOffer    finishes in ComputeBestOffer: NO_ACTION
+    #     if no level offered REMOVE_OFFER else
+    #     if level > leaf then UPDATE_OFFER else REMOVE_OFFER
+    # on    BetterHAT in UpdatingClients    finishes in ComputeBestOffer: NO_ACTION
+    # on    ChangeLocalConfiguredLevel in HoldingDown    finishes in    ComputeBestOffer: STORE_LEVEL
+    # on    BetterHAL in ComputeBestOffer    finishes in ComputeBestOffer:    LEVEL_COMPUTE
+    # on    HoldDownExpired in HoldingDown    finishes in ComputeBestOffer:    PURGE_OFFERS
+    # on    ShortTic in HoldingDown    finishes in HoldingDown:
+    #    if HOLDDOWN_TIMER_EXPIRED        PUSH_EVENT        holddownexpired
+    # on    ComputationDone in ComputeBestOffer    finishes in    UpdatingClients: NO_ACTION
+    # on    LostHAL in UpdatingClients    finishes in HoldingDown:
+    #     if any southbound adjacencies present
+    #         then update holddown timer to normal duration
+    #         else fire   holddown    timer    immediately
+    # on     NeighborOffer in UpdatingClients    finishes in UpdatingClients:
+    #     if no level offered REMOVE_OFFER else
+    #     if level > leaf then UPDATE_OFFER else REMOVE_OFFER
+    # on ChangeLocalConfiguredLevel in ComputeBestOffer finishes in ComputeBestOffer: store CONFIGURED level and LEVEL_COMPUTE
+    # on NeighborOffer in HoldingDown finishes in HoldingDown:
+    #     if no level offered REMOVE_OFFER else
+    #     if level > leaf then UPDATE_OFFER else REMOVE_OFFER
+    # on LostHAL in ComputeBestOffer finishes in HoldingDown:
+    #     if any    southbound    adjacencies    present
+    #         then     update    holddown    timer    to    normal duration
+    #         else fire holddown timer immediately
+    # on BetterHAT in ComputeBestOffer finishes in ComputeBestOffer: LEVEL_COMPUTE
+    # on WithdrawNeighborOffer in ComputeBestOffer finishes in ComputeBestOffer: REMOVE_OFFER
+    # on ChangeLocalLeafIndications in ComputeBestOffer finishes in       ComputeBestOffer: store leaf flags and LEVEL_COMPUTE
+    # on BetterHAL in HoldingDown finishes in HoldingDown: no action
+    # on WithdrawNeighborOffer in HoldingDown finishes in HoldingDown:      REMOVE_OFFER
+    # on ChangeLocalLeafIndications in HoldingDown finishes in      ComputeBestOffer: store leaf flags
+    # on ChangeLocalConfiguredLevel in UpdatingClients finishes in      ComputeBestOffer: store level
+    # on ComputationDone in HoldingDown finishes in HoldingDown:
+    # on BetterHAL in UpdatingClients finishes in ComputeBestOffer: no      action
+    # on WithdrawNeighborOffer in UpdatingClients finishes in      UpdatingClients: REMOVE_OFFER
+    # on Entry into UpdatingClients: update all LIE FSMs with      computation results
+    # on Entry into ComputeBestOffer: LEVEL_COMPUTE
 
-    # on LostHAT in ComputeBestOffer finishes in ComputeBestOffer:
+   #  Following words are used for well known procedures:
+   # 1.  PUSH Event: pushes an event to be executed by the FSM upon exit  of this action
+   # 2.  COMPARE_OFFERS: checks whether based on current offers and held    last results the events BetterHAL/LostHAL/BetterHAT/LostHAT are       necessary and returns them
+   # 3.  UPDATE_OFFER: store current offer and COMPARE_OFFERS, PUSH   according events
+   # 4.  LEVEL_COMPUTE: compute best offered or configured level and HAL/  HAT, if anything changed PUSH ComputationDone
+   # 5.  REMOVE_OFFER: remove the according offer and COMPARE_OFFERS, PUSH       according events
+   # 6.  PURGE_OFFERS: REMOVE_OFFER for all held offers, COMPARE OFFERS,       PUSH according events
+
+# on LostHAT in ComputeBestOffer finishes in ComputeBestOffer:
     #       LEVEL_COMPUTE
-    def action_compute_level(self):
+    def action_level_compute(self):
         # TODO:
         pass
 
-    #
+    #on ChangeLocalLeafIndications in UpdatingClients finishes in ComputeBestOffer: store leaf flags
     def action_store_leaf_flag(self):
         # TODO:
         pass
 
 
     #
-    def action_store_leaf_flag_and_compute_level(self):
+    def action_store_leaf_flag_and_level_compute(self):
         #
         self.action_store_leaf_flag()
-        self.action_compute_level()
+        self.action_level_compute()
 
     #
     def action_update_offer_if_non_null(self):
@@ -56,8 +106,10 @@ class Ztp:
 
     def action_store_level_and_compute_level(self):
         #
+        #TODO what is first store level or compute level?
+
         self.action_store_level()
-        self.action_compute_level()
+        self.action_level_compute()
 
     #
     def action_purge_offers(self):
@@ -84,13 +136,13 @@ class Ztp:
 
 
     transitions = {
-        State.UPDATING_CLIENTS: state_one_way_transitions,
-        State.HOLDING_DOWN: state_two_way_transitions,
-        State.COMPUTE_BEST_OFFER: state_three_way_transitions
+        State.UPDATING_CLIENTS: state_updating_clients_transitions,
+        State.HOLDING_DOWN: state_holding_down_transitions,
+        State.COMPUTE_BEST_OFFER: state_compute_best_offer_transitions
     }
 
     state_entry_actions = {
-        State.COMPUTE_BEST_OFFER: []
+ #       State.COMPUTE_BEST_OFFER: []
     }
 
 
@@ -110,7 +162,8 @@ class Ztp:
         self.info(self._log, "Zero touch provisioning state machine")
         self._log_id = node._log_id + "-{}".format(self._name)
         self._fsm_log = self._log.getChild("fsm")
-        self._holdtime = common.default_holdtime
+        #TODO take ztp hold time from init file
+        self._holdtime = 1
         self._fsm = fsm.FiniteStateMachine(
             state_enum = self.State,
             event_enum = self.Event,
