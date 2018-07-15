@@ -364,6 +364,10 @@ class Interface:
             action_handler = self,
             log = self._fsm_log,
             log_id = self._log_id)
+        if self._node.running:
+            self.run()
+
+    def run(self):
         self._mcast_send_handler = mcast_send_handler.McastSendHandler(
             self._interface_name,
             self._tx_lie_ipv4_mcast_address, 
@@ -374,7 +378,7 @@ class Interface:
             self._interface_name,
             self._rx_lie_ipv4_mcast_address, 
             self._rx_lie_port,
-            node.mcast_loop,
+            self._node.mcast_loop,
             self.receive_mcast_message)
         self._one_second_timer = timer.Timer(1.0, lambda: self._fsm.push_event(self.Event.TIMER_TICK))
 

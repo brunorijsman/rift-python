@@ -124,3 +124,48 @@ Installing setuptools, pkg_resources, pip, wheel...done.
 </pre>
 
 ### Activate the Python virtual environment
+
+While still in the rift-fsm directory, activate the newly created Python environment:
+
+<pre>
+$ <b>source env/bin/activat</b>
+(env) $ 
+</pre>
+
+### Use pip to install dependecies
+
+Use pip to install the external following modules. It is important that you have activated
+the virtual environment as described in the previous step before you install these dependencies.
+
+Install the trift module which is used to encode and decode Thrift messages:
+
+<pre>
+(env) $ <b>pip install thrift</b>
+</pre>
+
+Install the sortedcontainers module which is used to created Python containers (e.g. dictionaries) that are sorted by key value:
+
+<pre>
+(env) $ <b>pip install sortedcontainers</b>
+</pre>
+
+Install the netifaces module which provides cross-platform portable code for retrieving information about interfaces and their addresses:
+
+<pre>
+(env) $ <b>pip install netifaces</b>
+</pre>
+
+Install the pyyaml module which is used to parse YAML files:
+
+<pre>
+(env) $ <b>pip install pyyaml</b>
+</pre>
+
+Install the cerberus module which is used to validate whether the data stored in a YAML file conforms to a data model (schema):
+
+<pre>
+(env) $ <b>pip install cerberus</b>
+</pre>
+
+
+
