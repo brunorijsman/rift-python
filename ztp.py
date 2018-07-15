@@ -87,7 +87,47 @@ class Ztp:
    # 5.  REMOVE_OFFER: remove the according offer and COMPARE_OFFERS, PUSH       according events
    # 6.  PURGE_OFFERS: REMOVE_OFFER for all held offers, COMPARE OFFERS,       PUSH according events
 
-# on LostHAT in ComputeBestOffer finishes in ComputeBestOffer:
+    #4.2.9.4.Level Determination Procedure
+
+    # A node starting up with UNDEFINED_VALUE (i.e. without a
+    # CONFIGURED_LEVEL or any leaf or superspine flag) MUST follow those
+    # additional procedures:
+
+    # 1.  It advertises its LEVEL_VALUE on all LIEs (observe that this can
+    # be UNDEFINED_LEVEL which in terms of the schema is simply an
+    # omitted optional value).
+
+    # 2.  It chooses on an ongoing basis from all VOLs the value of
+    # MAX(HAL-1,0) as its DERIVED_LEVEL.  The node then starts to
+    # advertise this derived level.
+
+    # 3.  A node that lost all adjacencies with HAL value MUST hold down
+    # computation of new DERIVED_LEVEL for a short period of time
+    # unless it has no VOLs from southbound adjacencies.  After the
+    # holddown expired, it MUST discard all received offers, recompute
+    # DERIVED_LEVEL and announce it to all neighbors.
+
+    # 4.  A node MUST reset any adjacency that has changed the level it is
+    # offering and is in three way state.
+
+    # 5.  A node that changed its defined level value MUST readvertise its
+    # own TIEs (since the new `PacketHeader` will contain a different
+    # level than before).  Sequence number of each TIE MUST be
+    # increased.
+
+    # 6.  After a level has been derived the node MUST set the
+    # `not_a_ztp_offer` on LIEs towards all systems extending a VOL for
+    # HAL.
+
+    # A node starting with LEVEL_VALUE being 0 (i.e. it assumes a leaf
+    # function by being configured with the appropriate flags or has a
+    # CONFIGURED_LEVEL of 0) MUST follow those additional procedures:
+
+    # 1.  It computes HAT per procedures above but does NOT use it to
+    # compute DERIVED_LEVEL.  HAT is used to limit adjacency formation
+    # per Section 4.2.2.
+
+    # on LostHAT in ComputeBestOffer finishes in ComputeBestOffer:
     #       LEVEL_COMPUTE
 
     def compute_best_offer(self):
