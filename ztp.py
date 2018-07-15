@@ -170,23 +170,19 @@ class Ztp:
     def action_level_compute(self):
         # TODO:
         if not i_am_a_leaf(self):
-            highest_level = max(al.keys())
-
-
-
-            if len(al[highest_level]) >=  ZTP_MIN_NUMBER_OF_PEER_FOR_LEVEL
+            _hal = max(_al.keys())
 
 
         highest_level = common.constants.leaf_level
-        for level in al.keys():
-            if len(al[level]) >=  ZTP_MIN_NUMBER_OF_PEER_FOR_LEVEL
+        for level in _al.keys():
+            if len(_al[level]) >=  ZTP_MIN_NUMBER_OF_PEER_FOR_LEVEL
                 if level >= highest_level
                     highest_level = level
 
         if highest_level != common.constants.leaf_level
-            return highest_level
-
-        return max(al.keys())
+            _hal = highest_level
+        else
+            _hal = max(al.keys())
 
 
     #on ChangeLocalLeafIndications in UpdatingClients finishes in ComputeBestOffer: store leaf flags
