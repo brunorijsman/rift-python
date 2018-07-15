@@ -185,7 +185,7 @@ class Ztp:
         highest_level = common.constants.leaf_level
         for level in self._al.keys():
             if len(self._al[level]) >=  Ztp.ZTP_MIN_NUMBER_OF_PEER_FOR_LEVEL:
-                if level >= highest_level
+                if level >= highest_level:
                     highest_level = level
 
         if highest_level != common.constants.leaf_level:
@@ -319,7 +319,7 @@ class Ztp:
 
     def __init__(self, node: node.Node, config):
 
-        Node self._node = node
+        self._node = node
         self._name = 'ztp'
         self._al={0:{}}
         self._hal = common.constants.leaf_level
