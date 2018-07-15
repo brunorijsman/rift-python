@@ -130,11 +130,40 @@ class Ztp:
     # on LostHAT in ComputeBestOffer finishes in ComputeBestOffer:
     #       LEVEL_COMPUTE
 
-    def compute_best_offer(self):
+    def i_am_a_leaf(self):
+        return False
 
-        # highest_level = max(al.keys())
-        # if len(al[highest_level]) >=  ZTP_MIN_NUMBER_OF_PEER_FOR_LEVEL
-        #     return highest_level
+    def remove_offer(self, offer):
+        for level in -al.keys():
+            if offer.systemId in _al[level]:
+                del _al[level][offer.systemId]
+
+    #
+    def update_offer(self, offer):
+        if not offer.level in self.al:
+            self.al[offer.level] = {}
+
+        self.al[offer.level][offer.systemId] = offer
+        pass
+
+
+
+    def compare_offers(self):
+
+
+
+    def action_no_action(self):
+        pass
+
+    def action_level_compute(self):
+        # TODO:
+        if not i_am_a_leaf(self):
+            highest_level = max(al.keys())
+
+
+
+            if len(al[highest_level]) >=  ZTP_MIN_NUMBER_OF_PEER_FOR_LEVEL
+
 
         highest_level = common.constants.leaf_level
         for level in al.keys():
@@ -148,32 +177,20 @@ class Ztp:
         return max(al.keys())
 
 
-
-    def action_no_action(self):
-        pass
-
-    def action_level_compute(self):
-        # TODO:
-        pass
-
     #on ChangeLocalLeafIndications in UpdatingClients finishes in ComputeBestOffer: store leaf flags
     def action_store_leaf_flag(self):
         # TODO:
         pass
 
 
-    #
 
     def action_update_or_remove_offer(self, offer):
 
         # TODO:
         #          if no level offered REMOVE_OFFER else
         #          if level > leaf then UPDATE_OFFER else REMOVE_OFFER
+
         if offer is not None and offer.is_a_ztp_offer
-            if not offer.level in self.al
-                self.al[offer.level] = {offer.systemId, offer}
-            else
-                self.al[offer.level][offer.systemId] = offer
         current_hal = self.hal
         self.hal = self.compute_best_offer()
         # TODO: trigger something if it changed
