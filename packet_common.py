@@ -119,10 +119,8 @@ def fix_packet(packet, fixes, encode):
                 size = do_what
                 new_value = fix_value(value, size, encode)
                 setattr(packet, field_name, new_value)
-                print('*** Fix', encode, field_name, size, value, new_value) # !DEBUG
             else:
                 nested_fixes = do_what
-                print('*** Recurse', field_name) # !DEBUG
                 fix_packet(getattr(packet, field_name), nested_fixes, encode)
 
 def fix_packet_before_encode(packet, fixes):
