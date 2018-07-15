@@ -56,7 +56,7 @@ Install virtualenv so that you can create a virtual environment for your project
 $ <b>sudo apt-get install -y virtualenv</b>
 </pre>
 
-Verify that virtualenv has been properly installed by asking for the version:
+Verify that virtualenv has been properly installed by asking for the version (the exact version number may be different when you run the command, which is okay):
 
 <pre>
 $ <b>virtualenv --version</b>
@@ -74,7 +74,7 @@ $ <b>git --version</b>
 git version 2.7.4
 </pre>
 
-However, if you need to install Python 3 yourself you can do so as follows:
+However, if you need to install git yourself you can do so as follows:
 
 <pre>
 $ <b>sudo apt-get install -y git</b>
