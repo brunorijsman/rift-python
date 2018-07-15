@@ -3,9 +3,10 @@ sys.path.append('gen-py')
 
 import common.constants
 
+import enum
 import offer
 import node
-import enum
+import fsm
 
 class Ztp:
 
