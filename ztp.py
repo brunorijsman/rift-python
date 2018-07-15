@@ -158,24 +158,16 @@ class Ztp:
         self.al[offer.level][offer.systemId] = offer
         pass
 
+    def level_compute(self):
 
-
-    def compare_offers(self):
-
-
-
-    def action_no_action(self):
-        pass
-
-    def action_level_compute(self):
         # TODO:
         if not i_am_a_leaf(self):
             _hal = max(_al.keys())
 
-
+        # for leaves we play a special game of having at least 3 parents
         highest_level = common.constants.leaf_level
         for level in _al.keys():
-            if len(_al[level]) >=  ZTP_MIN_NUMBER_OF_PEER_FOR_LEVEL
+            if len(_al[level]) >= ZTP_MIN_NUMBER_OF_PEER_FOR_LEVEL
                 if level >= highest_level
                     highest_level = level
 
@@ -183,6 +175,17 @@ class Ztp:
             _hal = highest_level
         else
             _hal = max(al.keys())
+
+    def compare_offers(self):
+        old_hal = self._hal
+        self.level_compute()
+
+
+    def action_no_action(self):
+        pass
+
+    def action_level_compute(self):
+        self.level_compute()
 
 
     #on ChangeLocalLeafIndications in UpdatingClients finishes in ComputeBestOffer: store leaf flags
@@ -318,8 +321,8 @@ class Ztp:
 
         self._node = node
         self._name = 'ztp'
-        self.al={0:{}}
-        self.hal = common.constants.leaf_level
+        self._al={0:{}}
+        self._hal = common.constants.leaf_level
         # TODO: Make the default metric/bandwidth depend on the speed of the interface
         self._log = node._log.getChild("ztp")
         self.info(self._log, "Zero touch provisioning state machine")
