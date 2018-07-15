@@ -1,4 +1,5 @@
 import common.constants
+import node
 
 class Ztp:
 
@@ -86,6 +87,17 @@ class Ztp:
    # 4.  LEVEL_COMPUTE: compute best offered or configured level and HAL/  HAT, if anything changed PUSH ComputationDone
    # 5.  REMOVE_OFFER: remove the according offer and COMPARE_OFFERS, PUSH       according events
    # 6.  PURGE_OFFERS: REMOVE_OFFER for all held offers, COMPARE OFFERS,       PUSH according events
+
+    # LEVEL_VALUE:  In ZTP case the original definition of "level" in   Section 2.1 is both extended and relaxed.  First, level is defined
+    # now as LEVEL_VALUE and is the first defined value of    CONFIGURED_LEVEL followed by DERIVED_LEVEL.  Second, it is
+    # possible for nodes to be more than one level apart to form adjacencies if any of the nodes is at least LEAF_ONLY.
+
+    # Valid Offered Level (VOL):  A neighbor's level received on a valid  LIE (i.e. passing all checks for adjacency formation while  disregarding all clauses
+    # involving level values) persisting for the duration of the holdtime interval on the LIE.  Observe that   offers from nodes offering level value of 0 do
+    # not constitute VOLs  (since no valid DERIVED_LEVEL can be obtained from those).  Offers from LIEs with `not_a_ztp_offer` being true are not VOLs either.
+
+    # Highest Available Level (HAL):  Highest defined level value seen from  all VOLs received.
+    # Highest Adjacency Three Way (HAT):  Highest neigbhor level of all the   formed three way adjacencies for the node.
 
     #4.2.9.4.Level Determination Procedure
 
@@ -302,6 +314,10 @@ class Ztp:
         self._fsm_log = self._log.getChild("fsm")
         #TODO take ztp hold time from init file
         self._holdtime = 1
+        self._configured_level = self._node.
+        self._derived_level = None
+        self._hal = None
+        self._hat = None
         self._fsm = fsm.FiniteStateMachine(
             state_enum = self.State,
             event_enum = self.Event,
