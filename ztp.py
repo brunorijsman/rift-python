@@ -33,54 +33,49 @@ class Ztp:
     #                   else REMOVE_OFFER
     # on    BetterHAL in ComputeBestOffer    finishes in ComputeBestOffer:    LEVEL_COMPUTE
     # on    ShortTic in COMPUTE_BEST_OFFER    finishes in COMPUTE_BEST_OFFER:
-
-
-    # on  LOST_HAT in HOLDING_DOWN   finishes in HOLDING_DOWN: NO_ACTION
-    # on  LOST_HAL in HOLDING_DOWN    finishes in HOLDING_DOWN: NO_ACTION
-    # on  BETTER_HAT in HOLDING_DOWN    finishes in HoldingDown: NO_ACTION
-    # on    ChangeLocalConfiguredLevel in HOLDING_DOWN    finishes in    ComputeBestOffer: STORE_LEVEL
-    # on    HoldDownExpired in HOLDING_DOWN    finishes in ComputeBestOffer:    PURGE_OFFERS
-
-
-    # on  CHANGE_LOCAL_LEAF_INDICATIONS in UpdatingClients    finishes in    ComputeBestOffer: STORE_LEAF_FLAGS
-    # on  LOST_HAT in UpdatingClients    finishes in ComputeBestOffer: NO_ACTION
-    # on    BetterHAT in UpdatingClients    finishes in ComputeBestOffer: NO_ACTION
-    # on    ShortTic in UPDATING_CLIENTS    finishes in UPDATING_CLIENTS:
-#
-    # on    ShortTic in HOLDING_DOWN    finishes in HOLDING_DOWN: action_check_hold_time_expired
-    #    if HOLDDOWN_TIMER_EXPIRED
-    #           then PUSH_EVENT   HOLDDOWN_EXPIRED
-
-
-    # on    ComputationDone in ComputeBestOffer    finishes in    UpdatingClients: NO_ACTION
+    # on BetterHAT in ComputeBestOffer finishes in ComputeBestOffer: LEVEL_COMPUTE
+    # on WithdrawNeighborOffer in ComputeBestOffer finishes in ComputeBestOffer: REMOVE_OFFER
+    # on ChangeLocalLeafIndications in ComputeBestOffer finishes in   ComputeBestOffer: action_store_leaf_flag,action_level_compute
+    # on ComputationDone in ComputeBestOffer    finishes in    UpdatingClients: NO_ACTION
     # on ChangeLocalConfiguredLevel in ComputeBestOffer finishes in ComputeBestOffer:  action_store_level, action_level_compute
-
-    # on    LostHAL in UpdatingClients    finishes in HOLDING_DOWN: action_update_holddown_timer_on_lost_hal
-    #     if any southbound adjacencies present
-    #         then update holddown timer to normal duration
-    #         else fire   holddown    timer    immediately
-    # on     NeighborOffer in UpdatingClients    finishes in UpdatingClients: action_update_or_remove_offer
-    #     if no level offered REMOVE_OFFER else
-    #     if level > leaf then UPDATE_OFFER else REMOVE_OFFER
-
-
-    # on NeighborOffer in HoldingDown finishes in HoldingDown: action_update_or_remove_offer
-    #     if no level offered REMOVE_OFFER else
-    #     if level > leaf then UPDATE_OFFER else REMOVE_OFFER
     # on LostHAL in ComputeBestOffer finishes in HoldingDown: action_update_holddown_timer_on_lost_hal
     #     if any    southbound    adjacencies    present
     #         then     update    holddown    timer    to    normal duration
     #         else fire holddown timer immediately
-    # on BetterHAT in ComputeBestOffer finishes in ComputeBestOffer: LEVEL_COMPUTE
-    # on WithdrawNeighborOffer in ComputeBestOffer finishes in ComputeBestOffer: REMOVE_OFFER
-    # on ChangeLocalLeafIndications in ComputeBestOffer finishes in   ComputeBestOffer: action_store_leaf_flag,action_level_compute
-    # on BetterHAL in HoldingDown finishes in HoldingDown: NO_ACTION
-    # on WithdrawNeighborOffer in HoldingDown finishes in HoldingDown:      REMOVE_OFFER
-    # on ChangeLocalLeafIndications in HoldingDown finishes in      ComputeBestOffer: action_store_leaf_flag
-    # on ChangeLocalConfiguredLevel in UpdatingClients finishes in      ComputeBestOffer: action_store_level
-    # on ComputationDone in HoldingDown finishes in HoldingDown: NO_ACTION
-    # on BetterHAL in UpdatingClients finishes in ComputeBestOffer: NO_ACTION
-    # on WithdrawNeighborOffer in UpdatingClients finishes in      UpdatingClients: REMOVE_OFFER
+
+
+    # on  LOST_HAT  in                  HOLDING_DOWN   finishes in  HOLDING_DOWN:   NO_ACTION
+    # on  LOST_HAL  in                  HOLDING_DOWN   finishes in  HOLDING_DOWN:   NO_ACTION
+    # on  BETTER_HAT in                 HOLDING_DOWN   finishes in  HoldingDown:    NO_ACTION
+    # on  ChangeLocalConfiguredLevel in HOLDING_DOWN   finishes in  ComputeBestOffer: STORE_LEVEL
+    # on  HoldDownExpired in            HOLDING_DOWN   inishes in   ComputeBestOffer:    PURGE_OFFERS
+    # on  ShortTic in                   HOLDING_DOWN   finishes in  HOLDING_DOWN:   action_check_hold_time_expired
+    #    if HOLDDOWN_TIMER_EXPIRED
+    #           then PUSH_EVENT   HOLDDOWN_EXPIRED
+    # on NeighborOffer in               HoldingDown    finishes in  HoldingDown:       action_update_or_remove_offer
+    #     if no level offered REMOVE_OFFER else
+    #     if level > leaf then UPDATE_OFFER else REMOVE_OFFER
+    # on BetterHAL in                   HoldingDown finishes in     HoldingDown: NO_ACTION
+    # on WithdrawNeighborOffer in       HoldingDown finishes in     HoldingDown:      REMOVE_OFFER
+    # on ChangeLocalLeafIndications in  HoldingDown finishes in     ComputeBestOffer: action_store_leaf_flag
+    # on ComputationDone in             HoldingDown finishes in     HoldingDown: NO_ACTION
+
+    # on    CHANGE_LOCAL_LEAF_INDICATIONS in  UpdatingClients    finishes in        ComputeBestOffer: STORE_LEAF_FLAGS
+    # on    LOST_HAT in                       UpdatingClients    finishes in        ComputeBestOffer: NO_ACTION
+    # on    BetterHAT in                      UpdatingClients  finishes in          ComputeBestOffer: NO_ACTION
+    # on    ShortTic in                       UPDATING_CLIENTS    finishes in       UPDATING_CLIENTS:
+    # on    LostHAL in                        UpdatingClients    finishes in        HOLDING_DOWN: action_update_holddown_timer_on_lost_hal
+    #     if any southbound adjacencies present
+    #         then update holddown timer to normal duration
+    #         else fire   holddown    timer    immediately
+    # on    NeighborOffer in                   UpdatingClients    finishes in       UpdatingClients: action_update_or_remove_offer
+    #     if no level offered REMOVE_OFFER else
+    #     if level > leaf then UPDATE_OFFER else REMOVE_OFFER
+    # on ChangeLocalConfiguredLevel in          UpdatingClients finishes in         ComputeBestOffer: action_store_level
+    # on BetterHAL in                           UpdatingClients finishes in         ComputeBestOffer: NO_ACTION
+    # on WithdrawNeighborOffer in               UpdatingClients finishes in         UpdatingClients: REMOVE_OFFER
+
+
     # on Entry into UpdatingClients: action_update_all_lie_fsm_with_computation_results
     # on Entry into ComputeBestOffer: LEVEL_COMPUTE
 
@@ -190,14 +185,9 @@ class Ztp:
         #
 
 
-    #
-    #TODO - add short tick timer
-    #
-
-#Event.TIMER_TICK: (None, [action_check_hold_time_expired], [Event.SEND_LIE]),
     state_updating_clients_transitions = {
         Event.CHANGE_LOCAL_LEAF_INDICATIONS:    (State.COMPUTE_BEST_OFFER, [action_store_leaf_flag]),
-        Event.LOST_HAT:                         (None, [action_no_action]),
+        Event.LOST_HAT:                         (State.COMPUTE_BEST_OFFER, [action_no_action]),
         Event.BETTER_HAT:                       (State.COMPUTE_BEST_OFFER, [action_no_action]),
         Event.SHORT_TICK_TIMER:                 (None, [action_no_action]),
         Event.LOST_HAL:                         (State.HOLDING_DOWN, [action_update_holddown_timer_on_lost_hal]),
@@ -281,6 +271,6 @@ class Ztp:
             action_handler = self,
             log = self._fsm_log,
             log_id = self._log_id)
- #       self._one_second_timer = timer.Timer(1.0, lambda: self._fsm.push_event(self.Event.TIMER_TICK))
+        self._one_second_timer = timer.Timer(1.0, lambda: self._fsm.push_event(self.Event.SHORT_TICK_TIMER))
 
 
