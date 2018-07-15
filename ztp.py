@@ -332,7 +332,7 @@ class Ztp:
         self._holdtime = 1
         self._configured_level = self._node.configured_level()
         #todo - add where a leaf comes from
-        self._i_am_leaf = False
+        self._i_am_leaf = (self._node.configured_level() == 0)
         self._fsm = fsm.FiniteStateMachine(
             state_enum = self.State,
             event_enum = self.Event,
