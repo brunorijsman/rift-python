@@ -1,4 +1,10 @@
+import sys
+sys.path.append('gen-py')
+
 import common.constants
+
+import
+import offer
 import node
 
 class Ztp:
@@ -82,7 +88,8 @@ class Ztp:
 
    #  Following words are used for well known procedures:
    # 1.  PUSH Event: pushes an event to be executed by the FSM upon exit  of this action
-   # 2.  COMPARE_OFFERS: checks whether based on current offers and held    last results the events BetterHAL/LostHAL/BetterHAT/LostHAT are       necessary and returns them
+   # 2.  COMPARE_OFFERS: checks whether based on current offers and held    last results the events
+   #        BetterHAL/LostHAL/BetterHAT/LostHAT are       necessary and returns them
    # 3.  UPDATE_OFFER: store current offer and COMPARE_OFFERS, PUSH   according events
    # 4.  LEVEL_COMPUTE: compute best offered or configured level and HAL/  HAT, if anything changed PUSH ComputationDone
    # 5.  REMOVE_OFFER: remove the according offer and COMPARE_OFFERS, PUSH       according events
@@ -142,98 +149,96 @@ class Ztp:
     # on LostHAT in ComputeBestOffer finishes in ComputeBestOffer:
     #       LEVEL_COMPUTE
 
-    def i_am_a_leaf(self):
-        return False
 
-    def remove_offer(self, offer):
-        for level in -al.keys():
-            if offer.systemId in _al[level]:
-                del _al[level][offer.systemId]
+    def remove_offer(self, offer: offer.Offer):
+        for level in self._al.keys():
+            if offer.system_id in self._al[level]:
+                del self._al[level][offer.system_id]
 
     #
-    def update_offer(self, offer):
-        if not offer.level in self.al:
-            self.al[offer.level] = {}
+    def update_offer(self, offer: offer.Offer):
+        self.remove_offer(offer)
 
-        self.al[offer.level][offer.systemId] = offer
+        if not offer.level in self._al:
+            self._al[offer.level]= {}
+
+        self._al[offer.level][offer.system_id] = offer
+
+        self.compare_offers()
+
+
+    def compare_offers(self):
+    #todo
         pass
 
-    def level_compute(self):
 
+    def action_no_action(self):
+        #todo
+        pass
+
+    def action_level_compute(self):
         # TODO:
-        if not i_am_a_leaf(self):
-            _hal = max(_al.keys())
+        if not self._i_am_leaf:
+            highest_level = max(al.keys())
 
-        # for leaves we play a special game of having at least 3 parents
+
+
+            if len(al[highest_level]) >=  ZTP_MIN_NUMBER_OF_PEER_FOR_LEVEL
+
+
         highest_level = common.constants.leaf_level
-        for level in _al.keys():
-            if len(_al[level]) >= ZTP_MIN_NUMBER_OF_PEER_FOR_LEVEL
+        for level in al.keys():
+            if len(al[level]) >=  ZTP_MIN_NUMBER_OF_PEER_FOR_LEVEL
                 if level >= highest_level
                     highest_level = level
 
         if highest_level != common.constants.leaf_level
-            _hal = highest_level
-        else
-            _hal = max(al.keys())
+            return highest_level
 
-    def compare_offers(self):
-        old_hal = self._hal
-        self.level_compute()
-
-
-    def action_no_action(self):
-        pass
-
-    def action_level_compute(self):
-        self.level_compute()
+        return max(al.keys())
 
 
     #on ChangeLocalLeafIndications in UpdatingClients finishes in ComputeBestOffer: store leaf flags
-    def action_store_leaf_flag(self):
-        # TODO:
-        pass
+    def action_store_leaf_flag(self, leaf_flag):
+        self._i_am_leaf = leaf_flag
 
 
 
-    def action_update_or_remove_offer(self, offer):
+
+    def action_update_or_remove_offer(self, offer: offer.Offer):
 
         # TODO:
         #          if no level offered REMOVE_OFFER else
         #          if level > leaf then UPDATE_OFFER else REMOVE_OFFER
 
-        if offer is not None and offer.is_a_ztp_offer
-        current_hal = self.hal
-        self.hal = self.compute_best_offer()
-        # TODO: trigger something if it changed
+        if offer.not_a_ztp_offer:
+            return
 
-    #
-    def action_store_level(self):
-        # TODO:
-        pass
+        if offer.level is None:
+            self.remove_offer(offer)
 
-    #
+        if offer.level > common.constants.leaf_level:
+            self.update_offer(offer)
+        else:
+            self.remove_offer(offer)
 
-      #
+     def action_store_level(self, level):
+        self._configured_level = level
+
+
     def action_purge_offers(self):
-        # TODO:
-        pass
-    #
+        self._al = {}
+        self.compare_offers()
 
-    def action_remove_offer(self):
-        # TODO:
-        pass
-    #
+    def action_remove_offer(self, offer: offer.Offer):
+        level = 0
+        while level in self._al:
+            if offer.system_id in self._al[level]:
+                del self._al[level][offer.system_id]
+
     def action_check_hold_time_expired(self):
-        # on LostHAL in ComputeBestOffer finishes in HoldingDown: if any
-        # southbound adjacencies present update holddown timer to normal
-        # duration else fire holddown timer immediately
-        self.info(self._log, "_time_ticks_since_lie_received = {}")
-        if self._time_ticks_since_lie_received == None:
-            return False
-        self._time_ticks_since_lie_received += 1
-        if self._time_ticks_since_lie_received >= self.holdtime:
-            self._fsm.push_event(self.Event.HOLD_DOWN_EXPIRED)
-
+        #TODO
+        pass
 
 
     def action_update_all_lie_fsm_with_computation_results(self):
@@ -317,9 +322,9 @@ class Ztp:
         logger.warning("[{}] {}".format(self._log_id, msg))
 
 
-    def __init__(self, node, config):
+    def __init__(self, node: node.Node, config):
 
-        self._node = node
+        Node self._node = node
         self._name = 'ztp'
         self._al={0:{}}
         self._hal = common.constants.leaf_level
@@ -330,10 +335,9 @@ class Ztp:
         self._fsm_log = self._log.getChild("fsm")
         #TODO take ztp hold time from init file
         self._holdtime = 1
-        self._configured_level = self._node.
-        self._derived_level = None
-        self._hal = None
-        self._hat = None
+        self._configured_level = self._node.configured_level()
+        #todo - add where a leaf comes from
+        self._i_am_leaf = False
         self._fsm = fsm.FiniteStateMachine(
             state_enum = self.State,
             event_enum = self.Event,
