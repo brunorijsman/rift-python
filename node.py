@@ -5,7 +5,6 @@ import sortedcontainers
 import uuid
 
 import rift
-import cli_listen_handler
 import constants
 import interface
 import table
@@ -21,46 +20,6 @@ import utils
 class Node:
 
     _next_node_nr = 1
-
-    def command_show_node(self, cli_session):
-        tab = table.Table(separators = False)
-        tab.add_rows(self.cli_detailed_attributes())
-        cli_session.print(tab.to_string())
-
-    def command_show_interfaces(self, cli_session):
-        # TODO: Report neighbor uptime (time in THREE_WAY state)
-        tab = table.Table()
-        tab.add_row(interface.Interface.cli_summary_headers())
-        for intf in self._interfaces.values():
-            tab.add_row(intf.cli_summary_attributes())
-        cli_session.print(tab.to_string())
-
-    def command_show_interface(self, cli_session, parameters):
-        interface_name = parameters['interface-name']
-        if not interface_name in self._interfaces:
-            cli_session.print("Error: interface {} not present".format(interface_name))
-            return
-        inteface_attributes = self._interfaces[interface_name].cli_detailed_attributes()
-        tab = table.Table(separators = False)
-        tab.add_rows(inteface_attributes)
-        cli_session.print("Interface:")
-        cli_session.print(tab.to_string())
-        neighbor_attributes = self._interfaces[interface_name].cli_detailed_neighbor_attributes()
-        if neighbor_attributes:
-            tab = table.Table(separators = False)
-            tab.add_rows(neighbor_attributes)
-            cli_session.print("Neighbor:")
-            cli_session.print(tab.to_string())
-
-    command_tree = {
-        "show": {
-            "node": command_show_node,
-            "interfaces": command_show_interfaces,
-            "interface": {
-                "<interface-name>": command_show_interface,
-            }
-        }
-    }
 
     def generate_system_id(self):
         mac_address = uuid.getnode()
@@ -106,7 +65,6 @@ class Node:
         self._tx_lie_port = self.get_config_attribute(config, 'tx_lie_port', constants.DEFAULT_LIE_PORT)
         self._lie_send_interval_secs = constants.DEFAULT_LIE_SEND_INTERVAL_SECS   # TODO: make configurable
         self._rx_tie_port = self.get_config_attribute(config, 'rx_tie_port', constants.DEFAULT_TIE_PORT)
-        self._cli_listen_handler = cli_listen_handler.CliListenHandler(self.command_tree, self, self._name)
         if 'interfaces' in config:
             for interface_config in self._config['interfaces']:
                 self.create_interface(interface_config)
@@ -153,6 +111,49 @@ class Node:
         interface_id = self._next_interface_id
         self._next_interface_id += 1
         return interface_id
+
+    @staticmethod
+    def cli_summary_headers():
+        return [
+            ["Node", "Name"],
+            ["System", "ID"],
+            ["Running"]]
+
+    def cli_summary_attributes(self):
+        return [
+            self._name,
+            utils.system_id_str(self._system_id),
+            self._running]
+
+    def command_show_node(self, cli_session):
+        tab = table.Table(separators = False)
+        tab.add_rows(self.cli_detailed_attributes())
+        cli_session.print(tab.to_string())
+
+    def command_show_interfaces(self, cli_session):
+        # TODO: Report neighbor uptime (time in THREE_WAY state)
+        tab = table.Table()
+        tab.add_row(interface.Interface.cli_summary_headers())
+        for intf in self._interfaces.values():
+            tab.add_row(intf.cli_summary_attributes())
+        cli_session.print(tab.to_string())
+
+    def command_show_interface(self, cli_session, parameters):
+        interface_name = parameters['interface-name']
+        if not interface_name in self._interfaces:
+            cli_session.print("Error: interface {} not present".format(interface_name))
+            return
+        inteface_attributes = self._interfaces[interface_name].cli_detailed_attributes()
+        tab = table.Table(separators = False)
+        tab.add_rows(inteface_attributes)
+        cli_session.print("Interface:")
+        cli_session.print(tab.to_string())
+        neighbor_attributes = self._interfaces[interface_name].cli_detailed_neighbor_attributes()
+        if neighbor_attributes:
+            tab = table.Table(separators = False)
+            tab.add_rows(neighbor_attributes)
+            cli_session.print("Neighbor:")
+            cli_session.print(tab.to_string())
 
     @property
     def name(self):

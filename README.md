@@ -187,7 +187,8 @@ Go into the rift-fsm directory that was created when you cloned the git reposito
 $ <b>cd rift-fsm</b>
 </pre>
 
-Make sure the Python environment that you created during the installation is activated. This is needed to make sure you run the right version of Python 3 and that the right versions of all depencency modules can be found:
+Make sure the Python environment that you created during the installation is activated. This is needed to make sure you 
+run the right version of Python 3 and that the right versions of all depencency modules can be found:
 
 <pre>
 $ <b>source env/bin/activate</b>
@@ -198,10 +199,11 @@ Start the RIFT protocol engine by running the python main script.
 
 <pre>
 (env) $ <b>python main.py</b>
-Command Line Interface (CLI) for Brunos-MacBook1 available on port 55018
+Command Line Interface (CLI) available on port 49178
 </pre>
 
-Note that you can simply type python instead of python3 because activing the environment automatically selected the right version of Python:
+Note that you can simply type python instead of python3 because activing the environment automatically selected the 
+right version of Python:
 
 <pre>
 (env) $ <b>which python</b>
@@ -210,7 +212,8 @@ Note that you can simply type python instead of python3 because activing the env
 Python 3.5.1
 </pre>
 
-After you start RIFT, there should be a single line of output reporting that the Command Line Interface (CLI) is available on a particular TCP port (in this example port 55018):
+After you start RIFT, there should be a single line of output reporting that the Command Line Interface (CLI) is 
+available on a particular TCP port (in this example port 55018):
 
 <pre>
 Command Line Interface (CLI) for Brunos-MacBook1 available on port 55018
@@ -222,7 +225,9 @@ The next section explains how to connect to the CLI and how to use to CLI.
 
 ### Connect to the CLI
 
-You can connect to the Command Line Interface (CLI) using a Telnet client. Assuming you are connecting from the same device as where the RIFT engine is running, the hostname is localhost. The port should be the port number that RIFT reported when it was started:
+You can connect to the Command Line Interface (CLI) using a Telnet client. Assuming you are connecting from the same 
+device as where the RIFT engine is running, the hostname is localhost. The port should be the port number that RIFT 
+reported when it was started:
 
 <pre>
 $ <b>telnet localhost 55018</b>
@@ -232,9 +237,12 @@ Escape character is '^]'.
 Brunos-MacBook1> 
 </pre>
 
-You should get a prompt containing the name of the RIFT node. In this example the name of the RIFT node is "Brunos-MacBook1".
+You should get a prompt containing the name of the RIFT node. In this example the name of the RIFT node is 
+"Brunos-MacBook1".
 
-By default (i.e. if no configuration file is specified) a single instance of the RIFT protocol engine (a single so-called RIFT node) is started. And by default, the name of that single RIFT node is equal to the hostname of the computer on which the RIFT node is running.
+By default (i.e. if no configuration file is specified) a single instance of the RIFT protocol engine (a single 
+so-called RIFT node) is started. And by default, the name of that single RIFT node is equal to the hostname of the 
+computer on which the RIFT node is running.
 
 ### Entering CLI Commands
 
@@ -250,11 +258,47 @@ Brunos-MacBook1>
 
 (You may see more commands in the help output if you are running a more recent version of the code.)
 
-Unfortunately, the CLI does not yet support using cursor-up or cursor-down or ctrl-p or ctrl-n to go the the previous or next command in the command history. It does also not support tab command completion; all commands must be entered in full manually. And you can also not yet use ? for context-sensitive help. These features will be added in a future version.
+Unfortunately, the CLI does not yet support using cursor-up or cursor-down or ctrl-p or ctrl-n to go the the previous 
+or next command in the command history. It does also not support tab command completion; all commands must be entered 
+in full manually. And you can also not yet use ? for context-sensitive help. These features will be added in a 
+future version.
+
+### The <b>show nodes</b> command
+
+The "<b>show nodes</b>" command (node is multiple with an s) lists all RIFT nodes present in the current RIFT
+protocol engine:
+
+<pre>
+agg_101> <b>show nodes</b>
++-----------+--------+---------+
+| Node      | System | Running |
+| Name      | ID     |         |
++-----------+--------+---------+
+| agg_101   | 101    | True    |
++-----------+--------+---------+
+| agg_102   | 102    | True    |
++-----------+--------+---------+
+| agg_201   | 201    | True    |
++-----------+--------+---------+
+| agg_202   | 202    | True    |
++-----------+--------+---------+
+| core_1    | 1      | True    |
++-----------+--------+---------+
+| core_2    | 2      | True    |
++-----------+--------+---------+
+| edge_1001 | 1001   | True    |
++-----------+--------+---------+
+| edge_1002 | 1002   | True    |
++-----------+--------+---------+
+| edge_2001 | 2001   | True    |
++-----------+--------+---------+
+| edge_2002 | 2002   | True    |
++-----------+--------+---------+
+</pre>
 
 ### The <b>show node</b> command
 
-The "<b>show node</b>" command reports the details for the RIFT node:
+The "<b>show node</b>" command (node is singular without an s) reports the details for the currently active RIFT node:
 
 <pre>
 Brunos-MacBook1> <b>show node</b>
@@ -275,6 +319,18 @@ Brunos-MacBook1> <b>show node</b>
 | Receive TIE Port                    | 10001            |
 +-------------------------------------+------------------+
 </pre>
+
+### The <b>set node </b><i>node-name</i> command
+
+The <b>set node<i>node-name</i></b> command changes the currently active RIFT node to the node with the specified 
+RIFT node name:
+
+<pre>
+agg_101> set node core_1
+core_1> 
+</pre>
+
+Note: you can get a list of RIFT nodes present in the current RIFT protocol engine using the <b>show nodes</b> command.
 
 
 ### The <b>show interfaces</b> command
@@ -413,16 +469,7 @@ You can provide the name of a configuration file when you start the RIFT protoco
 
 <pre>
 (env) $ <b>python main.py two_by_two_by_two.yaml</b>
-Command Line Interface (CLI) for core_1 available on port 58271
-Command Line Interface (CLI) for core_2 available on port 58272
-Command Line Interface (CLI) for agg_101 available on port 58273
-Command Line Interface (CLI) for agg_102 available on port 58274
-Command Line Interface (CLI) for agg_201 available on port 58275
-Command Line Interface (CLI) for agg_202 available on port 58276
-Command Line Interface (CLI) for edge_1001 available on port 58277
-Command Line Interface (CLI) for edge_1002 available on port 58278
-Command Line Interface (CLI) for edge_2001 available on port 58279
-Command Line Interface (CLI) for edge_2002 available on port 58280
+Command Line Interface (CLI) available on port 49178
 </pre>
 
 The configuration file specifies a specifies the configuration attributes for the RIFT protocol instance,
@@ -431,9 +478,6 @@ including the attribute of the RIFT node and the RIFT interfaces.
 It is also possible to configure multiple RIFT nodes in the configurion file. This is used to build simulated
 network topologies that can be tested on a single physical computer. In the above example, the configurion
 file "two_by_two_by_two.yaml" contains 10 simulated nodes with names core_1, core_2, agg_101, agg_102, etc.
-
-The current code provides a separate Telnet port for each simulated node. A future version of the code will
-provide a single Telnet port to allow you to manage all simulated nodes using a single Telnet session.
 
 The exact syntax of the configuration file is provided in the next section.
 

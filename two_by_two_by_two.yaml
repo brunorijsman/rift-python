@@ -33,6 +33,7 @@ shards:
                   rx_lie_port: 20022
                   rx_tie_port: 20023
        - name: core_2
+         passive: true
          level: 2
          systemid: 2
 #         rx_lie_mcast_address: 224.0.255.2

@@ -126,5 +126,9 @@ class CliSessionHandler:
             split = self._str.split('\n', 1)
             command = split[0]
             self._str = split[1]
-            self.parse_command(command)
+            if command != '':
+                self.parse_command(command)
             self.send_prompt()
+
+    def set_prompt(self, prompt):
+        self._prompt = prompt
