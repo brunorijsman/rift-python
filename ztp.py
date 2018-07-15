@@ -217,9 +217,8 @@ class Ztp:
         else:
             self.remove_offer(offer)
 
-     def action_store_level(self, level):
+    def action_store_level(self, level):
         self._configured_level = level
-
 
     def action_purge_offers(self):
         self._al = {}
