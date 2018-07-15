@@ -159,6 +159,7 @@ class Ztp:
 
     #
     def update_offer(self, offer: offer.Offer):
+
         self.remove_offer(offer)
 
         if not offer.level in self._al:
@@ -169,31 +170,47 @@ class Ztp:
         self.compare_offers()
 
 
+
+    def level_compute(self):
+        # TODO:
+
+        if len(self._al) == 0:
+            self._hal = None
+            return
+
+        self._hal = max(self._al.keys())
+
+        if not self._i_am_leaf:
+            return
+
+        highest_level = None
+        for level in self._al.keys():
+            if len(self._al[level]) >=  Ztp.ZTP_MIN_NUMBER_OF_PEER_FOR_LEVEL:
+                if highest_level == None:
+                    highest_level = level
+                elif level >= highest_level:
+                    highest_level = level
+                else:
+                    pass
+
+        if highest_level != None and highest_level != 0:
+            self._hal = highest_level
+
+
     def compare_offers(self):
-    #todo
-        pass
+
+        old_hal = self._hal
+        self.level_compute()
+        # trigger if _hal changed
 
 
     def action_no_action(self):
         #todo
         pass
 
+
     def action_level_compute(self):
-        # TODO:
-        if not self._i_am_leaf:
-            highest_level = max(self._al.keys())
-
-        highest_level = common.constants.leaf_level
-        for level in self._al.keys():
-            if len(self._al[level]) >=  Ztp.ZTP_MIN_NUMBER_OF_PEER_FOR_LEVEL:
-                if level >= highest_level:
-                    highest_level = level
-
-        if highest_level != common.constants.leaf_level:
-            return highest_level
-
-        return max(self._al.keys())
-
+        self.level_compute()
 
     #on ChangeLocalLeafIndications in UpdatingClients finishes in ComputeBestOffer: store leaf flags
     def action_store_leaf_flag(self, leaf_flag):
@@ -322,8 +339,8 @@ class Ztp:
 
         self._node = node
         self._name = 'ztp'
-        self._al={0:{}}
-        self._hal = common.constants.leaf_level
+        self._al={}
+        self._hal = None
         # TODO: Make the default metric/bandwidth depend on the speed of the interface
         self._log = node._log.getChild("ztp")
         self.info(self._log, "Zero touch provisioning state machine")
