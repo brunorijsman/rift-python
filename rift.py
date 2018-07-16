@@ -58,8 +58,12 @@ class Rift:
             tab.add_row(n.cli_summary_attributes())
         cli_session.print(tab.to_string())
 
-    def command_show_node(self, cli_session):
-        if self._cli_current_node:
+    def command_show_node(self, cli_session, parameters = None):
+        if parameters and 'node-name' in parameters:
+            node_name = paramters['node-name']
+        else:
+            node_name = _cli_current_node
+        if node_name:
             self._cli_current_node.command_show_node(cli_session)
         else:
             cli_session.print("No current node")
@@ -88,7 +92,9 @@ class Rift:
     command_tree = {
         "show": {
             "nodes": command_show_nodes,
-            "node": command_show_node,
+            "node": {
+                "[<node-name>]": command_show_node
+            },
             "interfaces": command_show_interfaces,
             "interface": {
                 "<interface-name>": command_show_interface,
