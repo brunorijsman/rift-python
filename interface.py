@@ -258,7 +258,7 @@ class Interface:
         if self._time_ticks_since_lie_received >= holdtime:
             self._fsm.push_event(self.Event.HOLD_TIME_EXPIRED)
 
-    state_one_way_transitions = {
+    _state_one_way_transitions = {
         Event.TIMER_TICK: (None, [], [Event.SEND_LIE]),
         Event.LEVEL_CHANGED: (State.ONE_WAY, [action_update_level], [Event.SEND_LIE]),
         Event.HAL_CHANGED: (None, [action_store_hal]),
@@ -272,7 +272,7 @@ class Interface:
         Event.UPDATE_ZTP_OFFER: (None, [action_send_offer_to_ztp_fsm])
     }
 
-    state_two_way_transitions = {
+    _state_two_way_transitions = {
         Event.TIMER_TICK: (None, [action_check_hold_time_expired], [Event.SEND_LIE]),
         Event.LEVEL_CHANGED: (State.ONE_WAY, [action_update_level]),
         Event.HAL_CHANGED: (None, [action_store_hal]),
@@ -291,7 +291,7 @@ class Interface:
         Event.UPDATE_ZTP_OFFER: (None, [action_send_offer_to_ztp_fsm]),
      }
      
-    state_three_way_transitions = {
+    _state_three_way_transitions = {
         Event.TIMER_TICK: (None, [action_check_hold_time_expired], [Event.SEND_LIE]),
         Event.LEVEL_CHANGED: (State.ONE_WAY, [action_update_level]),
         Event.HAL_CHANGED: (None, [action_store_hal]),
@@ -309,15 +309,22 @@ class Interface:
         Event.UPDATE_ZTP_OFFER: (None, [action_send_offer_to_ztp_fsm])
     }
 
-    transitions = {
-        State.ONE_WAY: state_one_way_transitions,
-        State.TWO_WAY: state_two_way_transitions,
-        State.THREE_WAY: state_three_way_transitions
+    _transitions = {
+        State.ONE_WAY: _state_one_way_transitions,
+        State.TWO_WAY: _state_two_way_transitions,
+        State.THREE_WAY: _state_three_way_transitions
     }
 
-    state_entry_actions = {
+    _state_entry_actions = {
         State.ONE_WAY: [action_cleanup]
     }
+
+    fsm_definition = fsm.FsmDefinition(
+        state_enum = State, 
+        event_enum = Event, 
+        transitions = _transitions, 
+        state_entry_actions = _state_entry_actions,
+        initial_state = State.ONE_WAY)
 
     def info(self, logger, msg):
         logger.info("[{}] {}".format(self._log_id, msg))
@@ -355,12 +362,8 @@ class Interface:
         self._pod = self.UNDEFINED_OR_ANY_POD
         self._neighbor = None
         self._time_ticks_since_lie_received = None
-        self._fsm = fsm.FiniteStateMachine(
-            state_enum = self.State, 
-            event_enum = self.Event, 
-            transitions = self.transitions, 
-            state_entry_actions = self.state_entry_actions,
-            initial_state = self.State.ONE_WAY,
+        self._fsm = fsm.Fsm(
+            definition = self.fsm_definition,
             action_handler = self,
             log = self._fsm_log,
             log_id = self._log_id)

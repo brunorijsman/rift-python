@@ -51,6 +51,32 @@ class Rift:
     def run(self):
         scheduler.scheduler.run()
 
+    def command_show_lie_fsm(self, cli_session):
+        self.command_show_lie_fsm_states(cli_session)
+        self.command_show_lie_fsm_events(cli_session)
+        self.command_show_lie_fsm_transitions(cli_session)
+        self.command_show_lie_state_entry_actions(cli_session)
+
+    def command_show_lie_fsm_states(self, cli_session):
+        cli_session.print("States:")
+        tab = interface.Interface.fsm_definition.states_table()
+        cli_session.print(tab.to_string())
+
+    def command_show_lie_fsm_events(self, cli_session):
+        cli_session.print("Events:")
+        tab = interface.Interface.fsm_definition.events_table()
+        cli_session.print(tab.to_string())
+
+    def command_show_lie_fsm_transitions(self, cli_session):
+        cli_session.print("Transitions:")
+        tab = interface.Interface.fsm_definition.transition_table()
+        cli_session.print(tab.to_string())
+
+    def command_show_lie_state_entry_actions(self, cli_session):
+        cli_session.print("State entry actions:")
+        tab = interface.Interface.fsm_definition.state_entry_actions_table()
+        cli_session.print(tab.to_string())
+
     def command_show_nodes(self, cli_session):
         tab = table.Table()
         tab.add_row(node.Node.cli_summary_headers())
@@ -95,6 +121,7 @@ class Rift:
             "$node": command_set_node
         },
         "show": {
+            "lie-fsm": command_show_lie_fsm,
             "node": command_show_node,
             "nodes": command_show_nodes,
             "$interface": command_show_interface,
