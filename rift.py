@@ -32,7 +32,7 @@ class Rift:
         else:
             self._cli_current_node = None
             self._cli_current_prompt = ''
-        self._cli_listen_handler = cli_listen_handler.CliListenHandler(self.command_tree, self, self._cli_current_prompt)
+        self._cli_listen_handler = cli_listen_handler.CliListenHandler(self.parse_tree, self, self._cli_current_prompt)
 
     def create_configuration(self):
         if 'shards' in self._config:
@@ -62,7 +62,7 @@ class Rift:
         if parameters and 'node-name' in parameters:
             node_name = paramters['node-name']
         else:
-            node_name = _cli_current_node
+            node_name = self._cli_current_node
         if node_name:
             self._cli_current_node.command_show_node(cli_session)
         else:
@@ -81,7 +81,7 @@ class Rift:
             cli_session.print("No current node")
 
     def command_set_node(self, cli_session, parameters):
-        node_name = parameters['node-name']
+        node_name = parameters['node']
         if node_name in self._nodes:
             self._cli_current_node = self._nodes[node_name]
             self._cli_current_prompt = node_name
@@ -89,21 +89,16 @@ class Rift:
         else:
             cli_session.print("Node {} does not exist".format(node_name))
 
-    command_tree = {
-        "show": {
-            "nodes": command_show_nodes,
-            "node": {
-                "[<node-name>]": command_show_node
-            },
-            "interfaces": command_show_interfaces,
-            "interface": {
-                "<interface-name>": command_show_interface,
-            }
-        },
+    # TODO: Add exit command
+    parse_tree = {
         "set": {
-            "node": {
-                "<node-name>": command_set_node,
-            }
+            "$node": command_set_node
+        },
+        "show": {
+            "node": command_show_node,
+            "nodes": command_show_nodes,
+            "$interface": command_show_interface,
+            "interfaces": command_show_interfaces,
         },
     }
 
