@@ -21,5 +21,3 @@ def system_id_str(system_id):
         return "{}".format(system_id)
     else:
         return "{:016x}".format(system_id)
-
-
