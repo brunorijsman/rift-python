@@ -103,7 +103,7 @@ class CliSessionHandler:
         data = self._sock.recv(1024)
         if not data:
             # Remote side closed session
-            scheduler.unregister_handler(self)
+            scheduler.scheduler.unregister_handler(self)
             self._sock.close()
             return
         self._str += data.decode('utf-8').replace('\r', '')

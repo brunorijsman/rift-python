@@ -19,7 +19,7 @@ class McastSendHandler:
         scheduler.register_handler(self, False, False)
 
     def close(self):
-        scheduler.unregister_handler(self)
+        scheduler.scheduler.unregister_handler(self)
         self._sock.close()
 
     def socket(self):

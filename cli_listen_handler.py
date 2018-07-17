@@ -20,7 +20,7 @@ class CliListenHandler:
         print("Command Line Interface (CLI) available on port {}".format(self._port))
 
     def close(self):
-        scheduler.unregister_handler(self)
+        scheduler.scheduler.unregister_handler(self)
         self._sock.close()
 
     def socket(self):
