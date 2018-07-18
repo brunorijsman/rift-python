@@ -73,6 +73,10 @@ class CliSessionHandler:
         else:
             # Parse the next token
             (token, tokens) = self.consume_token(tokens)
+            if (token != None) and callable(parse_subtree):
+                # We have more tokens, but we have reached a leaf of the parse tree. Report error.
+                self.print("Unexpected extra input: {}".format(token))
+                return
             if (token == "help") or (token == "?"):
                 # Token is context-sensitive help. Show help and stop.
                 self.print_help(parse_subtree)
@@ -106,7 +110,11 @@ class CliSessionHandler:
             scheduler.scheduler.unregister_handler(self)
             self._sock.close()
             return
-        self._str += data.decode('utf-8').replace('\r', '')
+        try:
+            self._str += data.decode('utf-8').replace('\r', '')
+        except UnicodeDecodeError:
+            # Could not parse UTF-8, ignore input
+            return
         while '\n'in self._str:
             split = self._str.split('\n', 1)
             command = split[0]
