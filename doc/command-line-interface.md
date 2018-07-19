@@ -2,8 +2,9 @@
 
 * [Connect to the CLI](#connect-to-the-cli)
 * [Entering CLI commands](#entering-cli-commands)
-* Commands:
+* [Command Line Interface Commands](#command-line-interface-commands)
   * [set node](#set-node)
+  * [show interfaces](#show-interfaces)
 
 ## Connect to the CLI
 
@@ -48,7 +49,9 @@ or next command in the command history. It does also not support tab command com
 in full manually. And you can also not yet use ? for context-sensitive help. These features will be added in a 
 future version.
 
-## set node
+## Command Line Interface Commands
+
+### set node
 
 The <b>set node<i>node-name</i></b> command changes the currently active RIFT node to the node with the specified 
 RIFT node name:
@@ -134,7 +137,7 @@ Neighbor:
 +----------------------------------+---------------------+
 </pre>
 
-## The <b>show interfaces</b> command
+### show interfaces
 
 The "<b>show interfaces</b>" command reports a summary of all interfaces configured on the RIFT node. Note that "interfaces" is plural with an s. It only reports the interfaces on which RIFT is running; your device may have additional interfaces on which RIFT is not running.
 
