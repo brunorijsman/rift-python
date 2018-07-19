@@ -4,6 +4,9 @@
 * [Entering CLI commands](#entering-cli-commands)
 * [Command Line Interface Commands](#command-line-interface-commands)
   * [set node](#set-node)
+  * [show fsm](#show-fsm)
+  * [show interfaces](#show-interfaces)
+  * [show interface](#show-interface)
   * [show interfaces](#show-interfaces)
 
 ## Connect to the CLI
@@ -33,13 +36,13 @@ You can enter CLI commands at the CLI prompt. For example, try entering the <b>h
 
 <pre>
 Brunos-MacBook1> <b>help</b>
-set node <node> 
-show interface &gt;interface&gt; 
+set node &lt;node&gt;
+show interface &lt;interface&gt;
+show fsm lie 
+show fsm ztp 
 show interfaces 
-show lie-fsm 
 show node 
 show nodes 
-
 </pre>
 
 (You may see more commands in the help output if you are running a more recent version of the code.)
@@ -53,7 +56,7 @@ future version.
 
 ### set node
 
-The <b>set node<i>node-name</i></b> command changes the currently active RIFT node to the node with the specified 
+The "<b>set node</b><i>node-name</i>" command changes the currently active RIFT node to the node with the specified 
 RIFT node name:
 
 <pre>
@@ -63,7 +66,75 @@ core_1>
 
 Note: you can get a list of RIFT nodes present in the current RIFT protocol engine using the <b>show nodes</b> command.
 
-## The <b>show interface</b><i>interface-name</i> command
+### show fsm
+
+The "<b>show fsm</b> <i>fsm-name</i>" command shows the definition of the specified Finite State Machine (FSM).
+
+Parameter <i>fsm-name<i> can be one of the following values:
+
+* lie: Show the Link Information Element (LIE) FSM.
+* ztp: Show the Zero Touch Provisioning (ZTP) FSM.
+
+The output below is edited to make it shorter.
+
+<pre>
+agg_202> <b>show lie-fsm</b>
+States:
++-----------+
+| State     |
++-----------+
+| ONE_WAY   |
++-----------+
+| TWO_WAY   |
++-----------+
+| THREE_WAY |
++-----------+
+
+Events:
++-------------------------------+
+| Event                         |
++-------------------------------+
+| TIMER_TICK                    |
++-------------------------------+
+.                               .
+.                               .
+.                               .
++-------------------------------+
+| SEND_LIE                      |
++-------------------------------+
+| UPDATE_ZTP_OFFER              |
++-------------------------------+
+
+Transitions:
++------------+-----------------------------+-----------+-------------------------+-------------+
+| From state | Event                       | To state  | Actions                 | Push events |
++------------+-----------------------------+-----------+-------------------------+-------------+
+| ONE_WAY    | TIMER_TICK                  | -         | -                       | SEND_LIE    |
++------------+-----------------------------+-----------+-------------------------+-------------+
+| ONE_WAY    | LEVEL_CHANGED               | ONE_WAY   | update_level            | SEND_LIE    |
++------------+-----------------------------+-----------+-------------------------+-------------+
+| ONE_WAY    | HAL_CHANGED                 | -         | store_hal               | -           |
++------------+-----------------------------+-----------+-------------------------+-------------+
+.            .                             .           .                         .             .
+.            .                             .           .                         .             .
+.            .                             .           .                         .             .
++------------+-----------------------------+-----------+-------------------------+-------------+
+| THREE_WAY  | LIE_CORRUPT                 | ONE_WAY   | -                       | -           |
++------------+-----------------------------+-----------+-------------------------+-------------+
+| THREE_WAY  | SEND_LIE                    | -         | send_lie                | -           |
++------------+-----------------------------+-----------+-------------------------+-------------+
+| THREE_WAY  | UPDATE_ZTP_OFFER            | -         | send_offer_to_ztp_fsm   | -           |
++------------+-----------------------------+-----------+-------------------------+-------------+
+
+State entry actions:
++---------+---------+
+| State   | Actions |
++---------+---------+
+| ONE_WAY | cleanup |
++---------+---------+
+</pre>
+
+### show interface
 
 The "<b>show interface</b><i>interface-name</i>" command reports more detailed information about a single interface. Note that "interface" is singular without an s.
 
@@ -163,70 +234,7 @@ Brunos-MacBook1> <b>show interfaces</b>
 +-----------+---------------------+------------------+-----------+
 </pre>
 
-## The <b>show lie-fsm</b> command
-
-The "<b>show lie-fsm</b>" command shows the definition of the Link Information Element (LIE) Finite State Machine (FSM).
-
-The output below is edited to make it shorter.
-
-<pre>
-agg_202> <b>show lie-fsm</b>
-States:
-+-----------+
-| State     |
-+-----------+
-| ONE_WAY   |
-+-----------+
-| TWO_WAY   |
-+-----------+
-| THREE_WAY |
-+-----------+
-
-Events:
-+-------------------------------+
-| Event                         |
-+-------------------------------+
-| TIMER_TICK                    |
-+-------------------------------+
-.                               .
-.                               .
-.                               .
-+-------------------------------+
-| SEND_LIE                      |
-+-------------------------------+
-| UPDATE_ZTP_OFFER              |
-+-------------------------------+
-
-Transitions:
-+------------+-----------------------------+-----------+-------------------------+-------------+
-| From state | Event                       | To state  | Actions                 | Push events |
-+------------+-----------------------------+-----------+-------------------------+-------------+
-| ONE_WAY    | TIMER_TICK                  | -         | -                       | SEND_LIE    |
-+------------+-----------------------------+-----------+-------------------------+-------------+
-| ONE_WAY    | LEVEL_CHANGED               | ONE_WAY   | update_level            | SEND_LIE    |
-+------------+-----------------------------+-----------+-------------------------+-------------+
-| ONE_WAY    | HAL_CHANGED                 | -         | store_hal               | -           |
-+------------+-----------------------------+-----------+-------------------------+-------------+
-.            .                             .           .                         .             .
-.            .                             .           .                         .             .
-.            .                             .           .                         .             .
-+------------+-----------------------------+-----------+-------------------------+-------------+
-| THREE_WAY  | LIE_CORRUPT                 | ONE_WAY   | -                       | -           |
-+------------+-----------------------------+-----------+-------------------------+-------------+
-| THREE_WAY  | SEND_LIE                    | -         | send_lie                | -           |
-+------------+-----------------------------+-----------+-------------------------+-------------+
-| THREE_WAY  | UPDATE_ZTP_OFFER            | -         | send_offer_to_ztp_fsm   | -           |
-+------------+-----------------------------+-----------+-------------------------+-------------+
-
-State entry actions:
-+---------+---------+
-| State   | Actions |
-+---------+---------+
-| ONE_WAY | cleanup |
-+---------+---------+
-</pre>
-
-## The <b>show nodes</b> command
+### show nodes
 
 The "<b>show nodes</b>" command (node is multiple with an s) lists all RIFT nodes present in the current RIFT
 protocol engine:
@@ -259,7 +267,7 @@ agg_101> <b>show nodes</b>
 +-----------+--------+---------+
 </pre>
 
-## The <b>show node</b> command
+### show node
 
 The "<b>show node</b>" command (node is singular without an s) reports the details for the currently active RIFT node:
 
@@ -282,29 +290,4 @@ Brunos-MacBook1> <b>show node</b>
 | Receive TIE Port                    | 10001            |
 +-------------------------------------+------------------+
 </pre>
-
-
-## Logging
-
-The RIFT protocol engine write very detailed logging information to the file rift.log in the same directory as where the RIFT engine was started.
-
-You can monitor the log file by running "tail -f":
-
-<pre>
-$ <b>tail -f rift.log</b>
-2018-07-15 07:47:07,064:INFO:node.if.tx:[667f3a2b1a73cb01-en0] Send LIE ProtocolPacket(header=PacketHeader(level=0, major_version=11, sender=7385685870712703745, minor_version=0), content=PacketContent(tie=None, lie=LIEPacket(holdtime=3, neighbor=Neighbor(remote_id=1, originator=7385685870712594177), not_a_ztp_offer=False, flood_port=10001, name='Brunos-MacBook1-en0', you_are_not_flood_repeater=False, link_mtu_size=1500, local_id=1, pod=0, nonce=6638665728137929476, label=None, capabilities=NodeCapabilities(flood_reduction=True, leaf_indications=1)), tide=None, tire=None))
-2018-07-15 07:47:07,065:INFO:node.if.rx:[667f3a2b1a721f01-en0] Receive ProtocolPacket(header=PacketHeader(minor_version=0, major_version=11, level=0, sender=7385685870712703745), content=PacketContent(tide=None, tire=None, tie=None, lie=LIEPacket(local_id=1, name='Brunos-MacBook1-en0', you_are_not_flood_repeater=False, pod=0, capabilities=NodeCapabilities(flood_reduction=True, leaf_indications=1), label=None, flood_port=10001, nonce=6638665728137929476, link_mtu_size=1500, not_a_ztp_offer=False, holdtime=3, neighbor=Neighbor(originator=7385685870712594177, remote_id=1))))
-2018-07-15 07:47:07,065:INFO:node.if.rx:[667f3a2b1a73cb01-en0] Receive ProtocolPacket(header=PacketHeader(level=0, major_version=11, sender=7385685870712703745, minor_version=0), content=PacketContent(tie=None, lie=LIEPacket(holdtime=3, neighbor=Neighbor(remote_id=1, originator=7385685870712594177), not_a_ztp_offer=False, flood_port=10001, name='Brunos-MacBook1-en0', you_are_not_flood_repeater=False, link_mtu_size=1500, local_id=1, pod=0, nonce=6638665728137929476, label=None, capabilities=NodeCapabilities(flood_reduction=True, leaf_indications=1)), tide=None, tire=None))
-2018-07-15 07:47:07,065:INFO:node.if.fsm:[667f3a2b1a721f01-en0] FSM push event, event=LIE_RECEIVED
-2018-07-15 07:47:07,065:INFO:node.if:[667f3a2b1a73cb01-en0] Ignore looped back LIE packet
-2018-07-15 07:47:07,065:INFO:node.if.fsm:[667f3a2b1a721f01-en0] FSM process event, state=THREE_WAY event=LIE_RECEIVED event_data=(ProtocolPacket(header=PacketHeader(minor_version=0, major_version=11, level=0, sender=7385685870712703745), content=PacketContent(tide=None, tire=None, tie=None, lie=LIEPacket(local_id=1, name='Brunos-MacBook1-en0', you_are_not_flood_repeater=False, pod=0, capabilities=NodeCapabilities(flood_reduction=True, leaf_indications=1), label=None, flood_port=10001, nonce=6638665728137929476, link_mtu_size=1500, not_a_ztp_offer=False, holdtime=3, neighbor=Neighbor(originator=7385685870712594177, remote_id=1)))), ('192.168.2.163', 55048))
-2018-07-15 07:47:07,065:INFO:node.if.fsm:[667f3a2b1a721f01-en0] FSM invoke state-transition action, action=process_lie
-2018-07-15 07:47:07,065:INFO:node.if.fsm:[667f3a2b1a721f01-en0] FSM push event, event=UPDATE_ZTP_OFFER
-2018-07-15 07:47:07,065:INFO:node.if.fsm:[667f3a2b1a721f01-en0] FSM process event, state=THREE_WAY event=UPDATE_ZTP_OFFER
-...
-</pre>
-
-The format of the log messages is designed to make it easy to "grep" for particular subsets of information that you might be interested in.
-
-TODO: Provide grep patterns
 
