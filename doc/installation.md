@@ -35,7 +35,7 @@ In the above command we assume you are logging in from a platform (such as Linux
 supports a standard Telnet client. If you are logging in from Windows you may have to download
 a Windows Telnet client such as Putty.
 
-### Update apt-get
+### Update
 
 Once logged in to the EC2 instance, install the latest security patches on your EC2 instance 
 by doing an update:
