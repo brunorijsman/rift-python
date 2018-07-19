@@ -2,7 +2,7 @@
 
 Installation instructions for:
 
-* [Linux Ubuntu Server 16.04 LTS](linux-ubuntu-server-16.04-lts)
+* [Linux Ubuntu Server 16.04 LTS](linux-ubuntu-server-16-04-lts)
 
 ## Linux Ubuntu Server 16.04 LTS
 
