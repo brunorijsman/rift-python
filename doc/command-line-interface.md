@@ -72,13 +72,13 @@ The "<b>show fsm</b> <i>fsm-name</i>" command shows the definition of the specif
 
 Parameter <i>fsm-name</i> can be one of the following values:
 
-* lie: Show the Link Information Element (LIE) FSM.
-* ztp: Show the Zero Touch Provisioning (ZTP) FSM.
+* <b>lie</b>: Show the Link Information Element (LIE) FSM.
+* <b>ztp</b>: Show the Zero Touch Provisioning (ZTP) FSM.
 
 The output below is edited to make it shorter.
 
 <pre>
-agg_202> <b>show lie-fsm</b>
+agg_202> <b>show fsm lie</b>
 States:
 +-----------+
 | State     |
