@@ -1,3 +1,5 @@
+# TODO: Should this be a separate file, or should we fold it into node.py?
+
 import sys
 sys.path.append('gen-py')
 
@@ -241,7 +243,7 @@ class Ztp:
         #   else fire   holddown    timer    immediately
         pass
 
-    state_updating_clients_transitions = {
+    _state_updating_clients_transitions = {
         Event.CHANGE_LOCAL_LEAF_INDICATIONS:    (State.COMPUTE_BEST_OFFER, [action_store_leaf_flag]),
         Event.LOST_HAT:                         (State.COMPUTE_BEST_OFFER, [action_no_action]),
         Event.BETTER_HAT:                       (State.COMPUTE_BEST_OFFER, [action_no_action]),
@@ -253,7 +255,7 @@ class Ztp:
         Event.WITH_DRAW_NEIGHBOROFFER:          (None, [action_remove_offer]),
     }
 
-    state_holding_down_transitions = {
+    _state_holding_down_transitions = {
         Event.LOST_HAT:                         (None, [action_no_action]),
         Event.LOST_HAL:                         (None, [action_no_action]),
         Event.BETTER_HAT:                       (None, [action_no_action]),
@@ -267,7 +269,7 @@ class Ztp:
         Event.COMPUTATION_DONE:                 (None, [action_no_action])
     }
 
-    state_compute_best_offer_transitions = {
+    _state_compute_best_offer_transitions = {
         Event.LOST_HAT:                         (None, [action_level_compute]),
         Event.NEIGHBOR_OFFER:                   (None, [action_update_or_remove_offer]),
         Event.BETTER_HAL:                       (None, [action_level_compute]),
@@ -280,43 +282,45 @@ class Ztp:
         Event.CHANGE_LOCAL_LEAF_INDICATIONS:    (None, [action_store_leaf_flag, action_level_compute])
     }
 
-    transitions = {
-        State.UPDATING_CLIENTS: state_updating_clients_transitions,
-        State.HOLDING_DOWN: state_holding_down_transitions,
-        State.COMPUTE_BEST_OFFER: state_compute_best_offer_transitions
+    _transitions = {
+        State.UPDATING_CLIENTS: _state_updating_clients_transitions,
+        State.HOLDING_DOWN: _state_holding_down_transitions,
+        State.COMPUTE_BEST_OFFER: _state_compute_best_offer_transitions
     }
 
-    state_entry_actions = {
+    _state_entry_actions = {
         State.UPDATING_CLIENTS:     [action_update_all_lie_fsm_with_computation_results],
         State.COMPUTE_BEST_OFFER:   [action_level_compute]
     }
 
+    fsm_definition = fsm.FsmDefinition(
+        state_enum = State, 
+        event_enum = Event, 
+        transitions = _transitions, 
+        state_entry_actions = _state_entry_actions,
+        initial_state = State.COMPUTE_BEST_OFFER)    
+
     def info(self, logger, msg):
-        logger.info("[{}] {}".format(self._log_id, msg))
+        logger.info("[{}] {}".format(self._node._log_id, msg))   # TODO: Make node._log_id public
 
     def warning(self, logger, msg):
-        logger.warning("[{}] {}".format(self._log_id, msg))
+        logger.warning("[{}] {}".format(self._node._log_id, msg))
 
     def __init__(self, node, config):
         self._node = node
         self._al = {}    # TODO: Change name into something more meaningful
         self._hal = None
-        self._log = node._log.getChild("ztp")
+        self._log = node._log.getChild("ztp")    # TODO: Make node._log public
         self.info(self._log, "Zero Touch Provisioning (ZTP) object created")
-        self._log_id = node._log_id + "-{}".format(self._name)    # TODO: We don't need a new log_id
         self._fsm_log = self._log.getChild("fsm")
         # TODO: Take ztp hold time from init file
         self._holdtime = 1
-        self._configured_level = self._node.configured_level()
+        self._configured_level = self._node.configured_level   # TODO: How do we keep them in sync
         # TODO: Add where a leaf comes from
-        self._i_am_leaf = (self._node.configured_level() == 0)
-        self._fsm = fsm.FiniteStateMachine(
-            state_enum = self.State,
-            event_enum = self.Event,
-            transitions = self.transitions,
-            state_entry_actions = self.state_entry_actions,
-            initial_state = self.State.COMPUTE_BEST_OFFER,
+        self._i_am_leaf = (self._node.configured_level == 0)   # TODO: Is this the right thing to do?
+        self._fsm = fsm.Fsm(
+            definition = self.fsm_definition,
             action_handler = self,
             log = self._fsm_log,
-            log_id = self._log_id)
+            log_id = self._node._log_id)
         self._one_second_timer = timer.Timer(1.0, lambda: self._fsm.push_event(self.Event.SHORT_TICK_TIMER))

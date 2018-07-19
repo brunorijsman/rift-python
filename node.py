@@ -4,11 +4,12 @@ import socket
 import sortedcontainers
 import uuid
 
-import rift
 import constants
 import interface
+import rift
 import table
 import utils
+import ztp
 
 # TODO: Add support for non-configured levels
 #       - Allow configured_level to be None
@@ -34,7 +35,6 @@ class Node:
         return self._configured_level
 
     def __init__(self, rift, config):
-        # TODO: process passive field in config
         # TODO: process level field in config
         # TODO: process systemid field in config
         # TODO: process state_thrift_services_port field in config
@@ -71,6 +71,7 @@ class Node:
         if 'interfaces' in config:
             for interface_config in self._config['interfaces']:
                 self.create_interface(interface_config)
+        self._ztp = ztp.Ztp(self, config)
 
     def is_running(self):
         if self._rift.active_nodes == rift.Rift.ActiveNodes.ONLY_PASSIVE_NODES:
