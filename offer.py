@@ -31,11 +31,11 @@ class Offer:
         self.not_a_ztp_offer = lie.not_a_ztp_offer
 
     def is_a_ztp_offer(self):
-        if self.level is None
+        if self.level == None:
             return False
-        if self.level == common.constants.leaf_level
+        if self.level == common.constants.leaf_level:
             return False
-        if self.not_a_ztp_offer
+        if self.not_a_ztp_offer:
             return False
         return True
 
