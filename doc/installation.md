@@ -118,7 +118,7 @@ Installing setuptools, pkg_resources, pip, wheel...done.
 While still in the rift-python directory, activate the newly created Python environment:
 
 <pre>
-$ <b>source env/bin/activat</b>
+$ <b>source env/bin/activate</b>
 (env) $ 
 </pre>
 
