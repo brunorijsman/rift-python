@@ -100,7 +100,7 @@ $ <b>sudo apt-get install -y git</b>
 Clone this rift-python repository from github onto the EC2 instance:
 
 <pre>
-$ <b>$ git clone https://github.com/brunorijsman rift-python.git</b>
+$ <b>git clone https://github.com/brunorijsman/rift-python.git</b>
 Cloning into rift-python'...
 remote: Counting objects: 276, done.
 remote: Compressing objects: 100% (194/194), done.
