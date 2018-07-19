@@ -73,11 +73,11 @@ $ <b>sudo apt-get install -y git</b>
 
 ### Clone the repository
 
-Clone this rift-fsm repository from github onto the EC2 instance:
+Clone this rift-python repository from github onto the EC2 instance:
 
 <pre>
-$ <b>$ git clone https://github.com/brunorijsman/rift-fsm.git</b>
-Cloning into 'rift-fsm'...
+$ <b>$ git clone https://github.com/brunorijsman rift-python.git</b>
+Cloning into rift-python'...
 remote: Counting objects: 276, done.
 remote: Compressing objects: 100% (194/194), done.
 remote: Total 276 (delta 172), reused 180 (delta 78), pack-reused 0
@@ -86,37 +86,30 @@ Resolving deltas: 100% (172/172), done.
 Checking connectivity... done.
 </pre>
 
-This will create a directory rift-fsm with the source code:
+This will create a directory rift-python with the source code:
 
 <pre>
-$ <b>find rift-fsm</b>
-rift-fsm
-rift-fsm/config.py
-rift-fsm/encoding.thrift
-rift-fsm/utils.py
-rift-fsm/cli_listen_handler.py
-rift-fsm/.gitignore
-rift-fsm/constants.py
+$ <b>find rift-python</b> rift-python/config.py rift-python/encoding.thrift rift-python/utils.py rift-python/cli_listen_handler.py rift-python/.gitignore rift-python/constants.py
 ...
 </pre>
 
 ### Create Python virtual environment
 
-Go into the newly create rift-fsm directory and create a new virtual environment named env:
+Go into the newly create rift-python directory and create a new virtual environment named env:
 
 <pre>
-$ <b>cd rift-fsm</b>
+$ <b>cd rift-python</b>
 $ <b>virtualenv env --python=python3</b>
 Already using interpreter /usr/bin/python3
 Using base prefix '/usr'
-New python executable in /home/ubuntu/rift-fsm/env/bin/python3
-Also creating executable in /home/ubuntu/rift-fsm/env/bin/python
+New python executable in /home/ubuntu rift-python/env/bin/python3
+Also creating executable in /home/ubuntu rift-python/env/bin/python
 Installing setuptools, pkg_resources, pip, wheel...done.
 </pre>
 
 ### Activate the Python virtual environment
 
-While still in the rift-fsm directory, activate the newly created Python environment:
+While still in the rift-python directory, activate the newly created Python environment:
 
 <pre>
 $ <b>source env/bin/activat</b>
