@@ -8,6 +8,7 @@ import interface
 import node
 import scheduler
 import table
+import ztp
 
 class Rift:
 
@@ -54,6 +55,9 @@ class Rift:
     def command_show_lie_fsm(self, cli_session):
         interface.Interface.fsm_definition.command_show_fsm(cli_session)
 
+    def command_show_ztp_fsm(self, cli_session):
+        ztp.Ztp.fsm_definition.command_show_fsm(cli_session)
+
     def command_show_nodes(self, cli_session):
         tab = table.Table()
         tab.add_row(node.Node.cli_summary_headers())
@@ -98,7 +102,10 @@ class Rift:
             "$node": command_set_node
         },
         "show": {
-            "lie-fsm": command_show_lie_fsm,
+            "fsm": {
+                "lie": command_show_lie_fsm,
+                "ztp": command_show_ztp_fsm,
+            },
             "node": command_show_node,
             "nodes": command_show_nodes,
             "$interface": command_show_interface,
