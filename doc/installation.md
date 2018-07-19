@@ -2,7 +2,7 @@
 
 Installation instructions for:
 
-* [Ubuntu Linux on AWS](ubuntu-linux-on-aws)
+* [Ubuntu Linux on AWS](#ubuntu-linux-on-aws)
 
 ## Ubuntu Linux on AWS
 
