@@ -65,7 +65,7 @@ future version.
 
 ### set node
 
-The "<b>set node</b><i>node-name</i>" command changes the currently active RIFT node to the node with the specified 
+The "<b>set node</b> <i>node-name</i>" command changes the currently active RIFT node to the node with the specified 
 RIFT node name:
 
 <pre>
