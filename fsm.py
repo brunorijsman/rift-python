@@ -99,6 +99,32 @@ class FsmDefinition:
         table.add_row([from_state_name, event_name, '* MISSING *', 
             Table.Format.EXTEND_LEFT_CELL, Table.Format.EXTEND_LEFT_CELL])
 
+    def command_show_fsm(self, cli_session):
+        self.command_show_states(cli_session)
+        self.command_show_events(cli_session)
+        self.command_show_transitions(cli_session)
+        self.command_show_state_entry_actions(cli_session)
+
+    def command_show_states(self, cli_session):
+        cli_session.print("States:")
+        tab = self.states_table()
+        cli_session.print(tab.to_string())
+
+    def command_show_events(self, cli_session):
+        cli_session.print("Events:")
+        tab = self.events_table()
+        cli_session.print(tab.to_string())
+
+    def command_show_transitions(self, cli_session):
+        cli_session.print("Transitions:")
+        tab = self.transition_table()
+        cli_session.print(tab.to_string())
+
+    def command_show_state_entry_actions(self, cli_session):
+        cli_session.print("State entry actions:")
+        tab = self.state_entry_actions_table()
+        cli_session.print(tab.to_string())
+
 class Fsm:
 
     _event_queue = collections.deque()
