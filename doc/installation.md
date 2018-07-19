@@ -2,23 +2,43 @@
 
 Installation instructions for:
 
-* [Linux Ubuntu Server 16.04 LTS](linux-ubuntu-server-16-04-lts)
+* [Ubuntu Linux on AWS](ubuntu-linux-on-aws)
 
-## Linux Ubuntu Server 16.04 LTS
+## Ubuntu Linux on AWS
 
-I am using an Amazon Web Services (AWS) Elastic Compute Cloud (EC2) t2.micro instance with Amazon Machine Image (AMI) "Ubuntu Server 16.04 LTS (HVM), SSD Volume Type" (ami-ba602bc2), which is free-tier eligible.
+Here we describe how to install the Pything RIFT protocol engine on an Amazon Web Services (AWS) Elastic Compute Cloud (EC2) instance running Ubuntu 16.04 LTS.
+
+Note: these instructions should also work for an Ubuntu 16.04 LTS server running on bare metal or in 
+a locally hosted virtual machine or in a container.
+
+### Create an EC2 instance
+
+Using the AWS console (or CLI or API) create an EC2 instance:
+
+* Choose Amazon Machine Image (AMI) "Ubuntu Server 16.04 LTS (HVM), SSD Volume Type"
+* Choose instance type t2.micro
+* Use the default values for all other configuration parameters
+* Make sure you download the private key for the EC2 instance
+
+Note: We are using a t2.micro instance type because it is eligible for AWS Free Tier. For large
+multi-node topologies you may need a larger instance type.
 
 ### Login to Ubuntu
 
-If you are using an Ubuntu instance on AWS, use user name ubuntu and your private key file to login (the following command assumes you are logging in from Linux or Mac OS X)
+Use user name ubuntu and your private key file to login:
 
 <pre>
 $ <b>ssh ubuntu@<i>ec2-instance-ip-address</i> -i ~/.ssh/<i>your-private-key-file</i>.pem</b> 
 </pre>
 
+In the above command we assume you are logging in from a platform (such as Linux or macOS) that
+supports a standard Telnet client. If you are logging in from Windows you may have to download
+a Windows Telnet client such as Putty.
+
 ### Update apt-get
 
-Install the latest security patches on your EC2 instance by doing an update:
+Once logged in to the EC2 instance, install the latest security patches on your EC2 instance 
+by doing an update:
 
 <pre>
 $ <b>sudo apt-get update</b>
