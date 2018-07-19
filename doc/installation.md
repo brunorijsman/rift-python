@@ -1,6 +1,10 @@
 # Installation Instructions
 
-## Linux (Ubuntu Server 16.04 LTS)
+Installation instructions for:
+
+* [Linux Ubuntu Server 16.04 LTS](linux-ubuntu-server-16.04-lts)
+
+## Linux Ubuntu Server 16.04 LTS
 
 I am using an Amazon Web Services (AWS) Elastic Compute Cloud (EC2) t2.micro instance with Amazon Machine Image (AMI) "Ubuntu Server 16.04 LTS (HVM), SSD Volume Type" (ami-ba602bc2), which is free-tier eligible.
 
@@ -156,13 +160,3 @@ Install the cerberus module which is used to validate whether the data stored in
 <pre>
 (env) $ <b>pip install cerberus</b>
 </pre>
-
-## macOS (High Sierra 10.13)
-
-TODO
-
-## Windows
-
-TODO
-
-Note: also need a Telnet client.
