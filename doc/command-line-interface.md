@@ -13,9 +13,16 @@
 
 ## Connect to the CLI
 
+When you start the Python RIFT protocol engine, it reports a port number that you can use to connect one or more CLI 
+sessions:
+
+<pre>
+(env) $ <b>python main.py two_by_two_by_two.yaml</b>
+Command Line Interface (CLI) available on port 55018
+</pre>
+
 You can connect to the Command Line Interface (CLI) using a Telnet client. Assuming you are connecting from the same 
-device as where the RIFT engine is running, the hostname is localhost. The port should be the port number that RIFT 
-reported when it was started:
+device as where the RIFT engine is running, the hostname is localhost. 
 
 <pre>
 $ <b>telnet localhost 55018</b>
