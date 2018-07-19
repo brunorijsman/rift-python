@@ -70,7 +70,7 @@ Note: you can get a list of RIFT nodes present in the current RIFT protocol engi
 
 The "<b>show fsm</b> <i>fsm-name</i>" command shows the definition of the specified Finite State Machine (FSM).
 
-Parameter <i>fsm-name<i> can be one of the following values:
+Parameter <i>fsm-name</i> can be one of the following values:
 
 * lie: Show the Link Information Element (LIE) FSM.
 * ztp: Show the Zero Touch Provisioning (ZTP) FSM.
