@@ -1,6 +1,11 @@
-## Command Line Interface (CLI) Reference
+# Command Line Interface (CLI) Reference
 
-### Connect to the CLI
+* [Connect to the CLI](#connect-to-the-cli)
+* [Entering CLI commands](#entering-cli-commands)
+* Commands:
+  * [set node](#set-node)
+
+## Connect to the CLI
 
 You can connect to the Command Line Interface (CLI) using a Telnet client. Assuming you are connecting from the same 
 device as where the RIFT engine is running, the hostname is localhost. The port should be the port number that RIFT 
@@ -21,7 +26,7 @@ By default (i.e. if no configuration file is specified) a single instance of the
 so-called RIFT node) is started. And by default, the name of that single RIFT node is equal to the hostname of the 
 computer on which the RIFT node is running.
 
-### Entering CLI Commands
+## Entering CLI Commands
 
 You can enter CLI commands at the CLI prompt. For example, try entering the <b>help</b> command:
 
@@ -43,7 +48,7 @@ or next command in the command history. It does also not support tab command com
 in full manually. And you can also not yet use ? for context-sensitive help. These features will be added in a 
 future version.
 
-### The <b>set node </b><i>node-name</i> command
+## set node
 
 The <b>set node<i>node-name</i></b> command changes the currently active RIFT node to the node with the specified 
 RIFT node name:
@@ -55,7 +60,7 @@ core_1>
 
 Note: you can get a list of RIFT nodes present in the current RIFT protocol engine using the <b>show nodes</b> command.
 
-### The <b>show interface</b><i>interface-name</i> command
+## The <b>show interface</b><i>interface-name</i> command
 
 The "<b>show interface</b><i>interface-name</i>" command reports more detailed information about a single interface. Note that "interface" is singular without an s.
 
@@ -129,7 +134,7 @@ Neighbor:
 +----------------------------------+---------------------+
 </pre>
 
-### The <b>show interfaces</b> command
+## The <b>show interfaces</b> command
 
 The "<b>show interfaces</b>" command reports a summary of all interfaces configured on the RIFT node. Note that "interfaces" is plural with an s. It only reports the interfaces on which RIFT is running; your device may have additional interfaces on which RIFT is not running.
 
@@ -155,7 +160,7 @@ Brunos-MacBook1> <b>show interfaces</b>
 +-----------+---------------------+------------------+-----------+
 </pre>
 
-### The <b>show lie-fsm</b> command
+## The <b>show lie-fsm</b> command
 
 The "<b>show lie-fsm</b>" command shows the definition of the Link Information Element (LIE) Finite State Machine (FSM).
 
@@ -218,7 +223,7 @@ State entry actions:
 +---------+---------+
 </pre>
 
-### The <b>show nodes</b> command
+## The <b>show nodes</b> command
 
 The "<b>show nodes</b>" command (node is multiple with an s) lists all RIFT nodes present in the current RIFT
 protocol engine:
@@ -251,7 +256,7 @@ agg_101> <b>show nodes</b>
 +-----------+--------+---------+
 </pre>
 
-### The <b>show node</b> command
+## The <b>show node</b> command
 
 The "<b>show node</b>" command (node is singular without an s) reports the details for the currently active RIFT node:
 
@@ -300,26 +305,3 @@ The format of the log messages is designed to make it easy to "grep" for particu
 
 TODO: Provide grep patterns
 
-## Configuration File
-
-If you start the RIFT protocol engine without any command-line arguments it will start a single RIFT node which
-runs on Ethernet interface "en0".
-
-Note: en0 is the name of the Ethernet interface on a Macbook. A future version of the code will pick the default 
-Ethernet interface in a more portable way.
-
-You can provide the name of a configuration file when you start the RIFT protocol engine:
-
-<pre>
-(env) $ <b>python main.py two_by_two_by_two.yaml</b>
-Command Line Interface (CLI) available on port 49178
-</pre>
-
-The configuration file specifies a specifies the configuration attributes for the RIFT protocol instance,
-including the attribute of the RIFT node and the RIFT interfaces.
-
-It is also possible to configure multiple RIFT nodes in the configurion file. This is used to build simulated
-network topologies that can be tested on a single physical computer. In the above example, the configurion
-file "two_by_two_by_two.yaml" contains 10 simulated nodes with names core_1, core_2, agg_101, agg_102, etc.
-
-The exact syntax of the configuration file is provided in the next section.
