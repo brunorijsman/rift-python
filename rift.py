@@ -53,7 +53,7 @@ class Rift:
 
     def command_show_lie_fsm(self, cli_session):
         interface.Interface.fsm_definition.command_show_fsm(cli_session)
-        
+
     def command_show_nodes(self, cli_session):
         tab = table.Table()
         tab.add_row(node.Node.cli_summary_headers())
@@ -109,9 +109,3 @@ class Rift:
     @property
     def active_nodes(self):
         return self._active_nodes
-
-# TODO: Remove this once every existing user knows they are supposed to run main.py
-
-if __name__ == "__main__":
-
-    print("SORRY! I changed the code. Run main.py instead of rift.py")
