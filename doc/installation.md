@@ -114,12 +114,14 @@ This will create a directory rift-python with the source code:
 
 <pre>
 $ <b>find rift-python</b> 
-rift-python/config.py 
-rift-python/encoding.thrift 
-rift-python/utils.py 
-rift-python/cli_listen_handler.py 
-rift-python/.gitignore 
-rift-python/constants.py
+rift-python
+rift-python/neighbor.py
+rift-python/offer.py
+rift-python/config.py
+rift-python/state-machine.txt
+rift-python/cli_listen_handler.py
+rift-python/LICENSE
+rift-python/requirements.txt
 ...
 </pre>
 
@@ -153,12 +155,16 @@ the virtual environment as described in the previous step before you install the
 
 <pre>
 $ pip install -r requirements.txt 
-Requirement already satisfied: Cerberus==1.2 in ./env/lib/python3.5/site-packages (from -r requirements.txt (line 1)) (1.2)
-Requirement already satisfied: netifaces==0.10.7 in ./env/lib/python3.5/site-packages (from -r requirements.txt (line 2)) (0.10.7)
-Requirement already satisfied: PyYAML==3.13 in ./env/lib/python3.5/site-packages (from -r requirements.txt (line 3)) (3.13)
-Requirement already satisfied: six==1.11.0 in ./env/lib/python3.5/site-packages (from -r requirements.txt (line 4)) (1.11.0)
-Requirement already satisfied: sortedcontainers==2.0.4 in ./env/lib/python3.5/site-packages (from -r requirements.txt (line 5)) (2.0.4)
-Requirement already satisfied: thrift==0.11.0 in ./env/lib/python3.5/site-packages (from -r requirements.txt (line 6)) (0.11.0)
+Collecting Cerberus==1.2 (from -r requirements.txt (line 1))
+Collecting netifaces==0.10.7 (from -r requirements.txt (line 2))
+Collecting PyYAML==3.13 (from -r requirements.txt (line 3))
+Collecting six==1.11.0 (from -r requirements.txt (line 4))
+  Using cached https://files.pythonhosted.org/packages/67/4b/141a581104b1f6397bfa78ac9d43d8ad29a7ca43ea90a2d863fe3056e86a/six-1.11.0-py2.py3-none-any.whl
+Collecting sortedcontainers==2.0.4 (from -r requirements.txt (line 5))
+  Using cached https://files.pythonhosted.org/packages/cb/53/fe764fc8042e13245b50c4032fb2f857bc1e502aaca83063dcdf6b94d223/sortedcontainers-2.0.4-py2.py3-none-any.whl
+Collecting thrift==0.11.0 (from -r requirements.txt (line 6))
+Installing collected packages: Cerberus, netifaces, PyYAML, six, sortedcontainers, thrift
+Successfully installed Cerberus-1.2 PyYAML-3.13 netifaces-0.10.7 six-1.11.0 sortedcontainers-2.0.4 thrift-0.11.0
 </pre>
 
 For those interested, here is the list of dependency modules:
