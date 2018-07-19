@@ -157,32 +157,21 @@ class Ztp:
             if offer.system_id in self._al[level]:
                 del self._al[level][offer.system_id]
 
-    #
     def update_offer(self, offer: offer.Offer):
-
         self.remove_offer(offer)
-
         if not offer.level in self._al:
             self._al[offer.level]= {}
-
         self._al[offer.level][offer.system_id] = offer
-
         self.compare_offers()
 
-
-
     def level_compute(self):
-        # TODO:
-
+        # TODO: Finish this
         if len(self._al) == 0:
             self._hal = None
             return
-
         self._hal = max(self._al.keys())
-
         if not self._i_am_leaf:
             return
-
         highest_level = None
         for level in self._al.keys():
             if len(self._al[level]) >=  Ztp.ZTP_MIN_NUMBER_OF_PEER_FOR_LEVEL:
@@ -192,45 +181,33 @@ class Ztp:
                     highest_level = level
                 else:
                     pass
-
         if highest_level != None and highest_level != 0:
             self._hal = highest_level
 
-
     def compare_offers(self):
-
         old_hal = self._hal
         self.level_compute()
-        # trigger if _hal changed
-
+        # TODO: Trigger if _hal changed
 
     def action_no_action(self):
-        #todo
+        # TODO
         pass
-
 
     def action_level_compute(self):
         self.level_compute()
 
-    #on ChangeLocalLeafIndications in UpdatingClients finishes in ComputeBestOffer: store leaf flags
     def action_store_leaf_flag(self, leaf_flag):
+        # TODO: on ChangeLocalLeafIndications in UpdatingClients finishes in ComputeBestOffer: store leaf flags
         self._i_am_leaf = leaf_flag
 
-
-
-
     def action_update_or_remove_offer(self, offer: offer.Offer):
-
         # TODO:
         #          if no level offered REMOVE_OFFER else
         #          if level > leaf then UPDATE_OFFER else REMOVE_OFFER
-
         if offer.not_a_ztp_offer:
             return
-
         if offer.level is None:
             self.remove_offer(offer)
-
         if offer.level > common.constants.leaf_level:
             self.update_offer(offer)
         else:
@@ -250,26 +227,19 @@ class Ztp:
                 del self._al[level][offer.system_id]
 
     def action_check_hold_time_expired(self):
-        #TODO
+        # TODO
         pass
-
 
     def action_update_all_lie_fsm_with_computation_results(self):
-        # TODO:
+        # TODO
         pass
-    #
 
     def action_update_holddown_timer_on_lost_hal(self):
-
-        #     if any southbound adjacencies present
-        #         then update holddown timer to normal duration
-        #         else fire   holddown    timer    immediately
-
         # TODO:
+        # if any southbound adjacencies present
+        #   then update holddown timer to normal duration
+        #   else fire   holddown    timer    immediately
         pass
-
-        #
-
 
     state_updating_clients_transitions = {
         Event.CHANGE_LOCAL_LEAF_INDICATIONS:    (State.COMPUTE_BEST_OFFER, [action_store_leaf_flag]),
@@ -281,7 +251,6 @@ class Ztp:
         Event.CHANGE_LOCAL_CONFIGURED_LEVEL:    (State.COMPUTE_BEST_OFFER, [action_store_level]),
         Event.BETTER_HAL:                       (State.COMPUTE_BEST_OFFER, [action_no_action]),
         Event.WITH_DRAW_NEIGHBOROFFER:          (None, [action_remove_offer]),
-
     }
 
     state_holding_down_transitions = {
@@ -296,8 +265,6 @@ class Ztp:
         Event.WITH_DRAW_NEIGHBOROFFER:          (None, [action_remove_offer]),
         Event.CHANGE_LOCAL_LEAF_INDICATIONS:    (State.COMPUTE_BEST_OFFER, [action_store_leaf_flag]),
         Event.COMPUTATION_DONE:                 (None, [action_no_action])
-
-
     }
 
     state_compute_best_offer_transitions = {
@@ -311,9 +278,6 @@ class Ztp:
         Event.BETTER_HAT:                       (None, [action_level_compute]),
         Event.WITH_DRAW_NEIGHBOROFFER:          (None, [action_remove_offer]),
         Event.CHANGE_LOCAL_LEAF_INDICATIONS:    (None, [action_store_leaf_flag, action_level_compute])
-
-
-
     }
 
     transitions = {
@@ -327,29 +291,24 @@ class Ztp:
         State.COMPUTE_BEST_OFFER:   [action_level_compute]
     }
 
-
     def info(self, logger, msg):
         logger.info("[{}] {}".format(self._log_id, msg))
 
     def warning(self, logger, msg):
         logger.warning("[{}] {}".format(self._log_id, msg))
 
-
-    def __init__(self, node: node.Node, config):
-
+    def __init__(self, node, config):
         self._node = node
-        self._name = 'ztp'
-        self._al={}
+        self._al = {}    # TODO: Change name into something more meaningful
         self._hal = None
-        # TODO: Make the default metric/bandwidth depend on the speed of the interface
         self._log = node._log.getChild("ztp")
-        self.info(self._log, "Zero touch provisioning state machine")
-        self._log_id = node._log_id + "-{}".format(self._name)
+        self.info(self._log, "Zero Touch Provisioning (ZTP) object created")
+        self._log_id = node._log_id + "-{}".format(self._name)    # TODO: We don't need a new log_id
         self._fsm_log = self._log.getChild("fsm")
-        #TODO take ztp hold time from init file
+        # TODO: Take ztp hold time from init file
         self._holdtime = 1
         self._configured_level = self._node.configured_level()
-        #todo - add where a leaf comes from
+        # TODO: Add where a leaf comes from
         self._i_am_leaf = (self._node.configured_level() == 0)
         self._fsm = fsm.FiniteStateMachine(
             state_enum = self.State,
@@ -361,5 +320,3 @@ class Ztp:
             log = self._fsm_log,
             log_id = self._log_id)
         self._one_second_timer = timer.Timer(1.0, lambda: self._fsm.push_event(self.Event.SHORT_TICK_TIMER))
-
-
