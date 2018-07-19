@@ -28,7 +28,7 @@ multi-node topologies you may need a larger instance type.
 Use user name ubuntu and your private key file to login:
 
 <pre>
-$ <b>ssh ubuntu@<i>ec2-instance-ip-address</i> -i ~/.ssh/<i>your-private-key-file</i>.pem</b> 
+$ <b>ssh ubuntu@</b><i>ec2-instance-ip-address</i><b> -i ~/.ssh/</b><i>your-private-key-file</i><b>.pem</b> 
 </pre>
 
 In the above command we assume you are logging in from a platform (such as Linux or macOS) that
@@ -154,7 +154,7 @@ Use pip to install the dependencies. It is important that you have activated
 the virtual environment as described in the previous step before you install these dependencies.
 
 <pre>
-$ pip install -r requirements.txt 
+$ <b>pip install -r requirements.txt</b> 
 Collecting Cerberus==1.2 (from -r requirements.txt (line 1))
 Collecting netifaces==0.10.7 (from -r requirements.txt (line 2))
 Collecting PyYAML==3.13 (from -r requirements.txt (line 3))
