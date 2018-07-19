@@ -30,6 +30,9 @@ class Node:
     def generate_name(self):
         return socket.gethostname().split('.')[0] + str(self._node_nr)
 
+    def configured_level(self):
+        return self._configured_level
+
     def __init__(self, rift, config):
         # TODO: process passive field in config
         # TODO: process level field in config
