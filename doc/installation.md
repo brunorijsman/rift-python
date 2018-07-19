@@ -148,35 +148,25 @@ $ <b>source env/bin/activate</b>
 
 ### Use pip to install dependecies
 
-Use pip to install the external following modules. It is important that you have activated
+Use pip to install the dependencies. It is important that you have activated
 the virtual environment as described in the previous step before you install these dependencies.
 
-Install the trift module which is used to encode and decode Thrift messages:
-
 <pre>
-(env) $ <b>pip install thrift</b>
+$ pip install -r requirements.txt 
+Requirement already satisfied: Cerberus==1.2 in ./env/lib/python3.5/site-packages (from -r requirements.txt (line 1)) (1.2)
+Requirement already satisfied: netifaces==0.10.7 in ./env/lib/python3.5/site-packages (from -r requirements.txt (line 2)) (0.10.7)
+Requirement already satisfied: PyYAML==3.13 in ./env/lib/python3.5/site-packages (from -r requirements.txt (line 3)) (3.13)
+Requirement already satisfied: six==1.11.0 in ./env/lib/python3.5/site-packages (from -r requirements.txt (line 4)) (1.11.0)
+Requirement already satisfied: sortedcontainers==2.0.4 in ./env/lib/python3.5/site-packages (from -r requirements.txt (line 5)) (2.0.4)
+Requirement already satisfied: thrift==0.11.0 in ./env/lib/python3.5/site-packages (from -r requirements.txt (line 6)) (0.11.0)
 </pre>
 
-Install the sortedcontainers module which is used to created Python containers (e.g. dictionaries) that are sorted by key value:
+For those interested, here is the list of dependency modules:
 
-<pre>
-(env) $ <b>pip install sortedcontainers</b>
-</pre>
-
-Install the netifaces module which provides cross-platform portable code for retrieving information about interfaces and their addresses:
-
-<pre>
-(env) $ <b>pip install netifaces</b>
-</pre>
-
-Install the pyyaml module which is used to parse YAML files:
-
-<pre>
-(env) $ <b>pip install pyyaml</b>
-</pre>
-
-Install the cerberus module which is used to validate whether the data stored in a YAML file conforms to a data model (schema):
-
-<pre>
-(env) $ <b>pip install cerberus</b>
-</pre>
+| Module | Purpose |
+| --- | --- |
+| trift | Encode and decode Thrift messages |
+| sortedcontainers | Python containers (e.g. dictionaries) that are sorted by key |
+| netifaces | Cross-platform portable code for retrieving information about interfaces and their addresses |
+| pyyaml | Parse Yet Another Markup Language (YAML) files |
+| cerberus | validate whether the data stored in a YAML file conforms to a data model (schema) |
