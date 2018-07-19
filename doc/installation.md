@@ -89,7 +89,13 @@ Checking connectivity... done.
 This will create a directory rift-python with the source code:
 
 <pre>
-$ <b>find rift-python</b> rift-python/config.py rift-python/encoding.thrift rift-python/utils.py rift-python/cli_listen_handler.py rift-python/.gitignore rift-python/constants.py
+$ <b>find rift-python</b> 
+rift-python/config.py 
+rift-python/encoding.thrift 
+rift-python/utils.py 
+rift-python/cli_listen_handler.py 
+rift-python/.gitignore 
+rift-python/constants.py
 ...
 </pre>
 
