@@ -8,6 +8,8 @@
   * [show interfaces](#show-interfaces)
   * [show interface](#show-interface)
   * [show interfaces](#show-interfaces)
+  * [show node](#show-node)
+  * [show nodes](#show-nodes)
 
 ## Connect to the CLI
 
@@ -234,6 +236,30 @@ Brunos-MacBook1> <b>show interfaces</b>
 +-----------+---------------------+------------------+-----------+
 </pre>
 
+### show node
+
+The "<b>show node</b>" command (node is singular without an s) reports the details for the currently active RIFT node:
+
+<pre>
+Brunos-MacBook1> <b>show node</b>
++-------------------------------------+------------------+
+| Name                                | Brunos-MacBook1  |
+| Passive                             | False            |
+| Running                             | True             |
+| System ID                           | 667f3a2b1a721f01 |
+| Configured Level                    | 0                |
+| Multicast Loop                      | True             |
+| Receive LIE IPv4 Multicast Address  | 224.0.0.120      |
+| Transmit LIE IPv4 Multicast Address | 224.0.0.120      |
+| Receive LIE IPv6 Multicast Address  | FF02::0078       |
+| Transmit LIE IPv6 Multicast Address | FF02::0078       |
+| Receive LIE Port                    | 10000            |
+| Transmit LIE Port                   | 10000            |
+| LIE Send Interval                   | 1.0 secs         |
+| Receive TIE Port                    | 10001            |
++-------------------------------------+------------------+
+</pre>
+
 ### show nodes
 
 The "<b>show nodes</b>" command (node is multiple with an s) lists all RIFT nodes present in the current RIFT
@@ -265,29 +291,5 @@ agg_101> <b>show nodes</b>
 +-----------+--------+---------+
 | edge_2002 | 2002   | True    |
 +-----------+--------+---------+
-</pre>
-
-### show node
-
-The "<b>show node</b>" command (node is singular without an s) reports the details for the currently active RIFT node:
-
-<pre>
-Brunos-MacBook1> <b>show node</b>
-+-------------------------------------+------------------+
-| Name                                | Brunos-MacBook1  |
-| Passive                             | False            |
-| Running                             | True             |
-| System ID                           | 667f3a2b1a721f01 |
-| Configured Level                    | 0                |
-| Multicast Loop                      | True             |
-| Receive LIE IPv4 Multicast Address  | 224.0.0.120      |
-| Transmit LIE IPv4 Multicast Address | 224.0.0.120      |
-| Receive LIE IPv6 Multicast Address  | FF02::0078       |
-| Transmit LIE IPv6 Multicast Address | FF02::0078       |
-| Receive LIE Port                    | 10000            |
-| Transmit LIE Port                   | 10000            |
-| LIE Send Interval                   | 1.0 secs         |
-| Receive TIE Port                    | 10001            |
-+-------------------------------------+------------------+
 </pre>
 
