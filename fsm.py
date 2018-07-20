@@ -7,6 +7,7 @@ import table
 # TODO: Report superfluous transitions (same effect in every state)
 # TODO: Report could-be-implicit transitions (no effect: no actions, no pushed events, back to same state)
 # TODO: Report implicit transitions
+# TODO: Have a flag to report only "interesting" transitions (e.g. no periodic time ticks)
 
 _MAX_RECORDS = 25
 

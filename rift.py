@@ -9,6 +9,8 @@ import node
 import scheduler
 import table
 
+# TODO: Make sure that there is always at least one node (and hence always a current node)
+
 class Rift:
 
     class ActiveNodes(enum.Enum):
@@ -71,33 +73,20 @@ class Rift:
             tab.add_row(n.cli_level_attributes())
         cli_session.print(tab.to_string())
 
-    def command_show_node(self, cli_session, parameters = None):
-        if parameters and 'node-name' in parameters:
-            node_name = paramters['node-name']
-        else:
-            node_name = self._cli_current_node
-        if node_name:
-            self._cli_current_node.command_show_node(cli_session)
-        else:
-            cli_session.print("No current node")
+    def command_show_node(self, cli_session):
+        self._cli_current_node.command_show_node(cli_session)
+
+    def command_show_node_fsm_history(self, cli_session):
+        self._cli_current_node.command_show_node_fsm_history(cli_session)
 
     def command_show_interfaces(self, cli_session):
-        if self._cli_current_node:
-            self._cli_current_node.command_show_interfaces(cli_session)
-        else:
-            cli_session.print("No current node")
+        self._cli_current_node.command_show_interfaces(cli_session)
 
     def command_show_interface(self, cli_session, parameters):
-        if self._cli_current_node:
-            self._cli_current_node.command_show_interface(cli_session, parameters)
-        else:
-            cli_session.print("No current node")
+        self._cli_current_node.command_show_interface(cli_session, parameters)
 
     def command_show_interface_fsm_history(self, cli_session, parameters):
-        if self._cli_current_node:
-            self._cli_current_node.command_show_interface_fsm_history(cli_session, parameters)
-        else:
-            cli_session.print("No current node")
+        self._cli_current_node.command_show_interface_fsm_history(cli_session, parameters)
 
     def command_set_node(self, cli_session, parameters):
         node_name = parameters['node']
@@ -118,7 +107,10 @@ class Rift:
                 "lie": command_show_lie_fsm,
                 "ztp": command_show_ztp_fsm,
             },
-            "node": command_show_node,
+            "node": {
+                "": command_show_node,
+                "fsm-history": command_show_node_fsm_history,
+            },
             "nodes": {
                 "": command_show_nodes,
                 "level": command_show_nodes_level,

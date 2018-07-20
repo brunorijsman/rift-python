@@ -517,6 +517,10 @@ class Node:
         tab.add_rows(self.cli_detailed_attributes())
         cli_session.print(tab.to_string())
 
+    def command_show_node_fsm_history(self, cli_session):
+        tab = self._fsm.history_table()
+        cli_session.print(tab.to_string())
+
     def command_show_interfaces(self, cli_session):
         # TODO: Report neighbor uptime (time in THREE_WAY state)
         tab = table.Table()
