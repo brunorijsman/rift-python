@@ -8,7 +8,6 @@ import interface
 import node
 import scheduler
 import table
-import ztp
 
 class Rift:
 
@@ -56,7 +55,7 @@ class Rift:
         interface.Interface.fsm_definition.command_show_fsm(cli_session)
 
     def command_show_ztp_fsm(self, cli_session):
-        ztp.Ztp.fsm_definition.command_show_fsm(cli_session)
+        node.Node.fsm_definition.command_show_fsm(cli_session)
 
     def command_show_nodes(self, cli_session):
         tab = table.Table()

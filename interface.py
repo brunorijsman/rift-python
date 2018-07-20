@@ -53,13 +53,11 @@ class Interface:
         nonce = random.getrandbits(63)
         return nonce
 
-    @enum.unique
     class State(enum.Enum):
         ONE_WAY = 1
         TWO_WAY = 2
         THREE_WAY = 3
 
-    @enum.unique
     class Event(enum.Enum):
         TIMER_TICK = 1
         LEVEL_CHANGED = 2
