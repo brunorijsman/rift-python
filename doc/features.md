@@ -15,8 +15,7 @@
 | --- | --- |
 | Automatic SystemID Selection  | Yes |
 | Zero Touch Provisioning (ZTP) Finite State Machine (FSM) | In Progress |
-| Automatic Level Derivation | In Progress |
-| Level Determination Procedure  | No |
+| Automatic Level Determination Procedure  | In Progress |
 
 ## Flooding
 
