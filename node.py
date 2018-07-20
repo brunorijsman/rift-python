@@ -542,6 +542,15 @@ class Node:
             cli_session.print("Neighbor:")
             cli_session.print(tab.to_string())
 
+    def command_show_interface_fsm_history(self, cli_session, parameters):
+        interface_name = parameters['interface']
+        if not interface_name in self._interfaces:
+            cli_session.print("Error: interface {} not present".format(interface_name))
+            return
+        interface = self._interfaces[interface_name]
+        tab = interface._fsm.history_table()
+        cli_session.print(tab.to_string())
+
     @property
     def name(self):
         return self._name

@@ -7,10 +7,11 @@
   * [show fsm](#show-fsm)
   * [show interfaces](#show-interfaces)
   * [show interface](#show-interface)
+  * [show interface fsm-history](#show-interface-fsm-history)
   * [show interfaces](#show-interfaces)
   * [show node](#show-node)
+  * [show nodes](#show-nodes)
   * [show nodes level](#show-nodes-level)
-  * [show nodes summary](#show-nodes-summary)
 
 ## Connect to the CLI
 
@@ -146,7 +147,7 @@ State entry actions:
 
 ### show interface
 
-The "<b>show interface</b><i>interface-name</i>" command reports more detailed information about a single interface. Note that "interface" is singular without an s.
+The "<b>show interface</b> <i>interface-name</i>" command reports more detailed information about a single interface. Note that "interface" is singular without an s.
 
 Here is an example of the output when there is no neighbor (note that the state of the interface is ONE_WAY):
 
@@ -218,6 +219,37 @@ Neighbor:
 +----------------------------------+---------------------+
 </pre>
 
+### show interface fsm-history
+
+The "<b>show interface</b> <i>interface-name</i> <b>fsm-history</b>" command shows the 25 most recent events for the Link Information Element (LIE) Finite State Machine (FSM) associated with the interface. The most recent event is at the top.
+
+<pre>
+agg_101> show interface if_101_1 fsm-history
++----------+----------+-----------+------------------+-------------------------+-------+----------+
+| Sequence | Time     | From      | Event            | Actions and             | To    | Implicit |
+| Nr       | Delta    | State     |                  | Pushed Events           | State |          |
++----------+----------+-----------+------------------+-------------------------+-------+----------+
+| 39110    | 0.970858 | THREE_WAY | SEND_LIE         | send_lie                | None  | False    |
++----------+----------+-----------+------------------+-------------------------+-------+----------+
+| 39106    | 0.001743 | THREE_WAY | TIMER_TICK       | check_hold_time_expired | None  | False    |
+|          |          |           |                  | SEND_LIE                |       |          |
++----------+----------+-----------+------------------+-------------------------+-------+----------+
+| 39082    | 0.018178 | THREE_WAY | UPDATE_ZTP_OFFER | send_offer_to_ztp_fsm   | None  | False    |
++----------+----------+-----------+------------------+-------------------------+-------+----------+
+| 39080    | 0.001617 | THREE_WAY | LIE_RECEIVED     | process_lie             | None  | False    |
+|          |          |           |                  | UPDATE_ZTP_OFFER        |       |          |
++----------+----------+-----------+------------------+-------------------------+-------+----------+
+.          .          .           .                  .                         .       .          .
+.          .          .           .                  .                         .       .          .
+.          .          .           .                  .                         .       .          .
++----------+----------+-----------+------------------+-------------------------+-------+----------+
+| 38390    | 0.001628 | THREE_WAY | LIE_RECEIVED     | process_lie             | None  | False    |
+|          |          |           |                  | UPDATE_ZTP_OFFER        |       |          |
++----------+----------+-----------+------------------+-------------------------+-------+----------+
+| 38280    | 0.982519 | THREE_WAY | SEND_LIE         | send_lie                | None  | False    |
++----------+----------+-----------+------------------+-------------------------+-------+----------+
+</pre>
+
 ### show interfaces
 
 The "<b>show interfaces</b>" command reports a summary of all interfaces configured on the RIFT node. Note that "interfaces" is plural with an s. It only reports the interfaces on which RIFT is running; your device may have additional interfaces on which RIFT is not running.
@@ -268,6 +300,40 @@ Brunos-MacBook1> <b>show node</b>
 +-------------------------------------+------------------+
 </pre>
 
+### show nodes
+
+The "<b>show nodes</b>" command shows a summary of all RIFT nodes running in the
+RIFT protocol engine:
+
+<pre>
+agg_101> <b>show nodes summary</b>
++-----------+--------+---------+
+| Node      | System | Running |
+| Name      | ID     |         |
++-----------+--------+---------+
+| agg_101   | 101    | True    |
++-----------+--------+---------+
+| agg_102   | 102    | True    |
++-----------+--------+---------+
+| agg_201   | 201    | True    |
++-----------+--------+---------+
+| agg_202   | 202    | True    |
++-----------+--------+---------+
+| core_1    | 1      | True    |
++-----------+--------+---------+
+| core_2    | 2      | True    |
++-----------+--------+---------+
+| edge_1001 | 1001   | True    |
++-----------+--------+---------+
+| edge_1002 | 1002   | True    |
++-----------+--------+---------+
+| edge_2001 | 2001   | True    |
++-----------+--------+---------+
+| edge_2002 | 2002   | True    |
++-----------+--------+---------+
+
+</pre>
+
 ### show nodes level
 
 The "<b>show nodes summary</b>" command shows information on automatic level derivation procedures
@@ -299,39 +365,5 @@ agg_101> <b>show nodes level</b>
 +-----------+--------+---------+------------+-----------+
 | edge_2002 | 2002   | True    | leaf       | undefined |
 +-----------+--------+---------+------------+-----------+
-</pre>
-
-### show nodes summary
-
-The "<b>show nodes summary</b>" command shows a summary of all RIFT nodes running in the
-RIFT protocol engine:
-
-<pre>
-agg_101> <b>show nodes summary</b>
-+-----------+--------+---------+
-| Node      | System | Running |
-| Name      | ID     |         |
-+-----------+--------+---------+
-| agg_101   | 101    | True    |
-+-----------+--------+---------+
-| agg_102   | 102    | True    |
-+-----------+--------+---------+
-| agg_201   | 201    | True    |
-+-----------+--------+---------+
-| agg_202   | 202    | True    |
-+-----------+--------+---------+
-| core_1    | 1      | True    |
-+-----------+--------+---------+
-| core_2    | 2      | True    |
-+-----------+--------+---------+
-| edge_1001 | 1001   | True    |
-+-----------+--------+---------+
-| edge_1002 | 1002   | True    |
-+-----------+--------+---------+
-| edge_2001 | 2001   | True    |
-+-----------+--------+---------+
-| edge_2002 | 2002   | True    |
-+-----------+--------+---------+
-
 </pre>
 

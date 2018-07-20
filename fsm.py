@@ -1,11 +1,14 @@
 import collections
+import time
 
-from table import Table
+import table
 
 # TODO: Check completeness of FSM
 # TODO: Report superfluous transitions (same effect in every state)
 # TODO: Report could-be-implicit transitions (no effect: no actions, no pushed events, back to same state)
 # TODO: Report implicit transitions
+
+_MAX_RECORDS = 25
 
 def _action_to_name(action):
     action_name = action.__name__
@@ -15,6 +18,13 @@ def _action_to_name(action):
 
 def _event_to_name(event):
     return event.name
+
+def _state_to_name(state):
+    if state == None:
+        # In the FSM, to-state None means no state change, so treat that special
+        return 'None'
+    else:
+        return state.name
 
 class FsmDefinition:
 
@@ -28,21 +38,21 @@ class FsmDefinition:
     # Everything in this class below here is concerned with producing a human-readable textual representation of the FSM
 
     def states_table(self):
-        tab = Table()
+        tab = table.Table()
         tab.add_row(['State'])
         for state in self.state_enum:
             tab.add_row([state.name])
         return tab
 
     def events_table(self):
-        tab = Table()
+        tab = table.Table()
         tab.add_row(['Event'])
         for event in self.event_enum:
             tab.add_row([event.name])
         return tab
 
     def transition_table(self, report_missing = False):
-        tab = Table()
+        tab = table.Table()
         tab.add_row(['From state', 'Event', 'To state', 'Actions', 'Push events'])
         for from_state in self.state_enum:
             if from_state in self.transitions:
@@ -53,7 +63,7 @@ class FsmDefinition:
         return tab
 
     def state_entry_actions_table(self):
-        tab = Table()
+        tab = table.Table()
         tab.add_row(['State', 'Actions'])
         for state in self.state_entry_actions:
             actions = self.state_entry_actions[state]
@@ -125,6 +135,21 @@ class FsmDefinition:
         tab = self.state_entry_actions_table()
         cli_session.print(tab.to_string())
 
+class FsmRecord:
+
+    _next_seq_nr = 1
+
+    def __init__(self, fsm, from_state, event):
+        self.seq_nr = FsmRecord._next_seq_nr
+        FsmRecord._next_seq_nr += 1
+        self.time = time.time()
+        self.fsm = fsm
+        self.from_state = from_state
+        self.event = event
+        self.actions_and_pushed_events = []
+        self.to_state = None
+        self.implicit = False
+
 class Fsm:
 
     _event_queue = collections.deque()
@@ -147,6 +172,8 @@ class Fsm:
         self._state_entry_actions = definition.state_entry_actions
         self._state = definition.initial_state
         self._action_handler = action_handler
+        self._records = collections.deque([], _MAX_RECORDS)
+        self._current_record = None
         self.info("Create FSM, state={}".format(self._state.name))
         self.invoke_state_entry_actions(self._state)
 
@@ -155,6 +182,8 @@ class Fsm:
         fsm = self
         event_tuple = (fsm, event, event_data)
         self._event_queue.append(event_tuple)
+        if self._current_record:
+            self._current_record.actions_and_pushed_events.append(event.name)
 
     @staticmethod 
     def process_queued_events():
@@ -168,6 +197,8 @@ class Fsm:
     def invoke_actions(self, actions, type_of_action, event_data = None):
         for action in actions:
             self.info("FSM invoke {} action, action={}".format(type_of_action, _action_to_name(action)))
+            if self._current_record:
+                self._current_record.actions_and_pushed_events.append(_action_to_name(action))
             if event_data:
                 action(self._action_handler, event_data)
             else:
@@ -183,7 +214,9 @@ class Fsm:
                 self._state.name, event.name, event_data))
         else:
             self.info("FSM process event, state={} event={}".format(self._state.name, event.name))
+        assert self._current_record == None
         from_state = self._state
+        self._current_record = FsmRecord(self, from_state, event)
         if from_state in self._transitions:
             from_state_transitions = self._transitions[from_state]
         else:
@@ -202,7 +235,34 @@ class Fsm:
             if to_state != None:
                 self.info("FSM transition from state {} to state {}".format(from_state.name, to_state.name))
                 self._state = to_state
+                self._current_record.to_state = to_state
                 self.invoke_state_entry_actions(to_state)
         else:
             self.warning("FSM missing transition, state={} event={}".format(self._state.name, event.name))
+            self._current_record.implicit = True
+        self._records.appendleft(self._current_record)
+        self._current_record = None
 
+    def history_table(self):
+        tab = table.Table()
+        tab.add_row([
+            ['Sequence', 'Nr'],
+            ['Time', 'Delta'], 
+            ['From', 'State'], 
+            'Event', 
+            ['Actions and', 'Pushed Events'], 
+            ['To', 'State'],
+            ['Implicit']])
+        prev_time = time.time()
+        for record in self._records:
+            time_delta = prev_time - record.time
+            tab.add_row([
+                record.seq_nr,
+                "{:06f}".format(time_delta),
+                _state_to_name(record.from_state), 
+                _event_to_name(record.event),
+                record.actions_and_pushed_events,
+                _state_to_name(record.to_state), 
+                record.implicit])
+            prev_time = record.time
+        return tab

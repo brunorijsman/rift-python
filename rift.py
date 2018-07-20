@@ -57,7 +57,7 @@ class Rift:
     def command_show_ztp_fsm(self, cli_session):
         node.Node.fsm_definition.command_show_fsm(cli_session)
 
-    def command_show_nodes_summary(self, cli_session):
+    def command_show_nodes(self, cli_session):
         tab = table.Table()
         tab.add_row(node.Node.cli_summary_headers())
         for n in self._nodes.values():
@@ -93,6 +93,12 @@ class Rift:
         else:
             cli_session.print("No current node")
 
+    def command_show_interface_fsm_history(self, cli_session, parameters):
+        if self._cli_current_node:
+            self._cli_current_node.command_show_interface_fsm_history(cli_session, parameters)
+        else:
+            cli_session.print("No current node")
+
     def command_set_node(self, cli_session, parameters):
         node_name = parameters['node']
         if node_name in self._nodes:
@@ -114,10 +120,13 @@ class Rift:
             },
             "node": command_show_node,
             "nodes": {
-                "summary": command_show_nodes_summary,
+                "": command_show_nodes,
                 "level": command_show_nodes_level,
             },
-            "$interface": command_show_interface,
+            "$interface": {
+                "": command_show_interface,
+                "fsm-history": command_show_interface_fsm_history,
+            },
             "interfaces": command_show_interfaces,
         },
     }

@@ -37,7 +37,9 @@ class CliSessionHandler:
         else:
             sorted_parse_subtree = sortedcontainers.SortedDict(parse_subtree)
             for match_str, new_parse_subtree in sorted_parse_subtree.items():
-                if match_str[0] == '$':
+                if match_str == '':
+                    new_command_str = command_str
+                elif match_str[0] == '$':
                     new_command_str = command_str + "{0} <{0}> ".format(match_str[1:])
                 else:
                     new_command_str = command_str + match_str + " "
@@ -65,6 +67,10 @@ class CliSessionHandler:
                     command_function(self._command_handler, self, parameters)
                 else:
                     command_function(self._command_handler, self)
+            elif '' in parse_subtree:
+                # There is a branch in parse tree for "no more input". Follow that branch.
+                new_parse_subtree = parse_subtree['']
+                self.parse_tokens(tokens, new_parse_subtree, parameters)
             else:
                 # There should have been more to parse. Generate an error
                 self.print("Missing input, possible completions:")
