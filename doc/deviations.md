@@ -4,7 +4,7 @@ This section describes places where this Python RIFT engine implementation consc
 
 | ID | Short description |
 | --- | --- |
-| 1 | [Remove event WithdrawNeighborOffer from the ZTP FSM](remove-event-withdrawneighboroffer-from-the-ztp-fsm) |
+| 1 | [Remove event WithdrawNeighborOffer from the ZTP FSM](#remove-event-withdrawneighboroffer-from-the-ztp-fsm) |
 
 ## Remove event WithdrawNeighborOffer from the ZTP FSM
 
