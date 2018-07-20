@@ -9,7 +9,8 @@
   * [show interface](#show-interface)
   * [show interfaces](#show-interfaces)
   * [show node](#show-node)
-  * [show nodes](#show-nodes)
+  * [show nodes level](#show-nodes-level)
+  * [show nodes summary](#show-nodes-summary)
 
 ## Connect to the CLI
 
@@ -267,20 +268,70 @@ Brunos-MacBook1> <b>show node</b>
 +-------------------------------------+------------------+
 </pre>
 
-### show nodes
+### show nodes level
 
-The "<b>show nodes</b>" command (node is multiple with an s) lists all RIFT nodes present in the current RIFT
-protocol engine:
+The "<b>show nodes summary</b>" command shows information on automatic level derivation procedures
+for all RIFT nodes in the RIFT topology:
 
 <pre>
-agg_202> <b>show nodes</b>
-+---------+--------+---------+------------+-------+
-| Node    | System | Running | Configured | Level |
-| Name    | ID     |         | Level      | Value |
-+---------+--------+---------+------------+-------+
-| agg_202 | 202    | True    | 1          | 1     |
-+---------+--------+---------+------------+-------+
-| core_1  | 1      | True    | 2          | 2     |
-+---------+--------+---------+------------+-------+
+agg_101> <b>show nodes level</b>
++-----------+--------+---------+------------+-----------+
+| Node      | System | Running | Configured | Level     |
+| Name      | ID     |         | Level      | Value     |
++-----------+--------+---------+------------+-----------+
+| agg_101   | 101    | True    | undefined  | undefined |
++-----------+--------+---------+------------+-----------+
+| agg_102   | 102    | True    | undefined  | undefined |
++-----------+--------+---------+------------+-----------+
+| agg_201   | 201    | True    | undefined  | undefined |
++-----------+--------+---------+------------+-----------+
+| agg_202   | 202    | True    | undefined  | undefined |
++-----------+--------+---------+------------+-----------+
+| core_1    | 1      | True    | superspine | undefined |
++-----------+--------+---------+------------+-----------+
+| core_2    | 2      | True    | superspine | undefined |
++-----------+--------+---------+------------+-----------+
+| edge_1001 | 1001   | True    | leaf       | undefined |
++-----------+--------+---------+------------+-----------+
+| edge_1002 | 1002   | True    | undefined  | undefined |
++-----------+--------+---------+------------+-----------+
+| edge_2001 | 2001   | True    | undefined  | undefined |
++-----------+--------+---------+------------+-----------+
+| edge_2002 | 2002   | True    | leaf       | undefined |
++-----------+--------+---------+------------+-----------+
+</pre>
+
+### show nodes summary
+
+The "<b>show nodes summary</b>" command shows a summary of all RIFT nodes running in the
+RIFT protocol engine:
+
+<pre>
+agg_101> <b>show nodes summary</b>
++-----------+--------+---------+
+| Node      | System | Running |
+| Name      | ID     |         |
++-----------+--------+---------+
+| agg_101   | 101    | True    |
++-----------+--------+---------+
+| agg_102   | 102    | True    |
++-----------+--------+---------+
+| agg_201   | 201    | True    |
++-----------+--------+---------+
+| agg_202   | 202    | True    |
++-----------+--------+---------+
+| core_1    | 1      | True    |
++-----------+--------+---------+
+| core_2    | 2      | True    |
++-----------+--------+---------+
+| edge_1001 | 1001   | True    |
++-----------+--------+---------+
+| edge_1002 | 1002   | True    |
++-----------+--------+---------+
+| edge_2001 | 2001   | True    |
++-----------+--------+---------+
+| edge_2002 | 2002   | True    |
++-----------+--------+---------+
+
 </pre>
 

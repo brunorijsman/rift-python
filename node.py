@@ -376,8 +376,11 @@ class Node:
     def generate_name(self):
         return socket.gethostname().split('.')[0] + str(self._node_nr)
 
+    def configured_level_str(self):
+        return self.get_config_attribute('level', 'undefined')
+
     def parse_level_config(self):
-        level_config = self.get_config_attribute('level', 'undefined')
+        level_config = self.configured_level_str()
         if level_config == 'undefined':
             self._configured_level = None
             self._leaf_only = False
@@ -412,6 +415,13 @@ class Node:
             return self._configured_level
         else:
             return self._derived_level
+
+    def level_value_str(self):
+        level_value = self.level_value()
+        if level_value == None:
+            return 'undefined'
+        else:
+            return str(level_value)
 
     def perform_level_determination_procedure(self):
         return (self._configured_level != None) or self._leaf_only or self._leaf_2_leaf or self._superspine_flag
@@ -469,17 +479,38 @@ class Node:
         return [
             ["Node", "Name"],
             ["System", "ID"],
-            ["Running"],
-            ["Configured", "Level"],
-            ["Level", "Value"]]
+            ["Running"]]
 
     def cli_summary_attributes(self):
         return [
             self._name,
             utils.system_id_str(self._system_id),
-            self._running,
-            self._configured_level,
-            self.level_value()]
+            self._running]
+
+    @staticmethod
+    def cli_level_headers():
+        return [
+            ["Node", "Name"],
+            ["System", "ID"],
+            ["Running"],
+            ["Configured", "Level"],
+            ["Level", "Value"]]
+
+    def cli_level_attributes(self):
+        if self._running:
+            return [
+                self._name,
+                utils.system_id_str(self._system_id),
+                self._running,
+                self.configured_level_str(),
+                self.level_value_str()]
+        else:
+            return [
+                self._name,
+                utils.system_id_str(self._system_id),
+                self._running,
+                self.configured_level_str(),
+                '?']
 
     def command_show_node(self, cli_session):
         tab = table.Table(separators = False)

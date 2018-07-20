@@ -57,11 +57,18 @@ class Rift:
     def command_show_ztp_fsm(self, cli_session):
         node.Node.fsm_definition.command_show_fsm(cli_session)
 
-    def command_show_nodes(self, cli_session):
+    def command_show_nodes_summary(self, cli_session):
         tab = table.Table()
         tab.add_row(node.Node.cli_summary_headers())
         for n in self._nodes.values():
             tab.add_row(n.cli_summary_attributes())
+        cli_session.print(tab.to_string())
+
+    def command_show_nodes_level(self, cli_session):
+        tab = table.Table()
+        tab.add_row(node.Node.cli_level_headers())
+        for n in self._nodes.values():
+            tab.add_row(n.cli_level_attributes())
         cli_session.print(tab.to_string())
 
     def command_show_node(self, cli_session, parameters = None):
@@ -106,7 +113,10 @@ class Rift:
                 "ztp": command_show_ztp_fsm,
             },
             "node": command_show_node,
-            "nodes": command_show_nodes,
+            "nodes": {
+                "summary": command_show_nodes_summary,
+                "level": command_show_nodes_level,
+            },
             "$interface": command_show_interface,
             "interfaces": command_show_interfaces,
         },
