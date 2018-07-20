@@ -15,13 +15,6 @@ import utils
 
 # TODO: Command line argument and/or configuration option for CLI port
 
-class Offer:
-
-    def __init__(self, system_id, level, state):
-        self.system_id = system_id
-        self.level = level
-        self.state = state
-
 class Node:
 
     _next_node_nr = 1

@@ -3,9 +3,11 @@
 This repository contains a Python implementation of the Routing In Fat Trees (RIFT) protocol specificied in Internet Draft (ID)
 [draft-draft-rift-02](https://tools.ietf.org/html/draft-ietf-rift-rift-02)
 
-The code is currently still a work in progress. Only the Link Information Element (LIE) Finite State Machine (FSM) for IPv4 is complete.
+The code is currently still a work in progress (see Feature List below for the status).
 
 # Documentation
+
+* [Feature List](doc/features.md)
 
 * [Installation Instructions](doc/installation.md)
 
@@ -18,6 +20,8 @@ The code is currently still a work in progress. Only the Link Information Elemen
 * [Configuration File](doc/configuration-file.md)
 
 * [Command Line Options File](doc/command-line-options.md)
+
+* [Implementation Deviations from Specificaton](doc/deviations.md)
 
 # IETF 102 (Montreal) RIFT Hackathon Interoperability Testing
 
