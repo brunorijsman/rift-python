@@ -225,7 +225,7 @@ Neighbor:
 The "<b>show interface</b> <i>interface-name</i> <b>fsm-history</b>" command shows the 25 most recent events for the Link Information Element (LIE) Finite State Machine (FSM) associated with the interface. The most recent event is at the top.
 
 <pre>
-agg_101> show interface if_101_1 fsm-history
+agg_101> <b>show interface if_101_1 fsm-history</b>
 +----------+----------+-----------+------------------+-------------------------+-------+----------+
 | Sequence | Time     | From      | Event            | Actions and             | To    | Implicit |
 | Nr       | Delta    | State     |                  | Pushed Events           | State |          |
