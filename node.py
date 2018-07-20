@@ -37,7 +37,7 @@ class Node:
         CHANGE_LOCAL_LEAF_INDICATIONS = 1
         CHANGE_LOCAL_CONFIGURED_LEVEL = 2
         NEIGHBOR_OFFER = 3
-        WITH_DRAW_NEIGHBOROFFER = 4
+        WITHDRAW_NEIGHBOR_OFFER = 4
         BETTER_HAL = 5
         BETTER_HAT = 6
         LOST_HAL = 7
@@ -266,7 +266,7 @@ class Node:
         Event.NEIGHBOR_OFFER:                   (None, [action_update_or_remove_offer]),
         Event.CHANGE_LOCAL_CONFIGURED_LEVEL:    (State.COMPUTE_BEST_OFFER, [action_store_level]),
         Event.BETTER_HAL:                       (State.COMPUTE_BEST_OFFER, [action_no_action]),
-        Event.WITH_DRAW_NEIGHBOROFFER:          (None, [action_remove_offer]),
+        Event.WITHDRAW_NEIGHBOR_OFFER:          (None, [action_remove_offer]),
     }
 
     _state_holding_down_transitions = {
@@ -278,7 +278,7 @@ class Node:
         Event.SHORT_TICK_TIMER:                 (None, [action_check_hold_time_expired]),
         Event.NEIGHBOR_OFFER:                   (None, [action_update_or_remove_offer]),
         Event.BETTER_HAL:                       (None, [action_no_action]),
-        Event.WITH_DRAW_NEIGHBOROFFER:          (None, [action_remove_offer]),
+        Event.WITHDRAW_NEIGHBOR_OFFER:          (None, [action_remove_offer]),
         Event.CHANGE_LOCAL_LEAF_INDICATIONS:    (State.COMPUTE_BEST_OFFER, [action_store_leaf_flags]),
         Event.COMPUTATION_DONE:                 (None, [action_no_action])
     }
@@ -292,7 +292,7 @@ class Node:
         Event.CHANGE_LOCAL_CONFIGURED_LEVEL:    (None, [action_store_level, action_level_compute]),
         Event.LOST_HAL:                         (State.HOLDING_DOWN, [action_update_holddown_timer_on_lost_hal]),
         Event.BETTER_HAT:                       (None, [action_level_compute]),
-        Event.WITH_DRAW_NEIGHBOROFFER:          (None, [action_remove_offer]),
+        Event.WITHDRAW_NEIGHBOR_OFFER:          (None, [action_remove_offer]),
         Event.CHANGE_LOCAL_LEAF_INDICATIONS:    (None, [action_store_leaf_flags, action_level_compute])
     }
 
@@ -554,11 +554,6 @@ class Node:
     @property
     def configured_level(self):
         return self._configured_level
-
-    @property
-    def advertised_level(self):
-        # TODO: Handle configured_level == None (see TODO at top of file)
-        return self.configured_level
 
     @property
     def lie_ipv4_mcast_address(self):

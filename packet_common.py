@@ -15,7 +15,7 @@ def create_packet_header(node):
         major_version = RIFT_MAJOR_VERSION,
         minor_version = RIFT_MINOR_VERSION,
         sender = node.system_id,
-        level = node.advertised_level
+        level = node.level_value()
     )
     return packet_header
 
