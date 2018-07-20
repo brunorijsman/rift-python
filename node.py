@@ -435,12 +435,6 @@ class Node:
         interface_name = interface_config['name']
         self._interfaces[interface_name] = interface.Interface(self, interface_config)
 
-    def level_str(self, level):
-        if self._configured_level == None:
-            return "undefined"
-        else:
-            return str(level)
-
     def cli_detailed_attributes(self):
         return [
             ["Name", self._name],
@@ -475,13 +469,17 @@ class Node:
         return [
             ["Node", "Name"],
             ["System", "ID"],
-            ["Running"]]
+            ["Running"],
+            ["Configured", "Level"],
+            ["Level", "Value"]]
 
     def cli_summary_attributes(self):
         return [
             self._name,
             utils.system_id_str(self._system_id),
-            self._running]
+            self._running,
+            self._configured_level,
+            self.level_value()]
 
     def command_show_node(self, cli_session):
         tab = table.Table(separators = False)
