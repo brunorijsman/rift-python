@@ -10,6 +10,7 @@
   * [show interface fsm-history](#show-interface-fsm-history)
   * [show interfaces](#show-interfaces)
   * [show node](#show-node)
+  * [show node fsm-history](#show-node-fsm-history)
   * [show nodes](#show-nodes)
   * [show nodes level](#show-nodes-level)
 
@@ -331,8 +332,11 @@ agg_101> <b>show nodes summary</b>
 +-----------+--------+---------+
 | edge_2002 | 2002   | True    |
 +-----------+--------+---------+
-
 </pre>
+
+### show node fsm-history
+
+TODO
 
 ### show nodes level
 
