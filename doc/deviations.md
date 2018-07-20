@@ -15,3 +15,4 @@ If these interpretations are correct, then why is there a separate event Withdra
 This implementation only implements the NeighborOffer event. The actions for this event also handle the case that the offer is absent (i.e. the offer is withdrawn)
 
 This is not expected to cause any interoperability issues with other implementations. Just is just a simplification of the internal state machine which does not change the external behavior in any observable way.
+s
