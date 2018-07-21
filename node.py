@@ -1,3 +1,6 @@
+import sys
+sys.path.append('gen-py')
+
 import enum
 import logging
 import os
@@ -5,9 +8,11 @@ import socket
 import sortedcontainers
 import uuid
 
+import common.constants
 import constants
 import fsm
 import interface
+import offer
 import rift
 import table
 import timer
@@ -30,7 +35,7 @@ class Node:
         CHANGE_LOCAL_LEAF_INDICATIONS = 1
         CHANGE_LOCAL_CONFIGURED_LEVEL = 2
         NEIGHBOR_OFFER = 3
-        WITHDRAW_NEIGHBOR_OFFER = 4
+        # WITHDRAW_NEIGHBOR_OFFER = 4       Removed. See deviation DEV-1 in doc/deviations.md. TODO: remove line completely.
         BETTER_HAL = 5
         BETTER_HAT = 6
         LOST_HAL = 7
@@ -39,165 +44,46 @@ class Node:
         HOLDDOWN_EXPIRED = 10
         SHORT_TICK_TIMER = 11
 
-    # on  LOST_HAT in ComputeBestOffer finishes in ComputeBestOffer:  LEVEL_COMPUTE
-    # on    NeighborOffer in ComputeBestOffer    finishes in ComputeBestOffer: action_update_or_remove_offer
-    #     if NeighborOffer.no_level_offered
-    #           then REMOVE_OFFER
-    #           else  if level > leaf
-    #                   then UPDATE_OFFER
-    #                   else REMOVE_OFFER
-    # on    BetterHAL in ComputeBestOffer    finishes in ComputeBestOffer:    LEVEL_COMPUTE
-    # on    ShortTic in COMPUTE_BEST_OFFER    finishes in COMPUTE_BEST_OFFER:
-    # on BetterHAT in ComputeBestOffer finishes in ComputeBestOffer: LEVEL_COMPUTE
-    # on WithdrawNeighborOffer in ComputeBestOffer finishes in ComputeBestOffer: REMOVE_OFFER
-    # on ChangeLocalLeafIndications in ComputeBestOffer finishes in   ComputeBestOffer: action_store_leaf_flag,action_level_compute
-    # on ComputationDone in ComputeBestOffer    finishes in    UpdatingClients: NO_ACTION
-    # on ChangeLocalConfiguredLevel in ComputeBestOffer finishes in ComputeBestOffer:  action_store_level, action_level_compute
-    # on LostHAL in ComputeBestOffer finishes in HoldingDown: action_update_holddown_timer_on_lost_hal
-    #     if any    southbound    adjacencies    present
-    #         then     update    holddown    timer    to    normal duration
-    #         else fire holddown timer immediately
-
-
-    # on  LOST_HAT  in                  HOLDING_DOWN   finishes in  HOLDING_DOWN:   NO_ACTION
-    # on  LOST_HAL  in                  HOLDING_DOWN   finishes in  HOLDING_DOWN:   NO_ACTION
-    # on  BETTER_HAT in                 HOLDING_DOWN   finishes in  HoldingDown:    NO_ACTION
-    # on  ChangeLocalConfiguredLevel in HOLDING_DOWN   finishes in  ComputeBestOffer: STORE_LEVEL
-    # on  HoldDownExpired in            HOLDING_DOWN   inishes in   ComputeBestOffer:    PURGE_OFFERS
-    # on  ShortTic in                   HOLDING_DOWN   finishes in  HOLDING_DOWN:   action_check_hold_time_expired
-    #    if HOLDDOWN_TIMER_EXPIRED
-    #           then PUSH_EVENT   HOLDDOWN_EXPIRED
-    # on NeighborOffer in               HoldingDown    finishes in  HoldingDown:       action_update_or_remove_offer
-    #     if no level offered REMOVE_OFFER else
-    #     if level > leaf then UPDATE_OFFER else REMOVE_OFFER
-    # on BetterHAL in                   HoldingDown finishes in     HoldingDown: NO_ACTION
-    # on WithdrawNeighborOffer in       HoldingDown finishes in     HoldingDown:      REMOVE_OFFER
-    # on ChangeLocalLeafIndications in  HoldingDown finishes in     ComputeBestOffer: action_store_leaf_flag
-    # on ComputationDone in             HoldingDown finishes in     HoldingDown: NO_ACTION
-
-    # on    CHANGE_LOCAL_LEAF_INDICATIONS in  UpdatingClients    finishes in        ComputeBestOffer: STORE_LEAF_FLAGS
-    # on    LOST_HAT in                       UpdatingClients    finishes in        ComputeBestOffer: NO_ACTION
-    # on    BetterHAT in                      UpdatingClients  finishes in          ComputeBestOffer: NO_ACTION
-    # on    ShortTic in                       UPDATING_CLIENTS    finishes in       UPDATING_CLIENTS:
-    # on    LostHAL in                        UpdatingClients    finishes in        HOLDING_DOWN: action_update_holddown_timer_on_lost_hal
-    #     if any southbound adjacencies present
-    #         then update holddown timer to normal duration
-    #         else fire   holddown    timer    immediately
-    # on    NeighborOffer in                   UpdatingClients    finishes in       UpdatingClients: action_update_or_remove_offer
-    #     if no level offered REMOVE_OFFER else
-    #     if level > leaf then UPDATE_OFFER else REMOVE_OFFER
-    # on ChangeLocalConfiguredLevel in          UpdatingClients finishes in         ComputeBestOffer: action_store_level
-    # on BetterHAL in                           UpdatingClients finishes in         ComputeBestOffer: NO_ACTION
-    # on WithdrawNeighborOffer in               UpdatingClients finishes in         UpdatingClients: REMOVE_OFFER
-
-
-    # on Entry into UpdatingClients: action_update_all_lie_fsm_with_computation_results
-    # on Entry into ComputeBestOffer: LEVEL_COMPUTE
-
-   #  Following words are used for well known procedures:
-   # 1.  PUSH Event: pushes an event to be executed by the FSM upon exit  of this action
-   # 2.  COMPARE_OFFERS: checks whether based on current offers and held    last results the events
-   #        BetterHAL/LostHAL/BetterHAT/LostHAT are       necessary and returns them
-   # 3.  UPDATE_OFFER: store current offer and COMPARE_OFFERS, PUSH   according events
-   # 4.  LEVEL_COMPUTE: compute best offered or configured level and HAL/  HAT, if anything changed PUSH ComputationDone
-   # 5.  REMOVE_OFFER: remove the according offer and COMPARE_OFFERS, PUSH       according events
-   # 6.  PURGE_OFFERS: REMOVE_OFFER for all held offers, COMPARE OFFERS,       PUSH according events
-
-    # LEVEL_VALUE:  In ZTP case the original definition of "level" in   Section 2.1 is both extended and relaxed.  First, level is defined
-    # now as LEVEL_VALUE and is the first defined value of    CONFIGURED_LEVEL followed by DERIVED_LEVEL.  Second, it is
-    # possible for nodes to be more than one level apart to form adjacencies if any of the nodes is at least LEAF_ONLY.
-
-    # Valid Offered Level (VOL):  A neighbor's level received on a valid  LIE (i.e. passing all checks for adjacency formation while  disregarding all clauses
-    # involving level values) persisting for the duration of the holdtime interval on the LIE.  Observe that   offers from nodes offering level value of 0 do
-    # not constitute VOLs  (since no valid DERIVED_LEVEL can be obtained from those).  Offers from LIEs with `not_a_ztp_offer` being true are not VOLs either.
-
-    # Highest Available Level (HAL):  Highest defined level value seen from  all VOLs received.
-    # Highest Adjacency Three Way (HAT):  Highest neigbhor level of all the   formed three way adjacencies for the node.
-
-    #4.2.9.4.Level Determination Procedure
-
-    # A node starting up with UNDEFINED_VALUE (i.e. without a
-    # CONFIGURED_LEVEL or any leaf or superspine flag) MUST follow those
-    # additional procedures:
-
-    # 1.  It advertises its LEVEL_VALUE on all LIEs (observe that this can
-    # be UNDEFINED_LEVEL which in terms of the schema is simply an
-    # omitted optional value).
-
-    # 2.  It chooses on an ongoing basis from all VOLs the value of
-    # MAX(HAL-1,0) as its DERIVED_LEVEL.  The node then starts to
-    # advertise this derived level.
-
-    # 3.  A node that lost all adjacencies with HAL value MUST hold down
-    # computation of new DERIVED_LEVEL for a short period of time
-    # unless it has no VOLs from southbound adjacencies.  After the
-    # holddown expired, it MUST discard all received offers, recompute
-    # DERIVED_LEVEL and announce it to all neighbors.
-
-    # 4.  A node MUST reset any adjacency that has changed the level it is
-    # offering and is in three way state.
-
-    # 5.  A node that changed its defined level value MUST readvertise its
-    # own TIEs (since the new `PacketHeader` will contain a different
-    # level than before).  Sequence number of each TIE MUST be
-    # increased.
-
-    # 6.  After a level has been derived the node MUST set the
-    # `not_a_ztp_offer` on LIEs towards all systems extending a VOL for
-    # HAL.
-
-    # A node starting with LEVEL_VALUE being 0 (i.e. it assumes a leaf
-    # function by being configured with the appropriate flags or has a
-    # CONFIGURED_LEVEL of 0) MUST follow those additional procedures:
-
-    # 1.  It computes HAT per procedures above but does NOT use it to
-    # compute DERIVED_LEVEL.  HAT is used to limit adjacency formation
-    # per Section 4.2.2.
-
-    # on LostHAT in ComputeBestOffer finishes in ComputeBestOffer:
-    #       LEVEL_COMPUTE
-
-    def remove_offer(self, offer):
-        # TODO: additional index by system_id
-        for level in self._al.keys():
-            if offer.system_id in self._al[level]:
-                del self._al[level][offer.system_id]
+    def remove_offer(self, offer, reason):
+        offer.removed = True
+        offer.removed_reason = reason
+        self._offers_by_system_id[offer.system_id] = offer
+        self.compare_offers()
 
     def update_offer(self, offer):
-        self.remove_offer(offer)
-        if not offer.level in self._al:
-            self._al[offer.level]= {}
-        self._al[offer.level][offer.system_id] = offer
+        self._offers_by_system_id[offer.system_id] = offer
         self.compare_offers()
 
     def is_leaf(self):
-        # TODO: What does this mean exactly?
-        return self._leaf_only
+        # TODO: What does this mean exactly?  Also return True if level == leaf_level?
+        return self._leaf_only 
 
     def level_compute(self):
         # TODO: Finish this
-        if len(self._al) == 0:
-            self._hal = None
-            return
-        self._hal = max(self._al.keys())
-        if not self._i_am_leaf:
-            return
-        highest_level = None
-        for level in self._al.keys():
-            if len(self._al[level]) >=  Ztp.ZTP_MIN_NUMBER_OF_PEER_FOR_LEVEL:
-                if highest_level == None:
-                    highest_level = level
-                elif level >= highest_level:
-                    highest_level = level
-                else:
-                    pass
-        if highest_level != None and highest_level != 0:
-            self._hal = highest_level
+        # if len(self._al) == 0:
+        #     self._hal = None
+        #     return
+        # self._hal = max(self._al.keys())
+        # if not self._i_am_leaf:
+        #     return
+        # highest_level = None
+        # for level in self._al.keys():
+        #     if len(self._al[level]) >=  Ztp.ZTP_MIN_NUMBER_OF_PEER_FOR_LEVEL:
+        #         if highest_level == None:
+        #             highest_level = level
+        #         elif level >= highest_level:
+        #             highest_level = level
+        #         else:
+        #             pass
+        # if highest_level != None and highest_level != 0:
+        #     self._hal = highest_level
+        pass
 
     def compare_offers(self):
-        old_hal = self._hal
-        self.level_compute()
+        # old_hal = self._hal
+        # self.level_compute()
         # TODO: Trigger if _hal changed
+        pass
 
     def action_no_action(self):
         pass
@@ -210,17 +96,14 @@ class Node:
         pass
 
     def action_update_or_remove_offer(self, offer):
-        # TODO:
-        #          if no level offered REMOVE_OFFER else
-        #          if level > leaf then UPDATE_OFFER else REMOVE_OFFER
-        if offer.not_a_ztp_offer:
-            return
-        if offer.level is None:
-            self.remove_offer(offer)
-        if offer.level > common.constants.leaf_level:
-            self.update_offer(offer)
+        if offer.not_a_ztp_offer == True:
+            self.remove_offer(offer, "Not a ZTP offer flag set")
+        elif offer.level == None:
+            self.remove_offer(offer, "Level is undefined")
+        elif offer.level <= common.constants.leaf_level:
+            self.remove_offer(offer, "Level is leaf")
         else:
-            self.remove_offer(offer)
+            self.update_offer(offer)
 
     def action_store_level(self, level):
         self._configured_level = level
@@ -228,12 +111,6 @@ class Node:
     def action_purge_offers(self):
         self._al = {}
         self.compare_offers()
-
-    def action_remove_offer(self, offer):
-        level = 0
-        while level in self._al:
-            if offer.system_id in self._al[level]:
-                del self._al[level][offer.system_id]
 
     def action_check_hold_time_expired(self):
         # TODO
@@ -259,7 +136,7 @@ class Node:
         Event.NEIGHBOR_OFFER:                   (None, [action_update_or_remove_offer]),
         Event.CHANGE_LOCAL_CONFIGURED_LEVEL:    (State.COMPUTE_BEST_OFFER, [action_store_level]),
         Event.BETTER_HAL:                       (State.COMPUTE_BEST_OFFER, [action_no_action]),
-        Event.WITHDRAW_NEIGHBOR_OFFER:          (None, [action_remove_offer]),
+        # Event.WITHDRAW_NEIGHBOR_OFFER:          (None, [action_remove_offer]),     Removed. See deviation DEV-1 in doc/deviations.md. TODO: remove line completely.
     }
 
     _state_holding_down_transitions = {
@@ -271,7 +148,7 @@ class Node:
         Event.SHORT_TICK_TIMER:                 (None, [action_check_hold_time_expired]),
         Event.NEIGHBOR_OFFER:                   (None, [action_update_or_remove_offer]),
         Event.BETTER_HAL:                       (None, [action_no_action]),
-        Event.WITHDRAW_NEIGHBOR_OFFER:          (None, [action_remove_offer]),
+        # Event.WITHDRAW_NEIGHBOR_OFFER:          (None, [action_remove_offer]),     Removed. See deviation DEV-1 in doc/deviations.md. TODO: remove line completely.
         Event.CHANGE_LOCAL_LEAF_INDICATIONS:    (State.COMPUTE_BEST_OFFER, [action_store_leaf_flags]),
         Event.COMPUTATION_DONE:                 (None, [action_no_action])
     }
@@ -285,7 +162,7 @@ class Node:
         Event.CHANGE_LOCAL_CONFIGURED_LEVEL:    (None, [action_store_level, action_level_compute]),
         Event.LOST_HAL:                         (State.HOLDING_DOWN, [action_update_holddown_timer_on_lost_hal]),
         Event.BETTER_HAT:                       (None, [action_level_compute]),
-        Event.WITHDRAW_NEIGHBOR_OFFER:          (None, [action_remove_offer]),
+        # Event.WITHDRAW_NEIGHBOR_OFFER:          (None, [action_remove_offer]),     Removed. See deviation DEV-1 in doc/deviations.md. TODO: remove line completely.
         Event.CHANGE_LOCAL_LEAF_INDICATIONS:    (None, [action_store_leaf_flags, action_level_compute])
     }
 
@@ -308,8 +185,6 @@ class Node:
         initial_state = State.COMPUTE_BEST_OFFER)    
 
     def __init__(self, rift, config):
-        # TODO: process level field in config
-        # TODO: process systemid field in config
         # TODO: process state_thrift_services_port field in config
         # TODO: process config_thrift_services_port field in config
         # TODO: process v4prefixes field in config
@@ -337,8 +212,8 @@ class Node:
         self._lie_send_interval_secs = constants.DEFAULT_LIE_SEND_INTERVAL_SECS   # TODO: make configurable
         self._rx_tie_port = self.get_config_attribute('rx_tie_port', constants.DEFAULT_TIE_PORT)
         self._derived_level = None
-        self._al = {}    # TODO: Change name into something more meaningful
-        self._hal = None
+        self._offers_by_system_id = {}
+        self._highest_available_level = None
         self._fsm_log = self._log.getChild("fsm")
         # TODO: Take ztp hold time from init file
         self._holdtime = 1
@@ -506,8 +381,16 @@ class Node:
                 '?']
 
     def command_show_node(self, cli_session):
+        cli_session.print("Node:")
         tab = table.Table(separators = False)
         tab.add_rows(self.cli_detailed_attributes())
+        cli_session.print(tab.to_string())
+        cli_session.print("Received Offers:")
+        tab = table.Table()
+        tab.add_row(offer.Offer.cli_headers())
+        sorted_offers = sortedcontainers.SortedDict(self._offers_by_system_id)
+        for off in sorted_offers.values():
+            tab.add_row(off.cli_attributes())
         cli_session.print(tab.to_string())
 
     def command_show_node_fsm_history(self, cli_session):
