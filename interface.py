@@ -196,23 +196,61 @@ class Interface:
         return minor_change
         
     def send_offer_to_ztp_fsm(self, neighbor):
-        offer_for_ztp = offer.Offer(neighbor.level, neighbor.not_a_ztp_offer, neighbor.system_id)
+        offer_for_ztp = offer.Offer(neighbor.level, neighbor.not_a_ztp_offer, neighbor.system_id, self._fsm._state)  # TODO: _state is private
         self._node._fsm.push_event(self._node.Event.NEIGHBOR_OFFER, offer_for_ztp)
+
+    def this_node_is_leaf(self):
+        return self._node.level_value() == common.constants.leaf_level
+
+    def remote_level_lower_than_hat(self, remote_level):
+        return
+
+    def difference_from_my_level(self, remote_level):
+        assert self._node.level_value() != None
+        assert remote_level != None
+        return abs(remote_level - self._node.level_value())
+
+    # TODO: Add counters for each of these conditions
+    def received_header_unacceptable(self, remote_level):
+        # Received level is unacceptable as defined in section B.1.4.3.2
+        if remote_level == None:
+            self._remote_header_unacceptable = True
+            self._remote_header_unacceptable_reason = "LIE has undefined level"
+        elif self._node.level_value() == None:
+            self._remote_header_unacceptable = True
+            self._remote_header_unacceptable_reason = "My level is undefined"
+        elif self.this_node_is_leaf() and self.remote_level_lower_than_hat(remote_level):
+            self._remote_header_unacceptable = True
+            self._remote_header_unacceptable_reason = "This node is leaf and remote level lower than HAT"
+        elif (remote_level != common.constants.leaf_level) and (self.difference_from_my_level(remote_level) > 1):
+            self._remote_header_unacceptable = True
+            self._remote_header_unacceptable_reason = "LIE's level is not leaf AND its difference is more than one from my level"
+        else:
+            self._remote_header_unacceptable = False
+            self._remote_header_unacceptable_reason = ""
+        return self._remote_header_unacceptable
 
     def action_process_lie(self, event_data):
         (protocol_packet, (from_address, from_port)) = event_data
         # Section B.1.4.1
         if not self.check_header(protocol_packet.header):
-            self.action_cleanup()                                  # TODO: Don't need this because of the OneWay state entry action
+            self.action_cleanup()     # TODO: Don't need this since transition to state one-way will do this
             self._fsm.push_event(self.Event.UNACCEPTABLE_HEADER)   # TODO: Draft doesn't have this; need something to transition to state OneWay
             return
         # TODO: This is a simplistic way of implementing the hold timer. Use a real timer instead.
         self._time_ticks_since_lie_received = 0
-        # TODO: Add checks in PROCESS_LIE step B.1.4.3.2
+        # Section B.1.4.3.2
+        new_neighbor = neighbor.Neighbor(protocol_packet, from_address, from_port)
+        if self.received_header_unacceptable(protocol_packet.header.level):
+            self.action_cleanup()     # TODO: Don't need this since transition to state one-way will do this
+            # Note: We send an offer to the ZTP state machine directly from here instead of pushing an UDPATE_ZTP_OFFER 
+            # event (see deviation DEV-2 in doc/deviations)
+            self.send_offer_to_ztp_fsm(new_neighbor)
+            self._fsm.push_event(self.Event.UNACCEPTABLE_HEADER)   # TODO: Draft doesn't have this; need something to transition to state OneWay
+            return
         # Section B.1.4.3
         # Note: We send an offer to the ZTP state machine directly from here instead of pushing an UDPATE_ZTP_OFFER 
         # event (see deviation DEV-2 in doc/deviations)
-        new_neighbor = neighbor.Neighbor(protocol_packet, from_address, from_port)
         self.send_offer_to_ztp_fsm(new_neighbor)
         if not self._neighbor:
             self.info(self._log, "New neighbor detected with system-id {:16x}".format(protocol_packet.header.sender))
@@ -364,6 +402,8 @@ class Interface:
         self._local_id = node.allocate_interface_id()
         self._mtu = self.get_mtu()
         self._pod = self.UNDEFINED_OR_ANY_POD
+        self._remote_header_unacceptable = False
+        self._remote_header_unacceptable_reason = ""
         self._neighbor = None
         self._time_ticks_since_lie_received = None
         self._fsm = fsm.Fsm(
@@ -463,7 +503,9 @@ class Interface:
             ["MTU", self._mtu],
             ["POD", self._pod],
             ["State", self._fsm._state.name],
-            ["Neighbor", "Yes" if self._neighbor else "No"]
+            ["Received Header Unacceptable", self._remote_header_unacceptable],
+            ["Received Header Unacceptable Reason", self._remote_header_unacceptable_reason],
+            ["Neighbor", "True" if self._neighbor else "False"]
         ]
 
     def cli_detailed_neighbor_attributes(self):

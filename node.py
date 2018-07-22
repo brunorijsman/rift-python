@@ -47,11 +47,11 @@ class Node:
     def remove_offer(self, offer, reason):
         offer.removed = True
         offer.removed_reason = reason
-        self._offers_by_system_id[offer.system_id] = offer
+        self._offers[offer.system_id] = offer
         self.compare_offers()
 
     def update_offer(self, offer):
-        self._offers_by_system_id[offer.system_id] = offer
+        self._offers[offer.system_id] = offer
         self.compare_offers()
 
     def is_leaf(self):
@@ -79,11 +79,52 @@ class Node:
         #     self._hal = highest_level
         pass
 
+    def better_offer(self, offer1, offer2, three_way_only):
+        # Don't consider removed offers
+        if (offer1 != None) and (offer1.removed):
+            offer1 = None
+        if (offer2 != None) and (offer2.removed):
+            offer2 = None
+        # If asked to do so, only consider offers from neighbors in state 3-way as valid candidates
+        if three_way_only:
+            if (offer1 != None) and (offer1.state != interface.Interface.State.THREE_WAY):
+                offer1 = None
+            if (offer2 != None) and (offer2.state != interface.Interface.State.THREE_WAY):
+                offer2 = None
+        # If there is only one candidate, it automatically wins. If there are no canidates, there is no best.
+        if offer1 == None:
+            return offer2
+        if offer2 == None:
+            return offer1
+        # Pick the offer with the highest level
+        if offer1.level > offer2.level:        
+            return offer1
+        if offer2.level < offer1.level:
+            return offer2
+        # If the level is the same for both offers, pick offer with lowest system id as the tie braker
+        if offer1.system_id < offer2.system_id:
+            return offer1
+        return offer2
+
     def compare_offers(self):
-        # old_hal = self._hal
-        # self.level_compute()
-        # TODO: Trigger if _hal changed
-        pass
+        # Select best offer and best offer in 3-way state
+        best_offer = None
+        best_offer_three_way = None
+        for offer in self._offers.values():
+            offer.best = False
+            offer.best_three_way = False
+            best_offer = self.better_offer(best_offer, offer, False)
+            best_offer_three_way = self.better_offer(best_offer_three_way, offer, True)
+        if best_offer:
+            best_offer.best = True
+        if best_offer_three_way:
+            best_offer_three_way.best_three_way = True
+        # !TODO
+
+
+        # !TODO update and generate events
+        # self._highest_available_level = None
+        # self._highest_available_level_three_way = None
 
     def action_no_action(self):
         pass
@@ -104,6 +145,7 @@ class Node:
             self.remove_offer(offer, "Level is leaf")
         else:
             self.update_offer(offer)
+        self.compare_offers()
 
     def action_store_level(self, level):
         self._configured_level = level
@@ -212,8 +254,9 @@ class Node:
         self._lie_send_interval_secs = constants.DEFAULT_LIE_SEND_INTERVAL_SECS   # TODO: make configurable
         self._rx_tie_port = self.get_config_attribute('rx_tie_port', constants.DEFAULT_TIE_PORT)
         self._derived_level = None
-        self._offers_by_system_id = {}
+        self._offers = {}
         self._highest_available_level = None
+        self._highest_available_level_three_way = None
         self._fsm_log = self._log.getChild("fsm")
         # TODO: Take ztp hold time from init file
         self._holdtime = 1
@@ -255,7 +298,7 @@ class Node:
             self._leaf_2_leaf = False
             self._superspine_flag = False
         elif level_config == 'leaf':
-            self._configured_level = None    # TODO: or 0?
+            self._configured_level = None
             self._leaf_only = True
             self._leaf_2_leaf = False
             self._superspine_flag = False
@@ -266,9 +309,9 @@ class Node:
             self._superspine_flag = False
         elif level_config == 'superspine':
             self._configured_level = None
-            self._leaf_only = True
-            self._leaf_2_leaf = True
-            self._superspine_flag = False
+            self._leaf_only = False
+            self._leaf_2_leaf = False
+            self._superspine_flag = True
         elif isinstance(level_config, int):
             self._configured_level = level_config
             self._leaf_only = False
@@ -281,6 +324,8 @@ class Node:
     def level_value(self):
         if self._configured_level != None:
             return self._configured_level
+        elif self._superspine_flag:
+            return common.constants.default_superspine_level
         else:
             return self._derived_level
 
@@ -388,7 +433,7 @@ class Node:
         cli_session.print("Received Offers:")
         tab = table.Table()
         tab.add_row(offer.Offer.cli_headers())
-        sorted_offers = sortedcontainers.SortedDict(self._offers_by_system_id)
+        sorted_offers = sortedcontainers.SortedDict(self._offers)
         for off in sorted_offers.values():
             tab.add_row(off.cli_attributes())
         cli_session.print(tab.to_string())
