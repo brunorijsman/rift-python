@@ -107,7 +107,7 @@ class Node:
         return offer2
 
     def compare_offers(self):
-        # Select best offer and best offer in 3-way state
+        # Select "best offer" and "best offer in 3-way state"
         best_offer = None
         best_offer_three_way = None
         for offer in self._offers.values():
@@ -119,12 +119,28 @@ class Node:
             best_offer.best = True
         if best_offer_three_way:
             best_offer_three_way.best_three_way = True
-        # !TODO
-
-
-        # !TODO update and generate events
-        # self._highest_available_level = None
-        # self._highest_available_level_three_way = None
+        # Update Highest Available Level (HAL) and push event if it changed
+        if best_offer:
+            hal = best_offer.level
+        else:
+            hal = None
+        if self._highest_available_level != hal:
+            self._highest_available_level = hal
+            if hal:
+                self._fsm.push_event(self.Event.BETTER_HAL)
+            else:
+                self._fsm.push_event(self.Event.LOST_HAL)
+        # Update Highest Adjacency Three-way (HAT) and push event if it changed
+        if best_offer_three_way:
+            hat = best_offer_three_way.level
+        else:
+            hat = None
+        if self._highest_available_level_three_way != hat:
+            self._highest_available_level_three_way = hat
+            if hat:
+                self._fsm.push_event(self.Event.BETTER_HAT)
+            else:
+                self._fsm.push_event(self.Event.LOST_HAT)
 
     def action_no_action(self):
         pass
@@ -145,7 +161,6 @@ class Node:
             self.remove_offer(offer, "Level is leaf")
         else:
             self.update_offer(offer)
-        self.compare_offers()
 
     def action_store_level(self, level):
         self._configured_level = level
