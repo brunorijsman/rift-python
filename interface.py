@@ -160,19 +160,6 @@ class Interface:
             else:
                 self._fsm.push_event(self.Event.MULTIPLE_NEIGHBORS)
 
-    def check_header(self, header):
-        if not header:
-            self.warning(self._rx_log, "Received packet without header")
-            return False
-        if header.major_version != constants.RIFT_MAJOR_VERSION:
-            self.warning(self._rx_log, "Received packet with wrong major version (expected {} but got {})".format(
-                constants.RIFT_MAJOR_VERSION, header.major_version))
-            return False
-        if not self.is_valid_received_system_id(header.sender):
-            self.warning(self._rx_log, "Received packet with invalid system id")
-            return False
-        return True
-
     def check_minor_change(self, new_neighbor):
         # TODO: what if link_mtu_size changes?
         # TODO: what if pod changes?
@@ -210,44 +197,70 @@ class Interface:
         assert remote_level != None
         return abs(remote_level - self._node.level_value())
 
-    # TODO: Add counters for each of these conditions
-    def received_header_unacceptable(self, remote_level):
-        # Received level is unacceptable as defined in section B.1.4.3.2
-        if remote_level == None:
-            self._remote_header_unacceptable = True
-            self._remote_header_unacceptable_reason = "LIE has undefined level"
-        elif self._node.level_value() == None:
-            self._remote_header_unacceptable = True
-            self._remote_header_unacceptable_reason = "My level is undefined"
-        elif self.this_node_is_leaf() and self.remote_level_lower_than_hat(remote_level):
-            self._remote_header_unacceptable = True
-            self._remote_header_unacceptable_reason = "This node is leaf and remote level lower than HAT"
-        elif (remote_level != common.constants.leaf_level) and (self.difference_from_my_level(remote_level) > 1):
-            self._remote_header_unacceptable = True
-            self._remote_header_unacceptable_reason = "LIE's level is not leaf AND its difference is more than one from my level"
-        else:
-            self._remote_header_unacceptable = False
-            self._remote_header_unacceptable_reason = ""
-        return self._remote_header_unacceptable
+
+    def is_received_lie_acceptable(self, protocol_packet):
+        # Check whether a received LIE message is acceptable for the purpose of progressing towards a 3-way adjacency.
+        # This implements the rules specified in sections B.1.4.1 and B.1.4.2 of the specification.
+        # DEV-4: This also implements the rules specified in the 8 bullet points in section 4.2.2, some of which are
+        # also present in section B.1.4 and some of which are missing from section B.1.4.
+        # The return value of this function is (accept, rule, offer_to_ztp, warning) where
+        # - accept: True if the received LIE message is acceptable, False if not
+        # - rule: A short human-readble string describing the rule used to accept or reject the LIE message
+        # - offer_to_ztp: True if an offer should be sent to the ZTP FSM. Note that we even send offers to the 
+        #   the ZTP FSM for most rejected LIE messages, and the ZTP FSM stores these as "removed offers" for debugging.
+        # - warning: If True, log a warning message, if False, log an info message.
+        #
+        # TODO: Add counters for each of these conditions
+        # TODO: Implement 4.2.2 bullet points 1 and 3 which specify ruled of PoD membership
+        #
+        header = protocol_packet.header
+        lie = protocol_packet.content.lie   # !!TODO
+        if not header:
+            return (False, "Missing header", False, True)
+        if header.major_version != constants.RIFT_MAJOR_VERSION:
+            # Section B.1.4.1 (1st OR clause) / section 4.2.2.2
+            return (False, "Different major protocol version", False, True)
+        if not self.is_valid_received_system_id(header.sender):
+            # Section B.1.4.1 (3rd OR clause) / section 4.2.2.2
+            return (False, "Invalid system ID", False, True)
+        if self._node.system_id == header.sender:
+            # Section 4.2.2.5
+            return (False, "Remote systed ID is same as local system ID (loop)", False, False)
+        if header.level == None:
+            # Section B.1.4.3.2 (1st OR clause)
+            return (False, "LIE has undefined level", True, False)
+        if self._node.level_value() == None:
+            # Section B.1.4.3.2 (2nd OR clause)
+            return (False, "My level is undefined", True, False)
+        if self.this_node_is_leaf() and self.remote_level_lower_than_hat(header.level):
+            # Section B.1.4.3.2 (3rd OR clause)
+            return (False, "This node is leaf and remote level lower than HAT", True, False)
+        if (header.level != common.constants.leaf_level) and (self.difference_from_my_level(header.level) > 1):
+            # Section B.1.4.3.2 (4th OR clause)
+            return (False, "LIE's level is not leaf and its difference is more than one from my level", True, False)
+        return (True, "No reason to reject", True, False)
 
     def action_process_lie(self, event_data):
         (protocol_packet, (from_address, from_port)) = event_data
-        # Section B.1.4.1
-        if not self.check_header(protocol_packet.header):
-            self.action_cleanup()     # TODO: Don't need this since transition to state one-way will do this
-            self._fsm.push_event(self.Event.UNACCEPTABLE_HEADER)   # TODO: Draft doesn't have this; need something to transition to state OneWay
-            return
         # TODO: This is a simplistic way of implementing the hold timer. Use a real timer instead.
         self._time_ticks_since_lie_received = 0
-        # Section B.1.4.3.2
+        # Sections B.1.4.1 and B.1.4.2
         new_neighbor = neighbor.Neighbor(protocol_packet, from_address, from_port)
-        if self.received_header_unacceptable(protocol_packet.header.level):
-            self.action_cleanup()     # TODO: Don't need this since transition to state one-way will do this
-            # Note: We send an offer to the ZTP state machine directly from here instead of pushing an UDPATE_ZTP_OFFER 
-            # event (see deviation DEV-2 in doc/deviations)
-            self.send_offer_to_ztp_fsm(new_neighbor)
-            self._fsm.push_event(self.Event.UNACCEPTABLE_HEADER)   # TODO: Draft doesn't have this; need something to transition to state OneWay
+        (accept, rule, offer_to_ztp, warning) = self.is_received_lie_acceptable(protocol_packet)
+        if not accept:
+            self._lie_accept_or_reject = "Rejected"
+            self._lie_accept_or_reject_rule = rule
+            if warning:
+                self.warning(self._rx_log, "Received LIE packet rejected: {}".format(rule))
+            else:
+                self.info(self._rx_log, "Received LIE packet rejected: {}".format(rule))
+            self.action_cleanup()
+            if offer_to_ztp:
+                self.send_offer_to_ztp_fsm(new_neighbor)
+                self._fsm.push_event(self.Event.UNACCEPTABLE_HEADER)   
             return
+        self._lie_accept_or_reject = "Accepted"
+        self._lie_accept_or_reject_rule = rule
         # Section B.1.4.3
         # Note: We send an offer to the ZTP state machine directly from here instead of pushing an UDPATE_ZTP_OFFER 
         # event (see deviation DEV-2 in doc/deviations)
@@ -402,10 +415,10 @@ class Interface:
         self._local_id = node.allocate_interface_id()
         self._mtu = self.get_mtu()
         self._pod = self.UNDEFINED_OR_ANY_POD
-        self._remote_header_unacceptable = False
-        self._remote_header_unacceptable_reason = ""
         self._neighbor = None
         self._time_ticks_since_lie_received = None
+        self._lie_accept_or_reject = "No LIE Received"
+        self._lie_accept_or_reject_rule = "-"
         self._fsm = fsm.Fsm(
             definition = self.fsm_definition,
             action_handler = self,
@@ -449,11 +462,12 @@ class Interface:
             self.warning(self._rx_log, "Received packet without content")
             return
         if protocol_packet.content.lie:
-            if self._node.mcast_loop and (self._node.system_id == protocol_packet.header.sender):
-                self.info(self._log, "Ignore looped back LIE packet")
-            else:
-                event_data = (protocol_packet, from_address_and_port)
-                self._fsm.push_event(self.Event.LIE_RECEIVED, event_data)
+            # TODO: Do I really want to remove this?
+            # if self._node.mcast_loop and (self._node.system_id == protocol_packet.header.sender):
+            #    self.info(self._log, "Ignore looped back LIE packet")
+            # else:
+            event_data = (protocol_packet, from_address_and_port)
+            self._fsm.push_event(self.Event.LIE_RECEIVED, event_data)
         if protocol_packet.content.tide:
             # TODO: process TIDE
             pass
@@ -504,8 +518,8 @@ class Interface:
             ["MTU", self._mtu],
             ["POD", self._pod],
             ["State", self._fsm._state.name],
-            ["Received Header Unacceptable", self._remote_header_unacceptable],
-            ["Received Header Unacceptable Reason", self._remote_header_unacceptable_reason],
+            ["Received LIE Accepted or Rejected", self._lie_accept_or_reject],
+            ["Received LIE Accept or Reject Reason", self._lie_accept_or_reject_rule],
             ["Neighbor", "True" if self._neighbor else "False"]
         ]
 

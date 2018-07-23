@@ -53,3 +53,30 @@ There are various scenarios where a received LIE message contains the optional l
 
 Instead of actually removing the offer, we keep the offer, but mark it with a removed flag and a removed-reason string. This makes debugging and trouble-shooting easier.
 
+## Additional rules for accepting a received LIE message
+
+Section 4.2.2 of the specification says "A node tries to form a three way adjacency if and only if...", which is followed by 8 bullet points with specific conditions.
+
+It is not clear what it means for a node to try to (or not try to) establish an adjacency... what does "trying" mean?  
+
+I suspect that section B.1.4 in the specification, which describes the conditions in the LIE FSM for accepting a receive LIE packet ar intended to map to the conditions in section 4.2.2.
+
+Indeed there is some commonality between section 4.2.2 and section B.1.4:
+
+* Some of the level rules in bullets 7 and 8 (e.g. the rule that both node must advertise a defined level value)
+
+However, there are also several rules in section 4.2.2 that don't exist in B.1.4 (or for that matter, anywhere in the LIE FSM):
+
+* The rules related to PoD membership
+
+* The rule that the neighbor cannot have the same system ID as this node
+
+* The rule that the MTUs must match
+
+* Some of the level rules in bullets 7 and 8 (e.g. the special rules for leafs, i.e. the rules for when this level is 0 or the remove level is 0).
+
+Section B.1.4 needs to be updated to reflect all rules in section 4.2.2.
+
+I have already updated the Python RIFT code accordingly and marked all changed code with "DEV-4".
+r DEV-4.
+

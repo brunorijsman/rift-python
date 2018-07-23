@@ -170,16 +170,20 @@ class Node:
         self._configured_level = level
 
     def action_purge_offers(self):
-        self._al = {}
-        self.compare_offers()
+        # TODO
+        pass
 
     def action_check_hold_time_expired(self):
         # TODO
         pass
 
-    def action_update_all_lie_fsm_with_computation_results(self):
-        # TODO
-        pass
+    def action_update_all_lie_fsms_with_computation_results(self):
+        if self._highest_available_level == None:
+            self._derived_level = None
+        elif self._highest_available_level > 0:
+            self._derived_level = self._highest_available_level - 1
+        else:
+            self._derived_level = 0
 
     def action_update_holddown_timer_on_lost_hal(self):
         # TODO:
@@ -234,7 +238,7 @@ class Node:
     }
 
     _state_entry_actions = {
-        State.UPDATING_CLIENTS:     [action_update_all_lie_fsm_with_computation_results],
+        State.UPDATING_CLIENTS:     [action_update_all_lie_fsms_with_computation_results],
         State.COMPUTE_BEST_OFFER:   [action_level_compute]
     }
 
