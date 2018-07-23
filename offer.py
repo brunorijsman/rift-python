@@ -23,6 +23,7 @@ class Offer:
             ["Removed Reason"]]
 
     def cli_attributes(self):
+        print("cli_attributes object", self) #! DEBUG
         return [
             self.system_id,
             self.level,

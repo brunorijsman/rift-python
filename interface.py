@@ -412,6 +412,7 @@ class Interface:
             log = self._fsm_log,
             log_id = self._log_id)
         if self._node.running:
+            self._fsm.start()
             self.run()
 
     def run(self):

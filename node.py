@@ -58,27 +58,6 @@ class Node:
         # TODO: What does this mean exactly?  Also return True if level == leaf_level?
         return self._leaf_only 
 
-    def level_compute(self):
-        # TODO: Finish this
-        # if len(self._al) == 0:
-        #     self._hal = None
-        #     return
-        # self._hal = max(self._al.keys())
-        # if not self._i_am_leaf:
-        #     return
-        # highest_level = None
-        # for level in self._al.keys():
-        #     if len(self._al[level]) >=  Ztp.ZTP_MIN_NUMBER_OF_PEER_FOR_LEVEL:
-        #         if highest_level == None:
-        #             highest_level = level
-        #         elif level >= highest_level:
-        #             highest_level = level
-        #         else:
-        #             pass
-        # if highest_level != None and highest_level != 0:
-        #     self._hal = highest_level
-        pass
-
     def better_offer(self, offer1, offer2, three_way_only):
         # Don't consider removed offers
         if (offer1 != None) and (offer1.removed):
@@ -107,7 +86,7 @@ class Node:
         return offer2
 
     def compare_offers(self):
-        # Select "best offer" and "best offer in 3-way state"
+        # Select "best offer" and "best offer in 3-way state" and do update flags on the offers
         best_offer = None
         best_offer_three_way = None
         for offer in self._offers.values():
@@ -119,28 +98,53 @@ class Node:
             best_offer.best = True
         if best_offer_three_way:
             best_offer_three_way.best_three_way = True
-        # Update Highest Available Level (HAL) and push event if it changed
-        if best_offer:
+        # Determine if the Highest Available Level (HAL) would change based on the current offer.
+        # If it would change, push an event, but don't update the HAL yet.
+        if best_offer: 
             hal = best_offer.level
         else:
             hal = None
         if self._highest_available_level != hal:
-            self._highest_available_level = hal
             if hal:
                 self._fsm.push_event(self.Event.BETTER_HAL)
             else:
                 self._fsm.push_event(self.Event.LOST_HAL)
-        # Update Highest Adjacency Three-way (HAT) and push event if it changed
+        # Determine if the Highest Adjacency Three-way (HAT) would change based on the current offer.
+        # If it would change, push an event, but don't update the HAL yet.
         if best_offer_three_way:
             hat = best_offer_three_way.level
         else:
             hat = None
-        if self._highest_available_level_three_way != hat:
-            self._highest_available_level_three_way = hat
+        if self._highest_adjacency_three_way != hat:
             if hat:
                 self._fsm.push_event(self.Event.BETTER_HAT)
             else:
                 self._fsm.push_event(self.Event.LOST_HAT)
+
+    def level_compute(self):
+        # Find best offer overall and best offer in state 3-way. This was computer earlier in compare_offers,
+        # which set the flag on the offer to remember the result.
+        best_offer = None
+        best_offer_three_way = None
+        for offer in self._offers.values():
+            if offer.best:
+                best_offer = offer
+            if offer.best_three_way:
+                best_offer_three_way = offer
+        # Update Highest Available Level (HAL)
+        if best_offer: 
+            hal = best_offer.level
+        else:
+            hal = None
+        self._highest_available_level = hal
+        # Update Adjacency Three-way (HAT)
+        if best_offer_three_way:
+            hat = best_offer_three_way.level
+        else:
+            hat = None
+        self._highest_adjacency_three_way = hat
+        # Push event COMPUTATION_DONE
+        self._fsm.push_event(self.Event.COMPUTATION_DONE)
 
     def action_no_action(self):
         pass
@@ -271,7 +275,7 @@ class Node:
         self._derived_level = None
         self._offers = {}
         self._highest_available_level = None
-        self._highest_available_level_three_way = None
+        self._highest_adjacency_three_way = None
         self._fsm_log = self._log.getChild("fsm")
         # TODO: Take ztp hold time from init file
         self._holdtime = 1
@@ -285,6 +289,7 @@ class Node:
             action_handler = self,
             log = self._fsm_log,
             log_id = self._log_id)
+        self._fsm.start()
         self._one_second_timer = timer.Timer(1.0, lambda: self._fsm.push_event(self.Event.SHORT_TICK_TIMER))
 
     def info(self, logger, msg):
@@ -341,6 +346,8 @@ class Node:
             return self._configured_level
         elif self._superspine_flag:
             return common.constants.default_superspine_level
+        elif self._leaf_only:
+            return common.constants.leaf_level
         else:
             return self._derived_level
 
@@ -351,8 +358,18 @@ class Node:
         else:
             return str(level_value)
 
-    def perform_level_determination_procedure(self):
-        return (self._configured_level != None) or self._leaf_only or self._leaf_2_leaf or self._superspine_flag
+    def zero_touch_provisioning_enabled(self):
+        # Is "Zero Touch Provisiniong (ZTP)" aka "automatic level derivation" aka "level determination procedure"
+        # aka "auto configuration" active? The criteria that determine whether ZTP is enabled are spelled out in 
+        # the first paragraph of section 4.2.9.4.
+        if self._configured_level != None:
+            return False
+        elif self._superspine_flag:
+            return False
+        elif self._leaf_only:
+            return False
+        else:
+            return True
 
     def is_running(self):
         if self._rift.active_nodes == rift.Rift.ActiveNodes.ONLY_PASSIVE_NODES:
@@ -383,8 +400,10 @@ class Node:
             ["Leaf Only", self._leaf_only],
             ["Leaf 2 Leaf", self._leaf_2_leaf],
             ["Superspine Flag", self._superspine_flag],
+            ["Zero Touch Provisioning (ZTP) Enabled", self.zero_touch_provisioning_enabled()],
+            ["Highest Available Level (HAL)", self._highest_available_level],
+            ["Highest Adjacency Three-way (HAT)", self._highest_adjacency_three_way],
             ["Level Value", self.level_value()],
-            ["Perform Level Determination Procedure", self.perform_level_determination_procedure()],
             ["Multicast Loop", self._mcast_loop],
             ["Receive LIE IPv4 Multicast Address", self._rx_lie_ipv4_mcast_address],
             ["Transmit LIE IPv4 Multicast Address", self._tx_lie_ipv4_mcast_address],

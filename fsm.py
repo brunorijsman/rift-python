@@ -171,13 +171,18 @@ class Fsm:
         self._event_enum = definition.event_enum
         self._transitions = definition.transitions
         self._state_entry_actions = definition.state_entry_actions
-        self._state = definition.initial_state
+        self._state = None
         self._action_handler = action_handler
         self._records = collections.deque([], _MAX_RECORDS)
         self._current_record = None
-        self.info("Create FSM, state={}".format(self._state.name))
+        self.info("Create FSM")
         self.invoke_state_entry_actions(self._state)
 
+    def start(self):
+        self._state = self._definition.initial_state
+        self.info("Start FSM, state={}".format(self._state.name))
+        self.invoke_state_entry_actions(self._state)
+        
     def push_event(self, event, event_data = None):
         self.info("FSM push event, event={}".format(event.name))
         fsm = self
