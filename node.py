@@ -168,7 +168,6 @@ class Node:
             self.update_offer(offer)
 
     def action_store_level(self, level_symbol):
-        print("action_store_level", level_symbol)  ##! DEBUG
         self._configured_level_symbol = level_symbol
         parse_result = self.parse_level_symbol(self._configured_level_symbol)
         assert parse_result != None   # Set command should not have allowed invalid config
