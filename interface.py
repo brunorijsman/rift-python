@@ -189,14 +189,46 @@ class Interface:
     def this_node_is_leaf(self):
         return self._node.level_value() == common.constants.leaf_level
 
-    def remote_level_lower_than_hat(self, remote_level):
-        return
+    def hat_not_greater_than_remote_level(self, remote_level):
+        if self._node._highest_adjacency_three_way == None:
+            return True
+        return self._node._highest_adjacency_three_way <= remote_level
 
-    def difference_from_my_level(self, remote_level):
+    def both_nodes_are_leaf_and_support_leaf_2_leaf(self, protocol_packet):
+        header = protocol_packet.header
+        lie = protocol_packet.content.lie
+        if not self.this_node_is_leaf():
+            # This node is not a leaf
+            return False
+        if header.level != 0:
+            # Remote node is not a leaf
+            return False
+        if self._node._leaf_2_leaf != True:
+            # This node does not support leaf-2-leaf
+            return False
+        if lie.capabilities == None:
+            # Remote node does not support leaf-2-leaf            
+            return False
+        if lie.capabilities.leaf_indications != leaf_only_and_leaf_2_leaf_procedures:
+            # Remote node does not support leaf-2-leaf            
+            return False
+        return True
+
+    def neither_node_is_leaf_and_level_difference_is_at_most_one(self, protocol_packet):
+        header = protocol_packet.header
+        lie = protocol_packet.content.lie
+        if self.this_node_is_leaf():
+            # This node is leaf
+            return False
+        if header.level == 0:
+            # Remote node is leaf
+            return False
         assert self._node.level_value() != None
-        assert remote_level != None
-        return abs(remote_level - self._node.level_value())
-
+        assert header.level != None    
+        if abs(header.level - self._node.level_value()) > 1:
+            # Level difference is greater than 1
+            return False
+        return True
 
     def is_received_lie_acceptable(self, protocol_packet):
         # Check whether a received LIE message is acceptable for the purpose of progressing towards a 3-way adjacency.
@@ -211,10 +243,9 @@ class Interface:
         # - warning: If True, log a warning message, if False, log an info message.
         #
         # TODO: Add counters for each of these conditions
-        # TODO: Implement 4.2.2 bullet points 1 and 3 which specify ruled of PoD membership
         #
         header = protocol_packet.header
-        lie = protocol_packet.content.lie   # !!TODO
+        lie = protocol_packet.content.lie
         if not header:
             return (False, "Missing header", False, True)
         if header.major_version != constants.RIFT_MAJOR_VERSION:
@@ -224,21 +255,37 @@ class Interface:
             # Section B.1.4.1 (3rd OR clause) / section 4.2.2.2
             return (False, "Invalid system ID", False, True)
         if self._node.system_id == header.sender:
-            # Section 4.2.2.5
+            # Section 4.2.2.5 (DEV-4: rule is missing in section B.1.4)
             return (False, "Remote systed ID is same as local system ID (loop)", False, False)
+        if self._mtu != lie.link_mtu_size:
+            # Section 4.2.2.6
+            return (False, "MTU mismatch", False, True)
         if header.level == None:
-            # Section B.1.4.3.2 (1st OR clause)
-            return (False, "LIE has undefined level", True, False)
+            # Section B.1.4.3.2 (1st OR clause) / section 4.2.2.7
+            return (False, "Remote level (in received LIE) is undefined", True, False)
         if self._node.level_value() == None:
-            # Section B.1.4.3.2 (2nd OR clause)
+            # Section B.1.4.3.2 (2nd OR clause) / section 4.2.2.7
             return (False, "My level is undefined", True, False)
-        if self.this_node_is_leaf() and self.remote_level_lower_than_hat(header.level):
-            # Section B.1.4.3.2 (3rd OR clause)
-            return (False, "This node is leaf and remote level lower than HAT", True, False)
-        if (header.level != common.constants.leaf_level) and (self.difference_from_my_level(header.level) > 1):
-            # Section B.1.4.3.2 (4th OR clause)
-            return (False, "LIE's level is not leaf and its difference is more than one from my level", True, False)
-        return (True, "No reason to reject", True, False)
+        if (self._pod != self.UNDEFINED_OR_ANY_POD) and (lie.pod != self.UNDEFINED_OR_ANY_POD) and (self._pod != lie.pod):
+            # Section 4.2.2.1 (DEV-4: rule is missing in section B.1.4)
+            return (False, "PoD mismatch", True, True)
+        if self._mtu != lie.link_mtu_size:
+            # Section 4.2.2.6 (DEV-4: rule is missing in section B.1.4)
+            return (False, "MTU mismatch", True, True)
+        # DEV-4: The following rules are correctly specified in 4.2.2.8 and incorrectly in B.1.4.2
+        if self.this_node_is_leaf() and self.hat_not_greater_than_remote_level(header.level):
+            # Section 4.2.2.8 (1st OR clause) / DEV-4: Different in section B.1.4.3.2 (3rd OR clause)
+            return (True, "This node is leaf and HAT not greater than remote level", True, False)
+        if not self.this_node_is_leaf() and (header.level == 0):
+            # Section 4.2.2.8 (2nd OR clause) / DEV-4: Missing in section B.1.4
+            return (True, "This node is not leaf and neighbor is leaf", True, False)
+        if self.both_nodes_are_leaf_and_support_leaf_2_leaf(protocol_packet):
+            # Section 4.2.2.8 (3rd OR clause) / DEV-4: Missing in section B.1.4
+            return (True, "Both nodes are leaf and support leaf-2-leaf", True, False)
+        if self.neither_node_is_leaf_and_level_difference_is_at_most_one(protocol_packet):
+            # Section 4.2.2.8 (4th OR clause( / DEV-4: Different in section B.1.4.3.2 (4th OR clause)
+            return (True, "Neither node is leaf and level difference is at most one", True, False)
+        return (False, "Level mismatch", True, True)
 
     def action_process_lie(self, event_data):
         (protocol_packet, (from_address, from_port)) = event_data
