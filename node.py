@@ -311,39 +311,36 @@ class Node:
     def generate_name(self):
         return socket.gethostname().split('.')[0] + str(self._node_nr)
 
-    def configured_level_str(self):
-        return self.get_config_attribute('level', 'undefined')
-
     def parse_level_config(self):
-        level_config = self.configured_level_str()
-        if level_config == 'undefined':
+        self._configured_level_symbol = self.get_config_attribute('level', 'undefined')
+        if self._configured_level_symbol == 'undefined':
             self._configured_level = None
             self._leaf_only = False
             self._leaf_2_leaf = False
             self._superspine_flag = False
-        elif level_config == 'leaf':
+        elif self._configured_level_symbol == 'leaf':
             self._configured_level = None
             self._leaf_only = True
             self._leaf_2_leaf = False
             self._superspine_flag = False
-        elif level_config == 'leaf-2-leaf':
+        elif self._configured_level_symbol == 'leaf-2-leaf':
             self._configured_level = None
             self._leaf_only = True
             self._leaf_2_leaf = True
             self._superspine_flag = False
-        elif level_config == 'superspine':
+        elif self._configured_level_symbol == 'superspine':
             self._configured_level = None
             self._leaf_only = False
             self._leaf_2_leaf = False
             self._superspine_flag = True
-        elif isinstance(level_config, int):
-            self._configured_level = level_config
-            self._leaf_only = False
+        elif isinstance(self._configured_level_symbol, int):
+            self._configured_level = self._configured_level_symbol
+            self._leaf_only = (self._configured_level == 0)
             self._leaf_2_leaf = False
             self._superspine_flag = False
         else:
             # Should have been caught earlier by config validation.
-            assert False, "Invalid level {}".format(level_config)
+            assert False, "Invalid level {}".format(self._configured_level)
 
     def level_value(self):
         if self._configured_level != None:
@@ -400,7 +397,7 @@ class Node:
             ["Passive", self._passive],
             ["Running", self.is_running()],
             ["System ID", utils.system_id_str(self._system_id)],
-            ["Configured Level", self._configured_level],
+            ["Configured Level", self._configured_level_symbol],
             ["Leaf Only", self._leaf_only],
             ["Leaf 2 Leaf", self._leaf_2_leaf],
             ["Superspine Flag", self._superspine_flag],
@@ -453,14 +450,14 @@ class Node:
                 self._name,
                 utils.system_id_str(self._system_id),
                 self._running,
-                self.configured_level_str(),
+                self._configured_level_symbol,
                 self.level_value_str()]
         else:
             return [
                 self._name,
                 utils.system_id_str(self._system_id),
                 self._running,
-                self.configured_level_str(),
+                self._configured_level_symbol,
                 '?']
 
     def command_show_node(self, cli_session):
