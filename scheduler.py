@@ -1,6 +1,6 @@
 import select 
 from timer import timer_scheduler
-from fsm import FiniteStateMachine
+from fsm import Fsm
 
 class Scheduler:
 
@@ -37,6 +37,6 @@ class Scheduler:
                 handler = self._handlers_by_fd[sock.fileno()]
                 handler.ready_to_write()
             timer_scheduler.trigger_all_expired_timers_and_return_time_until_next_expire()
-            FiniteStateMachine.process_queued_events()
+            Fsm.process_queued_events()
 
 scheduler = Scheduler()

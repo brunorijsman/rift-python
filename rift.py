@@ -9,6 +9,8 @@ import node
 import scheduler
 import table
 
+# TODO: Make sure that there is always at least one node (and hence always a current node)
+
 class Rift:
 
     class ActiveNodes(enum.Enum):
@@ -33,7 +35,7 @@ class Rift:
         else:
             self._cli_current_node = None
             self._cli_current_prompt = ''
-        self._cli_listen_handler = cli_listen_handler.CliListenHandler(self.command_tree, self, self._cli_current_prompt)
+        self._cli_listen_handler = cli_listen_handler.CliListenHandler(self.parse_tree, self, self._cli_current_prompt)
 
     def read_global_configuration(self, config, attribute, default):
         if ('const' in config) and (attribute in config['const']):
@@ -59,6 +61,12 @@ class Rift:
     def run(self):
         scheduler.scheduler.run()
 
+    def command_show_lie_fsm(self, cli_session):
+        interface.Interface.fsm_definition.command_show_fsm(cli_session)
+
+    def command_show_ztp_fsm(self, cli_session):
+        node.Node.fsm_definition.command_show_fsm(cli_session)
+
     def command_show_nodes(self, cli_session):
         tab = table.Table()
         tab.add_row(node.Node.cli_summary_headers())
@@ -66,26 +74,30 @@ class Rift:
             tab.add_row(n.cli_summary_attributes())
         cli_session.print(tab.to_string())
 
+    def command_show_nodes_level(self, cli_session):
+        tab = table.Table()
+        tab.add_row(node.Node.cli_level_headers())
+        for n in self._nodes.values():
+            tab.add_row(n.cli_level_attributes())
+        cli_session.print(tab.to_string())
+
     def command_show_node(self, cli_session):
-        if self._cli_current_node:
-            self._cli_current_node.command_show_node(cli_session)
-        else:
-            cli_session.print("No current node")
+        self._cli_current_node.command_show_node(cli_session)
+
+    def command_show_node_fsm_history(self, cli_session):
+        self._cli_current_node.command_show_node_fsm_history(cli_session)
 
     def command_show_interfaces(self, cli_session):
-        if self._cli_current_node:
-            self._cli_current_node.command_show_interfaces(cli_session)
-        else:
-            cli_session.print("No current node")
+        self._cli_current_node.command_show_interfaces(cli_session)
 
     def command_show_interface(self, cli_session, parameters):
-        if self._cli_current_node:
-            self._cli_current_node.command_show_interface(cli_session, parameters)
-        else:
-            cli_session.print("No current node")
+        self._cli_current_node.command_show_interface(cli_session, parameters)
+
+    def command_show_interface_fsm_history(self, cli_session, parameters):
+        self._cli_current_node.command_show_interface_fsm_history(cli_session, parameters)
 
     def command_set_node(self, cli_session, parameters):
-        node_name = parameters['node-name']
+        node_name = parameters['node']
         if node_name in self._nodes:
             self._cli_current_node = self._nodes[node_name]
             self._cli_current_prompt = node_name
@@ -93,19 +105,29 @@ class Rift:
         else:
             cli_session.print("Node {} does not exist".format(node_name))
 
-    command_tree = {
-        "show": {
-            "nodes": command_show_nodes,
-            "node": command_show_node,
-            "interfaces": command_show_interfaces,
-            "interface": {
-                "<interface-name>": command_show_interface,
-            }
-        },
+    # TODO: Add exit command
+    parse_tree = {
         "set": {
+            "$node": command_set_node
+        },
+        "show": {
+            "fsm": {
+                "lie": command_show_lie_fsm,
+                "ztp": command_show_ztp_fsm,
+            },
             "node": {
-                "<node-name>": command_set_node,
-            }
+                "": command_show_node,
+                "fsm-history": command_show_node_fsm_history,
+            },
+            "nodes": {
+                "": command_show_nodes,
+                "level": command_show_nodes_level,
+            },
+            "$interface": {
+                "": command_show_interface,
+                "fsm-history": command_show_interface_fsm_history,
+            },
+            "interfaces": command_show_interfaces,
         },
     }
 
@@ -118,8 +140,3 @@ class Rift:
         return self._tx_src_address
 
 
-# TODO: Remove this once every existing user knows they are supposed to run main.py
-
-if __name__ == "__main__":
-
-    print("SORRY! I changed the code. Run main.py instead of rift.py")
