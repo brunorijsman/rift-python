@@ -364,6 +364,24 @@ class Node:
     def record_tx_offer(self, tx_offer):
         self._tx_offers[tx_offer.interface_name] = tx_offer
 
+    def is_poison_reverse_interface(self, interface_name):
+        # TODO: Introduce concept of HALS (HAL offering Systems) and simply check for membership
+        # Section 4.2.9.4.6 / Section B.1.3.2
+        # If we received a valid offer over the interface, and the level in that offer is equal to the highest
+        # available level (HAL) for this node, then we need to poison reverse, i.e. we need to set the 
+        # not_a_ztp_offer flag on offers that we send out over the interface.
+        if not interface_name in self._rx_offers:
+            # We did not receive an offer over the interface
+            return False
+        rx_offer = self._rx_offers[interface_name]
+        if rx_offer.removed:
+            # We received an offer, but it was removed from consideration for some reason
+            # (e.g. level undefined, not-a-ztp-offer flag was set, received from a leaf, ...)
+            return False
+        if rx_offer.level == self._highest_available_level:
+            return True
+        return False
+
     def zero_touch_provisioning_enabled(self):
         # Is "Zero Touch Provisiniong (ZTP)" aka "automatic level derivation" aka "level determination procedure"
         # aka "auto configuration" active? The criteria that determine whether ZTP is enabled are spelled out in 

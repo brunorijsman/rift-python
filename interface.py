@@ -117,7 +117,7 @@ class Interface:
             nonce = Interface.generate_nonce(),
             capabilities = capabilities,
             holdtime = 3,
-            not_a_ztp_offer = False,                # TODO: Set not_a_ztp_offer
+            not_a_ztp_offer = self._node.is_poison_reverse_interface(self._interface_name),
             you_are_not_flood_repeater = False,     # TODO: Set you_are_not_flood_repeater
             label = None)
         packet_content = encoding.ttypes.PacketContent(lie = lie_packet)
