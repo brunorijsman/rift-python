@@ -97,10 +97,20 @@ class Rift:
         else:
             cli_session.print("Node {} does not exist".format(node_name))
 
+    def command_set_level(self, cli_session, parameters):
+        level_symbol = parameters['level'].lower()
+        parsed_level = node.Node.parse_level_symbol(level_symbol)
+        if parsed_level == None:
+            cli_session.print("Invalid level value (expected undefined, leaf, leaf-to-leaf, superspine, or number)")
+            return
+        self._cli_current_node._fsm.push_event(node.Node.Event.CHANGE_LOCAL_CONFIGURED_LEVEL, level_symbol)
+
     # TODO: Add exit command
+    # TODO: Update documentation with current state of commands (including example output)
     parse_tree = {
         "set": {
-            "$node": command_set_node
+            "$node": command_set_node,
+            "$level": command_set_level,
         },
         "show": {
             "fsm": {

@@ -167,8 +167,16 @@ class Node:
         else:
             self.update_offer(offer)
 
-    def action_store_level(self, level):
-        self._configured_level = level
+    def action_store_level(self, level_symbol):
+        print("action_store_level", level_symbol)  ##! DEBUG
+        self._configured_level_symbol = level_symbol
+        parse_result = self.parse_level_symbol(self._configured_level_symbol)
+        assert parse_result != None   # Set command should not have allowed invalid config
+        (configured_level, leaf_only, leaf_2_leaf, superspine_flag) = parse_result
+        self._configured_level = configured_level
+        self._leaf_only = leaf_only
+        self._leaf_2_leaf = leaf_2_leaf
+        self._superspine_flag = superspine_flag        
 
     def action_purge_offers(self):
         # TODO
@@ -266,7 +274,14 @@ class Node:
         self._log_id = utils.system_id_str(self._system_id)
         self._log = logging.getLogger('node')
         self._log.info("[{}] Create node".format(self._log_id))
-        self.parse_level_config()
+        self._configured_level_symbol = self.get_config_attribute('level', 'undefined')
+        parse_result = self.parse_level_symbol(self._configured_level_symbol)
+        assert parse_result != None   # Configuration validation should not have allowed invalid config
+        (configured_level, leaf_only, leaf_2_leaf, superspine_flag) = parse_result
+        self._configured_level = configured_level
+        self._leaf_only = leaf_only
+        self._leaf_2_leaf = leaf_2_leaf
+        self._superspine_flag = superspine_flag        
         self._interfaces = sortedcontainers.SortedDict()
         self._mcast_loop = True      # TODO: make configurable
         self._rx_lie_ipv4_mcast_address = self.get_config_attribute('rx_lie_mcast_address', constants.DEFAULT_LIE_IPV4_MCAST_ADDRESS)
@@ -313,36 +328,29 @@ class Node:
     def generate_name(self):
         return socket.gethostname().split('.')[0] + str(self._node_nr)
 
-    def parse_level_config(self):
-        self._configured_level_symbol = self.get_config_attribute('level', 'undefined')
-        if self._configured_level_symbol == 'undefined':
-            self._configured_level = None
-            self._leaf_only = False
-            self._leaf_2_leaf = False
-            self._superspine_flag = False
-        elif self._configured_level_symbol == 'leaf':
-            self._configured_level = None
-            self._leaf_only = True
-            self._leaf_2_leaf = False
-            self._superspine_flag = False
-        elif self._configured_level_symbol == 'leaf-2-leaf':
-            self._configured_level = None
-            self._leaf_only = True
-            self._leaf_2_leaf = True
-            self._superspine_flag = False
-        elif self._configured_level_symbol == 'superspine':
-            self._configured_level = None
-            self._leaf_only = False
-            self._leaf_2_leaf = False
-            self._superspine_flag = True
-        elif isinstance(self._configured_level_symbol, int):
-            self._configured_level = self._configured_level_symbol
-            self._leaf_only = (self._configured_level == 0)
-            self._leaf_2_leaf = False
-            self._superspine_flag = False
+    @staticmethod
+    def parse_level_symbol(level_symbol):
+        # Parse the "level symbolic value" which can be:
+        # - undefined => This node uses ZTP to determine it's level value
+        # - leaf => This node is hard-configured to be a leaf (not using leaf-2-leaf procedures)
+        # - leaf-to-leaf => This node is hard-configured to be a leaf (does use leaf-2-leaf procedures)
+        # - superspine => This node is hard-configured to be a superspine (level value 24)
+        # - integer value => This node is hard-configured to be the specified level (0 means leaf)
+        # This function returns 
+        #  - None if the level_symbol is invalid (i.e. one of the above)
+        #  - (configured_level, leaf_only, leaf_2_leaf, superspine_flag) is level_symbol is valid
+        if level_symbol == 'undefined':
+            return (None, False, False, False)
+        elif level_symbol == 'leaf':
+            return (None, True, False, False)
+        elif level_symbol == 'leaf-2-leaf':
+            return (None, True, True, False)
+        elif level_symbol == 'superspine':
+            return (None, False, False, True)
+        elif isinstance(level_symbol, int):
+            return (level_symbol, level_symbol == 0, False, True)
         else:
-            # Should have been caught earlier by config validation.
-            assert False, "Invalid level {}".format(self._configured_level)
+            return None
 
     def level_value(self):
         if self._configured_level != None:
