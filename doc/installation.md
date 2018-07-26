@@ -3,6 +3,7 @@
 Installation instructions for:
 
 * [Ubuntu Linux on AWS](#ubuntu-linux-on-aws)
+* [Ubuntu Linux on local VM via Vagrant](#ubuntu-linux-on-local-vm-via-vagrant)
 
 ## Ubuntu Linux on AWS
 
@@ -176,3 +177,36 @@ For those interested, here is the list of dependency modules:
 | netifaces | Cross-platform portable code for retrieving information about interfaces and their addresses |
 | pyyaml | Parse Yet Another Markup Language (YAML) files |
 | cerberus | validate whether the data stored in a YAML file conforms to a data model (schema) |
+
+## Ubuntu Linux on local VM via Vagrant
+
+Using the Vagrantfile located in this repository, you can create and provision a local virtual machine to run rift-python
+
+### Install local hypervisor that is compatible with Vagrant
+
+For Mac users, the easiest and widely tested choice is [Virtual Box](https://www.virtualbox.org/)
+
+Note: You can also use Vagrant to prepare VM that is not local, but that is not documented here. For more info on using
+other providers such as AWS, visit [https://www.vagrantup.com/intro/getting-started/providers.html](https://www.vagrantup.com/intro/getting-started/providers.html)
+
+### Install Vagrant
+
+Download an follow instructions located at [https://www.vagrantup.com/downloads.html](https://www.vagrantup.com/downloads.html)
+
+### Start VM via Vagrant
+
+cd to the top level directory of this repo -- where **Vagrantfile** is located -- and type
+
+```
+vagrant up
+```
+
+Once VM is provisioned, you can access it using all the well-documented Vagrant commands,
+such as
+
+```
+vagrant ssh
+vagrant halt
+vagrant destroy
+vagrant help
+```
