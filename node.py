@@ -47,22 +47,23 @@ class Node:
     def remove_offer(self, offer, reason):
         offer.removed = True
         offer.removed_reason = reason
-        self._offers[offer.system_id] = offer
+        self._rx_offers[offer.interface_name] = offer
         self.compare_offers()
 
     def update_offer(self, offer):
-        self._offers[offer.system_id] = offer
+        self._rx_offers[offer.interface_name] = offer
         self.compare_offers()
-
-    def is_leaf(self):
-        # TODO: What does this mean exactly?  Also return True if level == leaf_level?
-        return self._leaf_only 
 
     def better_offer(self, offer1, offer2, three_way_only):
         # Don't consider removed offers
         if (offer1 != None) and (offer1.removed):
             offer1 = None
         if (offer2 != None) and (offer2.removed):
+            offer2 = None
+        # Don't consider offers that are marked "not a ZTP offer"
+        if (offer1 != None) and (offer1.not_a_ztp_offer):
+            offer1 = None
+        if (offer2 != None) and (offer2.not_a_ztp_offer):
             offer2 = None
         # If asked to do so, only consider offers from neighbors in state 3-way as valid candidates
         if three_way_only:
@@ -89,7 +90,7 @@ class Node:
         # Select "best offer" and "best offer in 3-way state" and do update flags on the offers
         best_offer = None
         best_offer_three_way = None
-        for offer in self._offers.values():
+        for offer in self._rx_offers.values():
             offer.best = False
             offer.best_three_way = False
             best_offer = self.better_offer(best_offer, offer, False)
@@ -126,7 +127,7 @@ class Node:
         # which set the flag on the offer to remember the result.
         best_offer = None
         best_offer_three_way = None
-        for offer in self._offers.values():
+        for offer in self._rx_offers.values():
             if offer.best:
                 best_offer = offer
             if offer.best_three_way:
@@ -277,7 +278,8 @@ class Node:
         self._lie_send_interval_secs = constants.DEFAULT_LIE_SEND_INTERVAL_SECS   # TODO: make configurable
         self._rx_tie_port = self.get_config_attribute('rx_tie_port', constants.DEFAULT_TIE_PORT)
         self._derived_level = None
-        self._offers = {}
+        self._rx_offers = {}
+        self._tx_offers = {}
         self._highest_available_level = None
         self._highest_adjacency_three_way = None
         self._fsm_log = self._log.getChild("fsm")
@@ -358,6 +360,9 @@ class Node:
             return 'undefined'
         else:
             return str(level_value)
+
+    def record_tx_offer(self, tx_offer):
+        self._tx_offers[tx_offer.interface_name] = tx_offer
 
     def zero_touch_provisioning_enabled(self):
         # Is "Zero Touch Provisiniong (ZTP)" aka "automatic level derivation" aka "level determination procedure"
@@ -467,9 +472,16 @@ class Node:
         cli_session.print(tab.to_string())
         cli_session.print("Received Offers:")
         tab = table.Table()
-        tab.add_row(offer.Offer.cli_headers())
-        sorted_offers = sortedcontainers.SortedDict(self._offers)
-        for off in sorted_offers.values():
+        tab.add_row(offer.RxOffer.cli_headers())
+        sorted_rx_offers = sortedcontainers.SortedDict(self._rx_offers)
+        for off in sorted_rx_offers.values():
+            tab.add_row(off.cli_attributes())
+        cli_session.print(tab.to_string())
+        cli_session.print("Sent Offers:")
+        tab = table.Table()
+        tab.add_row(offer.TxOffer.cli_headers())
+        sorted_tx_offers = sortedcontainers.SortedDict(self._tx_offers)
+        for off in sorted_tx_offers.values():
             tab.add_row(off.cli_attributes())
         cli_session.print(tab.to_string())
 

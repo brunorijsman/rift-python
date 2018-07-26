@@ -105,6 +105,7 @@ class Interface:
             neighbor_link_id = self._neighbor.local_id
             lie_neighbor = encoding.ttypes.Neighbor(neighbor_system_id, neighbor_link_id)
         else:
+            neighbor_system_id = None
             lie_neighbor = None
         lie_packet = LIEPacket(
             name = self._advertised_name,
@@ -124,6 +125,13 @@ class Interface:
         encoded_protocol_packet = encode_protocol_packet(protocol_packet)
         self._mcast_send_handler.send_message(encoded_protocol_packet)
         self.info(self._tx_log, "Send LIE {}".format(protocol_packet))
+        tx_offer = offer.TxOffer(
+            self._interface_name, 
+            neighbor_system_id, 
+            packet_header.level, 
+            lie_packet.not_a_ztp_offer, 
+            self._fsm._state)
+        self._node.record_tx_offer(tx_offer)
 
     def action_cleanup(self):
         self._neighbor = None
@@ -183,7 +191,12 @@ class Interface:
         return minor_change
         
     def send_offer_to_ztp_fsm(self, neighbor):
-        offer_for_ztp = offer.Offer(neighbor.level, neighbor.not_a_ztp_offer, neighbor.system_id, self._fsm._state)  # TODO: _state is private
+        offer_for_ztp = offer.RxOffer(
+            self._interface_name,
+            neighbor.system_id, 
+            neighbor.level, 
+            neighbor.not_a_ztp_offer, 
+            self._fsm._state)
         self._node._fsm.push_event(self._node.Event.NEIGHBOR_OFFER, offer_for_ztp)
 
     def this_node_is_leaf(self):
