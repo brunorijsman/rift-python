@@ -2,13 +2,14 @@ import socket
 import struct
 import utils
 from scheduler import scheduler
+import constants
 
 class McastSendHandler:
 
-    def __init__(self, interface_name, mcast_ipv4_address, port):
+    def __init__(self, interface_name, mcast_ipv4_address, port, interface_ipv4_address):
         self._mcast_ipv4_address = mcast_ipv4_address
         self._port = port
-        self._interface_ipv4_address = utils.interface_ipv4_address(interface_name)
+        self._interface_ipv4_address = interface_ipv4_address
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
         # TODO: should not be needed since TTL is 1 by default (check this before deleting it for real)
         # self._sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 1)   

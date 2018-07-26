@@ -23,6 +23,7 @@ class Rift:
             level = logging.DEBUG)
         self._active_nodes = active_nodes
         self._config = config
+        self._tx_src_address = self.read_global_configuration(config, 'tx_src_address', '')
         self._nodes = sortedcontainers.SortedDict()
         self.create_configuration()
         if self._nodes:
@@ -33,6 +34,13 @@ class Rift:
             self._cli_current_node = None
             self._cli_current_prompt = ''
         self._cli_listen_handler = cli_listen_handler.CliListenHandler(self.command_tree, self, self._cli_current_prompt)
+
+    def read_global_configuration(self, config, attribute, default):
+        if ('const' in config) and (attribute in config['const']):
+            return config['const'][attribute]
+        else:
+            return default
+
 
     def create_configuration(self):
         if 'shards' in self._config:
@@ -104,6 +112,11 @@ class Rift:
     @property
     def active_nodes(self):
         return self._active_nodes
+
+    @property
+    def tx_src_address(self):
+        return self._tx_src_address
+
 
 # TODO: Remove this once every existing user knows they are supposed to run main.py
 
