@@ -29,12 +29,23 @@ def _state_to_name(state):
 
 class FsmDefinition:
 
-    def __init__(self, state_enum, event_enum, transitions, state_entry_actions, initial_state):
+    def __init__(self, state_enum, event_enum, transitions, state_entry_actions, initial_state, verbose_events = []):
         self.state_enum = state_enum
         self.event_enum = event_enum
         self.transitions = transitions
         self.state_entry_actions = state_entry_actions
         self.initial_state = initial_state
+        self.verbose_events = verbose_events
+
+    @staticmethod
+    def _parse_transition(transition):
+        to_state = transition[0]
+        actions = transition[1]
+        if len(transition) > 2:
+            push_events = transition[2]
+        else:
+            push_events = []
+        return (to_state, actions, push_events)    
 
     # Everything in this class below here is concerned with producing a human-readable textual representation of the FSM
 
@@ -47,9 +58,10 @@ class FsmDefinition:
 
     def events_table(self):
         tab = table.Table()
-        tab.add_row(['Event'])
+        tab.add_row(['Event', 'Verbose'])
         for event in self.event_enum:
-            tab.add_row([event.name])
+            verbose = (event in self.verbose_events)
+            tab.add_row([event.name, verbose])
         return tab
 
     def transition_table(self, report_missing = False):
@@ -86,19 +98,15 @@ class FsmDefinition:
     def _add_transition_to_table(self, table, from_state, event, transition):
         from_state_name = from_state.name
         event_name = event.name
-        to_state = transition[0]
+        (to_state, actions, push_events) = FsmDefinition._parse_transition(transition)
+        action_names = list(map(_action_to_name, actions))
         if to_state == None:
             to_state_name = "-"
         else:
             to_state_name = to_state.name
-        actions = transition[1]
         action_names = list(map(_action_to_name, actions))
         if action_names == []:
             action_names = '-'
-        if len(transition) > 2:
-            push_events = transition[2]
-        else:
-            push_events = []
         push_event_names = list(map(_event_to_name, push_events))
         if push_event_names == []:
             push_event_names = '-'
@@ -140,17 +148,28 @@ class FsmRecord:
 
     _next_seq_nr = 1
 
-    def __init__(self, fsm, from_state, event):
+    def __init__(self, fsm, from_state, event, verbose):
         self.seq_nr = FsmRecord._next_seq_nr
         FsmRecord._next_seq_nr += 1
         self.time = time.time()
         self.fsm = fsm
         self.from_state = from_state
         self.event = event
+        self.verbose = verbose
         self.actions_and_pushed_events = []
         self.to_state = None
         self.implicit = False
 
+    def log_str(self):
+        log_msg = "FSM transition sequence-nr={} from-state={} event={} actions-and-pushed-events={} to-state={} implicit={}".format(
+            self.seq_nr, 
+            _state_to_name(self.from_state), 
+            _event_to_name(self.event),
+            ",".join(self.actions_and_pushed_events),
+            _state_to_name(self.to_state), 
+            self.implicit)
+        return log_msg
+        
 class Fsm:
 
     _event_queue = collections.deque()
@@ -158,6 +177,13 @@ class Fsm:
     def info(self, msg):
         if self._log:
             self._log.info("[{}] {}".format(self._log_id, msg))
+
+    def info_or_debug(self, debug, msg):
+        if self._log:
+            if debug:
+                self._log.debug("[{}] {}".format(self._log_id, msg))
+            else:
+                self._log.info("[{}] {}".format(self._log_id, msg))
 
     def warning(self, msg):
         if self._log:
@@ -171,12 +197,12 @@ class Fsm:
         self._event_enum = definition.event_enum
         self._transitions = definition.transitions
         self._state_entry_actions = definition.state_entry_actions
+        self._verbose_events = definition.verbose_events
         self._state = None
         self._action_handler = action_handler
         self._records = collections.deque([], _MAX_RECORDS)
         self._current_record = None
         self.info("Create FSM")
-        self.invoke_state_entry_actions(self._state)
 
     def start(self):
         self._state = self._definition.initial_state
@@ -184,12 +210,14 @@ class Fsm:
         self.invoke_state_entry_actions(self._state)
         
     def push_event(self, event, event_data = None):
-        self.info("FSM push event, event={}".format(event.name))
         fsm = self
         event_tuple = (fsm, event, event_data)
         self._event_queue.append(event_tuple)
         if self._current_record:
             self._current_record.actions_and_pushed_events.append(event.name)
+        else:
+            verbose = (event in self._verbose_events)
+            self.info_or_debug(verbose, "FSM push event, event={}".format(event.name))
 
     @staticmethod 
     def process_queued_events():
@@ -200,9 +228,8 @@ class Fsm:
             event_data = event_tuple[2]
             fsm.process_event(event, event_data)
 
-    def invoke_actions(self, actions, type_of_action, event_data = None):
+    def invoke_actions(self, actions, event_data = None):
         for action in actions:
-            self.info("FSM invoke {} action, action={}".format(type_of_action, _action_to_name(action)))
             if self._current_record:
                 self._current_record.actions_and_pushed_events.append(_action_to_name(action))
             if event_data:
@@ -212,41 +239,31 @@ class Fsm:
 
     def invoke_state_entry_actions(self, state):
         if state in self._state_entry_actions:
-            self.invoke_actions(self._state_entry_actions[state], "state-entry")
+            self.invoke_actions(self._state_entry_actions[state])
 
     def process_event(self, event, event_data):
-        if event_data:
-            self.info("FSM process event, state={} event={} event_data={}".format(
-                self._state.name, event.name, event_data))
-        else:
-            self.info("FSM process event, state={} event={}".format(self._state.name, event.name))
         assert self._current_record == None
         from_state = self._state
-        self._current_record = FsmRecord(self, from_state, event)
+        verbose = (event in self._verbose_events)
+        self._current_record = FsmRecord(self, from_state, event, verbose)
         if from_state in self._transitions:
             from_state_transitions = self._transitions[from_state]
         else:
             from_state_transitions = []
         if event in from_state_transitions:
             transition = from_state_transitions[event]
-            to_state = transition[0]
-            actions = transition[1]
-            if len(transition) > 2:
-                push_events = transition[2]
-            else:
-                push_events = []
-            self.invoke_actions(actions, "state-transition", event_data)
+            (to_state, actions, push_events) = FsmDefinition._parse_transition(transition)
+            self.invoke_actions(actions, event_data)
             for push_event in push_events:
                 self.push_event(push_event)
             if to_state != None:
-                self.info("FSM transition from state {} to state {}".format(from_state.name, to_state.name))
                 self._state = to_state
                 self._current_record.to_state = to_state
                 self.invoke_state_entry_actions(to_state)
         else:
-            self.warning("FSM missing transition, state={} event={}".format(self._state.name, event.name))
             self._current_record.implicit = True
         self._records.appendleft(self._current_record)
+        self.info_or_debug(self._current_record.verbose, self._current_record.log_str())
         self._current_record = None
 
     def history_table(self):

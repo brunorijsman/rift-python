@@ -44,6 +44,8 @@ class Node:
         COMPUTATION_DONE = 7
         HOLD_DOWN_EXPIRED = 8
 
+    verbose_events = [Event.NEIGHBOR_OFFER]
+
     def remove_offer(self, offer, reason):
         offer.removed = True
         offer.removed_reason = reason
@@ -211,7 +213,7 @@ class Node:
         if self.any_southbound_adjacencies_present():
             self._hold_down_timer.start()
         else:
-            self._fsm.push_event(self.Event.HOLD_TIME_EXPIRED)
+            self._fsm.push_event(self.Event.HOLD_DOWN_EXPIRED)
 
     def action_stop_hold_down_timer(self):
         self._hold_down_timer.stop()
@@ -262,7 +264,8 @@ class Node:
         event_enum = Event, 
         transitions = _transitions, 
         state_entry_actions = _state_entry_actions,
-        initial_state = State.COMPUTE_BEST_OFFER)    
+        initial_state = State.COMPUTE_BEST_OFFER,
+        verbose_events = verbose_events)    
 
     def __init__(self, rift, config):
         # TODO: process state_thrift_services_port field in config

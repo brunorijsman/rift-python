@@ -79,6 +79,8 @@ class Interface:
         SEND_LIE = 17
         # UPDATE_ZTP_OFFER = 18      Removed. See deviation DEV-2 in doc/deviations.md. TODO: remove line completely.
 
+    verbose_events = [Event.TIMER_TICK, Event.LIE_RECEIVED, Event.SEND_LIE]
+
     def action_store_hal(self):
         # TODO: Need to implement ZTP state machine first
         pass
@@ -124,7 +126,7 @@ class Interface:
         protocol_packet = encoding.ttypes.ProtocolPacket(packet_header, packet_content)
         encoded_protocol_packet = encode_protocol_packet(protocol_packet)
         self._mcast_send_handler.send_message(encoded_protocol_packet)
-        self.info(self._tx_log, "Send LIE {}".format(protocol_packet))
+        self.debug(self._tx_log, "Send LIE {}".format(protocol_packet))
         tx_offer = offer.TxOffer(
             self._interface_name, 
             neighbor_system_id, 
@@ -359,7 +361,6 @@ class Interface:
     def action_check_hold_time_expired(self):
         # TODO: This is a (too) simplistic way of managing timers in the draft; use an explicit timer
         # If time_ticks_since_lie_received is None, it means the timer is not running
-        self.info(self._log, "_time_ticks_since_lie_received = {}")
         if self._time_ticks_since_lie_received == None:
             return False
         self._time_ticks_since_lie_received += 1
@@ -439,7 +440,11 @@ class Interface:
         event_enum = Event, 
         transitions = _transitions, 
         state_entry_actions = _state_entry_actions,
-        initial_state = State.ONE_WAY)
+        initial_state = State.ONE_WAY,
+        verbose_events = verbose_events)
+
+    def debug(self, logger, msg):
+        logger.debug("[{}] {}".format(self._log_id, msg))
 
     def info(self, logger, msg):
         logger.info("[{}] {}".format(self._log_id, msg))
@@ -517,7 +522,7 @@ class Interface:
     def receive_mcast_message(self, message, from_address_and_port):
         # TODO: Handle decoding errors (does decode_protocol_packet throw an exception in that case? Try it...)
         protocol_packet = decode_protocol_packet(message)
-        self.info(self._rx_log, "Receive {}".format(protocol_packet))
+        self.debug(self._rx_log, "Receive {}".format(protocol_packet))
         if not protocol_packet.content:
             self.warning(self._rx_log, "Received packet without content")
             return
