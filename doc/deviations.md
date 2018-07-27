@@ -9,7 +9,7 @@ This section describes places where this Python RIFT engine implementation consc
 | DEV-3 | [Do not actually remove offers but mark them as removed](#do-not-actually-remove-offers-but-mark-them-as-removed) |
 | DEV-4 | [Rules for accepting a received LIE message](#rules-for-accepting-a-received-lie-message)
 | DEV-5 | [Remove event ChangeLocalLeafIndications from ZTP FSM](#remove-event-changelocalleafindications-from-ztp-fsm) |
-| DEV-6 | [Use real ZTP hold timer](#use-real-ztp-hold-timer) |
+| DEV-6 | [Use real ZTP hold down timer](#use-real-ztp-hold-down-timer) |
 
 ## Remove event WithdrawNeighborOffer from the ZTP FSM
 
@@ -89,11 +89,11 @@ As a result, the events ChangeLocalLeafIndications and ChangeLocalConfiguredLeve
 
 The ChangeLocalConfiguredLevel is pushed whenever the conifigured level is changed. The action is store_level which also updates the leaf flags and the superspine flag.
 
-## Use real ZTP hold timer
+## Use real ZTP hold down timer
 
-The ZTP FSM uses a hold timer to manage the time spent in state HoldingDown. There is a ShortTic event that is generated at fixed intervals. The timer is implemented "manually" by counting the number of ShortTic events, and when a threshold is reached, a HoldDownExpired event is generated. I call this a "manual" implementation of a timer.
+The ZTP FSM uses a hold down timer to manage the time spent in state HoldingDown. There is a ShortTic event that is generated at fixed intervals. The timer is implemented "manually" by counting the number of ShortTic events, and when a threshold is reached, a HoldDownExpired event is generated. I call this a "manual" implementation of a timer.
 
 The Timer class in Python RIFT supports "real" timers. You can start a timer with an arbitrary expiry time, and an event can be generated when the timer expires, without the need for counting ticks.
 
-We use a "real" timer to implement the ZTP holddown timer, and hence we don't need any ShortTic events.
+We use a "real" timer to implement the ZTP hold down timer, and hence we don't need any ShortTic events.
 
