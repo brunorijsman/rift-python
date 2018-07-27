@@ -18,11 +18,11 @@ class Rift:
         ONLY_PASSIVE_NODES = 2
         ALL_NODES_EXCEPT_PASSIVE_NODES = 3
 
-    def __init__(self, active_nodes, config):
+    def __init__(self, active_nodes, log_level, config):
         logging.basicConfig(
             filename = 'rift.log', 
             format = '%(asctime)s:%(levelname)s:%(name)s:%(message)s', 
-            level = logging.DEBUG)
+            level = log_level)
         self._active_nodes = active_nodes
         self._config = config
         self._nodes = sortedcontainers.SortedDict()
