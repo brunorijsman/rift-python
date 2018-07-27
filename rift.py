@@ -76,8 +76,11 @@ class Rift:
     def command_show_node(self, cli_session):
         self._cli_current_node.command_show_node(cli_session)
 
-    def command_show_node_fsm_history(self, cli_session):
-        self._cli_current_node.command_show_node_fsm_history(cli_session)
+    def command_show_node_fsm_non_verbose_history(self, cli_session):
+        self._cli_current_node.command_show_node_fsm_history(cli_session, False)
+
+    def command_show_node_fsm_verbose_history(self, cli_session):
+        self._cli_current_node.command_show_node_fsm_history(cli_session, True)
 
     def command_show_interfaces(self, cli_session):
         self._cli_current_node.command_show_interfaces(cli_session)
@@ -85,8 +88,11 @@ class Rift:
     def command_show_interface(self, cli_session, parameters):
         self._cli_current_node.command_show_interface(cli_session, parameters)
 
-    def command_show_interface_fsm_history(self, cli_session, parameters):
-        self._cli_current_node.command_show_interface_fsm_history(cli_session, parameters)
+    def command_show_interface_fsm_non_verbose_history(self, cli_session, parameters):
+        self._cli_current_node.command_show_interface_fsm_history(cli_session, parameters, False)
+
+    def command_show_interface_fsm_verbose_history(self, cli_session, parameters):
+        self._cli_current_node.command_show_interface_fsm_history(cli_session, parameters, True)
 
     def command_set_node(self, cli_session, parameters):
         node_name = parameters['node']
@@ -119,7 +125,10 @@ class Rift:
             },
             "node": {
                 "": command_show_node,
-                "fsm-history": command_show_node_fsm_history,
+                "fsm": {
+                    "history": command_show_node_fsm_non_verbose_history,
+                    "verbose-history": command_show_node_fsm_verbose_history,
+                },
             },
             "nodes": {
                 "": command_show_nodes,
@@ -127,7 +136,10 @@ class Rift:
             },
             "$interface": {
                 "": command_show_interface,
-                "fsm-history": command_show_interface_fsm_history,
+                "fsm": {
+                    "history": command_show_interface_fsm_non_verbose_history,
+                    "verbose-history": command_show_interface_fsm_verbose_history,
+                }
             },
             "interfaces": command_show_interfaces,
         },

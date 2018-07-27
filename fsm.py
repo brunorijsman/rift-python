@@ -149,10 +149,11 @@ class FsmRecord:
     _next_seq_nr = 1
 
     def __init__(self, fsm, from_state, event, verbose):
+        self.fsm = fsm
         self.seq_nr = FsmRecord._next_seq_nr
         FsmRecord._next_seq_nr += 1
         self.time = time.time()
-        self.fsm = fsm
+        self.skipped = 0
         self.from_state = from_state
         self.event = event
         self.verbose = verbose
@@ -201,7 +202,9 @@ class Fsm:
         self._state = None
         self._action_handler = action_handler
         self._records = collections.deque([], _MAX_RECORDS)
+        self._verbose_records = collections.deque([], _MAX_RECORDS)
         self._current_record = None
+        self._verbose_records_skipped = 0
         self.info("Create FSM")
 
     def start(self):
@@ -262,26 +265,39 @@ class Fsm:
                 self.invoke_state_entry_actions(to_state)
         else:
             self._current_record.implicit = True
-        self._records.appendleft(self._current_record)
+        self._verbose_records.appendleft(self._current_record)
+        if self._current_record.verbose:
+            self._verbose_records_skipped += 1
+        else:
+            self._current_record.skipped = self._verbose_records_skipped
+            self._verbose_records_skipped = 0
+            self._records.appendleft(self._current_record)
         self.info_or_debug(self._current_record.verbose, self._current_record.log_str())
         self._current_record = None
 
-    def history_table(self):
+    def history_table(self, verbose):
+        #! TODO: Use verbose
         tab = table.Table()
         tab.add_row([
             ['Sequence', 'Nr'],
-            ['Time', 'Delta'], 
+            ['Time', 'Delta'],
+            ['Verbose', 'Skipped'],
             ['From', 'State'], 
             'Event', 
             ['Actions and', 'Pushed Events'], 
             ['To', 'State'],
             ['Implicit']])
         prev_time = time.time()
-        for record in self._records:
+        if verbose:
+            records_to_show = self._verbose_records
+        else:
+            records_to_show = self._records
+        for record in records_to_show:
             time_delta = prev_time - record.time
             tab.add_row([
                 record.seq_nr,
                 "{:06f}".format(time_delta),
+                record.skipped,
                 _state_to_name(record.from_state), 
                 _event_to_name(record.event),
                 record.actions_and_pushed_events,
