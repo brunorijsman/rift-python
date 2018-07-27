@@ -7,7 +7,9 @@ This section describes places where this Python RIFT engine implementation consc
 | DEV-1 | [Remove event WithdrawNeighborOffer from the ZTP FSM](#remove-event-withdrawneighboroffer-from-the-ztp-fsm) |
 | DEV-2 | [Remove event UpdateZTPOffer from the LIE FSM](#remove-event-updateztpoffer-from-the-lie-fsm) |
 | DEV-3 | [Do not actually remove offers but mark them as removed](#do-not-actually-remove-offers-but-mark-them-as-removed) |
-| DEV-4 | [Rules for accepting a received LIE message](rules-for-accepting-a-received-lie-message)
+| DEV-4 | [Rules for accepting a received LIE message](#rules-for-accepting-a-received-lie-message)
+| DEV-5 | [Remove event ChangeLocalLeafIndications from ZTP FSM](#remove-event-changelocalleafindications-from-ztp-fsm) |
+| DEV-6 | [Use real ZTP hold timer](#use-real-ztp-hold-timer) |
 
 ## Remove event WithdrawNeighborOffer from the ZTP FSM
 
@@ -68,3 +70,30 @@ The rules in section 4.2.2 are *not* consistent with the rules in section B.1.4,
 * Rule 4.2.2.6 about the same MTU is missing from section B.1.4
 
 * The rules in section 4.2.2.8 are different from the corresponding rules in section B.1.4.2.
+
+## Remove event ChangeLocalLeafIndications from ZTP FSM
+
+In this implementation, the configured level and the leaf flags are combined into one single configurable parameter, called the "configured level symbol".
+
+The configured level symbol determines the configured level, the leaf flags, as well as the superspine flag (which is not mentioned in the ZTP FSM) as follows:
+
+| Configured level symbol | Configured level | Leaf only flag | leaf-2-leaf flag | superspine flag |
+| --- | ---| --- | --- | --- |
+| undefined | undefined | false | false | false |
+| leaf | 0 | true | false | false |
+| leaf-2-leaf | 0 | true | true | false |
+| superspine | 24 | false | false | true |
+| integer value | integer value | true iff value == 0 | false | false |
+
+As a result, the events ChangeLocalLeafIndications and ChangeLocalConfiguredLevel are combined into a single event ChangeLocalConfiguredLevel.
+
+The ChangeLocalConfiguredLevel is pushed whenever the conifigured level is changed. The action is store_level which also updates the leaf flags and the superspine flag.
+
+## Use real ZTP hold timer
+
+The ZTP FSM uses a hold timer to manage the time spent in state HoldingDown. There is a ShortTic event that is generated at fixed intervals. The timer is implemented "manually" by counting the number of ShortTic events, and when a threshold is reached, a HoldDownExpired event is generated. I call this a "manual" implementation of a timer.
+
+The Timer class in Python RIFT supports "real" timers. You can start a timer with an arbitrary expiry time, and an event can be generated when the timer expires, without the need for counting ticks.
+
+We use a "real" timer to implement the ZTP holddown timer, and hence we don't need any ShortTic events.
+

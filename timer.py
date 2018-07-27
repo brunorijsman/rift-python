@@ -64,6 +64,13 @@ class Timer:
     def expire_time(self):
         return self._expire_time
 
+    def remaining_time_str(self):
+        if self._running:
+            secs_left = self._expire_time - timer_scheduler.now()
+            return "{:06f} secs".format(secs_left)
+        else:
+            return "Stopped"
+
     def _update_expire_time(self):
         self._expire_time = timer_scheduler.now() + self._interval
 

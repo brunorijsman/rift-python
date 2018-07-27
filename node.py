@@ -26,23 +26,23 @@ class Node:
 
     ZTP_MIN_NUMBER_OF_PEER_FOR_LEVEL = 3
 
+    # TODO: This value is not specified anywhere in the specification
+    DEFAULT_HOLD_DOWN_TIME = 3.0
+
     class State(enum.Enum):
         UPDATING_CLIENTS = 1
         HOLDING_DOWN = 2
         COMPUTE_BEST_OFFER = 3
 
     class Event(enum.Enum):
-        CHANGE_LOCAL_LEAF_INDICATIONS = 1
-        CHANGE_LOCAL_CONFIGURED_LEVEL = 2
-        NEIGHBOR_OFFER = 3
-        # WITHDRAW_NEIGHBOR_OFFER = 4       Removed. See deviation DEV-1 in doc/deviations.md. TODO: remove line completely.
-        BETTER_HAL = 5
-        BETTER_HAT = 6
-        LOST_HAL = 7
-        LOST_HAT = 8
-        COMPUTATION_DONE = 9
-        HOLDDOWN_EXPIRED = 10
-        SHORT_TICK_TIMER = 11
+        CHANGE_LOCAL_CONFIGURED_LEVEL = 1
+        NEIGHBOR_OFFER = 2
+        BETTER_HAL = 3
+        BETTER_HAT = 4
+        LOST_HAL = 5
+        LOST_HAT = 6
+        COMPUTATION_DONE = 7
+        HOLD_DOWN_EXPIRED = 8
 
     def remove_offer(self, offer, reason):
         offer.removed = True
@@ -178,12 +178,10 @@ class Node:
         self._superspine_flag = superspine_flag        
 
     def action_purge_offers(self):
-        # TODO
-        pass
-
-    def action_check_hold_time_expired(self):
-        # TODO
-        pass
+        for offer in self._rx_offers.values():
+            if not offer.removed:
+                offer.removed = True
+                offer.removed_reason = "Purged"
 
     def action_update_all_lie_fsms_with_computation_results(self):
         if self._highest_available_level == None:
@@ -193,50 +191,59 @@ class Node:
         else:
             self._derived_level = 0
 
-    def action_update_holddown_timer_on_lost_hal(self):
-        # TODO:
-        # if any southbound adjacencies present
-        #   then update holddown timer to normal duration
-        #   else fire   holddown    timer    immediately
-        pass
+    def any_southbound_adjacencies_present(self):
+        # We define a southbound adjacency as any adjacency between this node and a node that has a numerically
+        # lower level value. It doesn't matter what state the adjacency is in. TODO: confirm this with Tony.
+        #
+        this_node_level = self.level_value()
+        if this_node_level == None:
+            return False
+        for offer in self._rx_offers.values():
+            if offer.removed:
+                continue
+            if offer.level == None:
+                continue
+            if offer.level < this_node_level:
+                return True
+        return False
+
+    def action_start_hold_down_timer_on_lost_hal(self):
+        if self.any_southbound_adjacencies_present():
+            self._hold_down_timer.start()
+        else:
+            self._fsm.push_event(self.Event.HOLD_TIME_EXPIRED)
+
+    def action_stop_hold_down_timer(self):
+        self._hold_down_timer.stop()
 
     _state_updating_clients_transitions = {
-        Event.CHANGE_LOCAL_LEAF_INDICATIONS:    (State.COMPUTE_BEST_OFFER, [action_store_leaf_flags]),
-        Event.LOST_HAT:                         (State.COMPUTE_BEST_OFFER, [action_no_action]),
-        Event.BETTER_HAT:                       (State.COMPUTE_BEST_OFFER, [action_no_action]),
-        Event.SHORT_TICK_TIMER:                 (None, [action_no_action]),
-        Event.LOST_HAL:                         (State.HOLDING_DOWN, [action_update_holddown_timer_on_lost_hal]),
-        Event.NEIGHBOR_OFFER:                   (None, [action_update_or_remove_offer]),
         Event.CHANGE_LOCAL_CONFIGURED_LEVEL:    (State.COMPUTE_BEST_OFFER, [action_store_level]),
+        Event.NEIGHBOR_OFFER:                   (None, [action_update_or_remove_offer]),
         Event.BETTER_HAL:                       (State.COMPUTE_BEST_OFFER, [action_no_action]),
-        # Event.WITHDRAW_NEIGHBOR_OFFER:          (None, [action_remove_offer]),     Removed. See deviation DEV-1 in doc/deviations.md. TODO: remove line completely.
+        Event.BETTER_HAT:                       (State.COMPUTE_BEST_OFFER, [action_no_action]),
+        Event.LOST_HAL:                         (State.HOLDING_DOWN, [action_start_hold_down_timer_on_lost_hal]),
+        Event.LOST_HAT:                         (State.COMPUTE_BEST_OFFER, [action_no_action]),
     }
 
     _state_holding_down_transitions = {
-        Event.LOST_HAT:                         (None, [action_no_action]),
-        Event.LOST_HAL:                         (None, [action_no_action]),
-        Event.BETTER_HAT:                       (None, [action_no_action]),
-        Event.CHANGE_LOCAL_CONFIGURED_LEVEL:    (State.COMPUTE_BEST_OFFER,[action_store_level]),
-        Event.HOLDDOWN_EXPIRED:                 (State.COMPUTE_BEST_OFFER,[action_purge_offers]),
-        Event.SHORT_TICK_TIMER:                 (None, [action_check_hold_time_expired]),
+        Event.CHANGE_LOCAL_CONFIGURED_LEVEL:    (State.COMPUTE_BEST_OFFER, [action_store_level]),
         Event.NEIGHBOR_OFFER:                   (None, [action_update_or_remove_offer]),
         Event.BETTER_HAL:                       (None, [action_no_action]),
-        # Event.WITHDRAW_NEIGHBOR_OFFER:          (None, [action_remove_offer]),     Removed. See deviation DEV-1 in doc/deviations.md. TODO: remove line completely.
-        Event.CHANGE_LOCAL_LEAF_INDICATIONS:    (State.COMPUTE_BEST_OFFER, [action_store_leaf_flags]),
-        Event.COMPUTATION_DONE:                 (None, [action_no_action])
+        Event.BETTER_HAT:                       (None, [action_no_action]),
+        Event.LOST_HAL:                         (None, [action_no_action]),
+        Event.LOST_HAT:                         (None, [action_no_action]),
+        Event.COMPUTATION_DONE:                 (None, [action_no_action]),
+        Event.HOLD_DOWN_EXPIRED:                (State.COMPUTE_BEST_OFFER, [action_purge_offers]),
     }
 
     _state_compute_best_offer_transitions = {
-        Event.LOST_HAT:                         (None, [action_level_compute]),
+        Event.CHANGE_LOCAL_CONFIGURED_LEVEL:    (None, [action_store_level, action_level_compute]),
         Event.NEIGHBOR_OFFER:                   (None, [action_update_or_remove_offer]),
         Event.BETTER_HAL:                       (None, [action_level_compute]),
-        Event.SHORT_TICK_TIMER:                 (None, [action_no_action]),
-        Event.COMPUTATION_DONE:                 (State.UPDATING_CLIENTS, [action_no_action]),
-        Event.CHANGE_LOCAL_CONFIGURED_LEVEL:    (None, [action_store_level, action_level_compute]),
-        Event.LOST_HAL:                         (State.HOLDING_DOWN, [action_update_holddown_timer_on_lost_hal]),
         Event.BETTER_HAT:                       (None, [action_level_compute]),
-        # Event.WITHDRAW_NEIGHBOR_OFFER:          (None, [action_remove_offer]),     Removed. See deviation DEV-1 in doc/deviations.md. TODO: remove line completely.
-        Event.CHANGE_LOCAL_LEAF_INDICATIONS:    (None, [action_store_leaf_flags, action_level_compute])
+        Event.LOST_HAL:                         (State.HOLDING_DOWN, [action_start_hold_down_timer_on_lost_hal]),
+        Event.LOST_HAT:                         (None, [action_level_compute]),
+        Event.COMPUTATION_DONE:                 (State.UPDATING_CLIENTS, [action_no_action]),
     }
 
     _transitions = {
@@ -247,7 +254,7 @@ class Node:
 
     _state_entry_actions = {
         State.UPDATING_CLIENTS:     [action_update_all_lie_fsms_with_computation_results],
-        State.COMPUTE_BEST_OFFER:   [action_level_compute]
+        State.COMPUTE_BEST_OFFER:   [action_stop_hold_down_timer, action_level_compute]
     }
 
     fsm_definition = fsm.FsmDefinition(
@@ -297,9 +304,7 @@ class Node:
         self._highest_available_level = None
         self._highest_adjacency_three_way = None
         self._fsm_log = self._log.getChild("fsm")
-        # TODO: Take ztp hold time from init file
         self._holdtime = 1
-        # TODO: Add where a leaf comes from
         self._next_interface_id = 1
         if 'interfaces' in config:
             for interface_config in self._config['interfaces']:
@@ -309,8 +314,12 @@ class Node:
             action_handler = self,
             log = self._fsm_log,
             log_id = self._log_id)
+        self._hold_down_timer = timer.Timer(
+            interval = self.DEFAULT_HOLD_DOWN_TIME,
+            expire_function = lambda: self._fsm.push_event(self.Event.HOLD_DOWN_EXPIRED), 
+            periodic = False, 
+            start = False)
         self._fsm.start()
-        self._one_second_timer = timer.Timer(1.0, lambda: self._fsm.push_event(self.Event.SHORT_TICK_TIMER))
 
     def info(self, logger, msg):
         logger.info("[{}] {}".format(self._node._log_id, msg))   # TODO: Make node._log_id public
@@ -432,6 +441,8 @@ class Node:
             ["Leaf 2 Leaf", self._leaf_2_leaf],
             ["Superspine Flag", self._superspine_flag],
             ["Zero Touch Provisioning (ZTP) Enabled", self.zero_touch_provisioning_enabled()],
+            ["ZTP FSM State", self._fsm._state.name],
+            ["ZTP Hold Down Timer", self._hold_down_timer.remaining_time_str()],
             ["Highest Available Level (HAL)", self._highest_available_level],
             ["Highest Adjacency Three-way (HAT)", self._highest_adjacency_three_way],
             ["Level Value", self.level_value()],
