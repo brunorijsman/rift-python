@@ -18,6 +18,6 @@ def system_id_str(system_id):
     # Heuristic: if the system_id < 1000000 then it is probably configured, otherwise it is probably
     # derived from the MAC address, the process ID, and the node nr.
     if system_id < 1000000:
-        return "{}".format(system_id)
+        return "{:d}".format(system_id)
     else:
         return "{:016x}".format(system_id)

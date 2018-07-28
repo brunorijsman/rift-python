@@ -328,15 +328,16 @@ class Interface:
         # event (see deviation DEV-2 in doc/deviations)
         self.send_offer_to_ztp_fsm(new_neighbor)
         if not self._neighbor:
-            self.info(self._log, "New neighbor detected with system-id {:16x}".format(protocol_packet.header.sender))
+            self.info(self._log, "New neighbor detected with system-id {}"
+                .format(utils.system_id_str(protocol_packet.header.sender)))
             self._neighbor = new_neighbor
             self._fsm.push_event(self.Event.NEW_NEIGHBOR)
             self.check_three_way()
             return
         # Section B.1.4.3.1
         if new_neighbor.system_id != self._neighbor.system_id:
-            self.info(self._log, "Neighbor system-id changed from {:16x} to {:16x}"
-                .format(self._neighbor.system_id, new_neighbor.system_id))
+            self.info(self._log, "Neighbor system-id changed from {} to {}"
+                .format(utils.system_id_str(self._neighbor.system_id), utils.system_id_str(new_neighbor.system_id)))
             self._fsm.push_event(self.Event.MULTIPLE_NEIGHBORS)
             return
         # Section B.1.4.3.2
