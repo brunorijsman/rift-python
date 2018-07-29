@@ -461,7 +461,7 @@ class Interface:
         self._metric  = self.get_config_attribute(config, 'metric', common.constants.default_bandwidth)
         self._advertised_name = self.generate_advertised_name()
         self._log_id = node._log_id + "-{}".format(self._interface_name)
-        self._ipv4_address = utils.interface_ipv4_address(self._interface_name)
+        self._ipv4_address = utils.interface_ipv4_address(self._interface_name, self._node.rift.tx_src_address)
         self._rx_lie_ipv4_mcast_address = self.get_config_attribute(
             config, 'rx_lie_mcast_address', constants.DEFAULT_LIE_IPV4_MCAST_ADDRESS)
         self._tx_lie_ipv4_mcast_address = self.get_config_attribute(
@@ -498,7 +498,8 @@ class Interface:
         self._mcast_send_handler = mcast_send_handler.McastSendHandler(
             self._interface_name,
             self._tx_lie_ipv4_mcast_address, 
-            self._tx_lie_port)
+            self._tx_lie_port,
+            self._node.rift.tx_src_address)
         (source_address, source_port) = self._mcast_send_handler.source_address_and_port()
         self._lie_udp_source_port = source_port
         self._mcast_receive_handler = mcast_receive_handler.McastReceiveHandler(
@@ -506,7 +507,9 @@ class Interface:
             self._rx_lie_ipv4_mcast_address, 
             self._rx_lie_port,
             self._node.mcast_loop,
-            self.receive_mcast_message)
+            self.receive_mcast_message,
+            self._node.rift.tx_src_address)
+
         self._one_second_timer = timer.Timer(1.0, lambda: self._fsm.push_event(self.Event.TIMER_TICK))
 
     def get_config_attribute(self, config, attribute, default):
