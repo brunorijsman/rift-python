@@ -7,7 +7,7 @@
   * [set node <i>node</i>](#set-node-node)
   * [show interface <i>interface</i>](#show-interface-interface)
   * [show interface <i>interface</i> fsm history](#show-interface-interface-fsm-history)
-  * [show interface <i>interface</i> fsm verbose-history](#show-interface-interface-fsm-verbose)
+  * [show interface <i>interface</i> fsm verbose-history](#show-interface-interface-fsm-verbose-history)
   * [show interfaces](#show-interfaces)
   * [show fsm <i>fsm</i>](#show-fsm-fsm)
   * [show interfaces](#show-interfaces)
@@ -24,174 +24,245 @@ sessions:
 
 <pre>
 (env) $ <b>python main.py two_by_two_by_two.yaml</b>
-Command Line Interface (CLI) available on port 55018
+Command Line Interface (CLI) available on port 52036
 </pre>
 
 You can connect to the Command Line Interface (CLI) using a Telnet client. Assuming you are connecting from the same 
 device as where the RIFT engine is running, the hostname is localhost. 
 
 <pre>
-$ <b>telnet localhost 55018</b>
+$ <b>telnet localhost 52036</b>
 Trying 127.0.0.1...
 Connected to localhost.
 Escape character is '^]'.
-Brunos-MacBook1> 
+agg_101> 
 </pre>
 
-You should get a prompt containing the name of the RIFT node. In this example the name of the RIFT node is 
-"Brunos-MacBook1".
-
-By default (i.e. if no configuration file is specified) a single instance of the RIFT protocol engine (a single 
-so-called RIFT node) is started. And by default, the name of that single RIFT node is equal to the hostname of the 
-computer on which the RIFT node is running.
+You should get a prompt containing the name of the current RIFT node. In this example the name of the current RIFT node
+is "agg_101".
 
 ## Entering CLI Commands
 
 You can enter CLI commands at the CLI prompt. For example, try entering the <b>help</b> command:
 
 <pre>
-Brunos-MacBook1> <b>help</b>
-set node &lt;node&gt;
-show interface &lt;interface&gt;
+agg_101> <b>help</b>
+set level &lt;level&gt; 
+set node &lt;node&gt; 
+show interface &lt;interface&gt; 
+show interface &lt;interface&gt; fsm history 
+show interface &lt;interface&gt; fsm verbose-history 
 show fsm lie 
 show fsm ztp 
 show interfaces 
 show node 
+show node fsm history 
+show node fsm verbose-history 
 show nodes 
+show nodes level 
 </pre>
 
-(You may see more commands in the help output if you are running a more recent version of the code.)
+Unfortunately, the CLI does not yet support any of the following features:
 
-Unfortunately, the CLI does not yet support using cursor-up or cursor-down or ctrl-p or ctrl-n to go the the previous 
-or next command in the command history. It does also not support tab command completion; all commands must be entered 
-in full manually. And you can also not yet use ? for context-sensitive help. These features will be added in a 
-future version.
+* Command completion: you must manually enter the complete command; you cannot enter partial commands or use
+tab to complete commands.
+
+* Interactive command history: you cannot use cursor-up or cursor-down or ctrl-p or ctrl-n to go the 
+the previous or next command in the command history. 
+
+* Interactive context-senstive help: you can enter "help" or "?" and press enter at the end of a partial command
+line to get context-senstive help. But after reading the help text, you must manually re-enter the command line. 
 
 ## Command Line Interface Commands
 
 ### set level <i>level</i>
+
+The "<b>set level</b> <i>level</i>" command changes the level of the currently active RIFT node.
+
+The valid values for the <i>level</i> parameter are <b>undefined</b>, <b>leaf</b>, <b>leaf-to-leaf</b>, 
+<b>superspine</b>, or an integer non-negative number.
+
+These <i>level</i> values are mapped to the paramaters in the protocol specification as follows:
+
+| <i>level</i> value | LEAF_ONLY | LEAF_2_LEAF | SUPERSPINE_FLAG | CONFIGURED_LEVEL |
+| --- | --- | --- | --- | --- |
+| <b>undefined<b> | false | false | false | UNDEFINED_LEVEL |
+| <b>leaf<b> | true | false | false | UNDEFINED_LEVEL (see note 1) |
+| <b>leaf-to-leaf<b> | true | true | false | UNDEFINED_LEVEL (see note 1) |
+| <b>superspine<b> | false | false | true | UNDEFINED_LEVEL (see note 2) |
+| integer non-negative number | true if level = 0, false otherwise | false | false | level |
+
+Note 1: Even if the CONFIGURED_LEVEL is UNDEFINED_LEVEL, nodes with the LEAF_ONLY flag set will advertise level 
+leaf_level (= 0) in the sent LIE packets.
+
+Note 2: Event if CONFIGURED_LEVEL is UNDEFINED_LEVEL, nodes with the SUPERSPINE_FLAG set will advertise level 
+default_superspine_level (= 24) in the sent LIE packets.
+
+Example:
+
+<pre>
+core_1> set level undefined
+</pre>
 
 ### set node <i>node</i>
 
 The "<b>set node</b> <i>node-name</i>" command changes the currently active RIFT node to the node with the specified 
 RIFT node name:
 
+Note: you can get a list of RIFT nodes present in the current RIFT protocol engine using the <b>show nodes</b> command.
+
+Example:
+
 <pre>
 agg_101> set node core_1
 core_1> 
 </pre>
 
-Note: you can get a list of RIFT nodes present in the current RIFT protocol engine using the <b>show nodes</b> command.
-
 ### show interface <i>interface</i>
 
-The "<b>show interface</b> <i>interface-name</i>" command reports more detailed information about a single interface. Note that "interface" is singular without an s.
+The "<b>show interface</b> <i>interface</i>" command reports more detailed information about a single interface.
+If there is a neighbor on the interface, the command also shows details about that neighbor.
 
-Here is an example of the output when there is no neighbor (note that the state of the interface is ONE_WAY):
+The <i>interface</i> parameter is the name of an interface of the current node. You can get a list of interfaces of the
+current node using the <b>show interfaces</b> command.
 
-<pre>
-Brunos-MacBook1> <b>show interface en0</b>
-Interface:
-+-------------------------------------+---------------------+
-| Interface Name                      | en0                 |
-| Advertised Name                     | Brunos-MacBook1-en0 |
-| Interface IPv4 Address              | 192.168.2.163       |
-| Metric                              | 100                 |
-| Receive LIE IPv4 Multicast Address  | 224.0.0.120         |
-| Transmit LIE IPv4 Multicast Address | 224.0.0.120         |
-| Receive LIE IPv6 Multicast Address  | FF02::0078          |
-| Transmit LIE IPv6 Multicast Address | FF02::0078          |
-| Receive LIE Port                    | 10000               |
-| Transmit LIE Port                   | 10000               |
-| Receive TIE Port                    | 10001               |
-| System ID                           | 667f3a2b1a721f01    |
-| Local ID                            | 1                   |
-| MTU                                 | 1500                |
-| POD                                 | 0                   |
-| State                               | ONE_WAY             |
-| Neighbor                            | No                  |
-+-------------------------------------+---------------------+
-</pre>
-
-Here is an example of the output when there is a neighbor (note that the state of the interface is THREE_WAY):
+Example of an interface which does have a neighbor (adjacency in state THREE_WAY):
 
 <pre>
-Brunos-MacBook1> <b>show interface en0</b>
+agg_101> <b>show interface if_101_1001</b>
 Interface:
-+-------------------------------------+---------------------+
-| Interface Name                      | en0                 |
-| Advertised Name                     | Brunos-MacBook1-en0 |
-| Interface IPv4 Address              | 192.168.2.163       |
-| Metric                              | 100                 |
-| Receive LIE IPv4 Multicast Address  | 224.0.0.120         |
-| Transmit LIE IPv4 Multicast Address | 224.0.0.120         |
-| Receive LIE IPv6 Multicast Address  | FF02::0078          |
-| Transmit LIE IPv6 Multicast Address | FF02::0078          |
-| Receive LIE Port                    | 10000               |
-| Transmit LIE Port                   | 10000               |
-| Receive TIE Port                    | 10001               |
-| System ID                           | 667f3a2b1a721f01    |
-| Local ID                            | 1                   |
-| MTU                                 | 1500                |
-| POD                                 | 0                   |
-| State                               | THREE_WAY           |
-| Neighbor                            | Yes                 |
-+-------------------------------------+---------------------+
++--------------------------------------+--------------------------------------------+
+| Interface Name                       | if_101_1001                                |
+| Advertised Name                      | agg_101-if_101_1001                        |
+| Interface IPv4 Address               | 127.0.0.1                                  |
+| Metric                               | 1                                          |
+| Receive LIE IPv4 Multicast Address   | 224.0.0.81                                 |
+| Transmit LIE IPv4 Multicast Address  | 224.0.0.91                                 |
+| Receive LIE IPv6 Multicast Address   | FF02::0078                                 |
+| Transmit LIE IPv6 Multicast Address  | FF02::0078                                 |
+| Receive LIE Port                     | 20033                                      |
+| Transmit LIE Port                    | 20034                                      |
+| Receive TIE Port                     | 20035                                      |
+| System ID                            | 101                                        |
+| Local ID                             | 3                                          |
+| MTU                                  | 1500                                       |
+| POD                                  | 0                                          |
+| State                                | THREE_WAY                                  |
+| Received LIE Accepted or Rejected    | Accepted                                   |
+| Received LIE Accept or Reject Reason | This node is not leaf and neighbor is leaf |
+| Neighbor                             | True                                       |
++--------------------------------------+--------------------------------------------+
 
 Neighbor:
-+----------------------------------+---------------------+
-| Name                             | Brunos-MacBook1-en0 |
-| System ID                        | 667f3a2b1a73cb01    |
-| IPv4 Address                     | 192.168.2.163       |
-| LIE UDP Source Port              | 55048               |
-| Link ID                          | 1                   |
-| Level                            | 0                   |
-| Flood UDP Port                   | 10001               |
-| MTU                              | 1500                |
-| POD                              | 0                   |
-| Hold Time                        | 3                   |
-| Not a ZTP Offer                  | False               |
-| You Are Not a ZTP Flood Repeater | False               |
-| Your System ID                   | 667f3a2b1a721f01    |
-| Your Local ID                    | 1                   |
-+----------------------------------+---------------------+
++----------------------------------+-----------------------+
+| Name                             | edge_1001-if_1001_101 |
+| System ID                        | 1001                  |
+| IPv4 Address                     | 127.0.0.1             |
+| LIE UDP Source Port              | 65344                 |
+| Link ID                          | 1                     |
+| Level                            | 0                     |
+| Flood UDP Port                   | 10001                 |
+| MTU                              | 1500                  |
+| POD                              | 0                     |
+| Hold Time                        | 3                     |
+| Not a ZTP Offer                  | True                  |
+| You Are Not a ZTP Flood Repeater | True                  |
+| Your System ID                   | 101                   |
+| Your Local ID                    | 3                     |
++----------------------------------+-----------------------+
+</pre>
+
+Example of an interface which does not have a neighbor (adjacency in state ONE_WAY):
+
+<pre>
+agg_101> <b>show interface if_101_1</b>
+Interface:
++--------------------------------------+------------------+
+| Interface Name                       | if_101_1         |
+| Advertised Name                      | agg_101-if_101_1 |
+| Interface IPv4 Address               | 127.0.0.1        |
+| Metric                               | 1                |
+| Receive LIE IPv4 Multicast Address   | 224.0.0.81       |
+| Transmit LIE IPv4 Multicast Address  | 224.0.0.71       |
+| Receive LIE IPv6 Multicast Address   | FF02::0078       |
+| Transmit LIE IPv6 Multicast Address  | FF02::0078       |
+| Receive LIE Port                     | 20001            |
+| Transmit LIE Port                    | 20002            |
+| Receive TIE Port                     | 20004            |
+| System ID                            | 101              |
+| Local ID                             | 1                |
+| MTU                                  | 1500             |
+| POD                                  | 0                |
+| State                                | ONE_WAY          |
+| Received LIE Accepted or Rejected    | Rejected         |
+| Received LIE Accept or Reject Reason | Level mismatch   |
+| Neighbor                             | False            |
++--------------------------------------+------------------+
 </pre>
 
 ### show interface <i>interface</i> fsm history
 
-The "<b>show interface</b> <i>interface-name</i> <b>fsm-history</b>" command shows the 25 most recent events for the Link Information Element (LIE) Finite State Machine (FSM) associated with the interface. The most recent event is at the top.
+The "<b>show interface</b> <i>interface</i> <b>fsm history</b>" command shows the 25 most recent "interesting" 
+executed events for the Link Information Element (LIE) Finite State Machine (FSM) associated with the interface. 
+The most recent event is at the top.
+
+This command only shows the "interesting" events, i.e. it does not show any events that are marked as "verbose"
+by the "<b>show fsm lie</b>" command. 
+Use the "<b>show interface</b> <i>interface</i> <b>fsm verbose-history</b>" command if you want to see all events.
+
+Example:
 
 <pre>
-agg_101> <b>show interface if_101_1 fsm-history</b>
-+----------+----------+-----------+------------------+-------------------------+-------+----------+
-| Sequence | Time     | From      | Event            | Actions and             | To    | Implicit |
-| Nr       | Delta    | State     |                  | Pushed Events           | State |          |
-+----------+----------+-----------+------------------+-------------------------+-------+----------+
-| 39110    | 0.970858 | THREE_WAY | SEND_LIE         | send_lie                | None  | False    |
-+----------+----------+-----------+------------------+-------------------------+-------+----------+
-| 39106    | 0.001743 | THREE_WAY | TIMER_TICK       | check_hold_time_expired | None  | False    |
-|          |          |           |                  | SEND_LIE                |       |          |
-+----------+----------+-----------+------------------+-------------------------+-------+----------+
-| 39082    | 0.018178 | THREE_WAY | UPDATE_ZTP_OFFER | send_offer_to_ztp_fsm   | None  | False    |
-+----------+----------+-----------+------------------+-------------------------+-------+----------+
-| 39080    | 0.001617 | THREE_WAY | LIE_RECEIVED     | process_lie             | None  | False    |
-|          |          |           |                  | UPDATE_ZTP_OFFER        |       |          |
-+----------+----------+-----------+------------------+-------------------------+-------+----------+
-.          .          .           .                  .                         .       .          .
-.          .          .           .                  .                         .       .          .
-.          .          .           .                  .                         .       .          .
-+----------+----------+-----------+------------------+-------------------------+-------+----------+
-| 38390    | 0.001628 | THREE_WAY | LIE_RECEIVED     | process_lie             | None  | False    |
-|          |          |           |                  | UPDATE_ZTP_OFFER        |       |          |
-+----------+----------+-----------+------------------+-------------------------+-------+----------+
-| 38280    | 0.982519 | THREE_WAY | SEND_LIE         | send_lie                | None  | False    |
-+----------+----------+-----------+------------------+-------------------------+-------+----------+
+agg_101> <b>show interface if_101_1001 fsm history</b>
++----------+-------------+---------+---------+------------------+---------------+-----------+----------+
+| Sequence | Time        | Verbose | From    | Event            | Actions and   | To        | Implicit |
+| Nr       | Delta       | Skipped | State   |                  | Pushed Events | State     |          |
++----------+-------------+---------+---------+------------------+---------------+-----------+----------+
+| 313      | 2087.427679 | 2       | TWO_WAY | VALID_REFLECTION |               | THREE_WAY | False    |
++----------+-------------+---------+---------+------------------+---------------+-----------+----------+
+| 223      | 0.017177    | 3       | ONE_WAY | NEW_NEIGHBOR     | SEND_LIE      | TWO_WAY   | False    |
++----------+-------------+---------+---------+------------------+---------------+-----------+----------+
 </pre>
-
 
 ### show interface <i>interface</i> fsm verbose-history
 
-### show fsm
+The "<b>show interface</b> <i>interface</i> <b>fsm verbose-history</b>" command shows the 25 most recent
+executed events for the Link Information Element (LIE) Finite State Machine (FSM) associated with the interface. 
+The most recent event is at the top.
+
+This command shows all events, including the events that are marked as verbose 
+by the "<b>show fsm lie</b>" command. Because of this, the output tends to be dominated by non-interesting verbose
+events such as timer ticks and the sending and receiving of periodic LIE messages.
+Use the "<b>show interface</b> <i>interface</i> <b>fsm verbose-history</b>" command if you only want to see
+"interesting" events.
+
+Example:
+
+<pre>
+agg_101> <b>show interface if_101_1001 fsm verbose-history</b>
++----------+----------+---------+-----------+--------------+-------------------------+-------+----------+
+| Sequence | Time     | Verbose | From      | Event        | Actions and             | To    | Implicit |
+| Nr       | Delta    | Skipped | State     |              | Pushed Events           | State |          |
++----------+----------+---------+-----------+--------------+-------------------------+-------+----------+
+| 316353   | 0.486001 | 0       | THREE_WAY | LIE_RECEIVED | process_lie             | None  | False    |
++----------+----------+---------+-----------+--------------+-------------------------+-------+----------+
+| 316277   | 0.017974 | 0       | THREE_WAY | SEND_LIE     | send_lie                | None  | False    |
++----------+----------+---------+-----------+--------------+-------------------------+-------+----------+
+| 316254   | 0.002745 | 0       | THREE_WAY | TIMER_TICK   | check_hold_time_expired | None  | False    |
+|          |          |         |           |              | SEND_LIE                |       |          |
++----------+----------+---------+-----------+--------------+-------------------------+-------+----------+
+.          .          .         .           .              .                         .       .          .
+.          .          .         .           .              .                         .       .          .
+.          .          .         .           .              .                         .       .          .
++----------+----------+---------+-----------+--------------+-------------------------+-------+----------+
+| 315302   | 0.002144 | 0       | THREE_WAY | TIMER_TICK   | check_hold_time_expired | None  | False    |
+|          |          |         |           |              | SEND_LIE                |       |          |
++----------+----------+---------+-----------+--------------+-------------------------+-------+----------+
+| 315242   | 0.983821 | 0       | THREE_WAY | LIE_RECEIVED | process_lie             | None  | False    |
++----------+----------+---------+-----------+--------------+-------------------------+-------+----------+
+</pre>
+
+### show fsm <i>fsm</i>
 
 The "<b>show fsm</b> <i>fsm-name</i>" command shows the definition of the specified Finite State Machine (FSM).
 
