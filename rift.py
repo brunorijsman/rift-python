@@ -38,11 +38,10 @@ class Rift:
         self._cli_listen_handler = cli_listen_handler.CliListenHandler(self.parse_tree, self, self._cli_current_prompt)
 
     def read_global_configuration(self, config, attribute, default):
-        if ('const' in config) and (attribute in config['const']):
+        if ('const' in config) and (config['const'] != None) and (attribute in config['const']):
             return config['const'][attribute]
         else:
             return default
-
 
     def create_configuration(self):
         if 'shards' in self._config:
