@@ -264,17 +264,17 @@ agg_101> <b>show interface if_101_1001 fsm verbose-history</b>
 
 ### show fsm <i>fsm</i>
 
-The "<b>show fsm</b> <i>fsm-name</i>" command shows the definition of the specified Finite State Machine (FSM).
+The "<b>show fsm</b> <i>fsm</i>" command shows the definition of the specified Finite State Machine (FSM).
 
-Parameter <i>fsm-name</i> can be one of the following values:
+Parameter <i>fsm</i> specifies the name of the FSM and can be one of the following values:
 
 * <b>lie</b>: Show the Link Information Element (LIE) FSM.
 * <b>ztp</b>: Show the Zero Touch Provisioning (ZTP) FSM.
 
-The output below is edited to make it shorter.
+Example:
 
 <pre>
-agg_202> <b>show fsm lie</b>
+agg_101> <b>show fsm lie</b>
 States:
 +-----------+
 | State     |
@@ -287,19 +287,23 @@ States:
 +-----------+
 
 Events:
-+-------------------------------+
-| Event                         |
-+-------------------------------+
-| TIMER_TICK                    |
-+-------------------------------+
-.                               .
-.                               .
-.                               .
-+-------------------------------+
-| SEND_LIE                      |
-+-------------------------------+
-| UPDATE_ZTP_OFFER              |
-+-------------------------------+
++-------------------------------+---------+
+| Event                         | Verbose |
++-------------------------------+---------+
+| TIMER_TICK                    | True    |
++-------------------------------+---------+
+| LEVEL_CHANGED                 | False   |
++-------------------------------+---------+
+| HAL_CHANGED                   | False   |
++-------------------------------+---------+
+.                               .         .
+.                               .         .
+.                               .         .
++-------------------------------+---------+
+| LIE_CORRUPT                   | False   |
++-------------------------------+---------+
+| SEND_LIE                      | True    |
++-------------------------------+---------+
 
 Transitions:
 +------------+-----------------------------+-----------+-------------------------+-------------+
@@ -319,8 +323,6 @@ Transitions:
 +------------+-----------------------------+-----------+-------------------------+-------------+
 | THREE_WAY  | SEND_LIE                    | -         | send_lie                | -           |
 +------------+-----------------------------+-----------+-------------------------+-------------+
-| THREE_WAY  | UPDATE_ZTP_OFFER            | -         | send_offer_to_ztp_fsm   | -           |
-+------------+-----------------------------+-----------+-------------------------+-------------+
 
 State entry actions:
 +---------+---------+
@@ -332,52 +334,85 @@ State entry actions:
 
 ### show interfaces
 
-The "<b>show interfaces</b>" command reports a summary of all interfaces configured on the RIFT node. Note that "interfaces" is plural with an s. It only reports the interfaces on which RIFT is running; your device may have additional interfaces on which RIFT is not running.
+The "<b>show interfaces</b>" command reports a summary of all RIFT interfaces (i.e. interfaces on which RIFT is running)
+on the currently active RIFT node. 
+
+Use the "<b>show interface</b> <i>interface</i>" to see all details about any particular interface.
 
 <pre>
-Brunos-MacBook1> <b>show interfaces</b>
-+-----------+----------+-----------+----------+
-| Interface | Neighbor | Neighbor  | Neighbor |
-| Name      | Name     | System ID | State    |
-+-----------+----------+-----------+----------+
-| en0       |          |           | ONE_WAY  |
-+-----------+----------+-----------+----------+
-</pre>
-
-In the above example, RIFT is running on interface en0 but there is no RIFT neighbor on that interface. The example below does have a RIFT neighbor and the adjacency to that neighbor is in state THREE_WAY:
-
-<pre>
-Brunos-MacBook1> <b>show interfaces</b>
-+-----------+---------------------+------------------+-----------+
-| Interface | Neighbor            | Neighbor         | Neighbor  |
-| Name      | Name                | System ID        | State     |
-+-----------+---------------------+------------------+-----------+
-| en0       | Brunos-MacBook1-en0 | 667f3a2b1a737c01 | THREE_WAY |
-+-----------+---------------------+------------------+-----------+
+agg_101> <b>show interfaces</b>
++-------------+-----------------------+-----------+-----------+
+| Interface   | Neighbor              | Neighbor  | Neighbor  |
+| Name        | Name                  | System ID | State     |
++-------------+-----------------------+-----------+-----------+
+| if_101_1    |                       |           | ONE_WAY   |
++-------------+-----------------------+-----------+-----------+
+| if_101_1001 | edge_1001-if_1001_101 | 1001      | THREE_WAY |
++-------------+-----------------------+-----------+-----------+
+| if_101_1002 | edge_1002-if_1002_101 | 1002      | THREE_WAY |
++-------------+-----------------------+-----------+-----------+
+| if_101_2    | core_2-if_2_101       | 2         | THREE_WAY |
++-------------+-----------------------+-----------+-----------+
 </pre>
 
 ### show node
 
-The "<b>show node</b>" command (node is singular without an s) reports the details for the currently active RIFT node:
+The "<b>show node</b>" command reports the details for the currently active RIFT node:
 
 <pre>
-Brunos-MacBook1> <b>show node</b>
-+-------------------------------------+------------------+
-| Name                                | Brunos-MacBook1  |
-| Passive                             | False            |
-| Running                             | True             |
-| System ID                           | 667f3a2b1a721f01 |
-| Configured Level                    | 0                |
-| Multicast Loop                      | True             |
-| Receive LIE IPv4 Multicast Address  | 224.0.0.120      |
-| Transmit LIE IPv4 Multicast Address | 224.0.0.120      |
-| Receive LIE IPv6 Multicast Address  | FF02::0078       |
-| Transmit LIE IPv6 Multicast Address | FF02::0078       |
-| Receive LIE Port                    | 10000            |
-| Transmit LIE Port                   | 10000            |
-| LIE Send Interval                   | 1.0 secs         |
-| Receive TIE Port                    | 10001            |
-+-------------------------------------+------------------+
+agg_101> <b>show node</b>
+Node:
++---------------------------------------+------------------+
+| Name                                  | agg_101          |
+| Passive                               | False            |
+| Running                               | True             |
+| System ID                             | 101              |
+| Configured Level                      | 1                |
+| Leaf Only                             | False            |
+| Leaf 2 Leaf                           | False            |
+| Superspine Flag                       | True             |
+| Zero Touch Provisioning (ZTP) Enabled | False            |
+| ZTP FSM State                         | UPDATING_CLIENTS |
+| ZTP Hold Down Timer                   | Stopped          |
+| Highest Available Level (HAL)         | None             |
+| Highest Adjacency Three-way (HAT)     | None             |
+| Level Value                           | 1                |
+| Multicast Loop                        | True             |
+| Receive LIE IPv4 Multicast Address    | 224.0.0.81       |
+| Transmit LIE IPv4 Multicast Address   | 224.0.0.120      |
+| Receive LIE IPv6 Multicast Address    | FF02::0078       |
+| Transmit LIE IPv6 Multicast Address   | FF02::0078       |
+| Receive LIE Port                      | 20102            |
+| Transmit LIE Port                     | 10000            |
+| LIE Send Interval                     | 1.0 secs         |
+| Receive TIE Port                      | 10001            |
++---------------------------------------+------------------+
+
+Received Offers:
++-------------+-----------+-------+-----------------+-----------+-------+------------+---------+--------------------------+
+| Interface   | System ID | Level | Not A ZTP Offer | State     | Best  | Best 3-Way | Removed | Removed Reason           |
++-------------+-----------+-------+-----------------+-----------+-------+------------+---------+--------------------------+
+| if_101_1    | 1         | 24    | True            | ONE_WAY   | False | False      | True    | Not a ZTP offer flag set |
++-------------+-----------+-------+-----------------+-----------+-------+------------+---------+--------------------------+
+| if_101_1001 | 1001      | 0     | True            | THREE_WAY | False | False      | True    | Not a ZTP offer flag set |
++-------------+-----------+-------+-----------------+-----------+-------+------------+---------+--------------------------+
+| if_101_1002 | 1002      | 0     | True            | THREE_WAY | False | False      | True    | Not a ZTP offer flag set |
++-------------+-----------+-------+-----------------+-----------+-------+------------+---------+--------------------------+
+| if_101_2    | 2         | 2     | True            | THREE_WAY | False | False      | True    | Not a ZTP offer flag set |
++-------------+-----------+-------+-----------------+-----------+-------+------------+---------+--------------------------+
+
+Sent Offers:
++-------------+-----------+-------+-----------------+-----------+
+| Interface   | System ID | Level | Not A ZTP Offer | State     |
++-------------+-----------+-------+-----------------+-----------+
+| if_101_1    | None      | 1     | False           | ONE_WAY   |
++-------------+-----------+-------+-----------------+-----------+
+| if_101_1001 | 1001      | 1     | False           | THREE_WAY |
++-------------+-----------+-------+-----------------+-----------+
+| if_101_1002 | 1002      | 1     | False           | THREE_WAY |
++-------------+-----------+-------+-----------------+-----------+
+| if_101_2    | 2         | 1     | False           | THREE_WAY |
++-------------+-----------+-------+-----------------+-----------+
 </pre>
 
 ### show node fsm history
