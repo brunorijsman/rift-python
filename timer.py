@@ -14,15 +14,15 @@ class TimerScheduler:
 
     def schedule(self, timer):
         expire_time = timer.expire_time()
-        assert expire_time != None
+        assert expire_time is not None
         if expire_time in self._timers_by_expire_time:
             self._timers_by_expire_time[expire_time].append(timer)
         else:
             self._timers_by_expire_time[expire_time] = [timer]
-    
+
     def unschedule(self, timer):
         expire_time = timer.expire_time()
-        assert expire_time != None
+        assert expire_time is not None
         assert expire_time in self._timers_by_expire_time
         timers_with_matching_expire = self._timers_by_expire_time[expire_time]
         assert timer in timers_with_matching_expire
@@ -30,7 +30,8 @@ class TimerScheduler:
         if timers_with_matching_expire == []:
             self._timers_by_expire_time.pop(expire_time)
 
-    def trigger_all_expired_timers_and_return_time_until_next_expire(self):
+    def trigger_all_expired_timers(self):
+        # Trigger all expired timers and return time until next expire
         now = self.now()
         while True:
             if not self._timers_by_expire_time:
@@ -42,11 +43,11 @@ class TimerScheduler:
             for timer in expired_timers:
                 timer.trigger_expire()
 
-timer_scheduler = TimerScheduler()
+TIMER_SCHEDULER = TimerScheduler()
 
 class Timer:
 
-    def __init__(self, interval, expire_function, periodic = True, start = True):
+    def __init__(self, interval, expire_function, periodic=True, start=True):
         self._running = False
         self._periodic = periodic
         self._interval = interval
@@ -66,24 +67,24 @@ class Timer:
 
     def remaining_time_str(self):
         if self._running:
-            secs_left = self._expire_time - timer_scheduler.now()
+            secs_left = self._expire_time - TIMER_SCHEDULER.now()
             return "{:06f} secs".format(secs_left)
         else:
             return "Stopped"
 
     def _update_expire_time(self):
-        self._expire_time = timer_scheduler.now() + self._interval
+        self._expire_time = TIMER_SCHEDULER.now() + self._interval
 
     def start(self):
         if self._running:
             self.stop()
         self._running = True
         self._update_expire_time()
-        timer_scheduler.schedule(self)       
+        TIMER_SCHEDULER.schedule(self)
 
     def stop(self):
         if self._running:
-            timer_scheduler.unschedule(self)
+            TIMER_SCHEDULER.unschedule(self)
             self._running = False
             self._expire_time = None
 
@@ -91,8 +92,7 @@ class Timer:
         self._expire_function()
         if self._periodic:
             self._update_expire_time()
-            timer_scheduler.schedule(self)
+            TIMER_SCHEDULER.schedule(self)
         else:
             self._running = False
             self._expire_time = None
-    

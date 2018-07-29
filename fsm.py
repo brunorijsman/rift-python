@@ -5,9 +5,9 @@ import table
 
 # TODO: Check completeness of FSM
 # TODO: Report superfluous transitions (same effect in every state)
-# TODO: Report could-be-implicit transitions (no effect: no actions, no pushed events, back to same state)
+# TODO: Report could-be-implicit transitions (no effect: no actions, no pushed events,
+#       back to same state)
 # TODO: Report implicit transitions
-# TODO: Have a flag to report only "interesting" transitions (e.g. no periodic time ticks)
 
 _MAX_RECORDS = 25
 
@@ -21,7 +21,7 @@ def _event_to_name(event):
     return event.name
 
 def _state_to_name(state):
-    if state == None:
+    if state is None:
         # In the FSM, to-state None means no state change, so treat that special
         return 'None'
     else:
@@ -29,25 +29,30 @@ def _state_to_name(state):
 
 class FsmDefinition:
 
-    def __init__(self, state_enum, event_enum, transitions, state_entry_actions, initial_state, verbose_events = []):
+    def __init__(self, state_enum, event_enum, transitions, state_entry_actions, initial_state,
+                 verbose_events=None):
         self.state_enum = state_enum
         self.event_enum = event_enum
         self.transitions = transitions
         self.state_entry_actions = state_entry_actions
         self.initial_state = initial_state
-        self.verbose_events = verbose_events
+        if verbose_events is None:
+            self.verbose_events = []
+        else:
+            self.verbose_events = verbose_events
 
     @staticmethod
-    def _parse_transition(transition):
+    def parse_transition(transition):
         to_state = transition[0]
         actions = transition[1]
         if len(transition) > 2:
             push_events = transition[2]
         else:
             push_events = []
-        return (to_state, actions, push_events)    
+        return (to_state, actions, push_events)
 
-    # Everything in this class below here is concerned with producing a human-readable textual representation of the FSM
+    # Everything in this class below here is concerned with producing a human-readable textual
+    # representation of the FSM
 
     def states_table(self):
         tab = table.Table()
@@ -64,7 +69,7 @@ class FsmDefinition:
             tab.add_row([event.name, verbose])
         return tab
 
-    def transition_table(self, report_missing = False):
+    def transition_table(self, report_missing=False):
         tab = table.Table()
         tab.add_row(['From state', 'Event', 'To state', 'Actions', 'Push events'])
         for from_state in self.state_enum:
@@ -72,7 +77,8 @@ class FsmDefinition:
                 from_state_transitions = self.transitions[from_state]
             else:
                 from_state_transitions = []
-            self._add_from_transitions_to_table(tab, from_state, from_state_transitions, report_missing)
+            self._add_from_transitions_to_table(tab, from_state, from_state_transitions,
+                                                report_missing)
         return tab
 
     def state_entry_actions_table(self):
@@ -86,21 +92,22 @@ class FsmDefinition:
             tab.add_row([state.name, action_names])
         return tab
 
-    def _add_from_transitions_to_table(self, table, from_state, from_state_transitions, report_missing):
+    def _add_from_transitions_to_table(self, tab, from_state, from_state_transitions,
+                                       report_missing):
         for event in self.event_enum:
             if event in from_state_transitions:
                 transition = from_state_transitions[event]
-                self._add_transition_to_table(table, from_state, event, transition)
+                self._add_transition_to_table(tab, from_state, event, transition)
             else:
                 if report_missing:
-                    self._add_missing_transition_to_table(table, from_state, event)
+                    self._add_missing_transition_to_table(tab, from_state, event)
 
-    def _add_transition_to_table(self, table, from_state, event, transition):
+    def _add_transition_to_table(self, tab, from_state, event, transition):
         from_state_name = from_state.name
         event_name = event.name
-        (to_state, actions, push_events) = FsmDefinition._parse_transition(transition)
+        (to_state, actions, push_events) = FsmDefinition.parse_transition(transition)
         action_names = list(map(_action_to_name, actions))
-        if to_state == None:
+        if to_state is None:
             to_state_name = "-"
         else:
             to_state_name = to_state.name
@@ -110,19 +117,20 @@ class FsmDefinition:
         push_event_names = list(map(_event_to_name, push_events))
         if push_event_names == []:
             push_event_names = '-'
-        table.add_row([from_state_name, event_name, to_state_name, action_names, push_event_names])
+        tab.add_row([from_state_name, event_name, to_state_name, action_names, push_event_names])
 
-    def _add_missing_transition_to_table(self, table, from_state, event):
+    # TODO: Add a way to report this
+    def _add_missing_transition_to_table(self, tab, from_state, event):
         from_state_name = from_state.name
         event_name = event.name
-        table.add_row([from_state_name, event_name, '* MISSING *', 
-            Table.Format.EXTEND_LEFT_CELL, Table.Format.EXTEND_LEFT_CELL])
+        tab.add_row([from_state_name, event_name, '* MISSING *',
+                     table.Table.Format.EXTEND_LEFT_CELL, table.Table.Format.EXTEND_LEFT_CELL])
 
     def command_show_fsm(self, cli_session):
         self.command_show_states(cli_session)
         self.command_show_events(cli_session)
         self.command_show_transitions(cli_session)
-        self.command_show_state_entry_actions(cli_session)
+        self.command_show_state_entry_acts(cli_session)
 
     def command_show_states(self, cli_session):
         cli_session.print("States:")
@@ -139,7 +147,7 @@ class FsmDefinition:
         tab = self.transition_table()
         cli_session.print(tab.to_string())
 
-    def command_show_state_entry_actions(self, cli_session):
+    def command_show_state_entry_acts(self, cli_session):
         cli_session.print("State entry actions:")
         tab = self.state_entry_actions_table()
         cli_session.print(tab.to_string())
@@ -162,15 +170,16 @@ class FsmRecord:
         self.implicit = False
 
     def log_str(self):
-        log_msg = "FSM transition sequence-nr={} from-state={} event={} actions-and-pushed-events={} to-state={} implicit={}".format(
-            self.seq_nr, 
-            _state_to_name(self.from_state), 
-            _event_to_name(self.event),
-            ",".join(self.actions_and_pushed_events),
-            _state_to_name(self.to_state), 
-            self.implicit)
+        log_msg = ("FSM transition sequence-nr={} from-state={} event={} "
+                   "actions-and-pushed-events={} to-state={} implicit={}").format(
+                       self.seq_nr,
+                       _state_to_name(self.from_state),
+                       _event_to_name(self.event),
+                       ",".join(self.actions_and_pushed_events),
+                       _state_to_name(self.to_state),
+                       self.implicit)
         return log_msg
-        
+
 class Fsm:
 
     _event_queue = collections.deque()
@@ -211,8 +220,8 @@ class Fsm:
         self._state = self._definition.initial_state
         self.info("Start FSM, state={}".format(self._state.name))
         self.invoke_state_entry_actions(self._state)
-        
-    def push_event(self, event, event_data = None):
+
+    def push_event(self, event, event_data=None):
         fsm = self
         event_tuple = (fsm, event, event_data)
         self._event_queue.append(event_tuple)
@@ -222,7 +231,7 @@ class Fsm:
             verbose = (event in self._verbose_events)
             self.info_or_debug(verbose, "FSM push event, event={}".format(event.name))
 
-    @staticmethod 
+    @staticmethod
     def process_queued_events():
         while Fsm._event_queue:
             event_tuple = Fsm._event_queue.popleft()
@@ -231,7 +240,7 @@ class Fsm:
             event_data = event_tuple[2]
             fsm.process_event(event, event_data)
 
-    def invoke_actions(self, actions, event_data = None):
+    def invoke_actions(self, actions, event_data=None):
         for action in actions:
             if self._current_record:
                 self._current_record.actions_and_pushed_events.append(_action_to_name(action))
@@ -245,7 +254,7 @@ class Fsm:
             self.invoke_actions(self._state_entry_actions[state])
 
     def process_event(self, event, event_data):
-        assert self._current_record == None
+        assert self._current_record is None
         from_state = self._state
         verbose = (event in self._verbose_events)
         self._current_record = FsmRecord(self, from_state, event, verbose)
@@ -255,11 +264,11 @@ class Fsm:
             from_state_transitions = []
         if event in from_state_transitions:
             transition = from_state_transitions[event]
-            (to_state, actions, push_events) = FsmDefinition._parse_transition(transition)
+            (to_state, actions, push_events) = FsmDefinition.parse_transition(transition)
             self.invoke_actions(actions, event_data)
             for push_event in push_events:
                 self.push_event(push_event)
-            if to_state != None:
+            if to_state is not None:
                 self._state = to_state
                 self._current_record.to_state = to_state
                 self.invoke_state_entry_actions(to_state)
@@ -282,9 +291,9 @@ class Fsm:
             ['Sequence', 'Nr'],
             ['Time', 'Delta'],
             ['Verbose', 'Skipped'],
-            ['From', 'State'], 
-            'Event', 
-            ['Actions and', 'Pushed Events'], 
+            ['From', 'State'],
+            'Event',
+            ['Actions and', 'Pushed Events'],
             ['To', 'State'],
             ['Implicit']])
         prev_time = time.time()
@@ -298,10 +307,14 @@ class Fsm:
                 record.seq_nr,
                 "{:06f}".format(time_delta),
                 record.skipped,
-                _state_to_name(record.from_state), 
+                _state_to_name(record.from_state),
                 _event_to_name(record.event),
                 record.actions_and_pushed_events,
-                _state_to_name(record.to_state), 
+                _state_to_name(record.to_state),
                 record.implicit])
             prev_time = record.time
         return tab
+
+    @property
+    def state(self):
+        return self._state

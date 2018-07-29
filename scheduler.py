@@ -1,5 +1,5 @@
-import select 
-from timer import timer_scheduler
+import select
+from timer import TIMER_SCHEDULER
 from fsm import Fsm
 
 class Scheduler:
@@ -26,9 +26,9 @@ class Scheduler:
 
     def run(self):
         while True:
-            # Process timers in two places because FSM event processing might cause timers to be created,
-            # and timer expire processing might cause FSM events to be queued.
-            timeout = timer_scheduler.trigger_all_expired_timers_and_return_time_until_next_expire()
+            # Process timers in two places because FSM event processing might cause timers to be
+            # created, and timer expire processing might cause FSM events to be queued.
+            timeout = TIMER_SCHEDULER.trigger_all_expired_timers()
             rx_ready, tx_ready, _ = select.select(self._rx_sockets, self._tx_sockets, [], timeout)
             for sock in rx_ready:
                 handler = self._handlers_by_fd[sock.fileno()]
@@ -36,7 +36,7 @@ class Scheduler:
             for sock in tx_ready:
                 handler = self._handlers_by_fd[sock.fileno()]
                 handler.ready_to_write()
-            timer_scheduler.trigger_all_expired_timers_and_return_time_until_next_expire()
+            TIMER_SCHEDULER.trigger_all_expired_timers()
             Fsm.process_queued_events()
 
-scheduler = Scheduler()
+SCHEDULER = Scheduler()

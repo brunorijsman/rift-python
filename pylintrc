@@ -6,15 +6,17 @@ init-hook='import sys; sys.path.append("gen-py")'
 
 [MESSAGES CONTROL]
 
-# C0413:Import "from ... import ..." should be placed at the top of the module
-# We need to call sys.path.append("gen-py") before the import for Thrift 
+# wrong-import-position
+# We cannot always place import statements at the top because we need to call sys.path.append("gen-py") 
+# before the import for Thrift 
 #
-disable=C0413
-
-# C0111:Missing ... docstring
-# Not spending time on adding docstrings while the code is still in too much flux
-# TODO: Re-enable this and add the missing docstrings
+# missing-docstring
+# I am not adding docstrings until the code becomes more stable than it is now.
 #
-disable=C0111
+# fixme 
+# There are still XXX, FIXME, and TODO in the code. They should all be gone by the time we get to production quality.
+#
+disable=wrong-import-position,missing-docstring,fixme 
 
+extension-pkg-whitelist=netifaces
 

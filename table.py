@@ -8,9 +8,10 @@ class Table:
         EXTEND_LEFT_CELL = 1
         EXTEND_ABOVE_CELL = 2
 
-    def __init__(self, separators = True):
+    def __init__(self, separators=True):
         self._separators = separators
         self._rows = []
+        self._column_widths = {}
 
     def add_row(self, row):
         self._rows.append(row)
@@ -20,9 +21,9 @@ class Table:
             self._rows.append(row)
 
     def make_line_list(self, line):
-        if type(line) == list:
+        if isinstance(line, list):
             return line
-        elif type(line) == self.Format:
+        elif isinstance(line, self.Format):
             return []
         else:
             return [line]
@@ -50,7 +51,7 @@ class Table:
             line_list = self.make_line_list(column)
             if len(line_list) > row_height:
                 row_height = len(line_list)
-        return row_height        
+        return row_height
 
     def row_string(self, row):
         row_str = ""

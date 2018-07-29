@@ -6,7 +6,7 @@ def interface_ipv4_address(interface_name, default_ip_if_none_found):
         return default_ip_if_none_found
     interface_addresses = netifaces.ifaddresses(interface_name)
     if not netifaces.AF_INET in interface_addresses:
-        return default_interface_ipv4_address
+        return default_ip_if_none_found
     return interface_addresses[netifaces.AF_INET][0]['addr']
 
 def system_id_str(system_id):

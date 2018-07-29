@@ -1,5 +1,3 @@
-import enum
-import socket
 import sortedcontainers
 
 import scheduler
@@ -16,16 +14,16 @@ class CliSessionHandler:
         self._command_handler = command_handler
         self._prompt = prompt
         self._str = ""
-        scheduler.scheduler.register_handler(self, True, False)
+        scheduler.SCHEDULER.register_handler(self, True, False)
         self.send_prompt()
 
     def socket(self):
         return self._sock
 
-    def print(self, str, add_newline = True):
+    def print(self, message, add_newline=True):
         if add_newline:
-            str += '\n'
-        self._sock.send(str.encode('utf-8'))
+            message += '\n'
+        self._sock.send(message.encode('utf-8'))
 
     def print_help(self, parse_subtree):
         self.print_help_recursion("", parse_subtree)
@@ -79,7 +77,7 @@ class CliSessionHandler:
         else:
             # Parse the next token
             (token, tokens) = self.consume_token(tokens)
-            if (token != None) and callable(parse_subtree):
+            if (token is not None) and callable(parse_subtree):
                 # We have more tokens, but we have reached a leaf of the parse tree. Report error.
                 self.print("Unexpected extra input: {}".format(token))
                 return
@@ -90,12 +88,12 @@ class CliSessionHandler:
             if token in parse_subtree:
                 # Token is a keyword. Keep going.
                 parse_subtree = parse_subtree[token]
-            elif ('$' + token) in parse_subtree:
+            elif '$' + token in parse_subtree:
                 # Token is a parameter. Store parameter and keep going.
                 parse_subtree = parse_subtree['$' + token]
                 parameter_name = token
                 (token, tokens) = self.consume_token(tokens)
-                if token == None:
+                if token is None:
                     self.print("Missing value for parameter {}".format(parameter_name))
                     return
                 parameters[parameter_name] = token
@@ -113,7 +111,7 @@ class CliSessionHandler:
         data = self._sock.recv(1024)
         if not data:
             # Remote side closed session
-            scheduler.scheduler.unregister_handler(self)
+            scheduler.SCHEDULER.unregister_handler(self)
             self._sock.close()
             return
         try:

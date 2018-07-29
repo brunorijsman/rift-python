@@ -1,10 +1,11 @@
-import argparse
-import cerberus
 import ipaddress
 import pprint
+import sys
+
+import cerberus
 import yaml
 
-schema = {
+SCHEMA = {
     'const': {
         'type': 'dict',
         'nullable': True,
@@ -91,7 +92,7 @@ def default_interface_name():
     # TODO: use eth0 on Linux
     return 'en0'
 
-default_config = {
+DEFAULT_CONFIG = {
     'shards': [
         {
             'id': 0,
@@ -112,40 +113,40 @@ class RiftValidator(cerberus.Validator):
 
     def _validate_type_ipv4address(self, value):
         try:
-           ipaddress.IPv4Address(value)
-        except:
+            ipaddress.IPv4Address(value)
+        except ValueError:
             return False
         else:
             return True
 
     def _validate_type_ipv4mask(self, value):
         try:
-           mask = int(value)
-        except:
+            mask = int(value)
+        except ValueError:
             return False
         else:
             return (mask >= 0) and (mask <= 32)
 
     def _validate_type_ipv6address(self, value):
         try:
-           ipaddress.IPv6Address(value)
-        except:
+            ipaddress.IPv6Address(value)
+        except ValueError:
             return False
         else:
             return True
 
     def _validate_type_ipv6mask(self, value):
         try:
-           mask = int(value)
-        except:
+            mask = int(value)
+        except ValueError:
             return False
         else:
             return (mask >= 0) and (mask <= 128)
 
     def _validate_type_port(self, value):
         try:
-           port = int(value)
-        except:
+            port = int(value)
+        except ValueError:
             return False
         else:
             return (port >= 1) and (port <= 65535)
@@ -154,8 +155,8 @@ class RiftValidator(cerberus.Validator):
         if isinstance(value, str) and value.lower() in ['undefined', 'leaf', 'spine', 'superspine']:
             return True
         try:
-           level = int(value)
-        except:
+            level = int(value)
+        except ValueError:
             return False
         else:
             return (level >= 0) and (level <= 3)
@@ -171,16 +172,16 @@ def node_apply_inheritance(node_config):
     if 'interfaces' in node_config:
         for interface_config in node_config['interfaces']:
             interface_apply_inheritance(interface_config, node_config)
-            
+
 def interface_apply_inheritance(interface_config, node_config):
-    interface_inherit_attribute_from_node(interface_config, 'rx_lie_mcast_address', node_config)
-    interface_inherit_attribute_from_node(interface_config, 'tx_lie_mcast_address', node_config)
-    interface_inherit_attribute_from_node(interface_config, 'rx_lie_ipv6_mcast_address', node_config)
-    interface_inherit_attribute_from_node(interface_config, 'tx_lie_ipv6_mcast_address', node_config)
-    interface_inherit_attribute_from_node(interface_config, 'rx_lie_port', node_config)
-    interface_inherit_attribute_from_node(interface_config, 'tx_lie_port', node_config)
-    
-def interface_inherit_attribute_from_node(interface_config, attribute, node_config):
+    intf_inherit_attr_from_node(interface_config, 'rx_lie_mcast_address', node_config)
+    intf_inherit_attr_from_node(interface_config, 'tx_lie_mcast_address', node_config)
+    intf_inherit_attr_from_node(interface_config, 'rx_lie_ipv6_mcast_address', node_config)
+    intf_inherit_attr_from_node(interface_config, 'tx_lie_ipv6_mcast_address', node_config)
+    intf_inherit_attr_from_node(interface_config, 'rx_lie_port', node_config)
+    intf_inherit_attr_from_node(interface_config, 'tx_lie_port', node_config)
+
+def intf_inherit_attr_from_node(interface_config, attribute, node_config):
     if (not attribute in interface_config) and (attribute in node_config):
         interface_config[attribute] = node_config[attribute]
 
@@ -194,65 +195,71 @@ def apply_inferences(config):
 def node_apply_inferences(node_config, config):
     if 'interfaces' in node_config:
         for interface_config in node_config['interfaces']:
-            interface_apply_inferences(interface_config, node_config, config)
-            
-def interface_apply_inferences(interface_config, node_config, config):
-    neighbor_interface_config = interface_find_neighbor_config(interface_config, node_config, config)
+            interface_apply_inferences(interface_config, config)
+
+def interface_apply_inferences(interface_config, config):
+    neighbor_interface_config = interface_find_neighbor_config(interface_config, config)
     if not neighbor_interface_config:
         return
-    interface_infer_attribute_from_neighbor(
+    intf_infer_att_from_neighbor(
         interface_config, 'rx_lie_mcast_address', neighbor_interface_config, 'tx_lie_mcast_address')
-    interface_infer_attribute_from_neighbor(
+    intf_infer_att_from_neighbor(
         interface_config, 'tx_lie_mcast_address', neighbor_interface_config, 'rx_lie_mcast_address')
-    interface_infer_attribute_from_neighbor(
-        interface_config, 'rx_lie_v6_mcast_address', neighbor_interface_config, 'tx_lie_v6_mcast_address')
-    interface_infer_attribute_from_neighbor(
-        interface_config, 'tx_lie_v6_mcast_address', neighbor_interface_config, 'rx_lie_v6_mcast_address')
-    interface_infer_attribute_from_neighbor(
+    intf_infer_att_from_neighbor(
+        interface_config, 'rx_lie_v6_mcast_address', neighbor_interface_config,
+        'tx_lie_v6_mcast_address')
+    intf_infer_att_from_neighbor(
+        interface_config, 'tx_lie_v6_mcast_address', neighbor_interface_config,
+        'rx_lie_v6_mcast_address')
+    intf_infer_att_from_neighbor(
         interface_config, 'rx_lie_port', neighbor_interface_config, 'tx_lie_port')
-    interface_infer_attribute_from_neighbor(
+    intf_infer_att_from_neighbor(
         interface_config, 'tx_lie_port', neighbor_interface_config, 'rx_lie_port')
-    interface_infer_attribute_from_neighbor(
+    intf_infer_att_from_neighbor(
         interface_config, 'rx_tie_port', neighbor_interface_config, 'tx_tie_port')
 
-def interface_find_neighbor_config(interface_config, node_config, config):
+def interface_find_neighbor_config(interface_config, config):
     if 'rx_lie_port' in interface_config:
-        neighbor_interface = find_remote_interface_config_by_attribute(
+        neighbor_interface = find_remote_intf_config_by_att(
             config, 'tx_lie_port', interface_config['rx_lie_port'])
     elif 'tx_lie_port' in interface_config:
-        neighbor_interface = find_remote_interface_config_by_attribute(
+        neighbor_interface = find_remote_intf_config_by_att(
             config, 'rx_lie_port', interface_config['tx_lie_port'])
     else:
         neighbor_interface = None
     return neighbor_interface
 
-def find_remote_interface_config_by_attribute(config, attr_name, attr_value):
+def find_remote_intf_config_by_att(config, attr_name, attr_value):
     if 'shards' in config:
         for shard_config in config['shards']:
             if 'nodes' in shard_config:
                 for node_config in shard_config['nodes']:
                     if 'interfaces' in node_config:
                         for interface_config in node_config['interfaces']:
-                            if (attr_name in interface_config) and (interface_config[attr_name] == attr_value):
+                            if ((attr_name in interface_config) and
+                                    (interface_config[attr_name] == attr_value)):
                                 return interface_config
     return None
 
-def interface_infer_attribute_from_neighbor(intf_config, intf_attribute, neighbor_intf_config, neighbor_intf_attribute):
+def intf_infer_att_from_neighbor(intf_config, intf_attribute, neighbor_intf_config,
+                                 neighbor_intf_attribute):
     if intf_attribute in intf_config:
         # Interface attribute is already known, make sure it is consistent with the neighbor
-        if (neighbor_intf_attribute in neighbor_intf_config):
+        if neighbor_intf_attribute in neighbor_intf_config:
             if intf_config[intf_attribute] != neighbor_intf_config[neighbor_intf_attribute]:
-                print("Configuration error: {} for interface {} ({}) must be same as {} for interface {} ({})".format(
-                    intf_attribute,
-                    intf_config['name'],
-                    intf_config[intf_attribute],
-                    neihgbor_intf_attribute,
-                    neighbor_intf_config['name'],
-                    neighbor_intf_config[intf_attribute]))
-                os.exit(1)
+                print("Configuration error: {} for interface {} ({}) must be same "
+                      "as {} for interface {} ({})".format(
+                          intf_attribute,
+                          intf_config['name'],
+                          intf_config[intf_attribute],
+                          neighbor_intf_attribute,
+                          neighbor_intf_config['name'],
+                          neighbor_intf_config[intf_attribute]))
+                sys.exit(1)
     else:
-        # Interface attribute is not already known, infer it from the neighbor's configuration if possible
-        if (neighbor_intf_attribute in neighbor_intf_config):
+        # Interface attribute is not already known, infer it from the neighbor's configuration
+        # if possible
+        if neighbor_intf_attribute in neighbor_intf_config:
             intf_config[intf_attribute] = neighbor_intf_config[neighbor_intf_attribute]
 
 def parse_configuration(filename):
@@ -263,12 +270,12 @@ def parse_configuration(filename):
             except yaml.YAMLError as exception:
                 raise exception
     else:
-        config = default_config
-    validator = RiftValidator(schema)
-    if not validator.validate(config, schema):
+        config = DEFAULT_CONFIG
+    validator = RiftValidator(SCHEMA)
+    if not validator.validate(config, SCHEMA):
         # TODO: Better error handling (report in human-readable format and don't just exit)
-        pp = pprint.PrettyPrinter()
-        pp.pprint(validator.errors)
+        pretty_printer = pprint.PrettyPrinter()
+        pretty_printer.pprint(validator.errors)
         exit(1)
     apply_inheritance(config)
     apply_inferences(config)

@@ -5,8 +5,9 @@ import enum
 import logging
 import os
 import socket
-import sortedcontainers
 import uuid
+
+import sortedcontainers
 
 import common.constants
 import constants
@@ -46,44 +47,45 @@ class Node:
 
     verbose_events = [Event.NEIGHBOR_OFFER]
 
-    def remove_offer(self, offer, reason):
-        offer.removed = True
-        offer.removed_reason = reason
-        self._rx_offers[offer.interface_name] = offer
+    def remove_offer(self, removed_offer, reason):
+        removed_offer.removed = True
+        removed_offer.removed_reason = reason
+        self._rx_offers[removed_offer.interface_name] = removed_offer
         self.compare_offers()
 
-    def update_offer(self, offer):
-        self._rx_offers[offer.interface_name] = offer
+    def update_offer(self, updated_offer):
+        self._rx_offers[updated_offer.interface_name] = updated_offer
         self.compare_offers()
 
     def better_offer(self, offer1, offer2, three_way_only):
         # Don't consider removed offers
-        if (offer1 != None) and (offer1.removed):
+        if (offer1 is not None) and (offer1.removed):
             offer1 = None
-        if (offer2 != None) and (offer2.removed):
+        if (offer2 is not None) and (offer2.removed):
             offer2 = None
         # Don't consider offers that are marked "not a ZTP offer"
-        if (offer1 != None) and (offer1.not_a_ztp_offer):
+        if (offer1 is not None) and (offer1.not_a_ztp_offer):
             offer1 = None
-        if (offer2 != None) and (offer2.not_a_ztp_offer):
+        if (offer2 is not None) and (offer2.not_a_ztp_offer):
             offer2 = None
         # If asked to do so, only consider offers from neighbors in state 3-way as valid candidates
         if three_way_only:
-            if (offer1 != None) and (offer1.state != interface.Interface.State.THREE_WAY):
+            if (offer1 is not None) and (offer1.state != interface.Interface.State.THREE_WAY):
                 offer1 = None
-            if (offer2 != None) and (offer2.state != interface.Interface.State.THREE_WAY):
+            if (offer2 is not None) and (offer2.state != interface.Interface.State.THREE_WAY):
                 offer2 = None
-        # If there is only one candidate, it automatically wins. If there are no canidates, there is no best.
-        if offer1 == None:
+        # If there is only one candidate, it automatically wins. If there are no canidates, there
+        # is no best.
+        if offer1 is None:
             return offer2
-        if offer2 == None:
+        if offer2 is None:
             return offer1
         # Pick the offer with the highest level
-        if offer1.level > offer2.level:        
+        if offer1.level > offer2.level:
             return offer1
         if offer2.level < offer1.level:
             return offer2
-        # If the level is the same for both offers, pick offer with lowest system id as the tie braker
+        # If the level is the same for both offers, pick offer with lowest system id as tie breaker
         if offer1.system_id < offer2.system_id:
             return offer1
         return offer2
@@ -92,18 +94,18 @@ class Node:
         # Select "best offer" and "best offer in 3-way state" and do update flags on the offers
         best_offer = None
         best_offer_three_way = None
-        for offer in self._rx_offers.values():
-            offer.best = False
-            offer.best_three_way = False
-            best_offer = self.better_offer(best_offer, offer, False)
-            best_offer_three_way = self.better_offer(best_offer_three_way, offer, True)
+        for compared_offer in self._rx_offers.values():
+            compared_offer.best = False
+            compared_offer.best_three_way = False
+            best_offer = self.better_offer(best_offer, compared_offer, False)
+            best_offer_three_way = self.better_offer(best_offer_three_way, compared_offer, True)
         if best_offer:
             best_offer.best = True
         if best_offer_three_way:
             best_offer_three_way.best_three_way = True
         # Determine if the Highest Available Level (HAL) would change based on the current offer.
         # If it would change, push an event, but don't update the HAL yet.
-        if best_offer: 
+        if best_offer:
             hal = best_offer.level
         else:
             hal = None
@@ -112,8 +114,8 @@ class Node:
                 self._fsm.push_event(self.Event.BETTER_HAL)
             else:
                 self._fsm.push_event(self.Event.LOST_HAL)
-        # Determine if the Highest Adjacency Three-way (HAT) would change based on the current offer.
-        # If it would change, push an event, but don't update the HAL yet.
+        # Determine if the Highest Adjacency Three-way (HAT) would change based on the current
+        # offer. If it would change, push an event, but don't update the HAL yet.
         if best_offer_three_way:
             hat = best_offer_three_way.level
         else:
@@ -125,17 +127,17 @@ class Node:
                 self._fsm.push_event(self.Event.LOST_HAT)
 
     def level_compute(self):
-        # Find best offer overall and best offer in state 3-way. This was computer earlier in compare_offers,
-        # which set the flag on the offer to remember the result.
+        # Find best offer overall and best offer in state 3-way. This was computer earlier in
+        # compare_offers, which set the flag on the offer to remember the result.
         best_offer = None
         best_offer_three_way = None
-        for offer in self._rx_offers.values():
-            if offer.best:
-                best_offer = offer
-            if offer.best_three_way:
-                best_offer_three_way = offer
+        for checked_offer in self._rx_offers.values():
+            if checked_offer.best:
+                best_offer = checked_offer
+            if checked_offer.best_three_way:
+                best_offer_three_way = checked_offer
         # Update Highest Available Level (HAL)
-        if best_offer: 
+        if best_offer:
             hal = best_offer.level
         else:
             hal = None
@@ -156,61 +158,63 @@ class Node:
         self.level_compute()
 
     def action_store_leaf_flags(self, leaf_flags):
-        # TODO: on ChangeLocalLeafIndications in UpdatingClients finishes in ComputeBestOffer: store leaf flags
+        # TODO: on ChangeLocalLeafIndications in UpdatingClients finishes in ComputeBestOffer:
+        # store leaf flags
         pass
 
-    def action_update_or_remove_offer(self, offer):
-        if offer.not_a_ztp_offer == True:
-            self.remove_offer(offer, "Not a ZTP offer flag set")
-        elif offer.level == None:
-            self.remove_offer(offer, "Level is undefined")
-        elif offer.level <= common.constants.leaf_level:
-            self.remove_offer(offer, "Level is leaf")
+    def action_update_or_remove_offer(self, updated_or_removed_offer):
+        if updated_or_removed_offer.not_a_ztp_offer is True:
+            self.remove_offer(updated_or_removed_offer, "Not a ZTP offer flag set")
+        elif updated_or_removed_offer.level is None:
+            self.remove_offer(updated_or_removed_offer, "Level is undefined")
+        elif updated_or_removed_offer.level <= common.constants.leaf_level:
+            self.remove_offer(updated_or_removed_offer, "Level is leaf")
         else:
-            self.update_offer(offer)
+            self.update_offer(updated_or_removed_offer)
 
     def action_store_level(self, level_symbol):
         self._configured_level_symbol = level_symbol
         parse_result = self.parse_level_symbol(self._configured_level_symbol)
-        assert parse_result != None   # Set command should not have allowed invalid config
+        assert parse_result is not None, "Set command should not have allowed invalid config"
         (configured_level, leaf_only, leaf_2_leaf, superspine_flag) = parse_result
         self._configured_level = configured_level
         self._leaf_only = leaf_only
         self._leaf_2_leaf = leaf_2_leaf
-        self._superspine_flag = superspine_flag        
+        self._superspine_flag = superspine_flag
 
     def action_purge_offers(self):
-        for offer in self._rx_offers.values():
-            if not offer.removed:
-                offer.removed = True
-                offer.removed_reason = "Purged"
+        for purged_offer in self._rx_offers.values():
+            if not purged_offer.removed:
+                purged_offer.removed = True
+                purged_offer.removed_reason = "Purged"
 
-    def action_update_all_lie_fsms_with_computation_results(self):
-        if self._highest_available_level == None:
+    def action_update_all_lie_fsms(self):
+        if self._highest_available_level is None:
             self._derived_level = None
         elif self._highest_available_level > 0:
             self._derived_level = self._highest_available_level - 1
         else:
             self._derived_level = 0
 
-    def any_southbound_adjacencies_present(self):
-        # We define a southbound adjacency as any adjacency between this node and a node that has a numerically
-        # lower level value. It doesn't matter what state the adjacency is in. TODO: confirm this with Tony.
+    def any_southbound_adjacencies(self):
+        # We define a southbound adjacency as any adjacency between this node and a node that has
+        # a numerically lower level value. It doesn't matter what state the adjacency is in.
+        # TODO: confirm this with Tony.
         #
         this_node_level = self.level_value()
-        if this_node_level == None:
+        if this_node_level is None:
             return False
-        for offer in self._rx_offers.values():
-            if offer.removed:
+        for checked_offer in self._rx_offers.values():
+            if checked_offer.removed:
                 continue
-            if offer.level == None:
+            if checked_offer.level is None:
                 continue
-            if offer.level < this_node_level:
+            if checked_offer.level < this_node_level:
                 return True
         return False
 
-    def action_start_hold_down_timer_on_lost_hal(self):
-        if self.any_southbound_adjacencies_present():
+    def action_start_timer_on_lost_hal(self):
+        if self.any_southbound_adjacencies():
             self._hold_down_timer.start()
         else:
             self._fsm.push_event(self.Event.HOLD_DOWN_EXPIRED)
@@ -219,33 +223,33 @@ class Node:
         self._hold_down_timer.stop()
 
     _state_updating_clients_transitions = {
-        Event.CHANGE_LOCAL_CONFIGURED_LEVEL:    (State.COMPUTE_BEST_OFFER, [action_store_level]),
-        Event.NEIGHBOR_OFFER:                   (None, [action_update_or_remove_offer]),
-        Event.BETTER_HAL:                       (State.COMPUTE_BEST_OFFER, [action_no_action]),
-        Event.BETTER_HAT:                       (State.COMPUTE_BEST_OFFER, [action_no_action]),
-        Event.LOST_HAL:                         (State.HOLDING_DOWN, [action_start_hold_down_timer_on_lost_hal]),
+        Event.CHANGE_LOCAL_CONFIGURED_LEVEL: (State.COMPUTE_BEST_OFFER, [action_store_level]),
+        Event.NEIGHBOR_OFFER:                (None, [action_update_or_remove_offer]),
+        Event.BETTER_HAL:                    (State.COMPUTE_BEST_OFFER, [action_no_action]),
+        Event.BETTER_HAT:                    (State.COMPUTE_BEST_OFFER, [action_no_action]),
+        Event.LOST_HAL:                      (State.HOLDING_DOWN, [action_start_timer_on_lost_hal]),
         Event.LOST_HAT:                         (State.COMPUTE_BEST_OFFER, [action_no_action]),
     }
 
     _state_holding_down_transitions = {
-        Event.CHANGE_LOCAL_CONFIGURED_LEVEL:    (State.COMPUTE_BEST_OFFER, [action_store_level]),
-        Event.NEIGHBOR_OFFER:                   (None, [action_update_or_remove_offer]),
-        Event.BETTER_HAL:                       (None, [action_no_action]),
-        Event.BETTER_HAT:                       (None, [action_no_action]),
-        Event.LOST_HAL:                         (None, [action_no_action]),
-        Event.LOST_HAT:                         (None, [action_no_action]),
-        Event.COMPUTATION_DONE:                 (None, [action_no_action]),
-        Event.HOLD_DOWN_EXPIRED:                (State.COMPUTE_BEST_OFFER, [action_purge_offers]),
+        Event.CHANGE_LOCAL_CONFIGURED_LEVEL: (State.COMPUTE_BEST_OFFER, [action_store_level]),
+        Event.NEIGHBOR_OFFER:                (None, [action_update_or_remove_offer]),
+        Event.BETTER_HAL:                    (None, [action_no_action]),
+        Event.BETTER_HAT:                    (None, [action_no_action]),
+        Event.LOST_HAL:                      (None, [action_no_action]),
+        Event.LOST_HAT:                      (None, [action_no_action]),
+        Event.COMPUTATION_DONE:              (None, [action_no_action]),
+        Event.HOLD_DOWN_EXPIRED:             (State.COMPUTE_BEST_OFFER, [action_purge_offers]),
     }
 
     _state_compute_best_offer_transitions = {
-        Event.CHANGE_LOCAL_CONFIGURED_LEVEL:    (None, [action_store_level, action_level_compute]),
-        Event.NEIGHBOR_OFFER:                   (None, [action_update_or_remove_offer]),
-        Event.BETTER_HAL:                       (None, [action_level_compute]),
-        Event.BETTER_HAT:                       (None, [action_level_compute]),
-        Event.LOST_HAL:                         (State.HOLDING_DOWN, [action_start_hold_down_timer_on_lost_hal]),
-        Event.LOST_HAT:                         (None, [action_level_compute]),
-        Event.COMPUTATION_DONE:                 (State.UPDATING_CLIENTS, [action_no_action]),
+        Event.CHANGE_LOCAL_CONFIGURED_LEVEL: (None, [action_store_level, action_level_compute]),
+        Event.NEIGHBOR_OFFER:                (None, [action_update_or_remove_offer]),
+        Event.BETTER_HAL:                    (None, [action_level_compute]),
+        Event.BETTER_HAT:                    (None, [action_level_compute]),
+        Event.LOST_HAL:                      (State.HOLDING_DOWN, [action_start_timer_on_lost_hal]),
+        Event.LOST_HAT:                      (None, [action_level_compute]),
+        Event.COMPUTATION_DONE:              (State.UPDATING_CLIENTS, [action_no_action]),
     }
 
     _transitions = {
@@ -255,24 +259,24 @@ class Node:
     }
 
     _state_entry_actions = {
-        State.UPDATING_CLIENTS:     [action_update_all_lie_fsms_with_computation_results],
+        State.UPDATING_CLIENTS:     [action_update_all_lie_fsms],
         State.COMPUTE_BEST_OFFER:   [action_stop_hold_down_timer, action_level_compute]
     }
 
     fsm_definition = fsm.FsmDefinition(
-        state_enum = State, 
-        event_enum = Event, 
-        transitions = _transitions, 
-        state_entry_actions = _state_entry_actions,
-        initial_state = State.COMPUTE_BEST_OFFER,
-        verbose_events = verbose_events)    
+        state_enum=State,
+        event_enum=Event,
+        transitions=_transitions,
+        state_entry_actions=_state_entry_actions,
+        initial_state=State.COMPUTE_BEST_OFFER,
+        verbose_events=verbose_events)
 
-    def __init__(self, rift, config):
+    def __init__(self, parent_rift, config):
         # TODO: process state_thrift_services_port field in config
         # TODO: process config_thrift_services_port field in config
         # TODO: process v4prefixes field in config
         # TODO: process v6prefixes field in config
-        self._rift = rift
+        self._rift = parent_rift
         self._config = config
         self._node_nr = Node._next_node_nr
         Node._next_node_nr += 1
@@ -282,24 +286,30 @@ class Node:
         self._system_id = self.get_config_attribute('systemid', self.generate_system_id())
         self._log_id = utils.system_id_str(self._system_id)
         self._log = logging.getLogger('node')
-        self._log.info("[{}] Create node".format(self._log_id))
+        # TODO: Make sure formating of log message is deferred everywhere, not just direct calls
+        self._log.info("[%s] Create node", self._log_id)
         self._configured_level_symbol = self.get_config_attribute('level', 'undefined')
         parse_result = self.parse_level_symbol(self._configured_level_symbol)
-        assert parse_result != None   # Configuration validation should not have allowed invalid config
+        assert parse_result is not None, "Configuration validation should have caught this"
         (configured_level, leaf_only, leaf_2_leaf, superspine_flag) = parse_result
         self._configured_level = configured_level
         self._leaf_only = leaf_only
         self._leaf_2_leaf = leaf_2_leaf
-        self._superspine_flag = superspine_flag        
+        self._superspine_flag = superspine_flag
         self._interfaces = sortedcontainers.SortedDict()
         self._mcast_loop = True      # TODO: make configurable
-        self._rx_lie_ipv4_mcast_address = self.get_config_attribute('rx_lie_mcast_address', constants.DEFAULT_LIE_IPV4_MCAST_ADDRESS)
-        self._tx_lie_ipv4_mcast_address = self.get_config_attribute('tx_lie_mcast_address', constants.DEFAULT_LIE_IPV4_MCAST_ADDRESS)
-        self._rx_lie_ipv6_mcast_address = self.get_config_attribute('rx_lie_v6_mcast_address', constants.DEFAULT_LIE_IPV6_MCAST_ADDRESS)
-        self._tx_lie_ipv6_mcast_address = self.get_config_attribute('tx_lie_v6_mcast_address', constants.DEFAULT_LIE_IPV6_MCAST_ADDRESS)
+        self._rx_lie_ipv4_mcast_address = self.get_config_attribute(
+            'rx_lie_mcast_address', constants.DEFAULT_LIE_IPV4_MCAST_ADDRESS)
+        self._tx_lie_ipv4_mcast_address = self.get_config_attribute(
+            'tx_lie_mcast_address', constants.DEFAULT_LIE_IPV4_MCAST_ADDRESS)
+        self._rx_lie_ipv6_mcast_address = self.get_config_attribute(
+            'rx_lie_v6_mcast_address', constants.DEFAULT_LIE_IPV6_MCAST_ADDRESS)
+        self._tx_lie_ipv6_mcast_address = self.get_config_attribute(
+            'tx_lie_v6_mcast_address', constants.DEFAULT_LIE_IPV6_MCAST_ADDRESS)
         self._rx_lie_port = self.get_config_attribute('rx_lie_port', constants.DEFAULT_LIE_PORT)
         self._tx_lie_port = self.get_config_attribute('tx_lie_port', constants.DEFAULT_LIE_PORT)
-        self._lie_send_interval_secs = constants.DEFAULT_LIE_SEND_INTERVAL_SECS   # TODO: make configurable
+        # TODO: make lie-send-interval configurable
+        self._lie_send_interval_secs = constants.DEFAULT_LIE_SEND_INTERVAL_SECS
         self._rx_tie_port = self.get_config_attribute('rx_tie_port', constants.DEFAULT_TIE_PORT)
         self._derived_level = None
         self._rx_offers = {}
@@ -313,27 +323,30 @@ class Node:
             for interface_config in self._config['interfaces']:
                 self.create_interface(interface_config)
         self._fsm = fsm.Fsm(
-            definition = self.fsm_definition,
-            action_handler = self,
-            log = self._fsm_log,
-            log_id = self._log_id)
+            definition=self.fsm_definition,
+            action_handler=self,
+            log=self._fsm_log,
+            log_id=self._log_id)
         self._hold_down_timer = timer.Timer(
-            interval = self.DEFAULT_HOLD_DOWN_TIME,
-            expire_function = lambda: self._fsm.push_event(self.Event.HOLD_DOWN_EXPIRED), 
-            periodic = False, 
-            start = False)
+            interval=self.DEFAULT_HOLD_DOWN_TIME,
+            expire_function=lambda: self._fsm.push_event(self.Event.HOLD_DOWN_EXPIRED),
+            periodic=False,
+            start=False)
         self._fsm.start()
 
     def info(self, logger, msg):
-        logger.info("[{}] {}".format(self._node._log_id, msg))   # TODO: Make node._log_id public
+        logger.info("[%s] %s", self._log_id, msg)
 
     def warning(self, logger, msg):
-        logger.warning("[{}] {}".format(self._node._log_id, msg))
+        logger.warning("[%s] %s", self._log_id, msg)
 
     def generate_system_id(self):
         mac_address = uuid.getnode()
         pid = os.getpid()
-        system_id = ((mac_address & 0xffffffffff) << 24) | (pid & 0xffff) << 8 | (self._node_nr & 0xff)
+        system_id = (
+            ((mac_address & 0xffffffffff) << 24) |
+            (pid & 0xffff) << 8 |
+            (self._node_nr & 0xff))
         return system_id
 
     def generate_name(self):
@@ -344,10 +357,11 @@ class Node:
         # Parse the "level symbolic value" which can be:
         # - undefined => This node uses ZTP to determine it's level value
         # - leaf => This node is hard-configured to be a leaf (not using leaf-2-leaf procedures)
-        # - leaf-to-leaf => This node is hard-configured to be a leaf (does use leaf-2-leaf procedures)
+        # - leaf-to-leaf => This node is hard-configured to be a leaf (does use leaf-2-leaf
+        #   procedures)
         # - superspine => This node is hard-configured to be a superspine (level value 24)
         # - integer value => This node is hard-configured to be the specified level (0 means leaf)
-        # This function returns 
+        # This function returns
         #  - None if the level_symbol is invalid (i.e. one of the above)
         #  - (configured_level, leaf_only, leaf_2_leaf, superspine_flag) is level_symbol is valid
         if level_symbol == 'undefined':
@@ -364,7 +378,7 @@ class Node:
             return None
 
     def level_value(self):
-        if self._configured_level != None:
+        if self._configured_level is not None:
             return self._configured_level
         elif self._superspine_flag:
             return common.constants.default_superspine_level
@@ -375,7 +389,7 @@ class Node:
 
     def level_value_str(self):
         level_value = self.level_value()
-        if level_value == None:
+        if level_value is None:
             return 'undefined'
         else:
             return str(level_value)
@@ -386,9 +400,9 @@ class Node:
     def is_poison_reverse_interface(self, interface_name):
         # TODO: Introduce concept of HALS (HAL offering Systems) and simply check for membership
         # Section 4.2.9.4.6 / Section B.1.3.2
-        # If we received a valid offer over the interface, and the level in that offer is equal to the highest
-        # available level (HAL) for this node, then we need to poison reverse, i.e. we need to set the 
-        # not_a_ztp_offer flag on offers that we send out over the interface.
+        # If we received a valid offer over the interface, and the level in that offer is equal to
+        # the highest available level (HAL) for this node, then we need to poison reverse, i.e. we
+        # need to set the not_a_ztp_offer flag on offers that we send out over the interface.
         if not interface_name in self._rx_offers:
             # We did not receive an offer over the interface
             return False
@@ -402,10 +416,10 @@ class Node:
         return False
 
     def zero_touch_provisioning_enabled(self):
-        # Is "Zero Touch Provisiniong (ZTP)" aka "automatic level derivation" aka "level determination procedure"
-        # aka "auto configuration" active? The criteria that determine whether ZTP is enabled are spelled out in 
-        # the first paragraph of section 4.2.9.4.
-        if self._configured_level != None:
+        # Is "Zero Touch Provisiniong (ZTP)" aka "automatic level derivation" aka "level
+        # determination procedure" aka "auto configuration" active? The criteria that determine
+        # whether ZTP is enabled are spelled out in the first paragraph of section 4.2.9.4.
+        if self._configured_level is not None:
             return False
         elif self._superspine_flag:
             return False
@@ -444,7 +458,7 @@ class Node:
             ["Leaf 2 Leaf", self._leaf_2_leaf],
             ["Superspine Flag", self._superspine_flag],
             ["Zero Touch Provisioning (ZTP) Enabled", self.zero_touch_provisioning_enabled()],
-            ["ZTP FSM State", self._fsm._state.name],
+            ["ZTP FSM State", self._fsm.state.name],
             ["ZTP Hold Down Timer", self._hold_down_timer.remaining_time_str()],
             ["Highest Available Level (HAL)", self._highest_available_level],
             ["Highest Adjacency Three-way (HAT)", self._highest_adjacency_three_way],
@@ -506,7 +520,7 @@ class Node:
 
     def command_show_node(self, cli_session):
         cli_session.print("Node:")
-        tab = table.Table(separators = False)
+        tab = table.Table(separators=False)
         tab.add_rows(self.cli_detailed_attributes())
         cli_session.print(tab.to_string())
         cli_session.print("Received Offers:")
@@ -542,24 +556,24 @@ class Node:
             cli_session.print("Error: interface {} not present".format(interface_name))
             return
         inteface_attributes = self._interfaces[interface_name].cli_detailed_attributes()
-        tab = table.Table(separators = False)
+        tab = table.Table(separators=False)
         tab.add_rows(inteface_attributes)
         cli_session.print("Interface:")
         cli_session.print(tab.to_string())
-        neighbor_attributes = self._interfaces[interface_name].cli_detailed_neighbor_attributes()
+        neighbor_attributes = self._interfaces[interface_name].cli_detailed_neighbor_attrs()
         if neighbor_attributes:
-            tab = table.Table(separators = False)
+            tab = table.Table(separators=False)
             tab.add_rows(neighbor_attributes)
             cli_session.print("Neighbor:")
             cli_session.print(tab.to_string())
 
-    def command_show_interface_fsm_history(self, cli_session, parameters, verbose):
+    def command_show_intf_fsm_hist(self, cli_session, parameters, verbose):
         interface_name = parameters['interface']
         if not interface_name in self._interfaces:
             cli_session.print("Error: interface {} not present".format(interface_name))
             return
-        interface = self._interfaces[interface_name]
-        tab = interface._fsm.history_table(verbose)
+        shown_interface = self._interfaces[interface_name]
+        tab = shown_interface.fsm.history_table(verbose)
         cli_session.print(tab.to_string())
 
     @property
@@ -588,6 +602,10 @@ class Node:
         return self._tx_lie_port
 
     @property
+    def rx_tie_port(self):
+        return self._rx_tie_port
+
+    @property
     def lie_send_interval_secs(self):
         return self._lie_send_interval_secs
 
@@ -602,3 +620,23 @@ class Node:
     @property
     def rift(self):
         return self._rift
+
+    @property
+    def highest_adjacency_three_way(self):
+        return self._highest_adjacency_three_way
+
+    @property
+    def leaf_2_leaf(self):
+        return self._leaf_2_leaf
+
+    @property
+    def log(self):
+        return self._log
+
+    @property
+    def log_id(self):
+        return self._log_id
+
+    @property
+    def fsm(self):
+        return self._fsm

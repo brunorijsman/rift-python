@@ -2,9 +2,6 @@ import utils
 
 # TODO: Should we rename this to adjacency? The current draft mixes terms neighbor and adjacency.
 
-# Note: I made this a separate class, so that it will be easier to have multiple neighbors (adjacencies) on a single
-#       interface if and when the draft gets uptdate to support mulitple neighbors (adjacencies) on a multi-point LAN.
-
 # TODO: Store both IPv4 and IPv6 address of neighbor
 
 class Neighbor:
@@ -31,7 +28,7 @@ class Neighbor:
         self.not_a_ztp_offer = lie.not_a_ztp_offer
         self.you_are_not_flood_repeater = lie.you_are_not_flood_repeater
         self.label = lie.label
-    
+
     def cli_detailed_attributes(self):
         # TODO: Report capabilities (is it possible to report the unknown ones too?"
         if self.neighbor_system_id:
