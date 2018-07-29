@@ -598,3 +598,7 @@ class Node:
     @property
     def running(self):
         return self._running
+
+    @property
+    def rift(self):
+        return self._rift

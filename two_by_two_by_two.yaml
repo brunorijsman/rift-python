@@ -1,7 +1,8 @@
 
 # yaml config
 const:
-
+    tx_src_address: 127.0.0.1
+    #tx_v6_src_address: TBD
 shards:
   - id: 0
     nodes:

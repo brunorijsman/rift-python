@@ -9,6 +9,8 @@ schema = {
         'type': 'dict',
         'nullable': True,
         'schema': {
+            'tx_src_address': {'type': 'ipv4address'},
+            'tx_v6_src_address': {'type': 'ipv4address'},
             'rx_mcast_address': {'type': 'ipv4address'},
             'lie_mcast_address': {'type': 'ipv4address'}
         },

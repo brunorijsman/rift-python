@@ -2,6 +2,7 @@ import socket
 import struct
 import utils
 from scheduler import scheduler
+import constants
 
 # TODO: We currently bind the UDP socket to a particular interface by binding the socket to the
 #       IPv4 address of the interface.
@@ -14,8 +15,8 @@ class McastReceiveHandler:
 
     MAXIMUM_MESSAGE_SIZE = 65535
 
-    def __init__(self, interface_name, mcast_ipv4_address, port, loopback, receive_function):
-        self._interface_ipv4_address = utils.interface_ipv4_address(interface_name)
+    def __init__(self, interface_name, mcast_ipv4_address, port, loopback, receive_function, interface_ipv4_address):
+        self._interface_ipv4_address = interface_ipv4_address
         self._mcast_ipv4_address = mcast_ipv4_address
         self._port = port
         self._receive_function = receive_function
