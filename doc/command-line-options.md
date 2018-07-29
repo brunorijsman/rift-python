@@ -98,7 +98,7 @@ Command Line Interface (CLI) available on port 52482
 
 ## Logging
 
-The RIFT protocol engine write log messages to the file rift.log in the same directory as where the RIFT protocol 
+The RIFT protocol engine writes log messages to the file rift.log in the same directory as where the RIFT protocol 
 engine was started.
 
 Note: when the RIFT protocol engine starts, it does not erase the existing rift.log file, it just appends to it.
