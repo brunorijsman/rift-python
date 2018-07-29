@@ -13,13 +13,13 @@ The code is currently still a work in progress (see Feature List below for the s
 
 * [Startup Instructions](doc/startup.md)
 
+* [Command Line Options](doc/command-line-options.md)
+
 * [Command Line Interface (CLI)](doc/command-line-interface.md)
 
 * [Logging](doc/logging.md)
 
 * [Configuration File](doc/configuration-file.md)
-
-* [Command Line Options File](doc/command-line-options.md)
 
 * [Implementation Deviations from Specificaton](doc/deviations.md)
 
