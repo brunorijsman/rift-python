@@ -36,3 +36,37 @@ timer tick processing, receiving and sending periodic messages, etc.
 The command-line option "<b>-l</b> <i>LOG_LEVEL</i>" or "<b>--log-level</b> <i>LOG_LEVEL</i>" logs messages at the 
 specified <i>LOG_LEVEL</i> or higher. Valid values for <i>LOG_LEVEL</i> are <b>debug</b>, <b>info</b>,
 <b>warning</b>, <b>error</b>, or <b>critical</b>.
+
+The RIFT messages are structured with the intent to make it easy to grep for specific logs messages of interest.
+
+<pre>
+2018-07-29 13:03:20,683:INFO:node.fsm:[2002] FSM push event, event=COMPUTATION_DONE
+-----------------------:----:--------:------ --------------------------------------
+ |                       |    |        |      |
+ |                       |    |        |      +--> Message
+ |                       |    |        +--> Identifier
+ |                       |    +--> Subsystem
+ |                       +--> Severity
+ +--> Timestamp
+</pre>
+
+The fields in each log message are:
+
+| Field | Meaning |
+| --- | --- |
+| Timestamp | The date and time (in the local timezone) at which the log message was generated. |
+| Severity | The severity of the log message: DEBUG, INFO, WARNING, ERROR, or CRITICAL. |
+| Subsystem | A dot-separated path that identifies the subsystem that generated the log message (see table below for possible values) |
+| Identifier | A unique identifier that identifies the object that generated the log message (see table below for the meaning within each subsystem) |
+| Message | A human-readable message |
+
+The subsystems are:
+
+| Subsystem | Log messages | Object ID |
+| --- | --- | --- |
+| node | General logs related to a RIFT node | System-ID of the node |
+| node.if | General logs related to a RIFT interface | System-ID of the node + Name of the interface |
+| node.fsm | Logs related to the ZTP FSM for a node | System-ID of the node |
+| node.if.rx | Logs related to received RIFT messages | System-ID of the node + Name of the interface |
+| node.if.tx | Logs related to sent RIFT messages | System-ID of the node + Name of the interface |
+| node.fsm | Logs related to the LIE FSM for an interface | System-ID of the node + Name of the interface |
