@@ -3,14 +3,17 @@
 * [Connect to the CLI](#connect-to-the-cli)
 * [Entering CLI commands](#entering-cli-commands)
 * [Command Line Interface Commands](#command-line-interface-commands)
-  * [set node](#set-node)
-  * [show fsm](#show-fsm)
+  * [set level <i>level</i>](#set-level-level)
+  * [set node <i>node</i>](#set-node-node)
+  * [show interface <i>interface</i>](#show-interface-interface)
+  * [show interface <i>interface</i> fsm history](#show-interface-interface-fsm-history)
+  * [show interface <i>interface</i> fsm verbose-history](#show-interface-interface-fsm-verbose)
   * [show interfaces](#show-interfaces)
-  * [show interface](#show-interface)
-  * [show interface fsm-history](#show-interface-fsm-history)
+  * [show fsm <i>fsm</i>](#show-fsm-fsm)
   * [show interfaces](#show-interfaces)
   * [show node](#show-node)
-  * [show node fsm-history](#show-node-fsm-history)
+  * [show node fsm history](#show-node-fsm-history)
+  * [show node fsm verbose-history](#show-node-fsm-verbose-history)
   * [show nodes](#show-nodes)
   * [show nodes level](#show-nodes-level)
 
@@ -66,7 +69,9 @@ future version.
 
 ## Command Line Interface Commands
 
-### set node
+### set level <i>level</i>
+
+### set node <i>node</i>
 
 The "<b>set node</b> <i>node-name</i>" command changes the currently active RIFT node to the node with the specified 
 RIFT node name:
@@ -78,75 +83,7 @@ core_1>
 
 Note: you can get a list of RIFT nodes present in the current RIFT protocol engine using the <b>show nodes</b> command.
 
-### show fsm
-
-The "<b>show fsm</b> <i>fsm-name</i>" command shows the definition of the specified Finite State Machine (FSM).
-
-Parameter <i>fsm-name</i> can be one of the following values:
-
-* <b>lie</b>: Show the Link Information Element (LIE) FSM.
-* <b>ztp</b>: Show the Zero Touch Provisioning (ZTP) FSM.
-
-The output below is edited to make it shorter.
-
-<pre>
-agg_202> <b>show fsm lie</b>
-States:
-+-----------+
-| State     |
-+-----------+
-| ONE_WAY   |
-+-----------+
-| TWO_WAY   |
-+-----------+
-| THREE_WAY |
-+-----------+
-
-Events:
-+-------------------------------+
-| Event                         |
-+-------------------------------+
-| TIMER_TICK                    |
-+-------------------------------+
-.                               .
-.                               .
-.                               .
-+-------------------------------+
-| SEND_LIE                      |
-+-------------------------------+
-| UPDATE_ZTP_OFFER              |
-+-------------------------------+
-
-Transitions:
-+------------+-----------------------------+-----------+-------------------------+-------------+
-| From state | Event                       | To state  | Actions                 | Push events |
-+------------+-----------------------------+-----------+-------------------------+-------------+
-| ONE_WAY    | TIMER_TICK                  | -         | -                       | SEND_LIE    |
-+------------+-----------------------------+-----------+-------------------------+-------------+
-| ONE_WAY    | LEVEL_CHANGED               | ONE_WAY   | update_level            | SEND_LIE    |
-+------------+-----------------------------+-----------+-------------------------+-------------+
-| ONE_WAY    | HAL_CHANGED                 | -         | store_hal               | -           |
-+------------+-----------------------------+-----------+-------------------------+-------------+
-.            .                             .           .                         .             .
-.            .                             .           .                         .             .
-.            .                             .           .                         .             .
-+------------+-----------------------------+-----------+-------------------------+-------------+
-| THREE_WAY  | LIE_CORRUPT                 | ONE_WAY   | -                       | -           |
-+------------+-----------------------------+-----------+-------------------------+-------------+
-| THREE_WAY  | SEND_LIE                    | -         | send_lie                | -           |
-+------------+-----------------------------+-----------+-------------------------+-------------+
-| THREE_WAY  | UPDATE_ZTP_OFFER            | -         | send_offer_to_ztp_fsm   | -           |
-+------------+-----------------------------+-----------+-------------------------+-------------+
-
-State entry actions:
-+---------+---------+
-| State   | Actions |
-+---------+---------+
-| ONE_WAY | cleanup |
-+---------+---------+
-</pre>
-
-### show interface
+### show interface <i>interface</i>
 
 The "<b>show interface</b> <i>interface-name</i>" command reports more detailed information about a single interface. Note that "interface" is singular without an s.
 
@@ -220,7 +157,7 @@ Neighbor:
 +----------------------------------+---------------------+
 </pre>
 
-### show interface fsm-history
+### show interface <i>interface</i> fsm history
 
 The "<b>show interface</b> <i>interface-name</i> <b>fsm-history</b>" command shows the 25 most recent events for the Link Information Element (LIE) Finite State Machine (FSM) associated with the interface. The most recent event is at the top.
 
@@ -249,6 +186,77 @@ agg_101> <b>show interface if_101_1 fsm-history</b>
 +----------+----------+-----------+------------------+-------------------------+-------+----------+
 | 38280    | 0.982519 | THREE_WAY | SEND_LIE         | send_lie                | None  | False    |
 +----------+----------+-----------+------------------+-------------------------+-------+----------+
+</pre>
+
+
+### show interface <i>interface</i> fsm verbose-history
+
+### show fsm
+
+The "<b>show fsm</b> <i>fsm-name</i>" command shows the definition of the specified Finite State Machine (FSM).
+
+Parameter <i>fsm-name</i> can be one of the following values:
+
+* <b>lie</b>: Show the Link Information Element (LIE) FSM.
+* <b>ztp</b>: Show the Zero Touch Provisioning (ZTP) FSM.
+
+The output below is edited to make it shorter.
+
+<pre>
+agg_202> <b>show fsm lie</b>
+States:
++-----------+
+| State     |
++-----------+
+| ONE_WAY   |
++-----------+
+| TWO_WAY   |
++-----------+
+| THREE_WAY |
++-----------+
+
+Events:
++-------------------------------+
+| Event                         |
++-------------------------------+
+| TIMER_TICK                    |
++-------------------------------+
+.                               .
+.                               .
+.                               .
++-------------------------------+
+| SEND_LIE                      |
++-------------------------------+
+| UPDATE_ZTP_OFFER              |
++-------------------------------+
+
+Transitions:
++------------+-----------------------------+-----------+-------------------------+-------------+
+| From state | Event                       | To state  | Actions                 | Push events |
++------------+-----------------------------+-----------+-------------------------+-------------+
+| ONE_WAY    | TIMER_TICK                  | -         | -                       | SEND_LIE    |
++------------+-----------------------------+-----------+-------------------------+-------------+
+| ONE_WAY    | LEVEL_CHANGED               | ONE_WAY   | update_level            | SEND_LIE    |
++------------+-----------------------------+-----------+-------------------------+-------------+
+| ONE_WAY    | HAL_CHANGED                 | -         | store_hal               | -           |
++------------+-----------------------------+-----------+-------------------------+-------------+
+.            .                             .           .                         .             .
+.            .                             .           .                         .             .
+.            .                             .           .                         .             .
++------------+-----------------------------+-----------+-------------------------+-------------+
+| THREE_WAY  | LIE_CORRUPT                 | ONE_WAY   | -                       | -           |
++------------+-----------------------------+-----------+-------------------------+-------------+
+| THREE_WAY  | SEND_LIE                    | -         | send_lie                | -           |
++------------+-----------------------------+-----------+-------------------------+-------------+
+| THREE_WAY  | UPDATE_ZTP_OFFER            | -         | send_offer_to_ztp_fsm   | -           |
++------------+-----------------------------+-----------+-------------------------+-------------+
+
+State entry actions:
++---------+---------+
+| State   | Actions |
++---------+---------+
+| ONE_WAY | cleanup |
++---------+---------+
 </pre>
 
 ### show interfaces
@@ -301,6 +309,10 @@ Brunos-MacBook1> <b>show node</b>
 +-------------------------------------+------------------+
 </pre>
 
+### show node fsm history
+
+### show node fsm verbose-history
+
 ### show nodes
 
 The "<b>show nodes</b>" command shows a summary of all RIFT nodes running in the
@@ -333,10 +345,6 @@ agg_101> <b>show nodes summary</b>
 | edge_2002 | 2002   | True    |
 +-----------+--------+---------+
 </pre>
-
-### show node fsm-history
-
-TODO
 
 ### show nodes level
 

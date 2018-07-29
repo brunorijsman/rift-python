@@ -14,8 +14,8 @@
 | Feature | Supported |
 | --- | --- |
 | Automatic SystemID Selection  | Yes |
-| Zero Touch Provisioning (ZTP) Finite State Machine (FSM) | In Progress |
-| Automatic Level Determination Procedure  | In Progress |
+| Zero Touch Provisioning (ZTP) Finite State Machine (FSM) | Yes |
+| Automatic Level Determination Procedure  | Yes |
 
 ## Flooding
 
@@ -81,11 +81,27 @@
 
 | Feature | Supported |
 | --- | --- |
+| Telnet client for operational commands | Partial |
+| SSH client for operational commands | No |
 | Command Line Interface (CLI) for Operational Commands | Yes |
 | CLI Command History (^P and ^N) | No |
 | CLI Tab Completion | No |
 | CLI Context-Senstive Help | Partial |
 | Logging | Yes |
+| YANG support | No |
 | Startup Configuration File | Yes |
-| Run-time Configuration Changes | No |
+| Run-time Configuration Changes | Partial |
 | Multi-Node Topologies | Yes |
+
+## Infrastructure
+
+### Finite State Machine
+
+| Feature | Supported |
+| --- | --- |
+| Formal Finite State Machine (FSM) framework | Yes |
+| Generate FSM documentation from code | Yes |
+| Check FSM for correctness | No |
+| Report history of transitions | Yes |
+| Visualize history of FSM transitions | No |
+| Distinguish boring (verbose) vs interesting (non-verbose) transactions | Yes |
