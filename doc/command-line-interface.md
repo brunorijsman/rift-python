@@ -233,7 +233,7 @@ The most recent event is at the top.
 This command shows all events, including the events that are marked as verbose 
 by the "<b>show fsm lie</b>" command. Because of this, the output tends to be dominated by non-interesting verbose
 events such as timer ticks and the sending and receiving of periodic LIE messages.
-Use the "<b>show interface</b> <i>interface</i> <b>fsm verbose-history</b>" command if you only want to see
+Use the "<b>show interface</b> <i>interface</i> <b>fsm history</b>" command if you only want to see
 "interesting" events.
 
 Example:
@@ -359,6 +359,8 @@ agg_101> <b>show interfaces</b>
 
 The "<b>show node</b>" command reports the details for the currently active RIFT node:
 
+Example:
+
 <pre>
 agg_101> <b>show node</b>
 Node:
@@ -417,15 +419,92 @@ Sent Offers:
 
 ### show node fsm history
 
+The "<b>show node fsm history</b>" command shows the 25 most recent "interesting" 
+executed events for the Zero Touch Provisioning (ZTP) Finite State Machine (FSM) associated with the currently
+active node. The most recent event is at the top.
+
+This command only shows the "interesting" events, i.e. it does not show any events that are marked as "verbose"
+by the "<b>show fsm ztp</b>" command. 
+Use the "<b>show node fsm verbose-history</b>" command if you want to see all events.
+
+Example:
+
+<pre>
+agg_101> <b>show node fsm history</b>
++----------+-------------+---------+--------------------+-------------------+----------------------------------------------+--------------------+----------+
+| Sequence | Time        | Verbose | From               | Event             | Actions and                                  | To                 | Implicit |
+| Nr       | Delta       | Skipped | State              |                   | Pushed Events                                | State              |          |
++----------+-------------+---------+--------------------+-------------------+----------------------------------------------+--------------------+----------+
+| 172980   | 2070.046668 | 0       | COMPUTE_BEST_OFFER | COMPUTATION_DONE  | no_action                                    | UPDATING_CLIENTS   | False    |
+|          |             |         |                    |                   | update_all_lie_fsms_with_computation_results |                    |          |
++----------+-------------+---------+--------------------+-------------------+----------------------------------------------+--------------------+----------+
+| 172979   | 0.000207    | 0       | HOLDING_DOWN       | HOLD_DOWN_EXPIRED | purge_offers                                 | COMPUTE_BEST_OFFER | False    |
+|          |             |         |                    |                   | stop_hold_down_timer                         |                    |          |
+|          |             |         |                    |                   | level_compute                                |                    |          |
+|          |             |         |                    |                   | COMPUTATION_DONE                             |                    |          |
++----------+-------------+---------+--------------------+-------------------+----------------------------------------------+--------------------+----------+
+| 172978   | 0.000187    | 0       | HOLDING_DOWN       | LOST_HAT          | no_action                                    | None               | False    |
++----------+-------------+---------+--------------------+-------------------+----------------------------------------------+--------------------+----------+
+.          .             .         .                    .                   .                                              .                    .          .
+.          .             .         .                    .                   .                                              .                    .          .
+.          .             .         .                    .                   .                                              .                    .          .
++----------+-------------+---------+--------------------+-------------------+----------------------------------------------+--------------------+----------+
+| 58       | 0.000430    | 2       | UPDATING_CLIENTS   | BETTER_HAL        | no_action                                    | COMPUTE_BEST_OFFER | False    |
+|          |             |         |                    |                   | stop_hold_down_timer                         |                    |          |
+|          |             |         |                    |                   | level_compute                                |                    |          |
+|          |             |         |                    |                   | COMPUTATION_DONE                             |                    |          |
++----------+-------------+---------+--------------------+-------------------+----------------------------------------------+--------------------+----------+
+| 3        | 0.013643    | 0       | COMPUTE_BEST_OFFER | COMPUTATION_DONE  | no_action                                    | UPDATING_CLIENTS   | False    |
+|          |             |         |                    |                   | update_all_lie_fsms_with_computation_results |                    |          |
++----------+-------------+---------+--------------------+-------------------+----------------------------------------------+--------------------+----------+
+</pre>
+
 ### show node fsm verbose-history
+
+The "<b>show node fsm verbose-history</b>" command shows the 25 most recent
+executed events for the Zero Touch Provisioning (ZTP) Finite State Machine (FSM) associated with the currently active
+node. 
+The most recent event is at the top.
+
+This command shows all events, including the events that are marked as verbose 
+by the "<b>show fsm ztp</b>" command. Because of this, the output tends to be dominated by non-interesting verbose
+events such as processing periodic offers received from neighbors.
+Use the "<b>show node fsm history</b>" command if you only want to see "interesting" events.
+
+Example:
+
+<pre>
+agg_101> <b>show node fsm verbose-history</b>
++----------+----------+---------+------------------+----------------+------------------------+-------+----------+
+| Sequence | Time     | Verbose | From             | Event          | Actions and            | To    | Implicit |
+| Nr       | Delta    | Skipped | State            |                | Pushed Events          | State |          |
++----------+----------+---------+------------------+----------------+------------------------+-------+----------+
+| 482554   | 0.215404 | 0       | UPDATING_CLIENTS | NEIGHBOR_OFFER | update_or_remove_offer | None  | False    |
++----------+----------+---------+------------------+----------------+------------------------+-------+----------+
+| 482553   | 0.000034 | 0       | UPDATING_CLIENTS | NEIGHBOR_OFFER | update_or_remove_offer | None  | False    |
++----------+----------+---------+------------------+----------------+------------------------+-------+----------+
+| 482476   | 0.014348 | 0       | UPDATING_CLIENTS | NEIGHBOR_OFFER | update_or_remove_offer | None  | False    |
++----------+----------+---------+------------------+----------------+------------------------+-------+----------+
+.          .          .         .                  .                .                        .       .          .
+.          .          .         .                  .                .                        .       .          .
+.          .          .         .                  .                .                        .       .          .
++----------+----------+---------+------------------+----------------+------------------------+-------+----------+
+| 481836   | 0.000660 | 0       | UPDATING_CLIENTS | NEIGHBOR_OFFER | update_or_remove_offer | None  | False    |
++----------+----------+---------+------------------+----------------+------------------------+-------+----------+
+| 481736   | 0.997336 | 0       | UPDATING_CLIENTS | NEIGHBOR_OFFER | update_or_remove_offer | None  | False    |
++----------+----------+---------+------------------+----------------+------------------------+-------+----------+
+</pre>
 
 ### show nodes
 
-The "<b>show nodes</b>" command shows a summary of all RIFT nodes running in the
-RIFT protocol engine:
+The "<b>show nodes</b>" command shows a summary of all RIFT nodes running in the RIFT protocol engine.
+
+You can make anyone of the listed nodes the currently active node using the "<b>set node</b> <i>node</i>" command.
+
+Example:
 
 <pre>
-agg_101> <b>show nodes summary</b>
+agg_101> <b>show nodes</b>
 +-----------+--------+---------+
 | Node      | System | Running |
 | Name      | ID     |         |
@@ -454,34 +533,34 @@ agg_101> <b>show nodes summary</b>
 
 ### show nodes level
 
-The "<b>show nodes summary</b>" command shows information on automatic level derivation procedures
+The "<b>show nodes level</b>" command shows information on automatic level derivation procedures
 for all RIFT nodes in the RIFT topology:
 
 <pre>
 agg_101> <b>show nodes level</b>
-+-----------+--------+---------+------------+-----------+
-| Node      | System | Running | Configured | Level     |
-| Name      | ID     |         | Level      | Value     |
-+-----------+--------+---------+------------+-----------+
-| agg_101   | 101    | True    | undefined  | undefined |
-+-----------+--------+---------+------------+-----------+
-| agg_102   | 102    | True    | undefined  | undefined |
-+-----------+--------+---------+------------+-----------+
-| agg_201   | 201    | True    | undefined  | undefined |
-+-----------+--------+---------+------------+-----------+
-| agg_202   | 202    | True    | undefined  | undefined |
-+-----------+--------+---------+------------+-----------+
-| core_1    | 1      | True    | superspine | undefined |
-+-----------+--------+---------+------------+-----------+
-| core_2    | 2      | True    | superspine | undefined |
-+-----------+--------+---------+------------+-----------+
-| edge_1001 | 1001   | True    | leaf       | undefined |
-+-----------+--------+---------+------------+-----------+
-| edge_1002 | 1002   | True    | undefined  | undefined |
-+-----------+--------+---------+------------+-----------+
-| edge_2001 | 2001   | True    | undefined  | undefined |
-+-----------+--------+---------+------------+-----------+
-| edge_2002 | 2002   | True    | leaf       | undefined |
-+-----------+--------+---------+------------+-----------+
++-----------+--------+---------+------------+-------+
+| Node      | System | Running | Configured | Level |
+| Name      | ID     |         | Level      | Value |
++-----------+--------+---------+------------+-------+
+| agg_101   | 101    | True    | undefined  | 23    |
++-----------+--------+---------+------------+-------+
+| agg_102   | 102    | True    | undefined  | 23    |
++-----------+--------+---------+------------+-------+
+| agg_201   | 201    | True    | undefined  | 23    |
++-----------+--------+---------+------------+-------+
+| agg_202   | 202    | True    | undefined  | 23    |
++-----------+--------+---------+------------+-------+
+| core_1    | 1      | True    | superspine | 24    |
++-----------+--------+---------+------------+-------+
+| core_2    | 2      | True    | superspine | 24    |
++-----------+--------+---------+------------+-------+
+| edge_1001 | 1001   | True    | leaf       | 0     |
++-----------+--------+---------+------------+-------+
+| edge_1002 | 1002   | True    | undefined  | 22    |
++-----------+--------+---------+------------+-------+
+| edge_2001 | 2001   | True    | undefined  | 23    |
++-----------+--------+---------+------------+-------+
+| edge_2002 | 2002   | True    | leaf       | 0     |
++-----------+--------+---------+------------+-------+
 </pre>
 
