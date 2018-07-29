@@ -12,13 +12,14 @@ Command Line Interface (CLI) available on port 52456
 Note: you need to setup a Python virtual environment as explained in the 
 [installation instructions](installation.md) before starting the RIFT protocol engine.
 
-
 As explained in the [Command Line Interface (CLI)](command-line-interface.md) documentation,
 you can Telnet to the reported port number (52456 in the above example) to access the CLI.
 
 Press Control-C to stop the RIFT protocol engine:
 
 <pre>
+(env) $ python main.py
+Command Line Interface (CLI) available on port 52456
 <b>^C</b>
 Traceback (most recent call last):
   File "main.py", line 47, in <module>
@@ -28,7 +29,7 @@ Traceback (most recent call last):
   File "/Users/brunorijsman/rift-python/scheduler.py", line 32, in run
     rx_ready, tx_ready, _ = select.select(self._rx_sockets, self._tx_sockets, [], timeout)
 KeyboardInterrupt
-<pre>
+</pre>
 
 ## Help
 
