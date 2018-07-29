@@ -4,13 +4,14 @@
 
 Enter the following command to start the RIFT protocol engine:
 
-Note: you need to setup a Python virtual environment as explained in the 
-[installation instructions](installation.md) before starting the RIFT protocol engine.
-
 <pre>
 (env) $ <b>python main.py</b>
 Command Line Interface (CLI) available on port 52456
-<pre>
+</pre>
+
+Note: you need to setup a Python virtual environment as explained in the 
+[installation instructions](installation.md) before starting the RIFT protocol engine.
+
 
 As explained in the [Command Line Interface (CLI)](command-line-interface.md) documentation,
 you can Telnet to the reported port number (52456 in the above example) to access the CLI.
