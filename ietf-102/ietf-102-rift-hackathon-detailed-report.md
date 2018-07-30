@@ -336,6 +336,12 @@ do so (now or later) by using -b with the checkout command again. Example:
 HEAD is now at 988fa7e... Remove print-adjacency-fsm (replaced by show command)
 </pre>
 
+IMPORTANT: If you do not check out the version tagged ietf-102-rift-hackathon as described
+above, none of the examples in this document will work. The code has changed significantly 
+since the IETF 102 Hackathon; both the installation and startup instructions have changed 
+significantly since then. For up-to-date instructions for the current version see README.md
+and doc/*.md
+
 ### Create Python virtual environment
 
 While still in the rift-python directory, create a new virtual environment named env:
