@@ -373,7 +373,7 @@ class Interface:
         # timer.
         # If time_ticks_since_lie_received is None, it means the timer is not running
         if self._time_ticks_since_lie_received is None:
-            return False
+            return
         self._time_ticks_since_lie_received += 1
         if self._neighbor and self._neighbor.holdtime:
             holdtime = self._neighbor.holdtime

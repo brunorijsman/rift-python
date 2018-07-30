@@ -88,26 +88,25 @@ def fix_value(value, size, encode):
         # Fix before encode
         if size == 8:
             return u8_to_s8(value)
-        elif size == 16:
+        if size == 16:
             return u16_to_s16(value)
-        elif size == 32:
+        if size == 32:
             return u32_to_s32(value)
-        elif size == 64:
+        if size == 64:
             return u64_to_s64(value)
-        else:
-            assert False
+        assert False
     else:
         # Fix after decode
         if size == 8:
             return s8_to_u8(value)
-        elif size == 16:
+        if size == 16:
             return s16_to_u16(value)
-        elif size == 32:
+        if size == 32:
             return s32_to_u32(value)
-        elif size == 64:
+        if size == 64:
             return s64_to_u64(value)
-        else:
-            assert False
+        assert False
+    return value  # Unreachable, stop pylint from complaining about inconsistent-return-statements
 
 def fix_packet(packet, fixes, encode):
     for fix in fixes:

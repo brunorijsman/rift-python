@@ -14,7 +14,6 @@ import constants
 import fsm
 import interface
 import offer
-import rift
 import table
 import timer
 import utils
@@ -429,9 +428,9 @@ class Node:
             return True
 
     def is_running(self):
-        if self._rift.active_nodes == rift.Rift.ActiveNodes.ONLY_PASSIVE_NODES:
+        if self._rift.active_nodes == constants.ActiveNodes.ONLY_PASSIVE_NODES:
             running = self._passive
-        elif self._rift.active_nodes == rift.Rift.ActiveNodes.ALL_NODES_EXCEPT_PASSIVE_NODES:
+        elif self._rift.active_nodes == constants.ActiveNodes.ALL_NODES_EXCEPT_PASSIVE_NODES:
             running = not self._passive
         else:
             running = True

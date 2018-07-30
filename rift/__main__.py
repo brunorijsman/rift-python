@@ -2,6 +2,7 @@ import argparse
 import logging
 
 import config
+import constants
 import rift
 
 def log_level(string):
@@ -35,11 +36,11 @@ def parse_command_line_arguments():
 
 def active_nodes(parsed_args):
     if parsed_args.passive:
-        return rift.Rift.ActiveNodes.ONLY_PASSIVE_NODES
+        return constants.ActiveNodes.ONLY_PASSIVE_NODES
     elif parsed_args.non_passive:
-        return rift.Rift.ActiveNodes.ALL_NODES_EXCEPT_PASSIVE_NODES
+        return constants.ActiveNodes.ALL_NODES_EXCEPT_PASSIVE_NODES
     else:
-        return rift.Rift.ActiveNodes.ALL_NODES
+        return constants.ActiveNodes.ALL_NODES
 
 def main():
     args = parse_command_line_arguments()

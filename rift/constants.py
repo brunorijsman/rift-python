@@ -1,6 +1,8 @@
 import sys
 sys.path.append('rift/gen-py')
 
+import enum
+
 import common.constants
 import encoding.constants
 
@@ -16,4 +18,9 @@ if RUN_AS_ROOT:
 else:
     DEFAULT_LIE_PORT = 10000
     DEFAULT_TIE_PORT = 10001
+
+class ActiveNodes(enum.Enum):
+    ALL_NODES = 1
+    ONLY_PASSIVE_NODES = 2
+    ALL_NODES_EXCEPT_PASSIVE_NODES = 3
     

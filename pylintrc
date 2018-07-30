@@ -1,22 +1,23 @@
 [MASTER]
 
-# Look for Thrift generated modules in the gen-py directory
-#
 init-hook='import sys; sys.path.append("rift/gen-py")'
 
 [MESSAGES CONTROL]
 
-# wrong-import-position
-# We cannot always place import statements at the top because we need to call sys.path.append("gen-py") 
-# before the import for Thrift 
-#
-# missing-docstring
-# I am not adding docstrings until the code becomes more stable than it is now.
-#
-# fixme 
-# There are still XXX, FIXME, and TODO in the code. They should all be gone by the time we get to production quality.
-#
-disable=wrong-import-position,missing-docstring,fixme 
+disable=
+    missing-docstring,                  # Temporary, until I add the docstrings
+    fixme,                              # Temporary, until I fix all the TODOs and FIXMEs
+    wrong-import-position,              # Needed to allow sys.path.append at top of file
+    too-many-arguments,                 # Matter of taste
+    too-many-instance-attributes,       # Matter of taste
+    too-few-public-methods,             # Matter of taste
+    too-many-public-methods,            # Matter of taste
+    too-many-branches,                  # Matter of taste
+    too-many-nested-blocks,             # Matter of taste
+    too-many-return-statements,         # Matter of taste
+    no-self-use,                        # Matter of taste
+    no-else-return,                     # Matter of taste
+    duplicate-code,                     # Matter of taste
 
 extension-pkg-whitelist=netifaces
 

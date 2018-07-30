@@ -125,7 +125,7 @@ class RiftValidator(cerberus.Validator):
         except ValueError:
             return False
         else:
-            return (mask >= 0) and (mask <= 32)
+            return 0 <= mask <= 32
 
     def _validate_type_ipv6address(self, value):
         try:
@@ -141,7 +141,7 @@ class RiftValidator(cerberus.Validator):
         except ValueError:
             return False
         else:
-            return (mask >= 0) and (mask <= 128)
+            return 0 <= mask <= 128
 
     def _validate_type_port(self, value):
         try:
@@ -149,7 +149,7 @@ class RiftValidator(cerberus.Validator):
         except ValueError:
             return False
         else:
-            return (port >= 1) and (port <= 65535)
+            return 1 <= port <= 65535
 
     def _validate_type_level(self, value):
         if isinstance(value, str) and value.lower() in ['undefined', 'leaf', 'spine', 'superspine']:
@@ -159,7 +159,7 @@ class RiftValidator(cerberus.Validator):
         except ValueError:
             return False
         else:
-            return (level >= 0) and (level <= 3)
+            return 0 <= level <= 3
 
 def apply_inheritance(config):
     if 'shards' in config:

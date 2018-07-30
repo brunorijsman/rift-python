@@ -1,4 +1,3 @@
-import enum
 import logging
 import sortedcontainers
 
@@ -11,11 +10,6 @@ import table
 # TODO: Make sure that there is always at least one node (and hence always a current node)
 
 class Rift:
-
-    class ActiveNodes(enum.Enum):
-        ALL_NODES = 1
-        ONLY_PASSIVE_NODES = 2
-        ALL_NODES_EXCEPT_PASSIVE_NODES = 3
 
     def __init__(self, active_nodes, log_level, config):
         logging.basicConfig(

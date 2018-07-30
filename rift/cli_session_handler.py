@@ -81,7 +81,7 @@ class CliSessionHandler:
                 # We have more tokens, but we have reached a leaf of the parse tree. Report error.
                 self.print("Unexpected extra input: {}".format(token))
                 return
-            if (token == "help") or (token == "?"):
+            if (token in ["help", "?"]):
                 # Token is context-sensitive help. Show help and stop.
                 self.print_help(parse_subtree)
                 return
