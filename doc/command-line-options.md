@@ -15,10 +15,10 @@ $ <b>source env/bin/activate</b>
 (env) $ 
 </pre>
 
-Start the rift-python package:
+Start the rift package:
 
 <pre>
-(env) $ <b>python rift-python</b>
+(env) $ <b>python rift</b>
 Command Line Interface (CLI) available on port 61375
 </pre>
 
@@ -28,15 +28,15 @@ you can Telnet to the reported port number (61375 in the above example) to acces
 Press Control-C to stop the RIFT protocol engine:
 
 <pre>
-(env) $ python rift-python
+(env) $ python rift
 Command Line Interface (CLI) available on port 61375
 <b>^C</b>
 Traceback (most recent call last):
   File "main.py", line 47, in <module>
     rift_object.run()
-  File "/Users/brunorijsman/rift-python/rift.py", line 61, in run
+  File "/Users/brunorijsman/rift/rift.py", line 61, in run
     scheduler.scheduler.run()
-  File "/Users/brunorijsman/rift-python/scheduler.py", line 32, in run
+  File "/Users/brunorijsman/rift/scheduler.py", line 32, in run
     rx_ready, tx_ready, _ = select.select(self._rx_sockets, self._tx_sockets, [], timeout)
 KeyboardInterrupt
 </pre>
@@ -48,7 +48,7 @@ The command-line option "<b>-h</b>" or "<b>--help</b>" displays help text about 
 Example:
 
 <pre>
-(env) $ <b>python rift-python --help</b>
+(env) $ <b>python rift --help</b>
 usage: main.py [-h] [-p | -n] [-l LOG_LEVEL] [configfile]
 
 Routing In Fat Trees (RIFT) protocol engine
@@ -75,7 +75,7 @@ Ethernet interface in a more portable way.
 You can provide the name of a configuration file when you start the RIFT protocol engine:
 
 <pre>
-(env) $ <b>python rift-python topology/two_by_two_by_two.yaml</b>
+(env) $ <b>python rift topology/two_by_two_by_two.yaml</b>
 Command Line Interface (CLI) available on port 49178
 </pre>
 
@@ -102,7 +102,7 @@ Both implementation can read the same configuration file; one implementation can
 implementation can run the non-passive nodes.
 
 <pre>
-(env) $ <b>python rift-python --passive topology/two_by_two_by_two_ztp.yaml</b>
+(env) $ <b>python rift --passive topology/two_by_two_by_two_ztp.yaml</b>
 Command Line Interface (CLI) available on port 52482
 </pre>
 

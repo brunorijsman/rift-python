@@ -23,10 +23,9 @@ class Table:
     def make_line_list(self, line):
         if isinstance(line, list):
             return line
-        elif isinstance(line, self.Format):
+        if isinstance(line, self.Format):
             return []
-        else:
-            return [line]
+        return [line]
 
     def determine_column_widths(self):
         # TODO: First pass: ignore extended columns

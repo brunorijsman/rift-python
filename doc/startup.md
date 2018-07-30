@@ -16,10 +16,10 @@ $ <b>source env/bin/activate</b>
 (env) $ 
 </pre>
 
-Start the RIFT protocol engine by runnning the rift-python package: 
+Start the RIFT protocol engine by runnning the rift package: 
 
 <pre>
-(env) $ <b>python rift-python</b>
+(env) $ <b>python rift</b>
 Command Line Interface (CLI) available on port 49178
 </pre>
 

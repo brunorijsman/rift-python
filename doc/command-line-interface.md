@@ -32,17 +32,17 @@ $ <b>source env/bin/activate</b>
 (env) $ 
 </pre>
 
-Start the rift-python package:
+Start the rift package:
 
 <pre>
-(env) $ <b>python rift-python</b>
+(env) $ <b>python rift</b>
 Command Line Interface (CLI) available on port 61375
 </pre>
 
 Optionally you may pass a topology YAML file as a command-line argument:
 
 <pre>
-(env) $ <b>python rift-python topology/two_by_two_by_two_ztp.yaml</b>
+(env) $ <b>python rift topology/two_by_two_by_two_ztp.yaml</b>
 Command Line Interface (CLI) available on port 61377
 </pre>
 
