@@ -8,5 +8,9 @@ python:
   - "3.7-dev"
 install:
   - pip install -r requirements.txt
+  - pip install pylint
 script:
   - pytest
+  - pylint --output-format=text rift/*.py | tee pylint.txt
+  - lint_score=$(sed -n 's/^Your code has been rated at \([-0-9.]*\)\/.*/\1/p' pylint.txt)
+  - echo "Pylint score was ${link_score}"

@@ -1,0 +1,6 @@
+************* Module cli_listen_handler
+rift/cli_listen_handler.py:27:21: C0303: Trailing whitespace (trailing-whitespace)
+
+------------------------------------------------------------------
+Your code has been rated at 9.99/10 (previous run: 9.99/10, +0.00)
+
