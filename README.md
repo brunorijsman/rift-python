@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/brunorijsman/rift-python.svg?branch=master)](https://travis-ci.org/brunorijsman/rift-python)
+
 # Routing In Fat Trees (RIFT)
 
 This repository contains a Python implementation of the Routing In Fat Trees (RIFT) protocol specificied in Internet Draft (ID)
