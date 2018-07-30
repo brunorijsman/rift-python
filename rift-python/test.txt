@@ -3,3 +3,5 @@ This is test file to check whether git preserves history when moving a file to a
 This is version 1 in the top directory
 
 This is version 2, still in the top directory
+
+This is version 4, moved to sub-directory (version 3 was already moved, but forgot to add text)
