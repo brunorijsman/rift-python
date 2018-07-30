@@ -9,6 +9,7 @@ python:
 install:
   - pip install -r requirements.txt
   - pip install pylint
+  - pip install anybadge
 script:
   - pytest
   - pylint --output-format=text rift/*.py | tee pylint.txt
