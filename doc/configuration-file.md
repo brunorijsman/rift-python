@@ -11,7 +11,7 @@ Ethernet interface in a more portable way.
 You can provide the name of a configuration file when you start the RIFT protocol engine:
 
 <pre>
-(env) $ <b>python main.py two_by_two_by_two.yaml</b>
+(env) $ <b>python rift-python topology/two_by_two_by_two.yaml</b>
 Command Line Interface (CLI) available on port 49178
 </pre>
 

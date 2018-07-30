@@ -102,13 +102,12 @@ Clone this rift-python repository from github onto the EC2 instance:
 
 <pre>
 $ <b>git clone https://github.com/brunorijsman/rift-python.git</b>
-Cloning into rift-python'...
-remote: Counting objects: 276, done.
-remote: Compressing objects: 100% (194/194), done.
-remote: Total 276 (delta 172), reused 180 (delta 78), pack-reused 0
-Receiving objects: 100% (276/276), 87.53 KiB | 0 bytes/s, done.
-Resolving deltas: 100% (172/172), done.
-Checking connectivity... done.
+Cloning into 'rift-python'...
+remote: Counting objects: 882, done.
+remote: Compressing objects: 100% (119/119), done.
+remote: Total 882 (delta 121), reused 155 (delta 82), pack-reused 679
+Receiving objects: 100% (882/882), 2.03 MiB | 341.00 KiB/s, done.
+Resolving deltas: 100% (567/567), done.
 </pre>
 
 This will create a directory rift-python with the source code:
@@ -116,13 +115,17 @@ This will create a directory rift-python with the source code:
 <pre>
 $ <b>find rift-python</b> 
 rift-python
-rift-python/neighbor.py
-rift-python/offer.py
-rift-python/config.py
-rift-python/state-machine.txt
-rift-python/cli_listen_handler.py
+rift-python/topology
+rift-python/topology/one.yaml
+rift-python/topology/two_by_two_by_two.yaml
+rift-python/topology/two_by_two_by_two_ztp.yaml
+rift-python/topology/two.yaml
 rift-python/LICENSE
 rift-python/requirements.txt
+rift-python/README.md
+rift-python/rift-python
+rift-python/rift-python/neighbor.py
+rift-python/rift-python/offer.py
 ...
 </pre>
 

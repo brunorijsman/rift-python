@@ -16,10 +16,10 @@ $ <b>source env/bin/activate</b>
 (env) $ 
 </pre>
 
-Start the RIFT protocol engine by running the python main script. 
+Start the RIFT protocol engine by runnning the rift-python package: 
 
 <pre>
-(env) $ <b>python main.py</b>
+(env) $ <b>python rift-python</b>
 Command Line Interface (CLI) available on port 49178
 </pre>
 
@@ -34,10 +34,8 @@ Python 3.5.1
 </pre>
 
 After you start RIFT, there should be a single line of output reporting that the Command Line Interface (CLI) is 
-available on a particular TCP port (in this example port 55018):
+available on a particular TCP port (in this example port 49178):
 
 <pre>
-Command Line Interface (CLI) for Brunos-MacBook1 available on port 55018
+Command Line Interface (CLI) available on port 49178
 </pre>
-
-The next section explains how to connect to the CLI and how to use to CLI.

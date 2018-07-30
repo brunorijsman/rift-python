@@ -2,24 +2,34 @@
 
 ## Starting the RIFT protocol engine
 
-Enter the following command to start the RIFT protocol engine:
+Go to the top of the directory where the rift-python repository was cloned (in this example we assume it was cloned into your home directory):
 
 <pre>
-(env) $ <b>python main.py</b>
-Command Line Interface (CLI) available on port 52456
+$ <b>cd ${HOME}/rift-python</b>
 </pre>
 
-Note: you need to setup a Python virtual environment as explained in the 
-[installation instructions](installation.md) before starting the RIFT protocol engine.
+Make sure your virtual environment is activated. See [installation instructions](installation.md) for instructions on how to setup your virtual environment.
+
+<pre>
+$ <b>source env/bin/activate</b>
+(env) $ 
+</pre>
+
+Start the rift-python package:
+
+<pre>
+(env) $ <b>python rift-python</b>
+Command Line Interface (CLI) available on port 61375
+</pre>
 
 As explained in the [Command Line Interface (CLI)](command-line-interface.md) documentation,
-you can Telnet to the reported port number (52456 in the above example) to access the CLI.
+you can Telnet to the reported port number (61375 in the above example) to access the CLI.
 
 Press Control-C to stop the RIFT protocol engine:
 
 <pre>
-(env) $ python main.py
-Command Line Interface (CLI) available on port 52456
+(env) $ python rift-python
+Command Line Interface (CLI) available on port 61375
 <b>^C</b>
 Traceback (most recent call last):
   File "main.py", line 47, in <module>
@@ -38,7 +48,7 @@ The command-line option "<b>-h</b>" or "<b>--help</b>" displays help text about 
 Example:
 
 <pre>
-(env) $ <b>python main.py --help</b>
+(env) $ <b>python rift-python --help</b>
 usage: main.py [-h] [-p | -n] [-l LOG_LEVEL] [configfile]
 
 Routing In Fat Trees (RIFT) protocol engine
@@ -65,7 +75,7 @@ Ethernet interface in a more portable way.
 You can provide the name of a configuration file when you start the RIFT protocol engine:
 
 <pre>
-(env) $ <b>python main.py two_by_two_by_two.yaml</b>
+(env) $ <b>python rift-python topology/two_by_two_by_two.yaml</b>
 Command Line Interface (CLI) available on port 49178
 </pre>
 
@@ -86,13 +96,13 @@ are marked as "passive".
 The command-line option "<b>-n</b>" or "<b>--non-passive</b>" runs only those RIFT nodes in the configuration file that
 are *not* marked as "passive".
 
-These two command line options are intended for interoperability testing between Python RIFT (this implmentation) and
+These two command line options are intended for interoperability testing between Python RIFT (this implementation) and
 other implementations that also understand the same configuration file format, such as the Juniper RIFT implementation.
 Both implementation can read the same configuration file; one implementation can run the passive nodes and the other
 implementation can run the non-passive nodes.
 
 <pre>
-(env) $ <b>python main.py --passive two_by_two_by_two_ztp.yaml</b>
+(env) $ <b>python rift-python --passive topology/two_by_two_by_two_ztp.yaml</b>
 Command Line Interface (CLI) available on port 52482
 </pre>
 

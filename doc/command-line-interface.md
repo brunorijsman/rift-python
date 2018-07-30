@@ -19,19 +19,42 @@
 
 ## Connect to the CLI
 
-When you start the Python RIFT protocol engine, it reports a port number that you can use to connect one or more CLI 
-sessions:
+Go to the top of the directory where the rift-python repository was cloned (in this example we assume it was cloned into your home directory):
 
 <pre>
-(env) $ <b>python main.py two_by_two_by_two.yaml</b>
-Command Line Interface (CLI) available on port 52036
+$ <b>cd ${HOME}/rift-python</b>
 </pre>
+
+Make sure your virtual environment (that was created during the installation process) is activated:
+
+<pre>
+$ <b>source env/bin/activate</b>
+(env) $ 
+</pre>
+
+Start the rift-python package:
+
+<pre>
+(env) $ <b>python rift-python</b>
+Command Line Interface (CLI) available on port 61375
+</pre>
+
+Optionally you may pass a topology YAML file as a command-line argument:
+
+<pre>
+(env) $ <b>python rift-python topology/two_by_two_by_two_ztp.yaml</b>
+Command Line Interface (CLI) available on port 61377
+</pre>
+
+
+When you start the Python RIFT protocol engine, it reports a port number that you can use to connect one or more CLI 
+sessions.
 
 You can connect to the Command Line Interface (CLI) using a Telnet client. Assuming you are connecting from the same 
 device as where the RIFT engine is running, the hostname is localhost. 
 
 <pre>
-$ <b>telnet localhost 52036</b>
+$ <b>telnet localhost 61375 </b>
 Trying 127.0.0.1...
 Connected to localhost.
 Escape character is '^]'.
