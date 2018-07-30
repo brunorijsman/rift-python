@@ -4,20 +4,19 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
-    
         {
             "name": "RIFT two.yaml",
             "type": "python",
             "request": "launch",
-            "program": "main.py",
-            "args": ["two.yaml"] 
+            "program": "rift-python/__main__.py",
+            "args": ["topology/two.yaml"] 
         },
         {
             "name": "RIFT two_by_two_by_two_ztp.yaml",
             "type": "python",
             "request": "launch",
-            "program": "main.py",
-            "args": ["two_by_two_by_two_ztp.yaml"] 
+            "program": "${workspaceFolder}/rift-python/__main__.py",
+            "args": ["topology/two_by_two_by_two_ztp.yaml"] 
         },
         {
             "name": "Python: Current File",

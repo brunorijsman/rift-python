@@ -41,8 +41,11 @@ def active_nodes(parsed_args):
     else:
         return rift.Rift.ActiveNodes.ALL_NODES
 
+def main():
+    args = parse_command_line_arguments()
+    conig = config.parse_configuration(args.configfile)
+    global_rift = rift.Rift(active_nodes(args), args.log_level, conig)
+    global_rift.run()
+
 if __name__ == "__main__":
-    ARGS = parse_command_line_arguments()
-    CONFIG = config.parse_configuration(ARGS.configfile)
-    RIFT = rift.Rift(active_nodes(ARGS), ARGS.log_level, CONFIG)
-    RIFT.run()
+    main()

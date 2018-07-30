@@ -1,5 +1,5 @@
 import sys
-sys.path.append('gen-py')
+sys.path.append('rift-python/gen-py')
 
 import enum
 import logging

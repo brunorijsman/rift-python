@@ -1,5 +1,5 @@
 import sys
-sys.path.append('gen-py')
+sys.path.append('rift-python/gen-py')
 
 # TODO: Handle receiving malformed packets (i.e. decoding errors)
 
