@@ -4,3 +4,4 @@ PyYAML==3.13
 six==1.11.0
 sortedcontainers==2.0.4
 thrift==0.11.0
+pytest-cov==2.5.1

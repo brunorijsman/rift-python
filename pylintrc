@@ -2,7 +2,7 @@
 
 # Look for Thrift generated modules in the gen-py directory
 #
-init-hook='import sys; sys.path.append("rift-pyhton/gen-py")'
+init-hook='import sys; sys.path.append("rift/gen-py")'
 
 [MESSAGES CONTROL]
 

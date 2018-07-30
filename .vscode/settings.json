@@ -1,5 +1,11 @@
 {
     "python.pythonPath": "${workspaceFolder}/env/bin/python",
     "python.linting.enabled": true,
-    "python.linting.pylintEnabled": true
+    "python.linting.pylintEnabled": true,
+    "python.unitTest.pyTestArgs": [
+        "tests"
+    ],
+    "python.unitTest.unittestEnabled": false,
+    "python.unitTest.nosetestsEnabled": false,
+    "python.unitTest.pyTestEnabled": true
 }

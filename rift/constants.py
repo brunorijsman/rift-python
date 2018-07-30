@@ -1,5 +1,5 @@
 import sys
-sys.path.append('rift-python/gen-py')
+sys.path.append('rift/gen-py')
 
 import common.constants
 import encoding.constants

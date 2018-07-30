@@ -303,12 +303,12 @@ This will create a directory rift-python with the source code:
 <pre>
 vm$ <b>find rift-python</b>
 rift-python
-rift-python/config.py
-rift-python/encoding.thrift
-rift-python/utils.py
-rift-python/cli_listen_handler.py
-rift-python/.gitignore
-rift-python/constants.py
+rift-python/topology
+rift-python/topology/one.yaml
+rift-python/topology/two_by_two_by_two.yaml
+rift-python/topology/two_by_two_by_two_ztp.yaml
+rift-python/topology/two.yaml
+rift-python/LICENSE
 ...
 </pre>
 
