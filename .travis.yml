@@ -18,10 +18,10 @@ script:
   artifacts:
     paths:
       - public/pylint.svg
-pages:
-  stage: deploy
-  artifacts:
-    paths:
-    - public
-  only:
-  - master
+#pages:
+#  stage: deploy
+#  artifacts:
+#    paths:
+#    - public
+#  only:
+#  - master
