@@ -9,23 +9,6 @@ python:
 install:
   - pip install -r requirements.txt
   - pip install pylint
-  - pip install anybadge
 script:
-  - pytest
-  - pylint --output-format=text rift/*.py | tee pylint.txt
-  - lint_score=$(sed -n 's/^Your code has been rated at \([-0-9.]*\)\/.*/\1/p' pylint.txt)
-  - echo "Pylint score is ${lint_score}"
-  - pylint_badge_name=pylint-${TRAVIS_PYTHON_VERSION}
-  - pylint_badge_file=public/${pylint_badge_name}.svg
-  - echo "Pylint badge file is ${pylint_badge_file}"
-  - anybadge --label ${pylint_badge_name} --value 9.9 --file ${pylint_badge_file} 9.0=red 9.9=orange 999=green
-artifacts:
-  paths:
-    - ${pylint_badge_file}
-pages:
-  stage: deploy
-  artifacts:
-    paths:
-    - public
-  only:
-  - master
+  # We are strict; if the pylint score is not perfect, we fail the build
+  - pytest && pylint rift/*.py
