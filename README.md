@@ -1,5 +1,7 @@
 [![Build Status](https://travis-ci.org/brunorijsman/rift-python.svg?branch=master)](https://travis-ci.org/brunorijsman/rift-python)
 
+[![Code Coverage](https://codecov.io/gh/brunorijsman/rift-python/branch/master/graph/badge.svg)]]
+
 # Routing In Fat Trees (RIFT)
 
 This repository contains a Python implementation of the Routing In Fat Trees (RIFT) protocol specificied in Internet Draft (ID)
@@ -32,3 +34,9 @@ A version of this code (tag ietf-102-rift-hackathon) was used to conduct interop
 * [IETF 102 RIFT Hackathon: Presentation Slides (Microsoft Powerpoint)](ietf-102/ietf-102-rift-hackathon-slides.pptx)
 
 * [IETF 102 RIFT Hackathon: Report](ietf-102/ietf-102-rift-hackathon-detailed-report.md)
+
+# Automated Testing
+
+* [Build Details](https://travis-ci.org/brunorijsman/rift-python/)
+
+* [Code Coverage Details](https://codecov.io/gh/brunorijsman/rift-python)
