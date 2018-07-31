@@ -64,26 +64,26 @@ class Dog:
         initial_state=State.SITTING,
         verbose_events=verbose_events)
 
-def test_fsm_definition_states_table():
+def test_states_table():
     assert (Dog.fsm_definition.states_table().to_string() ==
-        "+--------------+\n"
-        "| State        |\n"
-        "+--------------+\n"
-        "| SITTING      |\n"
-        "+--------------+\n"
-        "| BARKING      |\n"
-        "+--------------+\n"
-        "| WAGGING_TAIL |\n"
-        "+--------------+\n")
+            "+--------------+\n"
+            "| State        |\n"
+            "+--------------+\n"
+            "| SITTING      |\n"
+            "+--------------+\n"
+            "| BARKING      |\n"
+            "+--------------+\n"
+            "| WAGGING_TAIL |\n"
+            "+--------------+\n")
 
-def test_fsm_definition_events_table():
+def test_events_table():
     assert (Dog.fsm_definition.events_table().to_string() ==
-        "+------------+---------+\n"
-        "| Event      | Verbose |\n"
-        "+------------+---------+\n"
-        "| SEE_SQUIRL | False   |\n"
-        "+------------+---------+\n"
-        "| PET        | False   |\n"
-        "+------------+---------+\n"
-        "| WAIT       | True    |\n"
-        "+------------+---------+\n")
+            "+------------+---------+\n"
+            "| Event      | Verbose |\n"
+            "+------------+---------+\n"
+            "| SEE_SQUIRL | False   |\n"
+            "+------------+---------+\n"
+            "| PET        | False   |\n"
+            "+------------+---------+\n"
+            "| WAIT       | True    |\n"
+            "+------------+---------+\n")
