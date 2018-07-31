@@ -9,6 +9,11 @@ python:
 install:
   - pip install -r requirements.txt
   - pip install pylint
+  - pip install codecov
 script:
   # We are strict; if the pylint score is not perfect, we fail the build
   - pytest && pylint rift/*.py
+  - coverage run pytest
+
+after_success:
+  - codecov
