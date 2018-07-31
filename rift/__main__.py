@@ -3,7 +3,7 @@ import logging
 
 import config
 import constants
-import rift
+import engine
 
 def log_level(string):
     string = string.lower()
@@ -45,8 +45,8 @@ def active_nodes(parsed_args):
 def main():
     args = parse_command_line_arguments()
     conig = config.parse_configuration(args.configfile)
-    global_rift = rift.Rift(active_nodes(args), args.log_level, conig)
-    global_rift.run()
+    eng = engine.Engine(active_nodes(args), args.log_level, conig)
+    eng.run()
 
 if __name__ == "__main__":
     main()

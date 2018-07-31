@@ -9,7 +9,7 @@ import table
 
 # TODO: Make sure that there is always at least one node (and hence always a current node)
 
-class Rift:
+class Engine:
 
     def __init__(self, active_nodes, log_level, config):
         logging.basicConfig(

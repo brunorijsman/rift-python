@@ -1,6 +1,3 @@
-import sys
-sys.path.append('rift/gen-py')
-
 # TODO: Handle receiving malformed packets (i.e. decoding errors)
 
 import thrift.protocol.TBinaryProtocol

@@ -1,13 +1,13 @@
 [MASTER]
 
-init-hook='import sys; sys.path.append("rift/gen-py")'
+init-hook='import sys; sys.path.append("rift")'
+ignore=rift/common,rift/encoding
 
 [MESSAGES CONTROL]
 
 disable=
     missing-docstring,                  # Temporary, until I add the docstrings
     fixme,                              # Temporary, until I fix all the TODOs and FIXMEs
-    wrong-import-position,              # Needed to allow sys.path.append at top of file
     too-many-arguments,                 # Matter of taste
     too-many-instance-attributes,       # Matter of taste
     too-few-public-methods,             # Matter of taste
