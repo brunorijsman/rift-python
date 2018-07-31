@@ -1,6 +1,4 @@
-[![Build Status](https://travis-ci.org/brunorijsman/rift-python.svg?branch=master)](https://travis-ci.org/brunorijsman/rift-python)
-
-[![Code Coverage](https://codecov.io/gh/brunorijsman/rift-python/branch/master/graph/badge.svg)](https://codecov.io/gh/brunorijsman/rift-python)
+[![Build Status](https://travis-ci.org/brunorijsman/rift-python.svg?branch=master)](https://travis-ci.org/brunorijsman/rift-python)   [![Code Coverage](https://codecov.io/gh/brunorijsman/rift-python/branch/master/graph/badge.svg)](https://codecov.io/gh/brunorijsman/rift-python)
 
 # Routing In Fat Trees (RIFT)
 
