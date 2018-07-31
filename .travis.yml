@@ -8,12 +8,12 @@ python:
   - "3.7-dev"
 install:
   - pip install -r requirements.txt
-  - pip install pylint
+  - pip install pylint-cov
   - pip install codecov
 script:
   # We are strict; if the pylint score is not perfect, we fail the build
   - pytest && pylint rift/*.py
-  - coverage run pytest
+  - pytest --cov=rift tests/
 
 after_success:
   - codecov
