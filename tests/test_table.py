@@ -1,7 +1,7 @@
-import rift.table
+import table
 
 def test_simple_table():
-    tab = rift.table.Table()
+    tab = table.Table()
     tab.add_row(['Animal', 'Legs'])
     tab.add_row(['Slug', 0])
     tab.add_rows([['Human', 2], ['Horse', 4]])  # Use add_rows to add multiple rows
@@ -21,7 +21,7 @@ def test_simple_table():
                        "+--------+------+\n")
 
 def test_multi_line_cells():
-    tab = rift.table.Table()
+    tab = table.Table()
     tab.add_row([['First', 'Name'],
                  ['Last', 'Name'],
                  'Address',
@@ -51,17 +51,17 @@ def test_multi_line_cells():
 
 def test_format_extend():
     # TODO: Add test where contents of extended cell spill over into next column
-    tab = rift.table.Table()
+    tab = table.Table()
     tab.add_row(['Item', 'Length', 'Width', 'Height'])
     tab.add_row(['Cube', '1 cm', '1 cm', '1 cm'])
     tab.add_row(['Line',
                  '2 cm',
                  'N/A',
-                 rift.table.Table.Format.EXTEND_LEFT_CELL])
+                 table.Table.Format.EXTEND_LEFT_CELL])
     tab.add_row(['Point',
                  'N/A',
-                 rift.table.Table.Format.EXTEND_LEFT_CELL,
-                 rift.table.Table.Format.EXTEND_LEFT_CELL])
+                 table.Table.Format.EXTEND_LEFT_CELL,
+                 table.Table.Format.EXTEND_LEFT_CELL])
     tab_str = tab.to_string()
     assert (tab_str == "+-------+--------+-------+--------+\n"
                        "| Item  | Length | Width | Height |\n"
@@ -74,7 +74,7 @@ def test_format_extend():
                        "+-------+--------+-------+--------+\n")
 
 def test_no_separators():
-    tab = rift.table.Table(separators=False)
+    tab = table.Table(separators=False)
     tab.add_row(['First Name', 'Jerry'])
     tab.add_row(['Last Name', 'Seinfeld'])
     tab.add_row(['Address', ['129 West 81st Street', 'Apartment 5A', 'New York, 10024 NY']])

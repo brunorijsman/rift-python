@@ -1,6 +1,6 @@
 [MASTER]
 
-init-hook='import sys; sys.path.append("rift/gen-py")'
+init-hook='import sys; sys.path.append("rift", "rift/gen-py")'
 
 [MESSAGES CONTROL]
 
