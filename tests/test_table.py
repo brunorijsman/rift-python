@@ -26,12 +26,12 @@ def test_multi_line_cells():
                  ['Last', 'Name'],
                  'Address',
                  ['Country', 'of', 'Residence']])
-    tab.add_row(['Marge', 
-                 'Simpson', 
+    tab.add_row(['Marge',
+                 'Simpson',
                  ['742 Evergreen Terrace', 'Springfield'],
                  ['United', 'States', 'of', 'America']])
-    tab.add_row([['Annelies', 'Marie'], 
-                 'Frank', 
+    tab.add_row([['Annelies', 'Marie'],
+                 'Frank',
                  ['263 Prinsengracht', 'Amsterdam'],
                  ['The', 'Netherlands']])
     tab_str = tab.to_string()
