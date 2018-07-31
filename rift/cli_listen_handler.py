@@ -24,7 +24,7 @@ class CliListenHandler:
         scheduler.SCHEDULER.unregister_handler(self)
         self._sock.close()
 
-    def socket(self): 
+    def socket(self):
         return self._sock
 
     def ready_to_read(self):
