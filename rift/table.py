@@ -1,12 +1,9 @@
 from enum import Enum
 
-# TODO: Implement EXTEND_ABOVE_CELL
-
 class Table:
 
     class Format(Enum):
         EXTEND_LEFT_CELL = 1
-        EXTEND_ABOVE_CELL = 2
 
     def __init__(self, separators=True):
         self._separators = separators
@@ -94,6 +91,3 @@ class Table:
         if not self._separators:
             table_str += self.separator_string()
         return table_str
-
-    def print(self):
-        print(self.to_string())
