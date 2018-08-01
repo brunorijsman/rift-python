@@ -65,6 +65,7 @@ class Record:
                                   "implicit=(.*)")
     send_regex = re.compile(r"Send.*(ProtocolPacket.*)")
     receive_regex = re.compile(r"Receive.*(ProtocolPacket.*)")
+    lie_packet_regex = re.compile(r".*lie=LIEPacket.*nonce=([0-9]*),")
 
     def __init__(self, tick, logline):
         self.tick = tick
@@ -99,11 +100,19 @@ class Record:
         if match_result:
             self.type = "send"
             self.packet = match_result.group(1)
+            match_result = Record.lie_packet_regex.match(self.packet)
+            if match_result:
+                self.packet_type = "LIE"
+                self.nonce = match_result.group(1)
             return
         match_result = Record.receive_regex.match(self.msg)
         if match_result:
             self.type = "receive"
             self.packet = match_result.group(1)
+            match_result = Record.lie_packet_regex.match(self.packet)
+            if match_result:
+                self.packet_type = "LIE"
+                self.nonce = match_result.group(1)
             return
         self.type = "other"
 
@@ -117,15 +126,23 @@ class Record:
             return MSG_COLOR
         return DEFAULT_COLOR
 
+class PendingMessage:
+
+    def __init__(self, nonce, xstart, ystart):
+        self.nonce = nonce
+        self.xstart = xstart
+        self.ystart = ystart
+
 class Visualizer:
 
     def __init__(self, logfile_name, svg_file_name):
         self.logfile_name = logfile_name
-        self.svg_file_name = svg_file_name
-        self.targets = {}
-        self.tick = 0
         self.logfile = None
+        self.svg_file_name = svg_file_name
         self.svgfile = None
+        self.tick = 0
+        self.targets = {}
+        self.pending_messages = {}
 
     def run(self):
         with open(self.svg_file_name, "w") as self.svgfile:
@@ -183,7 +200,7 @@ class Visualizer:
         xpos = target.xpos
         ystart = tick_y_top(self.tick)
         yend = tick_y_bottom(self.tick)
-        self.svg_line(xpos, ystart, xpos, yend)
+        self.svg_line(xpos, ystart, xpos, yend, TARGET_COLOR)
 
     def show_start_fsm(self, record):
         xpos = record.target.xpos
@@ -215,12 +232,26 @@ class Visualizer:
         xpos = record.target.xpos
         ypos = tick_y_mid(record.tick)
         self.svg_dot(xpos, ypos, DOT_RADIUS, record.color())
+        self.pending_messages[record.nonce] = PendingMessage(record.nonce, xpos, ypos)
+        xpos += 2 * DOT_RADIUS
+        text = record.packet_type
+        self.svg_text(xpos, ypos, text, record.color())
 
     def show_receive(self, record):
         # TODO: Show arrow from send to receive
         xpos = record.target.xpos
         ypos = tick_y_mid(record.tick)
         self.svg_dot(xpos, ypos, DOT_RADIUS, record.color())
+        if record.nonce in self.pending_messages:
+            xstart = self.pending_messages[record.nonce].xstart
+            ystart = self.pending_messages[record.nonce].ystart
+            xend = record.target.xpos
+            yend = tick_y_mid(record.tick)
+            self.svg_line(xstart, ystart, xend, yend, record.color())
+            del self.pending_messages[record.nonce]
+        xpos += 2 * DOT_RADIUS
+        text = record.packet_type
+        self.svg_text(xpos, ypos, text, record.color())
 
     def svg_start(self):
         self.svgfile.write('<svg '
@@ -232,15 +263,15 @@ class Visualizer:
     def svg_end(self):
         self.svgfile.write('</svg>\n')
 
-    def svg_line(self, xstart, ystart, xend, yend):
+    def svg_line(self, xstart, ystart, xend, yend, color):
         self.svgfile.write('<line '
                            'x1="{}" '
                            'y1="{}" '
                            'x2="{}" '
                            'y2="{}" '
-                           'style="stroke:black;">'
+                           'style="stroke:{};">'
                            '</line>\n'
-                           .format(xstart, ystart, xend, yend))
+                           .format(xstart, ystart, xend, yend, color))
 
     def svg_dot(self, xpos, ypos, radius, color):
         self.svgfile.write('<circle '
