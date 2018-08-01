@@ -10,7 +10,9 @@ IF_X_INTERVAL = 10
 DOT_RADIUS = 5
 TIMESTAMP_COLOR = "gray"
 TARGET_COLOR = "black"
-FSM_COLOR = "red"
+IF_FSM_COLOR = "coral"
+NODE_FSM_COLOR = "red"
+DEFAULT_COLOR = "black"
 
 def tick_y_top(tick):
     return TICK_Y_START + tick * TICK_Y_INTERVAL
@@ -50,15 +52,16 @@ class Target:
 class Record:
 
     record_regex = re.compile(r"(....-..-.. ..:..:..[^:]*):([^:]*):([^:]*):\[(.*)\] (.*)$")
+    start_fsm_regex = re.compile(r"Start FSM, state=(.*)")
     push_event_regex = re.compile(r"FSM push event, "
-                                   "event=(.*)")
+                                  "event=(.*)")
     transition_regex = re.compile(r"FSM transition "
-                                   "sequence-nr=(.*) "
-                                   "from-state=(.*) "
-                                   "event=(.*) "
-                                   "actions-and-pushed-events=(.*) "
-                                   "to-state=(.*) "
-                                   "implicit=(.*)")
+                                  "sequence-nr=(.*) "
+                                  "from-state=(.*) "
+                                  "event=(.*) "
+                                  "actions-and-pushed-events=(.*) "
+                                  "to-state=(.*) "
+                                  "implicit=(.*)")
 
     def __init__(self, tick, logline):
         self.tick = tick
@@ -69,11 +72,15 @@ class Record:
         self.target_id = match_result.group(4)
         self.target = None
         self.msg = match_result.group(5)
+        match_result = Record.start_fsm_regex.match(self.msg)
+        if match_result:
+            self.type = "start-fsm"
+            self.state = match_result.group(1)
+            return
         match_result = Record.push_event_regex.match(self.msg)
         if match_result:
             self.type = "push-event"
             self.event = match_result.group(1)
-            print(self.type)
             return
         match_result = Record.transition_regex.match(self.msg)
         if match_result:
@@ -84,9 +91,16 @@ class Record:
             self.actions_and_pushed_events = match_result.group(4)
             self.to_state = match_result.group(5)
             self.implicit = match_result.group(6)
-            print(self.type, self.to_state)
             return
         self.type = "other"
+
+    def color(self):
+        if self.type in ["start-fsm", "push-event", "transition"]:
+            if self.target.type == "if":
+                return IF_FSM_COLOR
+            elif self.target.type == "node":
+                return NODE_FSM_COLOR
+        return DEFAULT_COLOR
 
 class Visualizer:
 
@@ -119,10 +133,13 @@ class Visualizer:
         target = Target(record.target_id)
         self.targets[record.target_id] = target
         self.show_target_id(target)
+        return target
 
     def show_record(self, record):
         self.show_timestamp(self.tick, record.timestamp)
-        if record.type == 'push-event':
+        if record.type == 'start-fsm':
+            self.show_start_fsm(record)
+        elif record.type == 'push-event':
             self.show_push_event(record)
         elif record.type == 'transition':
             self.show_transition(record)
@@ -138,8 +155,8 @@ class Visualizer:
             self.show_target_tick(target)
 
     def show_target_id(self, target):
-        xpos = target.xpos
-        ypos = tick_y_top(self.tick)
+        xpos = target.xpos + 2
+        ypos = tick_y_mid(self.tick)
         text = target.target_id
         self.svg_text(xpos, ypos, text, TARGET_COLOR)
 
@@ -149,23 +166,30 @@ class Visualizer:
         yend = tick_y_bottom(self.tick)
         self.svg_line(xpos, ystart, xpos, yend)
 
+    def show_start_fsm(self, record):
+        xpos = record.target.xpos
+        ypos = tick_y_mid(record.tick)
+        self.svg_dot(xpos, ypos, DOT_RADIUS, record.color())
+        xpos += 2 * DOT_RADIUS
+        text = "[" + record.state + "]"
+        self.svg_text(xpos, ypos, text, record.color())
+
     def show_push_event(self, record):
         xpos = record.target.xpos
         ypos = tick_y_mid(record.tick)
-        self.svg_dot(xpos, ypos, DOT_RADIUS, FSM_COLOR)
+        self.svg_dot(xpos, ypos, DOT_RADIUS, record.color())
         xpos += 2 * DOT_RADIUS
         text = record.event
-        self.svg_text(xpos, ypos, text, FSM_COLOR)
+        self.svg_text(xpos, ypos, text, record.color())
 
     def show_transition(self, record):
-        print("show")
         xpos = record.target.xpos
         ypos = tick_y_mid(record.tick)
-        self.svg_dot(xpos, ypos, DOT_RADIUS, FSM_COLOR)
+        self.svg_dot(xpos, ypos, DOT_RADIUS, record.color())
         xpos += 2 * DOT_RADIUS
-        text = (record.event + " " + record.from_state + " > " +
-                record.actions_and_pushed_events + " " + record.to_state)
-        self.svg_text(xpos, ypos, text, FSM_COLOR)
+        text = (record.event + " [" + record.from_state + "] > " +
+                record.actions_and_pushed_events + " [" + record.to_state + "]")
+        self.svg_text(xpos, ypos, text, record.color())
 
     def svg_start(self):
         self.svgfile.write('<svg '
