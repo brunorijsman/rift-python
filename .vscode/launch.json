@@ -5,6 +5,13 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Visualize RIFT Log",
+            "type": "python",
+            "request": "launch",
+            "program": "rift/visualize_log.py",
+            "args": [""] 
+        },
+        {
             "name": "RIFT two.yaml",
             "type": "python",
             "request": "launch",
