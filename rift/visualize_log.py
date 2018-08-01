@@ -12,6 +12,7 @@ TIMESTAMP_COLOR = "gray"
 TARGET_COLOR = "black"
 IF_FSM_COLOR = "coral"
 NODE_FSM_COLOR = "red"
+MSG_COLOR = "blue"
 DEFAULT_COLOR = "black"
 
 def tick_y_top(tick):
@@ -62,6 +63,8 @@ class Record:
                                   "actions-and-pushed-events=(.*) "
                                   "to-state=(.*) "
                                   "implicit=(.*)")
+    send_regex = re.compile(r"Send.*(ProtocolPacket.*)")
+    receive_regex = re.compile(r"Receive.*(ProtocolPacket.*)")
 
     def __init__(self, tick, logline):
         self.tick = tick
@@ -92,6 +95,16 @@ class Record:
             self.to_state = match_result.group(5)
             self.implicit = match_result.group(6)
             return
+        match_result = Record.send_regex.match(self.msg)
+        if match_result:
+            self.type = "send"
+            self.packet = match_result.group(1)
+            return
+        match_result = Record.receive_regex.match(self.msg)
+        if match_result:
+            self.type = "receive"
+            self.packet = match_result.group(1)
+            return
         self.type = "other"
 
     def color(self):
@@ -100,6 +113,8 @@ class Record:
                 return IF_FSM_COLOR
             elif self.target.type == "node":
                 return NODE_FSM_COLOR
+        elif self.type in ["send", "receive"]:
+            return MSG_COLOR
         return DEFAULT_COLOR
 
 class Visualizer:
@@ -143,6 +158,10 @@ class Visualizer:
             self.show_push_event(record)
         elif record.type == 'transition':
             self.show_transition(record)
+        elif record.type == 'send':
+            self.show_send(record)
+        elif record.type == 'receive':
+            self.show_receive(record)
 
     def show_timestamp(self, tick, timestamp):
         xpos = TIMESTAMP_X
@@ -190,6 +209,18 @@ class Visualizer:
         text = (record.event + " [" + record.from_state + "] > " +
                 record.actions_and_pushed_events + " [" + record.to_state + "]")
         self.svg_text(xpos, ypos, text, record.color())
+
+    def show_send(self, record):
+        # TODO: Show message name
+        xpos = record.target.xpos
+        ypos = tick_y_mid(record.tick)
+        self.svg_dot(xpos, ypos, DOT_RADIUS, record.color())
+
+    def show_receive(self, record):
+        # TODO: Show arrow from send to receive
+        xpos = record.target.xpos
+        ypos = tick_y_mid(record.tick)
+        self.svg_dot(xpos, ypos, DOT_RADIUS, record.color())
 
     def svg_start(self):
         self.svgfile.write('<svg '
