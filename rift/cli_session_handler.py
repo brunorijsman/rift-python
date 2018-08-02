@@ -1,3 +1,5 @@
+import os
+
 import sortedcontainers
 
 import scheduler
@@ -6,10 +8,13 @@ import scheduler
 
 class CliSessionHandler:
 
-    def __init__(self, sock, remote_address, parse_tree, command_handler, prompt):
+    def __init__(self, sock, rx_fd, tx_fd, parse_tree, command_handler, prompt):
+        # Socket is None for interactive sessions that use stdin and stdout. For network connections
+        # it is something else than None; we never use the socket, but we need to store it anyway
+        # to prevent the socket from being garbage collected causing the connection to be closed.
         self._sock = sock
-        self._sock.setblocking(0)
-        self._remote_address = remote_address
+        self._rx_fd = rx_fd
+        self._tx_fd = tx_fd
         self._parse_tree = parse_tree
         self._command_handler = command_handler
         self._prompt = prompt
@@ -17,18 +22,22 @@ class CliSessionHandler:
         scheduler.SCHEDULER.register_handler(self, True, False)
         self.send_prompt()
 
-    def socket(self):
-        return self._sock
+    def rx_fd(self):
+        return self._rx_fd
+
+    def tx_fd(self):
+        return self._tx_fd
 
     def print(self, message, add_newline=True):
         if add_newline:
             message += '\n'
-        self._sock.send(message.encode('utf-8'))
+        os.write(self._tx_fd, message.encode('utf-8'))
 
     def print_help(self, parse_subtree):
         self.print_help_recursion("", parse_subtree)
 
-    # TODO: Mention parameter name for "show interfaces help"
+    # TODO: Mention parameter name for "show interface help"
+    # TODO: Handle "show interfaces help" in a better way
     def print_help_recursion(self, command_str, parse_subtree):
         if callable(parse_subtree):
             self.print(command_str)
@@ -108,11 +117,15 @@ class CliSessionHandler:
         self.print(self._prompt + "> ", False)
 
     def ready_to_read(self):
-        data = self._sock.recv(1024)
+        data = os.read(self._rx_fd, 1024)
         if not data:
             # Remote side closed session
             scheduler.SCHEDULER.unregister_handler(self)
-            self._sock.close()
+            os.close(self._rx_fd)
+            if self._tx_fd != self._rx_fd:
+                os.close(self._tx_fd)
+            self._rx_fd = None
+            self._tx_fd = None
             return
         try:
             self._str += data.decode('utf-8').replace('\r', '')

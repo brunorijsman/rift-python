@@ -31,6 +31,8 @@ def parse_command_line_arguments():
                                help='Run all nodes except those marked as passive')
     parser.add_argument('-l', '--log-level', type=log_level, default='info',
                         help='Log level (debug, info, warning, error, critical)')
+    parser.add_argument('-i', '--interactive', action="store_true",
+                        help='Start Command Line Interface (CLI) on stdin/stdout instead of port')
     parsed_args = parser.parse_args()
     return parsed_args
 
@@ -44,8 +46,11 @@ def active_nodes(parsed_args):
 
 def main():
     args = parse_command_line_arguments()
-    conig = config.parse_configuration(args.configfile)
-    eng = engine.Engine(active_nodes(args), args.log_level, conig)
+    parsed_config = config.parse_configuration(args.configfile)
+    eng = engine.Engine(active_nodes=active_nodes(args),
+                        interactive=args.interactive,
+                        log_level=args.log_level,
+                        config=parsed_config)
     eng.run()
 
 if __name__ == "__main__":

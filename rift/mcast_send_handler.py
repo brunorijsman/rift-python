@@ -21,8 +21,8 @@ class McastSendHandler:
         scheduler.SCHEDULER.unregister_handler(self)
         self._sock.close()
 
-    def socket(self):
-        return self._sock
+    def tx_fd(self):
+        return self._sock.fileno()
 
     def send_message(self, message):
         self._sock.send(message)

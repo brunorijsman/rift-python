@@ -24,14 +24,18 @@ class CliListenHandler:
         scheduler.SCHEDULER.unregister_handler(self)
         self._sock.close()
 
-    def socket(self):
-        return self._sock
+    def rx_fd(self):
+        return self._sock.fileno()
+
+    def tx_fd(self):
+        return self._sock.fileno()
 
     def ready_to_read(self):
-        (session_sock, session_remote_address) = self._sock.accept()
+        (session_sock, _session_remote_address) = self._sock.accept()
         CliSessionHandler(
-            session_sock,
-            session_remote_address,
-            self._command_tree,
-            self._command_handler,
-            self._prompt)
+            sock=session_sock,
+            rx_fd=session_sock.fileno(),
+            tx_fd=session_sock.fileno(),
+            parse_tree=self._command_tree,
+            command_handler=self._command_handler,
+            prompt=self._prompt)

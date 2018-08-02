@@ -1,7 +1,10 @@
 import logging
+import sys
+
 import sortedcontainers
 
 import cli_listen_handler
+import cli_session_handler
 import interface
 import node
 import scheduler
@@ -11,12 +14,13 @@ import table
 
 class Engine:
 
-    def __init__(self, active_nodes, log_level, config):
+    def __init__(self, active_nodes, interactive, log_level, config):
         logging.basicConfig(
             filename='rift.log',
             format='%(asctime)s:%(levelname)s:%(name)s:%(message)s',
             level=log_level)
         self._active_nodes = active_nodes
+        self._interactive = interactive
         self._config = config
         self._tx_src_address = self.read_global_configuration(config, 'tx_src_address', '')
         self._nodes = sortedcontainers.SortedDict()
@@ -28,8 +32,21 @@ class Engine:
         else:
             self._cli_current_node = None
             self._cli_current_prompt = ''
-        self._cli_listen_handler = (
-            cli_listen_handler.CliListenHandler(self.parse_tree, self, self._cli_current_prompt))
+        if self._interactive:
+            self._cli_listen_handler = None
+            self._interactive_cli_session_handler = cli_session_handler.CliSessionHandler(
+                sock=None,
+                rx_fd=sys.stdin.fileno(),
+                tx_fd=sys.stdout.fileno(),
+                parse_tree=self.parse_tree,
+                command_handler=self,
+                prompt=self._cli_current_prompt)            
+        else:
+            self._cli_listen_handler = cli_listen_handler.CliListenHandler(
+                command_tree=self.parse_tree,
+                command_handler=self,
+                prompt=self._cli_current_prompt)
+            self._interactive_cli_session_handler = None
 
     def read_global_configuration(self, config, attribute, default):
         if ('const' in config) and (config['const'] is not None) and (attribute in config['const']):

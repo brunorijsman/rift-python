@@ -38,8 +38,8 @@ class McastReceiveHandler:
         scheduler.SCHEDULER.unregister_handler(self)
         self._sock.close()
 
-    def socket(self):
-        return self._sock
+    def rx_fd(self):
+        return self._sock.fileno()
 
     def ready_to_read(self):
         message, from_address_and_port = self._sock.recvfrom(self.MAXIMUM_MESSAGE_SIZE)
