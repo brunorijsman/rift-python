@@ -26,7 +26,7 @@ class CliSessionHandler:
     def close(self):
         scheduler.SCHEDULER.unregister_handler(self)
         # If this was the interactive (stdin/stdout) CLI session, exit the RIFT engine as well
-        if self._sock == None:
+        if self._sock is None:
             sys.exit(0)
 
     def rx_fd(self):

@@ -5,10 +5,17 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Systest two_nodes_level_0_and_1",
+            "type": "python",
+            "request": "launch",
+            "program": "systests/systest_two_nodes_level_0_and_1.py",
+            "args": [""] 
+        },
+        {
             "name": "Visualize RIFT Log",
             "type": "python",
             "request": "launch",
-            "program": "rift/visualize_log.py",
+            "program": "tools/visualize_log.py",
             "args": [""] 
         },
         {
