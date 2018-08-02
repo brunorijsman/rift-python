@@ -1,4 +1,5 @@
 import os
+import sys
 
 import sortedcontainers
 
@@ -21,6 +22,12 @@ class CliSessionHandler:
         self._str = ""
         scheduler.SCHEDULER.register_handler(self, True, False)
         self.send_prompt()
+
+    def close(self):
+        scheduler.SCHEDULER.unregister_handler(self)
+        # If this was the interactive (stdin/stdout) CLI session, exit the RIFT engine as well
+        if self._sock == None:
+            sys.exit(0)
 
     def rx_fd(self):
         return self._rx_fd

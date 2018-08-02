@@ -3,6 +3,7 @@
 * [Connect to the CLI](#connect-to-the-cli)
 * [Entering CLI commands](#entering-cli-commands)
 * [Command Line Interface Commands](#command-line-interface-commands)
+  * [exit](#exit)
   * [set level <i>level</i>](#set-level-level)
   * [set node <i>node</i>](#set-node-node)
   * [show interface <i>interface</i>](#show-interface-interface)
@@ -97,6 +98,39 @@ the previous or next command in the command history.
 line to get context-senstive help. But after reading the help text, you must manually re-enter the command line. 
 
 ## Command Line Interface Commands
+
+### exit
+
+The "<b>exit</b> command closes the CLI session.
+
+Example:
+
+<pre>
+(env) $ python rift topology/two_by_two_by_two.yaml
+Command Line Interface (CLI) available on port 50102
+</pre>
+
+<pre>
+$ telnet localhost 50102
+Trying 127.0.0.1...
+Connected to localhost.
+Escape character is '^]'.
+agg_101> <b>exit</b>
+agg_101> Connection closed by foreign host.
+$ 
+</pre>
+
+Normally, the RIFT engine continues to run when a CLI session is closed. However, if the RIFT
+engine was started interactively using the --interactive command line option, then exiting the
+CLI also causes the RIFT engine to stop:
+
+Example:
+
+<pre>
+(env) $ python rift --interactive topology/two_by_two_by_two.yaml
+agg_101> <b>exit</b>
+(env) $ 
+</pre>
 
 ### set level <i>level</i>
 

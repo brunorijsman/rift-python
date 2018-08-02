@@ -40,7 +40,7 @@ class Engine:
                 tx_fd=sys.stdout.fileno(),
                 parse_tree=self.parse_tree,
                 command_handler=self,
-                prompt=self._cli_current_prompt)            
+                prompt=self._cli_current_prompt)
         else:
             self._cli_listen_handler = cli_listen_handler.CliListenHandler(
                 command_tree=self.parse_tree,
@@ -131,9 +131,11 @@ class Engine:
         self._cli_current_node.fsm.push_event(node.Node.Event.CHANGE_LOCAL_CONFIGURED_LEVEL,
                                               level_symbol)
 
-    # TODO: Add exit command
-    # TODO: Update documentation with current state of commands (including example output)
+    def command_exit(self, cli_session):
+        cli_session.close()
+
     parse_tree = {
+        "exit": command_exit,
         "set": {
             "$node": command_set_node,
             "$level": command_set_level,
