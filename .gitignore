@@ -109,3 +109,5 @@ venv.bak/
 # Vagrant temporary files
 .vagrant
 
+# Visualized logs
+*.log.html
