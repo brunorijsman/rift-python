@@ -1,6 +1,6 @@
 [MASTER]
 
-init-hook='import sys; sys.path.append("rift")'
+init-hook='import sys; sys.path.append("rift"); sys.path.append("tests")'
 ignore=rift/common,rift/encoding
 
 [MESSAGES CONTROL]

@@ -4,11 +4,12 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
+
         {
             "name": "Systest two_nodes_level_0_and_1",
             "type": "python",
             "request": "launch",
-            "program": "systests/systest_two_nodes_level_0_and_1.py",
+            "program": "tests/test_sys_2n_l0_l1.py",
             "args": [""] 
         },
         {
