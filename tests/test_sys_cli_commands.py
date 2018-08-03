@@ -1,10 +1,15 @@
-from rift_expect_session import RiftExpectSession
+# System test: test_sys_2n_l0_l1
+#
+# Test all CLI commands. We invoke each command and check that the prompt returns (i.e. it does not
+# crash). For show commands, we do a bare-bones minimum check of a couple of fields in the output
+# to make sure the command produces some output. We make no attempt to verify the sanity of every
+# single field in the output. For set commands, we do a basic check to see if the desired change
+# takes effect.
 
-# Try every CLI command. Do a basic sanity check of the output, but don't attempt to verify each
-# output field.
-
-# Allow long names so we accurately reflect the CLI command name in the function name
+# Allow long test names
 # pylint: disable=invalid-name
+
+from rift_expect_session import RiftExpectSession
 
 def check_show_fsm_lie(res):
     res.sendline("show fsm lie")
@@ -67,7 +72,7 @@ def check_show_node(res):
     res.table_expect("| if1 | 2 | 0 | True | THREE_WAY | False | False | True |"
                      " Not a ZTP offer flag set |")
     res.table_expect("Sent Offers:")
-    res.table_expect("| if1 | 2 | 1 | False | THREE_WAY |")
+    res.table_expect("| if1 | 1 | 1 | False | THREE_WAY |")
     res.wait_prompt()
 
 def check_show_node_fsm_history(res):

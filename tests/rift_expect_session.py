@@ -9,10 +9,14 @@ class RiftExpectSession:
     EXPECT_TIMEOUT = 1.0
 
     def __init__(self, topology_file, converge_secs=START_CONVERGENCE_SECS):
-        command_line = ("coverage run --parallel-mode rift --interactive topology/{}.yaml"
-                        .format(topology_file))
+        rift_cmd = ("rift "
+                    "--interactive "
+                    "--log-level debug "
+                    "topology/{}.yaml"
+                    .format(topology_file))
+        cmd = "coverage run --parallel-mode {}".format(rift_cmd)
         self._logfile = open('expect.log', 'ab')
-        self._expect_session = pexpect.spawn(command_line, logfile=self._logfile)
+        self._expect_session = pexpect.spawn(cmd, logfile=self._logfile)
         time.sleep(converge_secs)
         self.wait_prompt()
 
@@ -52,4 +56,61 @@ class RiftExpectSession:
             self.expect(".*> ")
         else:
             self.expect("{}> ".format(node_name))
-    
+
+    def check_adjacency_3way(self, node, interface, other_node, other_interface):
+        # Construct full interface names as reported in LIE packets
+        other_full_name = other_node + "-" + other_interface
+        # Go to the node that we want to check
+        self.sendline("set node {}".format(node))
+        self.wait_prompt(node)
+        # Show interfaces reports the adjacency with the other node as THREE_WAY
+        self.sendline("show interfaces")
+        self.table_expect("| {} +| {} +| .* +| THREE_WAY +|".format(interface, other_full_name))
+        self.wait_prompt(node)
+        # Show interface <interface-name> reports the adjacency with the other node as THREE_WAY
+        self.sendline("show interface {}".format(interface))
+        self.table_expect("Interface:")
+        self.table_expect("| Interface Name | {} |".format(interface))
+        self.table_expect("| State | THREE_WAY |")
+        self.table_expect("| Received LIE Accepted or Rejected | Accepted |")
+        self.table_expect("Neighbor:")
+        self.table_expect("| Name | {} |".format(other_full_name))
+        self.wait_prompt(node)
+
+    def check_adjacency_3way_both_nodes(self, node1, interface1, node2, interface2):
+        self.check_adjacency_3way(node1, interface1, node2, interface2)
+        self.check_adjacency_3way(node2, interface2, node1, interface1)
+
+    def check_rx_offer(self, node, interface, system_id, level, not_a_ztp_offer, state, best,
+                       best_3way, removed, removed_reason):
+        # Go to the node that we want to check
+        self.sendline("set node {}".format(node))
+        # Show node reports the offers
+        self.sendline("show node")
+        # Look for the expected offer
+        expected_offer = "| {} | {} | {} | {} | {} | {} | {} | {} | {} |".format(
+            interface, system_id, level, not_a_ztp_offer, state, best, best_3way, removed,
+            removed_reason)
+        self.table_expect("Received Offers:")
+        self.table_expect(expected_offer)
+        self.wait_prompt(node)
+
+    def check_tx_offer(self, node, interface, system_id, level, not_a_ztp_offer, state):
+        # Go to the node that we want to check
+        self.sendline("set node {}".format(node))
+        # Show node reports the offers
+        self.sendline("show node")
+        # Look for the expected offer
+        expected_offer = "| {} | {} | {} | {} | {} |".format(interface, system_id, level,
+                                                             not_a_ztp_offer, state)
+        self.table_expect("Sent Offers:")
+        self.table_expect(expected_offer)
+        self.wait_prompt(node)
+
+    def check_level(self, node, configured_level, level_value):
+        # Show nodes level reports the levels
+        self.sendline("show nodes level")
+        # Look for the expected offer
+        expected_level = "| {} | .* | .* | {} | {} |".format(node, configured_level, level_value)
+        self.table_expect(expected_level)
+        self.wait_prompt()

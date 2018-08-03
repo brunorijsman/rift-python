@@ -125,7 +125,7 @@ class Interface:
         self.debug(self._tx_log, "Send LIE {}".format(protocol_packet))
         tx_offer = offer.TxOffer(
             self._interface_name,
-            neighbor_system_id,
+            self._node.system_id,
             packet_header.level,
             lie_packet.not_a_ztp_offer,
             self._fsm.state)
