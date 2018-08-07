@@ -77,10 +77,6 @@ class RiftExpectSession:
         self.table_expect("| Name | {} |".format(other_full_name))
         self.wait_prompt(node)
 
-    def check_adjacency_3way_both_nodes(self, node1, interface1, node2, interface2):
-        self.check_adjacency_3way(node1, interface1, node2, interface2)
-        self.check_adjacency_3way(node2, interface2, node1, interface1)
-
     def check_rx_offer(self, node, interface, system_id, level, not_a_ztp_offer, state, best,
                        best_3way, removed, removed_reason):
         # Go to the node that we want to check
