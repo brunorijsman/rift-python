@@ -1,10 +1,11 @@
 import argparse
-import re
+
+import log_record
 
 TICK_Y_START = 40
 TICK_Y_INTERVAL = 20
 TIMESTAMP_X = 10
-NODE_X = 220
+NODE_X = 270
 NODE_X_INTERVAL = 100
 IF_X_INTERVAL = 10
 DOT_RADIUS = 5
@@ -23,6 +24,16 @@ def tick_y_bottom(tick):
 
 def tick_y_mid(tick):
     return (tick_y_top(tick) + tick_y_bottom(tick)) // 2
+
+def log_record_color(record):
+    if record.type in ["start-fsm", "push-event", "transition"]:
+        if record.target.type == "if":
+            return IF_FSM_COLOR
+        elif record.target.type == "node":
+            return NODE_FSM_COLOR
+    elif record.type in ["send", "receive"]:
+        return MSG_COLOR
+    return DEFAULT_COLOR
 
 class Target:
 
@@ -50,81 +61,6 @@ class Target:
             Target.nodes[self.node_id] = self
             self.xpos = NODE_X + self.node_index * NODE_X_INTERVAL
 
-class Record:
-
-    record_regex = re.compile(r"(....-..-.. ..:..:..[^:]*):([^:]*):([^:]*):\[(.*)\] (.*)$")
-    start_fsm_regex = re.compile(r"Start FSM, state=(.*)")
-    push_event_regex = re.compile(r"FSM push event, "
-                                  "event=(.*)")
-    transition_regex = re.compile(r"FSM transition "
-                                  "sequence-nr=(.*) "
-                                  "from-state=(.*) "
-                                  "event=(.*) "
-                                  "actions-and-pushed-events=(.*) "
-                                  "to-state=(.*) "
-                                  "implicit=(.*)")
-    send_regex = re.compile(r"Send.*(ProtocolPacket.*)")
-    receive_regex = re.compile(r"Receive.*(ProtocolPacket.*)")
-    lie_packet_regex = re.compile(r".*lie=LIEPacket.*nonce=([0-9]*),")
-
-    def __init__(self, tick, logline):
-        self.tick = tick
-        match_result = Record.record_regex.search(logline)
-        self.timestamp = match_result.group(1)
-        self.severity = match_result.group(2)
-        self.subsystem = match_result.group(3)
-        self.target_id = match_result.group(4)
-        self.target = None
-        self.msg = match_result.group(5)
-        match_result = Record.start_fsm_regex.match(self.msg)
-        if match_result:
-            self.type = "start-fsm"
-            self.state = match_result.group(1)
-            return
-        match_result = Record.push_event_regex.match(self.msg)
-        if match_result:
-            self.type = "push-event"
-            self.event = match_result.group(1)
-            return
-        match_result = Record.transition_regex.match(self.msg)
-        if match_result:
-            self.type = "transition"
-            self.sequence_nr = match_result.group(1)
-            self.from_state = match_result.group(2)
-            self.event = match_result.group(3)
-            self.actions_and_pushed_events = match_result.group(4)
-            self.to_state = match_result.group(5)
-            self.implicit = match_result.group(6)
-            return
-        match_result = Record.send_regex.match(self.msg)
-        if match_result:
-            self.type = "send"
-            self.packet = match_result.group(1)
-            match_result = Record.lie_packet_regex.match(self.packet)
-            if match_result:
-                self.packet_type = "LIE"
-                self.nonce = match_result.group(1)
-            return
-        match_result = Record.receive_regex.match(self.msg)
-        if match_result:
-            self.type = "receive"
-            self.packet = match_result.group(1)
-            match_result = Record.lie_packet_regex.match(self.packet)
-            if match_result:
-                self.packet_type = "LIE"
-                self.nonce = match_result.group(1)
-            return
-        self.type = "other"
-
-    def color(self):
-        if self.type in ["start-fsm", "push-event", "transition"]:
-            if self.target.type == "if":
-                return IF_FSM_COLOR
-            elif self.target.type == "node":
-                return NODE_FSM_COLOR
-        elif self.type in ["send", "receive"]:
-            return MSG_COLOR
-        return DEFAULT_COLOR
 
 class PendingMessage:
 
@@ -157,7 +93,7 @@ class Visualizer:
 
     def parse_log_line(self, logline):
         self.tick += 1
-        return Record(self.tick, logline)
+        return log_record.LogRecord(self.tick, logline)
 
     def target_for_record(self, record):
         if record.target_id in self.targets:
@@ -183,7 +119,8 @@ class Visualizer:
     def show_timestamp(self, tick, timestamp):
         xpos = TIMESTAMP_X
         ypos = tick_y_mid(tick)
-        text = timestamp
+        tick_str = "{:06d}".format(tick)
+        text = tick_str + " " + timestamp
         self.svg_text(xpos, ypos, text, TIMESTAMP_COLOR)
 
     def show_all_target_ticks(self):
@@ -205,53 +142,56 @@ class Visualizer:
     def show_start_fsm(self, record):
         xpos = record.target.xpos
         ypos = tick_y_mid(record.tick)
-        self.svg_dot(xpos, ypos, DOT_RADIUS, record.color())
+        color = log_record_color(record)
+        self.svg_dot(xpos, ypos, DOT_RADIUS, color)
         xpos += 2 * DOT_RADIUS
         text = "[" + record.state + "]"
-        self.svg_text(xpos, ypos, text, record.color())
+        self.svg_text(xpos, ypos, text, color)
 
     def show_push_event(self, record):
         xpos = record.target.xpos
         ypos = tick_y_mid(record.tick)
-        self.svg_dot(xpos, ypos, DOT_RADIUS, record.color())
+        color = log_record_color(record)
+        self.svg_dot(xpos, ypos, DOT_RADIUS, color)
         xpos += 2 * DOT_RADIUS
-        text = record.event
-        self.svg_text(xpos, ypos, text, record.color())
+        text = "Push " + record.event
+        self.svg_text(xpos, ypos, text, color)
 
     def show_transition(self, record):
         xpos = record.target.xpos
         ypos = tick_y_mid(record.tick)
-        self.svg_dot(xpos, ypos, DOT_RADIUS, record.color())
+        color = log_record_color(record)
+        self.svg_dot(xpos, ypos, DOT_RADIUS, color)
         xpos += 2 * DOT_RADIUS
-        text = (record.event + " [" + record.from_state + "] > " +
+        text = ("Transition " + record.event + " [" + record.from_state + "] > " +
                 record.actions_and_pushed_events + " [" + record.to_state + "]")
-        self.svg_text(xpos, ypos, text, record.color())
+        self.svg_text(xpos, ypos, text, color)
 
     def show_send(self, record):
-        # TODO: Show message name
         xpos = record.target.xpos
         ypos = tick_y_mid(record.tick)
-        self.svg_dot(xpos, ypos, DOT_RADIUS, record.color())
+        color = log_record_color(record)
+        self.svg_dot(xpos, ypos, DOT_RADIUS, color)
         self.pending_messages[record.nonce] = PendingMessage(record.nonce, xpos, ypos)
         xpos += 2 * DOT_RADIUS
-        text = record.packet_type
-        self.svg_text(xpos, ypos, text, record.color())
+        text = "TX " + record.packet_type + " " + record.nonce #!DEBUG
+        self.svg_text(xpos, ypos, text, color)
 
     def show_receive(self, record):
-        # TODO: Show arrow from send to receive
         xpos = record.target.xpos
         ypos = tick_y_mid(record.tick)
-        self.svg_dot(xpos, ypos, DOT_RADIUS, record.color())
+        color = log_record_color(record)
+        self.svg_dot(xpos, ypos, DOT_RADIUS, color)
         if record.nonce in self.pending_messages:
             xstart = self.pending_messages[record.nonce].xstart
             ystart = self.pending_messages[record.nonce].ystart
             xend = record.target.xpos
             yend = tick_y_mid(record.tick)
-            self.svg_line(xstart, ystart, xend, yend, record.color())
+            self.svg_line(xstart, ystart, xend, yend, color)
             del self.pending_messages[record.nonce]
         xpos += 2 * DOT_RADIUS
-        text = record.packet_type
-        self.svg_text(xpos, ypos, text, record.color())
+        text = "RX " + record.packet_type + " " + record.nonce  #!DEBUG
+        self.svg_text(xpos, ypos, text, color)
 
     def svg_start(self):
         self.svgfile.write('<svg '

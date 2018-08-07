@@ -3,14 +3,15 @@
 # Test an extremely simple topology with two nodes. One is hard-configured to level 0. The other is
 # hard-configured to level 1. ZTP is not active. We test the following:
 # * The adjacency reached state 3-way on both nodes
-# * TODO: the right sequence of events and transitions takes place in the LIE FSM in each node
+# * The right sequence of events and transitions takes place in the LIE FSM in each node
 
 # Allow long test names
 # pylint: disable=invalid-name
 
 from rift_expect_session import RiftExpectSession
+from log_expect_session import LogExpectSession
 
-def check_node1(res):
+def check_rift_node1(res):
     res.check_adjacency_3way(
         node="node1",
         interface="if1",
@@ -39,7 +40,7 @@ def check_node1(res):
         configured_level=1,
         level_value=1)
 
-def check_node2(res):
+def check_rift_node2(res):
     res.check_adjacency_3way(
         node="node2",
         interface="if1",
@@ -68,8 +69,13 @@ def check_node2(res):
         configured_level=0,
         level_value=0)
 
+def check_log_node1(les):
+    les.check_lie_fsm_3way("1", "if1")
+
 def test_2_nodes_level_0_and_level_1():
     res = RiftExpectSession("2n_l0_l1")
-    check_node1(res)
-    check_node2(res)
+    check_rift_node1(res)
+    check_rift_node2(res)
     res.stop()
+    les = LogExpectSession("rift.log")
+    check_log_node1(les)

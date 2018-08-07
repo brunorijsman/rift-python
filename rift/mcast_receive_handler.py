@@ -13,7 +13,7 @@ class McastReceiveHandler:
 
     MAXIMUM_MESSAGE_SIZE = 65535
 
-    def __init__(self, _interface_name, mcast_ipv4_address, port, loopback, receive_function,
+    def __init__(self, _interface_name, mcast_ipv4_address, port, receive_function,
                  interface_ipv4_address):
         self._interface_ipv4_address = interface_ipv4_address
         self._mcast_ipv4_address = mcast_ipv4_address
@@ -30,8 +30,6 @@ class McastReceiveHandler:
         else:
             req = struct.pack("=4sl", socket.inet_aton(mcast_ipv4_address), socket.INADDR_ANY)
         self._sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, req)
-        if loopback:
-            self._sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, 1)
         scheduler.SCHEDULER.register_handler(self, True, False)
 
     def close(self):

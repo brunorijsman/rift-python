@@ -4,11 +4,11 @@ import pytest
 
 class RiftExpectSession:
 
-    START_CONVERGENCE_SECS = 3.0    # TODO: Can this be faster?
+    start_converge_secs = 3.0
 
-    EXPECT_TIMEOUT = 1.0
+    expect_timeout = 1.0
 
-    def __init__(self, topology_file, converge_secs=START_CONVERGENCE_SECS):
+    def __init__(self, topology_file, converge_secs=start_converge_secs):
         rift_cmd = ("rift "
                     "--interactive "
                     "--log-level debug "
@@ -31,7 +31,7 @@ class RiftExpectSession:
     def sendline(self, line):
         self._expect_session.sendline(line)
 
-    def expect(self, pattern, timeout=EXPECT_TIMEOUT):
+    def expect(self, pattern, timeout=expect_timeout):
         msg = "*** Expect: {}\n".format(pattern)
         self._logfile.write(msg.encode())
         try:
@@ -44,7 +44,7 @@ class RiftExpectSession:
         if failed:
             pytest.fail('Timeout expecting "{} (see expect.log for details)"'.format(pattern))
 
-    def table_expect(self, pattern, timeout=EXPECT_TIMEOUT):
+    def table_expect(self, pattern, timeout=expect_timeout):
         # Allow multiple spaces at end of each cell, even if only one was asked for
         pattern = pattern.replace(" |", " +|")
         # The | character is a literal end-of-cell, not a regexp OR

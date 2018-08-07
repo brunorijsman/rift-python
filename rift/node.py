@@ -293,7 +293,6 @@ class Node:
         self._leaf_2_leaf = leaf_2_leaf
         self._superspine_flag = superspine_flag
         self._interfaces = sortedcontainers.SortedDict()
-        self._mcast_loop = True      # TODO: make configurable
         self._rx_lie_ipv4_mcast_address = self.get_config_attribute(
             'rx_lie_mcast_address', constants.DEFAULT_LIE_IPV4_MCAST_ADDRESS)
         self._tx_lie_ipv4_mcast_address = self.get_config_attribute(
@@ -459,7 +458,6 @@ class Node:
             ["Highest Available Level (HAL)", self._highest_available_level],
             ["Highest Adjacency Three-way (HAT)", self._highest_adjacency_three_way],
             ["Level Value", self.level_value()],
-            ["Multicast Loop", self._mcast_loop],
             ["Receive LIE IPv4 Multicast Address", self._rx_lie_ipv4_mcast_address],
             ["Transmit LIE IPv4 Multicast Address", self._tx_lie_ipv4_mcast_address],
             ["Receive LIE IPv6 Multicast Address", self._rx_lie_ipv6_mcast_address],
@@ -604,10 +602,6 @@ class Node:
     @property
     def lie_send_interval_secs(self):
         return self._lie_send_interval_secs
-
-    @property
-    def mcast_loop(self):
-        return self._mcast_loop
 
     @property
     def running(self):

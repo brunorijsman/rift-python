@@ -8,6 +8,7 @@ class McastSendHandler:
         self._port = port
         self._interface_ipv4_address = interface_ipv4_address
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+        self._sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, 0)
         # TODO: should not be needed since TTL is 1 by default (check this before deleting comment)
         # self._sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 1)
         if self._interface_ipv4_address:

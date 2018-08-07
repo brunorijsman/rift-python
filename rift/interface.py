@@ -517,7 +517,6 @@ class Interface:
             self._interface_name,
             self._rx_lie_ipv4_mcast_address,
             self._rx_lie_port,
-            self._node.mcast_loop,
             self.receive_mcast_message,
             self._node.rift.tx_src_address)
         self._one_second_timer = timer.Timer(1.0,
@@ -543,10 +542,6 @@ class Interface:
             self.warning(self._rx_log, "Received packet without content")
             return
         if protocol_packet.content.lie:
-            # TODO: Do I really want to remove this?
-            # if self._node.mcast_loop and (self._node.system_id == protocol_packet.header.sender):
-            #    self.info(self._log, "Ignore looped back LIE packet")
-            # else:
             event_data = (protocol_packet, from_address_and_port)
             self._fsm.push_event(self.Event.LIE_RECEIVED, event_data)
         if protocol_packet.content.tide:
