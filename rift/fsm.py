@@ -285,7 +285,6 @@ class Fsm:
         self._current_record = None
 
     def history_table(self, verbose):
-        #! TODO: Use verbose
         tab = table.Table()
         tab.add_row([
             ['Sequence', 'Nr'],
