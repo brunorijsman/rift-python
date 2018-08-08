@@ -182,7 +182,11 @@ class FsmRecord:
 
 class Fsm:
 
+    # See DEV-7 in doc/deviations.md for meaning of _event_queue vs _chained_event_queue
+
     _event_queue = collections.deque()
+
+    _chained_event_queue = collections.deque()
 
     def info(self, msg):
         if self._log:
@@ -224,17 +228,25 @@ class Fsm:
     def push_event(self, event, event_data=None):
         fsm = self
         event_tuple = (fsm, event, event_data)
-        self._event_queue.append(event_tuple)
         if self._current_record:
+            # Chained event
+            self._chained_event_queue.append(event_tuple)
             self._current_record.actions_and_pushed_events.append(event.name)
         else:
+            # Normal event
+            self._event_queue.append(event_tuple)
             verbose = (event in self._verbose_events)
             self.info_or_debug(verbose, "FSM push event, event={}".format(event.name))
 
     @staticmethod
     def process_queued_events():
-        while Fsm._event_queue:
-            event_tuple = Fsm._event_queue.popleft()
+        while True:
+            if Fsm._chained_event_queue:
+                event_tuple = Fsm._chained_event_queue.popleft()
+            elif Fsm._event_queue:
+                event_tuple = Fsm._event_queue.popleft()
+            else:
+                return
             fsm = event_tuple[0]
             event = event_tuple[1]
             event_data = event_tuple[2]

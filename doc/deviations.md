@@ -10,7 +10,8 @@ This section describes places where this Python RIFT engine implementation consc
 | DEV-4 | [Rules for accepting a received LIE message](#rules-for-accepting-a-received-lie-message)
 | DEV-5 | [Remove event ChangeLocalLeafIndications from ZTP FSM](#remove-event-changelocalleafindications-from-ztp-fsm) |
 | DEV-6 | [Use real ZTP hold down timer](#use-real-ztp-hold-down-timer) |
-
+| DEV-6 | [Use real ZTP hold down timer](#use-real-ztp-hold-down-timer) |
+| DEV-7 | [Pushed events vs chained event](#pushed-events-vs-chained-events) |
 ## Remove event WithdrawNeighborOffer from the ZTP FSM
 
 The ZTP state machine has an event "NeighborOffer". In the description of this event it is explictly mentioned that the level is optional, i.e. the level could be absent which means UNDEFINED_LEVEL. I interpret the absence of a level field to mean that the offer is withdrawn. This assumption is confirmed by the fact that the action for the event NeighborOffer has an explicit "if no level offered then REMOVE_OFFER else ...". 
@@ -96,4 +97,67 @@ The ZTP FSM uses a hold down timer to manage the time spent in state HoldingDown
 The Timer class in Python RIFT supports "real" timers. You can start a timer with an arbitrary expiry time, and an event can be generated when the timer expires, without the need for counting ticks.
 
 We use a "real" timer to implement the ZTP hold down timer, and hence we don't need any ShortTic events.
+
+## Pushed events vs chained event
+
+There are two circumstances in the specification that may case an event to be pushed to a Finite 
+State Machine (FSM):
+
+1) Events that are pushed by external events (timer expiry, message reception, etc.) Let's call
+these "normal" events.
+
+2) Events that are pushed as part of a FSM transition. Let's call these "chained" events.
+
+The specification doesn't mention anything about these two types of events being processed any
+differently.
+
+In our implementation we *do* treat normal events and chained events slightly differently in the
+order in which they are processed:
+
+1) Normal events are queued in a the "normal" event queue (attribute _event_queue in class Fsm).
+
+2) Chained events are queued in a separate "chained" event queue (attribute _chained_event_queue
+in class Fsm).
+
+Events in the chained event queue are always processed before event in the normal event queue.
+This means that if a transition causes any "chained" events to be pushed, those events will be
+processed immediately before any "normal" events causes by external factors will be processed.
+
+Why is this needed? Consider the following example from the LIE FSM:
+imagine a LIE message is received, and immediately after that, the timer expires.
+
+If all pushed events (both normal and chained) were processed in the order in which they are 
+pushed, the following would happen:
+
+| State | Event / Transition | Root cause |
+| --- | --- | --- | --- |
+| ONE \_WAY | LIE received, push LIE \_RECEIVED event | LIE message receipt |
+| ONE \_WAY | Timer expires, push TIMER \_TICK event | Timer expiry |
+| ONE \_WAY | LIE \_RECEIVED [ONE \_WAY] > process \_lie, NEW \_NEIGHBOR [None] | LIE message receipt |
+| ONE \_WAY | TIMER \_TICK [ONE \_WAY] > SEND \_LIE [None] | Timer expiry |
+| ONE \_WAY | NEW \_NEIGHBOR [ONE \_WAY] > SEND \_LIE [TWO \_WAY] | LIE message receipt |
+| TWO \_WAY | SEND \_LIE [TWO \_WAY] > send \_lie [None] | Timer expiry |
+
+Note that the events and transitions which are the result of the LIE message receipt are 
+interleaved with the event and transitions which are the result of the timer expiry.
+
+In particular, note that the timer expired in state ONE \_WAY, but the corresponding send \_lie
+action happens in the TWO \_WAY state. In this particular example, it doesn't matter that much,
+but one can imagine FSMs where it would be disastrous is an event leads to a sequence of actions
+where some actions are execute in one state and other actions are executed in another state.
+
+With the new rule of always finishing chained actions before considering the next normal action,
+we get the following sequence of events:
+
+| State | Type event | Event / Transition | Root cause |
+| --- | --- | --- | --- |
+| ONE \_WAY | N/A | LIE received, push LIE \_RECEIVED event | LIE message receipt |
+| ONE \_WAY | N/A | Timer expires, push TIMER \_TICK event | Timer expiry |
+| ONE \_WAY | Normal | LIE \_RECEIVED [ONE \_WAY] > process \_lie, NEW \_NEIGHBOR [None] | LIE message receipt |
+| ONE \_WAY | Chained | NEW \_NEIGHBOR [ONE \_WAY] > SEND \_LIE [TWO \_WAY] | LIE message receipt |
+| TWO \_WAY | Normal | TIMER \_TICK [TWO \_WAY] > SEND \_LIE [None] | Timer expiry |
+| TWO \_WAY | Chained | SEND \_LIE [TWO \_WAY] > send \_lie [None] | Timer expiry |
+
+Not only does this rule avoid hypothetical incorrect behavior, it is also much easier to 
+understand and hence debug.
 
