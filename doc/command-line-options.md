@@ -150,6 +150,41 @@ nodes.
 Command Line Interface (CLI) available on port 52482
 </pre>
 
+## Multicast loopback
+
+If the RIFT engine runs a multi-node topology on a single host, then every multicast packet which is sent by a node on the host needs to be received exactly once by another node running on the same host.
+
+When a node sends a single multicast packet on a transmit socket, it may be received zero times, one time, or two times on a receive socket on the same host.
+
+The exact behavior depends on a number of factors:
+
+* Whether or not the IP\_MULTICAST\_LOOP socket option is enabled on the sending socket.
+
+* The make, model, and configuration of router to which the host is connected.
+
+* Possibly also the operating system running on the host.
+
+See [this StackOverflow question](http://bit.ly/multicast-duplication) for more details.
+
+By default, the RIFT code uses an auto-detection mechanism to figure out whether or not it needs to enable the IP\_MULTICAST\_LOOP flag on transmit sockets.
+
+The auto-detect mechanism uses the following rules:
+
+* First it disables the IP\_MULTICAST\_LOOP flag and sends a single multicast packet. It then checks how many copies of the multicast packet are received. If a single copy is received, it uses IP\_MULTICAST\_LOOP = disabled as the auto-detected value.
+
+* Otherwise it enables the IP\_MULTICAST\_LOOP flag and sends a single multicast packet. It then checks how many copies of the multicast packet are received. If a single copy is received, it uses IP\_MULTICAST\_LOOP = enabled as the auto-detected value.
+
+* If any other behavior is observed it generates an assertion failure with a message describing the observed behavior.
+
+The auto-detection mechanism takes between 1 and 2 seconds to complete, which causes a noticable delay during startup.
+
+You can use the following command-line options to disable the auto-detection mechanism (and hence avoid the startup delay).
+
+The command-line option "--multicast-loopback-enable" forces IP\_MULTICAST\_LOOP = enabled.
+
+The command-line option "--multicast-loopback-disable" forces IP\_MULTICAST\_LOOP = disabled.
+
+
 ## Logging
 
 The RIFT protocol engine writes log messages to the file rift.log in the same directory as where

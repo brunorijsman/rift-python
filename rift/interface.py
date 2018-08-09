@@ -509,7 +509,8 @@ class Interface:
             self._interface_name,
             self._tx_lie_ipv4_mcast_address,
             self._tx_lie_port,
-            self._node.rift.tx_src_address)
+            self._node.rift.tx_src_address,
+            self._node.rift.multicast_loopback)
         # TODO: Use source address
         (_, source_port) = self._mcast_send_handler.source_address_and_port()
         self._lie_udp_source_port = source_port

@@ -1,24 +1,19 @@
 import socket
-import sys
 import scheduler
 
 class McastSendHandler:
 
-    def __init__(self, _interface_name, mcast_ipv4_address, port, interface_ipv4_address):
+    def __init__(self, _interface_name, mcast_ipv4_address, port, interface_ipv4_address,
+                 multicast_loopback):
         self._mcast_ipv4_address = mcast_ipv4_address
         self._port = port
         self._interface_ipv4_address = interface_ipv4_address
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-        # TODO: Make loopback a command-line option and a config file option
-        if sys.platform == "darwin":
-            # On macOS, you receive 2 copies of each packet if loopback is enabled
-            self._sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, 0)
-        elif sys.platform == "linux":
-            # On Linux, loopback must not remain disabled; if you do, no packets are received
-            pass
+        self._multicast_loopback = multicast_loopback
+        if multicast_loopback:
+            self._sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, 1)
         else:
-            # We don't recognize this platform, just gamble that it behaves like Linux
-            pass
+            self._sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, 0)
         # TODO: should not be needed since TTL is 1 by default (check this before deleting comment)
         # self._sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 1)
         if self._interface_ipv4_address:

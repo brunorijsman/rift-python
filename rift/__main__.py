@@ -4,6 +4,7 @@ import logging
 import config
 import constants
 import engine
+import multicast_checks
 
 def log_level(string):
     string = string.lower()
@@ -33,6 +34,11 @@ def parse_command_line_arguments():
                         help='Log level (debug, info, warning, error, critical)')
     parser.add_argument('-i', '--interactive', action="store_true",
                         help='Start Command Line Interface (CLI) on stdin/stdout instead of port')
+    loopback_group = parser.add_mutually_exclusive_group()
+    loopback_group.add_argument('--multicast-loopback-enable', action="store_true",
+                                help='Enable IP_MULTICAST_LOOP option on multicast send sockets')
+    loopback_group.add_argument('--multicast-loopback-disable', action="store_true",
+                                help='Disable IP_MULTICAST_LOOP option on multicast send sockets')
     parsed_args = parser.parse_args()
     return parsed_args
 
@@ -44,11 +50,20 @@ def active_nodes(parsed_args):
     else:
         return constants.ActiveNodes.ALL_NODES
 
+def multicast_loopback(parsed_args):
+    if parsed_args.multicast_loopback_enable:
+        return True
+    elif parsed_args.multicast_loopback_disable:
+        return False
+    else:
+        return multicast_checks.loopback_needed()
+
 def main():
     args = parse_command_line_arguments()
     parsed_config = config.parse_configuration(args.configfile)
     eng = engine.Engine(active_nodes=active_nodes(args),
                         interactive=args.interactive,
+                        multicast_loopback=multicast_loopback(args),
                         log_level=args.log_level,
                         config=parsed_config)
     eng.run()

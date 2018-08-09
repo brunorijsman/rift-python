@@ -14,13 +14,14 @@ import table
 
 class Engine:
 
-    def __init__(self, active_nodes, interactive, log_level, config):
+    def __init__(self, active_nodes, interactive, multicast_loopback, log_level, config):
         logging.basicConfig(
             filename='rift.log',
             format='%(asctime)s:%(levelname)s:%(name)s:%(message)s',
             level=log_level)
         self._active_nodes = active_nodes
         self._interactive = interactive
+        self._multicast_loopback = multicast_loopback
         self._config = config
         self._tx_src_address = self.read_global_configuration(config, 'tx_src_address', '')
         self._nodes = sortedcontainers.SortedDict()
@@ -174,3 +175,7 @@ class Engine:
     @property
     def tx_src_address(self):
         return self._tx_src_address
+
+    @property
+    def multicast_loopback(self):
+        return self._multicast_loopback
