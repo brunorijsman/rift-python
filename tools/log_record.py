@@ -17,6 +17,7 @@ class LogRecord:
     send_regex = re.compile(r"Send.*(ProtocolPacket.*)")
     receive_regex = re.compile(r"Receive.*(ProtocolPacket.*)")
     lie_packet_regex = re.compile(r".*lie=LIEPacket.*nonce=([0-9]*)")
+    cli_command_regex = re.compile(r".*Execute CLI command \"(.*)\"")
 
     def __init__(self, tick, logline):
         self.tick = tick
@@ -64,5 +65,10 @@ class LogRecord:
             if match_result:
                 self.packet_type = "LIE"
                 self.nonce = match_result.group(1)
+            return
+        match_result = LogRecord.cli_command_regex.match(self.msg)
+        if match_result:
+            self.type = "cli"
+            self.cli_command = match_result.group(1)
             return
         self.type = "other"

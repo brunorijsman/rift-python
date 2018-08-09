@@ -70,7 +70,7 @@ def check_rift_node2(res):
         level_value=0)
 
 def check_log_node1(les):
-    les.check_lie_fsm_3way("1", "if1")
+    les.check_lie_fsm_3way("node1", "if1")
 
 def test_2_nodes_level_0_and_level_1():
     res = RiftExpectSession("2n_l0_l1")

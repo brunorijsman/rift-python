@@ -54,8 +54,8 @@ def check_show_interface_fsm_history(res):
 
 def check_show_interface_fsm_verbose_history(res):
     res.sendline("show interface if1 fsm verbose-history")
-    res.table_expect("| THREE_WAY | LIE_RECEIVED | process_lie | None | False |")
-    res.table_expect("| THREE_WAY | SEND_LIE | send_lie | None | False |")
+    res.table_expect("| .* | LIE_RECEIVED | process_lie | None | False |")
+    res.table_expect("| .* | SEND_LIE | send_lie | None | False |")
     res.wait_prompt()
 
 def check_show_interfaces(res):

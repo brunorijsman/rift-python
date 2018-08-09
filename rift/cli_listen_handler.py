@@ -21,7 +21,6 @@ class CliListenHandler:
         scheduler.SCHEDULER.register_handler(self, True, False)
         msg = "Command Line Interface (CLI) available on port {}".format(self._port)
         print(msg)
-        log.info(msg)
 
     def close(self):
         scheduler.SCHEDULER.unregister_handler(self)

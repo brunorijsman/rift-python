@@ -14,6 +14,7 @@ TARGET_COLOR = "black"
 IF_FSM_COLOR = "coral"
 NODE_FSM_COLOR = "red"
 MSG_COLOR = "blue"
+CLI_COLOR = "green"
 DEFAULT_COLOR = "black"
 
 def tick_y_top(tick):
@@ -33,6 +34,8 @@ def log_record_color(record):
             return NODE_FSM_COLOR
     elif record.type in ["send", "receive"]:
         return MSG_COLOR
+    elif record.type == "cli":
+        return CLI_COLOR
     return DEFAULT_COLOR
 
 class Target:
@@ -60,7 +63,6 @@ class Target:
             self.next_if_index = 0
             Target.nodes[self.node_id] = self
             self.xpos = NODE_X + self.node_index * NODE_X_INTERVAL
-
 
 class PendingMessage:
 
@@ -115,6 +117,8 @@ class Visualizer:
             self.show_send(record)
         elif record.type == 'receive':
             self.show_receive(record)
+        elif record.type == 'cli':
+            self.show_cli(record)
 
     def show_timestamp(self, tick, timestamp):
         xpos = TIMESTAMP_X
@@ -174,7 +178,7 @@ class Visualizer:
         self.svg_dot(xpos, ypos, DOT_RADIUS, color)
         self.pending_messages[record.nonce] = PendingMessage(record.nonce, xpos, ypos)
         xpos += 2 * DOT_RADIUS
-        text = "TX " + record.packet_type + " " + record.nonce #!DEBUG
+        text = "TX " + record.packet_type
         self.svg_text(xpos, ypos, text, color)
 
     def show_receive(self, record):
@@ -190,7 +194,16 @@ class Visualizer:
             self.svg_line(xstart, ystart, xend, yend, color)
             del self.pending_messages[record.nonce]
         xpos += 2 * DOT_RADIUS
-        text = "RX " + record.packet_type + " " + record.nonce  #!DEBUG
+        text = "RX " + record.packet_type
+        self.svg_text(xpos, ypos, text, color)
+
+    def show_cli(self, record):
+        xpos = record.target.xpos
+        ypos = tick_y_mid(record.tick)
+        color = log_record_color(record)
+        self.svg_dot(xpos, ypos, DOT_RADIUS, color)
+        xpos += 2 * DOT_RADIUS
+        text = record.cli_command
         self.svg_text(xpos, ypos, text, color)
 
     def svg_start(self):

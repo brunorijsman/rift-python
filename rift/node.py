@@ -280,7 +280,7 @@ class Node:
         self._passive = self.get_config_attribute('passive', False)
         self._running = self.is_running()
         self._system_id = self.get_config_attribute('systemid', self.generate_system_id())
-        self._log_id = utils.system_id_str(self._system_id)
+        self._log_id = self._name
         self._log = logging.getLogger('node')
         # TODO: Make sure formating of log message is deferred everywhere, not just direct calls
         self._log.info("[%s] Create node", self._log_id)

@@ -19,18 +19,20 @@ class CliSessionHandler:
         self._parse_tree = parse_tree
         self._command_handler = command_handler
         self._log = log
-        if sock:
-            self._log_id = sock.getpeername()[0] + ":" + str(sock.getpeername()[1])
-        else:
-            self._log_id = "local"
-        self.info("Open CLI session")
         self._current_node = node
+        self.info("Open CLI session")
         self._str = ""
         scheduler.SCHEDULER.register_handler(self, True, False)
         self.send_prompt()
 
+    def peername(self):
+        if self._sock:
+            return self._sock.getpeername()[0] + ":" + str(self._sock.getpeername()[1])
+        else:
+            return "local"
+
     def info(self, msg):
-        self._log.info("[%s] %s", self._log_id, msg)
+        self._log.info("[%s] %s: %s", self.current_node_name(), self.peername(), msg)
 
     def close(self):
         self.info("Close CLI session")
@@ -160,8 +162,7 @@ class CliSessionHandler:
             command = split[0]
             self._str = split[1]
             if command != '':
-                self.info("Node {} executes CLI command \"{}\"".format(self.current_node_name(),
-                                                                       command))
+                self.info("Execute CLI command \"{}\"".format(command))
                 self.parse_command(command)
             self.send_prompt()
 
