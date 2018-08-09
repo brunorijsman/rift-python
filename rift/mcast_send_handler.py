@@ -3,8 +3,9 @@ import scheduler
 
 class McastSendHandler:
 
-    def __init__(self, _interface_name, mcast_ipv4_address, port, interface_ipv4_address,
+    def __init__(self, interface_name, mcast_ipv4_address, port, interface_ipv4_address,
                  multicast_loopback):
+        self._interface_name = interface_name
         self._mcast_ipv4_address = mcast_ipv4_address
         self._port = port
         self._interface_ipv4_address = interface_ipv4_address
