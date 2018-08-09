@@ -9,7 +9,7 @@ import scheduler
 
 class CliSessionHandler:
 
-    def __init__(self, sock, rx_fd, tx_fd, parse_tree, command_handler, prompt):
+    def __init__(self, sock, rx_fd, tx_fd, parse_tree, command_handler, log, node):
         # Socket is None for interactive sessions that use stdin and stdout. For network connections
         # it is something else than None; we never use the socket, but we need to store it anyway
         # to prevent the socket from being garbage collected causing the connection to be closed.
@@ -18,12 +18,22 @@ class CliSessionHandler:
         self._tx_fd = tx_fd
         self._parse_tree = parse_tree
         self._command_handler = command_handler
-        self._prompt = prompt
+        self._log = log
+        if sock:
+            self._log_id = sock.getpeername()[0] + ":" + str(sock.getpeername()[1])
+        else:
+            self._log_id = "local"
+        self.info("Open CLI session")
+        self._current_node = node
         self._str = ""
         scheduler.SCHEDULER.register_handler(self, True, False)
         self.send_prompt()
 
+    def info(self, msg):
+        self._log.info("[%s] %s", self._log_id, msg)
+
     def close(self):
+        self.info("Close CLI session")
         scheduler.SCHEDULER.unregister_handler(self)
         # If this was the interactive (stdin/stdout) CLI session, exit the RIFT engine as well
         if self._sock is None:
@@ -120,8 +130,14 @@ class CliSessionHandler:
                 return
             self.parse_tokens(tokens, parse_subtree, parameters)
 
+    def current_node_name(self):
+        if self._current_node:
+            return self._current_node.name
+        else:
+            return ""
+
     def send_prompt(self):
-        self.print(self._prompt + "> ", False)
+        self.print(self.current_node_name() + "> ", False)
 
     def ready_to_read(self):
         data = os.read(self._rx_fd, 1024)
@@ -144,8 +160,14 @@ class CliSessionHandler:
             command = split[0]
             self._str = split[1]
             if command != '':
+                self.info("Node {} executes CLI command \"{}\"".format(self.current_node_name(),
+                                                                       command))
                 self.parse_command(command)
             self.send_prompt()
 
-    def set_prompt(self, prompt):
-        self._prompt = prompt
+    def set_current_node(self, node):
+        self._current_node = node
+
+    @property
+    def current_node(self):
+        return self._current_node

@@ -329,12 +329,6 @@ class Node:
             start=False)
         self._fsm.start()
 
-    def info(self, logger, msg):
-        logger.info("[%s] %s", self._log_id, msg)
-
-    def warning(self, logger, msg):
-        logger.warning("[%s] %s", self._log_id, msg)
-
     def generate_system_id(self):
         mac_address = uuid.getnode()
         pid = os.getpid()

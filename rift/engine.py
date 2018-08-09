@@ -26,13 +26,11 @@ class Engine:
         self._tx_src_address = self.read_global_configuration(config, 'tx_src_address', '')
         self._nodes = sortedcontainers.SortedDict()
         self.create_configuration()
+        cli_log = logging.getLogger('cli')
         if self._nodes:
-            (first_name, first_node) = self._nodes.peekitem(0)
-            self._cli_current_node = first_node
-            self._cli_current_prompt = first_name
+            first_node = self._nodes.peekitem(0)[1]
         else:
-            self._cli_current_node = None
-            self._cli_current_prompt = ''
+            first_node = None
         if self._interactive:
             self._cli_listen_handler = None
             self._interactive_cli_session_handler = cli_session_handler.CliSessionHandler(
@@ -41,12 +39,14 @@ class Engine:
                 tx_fd=sys.stdout.fileno(),
                 parse_tree=self.parse_tree,
                 command_handler=self,
-                prompt=self._cli_current_prompt)
+                log=cli_log,
+                node=first_node)
         else:
             self._cli_listen_handler = cli_listen_handler.CliListenHandler(
                 command_tree=self.parse_tree,
                 command_handler=self,
-                prompt=self._cli_current_prompt)
+                log=cli_log,
+                default_node=first_node)
             self._interactive_cli_session_handler = None
 
     def read_global_configuration(self, config, attribute, default):
@@ -93,32 +93,30 @@ class Engine:
         cli_session.print(tab.to_string())
 
     def command_show_node(self, cli_session):
-        self._cli_current_node.command_show_node(cli_session)
+        cli_session.current_node.command_show_node(cli_session)
 
     def command_show_node_fsm_nvhis(self, cli_session):
-        self._cli_current_node.command_show_node_fsm_history(cli_session, False)
+        cli_session.current_node.command_show_node_fsm_history(cli_session, False)
 
     def command_show_node_fsm_vhis(self, cli_session):
-        self._cli_current_node.command_show_node_fsm_history(cli_session, True)
+        cli_session.current_node.command_show_node_fsm_history(cli_session, True)
 
     def command_show_interfaces(self, cli_session):
-        self._cli_current_node.command_show_interfaces(cli_session)
+        cli_session.current_node.command_show_interfaces(cli_session)
 
     def command_show_interface(self, cli_session, parameters):
-        self._cli_current_node.command_show_interface(cli_session, parameters)
+        cli_session.current_node.command_show_interface(cli_session, parameters)
 
     def command_show_intf_fsm_nvhis(self, cli_session, parameters):
-        self._cli_current_node.command_show_intf_fsm_hist(cli_session, parameters, False)
+        cli_session.current_node.command_show_intf_fsm_hist(cli_session, parameters, False)
 
     def command_show_intf_fsm_vhis(self, cli_session, parameters):
-        self._cli_current_node.command_show_intf_fsm_hist(cli_session, parameters, True)
+        cli_session.current_node.command_show_intf_fsm_hist(cli_session, parameters, True)
 
     def command_set_node(self, cli_session, parameters):
         node_name = parameters['node']
         if node_name in self._nodes:
-            self._cli_current_node = self._nodes[node_name]
-            self._cli_current_prompt = node_name
-            cli_session.set_prompt(node_name)
+            cli_session.set_current_node(self._nodes[node_name])
         else:
             cli_session.print("Node {} does not exist".format(node_name))
 
@@ -129,8 +127,8 @@ class Engine:
             cli_session.print("Invalid level value (expected undefined, leaf, leaf-to-leaf, "
                               "superspine, or number)")
             return
-        self._cli_current_node.fsm.push_event(node.Node.Event.CHANGE_LOCAL_CONFIGURED_LEVEL,
-                                              level_symbol)
+        cli_session.current_node.fsm.push_event(node.Node.Event.CHANGE_LOCAL_CONFIGURED_LEVEL,
+                                                level_symbol)
 
     def command_exit(self, cli_session):
         cli_session.close()
