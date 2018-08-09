@@ -113,6 +113,9 @@ class Engine:
     def command_show_intf_fsm_vhis(self, cli_session, parameters):
         cli_session.current_node.command_show_intf_fsm_hist(cli_session, parameters, True)
 
+    def command_set_interface_failure(self, cli_session, parameters):
+        cli_session.current_node.command_set_interface_failure(cli_session, parameters)
+
     def command_set_node(self, cli_session, parameters):
         node_name = parameters['node']
         if node_name in self._nodes:
@@ -136,6 +139,9 @@ class Engine:
     parse_tree = {
         "exit": command_exit,
         "set": {
+            "$interface": {
+                "$failure": command_set_interface_failure
+            },
             "$node": command_set_node,
             "$level": command_set_level,
         },

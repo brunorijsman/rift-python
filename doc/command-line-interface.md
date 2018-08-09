@@ -4,6 +4,7 @@
 * [Entering CLI commands](#entering-cli-commands)
 * [Command Line Interface Commands](#command-line-interface-commands)
   * [exit](#exit)
+  * [set interface <i>interface</i> failure <i>failure</i>](#set-interface-interface-failure-failure)
   * [set level <i>level</i>](#set-level-level)
   * [set node <i>node</i>](#set-node-node)
   * [show interface <i>interface</i>](#show-interface-interface)
@@ -132,6 +133,25 @@ agg_101> <b>exit</b>
 (env) $ 
 </pre>
 
+### set interface <i>interface</i> failure <i>failure</i>
+
+The "<b>set interface</b> <i>interface</i> <b>failure</b> <i>failure</i>" enables or disables a simulated failure of an interface.
+
+The <i>failure</i> parameter can be one of the following:
+
+| <i>failure</i> | Meaning |
+| --- | --- |
+| ok | The interface is OK. There is no failure. |
+| failed | There is a bi-directional failure on the interface. Both sent and received packets are dropped. |
+| tx-failed | There is a uni-directional failure on the interface. Sent (TX) packets are dropped. Received (RX) packets are delivered. |
+| rx-failed | There is a uni-directional failure on the interface. Sent (TX) packets are delivered. Received (RX) packets are dropped. |
+
+Example:
+
+<pre>
+node1> <b>set interface if1 failure failed</b>
+</pre>
+
 ### set level <i>level</i>
 
 The "<b>set level</b> <i>level</i>" command changes the level of the currently active RIFT node.
@@ -158,7 +178,7 @@ default_superspine_level (= 24) in the sent LIE packets.
 Example:
 
 <pre>
-core_1> set level undefined
+core_1> <b>set level undefined</b>
 </pre>
 
 ### set node <i>node</i>
@@ -171,7 +191,7 @@ Note: you can get a list of RIFT nodes present in the current RIFT protocol engi
 Example:
 
 <pre>
-agg_101> set node core_1
+agg_101> <b>set node core_1</b>
 core_1> 
 </pre>
 

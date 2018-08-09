@@ -564,6 +564,20 @@ class Node:
         tab = shown_interface.fsm.history_table(verbose)
         cli_session.print(tab.to_string())
 
+    def command_set_interface_failure(self, cli_session, parameters):
+        interface_name = parameters['interface']
+        if not interface_name in self._interfaces:
+            cli_session.print("Error: interface {} not present".format(interface_name))
+            return
+        failure = parameters['failure'].lower()
+        if failure not in ["ok", "rx-failed", "tx-failed", "failed"]:
+            cli_session.print("Error: unknown failure {} (valid values are: "
+                              "ok, failed, rx-failed, tx-failed)".format(failure))
+            return
+        tx_fail = failure in ["failed", "tx-failed"]
+        rx_fail = failure in ["failed", "rx-failed"]
+        self._interfaces[interface_name].set_failure(tx_fail, rx_fail)
+
     @property
     def name(self):
         return self._name

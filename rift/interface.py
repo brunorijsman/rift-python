@@ -93,6 +93,14 @@ class Interface:
         # TODO: Need to implement ZTP state machine and/or configuration first
         pass
 
+    def send_protocol_packet(self, protocol_packet):
+        if self._tx_fail:
+            self.debug(self._tx_log, "Failed send {}".format(protocol_packet))
+        else:
+            encoded_protocol_packet = encode_protocol_packet(protocol_packet)
+            self._mcast_send_handler.send_message(encoded_protocol_packet)
+            self.debug(self._tx_log, "Send {}".format(protocol_packet))
+
     def action_send_lie(self):
         packet_header = create_packet_header(self._node)
         capabilities = NodeCapabilities(
@@ -120,9 +128,7 @@ class Interface:
             label=None)
         packet_content = encoding.ttypes.PacketContent(lie=lie_packet)
         protocol_packet = encoding.ttypes.ProtocolPacket(packet_header, packet_content)
-        encoded_protocol_packet = encode_protocol_packet(protocol_packet)
-        self._mcast_send_handler.send_message(encoded_protocol_packet)
-        self.debug(self._tx_log, "Send LIE {}".format(protocol_packet))
+        self.send_protocol_packet(protocol_packet)
         tx_offer = offer.TxOffer(
             self._interface_name,
             self._node.system_id,
@@ -483,6 +489,8 @@ class Interface:
                                                       constants.DEFAULT_LIE_PORT)
         self._rx_tie_port = self.get_config_attribute(config, 'rx_tie_port',
                                                       constants.DEFAULT_TIE_PORT)
+        self._rx_fail = False
+        self._tx_fail = False
         self._log = node.log.getChild("if")
         self.info(self._log, "Create interface")
         self._rx_log = self._log.getChild("rx")
@@ -555,6 +563,22 @@ class Interface:
             # TODO: process TIDE
             pass
 
+    def set_failure(self, tx_fail, rx_fail):
+        self._tx_fail = tx_fail
+        self._rx_fail = rx_fail
+
+    def failure_str(self):
+        if self._tx_fail:
+            if self._rx_fail:
+                return "Failed (both directions)"
+            else:
+                return "TX Failed (RX is OK)"
+        else:
+            if self._rx_fail:
+                return "RX Failed (TX is OK)"
+            else:
+                return "OK (no failure)"
+
     @staticmethod
     def cli_summary_headers():
         return [
@@ -594,6 +618,7 @@ class Interface:
             ["Local ID", self._local_id],
             ["MTU", self._mtu],
             ["POD", self._pod],
+            ["Failure", self.failure_str()],
             ["State", self._fsm.state.name],
             ["Received LIE Accepted or Rejected", self._lie_accept_or_reject],
             ["Received LIE Accept or Reject Reason", self._lie_accept_or_reject_rule],
