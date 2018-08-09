@@ -1,0 +1,38 @@
+#!/bin/bash
+
+# Make sure we are running in a virtual environment so that all the pytools work
+if [[ -z "${VIRTUAL_ENV}" ]]; then
+  echo "Virtual environment not activated"
+  exit 1
+fi
+
+# Clean up temporary files
+cd ${VIRTUAL_ENV}/..
+rm -f .coverage.*
+rm -f rift.log
+rm -f rift.log.html
+rm -f expect.log
+
+# Lint rift directory
+if ! pylint rift ; then
+    echo "*** DO NOT COMMIT ***"
+    echo "Fix lint errors for rift directory (score must be perfect 10.0)"
+    exit 1
+fi
+
+# Lint tests directory
+if ! pylint tests ; then
+    echo "*** DO NOT COMMIT ***"
+    echo "Fix lint errors for tests directory (score must be perfect 10.0)"
+    exit 1
+fi
+
+# Run unit tests, system tests, and collect code coverage results
+if ! pytest --cov tests ; then
+    echo "*** DO NOT COMMIT ***"
+    echo "Fix unit tests and/or system tests (all tests must pass)"
+    exit 1
+fi
+
+echo "All good; you can commit."
+

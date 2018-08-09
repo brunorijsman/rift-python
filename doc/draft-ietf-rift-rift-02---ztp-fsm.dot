@@ -1,0 +1,62 @@
+digraph G04743cd825cc40c5b93de0616ffb851b {
+N29e7db3976644f62b6f3b2801bccb854[label="Enter"]
+[style="dashed"][shape="plain"];
+N33df4993a1664be18a2196001c27a64c[label="HoldingDown"][shape="oval"];
+N839f77189e324c82b21b8a709b4b021d[label="ComputeBestOffer"][shape="oval"];
+Nc97f2b02808d4751afcc630687bf7421[label="UpdatingClients"][shape="oval"];
+N7ad21867360c44709be20a99f33dd1f7[label="Enter"]
+[style="dashed"][shape="plain"];
+N33df4993a1664be18a2196001c27a64c -> N33df4993a1664be18a2196001c27a64c
+[label="|ComputationDone|"][color="green"]
+[arrowhead="normal" dir="both" arrowtail="none"];
+N29e7db3976644f62b6f3b2801bccb854 -> Nc97f2b02808d4751afcc630687bf7421
+[label=""]
+[color="black"][arrowhead="normal" dir="both" arrowtail="none"];
+N839f77189e324c82b21b8a709b4b021d -> N839f77189e324c82b21b8a709b4b021d
+[label="|NeighborOffer|\n|WithdrawNeighborOffer|"]
+[color="blue"][arrowhead="normal" dir="both" arrowtail="none"];
+N33df4993a1664be18a2196001c27a64c -> N839f77189e324c82b21b8a709b4b021d
+[label="|ChangeLocalLeafIndications|\n|ChangeLocalConfiguredLevel|"]
+[color="gold"]
+[arrowhead="normal" dir="both" arrowtail="none"];
+N839f77189e324c82b21b8a709b4b021d -> N839f77189e324c82b21b8a709b4b021d
+[label="|BetterHAL|\n|BetterHAT|\n|LostHAT|"]
+[color="red"][arrowhead="normal" dir="both" arrowtail="none"];
+N33df4993a1664be18a2196001c27a64c -> N33df4993a1664be18a2196001c27a64c
+[label="|NeighborOffer|\n|WithdrawNeighborOffer|"][color="blue"]
+[arrowhead="normal" dir="both" arrowtail="none"];
+Nc97f2b02808d4751afcc630687bf7421 -> N839f77189e324c82b21b8a709b4b021d
+[label="|BetterHAL|\n|BetterHAT|\n|LostHAT|"][color="red"]
+[arrowhead="normal" dir="both" arrowtail="none"];
+N33df4993a1664be18a2196001c27a64c -> N33df4993a1664be18a2196001c27a64c
+[label="|ShortTic|"][color="black"][arrowhead="normal" dir="both"
+arrowtail="none"];
+Nc97f2b02808d4751afcc630687bf7421 -> Nc97f2b02808d4751afcc630687bf7421
+[label="|NeighborOffer|\n|WithdrawNeighborOffer|"][color="blue"]
+[arrowhead="normal" dir="both" arrowtail="none"];
+N33df4993a1664be18a2196001c27a64c -> N33df4993a1664be18a2196001c27a64c
+[label="|BetterHAL|\n|BetterHAT|\n|LostHAL|\n|LostHAT|"][color="red"]
+[arrowhead="normal" dir="both" arrowtail="none"];
+N839f77189e324c82b21b8a709b4b021d -> N33df4993a1664be18a2196001c27a64c
+[label="|LostHAL|"][color="red"][arrowhead="normal" dir="both"
+arrowtail="none"];
+N7ad21867360c44709be20a99f33dd1f7 -> N839f77189e324c82b21b8a709b4b021d
+[label=""][color="black"][arrowhead="normal" dir="both" arrowtail="none"];
+N839f77189e324c82b21b8a709b4b021d -> Nc97f2b02808d4751afcc630687bf7421
+[label="|ComputationDone|"][color="green"][arrowhead="normal" dir="both"
+arrowtail="none"];
+N839f77189e324c82b21b8a709b4b021d -> N839f77189e324c82b21b8a709b4b021d
+[label="|ChangeLocalLeafIndications|\n|ChangeLocalConfiguredLevel|"]
+[color="gold"]
+[arrowhead="normal" dir="both" arrowtail="none"];
+Nc97f2b02808d4751afcc630687bf7421 -> N33df4993a1664be18a2196001c27a64c
+[label="|LostHAL|"]
+[color="red"][arrowhead="normal" dir="both" arrowtail="none"];
+N33df4993a1664be18a2196001c27a64c -> N839f77189e324c82b21b8a709b4b021d
+[label="|HoldDownExpired|"][color="green"][arrowhead="normal" dir="both"
+arrowtail="none"];
+Nc97f2b02808d4751afcc630687bf7421 -> N839f77189e324c82b21b8a709b4b021d
+[label="|ChangeLocalLeafIndications|\n|ChangeLocalConfiguredLevel|"]
+[color="gold"]
+[arrowhead="normal" dir="both" arrowtail="none"];
+}

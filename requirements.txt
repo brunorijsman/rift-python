@@ -1,0 +1,8 @@
+Cerberus==1.2
+netifaces==0.10.7
+PyYAML==3.13
+six==1.11.0
+sortedcontainers==2.0.4
+thrift==0.11.0
+pytest-cov==2.5.1
+pexpect==4.6.0
