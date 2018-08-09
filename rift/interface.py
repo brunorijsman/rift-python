@@ -570,14 +570,14 @@ class Interface:
     def failure_str(self):
         if self._tx_fail:
             if self._rx_fail:
-                return "Failed (both directions)"
+                return "failed"
             else:
-                return "TX Failed (RX is OK)"
+                return "tx-failed"
         else:
             if self._rx_fail:
-                return "RX Failed (TX is OK)"
+                return "rx-failed"
             else:
-                return "OK (no failure)"
+                return "ok"
 
     @staticmethod
     def cli_summary_headers():

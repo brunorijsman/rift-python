@@ -4,8 +4,12 @@
 # hard-configured to level 1. ZTP is not active.
 #
 # We test the following:
-# * The adjacency reached state 3-way on both nodes
-# * The right sequence of events and transitions takes place in the LIE FSM in each node
+# * Bring the topology up
+# * The CLI reports that adjacency reaches state 3-way on both nodes
+# * The expected FSM transitions to reach state 3-way occur on both nodes
+# * Fail interface if1 on node1 (bi-directional failure)
+# * The CLI on node1 reports that the adjaceny to node2 is in state 2-way
+# * The CLI on node2 reports that the adjaceny to node2 is in state 1-way
 
 # Allow long test names
 # pylint: disable=invalid-name
@@ -13,7 +17,7 @@
 from rift_expect_session import RiftExpectSession
 from log_expect_session import LogExpectSession
 
-def check_rift_node1(res):
+def check_rift_node1_intf_up(res):
     res.check_adjacency_3way(
         node="node1",
         interface="if1",
@@ -42,7 +46,15 @@ def check_rift_node1(res):
         configured_level=1,
         level_value=1)
 
-def check_rift_node2(res):
+def check_rift_node1_intf_down(res):
+    res.check_adjacency_2way(
+        node="node1",
+        interface="if1",
+        other_node="node2",
+        other_interface="if1")
+    # TODO: Check offers and level
+
+def check_rift_node2_intf_up(res):
     res.check_adjacency_3way(
         node="node2",
         interface="if1",
@@ -71,13 +83,29 @@ def check_rift_node2(res):
         configured_level=0,
         level_value=0)
 
-def check_log_node1(les):
+def check_rift_node2_intf_down(res):
+    res.check_adjacency_1way(
+        node="node2",
+        interface="if1")
+    # TODO: Check offers and level
+
+def check_log_node1_intf_up(les):
     les.check_lie_fsm_3way("node1", "if1")
 
+# TODO: Check log when interface is down
+
 def test_2_nodes_level_0_and_level_1():
+    # Bring topology up and check that adjacency reaches 3-way
     res = RiftExpectSession("2n_l0_l1")
-    check_rift_node1(res)
-    check_rift_node2(res)
-    res.stop()
     les = LogExpectSession("rift.log")
-    check_log_node1(les)
+    check_rift_node1_intf_up(res)
+    check_rift_node2_intf_up(res)
+    check_log_node1_intf_up(les)
+    # Bring interface if1 on node1 down
+    res.interface_failure("node1", "if1", "failed")
+    check_rift_node1_intf_down(res)
+    check_rift_node2_intf_down(res)
+    # Done
+    res.stop()
+    # Check FSM
+    # TODO: Check FSM transitions after interface failure

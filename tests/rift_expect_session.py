@@ -6,6 +6,8 @@ class RiftExpectSession:
 
     start_converge_secs = 5.0
 
+    reconverge_secs = 3.0
+
     expect_timeout = 1.0
 
     def __init__(self, topology_file, converge_secs=start_converge_secs):
@@ -57,6 +59,43 @@ class RiftExpectSession:
         else:
             self.expect("{}> ".format(node_name))
 
+    def check_adjacency_1way(self, node, interface):
+        # Go to the node that we want to check
+        self.sendline("set node {}".format(node))
+        self.wait_prompt(node)
+        # Show interfaces reports the adjacency with the other node as ONE_WAY
+        self.sendline("show interfaces")
+        self.table_expect("| {} | | .* | ONE_WAY |".format(interface))
+        self.wait_prompt(node)
+        # Show interface <interface-name> reports the adjacency with the other node as ONE_WAY
+        self.sendline("show interface {}".format(interface))
+        self.table_expect("Interface:")
+        self.table_expect("| Interface Name | {} |".format(interface))
+        self.table_expect("| State | ONE_WAY |")
+        self.table_expect("| Neighbor | False |")
+        self.wait_prompt(node)
+
+    def check_adjacency_2way(self, node, interface, other_node, other_interface):
+        # Construct full interface names as reported in LIE packets
+        other_full_name = other_node + "-" + other_interface
+        # Go to the node that we want to check
+        self.sendline("set node {}".format(node))
+        self.wait_prompt(node)
+        # Show interfaces reports the adjacency with the other node as TWO_WAY
+        self.sendline("show interfaces")
+        self.table_expect("| {} | {} | .* | TWO_WAY |".format(interface, other_full_name))
+        self.wait_prompt(node)
+        # Show interface <interface-name> reports the adjacency with the other node as TWO_WAY
+        self.sendline("show interface {}".format(interface))
+        self.table_expect("Interface:")
+        self.table_expect("| Interface Name | {} |".format(interface))
+        self.table_expect("| State | TWO_WAY |")
+        self.table_expect("| Received LIE Accepted or Rejected | Accepted |")
+        self.table_expect("| Neighbor | True |")
+        self.table_expect("Neighbor:")
+        self.table_expect("| Name | {} |".format(other_full_name))
+        self.wait_prompt(node)
+
     def check_adjacency_3way(self, node, interface, other_node, other_interface):
         # Construct full interface names as reported in LIE packets
         other_full_name = other_node + "-" + other_interface
@@ -65,7 +104,7 @@ class RiftExpectSession:
         self.wait_prompt(node)
         # Show interfaces reports the adjacency with the other node as THREE_WAY
         self.sendline("show interfaces")
-        self.table_expect("| {} +| {} +| .* +| THREE_WAY +|".format(interface, other_full_name))
+        self.table_expect("| {} | {} | .* | THREE_WAY |".format(interface, other_full_name))
         self.wait_prompt(node)
         # Show interface <interface-name> reports the adjacency with the other node as THREE_WAY
         self.sendline("show interface {}".format(interface))
@@ -73,6 +112,7 @@ class RiftExpectSession:
         self.table_expect("| Interface Name | {} |".format(interface))
         self.table_expect("| State | THREE_WAY |")
         self.table_expect("| Received LIE Accepted or Rejected | Accepted |")
+        self.table_expect("| Neighbor | True |")
         self.table_expect("Neighbor:")
         self.table_expect("| Name | {} |".format(other_full_name))
         self.wait_prompt(node)
@@ -110,3 +150,16 @@ class RiftExpectSession:
         expected_level = "| {} | .* | .* | {} | {} |".format(node, configured_level, level_value)
         self.table_expect(expected_level)
         self.wait_prompt()
+
+    def interface_failure(self, node, interface, failure):
+        # Go to the node whose interface needs to fail
+        self.sendline("set node {}".format(node))
+        # Fail the interface
+        self.sendline("set interface {} failure {}".format(interface, failure))
+        # Make sure it took
+        self.sendline("show interface {}".format(interface))
+        expected_failure = "| Failure | {} |".format(failure)
+        self.table_expect(expected_failure)
+        self.wait_prompt()
+        # Let reconverge
+        time.sleep(self.reconverge_secs)
