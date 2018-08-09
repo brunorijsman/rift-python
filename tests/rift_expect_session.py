@@ -4,7 +4,7 @@ import pytest
 
 class RiftExpectSession:
 
-    start_converge_secs = 3.0
+    start_converge_secs = 5.0
 
     expect_timeout = 1.0
 
