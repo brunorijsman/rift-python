@@ -22,6 +22,8 @@ This implementation only implements the NeighborOffer event. The actions for thi
 
 This is not expected to cause any interoperability issues with other implementations. Just is just a simplification of the internal state machine which does not change the external behavior in any observable way.
 
+**PRZ 8/18 Comment: OK, I'll remove from the ZTP FSM in the spec. Reason for the event is that they may be internal implementation events that forces offer removal on FSM even if the peer did not remove it.**
+
 ## Remove event UpdateZTPOffer from the LIE FSM
 
 The LIE FSM contains an event UpdateZTPOffer. This event is handled exactly the same in all three states: the action is always "send offer to ZTP FSM", and the to-state is always the same as the from-state (i.e. no state change). Futhermore, the event UpdateZTPOffer is pushed in exactly one place, namely in section B.1.4.2 in the PROCESS_LIE procedure.
@@ -44,6 +46,8 @@ Note this is related to deviation DEV-1. Since the LIE FSM only mentions an acti
 
 This is not expected to cause any interoperability issues with other implementations. Just is just a simplification of the internal state machine which does not change the external behavior in any observable way.
 
+**PRZ 8/18 Comment: The state changed between now and later is precisely the FSM event queue processing discussion we had today. I think having the event can be beneficial in couple things, first, each state can have different code in the action it executes for e.g. stats purposes, beside, the FSM has to return something when sending fails and if you have a separate action it makes for much simpler debugging since PROCESS_LIE is one big transition and can produce bunch of failures in real scenarios. Having said that, an implementation is _perfectly_ free to do what you suggest as long it exhibits external behaviour identical to the spec FSM.**
+
 ## Do not actually remove offers but mark them as removed
 
 There are various scenarios where a received LIE message contains the optional level field, but offer is removed anyway, such as:
@@ -55,6 +59,8 @@ There are various scenarios where a received LIE message contains the optional l
 * The hold timer expires
 
 Instead of actually removing the offer, we keep the offer, but mark it with a removed flag and a removed-reason string. This makes debugging and trouble-shooting easier.
+
+**PRZ 8/18 Comment: Suggest a text in the spec and I'll include as mild implementation guideline**
 
 ## Rules for accepting a received LIE message
 
@@ -71,6 +77,15 @@ The rules in section 4.2.2 are *not* consistent with the rules in section B.1.4,
 * Rule 4.2.2.6 about the same MTU is missing from section B.1.4
 
 * The rules in section 4.2.2.8 are different from the corresponding rules in section B.1.4.2.
+
+**PRZ 8/18 Comment: Perfect catches due to spec evolving ;-) 
+  MTU & PoD events added & drop to oneway just like UnacceptableHeader;
+  I think I catch both invalid ID and own system ID both already, check committed -03 on repo;
+  be more specific on 4.2.2.8 you see differing;
+  I'll regenerate the FSM section after I wrote this comments;**
+  
+**PRZ 8/18 Comment: Generally it's interesting whether we should scrap 4.2.2 completely and refer to 
+  FSM or say "FSM is indicative, 4.2.2 is normative"** 
 
 ## Remove event ChangeLocalLeafIndications from ZTP FSM
 
@@ -90,6 +105,9 @@ As a result, the events ChangeLocalLeafIndications and ChangeLocalConfiguredLeve
 
 The ChangeLocalConfiguredLevel is pushed whenever the conifigured level is changed. The action is store_level which also updates the leaf flags and the superspine flag.
 
+**PRZ 8/18 Comment: All fine as long behavior is equivalent to FSM. Superspine flag will become prominent with the
+  new sections on partitioned fabric.**
+
 ## Use real ZTP hold down timer
 
 The ZTP FSM uses a hold down timer to manage the time spent in state HoldingDown. There is a ShortTic event that is generated at fixed intervals. The timer is implemented "manually" by counting the number of ShortTic events, and when a threshold is reached, a HoldDownExpired event is generated. I call this a "manual" implementation of a timer.
@@ -97,6 +115,8 @@ The ZTP FSM uses a hold down timer to manage the time spent in state HoldingDown
 The Timer class in Python RIFT supports "real" timers. You can start a timer with an arbitrary expiry time, and an event can be generated when the timer expires, without the need for counting ticks.
 
 We use a "real" timer to implement the ZTP hold down timer, and hence we don't need any ShortTic events.
+
+**PRZ 8/18 Comment: All fine as long behavior is equivalent to FSM.**
 
 ## Pushed events vs chained event
 
@@ -161,3 +181,4 @@ we get the following sequence of events:
 Not only does this rule avoid hypothetical incorrect behavior, it is also much easier to 
 understand and hence debug.
 
+**PRZ 8/18 Comment: We discussed that out today on the bug section.**
