@@ -1,7 +1,9 @@
 # System test: test_sys_2n_l0_l1
 #
 # Test an extremely simple topology with two nodes. One is hard-configured to level 0. The other is
-# hard-configured to level 1. ZTP is not active. We test the following:
+# hard-configured to level 1. ZTP is not active.
+#
+# We test the following:
 # * The adjacency reached state 3-way on both nodes
 # * The right sequence of events and transitions takes place in the LIE FSM in each node
 

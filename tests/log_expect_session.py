@@ -1,3 +1,4 @@
+import datetime
 import tools.log_record
 
 class LogExpectSession:
@@ -7,6 +8,7 @@ class LogExpectSession:
         self._log_file = None
         self._expect_log_file = open('expect.log', 'ab')
         self._line_nr = 0
+        self._last_timestamp = None
 
     def open(self):
         self._log_file = open(self._log_file_name, "r")
@@ -44,7 +46,7 @@ class LogExpectSession:
                 self.write_record_to_expect_log_file(record)
                 return record
 
-    def fsm_expect(self, target_id, from_state, event, to_state, skip_events=None):
+    def fsm_expect(self, target_id, from_state, event, to_state, skip_events=None, max_delay=None):
         msg = ("Searching for FSM transition:\n"
                "  target-id = {}\n"
                "  from-state = {}\n"
@@ -80,7 +82,20 @@ class LogExpectSession:
                        .format(record.to_state, to_state))
                 self._expect_log_file.write(msg.encode())
                 assert False, msg
-            msg = "Found expected FSM transition\n\n"
+            timestamp = datetime.datetime.strptime(record.timestamp, "%Y-%m-%d %H:%M:%S,%f")
+            if max_delay:
+                if not self._last_timestamp:
+                    msg = "Maxdelay specified in fsm_expect, but no previous event"
+                    self._expect_log_file.write(msg.encode())
+                    assert False, msg
+                delta = timestamp - self._last_timestamp
+                delta_seconds = delta.total_seconds() + delta.microseconds / 1000000.0
+                if delta_seconds > max_delay:
+                    msg = ("Actual delay {} exceeds maximum delay {}"
+                           .format(delta_seconds, max_delay))
+                    self._expect_log_file.write(msg.encode())
+                    assert False, msg
+            self._last_timestamp = timestamp
             self._expect_log_file.write(msg.encode())
             return record
 
@@ -102,15 +117,18 @@ class LogExpectSession:
             target_id=target_id,
             from_state="TWO_WAY",
             event="SEND_LIE",
-            to_state="None")
+            to_state="None",
+            max_delay=0.1)      # Our LIE should be triggered
         self.fsm_expect(
             target_id=target_id,
             from_state="TWO_WAY",
             event="LIE_RECEIVED",
-            to_state="None")
+            to_state="None",
+            max_delay=0.1)      # Remove LIE should be triggered
         self.fsm_expect(
             target_id=target_id,
             from_state="TWO_WAY",
             event="VALID_REFLECTION",
-            to_state="THREE_WAY")
+            to_state="THREE_WAY",
+            max_delay=0.1)      # Our LIE should be triggered
         self.close()
