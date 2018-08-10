@@ -6,7 +6,7 @@ class LogExpectSession:
     def __init__(self, log_file_name):
         self._log_file_name = log_file_name
         self._log_file = None
-        self._expect_log_file = open('log_expect.log', 'a')
+        self._expect_log_file = open('log_expect.log', 'w')
         self._line_nr = 0
         self._last_timestamp = None
 

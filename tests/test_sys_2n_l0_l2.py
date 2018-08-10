@@ -1,13 +1,13 @@
-# System test: test_sys_2n_l0_l1
+# System test: test_sys_2n_l0_l2
 #
-# Topology: 2n_l0_l1
+# Topology: 2n_l0_l2
 #
 #  +-----------+
 #  | node1     |
-#  | (level 1) |
-#  +-----------+
-#        | if1
-#        |
+#  | (level 2) |  <<< More than 1 level difference between hard-configured level 2
+#  +-----------+      on node1 and hard-configured level 0 on node2.
+#        | if1        The adjacency should come up to state 3-way anyway because it
+#        |            is an adjacency between a non-leaf (node1) and a leaf (node2)
 #        | if1
 #  +-----------+
 #  | node2     |
@@ -16,14 +16,18 @@
 #
 # - 2 nodes: node1 and node2
 # - Both nodes have hard-configured levels:
-#   - node1 is level 1
+#   - node1 is level 2
 #   - node2 is level 0 (leaf)
 # - One link:
 #   - node1:if1 - node2:if1
+# - Note that the difference in hard-configured levels is more than 1
+# - The adjacency should come up to state 3-way anyway because it is an adjacency between a
+#   non-leaf (node1) and a leaf (node2)
 #
 # Test scenario:
 # - Bring the topology up
 #   - Both nodes report adjacency to other node up as in state 3-way
+#   - Check explictly for acceptance of the LIE message because of leaf-to-non-leaf link
 #   - Check offers and levels on each node
 # - Fail interface if1 on node1 (bi-directional failure)
 #   - Both nodes report adjacency to other node as down in state 1-way
@@ -56,13 +60,22 @@ def check_rift_node1_intf_up(res):
         node="node1",
         interface="if1",
         system_id="1",
-        level=1,
+        level=2,
         not_a_ztp_offer=False,
         state="THREE_WAY")
     res.check_level(
         node="node1",
-        configured_level=1,
-        level_value=1)
+        configured_level=2,
+        level_value=2)
+    # Node1 should accept the LIE from node2 because:
+    # This node is not leaf and neighbor is leaf
+    res.sendline("set node node1")
+    res.sendline("show interface if1")
+    res.table_expect("Interface:")
+    res.table_expect("| Received LIE Accepted or Rejected | Accepted |")
+    res.table_expect("| Received LIE Accept or Reject Reason | "
+                     "This node is not leaf and neighbor is leaf |")
+    res.wait_prompt()
 
 def check_rift_node1_intf_down(res):
     res.check_adjacency_1way(
@@ -80,7 +93,7 @@ def check_rift_node2_intf_up(res):
         node="node2",
         interface="if1",
         system_id="1",
-        level=1,
+        level=2,
         not_a_ztp_offer=False,
         state="THREE_WAY",
         best=True,
@@ -98,6 +111,15 @@ def check_rift_node2_intf_up(res):
         node="node2",
         configured_level=0,
         level_value=0)
+    # Node1 should accept the LIE from the node1 because:
+    # This node is leaf and HAT not greater than remote level
+    res.sendline("set node node2")
+    res.sendline("show interface if1")
+    res.table_expect("Interface:")
+    res.table_expect("| Received LIE Accepted or Rejected | Accepted |")
+    res.table_expect("| Received LIE Accept or Reject Reason | "
+                     "This node is leaf and HAT not greater than remote level |")
+    res.wait_prompt()
 
 def check_rift_node2_intf_down(res):
     res.check_adjacency_1way(
@@ -111,9 +133,9 @@ def check_log_node1_intf_up(les):
 
 # TODO: Check log when interface is down
 
-def test_2_nodes_l0_l1():
+def test_2_nodes_l0_l2():
     # Bring topology up
-    res = RiftExpectSession("2n_l0_l1")
+    res = RiftExpectSession("2n_l0_l2")
     les = LogExpectSession("rift.log")
     # Check that adjacency reaches 3-way, check offers, check levels
     check_rift_node1_intf_up(res)
