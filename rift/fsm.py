@@ -225,10 +225,10 @@ class Fsm:
         self.info("Start FSM, state={}".format(self._state.name))
         self.invoke_state_entry_actions(self._state)
 
-    def push_event(self, event, event_data=None):
+    def push_event(self, event, event_data=None, transition_pushed_event=False):
         fsm = self
         event_tuple = (fsm, event, event_data)
-        if self._current_record:
+        if transition_pushed_event:
             # Chained event
             self._chained_event_queue.append(event_tuple)
             self._current_record.actions_and_pushed_events.append(event.name)
@@ -279,7 +279,7 @@ class Fsm:
             (to_state, actions, push_events) = FsmDefinition.parse_transition(transition)
             self.invoke_actions(actions, event_data)
             for push_event in push_events:
-                self.push_event(push_event)
+                self.push_event(push_event, None, True)
             if to_state is not None:
                 self._state = to_state
                 self._current_record.to_state = to_state
