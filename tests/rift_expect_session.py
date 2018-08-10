@@ -1,4 +1,5 @@
 import time
+import traceback
 import pexpect
 import pytest
 
@@ -6,7 +7,14 @@ class RiftExpectSession:
 
     start_converge_secs = 5.0
 
-    reconverge_secs = 3.0
+    # Maximum amount of time to fully reconverge after a uni-directional interface failure
+    # If node1 can still send to node2, but node1 cannot receive from node2:
+    # - It takes up to 3 seconds for node2 to detect that it is not receiving LIEs from node1
+    # - At that point node2 will stop reflecting node1
+    # - It takes up to 1 second for node1 to receive the first LIE without the reflection
+    # - Add 1 second of slack time
+    #
+    reconverge_secs = 5.0
 
     expect_timeout = 1.0
 
@@ -17,7 +25,7 @@ class RiftExpectSession:
                     "topology/{}.yaml"
                     .format(topology_file))
         cmd = "coverage run --parallel-mode {}".format(rift_cmd)
-        self._logfile = open('expect.log', 'ab')
+        self._logfile = open('rift_expect.log', 'ab')
         self._expect_session = pexpect.spawn(cmd, logfile=self._logfile)
         time.sleep(converge_secs)
         self.wait_prompt()
@@ -33,8 +41,17 @@ class RiftExpectSession:
     def sendline(self, line):
         self._expect_session.sendline(line)
 
+    def log_expect_failure(self):
+        self._logfile.write(b"\n\n*** Did not find expected pattern\n\n")
+        # Generate a call stack in rift_expect.log for easier debugging
+        # But pytest call stacks are very deep, so only show the "interesting" lines
+        for line in traceback.format_stack():
+            if "tests/" in line:
+                self._logfile.write(line.strip().encode())
+                self._logfile.write(b"\n")
+
     def expect(self, pattern, timeout=expect_timeout):
-        msg = "*** Expect: {}\n".format(pattern)
+        msg = "\n\n*** Expect: {}\n\n".format(pattern)
         self._logfile.write(msg.encode())
         try:
             self._expect_session.expect(pattern, timeout)
@@ -44,7 +61,8 @@ class RiftExpectSession:
         else:
             failed = False
         if failed:
-            pytest.fail('Timeout expecting "{} (see expect.log for details)"'.format(pattern))
+            self.log_expect_failure()
+            pytest.fail('Timeout expecting "{} (see rift_expect.log for details)"'.format(pattern))
 
     def table_expect(self, pattern, timeout=expect_timeout):
         # Allow multiple spaces at end of each cell, even if only one was asked for

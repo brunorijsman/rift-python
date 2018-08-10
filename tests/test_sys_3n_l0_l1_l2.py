@@ -1,7 +1,8 @@
-# System test: test_sys_2n_l0_l1
+# System test: test_sys_3n_l0_l1_l2s
 #
-# See topology 2n_l0_l1.yaml
+# See topology 3n_l0_l1_l2.yaml
 #
+# TODO: Update this
 # We test the following:
 # * Bring the topology up
 # * The CLI reports that adjacency reaches state 3-way on both nodes
@@ -26,24 +27,24 @@ def check_rift_node1_intf_up(res):
         node="node1",
         interface="if1",
         system_id="2",
-        level=0,
+        level=1,
         not_a_ztp_offer=False,
         state="THREE_WAY",
-        best=False,
-        best_3way=False,
-        removed=True,
-        removed_reason="Level is leaf")
+        best=True,
+        best_3way=True,
+        removed=False,
+        removed_reason="")
     res.check_tx_offer(
         node="node1",
         interface="if1",
         system_id="1",
-        level=1,
+        level=2,
         not_a_ztp_offer=False,
         state="THREE_WAY")
     res.check_level(
         node="node1",
-        configured_level=1,
-        level_value=1)
+        configured_level=2,
+        level_value=2)
 
 def check_rift_node1_intf_down(res):
     res.check_adjacency_1way(
@@ -57,28 +58,31 @@ def check_rift_node2_intf_up(res):
         interface="if1",
         other_node="node1",
         other_interface="if1")
+    # TODO: Check adjacency with node3
     res.check_rx_offer(
         node="node2",
         interface="if1",
         system_id="1",
-        level=1,
+        level=2,
         not_a_ztp_offer=False,
         state="THREE_WAY",
         best=True,
         best_3way=True,
         removed=False,
         removed_reason="")
+    # TODO: Check RX offer from node3
     res.check_tx_offer(
         node="node2",
         interface="if1",
         system_id="2",
-        level=0,
+        level=1,
         not_a_ztp_offer=False,
         state="THREE_WAY")
+    # TODO: Check TX offer to node3
     res.check_level(
         node="node2",
-        configured_level=0,
-        level_value=0)
+        configured_level=1,
+        level_value=1)
 
 def check_rift_node2_intf_down(res):
     res.check_adjacency_1way(
@@ -86,24 +90,30 @@ def check_rift_node2_intf_down(res):
         interface="if1")
     # TODO: Check offers and level
 
+# TODO: check node 3
+
 def check_log_node1_intf_up(les):
     les.check_lie_fsm_3way("node1", "if1")
-    #!!!les.check_lie_fsm_3way("node2", "if1")
+    les.check_lie_fsm_3way("node2", "if1")
+    les.check_lie_fsm_3way("node2", "if2")
+    les.check_lie_fsm_3way("node3", "if1")
 
 # TODO: Check log when interface is down
 
-def test_2_nodes_l0_l1():
+def test_3_nodes_l0_l1_l2():
     # Bring topology up
-    res = RiftExpectSession("2n_l0_l1")
+    res = RiftExpectSession("3n_l0_l1_l2")
     les = LogExpectSession("rift.log")
-    # Check that adjacency reaches 3-way
+    # Check that node1-node2 and node2-node3 adjacencies reaches 3-way
     check_rift_node1_intf_up(res)
     check_rift_node2_intf_up(res)
+    # TODO: node2-node3
     check_log_node1_intf_up(les)
     # Bring interface if1 on node1 down
     res.interface_failure("node1", "if1", "failed")
     check_rift_node1_intf_down(res)
     check_rift_node2_intf_down(res)
+    # TODO: check node2-node3 still up
     # Done
     res.stop()
     # Check FSM

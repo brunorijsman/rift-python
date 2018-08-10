@@ -11,8 +11,8 @@ IF_X_INTERVAL = 10
 DOT_RADIUS = 5
 TIMESTAMP_COLOR = "gray"
 TARGET_COLOR = "black"
-IF_FSM_COLOR = "coral"
-NODE_FSM_COLOR = "red"
+IF_FSM_COLOR = "red"
+NODE_FSM_COLOR = "coral"
 MSG_COLOR = "blue"
 CLI_COLOR = "green"
 DEFAULT_COLOR = "black"
@@ -178,7 +178,7 @@ class Visualizer:
         self.svg_dot(xpos, ypos, DOT_RADIUS, color)
         self.pending_messages[record.nonce] = PendingMessage(record.nonce, xpos, ypos)
         xpos += 2 * DOT_RADIUS
-        text = "TX " + record.packet_type
+        text = "TX " + record.packet_type + " " + record.packet
         self.svg_text(xpos, ypos, text, color)
 
     def show_receive(self, record):
@@ -194,7 +194,7 @@ class Visualizer:
             self.svg_line(xstart, ystart, xend, yend, color)
             del self.pending_messages[record.nonce]
         xpos += 2 * DOT_RADIUS
-        text = "RX " + record.packet_type
+        text = "RX " + record.packet_type + " " + record.packet
         self.svg_text(xpos, ypos, text, color)
 
     def show_cli(self, record):

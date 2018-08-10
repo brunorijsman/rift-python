@@ -11,4 +11,5 @@ cd ${VIRTUAL_ENV}/..
 rm -f .coverage.*
 rm -f rift.log
 rm -f rift.log.html
-rm -f expect.log
+rm -f rift_expect.log
+rm -f log_expect.log

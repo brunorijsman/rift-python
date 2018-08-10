@@ -69,17 +69,15 @@ def check_show_node(res):
     res.table_expect("| Name | node1 |")
     res.table_expect("| Configured Level  | 1 |")
     res.table_expect("Received Offers:")
-    res.table_expect("| if1 | 2 | 0 | True | THREE_WAY | False | False | True |"
-                     " Not a ZTP offer flag set |")
+    res.table_expect("| if1 | 2 | 0 | False | THREE_WAY | False | False | True | Level is leaf |")
     res.table_expect("Sent Offers:")
     res.table_expect("| if1 | 1 | 1 | False | THREE_WAY |")
     res.wait_prompt()
 
 def check_show_node_fsm_history(res):
     res.sendline("show node fsm history")
-    res.table_expect("| COMPUTE_BEST_OFFER | COMPUTATION_DONE | no_action | UPDATING_CLIENTS |"
-                     " False |")
-    res.table_expect("| | | update_all_lie_fsms | | |")
+    res.table_expect("| COMPUTE_BEST_OFFER | COMPUTATION_DONE | update_all_lie_fsms |"
+                     " UPDATING_CLIENTS | False |")
     res.wait_prompt()
 
 def check_show_node_fsm_verbose_history(res):
