@@ -123,7 +123,7 @@ class Interface:
             nonce=Interface.generate_nonce(),
             capabilities=capabilities,
             holdtime=3,
-            not_a_ztp_offer=self._node.is_poison_reverse_interface(self._interface_name),
+            not_a_ztp_offer=self._node.send_not_a_ztp_offer_on_intf(self._interface_name),
             you_are_not_flood_repeater=False,     # TODO: Set you_are_not_flood_repeater
             label=None)
         packet_content = encoding.ttypes.PacketContent(lie=lie_packet)
@@ -139,6 +139,7 @@ class Interface:
 
     def action_cleanup(self):
         self._neighbor = None
+        #!!! remove offer from neighbor
 
     def check_reflection(self):
         # Does the received LIE packet (which is now stored in _neighbor) report us as the neighbor?
@@ -388,6 +389,9 @@ class Interface:
         if self._time_ticks_since_lie_received >= holdtime:
             self._fsm.push_event(self.Event.HOLD_TIME_EXPIRED)
 
+    def action_hold_time_expired(self):
+        self._node.expire_offer(self._interface_name)
+
     _state_one_way_transitions = {
         Event.TIMER_TICK: (None, [], [Event.SEND_LIE]),
         Event.LEVEL_CHANGED: (State.ONE_WAY, [action_update_level], [Event.SEND_LIE]),
@@ -397,7 +401,7 @@ class Interface:
         Event.LIE_RECEIVED: (None, [action_process_lie]),
         Event.NEW_NEIGHBOR: (State.TWO_WAY, [], [Event.SEND_LIE]),
         Event.UNACCEPTABLE_HEADER: (State.ONE_WAY, []),
-        Event.HOLD_TIME_EXPIRED: (None, []),
+        Event.HOLD_TIME_EXPIRED: (None, [action_hold_time_expired]),
         Event.SEND_LIE: (None, [action_send_lie]),
         # Removed. See deviation DEV-2 in doc/deviations.md. TODO: remove line completely.
         # Event.UPDATE_ZTP_OFFER: (None, [action_send_offer_to_ztp_fsm])
@@ -415,7 +419,7 @@ class Interface:
         Event.NEIGHBOR_CHANGED_LEVEL: (State.ONE_WAY, []),
         Event.NEIGHBOR_CHANGED_ADDRESS: (State.ONE_WAY, []),
         Event.UNACCEPTABLE_HEADER: (State.ONE_WAY, []),
-        Event.HOLD_TIME_EXPIRED: (State.ONE_WAY, []),
+        Event.HOLD_TIME_EXPIRED: (State.ONE_WAY, [action_hold_time_expired]),
         Event.MULTIPLE_NEIGHBORS: (State.ONE_WAY, []),
         Event.LIE_CORRUPT: (State.ONE_WAY, []),             # This transition is not in draft
         Event.SEND_LIE: (None, [action_send_lie])}
@@ -431,7 +435,7 @@ class Interface:
         Event.NEIGHBOR_CHANGED_LEVEL: (State.ONE_WAY, []),
         Event.NEIGHBOR_CHANGED_ADDRESS: (State.ONE_WAY, []),
         Event.UNACCEPTABLE_HEADER: (State.ONE_WAY, []),
-        Event.HOLD_TIME_EXPIRED: (State.ONE_WAY, []),
+        Event.HOLD_TIME_EXPIRED: (State.ONE_WAY, [action_hold_time_expired]),
         Event.MULTIPLE_NEIGHBORS: (State.ONE_WAY, []),
         Event.LIE_CORRUPT: (State.ONE_WAY, []),             # This transition is not in draft
         Event.SEND_LIE: (None, [action_send_lie]),
@@ -444,7 +448,7 @@ class Interface:
     }
 
     _state_entry_actions = {
-        State.ONE_WAY: [action_cleanup]
+        State.ONE_WAY: [action_cleanup, action_send_lie]
     }
 
     fsm_definition = fsm.FsmDefinition(
@@ -509,8 +513,8 @@ class Interface:
             log=self._fsm_log,
             log_id=self._log_id)
         if self._node.running:
-            self._fsm.start()
             self.run()
+            self._fsm.start()
 
     def run(self):
         self._mcast_send_handler = mcast_send_handler.McastSendHandler(
@@ -546,6 +550,9 @@ class Interface:
         # TODO: Handle decoding errors (does decode_protocol_packet throw an exception in
         # that case? Try it...)
         protocol_packet = decode_protocol_packet(message)
+        if self._rx_fail:
+            self.debug(self._tx_log, "Failed receive {}".format(protocol_packet))
+            return
         self.debug(self._rx_log, "Receive {}".format(protocol_packet))
         if not protocol_packet.content:
             self.warning(self._rx_log, "Received packet without content")

@@ -46,12 +46,41 @@ class Node:
     def remove_offer(self, removed_offer, reason):
         removed_offer.removed = True
         removed_offer.removed_reason = reason
+        if removed_offer.interface_name in self._rx_offers:
+            old_offer = self._rx_offers[removed_offer.interface_name]
+        else:
+            old_offer = None
+        new_compare_needed = old_offer and not old_offer.removed
         self._rx_offers[removed_offer.interface_name] = removed_offer
-        self.compare_offers()
+        if new_compare_needed:
+            self.compare_offers()
 
     def update_offer(self, updated_offer):
+        if updated_offer.interface_name in self._rx_offers:
+            old_offer = self._rx_offers[updated_offer.interface_name]
+        else:
+            old_offer = None
+        new_compare_needed = old_offer and (
+            (old_offer.system_id != updated_offer.system_id) or
+            (old_offer.level != updated_offer.level) or
+            (old_offer.not_a_ztp_offer != updated_offer.not_a_ztp_offer) or
+            (old_offer.state != updated_offer.state))
         self._rx_offers[updated_offer.interface_name] = updated_offer
-        self.compare_offers()
+        if new_compare_needed:
+            self.compare_offers()
+        elif old_offer is not None:
+            updated_offer.best = old_offer.best
+            updated_offer.best_three_way = old_offer.best_three_way
+
+    def expire_offer(self, interface_name):
+        if not interface_name in self._rx_offers:
+            return
+        old_offer = self._rx_offers[interface_name]
+        new_compare_needed = not old_offer.removed
+        old_offer.removed = True
+        old_offer.removed_reason = "Hold-time expired"
+        if new_compare_needed:
+            self.compare_offers()
 
     def better_offer(self, offer1, offer2, three_way_only):
         # Don't consider removed offers
@@ -147,9 +176,6 @@ class Node:
         # Push event COMPUTATION_DONE
         self._fsm.push_event(self.Event.COMPUTATION_DONE)
 
-    def action_no_action(self):
-        pass
-
     def action_level_compute(self):
         self.level_compute()
 
@@ -221,20 +247,20 @@ class Node:
     _state_updating_clients_transitions = {
         Event.CHANGE_LOCAL_CONFIGURED_LEVEL: (State.COMPUTE_BEST_OFFER, [action_store_level]),
         Event.NEIGHBOR_OFFER:                (None, [action_update_or_remove_offer]),
-        Event.BETTER_HAL:                    (State.COMPUTE_BEST_OFFER, [action_no_action]),
-        Event.BETTER_HAT:                    (State.COMPUTE_BEST_OFFER, [action_no_action]),
+        Event.BETTER_HAL:                    (State.COMPUTE_BEST_OFFER, []),
+        Event.BETTER_HAT:                    (State.COMPUTE_BEST_OFFER, []),
         Event.LOST_HAL:                      (State.HOLDING_DOWN, [action_start_timer_on_lost_hal]),
-        Event.LOST_HAT:                         (State.COMPUTE_BEST_OFFER, [action_no_action]),
+        Event.LOST_HAT:                      (State.COMPUTE_BEST_OFFER, []),
     }
 
     _state_holding_down_transitions = {
         Event.CHANGE_LOCAL_CONFIGURED_LEVEL: (State.COMPUTE_BEST_OFFER, [action_store_level]),
         Event.NEIGHBOR_OFFER:                (None, [action_update_or_remove_offer]),
-        Event.BETTER_HAL:                    (None, [action_no_action]),
-        Event.BETTER_HAT:                    (None, [action_no_action]),
-        Event.LOST_HAL:                      (None, [action_no_action]),
-        Event.LOST_HAT:                      (None, [action_no_action]),
-        Event.COMPUTATION_DONE:              (None, [action_no_action]),
+        Event.BETTER_HAL:                    (None, []),
+        Event.BETTER_HAT:                    (None, []),
+        Event.LOST_HAL:                      (None, []),
+        Event.LOST_HAT:                      (None, []),
+        Event.COMPUTATION_DONE:              (None, []),
         Event.HOLD_DOWN_EXPIRED:             (State.COMPUTE_BEST_OFFER, [action_purge_offers]),
     }
 
@@ -245,7 +271,7 @@ class Node:
         Event.BETTER_HAT:                    (None, [action_level_compute]),
         Event.LOST_HAL:                      (State.HOLDING_DOWN, [action_start_timer_on_lost_hal]),
         Event.LOST_HAT:                      (None, [action_level_compute]),
-        Event.COMPUTATION_DONE:              (State.UPDATING_CLIENTS, [action_no_action]),
+        Event.COMPUTATION_DONE:              (State.UPDATING_CLIENTS, []),
     }
 
     _transitions = {
@@ -386,7 +412,11 @@ class Node:
     def record_tx_offer(self, tx_offer):
         self._tx_offers[tx_offer.interface_name] = tx_offer
 
-    def is_poison_reverse_interface(self, interface_name):
+    def send_not_a_ztp_offer_on_intf(self, interface_name):
+        # If ZTP is not enabled (typically because the level is hard-configured), our level value
+        # is never derived from someone else's offer, so never send a poison reverse to anyone.
+        if not self.zero_touch_provisioning_enabled():
+            return False
         # TODO: Introduce concept of HALS (HAL offering Systems) and simply check for membership
         # Section 4.2.9.4.6 / Section B.1.3.2
         # If we received a valid offer over the interface, and the level in that offer is equal to
@@ -401,6 +431,7 @@ class Node:
             # (e.g. level undefined, not-a-ztp-offer flag was set, received from a leaf, ...)
             return False
         if rx_offer.level == self._highest_available_level:
+            # Receive a valid offer and it is equal to our HAL
             return True
         return False
 
