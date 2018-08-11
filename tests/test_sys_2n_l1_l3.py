@@ -111,11 +111,11 @@ def check_rift_node2(res):
         hat="None",
         level_value=1)
 
-def check_log_node1(_les):
-    #TODO: Check FSM using logs
-    #les.check_lie_fsm_1way("node1", "if1")
-    #les.check_lie_fsm_1way("node2", "if1")
-    pass
+def check_log_node1(les):
+    les.check_lie_fsm_1way_bad_level("node1", "if1")
+
+def check_log_node2(les):
+    les.check_lie_fsm_1way_bad_level("node2", "if1")
 
 def test_2n_l1_l3():
     res = RiftExpectSession("2n_l1_l3")
@@ -123,4 +123,5 @@ def test_2n_l1_l3():
     check_rift_node1(res)
     check_rift_node2(res)
     check_log_node1(les)
+    check_log_node2(les)
     res.stop()

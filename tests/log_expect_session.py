@@ -185,6 +185,33 @@ class LogExpectSession:
             skip_events=["TIMER_TICK", "SEND_LIE", "LIE_RECEIVED"])
         self.close()
 
+    def check_lie_fsm_1way_bad_level(self, node, interface):
+        # Check that an adjacency is stuck in 1-way because the header is persistently unacceptable
+        # because both this node and the remote node have hard-configured levels that
+        # are more than one level apart.
+        # We check for 3 x UNACCEPTABLE_HEADER (to make sure it is not transient)
+        target_id = node + "-" + interface
+        self.open()
+        self.fsm_expect(
+            target_id=target_id,
+            from_state="ONE_WAY",
+            event="UNACCEPTABLE_HEADER",
+            to_state="ONE_WAY",
+            skip_events=["TIMER_TICK", "SEND_LIE", "LIE_RECEIVED"])
+        self.fsm_expect(
+            target_id=target_id,
+            from_state="ONE_WAY",
+            event="UNACCEPTABLE_HEADER",
+            to_state="ONE_WAY",
+            skip_events=["TIMER_TICK", "SEND_LIE", "LIE_RECEIVED"])
+        self.fsm_expect(
+            target_id=target_id,
+            from_state="ONE_WAY",
+            event="UNACCEPTABLE_HEADER",
+            to_state="ONE_WAY",
+            skip_events=["TIMER_TICK", "SEND_LIE", "LIE_RECEIVED"])
+        self.close()
+
     def check_lie_fsm_3way_with_ztp(self, node, interface):
         # Check that an adjacency comes up to the 3-way between this node and the remote node on
         # the other side of the specified interface.
