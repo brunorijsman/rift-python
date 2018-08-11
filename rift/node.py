@@ -483,7 +483,7 @@ class Node:
             ["ZTP Hold Down Timer", self._hold_down_timer.remaining_time_str()],
             ["Highest Available Level (HAL)", self._highest_available_level],
             ["Highest Adjacency Three-way (HAT)", self._highest_adjacency_three_way],
-            ["Level Value", self.level_value()],
+            ["Level Value", self.level_value_str()],
             ["Receive LIE IPv4 Multicast Address", self._rx_lie_ipv4_mcast_address],
             ["Transmit LIE IPv4 Multicast Address", self._tx_lie_ipv4_mcast_address],
             ["Receive LIE IPv6 Multicast Address", self._rx_lie_ipv6_mcast_address],

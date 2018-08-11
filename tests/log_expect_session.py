@@ -60,7 +60,7 @@ class LogExpectSession:
                 return record
 
     def fsm_expect(self, target_id, from_state, event, to_state, skip_events=None, max_delay=None):
-        msg = ("Searching for FSM transition:\n"
+        msg = ("Expecting FSM transition:\n"
                "  target-id = {}\n"
                "  from-state = {}\n"
                "  event = {}\n"
@@ -105,6 +105,28 @@ class LogExpectSession:
             self._last_timestamp = timestamp
             self._expect_log_file.write("Found expected log transition\n\n")
             return record
+
+    def fsm_find(self, target_id, from_state, event, to_state):
+        msg = ("Finding FSM transition:\n"
+               "  target-id = {}\n"
+               "  from-state = {}\n"
+               "  event = {}\n"
+               "  to-state = {}\n"
+               "\n").format(target_id,
+                            from_state,
+                            event,
+                            to_state)
+        self._expect_log_file.write(msg)
+        while True:
+            record = self.get_next_fsm_record_for_target(target_id)
+            if not record:
+                msg = "Did not find FSM transition for target-id {}".format(target_id)
+                self.expect_failure(msg)
+            if (record.from_state == from_state and
+                    record.event == event and
+                    record.to_state == to_state):
+                self._expect_log_file.write("Found expected log transition\n\n")
+                return record
 
     def write_cli_record(self, record):
         msg = ("Observerd CLI command:\n"
@@ -189,15 +211,15 @@ class LogExpectSession:
         # Check that an adjacency is stuck in 1-way because the header is persistently unacceptable
         # because both this node and the remote node have hard-configured levels that
         # are more than one level apart.
-        # We check for 3 x UNACCEPTABLE_HEADER (to make sure it is not transient)
+        # We look for the first UNACCEPTABLE_HEADER and then look for 2 more to make sure it is not
+        # transient.
         target_id = node + "-" + interface
         self.open()
-        self.fsm_expect(
+        self.fsm_find(
             target_id=target_id,
             from_state="ONE_WAY",
             event="UNACCEPTABLE_HEADER",
-            to_state="ONE_WAY",
-            skip_events=["TIMER_TICK", "SEND_LIE", "LIE_RECEIVED"])
+            to_state="ONE_WAY")
         self.fsm_expect(
             target_id=target_id,
             from_state="ONE_WAY",

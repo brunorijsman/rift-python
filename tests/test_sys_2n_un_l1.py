@@ -66,7 +66,30 @@ def check_rift_node1_intf_down(res):
     res.check_adjacency_1way(
         node="node1",
         interface="if1")
-    # TODO: Check offers and level
+    res.check_rx_offer(
+        node="node1",
+        interface="if1",
+        system_id="2",
+        level=0,
+        not_a_ztp_offer=True,
+        state="THREE_WAY",
+        best=False,
+        best_3way=False,
+        removed=True,
+        removed_reason="Hold-time expired")
+    res.check_tx_offer(
+        node="node1",
+        interface="if1",
+        system_id="1",
+        level=1,
+        not_a_ztp_offer=False,
+        state="ONE_WAY")
+    res.check_level(
+        node="node1",
+        configured_level=1,
+        hal="None",
+        hat="None",
+        level_value=1)
 
 def check_rift_node2_intf_up(res):
     res.check_adjacency_3way(
@@ -103,7 +126,30 @@ def check_rift_node2_intf_down(res):
     res.check_adjacency_1way(
         node="node2",
         interface="if1")
-    # TODO: Check offers and level
+    res.check_rx_offer(
+        node="node2",
+        interface="if1",
+        system_id="1",
+        level=1,
+        not_a_ztp_offer=False,
+        state="THREE_WAY",
+        best=False,
+        best_3way=False,
+        removed=True,
+        removed_reason="Hold-time expired")
+    res.check_tx_offer(
+        node="node2",
+        interface="if1",
+        system_id="2",
+        level=None,
+        not_a_ztp_offer=False,
+        state="ONE_WAY")
+    res.check_level(
+        node="node2",
+        configured_level="undefined",
+        hal=None,
+        hat=None,
+        level_value="undefined")
 
 def check_log_node1_intf_up(les):
     les.check_lie_fsm_3way_with_ztp("node1", "if1")
@@ -111,7 +157,11 @@ def check_log_node1_intf_up(les):
 def check_log_node2_intf_up(les):
     les.check_lie_fsm_3way_with_ztp("node2", "if1")
 
-# TODO: Check log when interface is down
+def check_log_node1_intf_down(les):
+    les.check_lie_fsm_timeout_to_1way("node1", "if1", "set interface if1 failure failed")
+
+def check_log_node2_intf_down(les):
+    les.check_lie_fsm_timeout_to_1way("node2", "if1", "set interface if1 failure failed")
 
 def test_2n_un_l1():
     # Bring topology up
@@ -127,5 +177,7 @@ def test_2n_un_l1():
     # Check that adjacency goes back to 1-way, check offers, check levels
     check_rift_node1_intf_down(res)
     check_rift_node2_intf_down(res)
+    check_log_node1_intf_down(les)
+    check_log_node2_intf_down(les)
     # Done
     res.stop()
