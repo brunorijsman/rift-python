@@ -4,14 +4,6 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
-
-        {
-            "name": "Systest two_nodes_level_0_and_1",
-            "type": "python",
-            "request": "launch",
-            "program": "tests/test_sys_2n_l0_l1.py",
-            "args": [""] 
-        },
         {
             "name": "Visualize RIFT Log",
             "type": "python",
@@ -20,18 +12,11 @@
             "args": [""] 
         },
         {
-            "name": "RIFT two.yaml",
-            "type": "python",
-            "request": "launch",
-            "program": "rift/__main__.py",
-            "args": ["topology/two.yaml"] 
-        },
-        {
-            "name": "RIFT two_by_two_by_two_ztp.yaml",
+            "name": "RIFT 2n_l1_l3l",
             "type": "python",
             "request": "launch",
             "program": "${workspaceFolder}/rift/__main__.py",
-            "args": ["topology/two_by_two_by_two_ztp.yaml"] 
+            "args": ["topology/2n_l1_l3.yaml"] 
         },
         {
             "name": "Python: Current File",

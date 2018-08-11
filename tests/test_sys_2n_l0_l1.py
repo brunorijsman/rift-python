@@ -62,6 +62,8 @@ def check_rift_node1_intf_up(res):
     res.check_level(
         node="node1",
         configured_level=1,
+        hal="None",
+        hat="None",
         level_value=1)
 
 def check_rift_node1_intf_down(res):
@@ -97,6 +99,8 @@ def check_rift_node2_intf_up(res):
     res.check_level(
         node="node2",
         configured_level=0,
+        hal=1,
+        hat=1,
         level_value=0)
 
 def check_rift_node2_intf_down(res):

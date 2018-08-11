@@ -1,0 +1,34 @@
+# Topology: 2n_l1_l3
+# 
+#  +-----------+
+#  | node1     |
+#  | (level 3) |  <<< More than 1 level difference between hard-configured level 3
+#  +-----------+      on node1 and hard-configured level 1 on node2.
+#        | if1        Furthermore, neither node1 nor node2 is a leaf.
+#        |            Hence, the adjacency should stay in 1-way and not come up to 3-way.
+#        | if1        But, despite the fact that the adjacency is not allowed to reach 3-way,
+#  +-----------+      the offer in the received LIE is still accepted and considered as a
+#  | node2     |      Valid Offered Level (VOL) to determine the Highest Available Level (HAL).
+#  | (level 1) |      But since the adjacency will not reach 3-way, it will not be considered for
+#  +-----------+      Highest Adjacency in Three-way (HAT).
+#                     For details see http://bit.ly/rift-lie-rejected-but-offer-accepted-mail-thread
+
+shards:
+  - id: 0
+    nodes:
+      - name: node1
+        level: 3
+        systemid: 1
+        rx_lie_mcast_address: 224.0.1.1
+        rx_lie_port: 20001
+        interfaces:
+          - name: if1 # Connected to node2-if1
+            tx_lie_port: 20002
+      - name: node2
+        level: 1
+        systemid: 2
+        rx_lie_mcast_address: 224.0.1.2
+        rx_lie_port: 20002
+        interfaces:
+          - name: if1 # Connected to node1-if1
+            tx_lie_port: 20001

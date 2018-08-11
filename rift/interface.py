@@ -313,7 +313,7 @@ class Interface:
             # Section 4.2.2.8 (3rd OR clause) / DEV-4: Missing in section B.1.4
             return (True, "Both nodes are leaf and support leaf-2-leaf", True, False)
         if self.neither_leaf_and_ldiff_one(protocol_packet):
-            # Section 4.2.2.8 (4th OR clause( / DEV-4:Different in section B.1.4.3.2 (4th OR clause)
+            # Section 4.2.2.8 (4th OR clause) / DEV-4:Different in section B.1.4.3.2 (4th OR clause)
             return (True, "Neither node is leaf and level difference is at most one", True, False)
         return (False, "Level mismatch", True, True)
 

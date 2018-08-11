@@ -4,10 +4,10 @@
 #
 #  +-----------+
 #  | node1     |
-#  | (level 2) |  <<< More than 1 level difference between hard-configured level 2
-#  +-----------+      on node1 and hard-configured level 0 on node2.
-#        | if1        The adjacency should come up to state 3-way anyway because it
-#        |            is an adjacency between a non-leaf (node1) and a leaf (node2)
+#  | (level 2) |
+#  +-----------+
+#        | if1
+#        |
 #        | if1
 #  +-----------+
 #  | node2     |
@@ -20,9 +20,9 @@
 #   - node2 is level 0 (leaf)
 # - One link:
 #   - node1:if1 - node2:if1
-# - Note that the difference in hard-configured levels is more than 1
-# - The adjacency should come up to state 3-way anyway because it is an adjacency between a
-#   non-leaf (node1) and a leaf (node2)
+# - The difference in hard-configured levels is more than 1
+# - It is an adjacency between a leaf and a non-leaf
+# - The adjacency should come up to state 3-way anyway
 #
 # Test scenario:
 # - Bring the topology up
@@ -66,16 +66,13 @@ def check_rift_node1_intf_up(res):
     res.check_level(
         node="node1",
         configured_level=2,
+        hal=None,
+        hat=None,
         level_value=2)
-    # Node1 should accept the LIE from node2 because:
-    # This node is not leaf and neighbor is leaf
-    res.sendline("set node node1")
-    res.sendline("show interface if1")
-    res.table_expect("Interface:")
-    res.table_expect("| Received LIE Accepted or Rejected | Accepted |")
-    res.table_expect("| Received LIE Accept or Reject Reason | "
-                     "This node is not leaf and neighbor is leaf |")
-    res.wait_prompt()
+    res.check_lie_accepted(
+        node="node1",
+        interface="if1",
+        reason="This node is not leaf and neighbor is leaf")
 
 def check_rift_node1_intf_down(res):
     res.check_adjacency_1way(
@@ -110,16 +107,13 @@ def check_rift_node2_intf_up(res):
     res.check_level(
         node="node2",
         configured_level=0,
+        hal=2,
+        hat=2,
         level_value=0)
-    # Node1 should accept the LIE from the node1 because:
-    # This node is leaf and HAT not greater than remote level
-    res.sendline("set node node2")
-    res.sendline("show interface if1")
-    res.table_expect("Interface:")
-    res.table_expect("| Received LIE Accepted or Rejected | Accepted |")
-    res.table_expect("| Received LIE Accept or Reject Reason | "
-                     "This node is leaf and HAT not greater than remote level |")
-    res.wait_prompt()
+    res.check_lie_accepted(
+        node="node2",
+        interface="if1",
+        reason="This node is leaf and HAT not greater than remote level")
 
 def check_rift_node2_intf_down(res):
     res.check_adjacency_1way(

@@ -161,12 +161,35 @@ class RiftExpectSession:
         self.table_expect(expected_offer)
         self.wait_prompt(node)
 
-    def check_level(self, node, configured_level, level_value):
-        # Show nodes level reports the levels
+    def check_level(self, node, configured_level, hal, hat, level_value):
+        # Check using "show node"
+        self.sendline("set node {}".format(node))
+        self.sendline("show node")
+        self.table_expect("| Configured Level | {} |".format(configured_level))
+        self.table_expect("| Highest Available Level .HAL. | {} |".format(hal))
+        self.table_expect("| Highest Adjacency Three-way .HAT. | {} |".format(hat))
+        self.table_expect("| Level Value | {} |".format(level_value))
+        # Check for consistency in "show nodes level"
         self.sendline("show nodes level")
         # Look for the expected offer
         expected_level = "| {} | .* | .* | {} | {} |".format(node, configured_level, level_value)
         self.table_expect(expected_level)
+        self.wait_prompt()
+
+    def check_lie_accepted(self, node, interface, reason):
+        self.sendline("set node {}".format(node))
+        self.sendline("show interface {}".format(interface))
+        self.table_expect("Interface:")
+        self.table_expect("| Received LIE Accepted or Rejected | Accepted |")
+        self.table_expect("| Received LIE Accept or Reject Reason | {} |".format(reason))
+        self.wait_prompt()
+
+    def check_lie_rejected(self, node, interface, reason):
+        self.sendline("set node {}".format(node))
+        self.sendline("show interface {}".format(interface))
+        self.table_expect("Interface:")
+        self.table_expect("| Received LIE Accepted or Rejected | Rejected |")
+        self.table_expect("| Received LIE Accept or Reject Reason | {} |".format(reason))
         self.wait_prompt()
 
     def interface_failure(self, node, interface, failure):

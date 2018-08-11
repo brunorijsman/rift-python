@@ -58,13 +58,14 @@ class Node:
     def update_offer(self, updated_offer):
         if updated_offer.interface_name in self._rx_offers:
             old_offer = self._rx_offers[updated_offer.interface_name]
+            new_compare_needed = (
+                (old_offer.system_id != updated_offer.system_id) or
+                (old_offer.level != updated_offer.level) or
+                (old_offer.not_a_ztp_offer != updated_offer.not_a_ztp_offer) or
+                (old_offer.state != updated_offer.state))
         else:
             old_offer = None
-        new_compare_needed = old_offer and (
-            (old_offer.system_id != updated_offer.system_id) or
-            (old_offer.level != updated_offer.level) or
-            (old_offer.not_a_ztp_offer != updated_offer.not_a_ztp_offer) or
-            (old_offer.state != updated_offer.state))
+            new_compare_needed = True
         self._rx_offers[updated_offer.interface_name] = updated_offer
         if new_compare_needed:
             self.compare_offers()
@@ -189,7 +190,7 @@ class Node:
             self.remove_offer(updated_or_removed_offer, "Not a ZTP offer flag set")
         elif updated_or_removed_offer.level is None:
             self.remove_offer(updated_or_removed_offer, "Level is undefined")
-        elif updated_or_removed_offer.level <= common.constants.leaf_level:
+        elif updated_or_removed_offer.level == common.constants.leaf_level:
             self.remove_offer(updated_or_removed_offer, "Level is leaf")
         else:
             self.update_offer(updated_or_removed_offer)
