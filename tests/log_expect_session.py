@@ -20,7 +20,17 @@ class LogExpectSession:
         self._log_file.close()
         self._expect_log_file.write("Close LogExpectSession\n\n")
 
-    def write_record_to_expect_log_file(self, record):
+    def expect_failure(self, msg):
+        self._expect_log_file.write(msg)
+        # Generate a call stack in rift_expect.log for easier debugging
+        # But pytest call stacks are very deep, so only show the "interesting" lines
+        for line in traceback.format_stack():
+            if "tests/" in line:
+                self._expect_log_file.write(line.strip())
+                self._expect_log_file.write("\n")
+        assert False, msg
+
+    def write_fsm_record(self, record):
         msg = ("Observerd FSM transition:\n"
                "  log-line-nr = {}\n"
                "  sequence-nr = {}\n"
@@ -46,18 +56,8 @@ class LogExpectSession:
             self._line_nr += 1
             record = tools.log_record.LogRecord(self._line_nr, line)
             if record.type == "transition" and record.target_id == target_id:
-                self.write_record_to_expect_log_file(record)
+                self.write_fsm_record(record)
                 return record
-
-    def expect_failure(self, msg):
-        self._expect_log_file.write(msg)
-        # Generate a call stack in rift_expect.log for easier debugging
-        # But pytest call stacks are very deep, so only show the "interesting" lines
-        for line in traceback.format_stack():
-            if "tests/" in line:
-                self._expect_log_file.write(line.strip())
-                self._expect_log_file.write("\n")
-        assert False, msg
 
     def fsm_expect(self, target_id, from_state, event, to_state, skip_events=None, max_delay=None):
         msg = ("Searching for FSM transition:\n"
@@ -106,10 +106,42 @@ class LogExpectSession:
             self._expect_log_file.write("Found expected log transition\n\n")
             return record
 
-    def check_lie_fsm_3way(self, system_id, interface):
+    def write_cli_record(self, record):
+        msg = ("Observerd CLI command:\n"
+               "  log-line-nr = {}\n"
+               "  cli-command = {}\n"
+               "\n").format(self._line_nr, record.cli_command)
+        self._expect_log_file.write(msg)
+
+    def get_next_cli_record(self):
+        while True:
+            line = self._log_file.readline()
+            if not line:
+                return None
+            self._line_nr += 1
+            record = tools.log_record.LogRecord(self._line_nr, line)
+            if record.type == "cli":
+                self.write_cli_record(record)
+                return record
+
+    def skip_to_cli_command(self, cli_command):
+        msg = ("Searching for CLI command:\n"
+               "  cli-command = {}\n"
+               "\n").format(cli_command)
+        self._expect_log_file.write(msg)
+        while True:
+            record = self.get_next_cli_record()
+            if not record:
+                self.expect_failure("Did not find CLI command")
+            if record.cli_command != cli_command:
+                continue
+            self._expect_log_file.write("Skipped to CLI command\n\n")
+            return record
+
+    def check_lie_fsm_3way(self, node, interface):
         # Check that an adjacency comes up to the 3-way between a pair of nodes where both nodes
         # have a hard-configured level.
-        target_id = system_id + "-" + interface
+        target_id = node + "-" + interface
         self.open()
         self.fsm_expect(
             target_id=target_id,
@@ -153,13 +185,13 @@ class LogExpectSession:
             skip_events=["TIMER_TICK", "SEND_LIE", "LIE_RECEIVED"])
         self.close()
 
-    def check_lie_fsm_3way_with_ztp(self, system_id, interface):
-        # Check that an adjacency comes up to the 3-way between this node (identified by system-id)
-        # and the remote node on the other side of the specified interface.
+    def check_lie_fsm_3way_with_ztp(self, node, interface):
+        # Check that an adjacency comes up to the 3-way between this node and the remote node on
+        # the other side of the specified interface.
         # This is assuming that one node or both nodes start out with level undefined, and that
         # ZTP is used to eventually negotiate a level for one or both nodes.
         # See also comments in check_lie_fsm_3way to understand some of the finer timing gotchas
-        target_id = system_id + "-" + interface
+        target_id = node + "-" + interface
         self.open()
         self.fsm_expect(
             target_id=target_id,
@@ -199,4 +231,18 @@ class LogExpectSession:
             event="VALID_REFLECTION",
             to_state="THREE_WAY",
             skip_events=["TIMER_TICK", "SEND_LIE", "LIE_RECEIVED"])
+        self.close()
+
+    def check_lie_fsm_timeout_to_1way(self, node, interface, failure_command):
+        # Check that after an interface fails, the adjacency times out and transitions from
+        # 3-way to 1-way.
+        target_id = node + "-" + interface
+        self.open()
+        self.skip_to_cli_command(failure_command)
+        self.fsm_expect(
+            target_id=target_id,
+            from_state="THREE_WAY",
+            event="HOLD_TIME_EXPIRED",
+            to_state="ONE_WAY",
+            skip_events=["TIMER_TICK", "SEND_LIE"])
         self.close()
