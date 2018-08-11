@@ -294,12 +294,12 @@ class Node:
         initial_state=State.COMPUTE_BEST_OFFER,
         verbose_events=verbose_events)
 
-    def __init__(self, parent_rift, config):
+    def __init__(self, parent_engine, config):
         # TODO: process state_thrift_services_port field in config
         # TODO: process config_thrift_services_port field in config
         # TODO: process v4prefixes field in config
         # TODO: process v6prefixes field in config
-        self._rift = parent_rift
+        self._engine = parent_engine
         self._config = config
         self._node_nr = Node._next_node_nr
         Node._next_node_nr += 1
@@ -450,9 +450,9 @@ class Node:
             return True
 
     def is_running(self):
-        if self._rift.active_nodes == constants.ActiveNodes.ONLY_PASSIVE_NODES:
+        if self._engine.active_nodes == constants.ActiveNodes.ONLY_PASSIVE_NODES:
             running = self._passive
-        elif self._rift.active_nodes == constants.ActiveNodes.ALL_NODES_EXCEPT_PASSIVE_NODES:
+        elif self._engine.active_nodes == constants.ActiveNodes.ALL_NODES_EXCEPT_PASSIVE_NODES:
             running = not self._passive
         else:
             running = True
@@ -648,8 +648,8 @@ class Node:
         return self._running
 
     @property
-    def rift(self):
-        return self._rift
+    def engine(self):
+        return self._engine
 
     @property
     def highest_adjacency_three_way(self):

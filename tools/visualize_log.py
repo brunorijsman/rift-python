@@ -80,7 +80,7 @@ class Visualizer:
         self.svgfile = None
         self.tick = 0
         self.targets = {}
-        self.pending_messages = {}
+        self.sent_messages = {}
 
     def run(self):
         with open(self.svg_file_name, "w") as self.svgfile:
@@ -176,7 +176,7 @@ class Visualizer:
         ypos = tick_y_mid(record.tick)
         color = log_record_color(record)
         self.svg_dot(xpos, ypos, DOT_RADIUS, color)
-        self.pending_messages[record.nonce] = PendingMessage(record.nonce, xpos, ypos)
+        self.sent_messages[record.nonce] = PendingMessage(record.nonce, xpos, ypos)
         xpos += 2 * DOT_RADIUS
         text = "TX " + record.packet_type + " " + record.packet
         self.svg_text(xpos, ypos, text, color)
@@ -186,13 +186,12 @@ class Visualizer:
         ypos = tick_y_mid(record.tick)
         color = log_record_color(record)
         self.svg_dot(xpos, ypos, DOT_RADIUS, color)
-        if record.nonce in self.pending_messages:
-            xstart = self.pending_messages[record.nonce].xstart
-            ystart = self.pending_messages[record.nonce].ystart
+        if record.nonce in self.sent_messages:
+            xstart = self.sent_messages[record.nonce].xstart
+            ystart = self.sent_messages[record.nonce].ystart
             xend = record.target.xpos
             yend = tick_y_mid(record.tick)
             self.svg_line(xstart, ystart, xend, yend, color)
-            del self.pending_messages[record.nonce]
         xpos += 2 * DOT_RADIUS
         text = "RX " + record.packet_type + " " + record.packet
         self.svg_text(xpos, ypos, text, color)
@@ -210,8 +209,8 @@ class Visualizer:
         self.svgfile.write('<svg '
                            'xmlns="http://www.w3.org/2000/svg '
                            'xmlns:xlink="http://www.w3.org/1999/xlink" '
-                           'width=100000 '
-                           'height=100000>\n')
+                           'width=1000000 '
+                           'height=1000000>\n')
 
     def svg_end(self):
         self.svgfile.write('</svg>\n')

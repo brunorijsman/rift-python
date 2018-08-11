@@ -478,7 +478,7 @@ class Interface:
         self._advertised_name = self.generate_advertised_name()
         self._log_id = node.log_id + "-{}".format(self._interface_name)
         self._ipv4_address = utils.interface_ipv4_address(self._interface_name,
-                                                          self._node.rift.tx_src_address)
+                                                          self._node.engine.tx_src_address)
         self._rx_lie_ipv4_mcast_address = self.get_config_attribute(
             config, 'rx_lie_mcast_address', constants.DEFAULT_LIE_IPV4_MCAST_ADDRESS)
         self._tx_lie_ipv4_mcast_address = self.get_config_attribute(
@@ -521,8 +521,8 @@ class Interface:
             interface_name=self._interface_name,
             mcast_ipv4_address=self._tx_lie_ipv4_mcast_address,
             port=self._tx_lie_port,
-            interface_ipv4_address=self._node.rift.tx_src_address,
-            multicast_loopback=self._node.rift.multicast_loopback)
+            interface_ipv4_address=self._node.engine.tx_src_address,
+            multicast_loopback=self._node.engine.multicast_loopback)
         # TODO: Use source address
         (_, source_port) = self._mcast_send_handler.source_address_and_port()
         self._lie_udp_source_port = source_port
@@ -531,7 +531,7 @@ class Interface:
             self._rx_lie_ipv4_mcast_address,
             self._rx_lie_port,
             self.receive_mcast_message,
-            self._node.rift.tx_src_address)
+            self._node.engine.tx_src_address)
         self._one_second_timer = timer.Timer(1.0,
                                              lambda: self._fsm.push_event(self.Event.TIMER_TICK))
 
@@ -552,6 +552,9 @@ class Interface:
         protocol_packet = decode_protocol_packet(message)
         if self._rx_fail:
             self.debug(self._tx_log, "Failed receive {}".format(protocol_packet))
+            return
+        if protocol_packet.header.sender == self._node.system_id:
+            self.debug(self._rx_log, "Looped receive {}".format(protocol_packet))
             return
         self.debug(self._rx_log, "Receive {}".format(protocol_packet))
         if not protocol_packet.content:

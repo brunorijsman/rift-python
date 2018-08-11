@@ -225,15 +225,18 @@ class Fsm:
         self.info("Start FSM, state={}".format(self._state.name))
         self.invoke_state_entry_actions(self._state)
 
-    def push_event(self, event, event_data=None, transition_pushed_event=False):
+    def push_event(self, event, event_data=None):
         fsm = self
         event_tuple = (fsm, event, event_data)
-        if transition_pushed_event:
-            # Chained event
+        if self._current_record is not None:
+            # We are pushing an event to an FSM which is in the middle of executing a transaction.
+            # We conclude that the FSM is executing an action which pushes an event back to the same
+            # FSM instance, hence it is a chained event. (This logic only holds in a single-threaded
+            # application, which is what we currently have.)
             self._chained_event_queue.append(event_tuple)
             self._current_record.actions_and_pushed_events.append(event.name)
         else:
-            # Normal event
+            # Normal (external) event
             self._event_queue.append(event_tuple)
             verbose = (event in self._verbose_events)
             self.info_or_debug(verbose, "FSM push event, event={}".format(event.name))
@@ -279,7 +282,7 @@ class Fsm:
             (to_state, actions, push_events) = FsmDefinition.parse_transition(transition)
             self.invoke_actions(actions, event_data)
             for push_event in push_events:
-                self.push_event(push_event, None, True)
+                self.push_event(push_event, None)
             if to_state is not None:
                 self._state = to_state
                 self._current_record.to_state = to_state
