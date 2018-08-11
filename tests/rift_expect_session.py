@@ -5,7 +5,7 @@ import pytest
 
 class RiftExpectSession:
 
-    start_converge_secs = 5.0
+    start_converge_secs = 10.0
 
     # Maximum amount of time to fully reconverge after a uni-directional interface failure
     # If node1 can still send to node2, but node1 cannot receive from node2:

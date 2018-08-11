@@ -111,7 +111,8 @@ def check_rift_node2_intf_down(res):
 
 def check_log_node1_intf_up(les):
     les.check_lie_fsm_3way("node1", "if1")
-    #!!!les.check_lie_fsm_3way("node2", "if1")
+
+# TODO: check node2 also
 
 # TODO: Check log when interface is down
 
