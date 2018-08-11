@@ -139,7 +139,6 @@ class Interface:
 
     def action_cleanup(self):
         self._neighbor = None
-        #!!! remove offer from neighbor
 
     def check_reflection(self):
         # Does the received LIE packet (which is now stored in _neighbor) report us as the neighbor?
@@ -289,10 +288,10 @@ class Interface:
             # Section 4.2.2.6
             return (False, "MTU mismatch", False, True)
         if header.level is None:
-            # Section B.1.4.3.2 (1st OR clause) / section 4.2.2.7
+            # Section B.1.4.2 (1st OR clause) / section 4.2.2.7
             return (False, "Remote level (in received LIE) is undefined", True, False)
         if self._node.level_value() is None:
-            # Section B.1.4.3.2 (2nd OR clause) / section 4.2.2.7
+            # Section B.1.4.2 (2nd OR clause) / section 4.2.2.7
             return (False, "My level is undefined", True, False)
         if ((self._pod != self.UNDEFINED_OR_ANY_POD) and
                 (lie.pod != self.UNDEFINED_OR_ANY_POD) and
@@ -304,7 +303,7 @@ class Interface:
             return (False, "MTU mismatch", True, True)
         # DEV-4: The following rules are correctly specified in 4.2.2.8 and incorrectly in B.1.4.2
         if self.this_node_is_leaf() and self.hat_not_greater_remote_level(header.level):
-            # Section 4.2.2.8 (1st OR clause) / DEV-4:Different in section B.1.4.3.2 (3rd OR clause)
+            # Section 4.2.2.8 (1st OR clause) / DEV-4:Different in section B.1.4.2 (3rd OR clause)
             return (True, "This node is leaf and HAT not greater than remote level", True, False)
         if not self.this_node_is_leaf() and (header.level == 0):
             # Section 4.2.2.8 (2nd OR clause) / DEV-4: Missing in section B.1.4

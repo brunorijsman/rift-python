@@ -284,9 +284,10 @@ class Fsm:
             for push_event in push_events:
                 self.push_event(push_event, None)
             if to_state is not None:
-                self._state = to_state
                 self._current_record.to_state = to_state
-                self.invoke_state_entry_actions(to_state)
+                if to_state != self._state:
+                    self._state = to_state
+                    self.invoke_state_entry_actions(to_state)
         else:
             self._current_record.implicit = True
         self._verbose_records.appendleft(self._current_record)

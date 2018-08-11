@@ -115,7 +115,7 @@ def check_log_node1_intf_up(les):
 
 # TODO: Check log when interface is down
 
-def test_2_nodes_l0_l1():
+def test_2n_l0_l1():
     # Bring topology up
     res = RiftExpectSession("2n_l0_l1")
     les = LogExpectSession("rift.log")

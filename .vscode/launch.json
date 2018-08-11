@@ -12,11 +12,11 @@
             "args": [""] 
         },
         {
-            "name": "RIFT 2n_l1_l3l",
+            "name": "RIFT 2n_un_l1",
             "type": "python",
             "request": "launch",
             "program": "${workspaceFolder}/rift/__main__.py",
-            "args": ["topology/2n_l1_l3.yaml"] 
+            "args": ["topology/2n_un_l1.yaml"] 
         },
         {
             "name": "Python: Current File",

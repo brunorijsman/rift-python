@@ -143,6 +143,6 @@ def test_fsm_basic(dog):
     assert dog.fsm_instance.state == dog.State.BARKING
     assert dog.growls == 1
     assert dog.jumps == 1
-    assert dog.barks == 3
-    assert dog.total_actions == 5
+    assert dog.barks == 2
+    assert dog.total_actions == 4
     dog.reset_action_counters()
