@@ -25,6 +25,8 @@ The code is currently still a work in progress (see Feature List below for the s
 
 * [Implementation Deviations from Specificaton](doc/deviations.md)
 
+* [Continuous Integration](doc/continuous-integration.md)
+
 # IETF 102 (Montreal) RIFT Hackathon Interoperability Testing
 
 A version of this code (tag ietf-102-rift-hackathon) was used to conduct interoperability testing in the hackathon at the Internet Engineering Task Force (IETF) meeting number 102 in Montreal (July 2018).
