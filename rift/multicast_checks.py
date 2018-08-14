@@ -24,10 +24,11 @@ def loopback_needed():
 
 def copies_received(loopback_enabled):
     # Open a multicast send socket, with IP_MULTICAST_LOOP enabled or disabled as requested.
-    mcast_ipv4_address = "224.0.1.1"
-    port = 20001
+    mcast_ipv4_address = "224.0.1.195"
+    port = 49501
     group = (mcast_ipv4_address, port)
     txsock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+    txsock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     if loopback_enabled:
         txsock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, 1)
     else:
@@ -37,6 +38,7 @@ def copies_received(loopback_enabled):
     rxsock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
     req = struct.pack("=4sl", socket.inet_aton(mcast_ipv4_address), socket.INADDR_ANY)
     rxsock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, req)
+    rxsock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     rxsock.bind(group)
     # Allow some time for the IGMP join (group membership) messages to be sent and processed
     time.sleep(1.0)

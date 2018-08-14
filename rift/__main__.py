@@ -1,5 +1,6 @@
 import argparse
 import logging
+import os
 
 import config
 import constants
@@ -39,10 +40,13 @@ def parse_command_line_arguments():
                                 help='Enable IP_MULTICAST_LOOP option on multicast send sockets')
     loopback_group.add_argument('--multicast-loopback-disable', action="store_true",
                                 help='Disable IP_MULTICAST_LOOP option on multicast send sockets')
-    parsed_args = parser.parse_args()
-    return parsed_args
+    args = parser.parse_args()
+    return args
 
-def active_nodes(parsed_args):
+def parse_environment_variables(args):
+    args.passive_nodes = os.getenv("RIFT_PASSIVE_NODES", "").split(",")
+
+def run_which_nodes(parsed_args):
     if parsed_args.passive:
         return constants.ActiveNodes.ONLY_PASSIVE_NODES
     elif parsed_args.non_passive:
@@ -60,8 +64,10 @@ def multicast_loopback(parsed_args):
 
 def main():
     args = parse_command_line_arguments()
+    parse_environment_variables(args)
     parsed_config = config.parse_configuration(args.configfile)
-    eng = engine.Engine(active_nodes=active_nodes(args),
+    eng = engine.Engine(run_which_nodes=run_which_nodes(args),
+                        passive_nodes=args.passive_nodes,
                         interactive=args.interactive,
                         multicast_loopback=multicast_loopback(args),
                         log_level=args.log_level,

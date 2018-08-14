@@ -111,3 +111,7 @@ venv.bak/
 
 # Visualized logs
 *.log.html
+
+# Generated topology files for interop testing
+*-juniper.yaml
+*-python.yaml

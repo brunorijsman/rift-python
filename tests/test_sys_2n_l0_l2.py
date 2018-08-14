@@ -42,9 +42,7 @@ from log_expect_session import LogExpectSession
 def check_rift_node1_intf_up(res):
     res.check_adjacency_3way(
         node="node1",
-        interface="if1",
-        other_node="node2",
-        other_interface="if1")
+        interface="if1")
     res.check_rx_offer(
         node="node1",
         interface="if1",
@@ -106,9 +104,7 @@ def check_rift_node1_intf_down(res):
 def check_rift_node2_intf_up(res):
     res.check_adjacency_3way(
         node="node2",
-        interface="if1",
-        other_node="node1",
-        other_interface="if1")
+        interface="if1")
     res.check_rx_offer(
         node="node2",
         interface="if1",

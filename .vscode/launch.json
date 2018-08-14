@@ -5,6 +5,13 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Interop",
+            "type": "python",
+            "request": "launch",
+            "program": "tests/interop.py",
+            "args": [""] 
+        },
+        {
             "name": "Visualize RIFT Log",
             "type": "python",
             "request": "launch",

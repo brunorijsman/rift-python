@@ -1,8 +1,0 @@
-[run]
-omit=
-    env/*
-    rift/common/*
-    rift/encoding/*
-
-[paths]
-source=rift

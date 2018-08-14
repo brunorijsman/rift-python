@@ -294,7 +294,7 @@ class Node:
         initial_state=State.COMPUTE_BEST_OFFER,
         verbose_events=verbose_events)
 
-    def __init__(self, parent_engine, config):
+    def __init__(self, parent_engine, config, force_passive):
         # TODO: process state_thrift_services_port field in config
         # TODO: process config_thrift_services_port field in config
         # TODO: process v4prefixes field in config
@@ -304,7 +304,7 @@ class Node:
         self._node_nr = Node._next_node_nr
         Node._next_node_nr += 1
         self._name = self.get_config_attribute('name', self.generate_name())
-        self._passive = self.get_config_attribute('passive', False)
+        self._passive = force_passive or self.get_config_attribute('passive', False)
         self._running = self.is_running()
         self._system_id = self.get_config_attribute('systemid', self.generate_system_id())
         self._log_id = self._name

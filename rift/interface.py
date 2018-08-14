@@ -42,7 +42,8 @@ class Interface:
     def get_mtu(self):
         # TODO: Find a portable (or even non-portable) way to get the interface MTU
         # TODO: Find a way to be informed whenever the interface MTU changes
-        mtu = 1500
+        #!!! mtu = 1500
+        mtu = 1400
         return mtu
 
     @staticmethod

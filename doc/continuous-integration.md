@@ -15,3 +15,6 @@ uploaded to codecov which provides graphical code coverage reports.
 
 The [README.md](../README.md) file contains badges to report the Travis CI build result and to 
 report the codecov coverage percentage.
+
+Before you commit code, you must run the tools/pre-commit-checks bash script to make sure that
+pylint is perfect and all unit tests pass.

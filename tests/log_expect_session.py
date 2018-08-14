@@ -1,4 +1,5 @@
 import datetime
+import os
 import traceback
 import tools.log_record
 
@@ -7,7 +8,10 @@ class LogExpectSession:
     def __init__(self, log_file_name):
         self._log_file_name = log_file_name
         self._log_file = None
-        self._expect_log_file = open('log_expect.log', 'w')
+        log_file_name = "log_expect.log"
+        if "RIFT_TEST_RESULTS_DIR" in os.environ:
+            log_file_name = os.environ["RIFT_TEST_RESULTS_DIR"] + "/" + log_file_name
+        self._expect_log_file = open(log_file_name, 'w')
         self._line_nr = 0
         self._last_timestamp = None
 

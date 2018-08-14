@@ -1,3 +1,4 @@
+import os
 import time
 import traceback
 import pexpect
@@ -21,11 +22,15 @@ class RiftExpectSession:
     def __init__(self, topology_file, converge_secs=start_converge_secs):
         rift_cmd = ("rift "
                     "--interactive "
+                    "--non-passive "
                     "--log-level debug "
                     "topology/{}.yaml"
                     .format(topology_file))
         cmd = "coverage run --parallel-mode {}".format(rift_cmd)
-        self._logfile = open('rift_expect.log', 'ab')
+        log_file_name = "rift_expect.log"
+        if "RIFT_TEST_RESULTS_DIR" in os.environ:
+            log_file_name = os.environ["RIFT_TEST_RESULTS_DIR"] + "/" + log_file_name
+        self._logfile = open(log_file_name, 'ab')
         self._expect_session = pexpect.spawn(cmd, logfile=self._logfile)
         time.sleep(converge_secs)
         self.wait_prompt()
@@ -114,15 +119,13 @@ class RiftExpectSession:
         self.table_expect("| Name | {} |".format(other_full_name))
         self.wait_prompt(node)
 
-    def check_adjacency_3way(self, node, interface, other_node, other_interface):
-        # Construct full interface names as reported in LIE packets
-        other_full_name = other_node + "-" + other_interface
+    def check_adjacency_3way(self, node, interface):
         # Go to the node that we want to check
         self.sendline("set node {}".format(node))
         self.wait_prompt(node)
         # Show interfaces reports the adjacency with the other node as THREE_WAY
         self.sendline("show interfaces")
-        self.table_expect("| {} | {} | .* | THREE_WAY |".format(interface, other_full_name))
+        self.table_expect("| {} | .* | .* | THREE_WAY |".format(interface))
         self.wait_prompt(node)
         # Show interface <interface-name> reports the adjacency with the other node as THREE_WAY
         self.sendline("show interface {}".format(interface))
@@ -132,7 +135,7 @@ class RiftExpectSession:
         self.table_expect("| Received LIE Accepted or Rejected | Accepted |")
         self.table_expect("| Neighbor | True |")
         self.table_expect("Neighbor:")
-        self.table_expect("| Name | {} |".format(other_full_name))
+        self.table_expect("| Name | .* |")
         self.wait_prompt(node)
 
     def check_rx_offer(self, node, interface, system_id, level, not_a_ztp_offer, state, best,

@@ -14,18 +14,19 @@ import table
 
 class Engine:
 
-    def __init__(self, active_nodes, interactive, multicast_loopback, log_level, config):
+    def __init__(self, passive_nodes, run_which_nodes, interactive, multicast_loopback, log_level,
+                 config):
         logging.basicConfig(
             filename='rift.log',
             format='%(asctime)s:%(levelname)s:%(name)s:%(message)s',
             level=log_level)
-        self._active_nodes = active_nodes
+        self._run_which_nodes = run_which_nodes
         self._interactive = interactive
         self._multicast_loopback = multicast_loopback
         self._config = config
         self._tx_src_address = self.read_global_configuration(config, 'tx_src_address', '')
         self._nodes = sortedcontainers.SortedDict()
-        self.create_configuration()
+        self.create_configuration(passive_nodes)
         cli_log = logging.getLogger('cli')
         if self._nodes:
             first_node = self._nodes.peekitem(0)[1]
@@ -55,18 +56,19 @@ class Engine:
         else:
             return default
 
-    def create_configuration(self):
+    def create_configuration(self, passive_nodes):
         if 'shards' in self._config:
             for shard_config in self._config['shards']:
-                self.create_shard(shard_config)
+                self.create_shard(shard_config, passive_nodes)
 
-    def create_shard(self, shard_config):
+    def create_shard(self, shard_config, passive_nodes):
         if 'nodes' in shard_config:
             for node_config in shard_config['nodes']:
-                self.create_node(node_config)
+                force_passive = node_config['name'] in passive_nodes
+                self.create_node(node_config, force_passive)
 
-    def create_node(self, node_config):
-        new_node = node.Node(self, node_config)
+    def create_node(self, node_config, force_passive):
+        new_node = node.Node(self, node_config, force_passive)
         self._nodes[new_node.name] = new_node
 
     def run(self):
@@ -174,7 +176,7 @@ class Engine:
 
     @property
     def active_nodes(self):
-        return self._active_nodes
+        return self._run_which_nodes
 
     @property
     def tx_src_address(self):
