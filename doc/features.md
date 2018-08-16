@@ -1,6 +1,6 @@
 # Feature List
 
-## Adjacenecies
+## Adjacencies
 
 | Feature | Supported |
 | --- | --- |
@@ -86,7 +86,7 @@
 | Command Line Interface (CLI) for Operational Commands | Yes |
 | CLI Command History (^P and ^N) | No |
 | CLI Tab Completion | No |
-| CLI Context-Senstive Help | Partial |
+| CLI Context-Sensitive Help | Partial |
 | Logging | Yes |
 | YANG support | No |
 | Startup Configuration File | Yes |
