@@ -124,8 +124,8 @@ def check_log_node3_intf_down(_les):
 def test_3n_l0_l1_l2():
     passive_nodes = os.getenv("RIFT_PASSIVE_NODES", "").split(",")
     # Bring topology up
-    res = RiftExpectSession("3n_l0_l1_l2")
     les = LogExpectSession("rift.log")
+    res = RiftExpectSession("3n_l0_l1_l2")
     # Check that node1-node2 and node2-node3 adjacencies reaches 3-way
     if "node1" not in passive_nodes:
         check_rift_node1_intf_up(res)

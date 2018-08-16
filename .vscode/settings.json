@@ -7,5 +7,15 @@
     ],
     "python.unitTest.unittestEnabled": false,
     "python.unitTest.nosetestsEnabled": false,
-    "python.unitTest.pyTestEnabled": true
+    "python.unitTest.pyTestEnabled": true,
+    "cSpell.words": [
+        "getenv",
+        "hackathon",
+        "igmp",
+        "intf",
+        "pexpect",
+        "pylint",
+        "pytest",
+        "strptime"
+    ]
 }

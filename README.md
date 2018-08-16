@@ -21,9 +21,13 @@ The code is currently still a work in progress (see Feature List below for the s
 
 * [Logging](doc/logging.md)
 
+* [Log Visualization](doc/log-visualization.md)
+
 * [Configuration File](doc/configuration-file.md)
 
-* [Implementation Deviations from Specificaton](doc/deviations.md)
+* [Implementation Deviations from Specification](doc/deviations.md)
+
+* [Automated Testing](doc/automated-testing.md)
 
 * [Continuous Integration](doc/continuous-integration.md)
 
@@ -34,3 +38,8 @@ A version of this code (tag ietf-102-rift-hackathon) was used to conduct interop
 * [IETF 102 RIFT Hackathon: Presentation Slides (Microsoft Powerpoint)](ietf-102/ietf-102-rift-hackathon-slides.pptx)
 
 * [IETF 102 RIFT Hackathon: Report](ietf-102/ietf-102-rift-hackathon-detailed-report.md)
+
+# Zero Touch Provisioning (ZTP) Interoperability Testing
+
+* [Zero Touch Provisioning (ZTP) Preliminary Interoperability Testing Report](doc/ztp-interop-testing-report.md)
+

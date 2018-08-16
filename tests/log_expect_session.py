@@ -8,34 +8,38 @@ class LogExpectSession:
     def __init__(self, log_file_name):
         self._log_file_name = log_file_name
         self._log_file = None
-        log_file_name = "log_expect.log"
+        results_file_name = "log_expect.log"
         if "RIFT_TEST_RESULTS_DIR" in os.environ:
-            log_file_name = os.environ["RIFT_TEST_RESULTS_DIR"] + "/" + log_file_name
-        self._expect_log_file = open(log_file_name, 'w')
+            log_file_name = os.environ["RIFT_TEST_RESULTS_DIR"] + "/" + results_file_name
+        self._results_file = open(results_file_name, 'w')
         self._line_nr = 0
         self._last_timestamp = None
+        # Clear the log file; this is to make sure it does not contain any log messages from
+        # previously run test cases.
+        temp_file = open(self._log_file_name, "w")
+        temp_file.close()
 
     def open(self):
         self._log_file = open(self._log_file_name, "r")
         self._line_nr = 0
-        self._expect_log_file.write("Open LogExpectSession\n\n")
+        self._results_file.write("Open LogExpectSession\n\n")
 
     def close(self):
         self._log_file.close()
-        self._expect_log_file.write("Close LogExpectSession\n\n")
+        self._results_file.write("Close LogExpectSession\n\n")
 
     def expect_failure(self, msg):
-        self._expect_log_file.write(msg)
+        self._results_file.write(msg + "\n\n")
         # Generate a call stack in rift_expect.log for easier debugging
         # But pytest call stacks are very deep, so only show the "interesting" lines
         for line in traceback.format_stack():
             if "tests/" in line:
-                self._expect_log_file.write(line.strip())
-                self._expect_log_file.write("\n")
-        assert False, msg
+                self._results_file.write(line.strip())
+                self._results_file.write("\n")
+        assert False, msg + " (see log_expect.log for details)"
 
     def write_fsm_record(self, record):
-        msg = ("Observerd FSM transition:\n"
+        msg = ("Observed FSM transition:\n"
                "  log-line-nr = {}\n"
                "  sequence-nr = {}\n"
                "  from-state = {}\n"
@@ -50,7 +54,7 @@ class LogExpectSession:
                             record.actions_and_pushed_events,
                             record.to_state,
                             record.implicit)
-        self._expect_log_file.write(msg)
+        self._results_file.write(msg)
 
     def get_next_fsm_record_for_target(self, target_id):
         while True:
@@ -75,11 +79,11 @@ class LogExpectSession:
                             event,
                             to_state,
                             skip_events)
-        self._expect_log_file.write(msg)
+        self._results_file.write(msg)
         while True:
             record = self.get_next_fsm_record_for_target(target_id)
             if not record:
-                msg = "Did not find FSM transition for target-id {}".format(target_id)
+                msg = "Did not find FSM transition for {}".format(target_id)
                 self.expect_failure(msg)
             if skip_events and record.event in skip_events:
                 continue
@@ -107,7 +111,7 @@ class LogExpectSession:
                            .format(delta_seconds, max_delay))
                     self.expect_failure(msg)
             self._last_timestamp = timestamp
-            self._expect_log_file.write("Found expected log transition\n\n")
+            self._results_file.write("Found expected log transition\n\n")
             return record
 
     def fsm_find(self, target_id, from_state, event, to_state):
@@ -120,24 +124,24 @@ class LogExpectSession:
                             from_state,
                             event,
                             to_state)
-        self._expect_log_file.write(msg)
+        self._results_file.write(msg)
         while True:
             record = self.get_next_fsm_record_for_target(target_id)
             if not record:
-                msg = "Did not find FSM transition for target-id {}".format(target_id)
+                msg = "Did not find FSM transition for {}".format(target_id)
                 self.expect_failure(msg)
             if (record.from_state == from_state and
                     record.event == event and
                     record.to_state == to_state):
-                self._expect_log_file.write("Found expected log transition\n\n")
+                self._results_file.write("Found expected log transition\n\n")
                 return record
 
     def write_cli_record(self, record):
-        msg = ("Observerd CLI command:\n"
+        msg = ("Observed CLI command:\n"
                "  log-line-nr = {}\n"
                "  cli-command = {}\n"
                "\n").format(self._line_nr, record.cli_command)
-        self._expect_log_file.write(msg)
+        self._results_file.write(msg)
 
     def get_next_cli_record(self):
         while True:
@@ -154,14 +158,14 @@ class LogExpectSession:
         msg = ("Searching for CLI command:\n"
                "  cli-command = {}\n"
                "\n").format(cli_command)
-        self._expect_log_file.write(msg)
+        self._results_file.write(msg)
         while True:
             record = self.get_next_cli_record()
             if not record:
                 self.expect_failure("Did not find CLI command")
             if record.cli_command != cli_command:
                 continue
-            self._expect_log_file.write("Skipped to CLI command\n\n")
+            self._results_file.write("Skipped to CLI command\n\n")
             return record
 
     def check_lie_fsm_3way(self, node, interface):
@@ -189,7 +193,7 @@ class LogExpectSession:
             skip_events=["TIMER_TICK"],
             max_delay=0.1)      # Our LIE should be triggered
         # Note: if the remote side receives the LIE packet that we just sent out above, we should
-        # receive a LIE "quickly" which the SEND_LIE event on the remote node is triggerd by the
+        # receive a LIE "quickly" which the SEND_LIE event on the remote node is triggered by the
         # RECEIVE_LIE event. I had a max_delay of 0.1 in the expect below to check for that.
         # However, in some environments it takes some time for the initial IGMP joins to be
         # processed. The remote node may not receive the LIE which we sent out above, in which case
