@@ -103,5 +103,16 @@
 | Generate FSM documentation from code | Yes |
 | Check FSM for correctness | No |
 | Report history of transitions | Yes |
-| Visualize history of FSM transitions | No |
+| Visualize history of FSM transitions | Yes |
 | Distinguish boring (verbose) vs interesting (non-verbose) transactions | Yes |
+
+### Continuous Integration (CI)
+
+| Feature | Supported |
+| --- | --- |
+| Travis Continuous Integration | Yes |
+| Codecov code coverage measuring and reporting | Yes |
+| Automated Pylint | Yes |
+| Automated Pytest Unit Tests | Yes |
+| Automated System Tests | Yes |
+| Automated Interoperability Tests | Yes |
