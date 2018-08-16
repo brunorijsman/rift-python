@@ -5,19 +5,17 @@ import tools.log_record
 
 class LogExpectSession:
 
-    def __init__(self, log_file_name):
-        self._log_file_name = log_file_name
-        self._log_file = None
+    def __init__(self):
+        log_file_name = "rift.log"
         results_file_name = "log_expect.log"
         if "RIFT_TEST_RESULTS_DIR" in os.environ:
-            log_file_name = os.environ["RIFT_TEST_RESULTS_DIR"] + "/" + results_file_name
+            results_file_name = os.environ["RIFT_TEST_RESULTS_DIR"] + "/" + results_file_name
+            log_file_name = os.environ["RIFT_TEST_RESULTS_DIR"] + "/" + log_file_name
+        self._log_file_name = log_file_name
+        self._log_file = None
         self._results_file = open(results_file_name, 'w')
         self._line_nr = 0
         self._last_timestamp = None
-        # Clear the log file; this is to make sure it does not contain any log messages from
-        # previously run test cases.
-        temp_file = open(self._log_file_name, "w")
-        temp_file.close()
 
     def open(self):
         self._log_file = open(self._log_file_name, "r")

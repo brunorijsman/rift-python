@@ -17,6 +17,7 @@ TEST_CASES = [("test_sys_2n_l0_l1.py", "2n_l0_l1.yaml", ["node1"]),
               ("test_sys_3n_l0_l1_l2.py", "3n_l0_l1_l2.yaml", ["node3"]),
               ("test_sys_3n_l0_l1_l2.py", "3n_l0_l1_l2.yaml", ["node1", "node2"]),
               ("test_sys_3n_l0_l1_l2.py", "3n_l0_l1_l2.yaml", ["node2", "node3"]),
+              ("test_sys_3n_l0_l1_l2.py", "3n_l0_l1_l2.yaml", ["node1", "node3"]),
               ("test_sys_2n_un_l1.py", "2n_un_l1.yaml", ["node1"]),
               ("test_sys_2n_un_l1.py", "2n_un_l1.yaml", ["node2"])]
 
@@ -136,10 +137,8 @@ def run_test_case(test, config, juniper_nodes, results_dir):
                                                            test_results_dir)
     pytest_process, pytest_log_file = start_pytest(test, juniper_nodes, test_results_dir)
     success = pytest_process.wait() == 0
-    if success:
-        print("Pass")
-    else:
-        print("Fail")
+    result = "Pass" if success else "Fail"
+    print("Pass")
     juniper_process.kill()
     juniper_log_file.close()
     pytest_log_file.close()

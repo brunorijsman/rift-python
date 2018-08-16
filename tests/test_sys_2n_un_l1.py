@@ -163,7 +163,7 @@ def check_log_node2_intf_down(les):
 def test_2n_un_l1():
     passive_nodes = os.getenv("RIFT_PASSIVE_NODES", "").split(",")
     # Bring topology up
-    les = LogExpectSession("rift.log")
+    les = LogExpectSession()
     res = RiftExpectSession("2n_un_l1")
     # Check that adjacency reaches 3-way, check offers, check levels
     if "node1" not in passive_nodes:

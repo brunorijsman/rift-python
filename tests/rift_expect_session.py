@@ -27,11 +27,11 @@ class RiftExpectSession:
                     "topology/{}.yaml"
                     .format(topology_file))
         cmd = "coverage run --parallel-mode {}".format(rift_cmd)
-        log_file_name = "rift_expect.log"
+        results_file_name = "rift_expect.log"
         if "RIFT_TEST_RESULTS_DIR" in os.environ:
-            log_file_name = os.environ["RIFT_TEST_RESULTS_DIR"] + "/" + log_file_name
-        self._logfile = open(log_file_name, 'ab')
-        self._expect_session = pexpect.spawn(cmd, logfile=self._logfile)
+            results_file_name = os.environ["RIFT_TEST_RESULTS_DIR"] + "/" + results_file_name
+        self._results_file = open(results_file_name, 'ab')
+        self._expect_session = pexpect.spawn(cmd, logfile=self._results_file)
         time.sleep(converge_secs)
         self.wait_prompt()
 
@@ -47,17 +47,17 @@ class RiftExpectSession:
         self._expect_session.sendline(line)
 
     def log_expect_failure(self):
-        self._logfile.write(b"\n\n*** Did not find expected pattern\n\n")
+        self._results_file.write(b"\n\n*** Did not find expected pattern\n\n")
         # Generate a call stack in rift_expect.log for easier debugging
         # But pytest call stacks are very deep, so only show the "interesting" lines
         for line in traceback.format_stack():
             if "tests/" in line:
-                self._logfile.write(line.strip().encode())
-                self._logfile.write(b"\n")
+                self._results_file.write(line.strip().encode())
+                self._results_file.write(b"\n")
 
     def expect(self, pattern, timeout=expect_timeout):
         msg = "\n\n*** Expect: {}\n\n".format(pattern)
-        self._logfile.write(msg.encode())
+        self._results_file.write(msg.encode())
         try:
             self._expect_session.expect(pattern, timeout)
         except pexpect.TIMEOUT:

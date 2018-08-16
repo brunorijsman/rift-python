@@ -1,4 +1,5 @@
 import logging
+import os
 import sys
 
 import sortedcontainers
@@ -16,8 +17,11 @@ class Engine:
 
     def __init__(self, passive_nodes, run_which_nodes, interactive, multicast_loopback, log_level,
                  config):
+        log_file_name = "rift.log"
+        if "RIFT_TEST_RESULTS_DIR" in os.environ:
+            log_file_name = os.environ["RIFT_TEST_RESULTS_DIR"] + "/" + log_file_name
         logging.basicConfig(
-            filename='rift.log',
+            filename=log_file_name,
             format='%(asctime)s:%(levelname)s:%(name)s:%(message)s',
             level=log_level)
         self._run_which_nodes = run_which_nodes

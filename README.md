@@ -2,7 +2,7 @@
 
 # Routing In Fat Trees (RIFT)
 
-This repository contains a Python implementation of the Routing In Fat Trees (RIFT) protocol specificied in Internet Draft (ID)
+This repository contains a Python implementation of the Routing In Fat Trees (RIFT) protocol specified in Internet Draft (ID)
 [draft-draft-rift-02](https://tools.ietf.org/html/draft-ietf-rift-rift-02)
 
 The code is currently still a work in progress (see Feature List below for the status).
@@ -23,7 +23,7 @@ The code is currently still a work in progress (see Feature List below for the s
 
 * [Log Visualization](doc/log-visualization.md)
 
-* [Configuration File](doc/configuration-file.md)
+* [Configuration File](doc/configuration-file.md) (Also known as the Topology File)
 
 * [Implementation Deviations from Specification](doc/deviations.md)
 
@@ -35,7 +35,7 @@ The code is currently still a work in progress (see Feature List below for the s
 
 A version of this code (tag ietf-102-rift-hackathon) was used to conduct interoperability testing in the hackathon at the Internet Engineering Task Force (IETF) meeting number 102 in Montreal (July 2018).
 
-* [IETF 102 RIFT Hackathon: Presentation Slides (Microsoft Powerpoint)](ietf-102/ietf-102-rift-hackathon-slides.pptx)
+* [IETF 102 RIFT Hackathon: Presentation Slides (Microsoft PowerPoint)](ietf-102/ietf-102-rift-hackathon-slides.pptx)
 
 * [IETF 102 RIFT Hackathon: Report](ietf-102/ietf-102-rift-hackathon-detailed-report.md)
 

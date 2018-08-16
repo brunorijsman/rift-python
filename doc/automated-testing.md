@@ -99,13 +99,19 @@ Your code has been rated at 10.00/10 (previous run: 10.00/10, +0.00)
 
 Many Python code editors (I use Visual Studio Code) have a plugin to automatically detect and report pylint warning as you enter the code. I strongly recommend using such a plugin.
 
-Python RIFT is very pedantic about not allowig any pylint issues. Pylint is run on every github commit, and even a single warning will cause a build failure to be declared.
+Python RIFT is very pedantic about not allowing any pylint issues. Pylint is run on every github commit, and even a single warning will cause a build failure to be declared.
 
-The pylintrc file in the home directory disables a small number of pylint warnings, and documents why they are disabled. Furtermore, a few Python files contain `# pylint: disable=...` comments to disable specific warnings, but this should be used very sparingly.
+The pylintrc file in the home directory disables a small number of pylint warnings, and documents why they are disabled. Furthermore, a few Python files contain `# pylint: disable=...` comments to disable specific warnings, but this should be used very sparingly.
 
 ## Unit Tests
 
-The unit tests use [pytest](https://docs.pytest.org/en/latest/) to test an individual Python module.
+The unit tests use [pytest](https://docs.pytest.org/en/latest/) with code-coverage extensions to test an individual Python module.
+
+If you followed the [installation instructions](installation.md), you will have already installed pytest-cov. If not, use pip to install it:
+
+<pre>
+$ <b>pip install pytest-cov</b>
+</pre>
 
 The unit tests are stored in the tests directory, and start with the test\_ prefix (but not the test\_sys\_ prefix, those are system tests).
 
@@ -542,6 +548,31 @@ This currently takes about 3 minutes to complete (but it will take longer when I
 Each line of output reports whether or not a particular interop test case passed or failed.
 
 The naming convention for interop test cases is the topology plus a list of nodes that are running as RIFT-Juniper nodes. For example, test case `2n_l0_l1-node2` is topology `2n_l0_l1` with node2 running as a RIFT-Juniper node. As another example, test case `3n_l0_l1_l2-node1-node2` is topology `3n_l0_l1_l2` where node1 and node2 are running as RIFT-Juniper nodes.
+
+At the beginning of the tile `tests/interop.py` you can see a list of test cases that are executed during the interop testing:
+
+<pre>
+TEST_CASES = [("test_sys_2n_l0_l1.py", "2n_l0_l1.yaml", ["node1"]),
+              ("test_sys_2n_l0_l1.py", "2n_l0_l1.yaml", ["node2"]),
+              ("test_sys_2n_l0_l2.py", "2n_l0_l2.yaml", ["node1"]),
+              ("test_sys_2n_l0_l2.py", "2n_l0_l2.yaml", ["node2"]),
+              ("test_sys_2n_l1_l3.py", "2n_l1_l3.yaml", ["node1"]),
+              ("test_sys_2n_l1_l3.py", "2n_l1_l3.yaml", ["node2"]),
+              ("test_sys_3n_l0_l1_l2.py", "3n_l0_l1_l2.yaml", ["node1"]),
+              ("test_sys_3n_l0_l1_l2.py", "3n_l0_l1_l2.yaml", ["node2"]),
+              ("test_sys_3n_l0_l1_l2.py", "3n_l0_l1_l2.yaml", ["node3"]),
+              ("test_sys_3n_l0_l1_l2.py", "3n_l0_l1_l2.yaml", ["node1", "node2"]),
+              ("test_sys_3n_l0_l1_l2.py", "3n_l0_l1_l2.yaml", ["node2", "node3"]),
+              ("test_sys_3n_l0_l1_l2.py", "3n_l0_l1_l2.yaml", ["node1", "node3"]),
+              ("test_sys_2n_un_l1.py", "2n_un_l1.yaml", ["node1"]),
+              ("test_sys_2n_un_l1.py", "2n_un_l1.yaml", ["node2"])]
+</pre>
+
+Each line contains a 3-tuple (topology, sys\_test, juniper\_nodes) that describes a single integration test cases:
+
+* topology is the name of the topology file.
+* sys\_test is the name of the system test script.
+* juniper\_nodes is a list of node names that run RIFT-Juniper instead of RIFT-Python
 
 ## Diagnosing Interoperability Test Failures
 

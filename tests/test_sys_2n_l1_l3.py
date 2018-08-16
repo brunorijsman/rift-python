@@ -120,7 +120,7 @@ def check_log_node2(les):
 
 def test_2n_l1_l3():
     passive_nodes = os.getenv("RIFT_PASSIVE_NODES", "").split(",")
-    les = LogExpectSession("rift.log")
+    les = LogExpectSession()
     res = RiftExpectSession("2n_l1_l3")
     if "node1" not in passive_nodes:
         check_rift_node1(res)
