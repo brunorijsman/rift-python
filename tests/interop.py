@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-import argparse
 import datetime
 import os
 import shutil
@@ -8,7 +7,18 @@ import subprocess
 import yaml
 
 TEST_CASES = [("test_sys_2n_l0_l1.py", "2n_l0_l1.yaml", ["node1"]),
-              ("test_sys_2n_l0_l1.py", "2n_l0_l1.yaml", ["node2"])]
+              ("test_sys_2n_l0_l1.py", "2n_l0_l1.yaml", ["node2"]),
+              ("test_sys_2n_l0_l2.py", "2n_l0_l2.yaml", ["node1"]),
+              ("test_sys_2n_l0_l2.py", "2n_l0_l2.yaml", ["node2"]),
+              ("test_sys_2n_l1_l3.py", "2n_l1_l3.yaml", ["node1"]),
+              ("test_sys_2n_l1_l3.py", "2n_l1_l3.yaml", ["node2"]),
+              ("test_sys_3n_l0_l1_l2.py", "3n_l0_l1_l2.yaml", ["node1"]),
+              ("test_sys_3n_l0_l1_l2.py", "3n_l0_l1_l2.yaml", ["node2"]),
+              ("test_sys_3n_l0_l1_l2.py", "3n_l0_l1_l2.yaml", ["node3"]),
+              ("test_sys_3n_l0_l1_l2.py", "3n_l0_l1_l2.yaml", ["node1", "node2"]),
+              ("test_sys_3n_l0_l1_l2.py", "3n_l0_l1_l2.yaml", ["node2", "node3"]),
+              ("test_sys_2n_un_l1.py", "2n_un_l1.yaml", ["node1"]),
+              ("test_sys_2n_un_l1.py", "2n_un_l1.yaml", ["node2"])]
 
 def read_config(filename):
     with open(filename, 'r') as in_file:
@@ -17,18 +27,6 @@ def read_config(filename):
 def write_config(filename, config):
     with open(filename, 'w') as out_file:
         yaml.dump(config, out_file, default_flow_style=False)
-
-def parse_command_line_arguments():
-    parser = argparse.ArgumentParser(description='Routing In Fat Trees (RIFT) interop tester')
-    parser.add_argument('--test', help='Test script filename')
-    parser.add_argument('--config', help='Configuration filename')
-    parser.add_argument('--juniper-nodes', help='Juniper node(s)')
-    parser.add_argument('--results-dir', help='Results directory')
-    args = parser.parse_args()
-    if args.results_dir is None:
-        args.results_dir = ("interop-results-" +
-                            datetime.datetime.now().strftime("%Y-%m-%d-%H:%M:%S.%f"))
-    return args
 
 def fatal_error(msg):
     print(msg)
@@ -52,19 +50,26 @@ def mark_non_juniper_nodes_passive(config, juniper_nodes):
                     del node['passive']
 
 def fixup_config_for_juniper(config):
-    count = 0
+    next_rx_lie_port = 21000
+    next_rx_tie_port = 22000
     for shard in config['shards']:
         for node in shard['nodes']:
             if 'rx_lie_port' in node:
                 node_rx_lie_port = node['rx_lie_port']
             else:
-                node_rx_lie_port = None
+                # Version 0.6 of Juniper RIFT crashes if there is no rx_lie_port at the node level,
+                # even if each interface has an rx_lie_port of its own. Work-around: generate a
+                # dummy rx_lie_port for the node. It will safely be ignored because all of our
+                # topologies have an rx_lie_port for each interface.
+                node['rx_lie_port'] = next_rx_lie_port
+                next_rx_lie_port += 1
             for intf in node['interfaces']:
                 if ('rx_lie_port' not in intf) and node_rx_lie_port:
                     intf['rx_lie_port'] = node_rx_lie_port
                 if 'rx_tie_port' not in intf:
-                    intf['rx_tie_port'] = 29900 + count
-                    count += 1
+                    # If the interface does not have a rx_tie_port, generate one.
+                    intf['rx_tie_port'] = next_rx_tie_port
+                    next_rx_tie_port += 1
 
 def write_juniper_config(config_file_name, juniper_nodes, results_dir):
     config = read_config(config_file_name)
@@ -125,7 +130,7 @@ def run_test_case(test, config, juniper_nodes, results_dir):
     test_id = os.path.basename(config).replace(".yaml", "") + "-" + "-".join(juniper_nodes)
     test_results_dir = results_dir + "/" + test_id
     create_dir(test_results_dir)
-    print(test_id + "... ")
+    print(test_id + "... ", end="", flush=True)
     juniper_config_file_name = write_juniper_config(config, juniper_nodes, test_results_dir)
     juniper_process, juniper_log_file = start_juniper_rift(juniper_config_file_name,
                                                            test_results_dir)
@@ -147,9 +152,9 @@ def run_all_test_cases(results_dir):
 def main():
     check_juniper_rift_in_path()
     check_pytest_in_path()
-    args = parse_command_line_arguments()
-    create_dir(args.results_dir)
-    run_all_test_cases(args.results_dir)
+    results_dir = "interop-results-" + datetime.datetime.now().strftime("%Y-%m-%d-%H:%M:%S.%f")
+    create_dir(results_dir)
+    run_all_test_cases(results_dir)
 
 if __name__ == "__main__":
     main()

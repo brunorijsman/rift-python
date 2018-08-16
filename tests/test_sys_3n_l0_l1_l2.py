@@ -14,6 +14,7 @@
 # Allow long test names
 # pylint: disable=invalid-name
 
+import os
 from rift_expect_session import RiftExpectSession
 from log_expect_session import LogExpectSession
 
@@ -90,30 +91,63 @@ def check_rift_node2_intf_down(res):
         interface="if1")
     # TODO: Check offers and level
 
-# TODO: check node 3
+def check_rift_node3_intf_up(_res):
+    # TODO: implement this
+    pass
+
+def check_rift_node3_intf_down(_res):
+    # TODO: implement this
+    pass
 
 def check_log_node1_intf_up(les):
     les.check_lie_fsm_3way("node1", "if1")
+
+def check_log_node1_intf_down(_les):
+    # TODO: implement this
+    pass
+
+def check_log_node2_intf_up(les):
     les.check_lie_fsm_3way("node2", "if1")
     les.check_lie_fsm_3way("node2", "if2")
+
+def check_log_node2_intf_down(_les):
+    # TODO: implement this
+    pass
+
+def check_log_node3_intf_up(les):
     les.check_lie_fsm_3way("node3", "if1")
 
-# TODO: Check log when interface is down
+def check_log_node3_intf_down(_les):
+    # TODO: implement this
+    pass
 
 def test_3n_l0_l1_l2():
+    passive_nodes = os.getenv("RIFT_PASSIVE_NODES", "").split(",")
     # Bring topology up
     res = RiftExpectSession("3n_l0_l1_l2")
     les = LogExpectSession("rift.log")
     # Check that node1-node2 and node2-node3 adjacencies reaches 3-way
-    check_rift_node1_intf_up(res)
-    check_rift_node2_intf_up(res)
-    # TODO: node2-node3
-    check_log_node1_intf_up(les)
-    # Bring interface if1 on node1 down
-    res.interface_failure("node1", "if1", "failed")
-    check_rift_node1_intf_down(res)
-    check_rift_node2_intf_down(res)
-    # TODO: check node2-node3 still up
+    if "node1" not in passive_nodes:
+        check_rift_node1_intf_up(res)
+        check_log_node1_intf_up(les)
+    if "node2" not in passive_nodes:
+        check_rift_node2_intf_up(res)
+        check_log_node2_intf_up(les)
+    if "node3" not in passive_nodes:
+        check_rift_node3_intf_up(res)
+        check_log_node3_intf_up(les)
+    if "node1" not in passive_nodes:
+        # Bring interface if1 on node1 down
+        res.interface_failure("node1", "if1", "failed")
+        check_rift_node1_intf_down(res)
+        check_log_node1_intf_down(res)
+        if "node2" not in passive_nodes:
+            check_rift_node2_intf_down(res)
+            check_log_node2_intf_down(res)
+        if "node3" not in passive_nodes:
+            check_rift_node3_intf_down(res)
+            check_log_node3_intf_down(res)
+    # TODO: add test cases for bringing interface node2-node3 down
     # Done
     res.stop()
     # Check FSM

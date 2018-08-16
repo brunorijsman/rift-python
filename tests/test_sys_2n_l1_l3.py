@@ -42,6 +42,7 @@
 # Allow long test names
 # pylint: disable=invalid-name
 
+import os
 from rift_expect_session import RiftExpectSession
 from log_expect_session import LogExpectSession
 
@@ -118,10 +119,13 @@ def check_log_node2(les):
     les.check_lie_fsm_1way_bad_level("node2", "if1")
 
 def test_2n_l1_l3():
+    passive_nodes = os.getenv("RIFT_PASSIVE_NODES", "").split(",")
     res = RiftExpectSession("2n_l1_l3")
     les = LogExpectSession("rift.log")
-    check_rift_node1(res)
-    check_rift_node2(res)
-    check_log_node1(les)
-    check_log_node2(les)
+    if "node1" not in passive_nodes:
+        check_rift_node1(res)
+        check_log_node1(les)
+    if "node2" not in passive_nodes:
+        check_rift_node2(res)
+        check_log_node2(les)
     res.stop()

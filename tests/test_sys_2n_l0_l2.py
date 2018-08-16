@@ -36,6 +36,7 @@
 # Allow long test names
 # pylint: disable=invalid-name
 
+import os
 from rift_expect_session import RiftExpectSession
 from log_expect_session import LogExpectSession
 
@@ -176,20 +177,25 @@ def check_log_node2_intf_down(les):
     les.check_lie_fsm_timeout_to_1way("node2", "if1", "set interface if1 failure failed")
 
 def test_2_2n_l0_l2():
+    passive_nodes = os.getenv("RIFT_PASSIVE_NODES", "").split(",")
     # Bring topology up
     res = RiftExpectSession("2n_l0_l2")
     les = LogExpectSession("rift.log")
     # Check that adjacency reaches 3-way, check offers, check levels
-    check_rift_node1_intf_up(res)
-    check_rift_node2_intf_up(res)
-    check_log_node1_intf_up(les)
-    check_log_node2_intf_up(les)
-    # Bring interface if1 on node1 down
-    res.interface_failure("node1", "if1", "failed")
-    # Check that adjacency goes back to 1-way, check offers, check levels
-    check_rift_node1_intf_down(res)
-    check_rift_node2_intf_down(res)
-    check_log_node1_intf_down(les)
-    check_log_node2_intf_down(les)
+    if "node1" not in passive_nodes:
+        check_rift_node1_intf_up(res)
+        check_log_node1_intf_up(les)
+    if "node2" not in passive_nodes:
+        check_rift_node2_intf_up(res)
+        check_log_node2_intf_up(les)
+    if "node1" not in passive_nodes:
+        # Bring interface if1 on node1 down
+        res.interface_failure("node1", "if1", "failed")
+        # Check that adjacency goes back to 1-way, check offers, check levels
+        check_rift_node1_intf_down(res)
+        check_log_node1_intf_down(les)
+        if "node2" not in passive_nodes:
+            check_rift_node2_intf_down(res)
+            check_log_node2_intf_down(les)
     # Done
     res.stop()
