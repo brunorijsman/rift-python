@@ -158,7 +158,9 @@ A few issues were discussed in detail on the RIFT mailing list:
 
 * [More than 2 RIFT neighbors on a LAN causes a storm of LIE messages.](https://mailarchive.ietf.org/arch/msg/rift/k0_nvTMdxHlFQe2PEwevdsA_tSI)
 
-* [Clarify the expected value of the not_a_ztp_offer flag for a sending RIFT node.](https://mailarchive.ietf.org/arch/browse/rift/?index=LgJcv-_JFK5Ixho79Mjwm_vtYD8&gbt=1)
+* [Clarify the expected value of the not\_a\_ztp\_offer flag for a sending RIFT node.](https://mailarchive.ietf.org/arch/browse/rift/?index=LgJcv-_JFK5Ixho79Mjwm_vtYD8&gbt=1)
+
+For this last issue (when to send not\_a\_ztp\_offer = true), we have not yet reached what I consider to be full resolution on the RIFT mailing list. For now, I have modified my test cases to accept both the RIFT-Python behavior and also the RIFT-Juniper behavior. The specific test cases have been labeled with the comment `# TODO: Juniper lenient`
 
 ### Github Issues
 

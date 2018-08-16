@@ -74,6 +74,7 @@ class RiftExpectSession:
         pattern = pattern.replace(" |", " +|")
         # The | character is a literal end-of-cell, not a regexp OR
         pattern = pattern.replace("|", "[|]")
+        pattern = pattern.replace("/", "|")
         return self.expect(pattern, timeout)
 
     def wait_prompt(self, node_name=None):

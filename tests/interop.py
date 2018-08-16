@@ -138,7 +138,7 @@ def run_test_case(test, config, juniper_nodes, results_dir):
     pytest_process, pytest_log_file = start_pytest(test, juniper_nodes, test_results_dir)
     success = pytest_process.wait() == 0
     result = "Pass" if success else "Fail"
-    print("Pass")
+    print(result)
     juniper_process.kill()
     juniper_log_file.close()
     pytest_log_file.close()
