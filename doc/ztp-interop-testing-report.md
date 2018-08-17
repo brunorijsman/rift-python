@@ -42,7 +42,7 @@ The ZTP FSM testing is not yet complete: far more test cases for more complex sc
 
 This is a follow-up on the first round of interoperability testing between this RIFT implementation ("RIFT-Python") and Juniper's RIFT implementation ("RIFT-Juniper").
 
-The first routing of interoperability testing was done at the IETF 102 Hackathon in Montreal; there we tested the Link Information Element (LIE) Finite State Machine (FSM) and verified that the two
+The first round of interoperability testing was done at the IETF 102 Hackathon in Montreal; there we tested the Link Information Element (LIE) Finite State Machine (FSM) and verified that the two
 implementations could successfully establish a 3-way adjacency.
 
 See the [IETF 102 Hackathon Interop Testing Report](../ietf-102/ietf-102-rift-hackathon-detailed-report.md) for a detailed report on the results of the first round of interop testing.
