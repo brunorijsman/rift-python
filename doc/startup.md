@@ -5,7 +5,7 @@
 Go into the rift-fsm directory that was created when you cloned the git repository:
 
 <pre>
-$ <b>cd rift-fsm</b>
+$ <b>cd rift-python</b>
 </pre>
 
 Make sure the Python environment that you created during the installation is activated. This is needed to make sure you 
@@ -19,7 +19,7 @@ $ <b>source env/bin/activate</b>
 Start the RIFT protocol engine by runnning the rift package: 
 
 <pre>
-(env) $ <b>python rift</b>
+(env) $ <b>python rift toplogy/top.yaml</b>
 Command Line Interface (CLI) available on port 49178
 </pre>
 
