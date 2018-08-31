@@ -168,13 +168,15 @@ class CliSessionHandler:
                 self._command_buffer.append(self._command)
             self._command = self._command_buffer.pop(0)
             if len(self._command_buffer) < constants.HISTORY:
-                self._command_buffer.insert(int(constants.HISTORY/2), "") # command_buffer always has HISTORY elements
+                self._command_buffer.insert(int(constants.HISTORY/2), "")
+                # command_buffer always has HISTORY elements
         else:
             if self._command != "":
                 self._command_buffer.insert(0, self._command)
             self._command = self._command_buffer.pop()
             if len(self._command_buffer) < constants.HISTORY:
-                self._command_buffer.insert(int(constants.HISTORY/2), "") # command_buffer always has HISTORY elements
+                self._command_buffer.insert(int(constants.HISTORY/2), "")
+                # command_buffer always has HISTORY elements
 
     # This handles arrows, delete and backspace but occasionally
     # a character can follow a control sequence.This case is not handled.   I suppose
