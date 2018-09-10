@@ -609,7 +609,7 @@ class Interface:
                 self._interface_name,
                 "",
                 "",
-                ""]
+                self._fsm.state.name] #  Crashes in passive mode Display interface
 
     def cli_detailed_attributes(self):
         return [
