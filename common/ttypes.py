@@ -13,22 +13,26 @@ import sys
 from thrift.transport import TTransport
 
 
-class LeafIndications(object):
+class HierarchyIndications(object):
     """
     Flags indicating nodes behavior in case of ZTP and support
-    for special optimization procedures. It will force level to `leaf_level`
+    for special optimization procedures. It will force level to `leaf_level` or
+    `top-of-fabric` level accordingly and enable according procedures
     """
     leaf_only = 0
     leaf_only_and_leaf_2_leaf_procedures = 1
+    top_of_fabric = 2
 
     _VALUES_TO_NAMES = {
         0: "leaf_only",
         1: "leaf_only_and_leaf_2_leaf_procedures",
+        2: "top_of_fabric",
     }
 
     _NAMES_TO_VALUES = {
         "leaf_only": 0,
         "leaf_only_and_leaf_2_leaf_procedures": 1,
+        "top_of_fabric": 2,
     }
 
 
@@ -89,7 +93,8 @@ class TIETypeType(object):
     TransitivePrefixTIEType = 4
     PGPrefixTIEType = 5
     KeyValueTIEType = 6
-    TIETypeMaxValue = 7
+    ExternalPrefixTIEType = 7
+    TIETypeMaxValue = 8
 
     _VALUES_TO_NAMES = {
         0: "Illegal",
@@ -99,7 +104,8 @@ class TIETypeType(object):
         4: "TransitivePrefixTIEType",
         5: "PGPrefixTIEType",
         6: "KeyValueTIEType",
-        7: "TIETypeMaxValue",
+        7: "ExternalPrefixTIEType",
+        8: "TIETypeMaxValue",
     }
 
     _NAMES_TO_VALUES = {
@@ -110,7 +116,8 @@ class TIETypeType(object):
         "TransitivePrefixTIEType": 4,
         "PGPrefixTIEType": 5,
         "KeyValueTIEType": 6,
-        "TIETypeMaxValue": 7,
+        "ExternalPrefixTIEType": 7,
+        "TIETypeMaxValue": 8,
     }
 
 
@@ -123,6 +130,9 @@ class RouteType(object):
     i.e. prefix in NORTH PREFIX TIE is preferred over SOUTH PREFIX TIE
 
     @todo: external routes
+    @note: The only purpose of those values is to introduce an
+           ordering whereas an implementation can choose internally
+           any other values as long the ordering is preserved
     """
     Illegal = 0
     RouteTypeMinValue = 1
@@ -133,7 +143,9 @@ class RouteType(object):
     NorthPrefix = 6
     SouthPrefix = 7
     TransitiveSouthPrefix = 8
-    RouteTypeMaxValue = 9
+    NorthExternalPrefix = 9
+    SouthExternalPrefix = 10
+    RouteTypeMaxValue = 11
 
     _VALUES_TO_NAMES = {
         0: "Illegal",
@@ -145,7 +157,9 @@ class RouteType(object):
         6: "NorthPrefix",
         7: "SouthPrefix",
         8: "TransitiveSouthPrefix",
-        9: "RouteTypeMaxValue",
+        9: "NorthExternalPrefix",
+        10: "SouthExternalPrefix",
+        11: "RouteTypeMaxValue",
     }
 
     _NAMES_TO_VALUES = {
@@ -158,7 +172,9 @@ class RouteType(object):
         "NorthPrefix": 6,
         "SouthPrefix": 7,
         "TransitiveSouthPrefix": 8,
-        "RouteTypeMaxValue": 9,
+        "NorthExternalPrefix": 9,
+        "SouthExternalPrefix": 10,
+        "RouteTypeMaxValue": 11,
     }
 
 

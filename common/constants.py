@@ -10,10 +10,10 @@ from thrift.Thrift import TType, TMessageType, TFrozenDict, TException, TApplica
 from thrift.protocol.TProtocol import TProtocolException
 import sys
 from .ttypes import *
+top_of_fabric_level = 24
 default_bandwidth = 100
 leaf_level = 0
 default_level = 0
-default_superspine_level = 24
 default_pod = 0
 undefined_linkid = 0
 default_distance = 1
@@ -21,9 +21,10 @@ infinite_distance = 2147483647
 invalid_distance = 0
 overload_default = False
 flood_reduction_default = True
-default_holdtime = 3
+default_lie_holdtime = 3
+default_ztp_holdtime = 1
 default_not_a_ztp_offer = False
-default_you_are_not_flood_repeater = False
+default_you_are_flood_repeater = True
 IllegalSystemID = 0
 empty_set_of_nodeids = set((
 ))

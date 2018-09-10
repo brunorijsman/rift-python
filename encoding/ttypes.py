@@ -30,7 +30,7 @@ class PacketHeader(object):
 
     thrift_spec = (
         None,  # 0
-        (1, TType.I16, 'major_version', None, 11, ),  # 1
+        (1, TType.I16, 'major_version', None, 16, ),  # 1
         (2, TType.I16, 'minor_version', None, 0, ),  # 2
         (3, TType.I64, 'sender', None, None, ),  # 3
         (4, TType.I16, 'level', None, None, ),  # 4
@@ -38,7 +38,7 @@ class PacketHeader(object):
 
     def __init__(self, major_version=thrift_spec[1][4], minor_version=thrift_spec[2][4], sender=None, level=None,):
         if major_version is self.thrift_spec[1][4]:
-            major_version = 11
+            major_version = 16
         self.major_version = major_version
         if minor_version is self.thrift_spec[2][4]:
             minor_version = 0
@@ -287,19 +287,19 @@ class NodeCapabilities(object):
 
     Attributes:
      - flood_reduction: can this node participate in flood reduction
-     - leaf_indications: does this node restrict itself to be leaf only (in ZTP) and
-    does it support leaf-2-leaf procedures
+     - hierarchy_indications: does this node restrict itself to be top-of-fabric or
+    leaf only (in ZTP) and does it support leaf-2-leaf procedures
     """
 
     thrift_spec = (
         None,  # 0
         (1, TType.BOOL, 'flood_reduction', None, True, ),  # 1
-        (2, TType.I32, 'leaf_indications', None, None, ),  # 2
+        (2, TType.I32, 'hierarchy_indications', None, None, ),  # 2
     )
 
-    def __init__(self, flood_reduction=thrift_spec[1][4], leaf_indications=None,):
+    def __init__(self, flood_reduction=thrift_spec[1][4], hierarchy_indications=None,):
         self.flood_reduction = flood_reduction
-        self.leaf_indications = leaf_indications
+        self.hierarchy_indications = hierarchy_indications
 
     def read(self, iprot):
         if iprot._fast_decode is not None and isinstance(iprot.trans, TTransport.CReadableTransport) and self.thrift_spec is not None:
@@ -317,7 +317,7 @@ class NodeCapabilities(object):
                     iprot.skip(ftype)
             elif fid == 2:
                 if ftype == TType.I32:
-                    self.leaf_indications = iprot.readI32()
+                    self.hierarchy_indications = iprot.readI32()
                 else:
                     iprot.skip(ftype)
             else:
@@ -334,9 +334,9 @@ class NodeCapabilities(object):
             oprot.writeFieldBegin('flood_reduction', TType.BOOL, 1)
             oprot.writeBool(self.flood_reduction)
             oprot.writeFieldEnd()
-        if self.leaf_indications is not None:
-            oprot.writeFieldBegin('leaf_indications', TType.I32, 2)
-            oprot.writeI32(self.leaf_indications)
+        if self.hierarchy_indications is not None:
+            oprot.writeFieldBegin('hierarchy_indications', TType.I32, 2)
+            oprot.writeI32(self.hierarchy_indications)
             oprot.writeFieldEnd()
         oprot.writeFieldStop()
         oprot.writeStructEnd()
@@ -367,10 +367,13 @@ class LIEPacket(object):
      - local_id: local link ID
      - flood_port: UDP port to which we can receive flooded TIEs
      - link_mtu_size: layer 3 MTU, used to discover to mismatch
+     - link_bandwidth: local link bandwidth on the interface
      - neighbor: this will reflect the neighbor once received to provid
     3-way connectivity
      - pod
-     - nonce: optional nonce used for security computations
+     - nonce: optional local nonce used for security computations
+     - last_neighbor_nonce: optional neighbor's reflected nonce for security purposes. Significant delta
+    in nonces seen compared to current local nonce can be used to prevent replays
      - capabilities: optional node capabilities shown in the LIE. The capabilies
     MUST match the capabilities shown in the Node TIEs, otherwise
     the behavior is unspecified. A node detecting the mismatch
@@ -379,9 +382,9 @@ class LIEPacket(object):
     MUST expire without LIE for the adjacency to drop
      - not_a_ztp_offer: indicates that the level on the LIE MUST NOT be used
     to derive a ZTP level by the receiving node.
-     - you_are_not_flood_repeater: indicates to northbound neighbor that it should not
-    be reflooding this node's N-TIEs to flood reduce and
-    balance northbound flooding. To be ignored if received from a
+     - you_are_flood_repeater: indicates to northbound neighbor that it should
+    be reflooding this node's N-TIEs to achieve flood reducuction and
+    balancing for northbound flooding. To be ignored if received from a
     northbound adjacency.
      - label: optional downstream assigned locally significant label
     value for the adjacency.
@@ -393,17 +396,19 @@ class LIEPacket(object):
         (2, TType.I32, 'local_id', None, None, ),  # 2
         (3, TType.I16, 'flood_port', None, 912, ),  # 3
         (4, TType.I32, 'link_mtu_size', None, 1400, ),  # 4
-        (5, TType.STRUCT, 'neighbor', (Neighbor, Neighbor.thrift_spec), None, ),  # 5
-        (6, TType.I32, 'pod', None, 0, ),  # 6
-        (7, TType.I64, 'nonce', None, None, ),  # 7
-        (8, TType.STRUCT, 'capabilities', (NodeCapabilities, NodeCapabilities.thrift_spec), None, ),  # 8
-        (9, TType.I16, 'holdtime', None, 3, ),  # 9
-        (10, TType.BOOL, 'not_a_ztp_offer', None, False, ),  # 10
-        (11, TType.BOOL, 'you_are_not_flood_repeater', None, False, ),  # 11
-        (12, TType.I32, 'label', None, None, ),  # 12
+        (5, TType.I32, 'link_bandwidth', None, 100, ),  # 5
+        (6, TType.STRUCT, 'neighbor', (Neighbor, Neighbor.thrift_spec), None, ),  # 6
+        (7, TType.I32, 'pod', None, 0, ),  # 7
+        (8, TType.I64, 'nonce', None, None, ),  # 8
+        (9, TType.I64, 'last_neighbor_nonce', None, None, ),  # 9
+        (10, TType.STRUCT, 'capabilities', (NodeCapabilities, NodeCapabilities.thrift_spec), None, ),  # 10
+        (11, TType.I16, 'holdtime', None, 3, ),  # 11
+        (12, TType.BOOL, 'not_a_ztp_offer', None, False, ),  # 12
+        (13, TType.BOOL, 'you_are_flood_repeater', None, True, ),  # 13
+        (14, TType.I32, 'label', None, None, ),  # 14
     )
 
-    def __init__(self, name=None, local_id=None, flood_port=thrift_spec[3][4], link_mtu_size=thrift_spec[4][4], neighbor=None, pod=thrift_spec[6][4], nonce=None, capabilities=None, holdtime=thrift_spec[9][4], not_a_ztp_offer=thrift_spec[10][4], you_are_not_flood_repeater=thrift_spec[11][4], label=None,):
+    def __init__(self, name=None, local_id=None, flood_port=thrift_spec[3][4], link_mtu_size=thrift_spec[4][4], link_bandwidth=thrift_spec[5][4], neighbor=None, pod=thrift_spec[7][4], nonce=None, last_neighbor_nonce=None, capabilities=None, holdtime=thrift_spec[11][4], not_a_ztp_offer=thrift_spec[12][4], you_are_flood_repeater=thrift_spec[13][4], label=None,):
         self.name = name
         self.local_id = local_id
         if flood_port is self.thrift_spec[3][4]:
@@ -412,17 +417,21 @@ class LIEPacket(object):
         if link_mtu_size is self.thrift_spec[4][4]:
             link_mtu_size = 1400
         self.link_mtu_size = link_mtu_size
+        if link_bandwidth is self.thrift_spec[5][4]:
+            link_bandwidth = 100
+        self.link_bandwidth = link_bandwidth
         self.neighbor = neighbor
-        if pod is self.thrift_spec[6][4]:
+        if pod is self.thrift_spec[7][4]:
             pod = 0
         self.pod = pod
         self.nonce = nonce
+        self.last_neighbor_nonce = last_neighbor_nonce
         self.capabilities = capabilities
-        if holdtime is self.thrift_spec[9][4]:
+        if holdtime is self.thrift_spec[11][4]:
             holdtime = 3
         self.holdtime = holdtime
         self.not_a_ztp_offer = not_a_ztp_offer
-        self.you_are_not_flood_repeater = you_are_not_flood_repeater
+        self.you_are_flood_repeater = you_are_flood_repeater
         self.label = label
 
     def read(self, iprot):
@@ -455,43 +464,53 @@ class LIEPacket(object):
                 else:
                     iprot.skip(ftype)
             elif fid == 5:
+                if ftype == TType.I32:
+                    self.link_bandwidth = iprot.readI32()
+                else:
+                    iprot.skip(ftype)
+            elif fid == 6:
                 if ftype == TType.STRUCT:
                     self.neighbor = Neighbor()
                     self.neighbor.read(iprot)
                 else:
                     iprot.skip(ftype)
-            elif fid == 6:
+            elif fid == 7:
                 if ftype == TType.I32:
                     self.pod = iprot.readI32()
                 else:
                     iprot.skip(ftype)
-            elif fid == 7:
+            elif fid == 8:
                 if ftype == TType.I64:
                     self.nonce = iprot.readI64()
                 else:
                     iprot.skip(ftype)
-            elif fid == 8:
+            elif fid == 9:
+                if ftype == TType.I64:
+                    self.last_neighbor_nonce = iprot.readI64()
+                else:
+                    iprot.skip(ftype)
+            elif fid == 10:
                 if ftype == TType.STRUCT:
                     self.capabilities = NodeCapabilities()
                     self.capabilities.read(iprot)
                 else:
                     iprot.skip(ftype)
-            elif fid == 9:
+            elif fid == 11:
                 if ftype == TType.I16:
                     self.holdtime = iprot.readI16()
                 else:
                     iprot.skip(ftype)
-            elif fid == 10:
+            elif fid == 12:
                 if ftype == TType.BOOL:
                     self.not_a_ztp_offer = iprot.readBool()
                 else:
                     iprot.skip(ftype)
-            elif fid == 11:
+            elif fid == 13:
                 if ftype == TType.BOOL:
-                    self.you_are_not_flood_repeater = iprot.readBool()
+                    self.you_are_flood_repeater = iprot.readBool()
                 else:
                     iprot.skip(ftype)
-            elif fid == 12:
+            elif fid == 14:
                 if ftype == TType.I32:
                     self.label = iprot.readI32()
                 else:
@@ -522,36 +541,44 @@ class LIEPacket(object):
             oprot.writeFieldBegin('link_mtu_size', TType.I32, 4)
             oprot.writeI32(self.link_mtu_size)
             oprot.writeFieldEnd()
+        if self.link_bandwidth is not None:
+            oprot.writeFieldBegin('link_bandwidth', TType.I32, 5)
+            oprot.writeI32(self.link_bandwidth)
+            oprot.writeFieldEnd()
         if self.neighbor is not None:
-            oprot.writeFieldBegin('neighbor', TType.STRUCT, 5)
+            oprot.writeFieldBegin('neighbor', TType.STRUCT, 6)
             self.neighbor.write(oprot)
             oprot.writeFieldEnd()
         if self.pod is not None:
-            oprot.writeFieldBegin('pod', TType.I32, 6)
+            oprot.writeFieldBegin('pod', TType.I32, 7)
             oprot.writeI32(self.pod)
             oprot.writeFieldEnd()
         if self.nonce is not None:
-            oprot.writeFieldBegin('nonce', TType.I64, 7)
+            oprot.writeFieldBegin('nonce', TType.I64, 8)
             oprot.writeI64(self.nonce)
             oprot.writeFieldEnd()
+        if self.last_neighbor_nonce is not None:
+            oprot.writeFieldBegin('last_neighbor_nonce', TType.I64, 9)
+            oprot.writeI64(self.last_neighbor_nonce)
+            oprot.writeFieldEnd()
         if self.capabilities is not None:
-            oprot.writeFieldBegin('capabilities', TType.STRUCT, 8)
+            oprot.writeFieldBegin('capabilities', TType.STRUCT, 10)
             self.capabilities.write(oprot)
             oprot.writeFieldEnd()
         if self.holdtime is not None:
-            oprot.writeFieldBegin('holdtime', TType.I16, 9)
+            oprot.writeFieldBegin('holdtime', TType.I16, 11)
             oprot.writeI16(self.holdtime)
             oprot.writeFieldEnd()
         if self.not_a_ztp_offer is not None:
-            oprot.writeFieldBegin('not_a_ztp_offer', TType.BOOL, 10)
+            oprot.writeFieldBegin('not_a_ztp_offer', TType.BOOL, 12)
             oprot.writeBool(self.not_a_ztp_offer)
             oprot.writeFieldEnd()
-        if self.you_are_not_flood_repeater is not None:
-            oprot.writeFieldBegin('you_are_not_flood_repeater', TType.BOOL, 11)
-            oprot.writeBool(self.you_are_not_flood_repeater)
+        if self.you_are_flood_repeater is not None:
+            oprot.writeFieldBegin('you_are_flood_repeater', TType.BOOL, 13)
+            oprot.writeBool(self.you_are_flood_repeater)
             oprot.writeFieldEnd()
         if self.label is not None:
-            oprot.writeFieldBegin('label', TType.I32, 12)
+            oprot.writeFieldBegin('label', TType.I32, 14)
             oprot.writeI32(self.label)
             oprot.writeFieldEnd()
         oprot.writeFieldStop()
@@ -773,7 +800,11 @@ class TIEHeader(object):
     Attributes:
      - tieid
      - seq_nr
-     - lifetime: lifetime expires down to 0 just like in ISIS
+     - remaining_lifetime: remaining lifetime that expires down to 0 just like in ISIS
+     - origination_time: optional absolute timestamp of when the TIE
+    was generated. This can be used on fabrics with
+    some kind of synchronized clock to prevent
+    lifetime modification attacks.
     """
 
     thrift_spec = (
@@ -781,13 +812,20 @@ class TIEHeader(object):
         None,  # 1
         (2, TType.STRUCT, 'tieid', (TIEID, TIEID.thrift_spec), None, ),  # 2
         (3, TType.I32, 'seq_nr', None, None, ),  # 3
-        (4, TType.I32, 'lifetime', None, None, ),  # 4
+        (4, TType.I32, 'remaining_lifetime', None, None, ),  # 4
+        None,  # 5
+        None,  # 6
+        None,  # 7
+        None,  # 8
+        None,  # 9
+        (10, TType.STRUCT, 'origination_time', (common.ttypes.IEEE802_1ASTimeStampType, common.ttypes.IEEE802_1ASTimeStampType.thrift_spec), None, ),  # 10
     )
 
-    def __init__(self, tieid=None, seq_nr=None, lifetime=None,):
+    def __init__(self, tieid=None, seq_nr=None, remaining_lifetime=None, origination_time=None,):
         self.tieid = tieid
         self.seq_nr = seq_nr
-        self.lifetime = lifetime
+        self.remaining_lifetime = remaining_lifetime
+        self.origination_time = origination_time
 
     def read(self, iprot):
         if iprot._fast_decode is not None and isinstance(iprot.trans, TTransport.CReadableTransport) and self.thrift_spec is not None:
@@ -811,7 +849,13 @@ class TIEHeader(object):
                     iprot.skip(ftype)
             elif fid == 4:
                 if ftype == TType.I32:
-                    self.lifetime = iprot.readI32()
+                    self.remaining_lifetime = iprot.readI32()
+                else:
+                    iprot.skip(ftype)
+            elif fid == 10:
+                if ftype == TType.STRUCT:
+                    self.origination_time = common.ttypes.IEEE802_1ASTimeStampType()
+                    self.origination_time.read(iprot)
                 else:
                     iprot.skip(ftype)
             else:
@@ -832,9 +876,13 @@ class TIEHeader(object):
             oprot.writeFieldBegin('seq_nr', TType.I32, 3)
             oprot.writeI32(self.seq_nr)
             oprot.writeFieldEnd()
-        if self.lifetime is not None:
-            oprot.writeFieldBegin('lifetime', TType.I32, 4)
-            oprot.writeI32(self.lifetime)
+        if self.remaining_lifetime is not None:
+            oprot.writeFieldBegin('remaining_lifetime', TType.I32, 4)
+            oprot.writeI32(self.remaining_lifetime)
+            oprot.writeFieldEnd()
+        if self.origination_time is not None:
+            oprot.writeFieldBegin('origination_time', TType.STRUCT, 10)
+            self.origination_time.write(oprot)
             oprot.writeFieldEnd()
         oprot.writeFieldStop()
         oprot.writeStructEnd()
@@ -844,8 +892,8 @@ class TIEHeader(object):
             raise TProtocolException(message='Required field tieid is unset!')
         if self.seq_nr is None:
             raise TProtocolException(message='Required field seq_nr is unset!')
-        if self.lifetime is None:
-            raise TProtocolException(message='Required field lifetime is unset!')
+        if self.remaining_lifetime is None:
+            raise TProtocolException(message='Required field remaining_lifetime is unset!')
         return
 
     def __repr__(self):
@@ -1675,11 +1723,15 @@ class TIEElement(object):
     Attributes:
      - node: in case of enum common.TIETypeType.NodeTIEType
      - prefixes: in case of enum common.TIETypeType.PrefixTIEType
-     - transitive_prefixes: transitive prefixes (always southbound) which SHOULD be propagated
+     - transitive_prefixes: transitive prefixes (always southbound) which
+    MUST be aggregated and propagated
+    according to the specification
     southwards towards lower levels to heal
     pathological upper level partitioning, otherwise
-    blackholes may occur. MUST NOT be advertised within a North TIE.
-     - keyvalues
+    blackholes may occur.
+    It MUST NOT be advertised within a North TIE.
+     - external_prefixes: externally reimported prefixes
+     - keyvalues: Key-Value store elements
     """
 
     thrift_spec = (
@@ -1687,13 +1739,15 @@ class TIEElement(object):
         (1, TType.STRUCT, 'node', (NodeTIEElement, NodeTIEElement.thrift_spec), None, ),  # 1
         (2, TType.STRUCT, 'prefixes', (PrefixTIEElement, PrefixTIEElement.thrift_spec), None, ),  # 2
         (3, TType.STRUCT, 'transitive_prefixes', (PrefixTIEElement, PrefixTIEElement.thrift_spec), None, ),  # 3
-        (4, TType.STRUCT, 'keyvalues', (KeyValueTIEElement, KeyValueTIEElement.thrift_spec), None, ),  # 4
+        (4, TType.STRUCT, 'external_prefixes', (PrefixTIEElement, PrefixTIEElement.thrift_spec), None, ),  # 4
+        (5, TType.STRUCT, 'keyvalues', (KeyValueTIEElement, KeyValueTIEElement.thrift_spec), None, ),  # 5
     )
 
-    def __init__(self, node=None, prefixes=None, transitive_prefixes=None, keyvalues=None,):
+    def __init__(self, node=None, prefixes=None, transitive_prefixes=None, external_prefixes=None, keyvalues=None,):
         self.node = node
         self.prefixes = prefixes
         self.transitive_prefixes = transitive_prefixes
+        self.external_prefixes = external_prefixes
         self.keyvalues = keyvalues
 
     def read(self, iprot):
@@ -1725,6 +1779,12 @@ class TIEElement(object):
                     iprot.skip(ftype)
             elif fid == 4:
                 if ftype == TType.STRUCT:
+                    self.external_prefixes = PrefixTIEElement()
+                    self.external_prefixes.read(iprot)
+                else:
+                    iprot.skip(ftype)
+            elif fid == 5:
+                if ftype == TType.STRUCT:
                     self.keyvalues = KeyValueTIEElement()
                     self.keyvalues.read(iprot)
                 else:
@@ -1751,8 +1811,12 @@ class TIEElement(object):
             oprot.writeFieldBegin('transitive_prefixes', TType.STRUCT, 3)
             self.transitive_prefixes.write(oprot)
             oprot.writeFieldEnd()
+        if self.external_prefixes is not None:
+            oprot.writeFieldBegin('external_prefixes', TType.STRUCT, 4)
+            self.external_prefixes.write(oprot)
+            oprot.writeFieldEnd()
         if self.keyvalues is not None:
-            oprot.writeFieldBegin('keyvalues', TType.STRUCT, 4)
+            oprot.writeFieldBegin('keyvalues', TType.STRUCT, 5)
             self.keyvalues.write(oprot)
             oprot.writeFieldEnd()
         oprot.writeFieldStop()
