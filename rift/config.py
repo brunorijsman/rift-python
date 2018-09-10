@@ -11,7 +11,7 @@ SCHEMA = {
         'nullable': True,
         'schema': {
             'tx_src_address': {'type': 'ipv4address'},
-            'tx_v6_src_address': {'type': 'ipv4address'},
+            'tx_v6_src_address': {'type': 'ipv6address'},
             'rx_mcast_address': {'type': 'ipv4address'},
             'lie_mcast_address': {'type': 'ipv4address'}
         },
