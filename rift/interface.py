@@ -609,7 +609,7 @@ class Interface:
                 self._interface_name,
                 "",
                 "",
-                self._fsm.state.name]
+                ""]
 
     def cli_detailed_attributes(self):
         return [
