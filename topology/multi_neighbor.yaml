@@ -1,0 +1,32 @@
+# Topology: multi_neighbor
+#
+#  +-----------+    +-----------+    +-----------+
+#  | node1     |    | node2     |    | node3     |
+#  | (level 0) |    | (level 1) |    | (level 2) |    
+#  +-----------+    +-----------+    +-----------+
+#        | if1            | if1            | if1
+#        |                |                |
+#  =============================================== LAN
+#
+#  Adjacency will not reach 3-way because RIFT only allows point-to-point LANs
+#  Furthermore, this topology uses the default RIFT multicast addresses and ports
+
+shards:
+  - id: 0
+    nodes:
+      - name: node1
+        level: 0
+        systemid: 1
+        interfaces:
+          - name: if1
+      - name: node2
+        level: 1
+        systemid: 2
+        interfaces:
+          - name: if1
+      - name: node3
+        level: 2
+        systemid: 3
+        interfaces:
+          - name: if1
+

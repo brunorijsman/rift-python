@@ -1,20 +1,23 @@
 [MASTER]
 
-# Look for Thrift generated modules in the gen-py directory
-#
-init-hook='import sys; sys.path.append("gen-py")'
+init-hook='import sys; sys.path.append("rift"); sys.path.append("tests")'
+ignore=rift/common,rift/encoding
 
 [MESSAGES CONTROL]
 
-# C0413:Import "from ... import ..." should be placed at the top of the module
-# We need to call sys.path.append("gen-py") before the import for Thrift 
-#
-disable=C0413
+disable=
+    missing-docstring,                  # Temporary, until I add the docstrings
+    fixme,                              # Temporary, until I fix all the TODOs and FIXMEs
+    too-many-arguments,                 # Matter of taste
+    too-many-instance-attributes,       # Matter of taste
+    too-few-public-methods,             # Matter of taste
+    too-many-public-methods,            # Matter of taste
+    too-many-branches,                  # Matter of taste
+    too-many-nested-blocks,             # Matter of taste
+    too-many-return-statements,         # Matter of taste
+    no-self-use,                        # Matter of taste
+    no-else-return,                     # Matter of taste
+    duplicate-code,                     # Matter of taste
 
-# C0111:Missing ... docstring
-# Not spending time on adding docstrings while the code is still in too much flux
-# TODO: Re-enable this and add the missing docstrings
-#
-disable=C0111
-
+extension-pkg-whitelist=netifaces
 

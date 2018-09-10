@@ -1,0 +1,51 @@
+# Topology: 3n_l0_l1_l2
+#
+#  +-----------+
+#  | node1     |
+#  | (level 2) |
+#  +-----------+
+#        | if1
+#        |
+#        | if1
+#  +-----------+
+#  | node2     |
+#  | (level 1) |
+#  +-----------+
+#        | if2
+#        |
+#        | if1
+#  +-----------+
+#  | node3     |
+#  | (level 0) |
+#  +-----------+
+
+shards:
+  - id: 0
+    nodes:
+      - name: node1
+        level: 2
+        systemid: 1
+        rx_lie_mcast_address: 224.0.1.1
+        interfaces:
+          - name: if1 # Connected to node2-if1
+            rx_lie_port: 20012
+            tx_lie_port: 20021
+      - name: node2
+        level: 1
+        systemid: 2
+        rx_lie_mcast_address: 224.0.1.2
+        interfaces:
+          - name: if1 # Connected to node1-if1
+            rx_lie_port: 20021
+            tx_lie_port: 20012
+          - name: if2 # Connected to node3-if1
+            rx_lie_port: 20023
+            tx_lie_port: 20032
+      - name: node3
+        level: 0
+        systemid: 3
+        rx_lie_mcast_address: 224.0.1.3
+        interfaces:
+          - name: if1 # Connected to node2-if1
+            rx_lie_port: 20032
+            tx_lie_port: 20023

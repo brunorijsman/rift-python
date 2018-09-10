@@ -1,0 +1,63 @@
+# yaml config including thrift services
+# file used by different scripts and tests, don't touch
+const:
+
+
+shards:
+  - id: 0
+    nodes:
+      - name: core_1
+        level: 2
+        systemid: 1
+        rx_lie_mcast_address: 224.0.100.1
+        rx_lie_v6_mcast_address: ff02::1
+        rx_lie_port: 19980
+        state_thrift_services_port: 19990
+        config_thrift_services_port: 19991
+        interfaces:
+              - name: if_1_202
+                metric: 1
+                tx_lie_port: 20021
+                rx_lie_port: 20022
+                rx_tie_port: 20023
+      - name: agg_202
+        passive: true
+        level: 1
+        systemid: 202
+        rx_lie_mcast_address: 224.0.100.2
+        rx_lie_v6_mcast_address: ff02::2
+        rx_lie_port: 19981
+        state_thrift_services_port: 19992
+        config_thrift_services_port: 19993
+        v4prefixes:
+              - address: 5.5.5.11
+                mask: 30
+                metric: 1
+              - address: 5.5.5.12
+                mask: 30
+                metric: 1
+              - address: 5.5.5.13
+                mask: 30
+                metric: 1
+              - address: 15.5.5.0
+                mask: 24
+                metric: 1
+              - address: 16.6.6.6
+                mask: 30
+                metric: 2
+              - address: 16.16.0.0
+                mask: 16
+                metric: 2
+              - address: 116.6.0.0
+                mask: 16
+                metric: 2
+              - address: 216.6.44.0
+                mask: 21
+                metric: 2
+        interfaces:
+              - name: if_202_1
+                bandwidth: 200
+                metric: 1
+                tx_lie_port: 20022
+                rx_lie_port: 20021
+                rx_tie_port: 20024
