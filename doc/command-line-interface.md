@@ -173,7 +173,7 @@ Note 1: Even if the CONFIGURED_LEVEL is UNDEFINED_LEVEL, nodes with the LEAF_ONL
 leaf_level (= 0) in the sent LIE packets.
 
 Note 2: Event if CONFIGURED_LEVEL is UNDEFINED_LEVEL, nodes with the TOP_OF_FABRIC_FLAG set will advertise level 
-default_superspine_level (= 24) in the sent LIE packets.
+top_of_fabric_level (= 24) in the sent LIE packets.
 
 Example:
 
