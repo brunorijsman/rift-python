@@ -161,7 +161,7 @@ The valid values for the <i>level</i> parameter are <b>undefined</b>, <b>leaf</b
 
 These <i>level</i> values are mapped to the paramaters in the protocol specification as follows:
 
-| <i>level</i> value | LEAF_ONLY | LEAF_2_LEAF | SUPERSPINE_FLAG | CONFIGURED_LEVEL |
+| <i>level</i> value | LEAF_ONLY | LEAF_2_LEAF | TOP_OF_FABRIC_FLAG | CONFIGURED_LEVEL |
 | --- | --- | --- | --- | --- |
 | <b>undefined<b> | false | false | false | UNDEFINED_LEVEL |
 | <b>leaf<b> | true | false | false | UNDEFINED_LEVEL (see note 1) |
@@ -172,7 +172,7 @@ These <i>level</i> values are mapped to the paramaters in the protocol specifica
 Note 1: Even if the CONFIGURED_LEVEL is UNDEFINED_LEVEL, nodes with the LEAF_ONLY flag set will advertise level 
 leaf_level (= 0) in the sent LIE packets.
 
-Note 2: Event if CONFIGURED_LEVEL is UNDEFINED_LEVEL, nodes with the SUPERSPINE_FLAG set will advertise level 
+Note 2: Event if CONFIGURED_LEVEL is UNDEFINED_LEVEL, nodes with the TOP_OF_FABRIC_FLAG set will advertise level 
 default_superspine_level (= 24) in the sent LIE packets.
 
 Example:

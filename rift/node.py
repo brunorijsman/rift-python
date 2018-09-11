@@ -199,11 +199,11 @@ class Node:
         self._configured_level_symbol = level_symbol
         parse_result = self.parse_level_symbol(self._configured_level_symbol)
         assert parse_result is not None, "Set command should not have allowed invalid config"
-        (configured_level, leaf_only, leaf_2_leaf, superspine_flag) = parse_result
+        (configured_level, leaf_only, leaf_2_leaf, top_of_fabric_flag) = parse_result
         self._configured_level = configured_level
         self._leaf_only = leaf_only
         self._leaf_2_leaf = leaf_2_leaf
-        self._superspine_flag = superspine_flag
+        self._top_of_fabric_flag = top_of_fabric_flag
 
     def action_purge_offers(self):
         for purged_offer in self._rx_offers.values():
@@ -314,11 +314,11 @@ class Node:
         self._configured_level_symbol = self.get_config_attribute('level', 'undefined')
         parse_result = self.parse_level_symbol(self._configured_level_symbol)
         assert parse_result is not None, "Configuration validation should have caught this"
-        (configured_level, leaf_only, leaf_2_leaf, superspine_flag) = parse_result
+        (configured_level, leaf_only, leaf_2_leaf, top_of_fabric_flag) = parse_result
         self._configured_level = configured_level
         self._leaf_only = leaf_only
         self._leaf_2_leaf = leaf_2_leaf
-        self._superspine_flag = superspine_flag
+        self._top_of_fabric_flag = top_of_fabric_flag
         self._interfaces = sortedcontainers.SortedDict()
         self._rx_lie_ipv4_mcast_address = self.get_config_attribute(
             'rx_lie_mcast_address', constants.DEFAULT_LIE_IPV4_MCAST_ADDRESS)
@@ -379,7 +379,7 @@ class Node:
         # - integer value => This node is hard-configured to be the specified level (0 means leaf)
         # This function returns
         #  - None if the level_symbol is invalid (i.e. one of the above)
-        #  - (configured_level, leaf_only, leaf_2_leaf, superspine_flag) is level_symbol is valid
+        #  - (configured_level, leaf_only, leaf_2_leaf, top_of_fabric_flag) is level_symbol is valid
         if level_symbol == 'undefined':
             return (None, False, False, False)
         elif level_symbol == 'leaf':
@@ -396,7 +396,7 @@ class Node:
     def level_value(self):
         if self._configured_level is not None:
             return self._configured_level
-        elif self._superspine_flag:
+        elif self._top_of_fabric_flag:
             return common.constants.default_superspine_level
         elif self._leaf_only:
             return common.constants.leaf_level
@@ -442,7 +442,7 @@ class Node:
         # whether ZTP is enabled are spelled out in the first paragraph of section 4.2.9.4.
         if self._configured_level is not None:
             return False
-        elif self._superspine_flag:
+        elif self._top_of_fabric_flag:
             return False
         elif self._leaf_only:
             return False
@@ -477,7 +477,7 @@ class Node:
             ["Configured Level", self._configured_level_symbol],
             ["Leaf Only", self._leaf_only],
             ["Leaf 2 Leaf", self._leaf_2_leaf],
-            ["Superspine Flag", self._superspine_flag],
+            ["Top of Fabric Flag", self._top_of_fabric_flag],
             ["Zero Touch Provisioning (ZTP) Enabled", self.zero_touch_provisioning_enabled()],
             ["ZTP FSM State", self._fsm.state.name],
             ["ZTP Hold Down Timer", self._hold_down_timer.remaining_time_str()],

@@ -2,13 +2,13 @@
     Thrift file with common definitions for RIFT
 */
 
+namespace py common
 
 /** @note MUST be interpreted in implementation as unsigned 64 bits.
  *        The implementation SHOULD NOT use the MSB.
  */
 typedef i64      SystemIDType
 typedef i32      IPv4Address
-
 /** this has to be of length long enough to accomodate prefix */
 typedef binary   IPv6Address
 /** @note MUST be interpreted in implementation as unsigned 16 bits */
@@ -31,8 +31,7 @@ typedef i16      VersionType
 typedef i32      MetricType
 /** @note MUST be interpreted in implementation as unstructured 64 bits */
 typedef i64      RouteTagType
-/** @note MUST be interpreted in implementation as unstructured 32 bits
-    label value */
+/** @note MUST be interpreted in implementation as unstructured 32 bits label value */
 typedef i32      LabelType
 /** @note MUST be interpreted in implementation as unsigned 32 bits */
 typedef i32      BandwithInMegaBitsType
@@ -48,52 +47,54 @@ typedef i8     PrefixLenType
 typedef i64    TimestampInSecsType
 /** security nonce */
 typedef i64    NonceType
-/** adjacency holdtime */
-typedef i16    HoldTimeInSecType
+/** LIE FSM holdtime type */
+typedef i16    TimeIntervalInSecType
 /** Transaction ID type for prefix mobility as specified by RFC6550,  value
     MUST be interpreted in implementation as unsigned  */
 typedef i8     PrefixTransactionIDType
-/** timestamp per IEEE 802.1AS, values MUST be interpreted in
-    implementation as unsigned  */
+/** timestamp per IEEE 802.1AS, values MUST be interpreted in implementation as unsigned  */
 struct IEEE802_1ASTimeStampType {
     1: required     i64     AS_sec;
     2: optional     i32     AS_nsec;
 }
 
 /** Flags indicating nodes behavior in case of ZTP and support
-    for special optimization procedures. It will force level to `leaf_level`
+    for special optimization procedures. It will force level to `leaf_level` or
+    `top-of-fabric` level accordingly and enable according procedures
  */
-enum LeafIndications {
-    leaf_only                            =0,
-    leaf_only_and_leaf_2_leaf_procedures =1,
+enum HierarchyIndications {
+    leaf_only                            = 0,
+    leaf_only_and_leaf_2_leaf_procedures = 1,
+    top_of_fabric                        = 2,
 }
 
+/** This MUST be used when node is configured as top of fabric in ZTP.
+    This is kept reasonably low to alow for fast ZTP convergence on
+    failures. */
+const LevelType   top_of_fabric_level              = 24
 /** default bandwidth on a link */
 const BandwithInMegaBitsType  default_bandwidth    = 100
 /** fixed leaf level when ZTP is not used */
-const LevelType   leaf_level              = 0
-const LevelType   default_level           = leaf_level
-/** This MUST be used when node is configured as superspine in ZTP.
-    This is kept reasonably low to alow for fast ZTP convergence on
-    failures. */
-const LevelType   default_superspine_level = 24
-const PodType     default_pod              = 0
-const LinkIDType  undefined_linkid         = 0
+const LevelType   leaf_level                  = 0
+const LevelType   default_level               = leaf_level
+const PodType     default_pod                 = 0
+const LinkIDType  undefined_linkid            = 0
 /** default distance used */
 const MetricType  default_distance         = 1
 /** any distance larger than this will be considered infinity */
 const MetricType  infinite_distance       = 0x7FFFFFFF
-/** any element with 0 distance will be ignored,
- *  missing metrics will be replaced with default_distance
- */
+/** represents invalid distance */
 const MetricType  invalid_distance        = 0
 const bool overload_default               = false
 const bool flood_reduction_default        = true
-const HoldTimeInSecType default_holdtime  = 3
+/** default LIE FSM holddown time */
+const TimeIntervalInSecType   default_lie_holdtime  = 3
+/** default ZTP FSM holddown time */
+const TimeIntervalInSecType   default_ztp_holdtime  = 1
 /** by default LIE levels are ZTP offers */
 const bool default_not_a_ztp_offer        = false
 /** by default e'one is repeating flooding */
-const bool default_you_are_not_flood_repeater = false
+const bool default_you_are_flood_repeater = true
 /** 0 is illegal for SystemID */
 const SystemIDType IllegalSystemID        = 0
 /** empty set of nodes */
@@ -162,7 +163,8 @@ enum TIETypeType {
     TransitivePrefixTIEType = 4,
     PGPrefixTIEType         = 5,
     KeyValueTIEType         = 6,
-    TIETypeMaxValue         = 7,
+    ExternalPrefixTIEType   = 7,
+    TIETypeMaxValue         = 8,
 }
 
 /** @note: route types which MUST be ordered on their preference
@@ -172,6 +174,9 @@ enum TIETypeType {
  *  i.e. prefix in NORTH PREFIX TIE is preferred over SOUTH PREFIX TIE
  *
  *  @todo: external routes
+ *  @note: The only purpose of those values is to introduce an
+ *         ordering whereas an implementation can choose internally
+ *         any other values as long the ordering is preserved
  */
 enum RouteType {
     Illegal               = 0,
@@ -192,7 +197,11 @@ enum RouteType {
     NorthPrefix           = 6,
     /** advertised in S-TIEs */
     SouthPrefix           = 7,
-    /** transitive southbound are least preferred */
+    /** transitive southbound are least preferred of local variety */
     TransitiveSouthPrefix = 8,
-    RouteTypeMaxValue     = 9
+    /** externally imported north */
+    NorthExternalPrefix   = 9,
+    /** externally imported south */
+    SouthExternalPrefix   = 10,
+    RouteTypeMaxValue     = 11,
 }
