@@ -106,7 +106,8 @@ class Interface:
         packet_header = create_packet_header(self._node)
         capabilities = NodeCapabilities(
             flood_reduction=True,
-            hierarchy_indications=common.ttypes.HierarchyIndications.leaf_only_and_leaf_2_leaf_procedures)
+            hierarchy_indications=
+            common.ttypes.HierarchyIndications.leaf_only_and_leaf_2_leaf_procedures)
         if self._neighbor:
             neighbor_system_id = self._neighbor.system_id
             neighbor_link_id = self._neighbor.local_id
