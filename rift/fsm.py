@@ -133,24 +133,24 @@ class FsmDefinition:
         self.command_show_state_entry_acts(cli_session)
 
     def command_show_states(self, cli_session):
-        cli_session.print("States:")
+        cli_session.print_r("States:")
         tab = self.states_table()
-        cli_session.print(tab.to_string())
+        cli_session.print(tab.to_string(cli_session.current_end_line()))
 
     def command_show_events(self, cli_session):
-        cli_session.print("Events:")
+        cli_session.print_r("Events:")
         tab = self.events_table()
-        cli_session.print(tab.to_string())
+        cli_session.print(tab.to_string(cli_session.current_end_line()))
 
     def command_show_transitions(self, cli_session):
-        cli_session.print("Transitions:")
+        cli_session.print_r("Transitions:")
         tab = self.transition_table()
-        cli_session.print(tab.to_string())
+        cli_session.print(tab.to_string(cli_session.current_end_line()))
 
     def command_show_state_entry_acts(self, cli_session):
-        cli_session.print("State entry actions:")
+        cli_session.print_r("State entry actions:")
         tab = self.state_entry_actions_table()
-        cli_session.print(tab.to_string())
+        cli_session.print(tab.to_string(cli_session.current_end_line()))
 
 class FsmRecord:
 
