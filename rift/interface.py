@@ -106,7 +106,8 @@ class Interface:
         packet_header = create_packet_header(self._node)
         capabilities = NodeCapabilities(
             flood_reduction=True,
-            leaf_indications=common.ttypes.LeafIndications.leaf_only_and_leaf_2_leaf_procedures)
+            hierarchy_indications=
+            common.ttypes.HierarchyIndications.leaf_only_and_leaf_2_leaf_procedures)
         if self._neighbor:
             neighbor_system_id = self._neighbor.system_id
             neighbor_link_id = self._neighbor.local_id
@@ -125,7 +126,7 @@ class Interface:
             capabilities=capabilities,
             holdtime=3,
             not_a_ztp_offer=self._node.send_not_a_ztp_offer_on_intf(self._interface_name),
-            you_are_not_flood_repeater=False,     # TODO: Set you_are_not_flood_repeater
+            you_are_flood_repeater=True,     # TODO: Set you_are_not_flood_repeater
             label=None)
         packet_content = encoding.ttypes.PacketContent(lie=lie_packet)
         protocol_packet = encoding.ttypes.ProtocolPacket(packet_header, packet_content)
@@ -181,7 +182,7 @@ class Interface:
         # TODO: what if capabilities changes?
         # TODO: what if holdtime changes?
         # TODO: what if not_a_ztp_offer changes?
-        # TODO: what if you_are_not_flood_repeater changes?
+        # TODO: what if you_are_flood_repeater changes?
         # TODO: what if label changes?
         minor_change = False
         if new_neighbor.flood_port != self._neighbor.flood_port:
@@ -232,8 +233,8 @@ class Interface:
         if lie.capabilities is None:
             # Remote node does not support leaf-2-leaf
             return False
-        if (lie.capabilities.leaf_indications !=
-                common.ttypes.LeafIndications.leaf_only_and_leaf_2_leaf_procedures):
+        if (lie.capabilities.hierarchy_indications !=
+                common.ttypes.HierarchyIndications.leaf_only_and_leaf_2_leaf_procedures):
             # Remote node does not support leaf-2-leaf
             return False
         return True
@@ -385,7 +386,7 @@ class Interface:
         if self._neighbor and self._neighbor.holdtime:
             holdtime = self._neighbor.holdtime
         else:
-            holdtime = common.constants.default_holdtime
+            holdtime = common.constants.default_lie_holdtime
         if self._time_ticks_since_lie_received >= holdtime:
             self._fsm.push_event(self.Event.HOLD_TIME_EXPIRED)
 

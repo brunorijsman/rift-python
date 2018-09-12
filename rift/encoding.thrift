@@ -4,9 +4,10 @@
 
 include "common.thrift"
 
+namespace py encoding
 
 /** represents protocol encoding schema major version */
-const i32 protocol_major_version = 11
+const i32 protocol_major_version = 16
 /** represents protocol encoding schema minor version */
 const i32 protocol_minor_version = 0
 
@@ -39,11 +40,11 @@ struct Neighbor {
 /** Capabilities the node supports */
 struct NodeCapabilities {
     /** can this node participate in flood reduction */
-    1: optional bool                      flood_reduction =
+    1: optional bool                           flood_reduction =
             common.flood_reduction_default;
-    /** does this node restrict itself to be leaf only (in ZTP) and
-        does it support leaf-2-leaf procedures */
-    2: optional common.LeafIndications    leaf_indications;
+    /** does this node restrict itself to be top-of-fabric or
+        leaf only (in ZTP) and does it support leaf-2-leaf procedures */
+    2: optional common.HierarchyIndications    hierarchy_indications;
 }
 
 /** RIFT LIE packet
@@ -60,36 +61,42 @@ struct LIEPacket {
     /** layer 3 MTU, used to discover to mismatch */
     4: optional common.MTUSizeType        link_mtu_size =
             common.default_mtu_size;
+    /** local link bandwidth on the interface */
+    5: optional common.BandwithInMegaBitsType link_bandwidth =
+            common.default_bandwidth;
     /** this will reflect the neighbor once received to provid
         3-way connectivity */
-    5: optional Neighbor                  neighbor;
-    6: optional common.PodType            pod = common.default_pod;
-    /** optional nonce used for security computations */
-    7: optional common.NonceType          nonce;
+    6: optional Neighbor                  neighbor;
+    7: optional common.PodType            pod = common.default_pod;
+    /** optional local nonce used for security computations */
+    8: optional common.NonceType          nonce;
+    /** optional neighbor's reflected nonce for security purposes. Significant delta
+        in nonces seen compared to current local nonce can be used to prevent replays */
+    9: optional common.NonceType          last_neighbor_nonce;
     /** optional node capabilities shown in the LIE. The capabilies
         MUST match the capabilities shown in the Node TIEs, otherwise
         the behavior is unspecified. A node detecting the mismatch
         SHOULD generate according error.
      */
-    8: optional NodeCapabilities          capabilities;
+   10: optional NodeCapabilities          capabilities;
     /** required holdtime of the adjacency, i.e. how much time
         MUST expire without LIE for the adjacency to drop
      */
-    9: required common.HoldTimeInSecType  holdtime =
-            common.default_holdtime;
+   11: required common.TimeIntervalInSecType  holdtime =
+            common.default_lie_holdtime;
     /** indicates that the level on the LIE MUST NOT be used
         to derive a ZTP level by the receiving node. */
-   10: optional bool                      not_a_ztp_offer =
+   12: optional bool                      not_a_ztp_offer =
             common.default_not_a_ztp_offer;
-   /** indicates to northbound neighbor that it should not
-       be reflooding this node's N-TIEs to flood reduce and
-       balance northbound flooding. To be ignored if received from a
+   /** indicates to northbound neighbor that it should
+       be reflooding this node's N-TIEs to achieve flood reducuction and
+       balancing for northbound flooding. To be ignored if received from a
        northbound adjacency. */
-   11: optional bool                      you_are_not_flood_repeater=
-             common.default_you_are_not_flood_repeater;
+   13: optional bool                      you_are_flood_repeater =
+             common.default_you_are_flood_repeater;
    /** optional downstream assigned locally significant label
        value for the adjacency. */
-   12: optional common.LabelType          label;
+   14: optional common.LabelType          label;
 }
 
 /** LinkID pair describes one of parallel links between two nodes */
@@ -118,10 +125,15 @@ struct TIEID {
 
 /** Header of a TIE */
 struct TIEHeader {
-    2: required TIEID                      tieid;
-    3: required common.SeqNrType           seq_nr;
-    /** lifetime expires down to 0 just like in ISIS */
-    4: required common.LifeTimeInSecType   lifetime;
+    2: required TIEID                             tieid;
+    3: required common.SeqNrType                  seq_nr;
+    /** remaining lifetime that expires down to 0 just like in ISIS */
+    4: required common.LifeTimeInSecType          remaining_lifetime;
+    /** optional absolute timestamp of when the TIE
+        was generated. This can be used on fabrics with
+        some kind of synchronized clock to prevent
+        lifetime modification attacks. */
+   10: optional common.IEEE802_1ASTimeStampType   origination_time;
 }
 
 /** A sorted TIDE packet, if unsorted, behavior is undefined */
@@ -208,8 +220,7 @@ struct NodeTIEElement {
 
 struct PrefixAttributes {
     2: required common.MetricType            metric = common.default_distance;
-    /** generic unordered set of route tags, can be redistributed to
-        other protocols or use
+    /** generic unordered set of route tags, can be redistributed to other protocols or use
         within the context of real time analytics */
     3: optional set<common.RouteTagType>     tags;
     /** optional monotonic clock for mobile addresses */
@@ -236,24 +247,28 @@ struct KeyValueTIEElement {
     in the TIEElement. In case of mismatch the unexpected
     elements MUST be ignored.
  */
-
 union TIEElement {
     /** in case of enum common.TIETypeType.NodeTIEType */
     1: optional NodeTIEElement            node;
     /** in case of enum common.TIETypeType.PrefixTIEType */
     2: optional PrefixTIEElement          prefixes;
-    /** transitive prefixes (always southbound) which SHOULD be propagated
-     *   southwards towards lower levels to heal
-     *   pathological upper level partitioning, otherwise
-     *   blackholes may occur. MUST NOT be advertised within a North TIE.
+    /** transitive prefixes (always southbound) which
+     *  MUST be aggregated and propagated
+     *  according to the specification
+     *  southwards towards lower levels to heal
+     *  pathological upper level partitioning, otherwise
+     *  blackholes may occur.
+     *  It MUST NOT be advertised within a North TIE.
      */
     3: optional PrefixTIEElement          transitive_prefixes;
-    4: optional KeyValueTIEElement        keyvalues;
+    /** externally reimported prefixes */
+    4: optional PrefixTIEElement          external_prefixes;
+    /** Key-Value store elements */
+    5: optional KeyValueTIEElement        keyvalues;
     /** @todo: policy guided prefixes */
 }
 
-/** @todo: flood header separately in UDP to allow changing lifetime and SHA
-    without reserialization
+/** @todo: flood header separately in UDP to allow changing lifetime and SHA without reserialization
  */
 struct TIEPacket {
     1: required TIEHeader  header;

@@ -26,7 +26,7 @@ class Neighbor:
         self.capabilities = lie.capabilities
         self.holdtime = lie.holdtime
         self.not_a_ztp_offer = lie.not_a_ztp_offer
-        self.you_are_not_flood_repeater = lie.you_are_not_flood_repeater
+        self.you_are_flood_repeater = lie.you_are_flood_repeater
         self.label = lie.label
 
     def cli_detailed_attributes(self):

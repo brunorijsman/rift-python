@@ -3,9 +3,10 @@
 import thrift.protocol.TBinaryProtocol
 import thrift.transport.TTransport
 import encoding.ttypes
+import encoding.constants
 
-RIFT_MAJOR_VERSION = 11
-RIFT_MINOR_VERSION = 0
+RIFT_MAJOR_VERSION = encoding.constants.protocol_major_version
+RIFT_MINOR_VERSION = encoding.constants.protocol_minor_version
 
 def create_packet_header(node):
     packet_header = encoding.ttypes.PacketHeader(
