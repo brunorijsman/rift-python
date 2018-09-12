@@ -8,6 +8,7 @@ fi
 
 # Clean up temporary files
 cd ${VIRTUAL_ENV}/..
+rm -f .coverage
 rm -f .coverage.*
 rm -f rift.log
 rm -f rift.log.html

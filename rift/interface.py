@@ -459,6 +459,9 @@ class Interface:
         initial_state=State.ONE_WAY,
         verbose_events=verbose_events)
 
+    # TODO: Use % formating for log messages
+    # See https://stackoverflow.com/questions/34619790/pylint-message-logging-format-interpolation
+
     def debug(self, logger, msg):
         logger.debug("[{}] {}".format(self._log_id, msg))
 
@@ -563,15 +566,12 @@ class Interface:
         if protocol_packet.content.lie:
             event_data = (protocol_packet, from_address_and_port)
             self._fsm.push_event(self.Event.LIE_RECEIVED, event_data)
-        if protocol_packet.content.tide:
-            # TODO: process TIDE
-            pass
-        if protocol_packet.content.tire:
-            # TODO: process TIDE
-            pass
         if protocol_packet.content.tie:
-            # TODO: process TIDE
-            pass
+            self.process_received_tie_packet(protocol_packet)
+        if protocol_packet.content.tide:
+            self.process_received_tide_packet(protocol_packet)
+        if protocol_packet.content.tire:
+            self.process_received_tire_packet(protocol_packet)
 
     def set_failure(self, tx_fail, rx_fail):
         self._tx_fail = tx_fail
@@ -598,18 +598,22 @@ class Interface:
             ["Neighbor", "State"]]
 
     def cli_summary_attributes(self):
+        if self._fsm.state is None:
+            state_name = ""
+        else:
+            state_name = self._fsm.state.name
         if self._neighbor:
             return [
                 self._interface_name,
                 self._neighbor.name,
                 utils.system_id_str(self._neighbor.system_id),
-                self._fsm.state.name]
+                state_name]
         else:
             return [
                 self._interface_name,
                 "",
                 "",
-                self._fsm.state.name] #  Crashes in passive mode Display interface
+                state_name]
 
     def cli_detailed_attributes(self):
         return [
@@ -644,3 +648,18 @@ class Interface:
     @property
     def fsm(self):
         return self._fsm
+
+    # TODO: All TIE, TIDE, and TIRE packets are currently handled outside the context of any FSM.
+    # The spec says an FSM will be defined in the future; revisit this once that happens.
+
+    def process_received_tie_packet(self, tie_packet):
+        # TODO: Implement this
+        self.warning(self._rx_log, "Receive TIE packet {}".format(tie_packet))
+
+    def process_received_tide_packet(self, tide_packet):
+        # TODO: Implement this
+        self.warning(self._rx_log, "Receive TIDE packet {}".format(tide_packet))
+
+    def process_received_tire_packet(self, tire_packet):
+        # TODO: Implement this
+        self.warning(self._rx_log, "Receive TIRE packet {}".format(tire_packet))
