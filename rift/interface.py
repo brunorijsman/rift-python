@@ -94,6 +94,14 @@ class Interface:
         # TODO: Need to implement ZTP state machine and/or configuration first
         pass
 
+    def action_start_flooding(self):
+        # TODO: Implement this
+        self.warning(self._rx_log, "Start flooding")
+
+    def action_stop_flooding(self):
+        # TODO: Implement this
+        self.warning(self._rx_log, "Start flooding")
+
     def send_protocol_packet(self, protocol_packet):
         if self._tx_fail:
             self.debug(self._tx_log, "Failed send {}".format(protocol_packet))
@@ -449,7 +457,8 @@ class Interface:
     }
 
     _state_actions = {
-        State.ONE_WAY: ([action_cleanup, action_send_lie], [])
+        State.ONE_WAY  : ([action_cleanup, action_send_lie], []),
+        State.THREE_WAY: ([action_start_flooding], [action_stop_flooding])
     }
 
     fsm_definition = fsm.FsmDefinition(
