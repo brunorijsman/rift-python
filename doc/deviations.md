@@ -1,6 +1,6 @@
 # Deviations
 
-This section describes places where this Python RIFT engine implementation consciously an purposly deviates from the draft-ietf-rift-rift-02 specification.
+This section describes places where this Python RIFT engine implementation consciously an purposely deviates from the draft-ietf-rift-rift-02 specification.
 
 | ID | Short description |
 | --- | --- |
@@ -12,9 +12,11 @@ This section describes places where this Python RIFT engine implementation consc
 | DEV-6 | [Use real ZTP hold down timer](#use-real-ztp-hold-down-timer) |
 | DEV-6 | [Use real ZTP hold down timer](#use-real-ztp-hold-down-timer) |
 | DEV-7 | [Pushed events vs chained event](#pushed-events-vs-chained-events) |
+| DEV-8 | [Start and stop flooding actions](#start-and-stop-flooding-actions) |
+
 ## Remove event WithdrawNeighborOffer from the ZTP FSM
 
-The ZTP state machine has an event "NeighborOffer". In the description of this event it is explictly mentioned that the level is optional, i.e. the level could be absent which means UNDEFINED_LEVEL. I interpret the absence of a level field to mean that the offer is withdrawn. This assumption is confirmed by the fact that the action for the event NeighborOffer has an explicit "if no level offered then REMOVE_OFFER else ...". 
+The ZTP state machine has an event "NeighborOffer". In the description of this event it is explicitly mentioned that the level is optional, i.e. the level could be absent which means UNDEFINED_LEVEL. I interpret the absence of a level field to mean that the offer is withdrawn. This assumption is confirmed by the fact that the action for the event NeighborOffer has an explicit "if no level offered then REMOVE_OFFER else ...". 
 
 If these interpretations are correct, then why is there a separate event WithdrawNeighborOffer which causes an unconditional action "REMOVE_OFFER"? What is the difference between the event NeighborOffer with an absent level, and the event WithdrawNeighborOffer? It seems to me we don't need the WithdrawNeighborOffer event.
 
@@ -64,7 +66,7 @@ Instead of actually removing the offer, we keep the offer, but mark it with a re
 
 ## Rules for accepting a received LIE message
 
-Section 4.2.2 contains 8 bullet points that specify the conditions for accepting a received LIE message and estabilishing a three-way adjacency.
+Section 4.2.2 contains 8 bullet points that specify the conditions for accepting a received LIE message and establishing a three-way adjacency.
 
 Section B.1.4 also contains rules for accepting a received LIE message and establishing a three-way adjacency.
 
@@ -103,7 +105,7 @@ The configured level symbol determines the configured level, the leaf flags, as 
 
 As a result, the events ChangeLocalLeafIndications and ChangeLocalConfiguredLevel are combined into a single event ChangeLocalConfiguredLevel.
 
-The ChangeLocalConfiguredLevel is pushed whenever the conifigured level is changed. The action is store_level which also updates the leaf flags and the superspine flag.
+The ChangeLocalConfiguredLevel is pushed whenever the configured level is changed. The action is store_level which also updates the leaf flags and the superspine flag.
 
 **PRZ 8/18 Comment: All fine as long behavior is equivalent to FSM. Superspine flag will become prominent with the
   new sections on partitioned fabric.**
@@ -182,3 +184,15 @@ Not only does this rule avoid hypothetical incorrect behavior, it is also much e
 understand and hence debug.
 
 **PRZ 8/18 Comment: We discussed that out today on the bug section.**
+
+## Start and stop flooding actions
+
+I added a state entry action for LIE FSM state THREE\_WAY: action\_start\_flooding.
+
+Once we are in state THREE\_WAY, we know the unicast address of the neighbor and we can start
+sending and receiving flooding-related messages (i.e. TIE packets, TIDE packets, and TIRE packets).
+
+Similarly, when we exit state THREE\_WAY we execute action action\_stop\_flooding: flush the LSDB
+and stop sending and receiving flooding-related messages.
+
+The latter required the introduction of the concept of state exit actions in the FSM framework.

@@ -448,16 +448,16 @@ class Interface:
         State.THREE_WAY: _state_three_way_transitions
     }
 
-    _state_entry_actions = {
-        State.ONE_WAY: [action_cleanup, action_send_lie]
+    _state_actions = {
+        State.ONE_WAY: ([action_cleanup, action_send_lie], [])
     }
 
     fsm_definition = fsm.FsmDefinition(
         state_enum=State,
         event_enum=Event,
         transitions=_transitions,
-        state_entry_actions=_state_entry_actions,
         initial_state=State.ONE_WAY,
+        state_actions=_state_actions,
         verbose_events=verbose_events)
 
     # TODO: Use % formating for log messages

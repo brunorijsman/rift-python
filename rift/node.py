@@ -281,17 +281,17 @@ class Node:
         State.COMPUTE_BEST_OFFER: _state_compute_best_offer_transitions
     }
 
-    _state_entry_actions = {
-        State.UPDATING_CLIENTS:     [action_update_all_lie_fsms],
-        State.COMPUTE_BEST_OFFER:   [action_stop_hold_down_timer, action_level_compute]
+    _state_actions = {
+        State.UPDATING_CLIENTS:   ([action_update_all_lie_fsms], []),
+        State.COMPUTE_BEST_OFFER: ([action_stop_hold_down_timer, action_level_compute], []),
     }
 
     fsm_definition = fsm.FsmDefinition(
         state_enum=State,
         event_enum=Event,
         transitions=_transitions,
-        state_entry_actions=_state_entry_actions,
         initial_state=State.COMPUTE_BEST_OFFER,
+        state_actions=_state_actions,
         verbose_events=verbose_events)
 
     def __init__(self, parent_engine, config, force_passive):
