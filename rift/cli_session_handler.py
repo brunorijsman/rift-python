@@ -333,7 +333,7 @@ class CliSessionHandler:
                 self.print_r("")
                 self.update_history()
             # Process Commands
-            while '\n'in self._str:
+            while '\n' in self._str:
                 split = self._str.split('\n', 1)
                 command = split[0]
                 self._str = split[1]

@@ -1,6 +1,8 @@
 import collections
 import time
 
+import sortedcontainers
+
 import table
 
 # TODO: Check completeness of FSM
@@ -18,12 +20,16 @@ def _action_to_name(action):
     return action_name
 
 def _event_to_name(event):
-    return event.name
+    if event is None:
+        # Event None is used to record the state entry actions when the FSM is started
+        return "None"
+    else:
+        return event.name
 
 def _state_to_name(state):
     if state is None:
         # In the FSM, to-state None means no state change, so treat that special
-        return 'None'
+        return "None"
     else:
         return state.name
 
@@ -82,14 +88,18 @@ class FsmDefinition:
         return tab
 
     def state_entry_actions_table(self):
-        tab = table.Table()
-        tab.add_row(['State', 'Actions'])
+        # Make sure table is sorted by state for deterministic output (needed for testing)
+        sorted_state_entry_actions = sortedcontainers.SortedDict()
         for state in self.state_entry_actions:
             actions = self.state_entry_actions[state]
             action_names = list(map(_action_to_name, actions))
             if action_names == []:
                 action_names = '-'
-            tab.add_row([state.name, action_names])
+            sorted_state_entry_actions[state.name] = action_names
+        tab = table.Table()
+        tab.add_row(['State', 'Actions'])
+        for state_name in sorted_state_entry_actions:
+            tab.add_row([state_name, sorted_state_entry_actions[state_name]])
         return tab
 
     def _add_from_transitions_to_table(self, tab, from_state, from_state_transitions,
@@ -223,7 +233,11 @@ class Fsm:
     def start(self):
         self._state = self._definition.initial_state
         self.info("Start FSM, state={}".format(self._state.name))
+        # Record start state and start state entry actions as from-state=None, and event=None
+        self._current_record = FsmRecord(self, None, None, False)
+        self._current_record.to_state = self._state
         self.invoke_state_entry_actions(self._state)
+        self.store_current_record()
 
     def push_event(self, event, event_data=None):
         fsm = self
@@ -268,6 +282,17 @@ class Fsm:
         if state in self._state_entry_actions:
             self.invoke_actions(self._state_entry_actions[state])
 
+    def store_current_record(self):
+        self._verbose_records.appendleft(self._current_record)
+        if self._current_record.verbose:
+            self._verbose_records_skipped += 1
+        else:
+            self._current_record.skipped = self._verbose_records_skipped
+            self._verbose_records_skipped = 0
+            self._records.appendleft(self._current_record)
+        self.info_or_debug(self._current_record.verbose, self._current_record.log_str())
+        self._current_record = None
+
     def process_event(self, event, event_data):
         assert self._current_record is None
         from_state = self._state
@@ -290,15 +315,7 @@ class Fsm:
                     self.invoke_state_entry_actions(to_state)
         else:
             self._current_record.implicit = True
-        self._verbose_records.appendleft(self._current_record)
-        if self._current_record.verbose:
-            self._verbose_records_skipped += 1
-        else:
-            self._current_record.skipped = self._verbose_records_skipped
-            self._verbose_records_skipped = 0
-            self._records.appendleft(self._current_record)
-        self.info_or_debug(self._current_record.verbose, self._current_record.log_str())
-        self._current_record = None
+        self.store_current_record()
 
     def history_table(self, verbose):
         tab = table.Table()

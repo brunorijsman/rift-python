@@ -1,4 +1,6 @@
 import enum
+import re
+
 import pytest
 
 import fsm
@@ -15,7 +17,7 @@ def dog():
             WAGGING_TAIL = 3
 
         class Event(enum.Enum):
-            SEE_SQUIRL = 1
+            SEE_SQUIRREL = 1
             PET = 2
             WAIT = 3
 
@@ -37,7 +39,7 @@ def dog():
             self.sits += 1
 
         _state_sitting_transitions = {
-            Event.SEE_SQUIRL: (State.BARKING, [action_growl, action_jump], [Event.WAIT]),
+            Event.SEE_SQUIRREL: (State.BARKING, [action_growl, action_jump], [Event.WAIT]),
             Event.PET       : (None, [action_lick])
         }
 
@@ -47,7 +49,7 @@ def dog():
         }
 
         _state_wagging_tail_transitions = {
-            Event.SEE_SQUIRL: (State.BARKING, [action_growl]),
+            Event.SEE_SQUIRREL: (State.BARKING, [action_growl]),
             Event.PET       : (State.SITTING, [])
         }
 
@@ -105,15 +107,64 @@ def test_states_table(dog):
 
 def test_events_table(dog):
     assert (dog.fsm_definition.events_table().to_string() ==
-            "+------------+---------+\n"
-            "| Event      | Verbose |\n"
-            "+------------+---------+\n"
-            "| SEE_SQUIRL | False   |\n"
-            "+------------+---------+\n"
-            "| PET        | False   |\n"
-            "+------------+---------+\n"
-            "| WAIT       | True    |\n"
-            "+------------+---------+\n")
+            "+--------------+---------+\n"
+            "| Event        | Verbose |\n"
+            "+--------------+---------+\n"
+            "| SEE_SQUIRREL | False   |\n"
+            "+--------------+---------+\n"
+            "| PET          | False   |\n"
+            "+--------------+---------+\n"
+            "| WAIT         | True    |\n"
+            "+--------------+---------+\n")
+
+def test_transition_table(dog):
+    assert (dog.fsm_definition.transition_table().to_string() ==
+            "+--------------+--------------+--------------+---------+-------------+\n"
+            "| From state   | Event        | To state     | Actions | Push events |\n"
+            "+--------------+--------------+--------------+---------+-------------+\n"
+            "| SITTING      | SEE_SQUIRREL | BARKING      | growl   | WAIT        |\n"
+            "|              |              |              | jump    |             |\n"
+            "+--------------+--------------+--------------+---------+-------------+\n"
+            "| SITTING      | PET          | -            | lick    | -           |\n"
+            "+--------------+--------------+--------------+---------+-------------+\n"
+            "| BARKING      | PET          | WAGGING_TAIL | -       | -           |\n"
+            "+--------------+--------------+--------------+---------+-------------+\n"
+            "| BARKING      | WAIT         | BARKING      | bark    | -           |\n"
+            "+--------------+--------------+--------------+---------+-------------+\n"
+            "| WAGGING_TAIL | SEE_SQUIRREL | BARKING      | growl   | -           |\n"
+            "+--------------+--------------+--------------+---------+-------------+\n"
+            "| WAGGING_TAIL | PET          | SITTING      | -       | -           |\n"
+            "+--------------+--------------+--------------+---------+-------------+\n")
+
+def test_state_entry_actions_table(dog):
+    print(dog.fsm_definition.state_entry_actions_table().to_string())
+    assert (dog.fsm_definition.state_entry_actions_table().to_string() ==
+            "+---------+---------+\n"
+            "| State   | Actions |\n"
+            "+---------+---------+\n"
+            "| BARKING | bark    |\n"
+            "+---------+---------+\n"
+            "| SITTING | sit     |\n"
+            "+---------+---------+\n")
+
+def test_history_table(dog):
+    dog.fsm_instance.start()
+    fsm.Fsm.process_queued_events()
+    dog.fsm_instance.push_event(dog.Event.PET)
+    fsm.Fsm.process_queued_events()
+    print(dog.fsm_instance.history_table(verbose=True).to_string())
+    pattern = (
+        ".----------.----------.---------.---------.-------.---------------.---------.----------.\n"
+        ". Sequence . Time     . Verbose . From    . Event . Actions and   . To      . Implicit .\n"
+        ". Nr       . Delta    . Skipped . State   .       . Pushed Events . State   .          .\n"
+        ".----------.----------.---------.---------.-------.---------------.---------.----------.\n"
+        ". 2        . ........ . 0       . SITTING . PET   . lick          . None    . False    .\n"
+        ".----------.----------.---------.---------.-------.---------------.---------.----------.\n"
+        ". 1        . ........ . 0       . None    . None  . sit           . SITTING . False    .\n"
+        ".----------.----------.---------.---------.-------.---------------.---------.----------.\n"
+    )
+    print(re.match(pattern, dog.fsm_instance.history_table(verbose=True).to_string()))
+    assert re.match(pattern, dog.fsm_instance.history_table(verbose=True).to_string())
 
 def test_fsm_basic(dog):
     dog.fsm_instance.start()
@@ -123,7 +174,7 @@ def test_fsm_basic(dog):
     assert dog.sits == 1
     assert dog.total_actions == 1
     dog.reset_action_counters()
-    # Since there are no events queud, nothing should happen when we process queued events
+    # Since there are no events queued, nothing should happen when we process queued events
     fsm.Fsm.process_queued_events()
     assert dog.fsm_instance.state == dog.State.SITTING
     assert dog.total_actions == 0
@@ -135,10 +186,10 @@ def test_fsm_basic(dog):
     assert dog.licks == 1
     assert dog.total_actions == 1
     dog.reset_action_counters()
-    # Event SEE_SQUIRL in state SITTING => action growl, action jump, push WAIT, state BARKING
+    # Event SEE_SQUIRREL in state SITTING => action growl, action jump, push WAIT, state BARKING
     # State entry action for state BARKING => action bark
     # Event WAIT in state BARKING => action bark, state BARKING
-    dog.fsm_instance.push_event(dog.Event.SEE_SQUIRL)
+    dog.fsm_instance.push_event(dog.Event.SEE_SQUIRREL)
     fsm.Fsm.process_queued_events()
     assert dog.fsm_instance.state == dog.State.BARKING
     assert dog.growls == 1
