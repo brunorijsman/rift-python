@@ -5,8 +5,8 @@ import random
 
 import constants
 import fsm
-import mcast_receive_handler
-import mcast_send_handler
+import udp_receive_handler
+import udp_send_handler
 import neighbor
 import offer
 import utils
@@ -99,7 +99,7 @@ class Interface:
             self.debug(self._tx_log, "Failed send {}".format(protocol_packet))
         else:
             encoded_protocol_packet = encode_protocol_packet(protocol_packet)
-            self._mcast_send_handler.send_message(encoded_protocol_packet)
+            self._udp_send_handler.send_message(encoded_protocol_packet)
             self.debug(self._tx_log, "Send {}".format(protocol_packet))
 
     def action_send_lie(self):
@@ -156,7 +156,7 @@ class Interface:
 
     def check_three_way(self):
         # Section B.1.5
-        # CHANGE: This is a little bit different from the specificaiton
+        # CHANGE: This is a little bit different from the specification
         # (see comment [CheckThreeWay])
         if self._fsm.state == self.State.ONE_WAY:
             pass
@@ -239,7 +239,7 @@ class Interface:
         return True
 
     def neither_leaf_and_ldiff_one(self, protocol_packet):
-        # Neither node is leat and the level difference is at most one
+        # Neither node is leaf and the level difference is at most one
         header = protocol_packet.header
         if self.this_node_is_leaf():
             # This node is leaf
@@ -263,7 +263,7 @@ class Interface:
         # B.1.4.
         # The return value of this function is (accept, rule, offer_to_ztp, warning) where
         # - accept: True if the received LIE message is acceptable, False if not
-        # - rule: A short human-readble string describing the rule used to accept or reject the
+        # - rule: A short human-readable string describing the rule used to accept or reject the
         #   LIE message
         # - offer_to_ztp: True if an offer should be sent to the ZTP FSM. Note that we even send
         #   offers to the the ZTP FSM for most rejected LIE messages, and the ZTP FSM stores these
@@ -284,7 +284,7 @@ class Interface:
             return (False, "Invalid system ID", False, True)
         if self._node.system_id == header.sender:
             # Section 4.2.2.5 (DEV-4: rule is missing in section B.1.4)
-            return (False, "Remote systed ID is same as local system ID (loop)", False, False)
+            return (False, "Remote system ID is same as local system ID (loop)", False, False)
         if self._mtu != lie.link_mtu_size:
             # Section 4.2.2.6
             return (False, "MTU mismatch", False, True)
@@ -340,7 +340,7 @@ class Interface:
         self._lie_accept_or_reject_rule = rule
         # Section B.1.4.3
         # Note: We send an offer to the ZTP state machine directly from here instead of pushing an
-        # UDPATE_ZTP_OFFER event (see deviation DEV-2 in doc/deviations)
+        # UPDATE_ZTP_OFFER event (see deviation DEV-2 in doc/deviations)
         self.send_offer_to_ztp_fsm(new_neighbor)
         if not self._neighbor:
             self.info(self._log, "New neighbor detected with system-id {}"
@@ -520,21 +520,21 @@ class Interface:
             self._fsm.start()
 
     def run(self):
-        self._mcast_send_handler = mcast_send_handler.McastSendHandler(
+        self._udp_send_handler = udp_send_handler.UdpSendHandler(
             interface_name=self._interface_name,
             mcast_ipv4_address=self._tx_lie_ipv4_mcast_address,
             port=self._tx_lie_port,
             interface_ipv4_address=self._node.engine.tx_src_address,
             multicast_loopback=self._node.engine.multicast_loopback)
         # TODO: Use source address
-        (_, source_port) = self._mcast_send_handler.source_address_and_port()
+        (_, source_port) = self._udp_send_handler.source_address_and_port()
         self._lie_udp_source_port = source_port
-        self._mcast_receive_handler = mcast_receive_handler.McastReceiveHandler(
-            self._interface_name,
-            self._rx_lie_ipv4_mcast_address,
-            self._rx_lie_port,
-            self.receive_mcast_message,
-            self._node.engine.tx_src_address)
+        self._lie_receive_handler = udp_receive_handler.UdpReceiveHandler(
+            mcast_ipv4_address=self._rx_lie_ipv4_mcast_address,
+            port=self._rx_lie_port,
+            receive_function=self.receive_lie_message,
+            interface_ipv4_address=self._node.engine.tx_src_address)
+        self._flood_receive_handler = None
         self._one_second_timer = timer.Timer(1.0,
                                              lambda: self._fsm.push_event(self.Event.TIMER_TICK))
 
@@ -549,9 +549,9 @@ class Interface:
             return False
         return True
 
-    def receive_mcast_message(self, message, from_address_and_port):
-        # TODO: Handle decoding errors (does decode_protocol_packet throw an exception in
-        # that case? Try it...)
+    def receive_lie_message(self, message, from_address_and_port):
+        # TODO: Handle decoding errors
+        # Does decode_protocol_packet throw an exception in that case? Try it...
         protocol_packet = decode_protocol_packet(message)
         if self._rx_fail:
             self.debug(self._tx_log, "Failed receive {}".format(protocol_packet))
@@ -567,11 +567,33 @@ class Interface:
             event_data = (protocol_packet, from_address_and_port)
             self._fsm.push_event(self.Event.LIE_RECEIVED, event_data)
         if protocol_packet.content.tie:
+            self.warning(self._rx_log, "Received TIE packet on LIE port (ignored)")
+        if protocol_packet.content.tide:
+            self.warning(self._rx_log, "Received TIDE packet on LIE port (ignored)")
+        if protocol_packet.content.tire:
+            self.warning(self._rx_log, "Received TIRE packet on LIE port (ignored)")
+
+    def receive_flood_message(self, message, _from_address_and_port):
+        # TODO: Handle decoding errors
+        protocol_packet = decode_protocol_packet(message)
+        if self._rx_fail:
+            self.debug(self._tx_log, "Failed receive {}".format(protocol_packet))
+            return
+        if protocol_packet.header.sender == self._node.system_id:
+            self.debug(self._rx_log, "Looped receive {}".format(protocol_packet))
+            return
+        self.debug(self._rx_log, "Receive {}".format(protocol_packet))
+        if not protocol_packet.content:
+            self.warning(self._rx_log, "Received packet without content")
+            return
+        if protocol_packet.content.tie:
             self.process_received_tie_packet(protocol_packet)
         if protocol_packet.content.tide:
             self.process_received_tide_packet(protocol_packet)
         if protocol_packet.content.tire:
             self.process_received_tire_packet(protocol_packet)
+        if protocol_packet.content.lie:
+            self.warning(self._rx_log, "Received LIE packet on TIE port (ignored)")
 
     def set_failure(self, tx_fail, rx_fail):
         self._tx_fail = tx_fail

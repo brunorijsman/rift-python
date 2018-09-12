@@ -9,12 +9,13 @@ import scheduler
 #         as the source address, but only receiving packets on the specified interface)? I would
 #         like to use SO_BINDTODEVICE but that is not portable (available on Linux but not MacOS X)
 
-class McastReceiveHandler:
+# TODO: Add support for unicast (in addition to multicast)
+
+class UdpReceiveHandler:
 
     MAXIMUM_MESSAGE_SIZE = 65535
 
-    def __init__(self, _interface_name, mcast_ipv4_address, port, receive_function,
-                 interface_ipv4_address):
+    def __init__(self, mcast_ipv4_address, port, receive_function, interface_ipv4_address):
         self._interface_ipv4_address = interface_ipv4_address
         self._mcast_ipv4_address = mcast_ipv4_address
         self._port = port
