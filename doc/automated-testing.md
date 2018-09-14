@@ -181,7 +181,7 @@ dog = <tests.test_fsm.dog.<locals>.Dog object at 0x1055dd0f0>
         assert dog.sits == 1
         assert dog.total_actions == 1
         dog.reset_action_counters()
-        # Since there are no events queud, nothing should happen when we process queued events
+        # Since there are no events queued, nothing should happen when we process queued events
         fsm.Fsm.process_queued_events()
 >       assert dog.fsm_instance.state == dog.State.BARKING
 E       AssertionError: assert <State.SITTING: 1> == <State.BARKING: 2>
@@ -365,7 +365,7 @@ show interfaces
 +-----------+-----------+-----------+-----------+
 </pre>
 
-The following lines show the call stack where the test failure occured:
+The following lines show the call stack where the test failure occurred:
 
 <pre>
 File "/Users/brunorijsman/rift-python/tests/test_sys_2n_l0_l1.py", line 175, in test_2n_l0_l1
@@ -417,8 +417,8 @@ __________________________________________________________ test_2n_l0_l1 _______
 tests/test_sys_2n_l0_l1.py:179: 
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
 tests/test_sys_2n_l0_l1.py:160: in check_log_node2_intf_up
-    les.check_lie_fsm_1way_bad_level("node1", "if1")  #!!! 3way
-tests/log_expect_session.py:230: in check_lie_fsm_1way_bad_level
+    les.check_lie_fsm_1way_unacc_hdr("node1", "if1")  #!!! 3way
+tests/log_expect_session.py:230: in check_lie_fsm_1way_unacc_hdr
     to_state="ONE_WAY")
 tests/log_expect_session.py:132: in fsm_find
     self.expect_failure(msg)
@@ -480,8 +480,8 @@ Did not find FSM transition for node1-if1
 File "/Users/brunorijsman/rift-python/tests/test_sys_2n_l0_l1.py", line 179, in test_2n_l0_l1
     check_log_node2_intf_up(les)
 File "/Users/brunorijsman/rift-python/tests/test_sys_2n_l0_l1.py", line 160, in check_log_node2_intf_up
-    les.check_lie_fsm_1way_bad_level("node1", "if1")  #!!! 3way
-File "tests/log_expect_session.py", line 230, in check_lie_fsm_1way_bad_level
+    les.check_lie_fsm_1way_unacc_hdr("node1", "if1")  #!!! 3way
+File "tests/log_expect_session.py", line 230, in check_lie_fsm_1way_unacc_hdr
     to_state="ONE_WAY")
 File "tests/log_expect_session.py", line 132, in fsm_find
     self.expect_failure(msg)
@@ -524,8 +524,8 @@ And finally, the following lines report the call stack for the test case failure
 File "/Users/brunorijsman/rift-python/tests/test_sys_2n_l0_l1.py", line 179, in test_2n_l0_l1
     check_log_node2_intf_up(les)
 File "/Users/brunorijsman/rift-python/tests/test_sys_2n_l0_l1.py", line 160, in check_log_node2_intf_up
-    les.check_lie_fsm_1way_bad_level("node1", "if1")  #!!! 3way
-File "tests/log_expect_session.py", line 230, in check_lie_fsm_1way_bad_level
+    les.check_lie_fsm_1way_unacc_hdr("node1", "if1")  #!!! 3way
+File "tests/log_expect_session.py", line 230, in check_lie_fsm_1way_unacc_hdr
     to_state="ONE_WAY")
 File "tests/log_expect_session.py", line 132, in fsm_find
     self.expect_failure(msg)
@@ -607,7 +607,7 @@ rift_expect.log
 
 ## Log Visualization Tool
 
-Once you start testing non-trivial topologies, it becomes extremely difficult to read the log files and to undertand what is really happening.
+Once you start testing non-trivial topologies, it becomes extremely difficult to read the log files and to understand what is really happening.
 
 The [Log Visualization Tool](log-visualization.md) converts a log file into a graphical ladder diagram, which is _much_ easier to understand.
 
