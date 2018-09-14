@@ -183,7 +183,7 @@ class CliSessionHandler:
     # the same can happen a character then a control sequence but you can fix
     # extraneous characters by editing.
     def handle_esc(self, chars):
-        if chars[1] == constants.LEFT_SQB:  # "[" but cant use character
+        if self._linemode is False and chars[1] == constants.LEFT_SQB:  # "[" but cant use character
             # Up arrow & down arrow
             if chars[2] == constants.ESC_UP or chars[2] == constants.ESC_DN:
                 self.print('\r', False)
@@ -204,7 +204,7 @@ class CliSessionHandler:
                     self._sock.send(pat)
             # Delete is a sequence of 4 chars ESC [ 3 ~
             elif chars[2] == constants.DEL_SEQ_3:
-                if chars[3] == constants.DEL_SEQ_TILDE:
+                if len(chars) > 3 and chars[3] == constants.DEL_SEQ_TILDE:
                     if self._command  and self._position < len(self._command):
                         if len(self._command) > self._position:
                             self.print_r(self._command[(self._position + 1):] + " ", False)
@@ -221,15 +221,15 @@ class CliSessionHandler:
             if chars[2] == constants.CAP_P:  # F1 Key
                 if self._linemode:
                     # Magic to Character mode"
-                    # Literally tell telnet "IAC DO LINEMODE SUB Negotiation Linemode IAC WILL ECHO"
-                    self.send_raw('FFFD22FFFA220100FFF0FFFB01')
+                    # Literally tell telnet "IAC Will suppress go ahead IAC WILL ECHO"
+                    self.send_raw('FFFB03FFFB01')
                     self._linemode = False
                     self._end_line = "\r\n"
                     # It appears telnet does something funky and will not accept chars
                     # until the user hits return when changing to character mode
                 else:
-                    # SINCE FFFD22 has been sent this is enough
-                    self.send_raw('FFFA220101FFF0FFFC01')
+                    # Literally tell telnet "IAC Do suppress go ahead IAC do ECHO"ed
+                    self.send_raw('FFFC03FFFC01')
                     self._linemode = True
                     self._end_line = "\n"
                 self._position = 0 # Purge the command if any
@@ -298,7 +298,8 @@ class CliSessionHandler:
             #command sequence ignored although this tells us remote capabilities.
             return
         elif chars[0] == constants.ESC: # ESC
-            self.handle_esc(chars)
+            if len(chars) > 2:
+                self.handle_esc(chars)
             return
         # Backspace is DEL in my setup
         elif chars[0] == constants.BS or chars[0] == constants.DEL:
