@@ -27,7 +27,7 @@
 # Test scenario:
 # - Bring the topology up
 #   - Both nodes report adjacency to other node up as in state 3-way
-#   - Check explictly for acceptance of the LIE message because of leaf-to-non-leaf link
+#   - Check explicitly for acceptance of the LIE message because of leaf-to-non-leaf link
 #   - Check offers and levels on each node
 # - Fail interface if1 on node1 (bi-directional failure)
 #   - Both nodes report adjacency to other node as down in state 1-way
