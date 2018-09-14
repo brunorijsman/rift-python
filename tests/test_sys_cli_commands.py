@@ -48,7 +48,7 @@ def check_show_interface(res):
 
 def check_show_interface_fsm_history(res):
     res.sendline("show interface if1 fsm history")
-    res.table_expect("| TWO_WAY | VALID_REFLECTION | | THREE_WAY | False |")
+    res.table_expect("| TWO_WAY | VALID_REFLECTION | start_flooding | THREE_WAY | False |")
     res.table_expect("| ONE_WAY | NEW_NEIGHBOR | SEND_LIE | TWO_WAY | False |")
     res.wait_prompt()
 

@@ -1,4 +1,6 @@
 import enum
+import re
+
 import pytest
 
 import fsm
@@ -6,6 +8,39 @@ import fsm
 # pylint: disable=redefined-outer-name
 @pytest.fixture
 def dog():
+
+    # The "dog" finite state machine:
+    #
+    #                 +-----------------------------------------------+
+    #                 |                                               |
+    #                 V                                               |
+    #  +------------------------------+                               |
+    #  | State         : SITTING      |------+ Event         : PET    |
+    #  | Entry Actions : sit          |      | Actions       : lick   |
+    #  | Exit Actions  : -            |<-----+ Chained Event : -      |
+    #  +------------------------------+                               |
+    #                 |                                               |
+    #                 | Event         : SEE_SQUIRREL                  |
+    #                 | Actions       : growl, jump                   |
+    #                 | Chained Event : WAIT                          |
+    #                 V                                               |
+    #  +------------------------------+                               |
+    #  | State         : BARKING      |------+ Event         : WAIT   |
+    #  | Entry Actions : bark         |      | Actions       : bark   |
+    #  | Exit Actions  : poop         |<-----+ Chained Event : -      |
+    #  +------------------------------+                               |
+    #    |                          ^                                 |
+    #    | Event         : PET      | Event         : SEE_SQUIRREL    |
+    #    | Actions       : -        | Actions       : growl           |
+    #    | Chained Event : -        | Chained Event : -               |
+    #    V                          |                                 |
+    #  +------------------------------+                               |
+    #  | State         : WAGGING_TAIL |                               |
+    #  | Entry Actions : -            |                               |
+    #  | Exit Actions  : -            |                               | Event         : PET
+    #  +------------------------------+                               | Actions       : -
+    #                 |                                               | Chained Event : -
+    #                 +-----------------------------------------------+
 
     class Dog:
 
@@ -15,7 +50,7 @@ def dog():
             WAGGING_TAIL = 3
 
         class Event(enum.Enum):
-            SEE_SQUIRL = 1
+            SEE_SQUIRREL = 1
             PET = 2
             WAIT = 3
 
@@ -36,9 +71,12 @@ def dog():
         def action_sit(self):
             self.sits += 1
 
+        def action_poop(self):
+            self.poops += 1
+
         _state_sitting_transitions = {
-            Event.SEE_SQUIRL: (State.BARKING, [action_growl, action_jump], [Event.WAIT]),
-            Event.PET       : (None, [action_lick])
+            Event.SEE_SQUIRREL: (State.BARKING, [action_growl, action_jump], [Event.WAIT]),
+            Event.PET         : (None, [action_lick])
         }
 
         _state_barking_transitions = {
@@ -47,18 +85,18 @@ def dog():
         }
 
         _state_wagging_tail_transitions = {
-            Event.SEE_SQUIRL: (State.BARKING, [action_growl]),
-            Event.PET       : (State.SITTING, [])
+            Event.SEE_SQUIRREL: (State.BARKING, [action_growl]),
+            Event.PET         : (State.SITTING, [])
         }
 
-        _state_entry_actions = {
-            State.SITTING: [action_sit],
-            State.BARKING: [action_bark]
+        _state_actions = {
+            State.SITTING: ([action_sit], []),
+            State.BARKING: ([action_bark], [action_poop])
         }
 
         _transitions = {
-            State.SITTING: _state_sitting_transitions,
-            State.BARKING: _state_barking_transitions,
+            State.SITTING     : _state_sitting_transitions,
+            State.BARKING     : _state_barking_transitions,
             State.WAGGING_TAIL: _state_wagging_tail_transitions
         }
 
@@ -66,8 +104,8 @@ def dog():
             state_enum=State,
             event_enum=Event,
             transitions=_transitions,
-            state_entry_actions=_state_entry_actions,
             initial_state=State.SITTING,
+            state_actions=_state_actions,
             verbose_events=verbose_events)
 
         def __init__(self):
@@ -80,7 +118,7 @@ def dog():
 
         @property
         def total_actions(self):
-            return self.jumps + self.growls + self.barks + self.licks + self.sits
+            return self.jumps + self.growls + self.barks + self.licks + self.sits + self.poops
 
         def reset_action_counters(self):
             self.jumps = 0
@@ -88,6 +126,7 @@ def dog():
             self.barks = 0
             self.licks = 0
             self.sits = 0
+            self.poops = 0
 
     return Dog()
 
@@ -105,15 +144,64 @@ def test_states_table(dog):
 
 def test_events_table(dog):
     assert (dog.fsm_definition.events_table().to_string() ==
-            "+------------+---------+\n"
-            "| Event      | Verbose |\n"
-            "+------------+---------+\n"
-            "| SEE_SQUIRL | False   |\n"
-            "+------------+---------+\n"
-            "| PET        | False   |\n"
-            "+------------+---------+\n"
-            "| WAIT       | True    |\n"
-            "+------------+---------+\n")
+            "+--------------+---------+\n"
+            "| Event        | Verbose |\n"
+            "+--------------+---------+\n"
+            "| SEE_SQUIRREL | False   |\n"
+            "+--------------+---------+\n"
+            "| PET          | False   |\n"
+            "+--------------+---------+\n"
+            "| WAIT         | True    |\n"
+            "+--------------+---------+\n")
+
+def test_transition_table(dog):
+    assert (dog.fsm_definition.transition_table().to_string() ==
+            "+--------------+--------------+--------------+---------+-------------+\n"
+            "| From state   | Event        | To state     | Actions | Push events |\n"
+            "+--------------+--------------+--------------+---------+-------------+\n"
+            "| SITTING      | SEE_SQUIRREL | BARKING      | growl   | WAIT        |\n"
+            "|              |              |              | jump    |             |\n"
+            "+--------------+--------------+--------------+---------+-------------+\n"
+            "| SITTING      | PET          | -            | lick    | -           |\n"
+            "+--------------+--------------+--------------+---------+-------------+\n"
+            "| BARKING      | PET          | WAGGING_TAIL | -       | -           |\n"
+            "+--------------+--------------+--------------+---------+-------------+\n"
+            "| BARKING      | WAIT         | BARKING      | bark    | -           |\n"
+            "+--------------+--------------+--------------+---------+-------------+\n"
+            "| WAGGING_TAIL | SEE_SQUIRREL | BARKING      | growl   | -           |\n"
+            "+--------------+--------------+--------------+---------+-------------+\n"
+            "| WAGGING_TAIL | PET          | SITTING      | -       | -           |\n"
+            "+--------------+--------------+--------------+---------+-------------+\n")
+
+def test_state_actions_table(dog):
+    print(dog.fsm_definition.state_actions_table().to_string())
+    assert (dog.fsm_definition.state_actions_table().to_string() ==
+            "+---------+---------------+--------------+\n"
+            "| State   | Entry Actions | Exit Actions |\n"
+            "+---------+---------------+--------------+\n"
+            "| BARKING | bark          | poop         |\n"
+            "+---------+---------------+--------------+\n"
+            "| SITTING | sit           | -            |\n"
+            "+---------+---------------+--------------+\n")
+
+def test_history_table(dog):
+    dog.fsm_instance.start()
+    fsm.Fsm.process_queued_events()
+    dog.fsm_instance.push_event(dog.Event.PET)
+    fsm.Fsm.process_queued_events()
+    print(dog.fsm_instance.history_table(verbose=True).to_string())
+    pattern = (
+        ".----------.----------.---------.---------.-------.---------------.---------.----------.\n"
+        ". Sequence . Time     . Verbose . From    . Event . Actions and   . To      . Implicit .\n"
+        ". Nr       . Delta    . Skipped . State   .       . Pushed Events . State   .          .\n"
+        ".----------.----------.---------.---------.-------.---------------.---------.----------.\n"
+        ". 2        . ........ . 0       . SITTING . PET   . lick          . None    . False    .\n"
+        ".----------.----------.---------.---------.-------.---------------.---------.----------.\n"
+        ". 1        . ........ . 0       . None    . None  . sit           . SITTING . False    .\n"
+        ".----------.----------.---------.---------.-------.---------------.---------.----------.\n"
+    )
+    print(re.match(pattern, dog.fsm_instance.history_table(verbose=True).to_string()))
+    assert re.match(pattern, dog.fsm_instance.history_table(verbose=True).to_string())
 
 def test_fsm_basic(dog):
     dog.fsm_instance.start()
@@ -123,7 +211,7 @@ def test_fsm_basic(dog):
     assert dog.sits == 1
     assert dog.total_actions == 1
     dog.reset_action_counters()
-    # Since there are no events queud, nothing should happen when we process queued events
+    # Since there are no events queued, nothing should happen when we process queued events
     fsm.Fsm.process_queued_events()
     assert dog.fsm_instance.state == dog.State.SITTING
     assert dog.total_actions == 0
@@ -135,14 +223,23 @@ def test_fsm_basic(dog):
     assert dog.licks == 1
     assert dog.total_actions == 1
     dog.reset_action_counters()
-    # Event SEE_SQUIRL in state SITTING => action growl, action jump, push WAIT, state BARKING
+    # Event SEE_SQUIRREL in state SITTING => action growl, action jump, push WAIT, state BARKING
     # State entry action for state BARKING => action bark
     # Event WAIT in state BARKING => action bark, state BARKING
-    dog.fsm_instance.push_event(dog.Event.SEE_SQUIRL)
+    # Note: going from state BARKING back to BARKING, neither entry nor exit actions are executed
+    dog.fsm_instance.push_event(dog.Event.SEE_SQUIRREL)
     fsm.Fsm.process_queued_events()
     assert dog.fsm_instance.state == dog.State.BARKING
     assert dog.growls == 1
     assert dog.jumps == 1
     assert dog.barks == 2
     assert dog.total_actions == 4
+    dog.reset_action_counters()
+    # Event PET in state BARKING => state WAGGING_TAIL
+    # State exit action for state BARKING => action poop
+    dog.fsm_instance.push_event(dog.Event.PET)
+    fsm.Fsm.process_queued_events()
+    assert dog.fsm_instance.state == dog.State.WAGGING_TAIL
+    assert dog.poops == 1
+    assert dog.total_actions == 1
     dog.reset_action_counters()

@@ -100,7 +100,7 @@ class Node:
                 offer1 = None
             if (offer2 is not None) and (offer2.state != interface.Interface.State.THREE_WAY):
                 offer2 = None
-        # If there is only one candidate, it automatically wins. If there are no canidates, there
+        # If there is only one candidate, it automatically wins. If there are no candidates, there
         # is no best.
         if offer1 is None:
             return offer2
@@ -281,17 +281,17 @@ class Node:
         State.COMPUTE_BEST_OFFER: _state_compute_best_offer_transitions
     }
 
-    _state_entry_actions = {
-        State.UPDATING_CLIENTS:     [action_update_all_lie_fsms],
-        State.COMPUTE_BEST_OFFER:   [action_stop_hold_down_timer, action_level_compute]
+    _state_actions = {
+        State.UPDATING_CLIENTS:   ([action_update_all_lie_fsms], []),
+        State.COMPUTE_BEST_OFFER: ([action_stop_hold_down_timer, action_level_compute], []),
     }
 
     fsm_definition = fsm.FsmDefinition(
         state_enum=State,
         event_enum=Event,
         transitions=_transitions,
-        state_entry_actions=_state_entry_actions,
         initial_state=State.COMPUTE_BEST_OFFER,
+        state_actions=_state_actions,
         verbose_events=verbose_events)
 
     def __init__(self, parent_engine, config, force_passive):
@@ -437,7 +437,7 @@ class Node:
         return False
 
     def zero_touch_provisioning_enabled(self):
-        # Is "Zero Touch Provisiniong (ZTP)" aka "automatic level derivation" aka "level
+        # Is "Zero Touch Provisioning (ZTP)" aka "automatic level derivation" aka "level
         # determination procedure" aka "auto configuration" active? The criteria that determine
         # whether ZTP is enabled are spelled out in the first paragraph of section 4.2.9.4.
         if self._configured_level is not None:
@@ -539,28 +539,28 @@ class Node:
                 '?']
 
     def command_show_node(self, cli_session):
-        cli_session.print("Node:")
+        cli_session.print_r("Node:")
         tab = table.Table(separators=False)
         tab.add_rows(self.cli_detailed_attributes())
-        cli_session.print(tab.to_string())
-        cli_session.print("Received Offers:")
+        cli_session.print(tab.to_string(cli_session.current_end_line()))
+        cli_session.print_r("Received Offers:")
         tab = table.Table()
         tab.add_row(offer.RxOffer.cli_headers())
         sorted_rx_offers = sortedcontainers.SortedDict(self._rx_offers)
         for off in sorted_rx_offers.values():
             tab.add_row(off.cli_attributes())
-        cli_session.print(tab.to_string())
-        cli_session.print("Sent Offers:")
+        cli_session.print(tab.to_string(cli_session.current_end_line()))
+        cli_session.print_r("Sent Offers:")
         tab = table.Table()
         tab.add_row(offer.TxOffer.cli_headers())
         sorted_tx_offers = sortedcontainers.SortedDict(self._tx_offers)
         for off in sorted_tx_offers.values():
             tab.add_row(off.cli_attributes())
-        cli_session.print(tab.to_string())
+        cli_session.print(tab.to_string(cli_session.current_end_line()))
 
     def command_show_node_fsm_history(self, cli_session, verbose):
         tab = self._fsm.history_table(verbose)
-        cli_session.print(tab.to_string())
+        cli_session.print(tab.to_string(cli_session.current_end_line()))
 
     def command_show_interfaces(self, cli_session):
         # TODO: Report neighbor uptime (time in THREE_WAY state)
@@ -568,33 +568,33 @@ class Node:
         tab.add_row(interface.Interface.cli_summary_headers())
         for intf in self._interfaces.values():
             tab.add_row(intf.cli_summary_attributes())
-        cli_session.print(tab.to_string())
+        cli_session.print(tab.to_string(cli_session.current_end_line()))
 
     def command_show_interface(self, cli_session, parameters):
         interface_name = parameters['interface']
         if not interface_name in self._interfaces:
-            cli_session.print("Error: interface {} not present".format(interface_name))
+            cli_session.print_r("Error: interface {} not present".format(interface_name))
             return
         inteface_attributes = self._interfaces[interface_name].cli_detailed_attributes()
         tab = table.Table(separators=False)
         tab.add_rows(inteface_attributes)
-        cli_session.print("Interface:")
-        cli_session.print(tab.to_string())
+        cli_session.print_r("Interface:")
+        cli_session.print(tab.to_string(cli_session.current_end_line()))
         neighbor_attributes = self._interfaces[interface_name].cli_detailed_neighbor_attrs()
         if neighbor_attributes:
             tab = table.Table(separators=False)
             tab.add_rows(neighbor_attributes)
-            cli_session.print("Neighbor:")
-            cli_session.print(tab.to_string())
+            cli_session.print("Neighbor:\r")
+            cli_session.print(tab.to_string(cli_session.current_end_line()))
 
     def command_show_intf_fsm_hist(self, cli_session, parameters, verbose):
         interface_name = parameters['interface']
         if not interface_name in self._interfaces:
-            cli_session.print("Error: interface {} not present".format(interface_name))
+            cli_session.print_r("Error: interface {} not present".format(interface_name))
             return
         shown_interface = self._interfaces[interface_name]
         tab = shown_interface.fsm.history_table(verbose)
-        cli_session.print(tab.to_string())
+        cli_session.print(tab.to_string(cli_session.current_end_line()))
 
     def command_set_interface_failure(self, cli_session, parameters):
         interface_name = parameters['interface']

@@ -5,19 +5,16 @@ import random
 
 import constants
 import fsm
-import mcast_receive_handler
-import mcast_send_handler
 import neighbor
 import offer
-import utils
+import packet_common
 import timer
-# TODO: Change this import
-from packet_common import create_packet_header, encode_protocol_packet, decode_protocol_packet
+import udp_receive_handler
+import udp_send_handler
+import utils
 
 import common.constants
 import common.ttypes
-# TODO: Change this import
-from encoding.ttypes import NodeCapabilities, LIEPacket
 import encoding.ttypes
 
 # TODO: LIEs arriving with a TTL larger than 1 MUST be ignored.
@@ -94,17 +91,32 @@ class Interface:
         # TODO: Need to implement ZTP state machine and/or configuration first
         pass
 
+    def action_start_flooding(self):
+        rx_flood_port = self._rx_tie_port
+        self.info(self._rx_log, "Start flooding: receive on port {}".format(rx_flood_port))
+        self._flood_receive_handler = udp_receive_handler.UdpReceiveHandler(
+            remote_address=self._neighbor.address,
+            port=self._rx_tie_port,
+            receive_function=self.receive_flood_message,
+            local_address=self._node.engine.tx_src_address)
+            # TODO: This can't be the interface address since it is per engine
+
+    def action_stop_flooding(self):
+        self.info(self._rx_log, "Stop flooding")
+        self._flood_receive_handler.close()
+        self._flood_receive_handler = None
+
     def send_protocol_packet(self, protocol_packet):
         if self._tx_fail:
             self.debug(self._tx_log, "Failed send {}".format(protocol_packet))
         else:
-            encoded_protocol_packet = encode_protocol_packet(protocol_packet)
-            self._mcast_send_handler.send_message(encoded_protocol_packet)
+            encoded_protocol_packet = packet_common.encode_protocol_packet(protocol_packet)
+            self._udp_send_handler.send_message(encoded_protocol_packet)
             self.debug(self._tx_log, "Send {}".format(protocol_packet))
 
     def action_send_lie(self):
-        packet_header = create_packet_header(self._node)
-        capabilities = NodeCapabilities(
+        packet_header = packet_common.create_packet_header(self._node)
+        capabilities = encoding.ttypes.NodeCapabilities(
             flood_reduction=True,
             leaf_indications=
             common.ttypes.LeafIndications.leaf_only_and_leaf_2_leaf_procedures)
@@ -115,10 +127,10 @@ class Interface:
         else:
             neighbor_system_id = None
             lie_neighbor = None
-        lie_packet = LIEPacket(
+        lie_packet = encoding.ttypes.LIEPacket(
             name=self._advertised_name,
             local_id=self._local_id,
-            flood_port=self._node.rx_tie_port,
+            flood_port=self._rx_tie_port,
             link_mtu_size=self._mtu,
             neighbor=lie_neighbor,
             pod=self._pod,
@@ -157,7 +169,7 @@ class Interface:
 
     def check_three_way(self):
         # Section B.1.5
-        # CHANGE: This is a little bit different from the specificaiton
+        # CHANGE: This is a little bit different from the specification
         # (see comment [CheckThreeWay])
         if self._fsm.state == self.State.ONE_WAY:
             pass
@@ -240,7 +252,7 @@ class Interface:
         return True
 
     def neither_leaf_and_ldiff_one(self, protocol_packet):
-        # Neither node is leat and the level difference is at most one
+        # Neither node is leaf and the level difference is at most one
         header = protocol_packet.header
         if self.this_node_is_leaf():
             # This node is leaf
@@ -264,7 +276,7 @@ class Interface:
         # B.1.4.
         # The return value of this function is (accept, rule, offer_to_ztp, warning) where
         # - accept: True if the received LIE message is acceptable, False if not
-        # - rule: A short human-readble string describing the rule used to accept or reject the
+        # - rule: A short human-readable string describing the rule used to accept or reject the
         #   LIE message
         # - offer_to_ztp: True if an offer should be sent to the ZTP FSM. Note that we even send
         #   offers to the the ZTP FSM for most rejected LIE messages, and the ZTP FSM stores these
@@ -278,14 +290,18 @@ class Interface:
         if not header:
             return (False, "Missing header", False, True)
         if header.major_version != constants.RIFT_MAJOR_VERSION:
+            # Note: we never get here, since this is caught earlier receive_message_common
             # Section B.1.4.1 (1st OR clause) / section 4.2.2.2
-            return (False, "Different major protocol version", False, True)
+            problem = ("Different major protocol version (local version {}, remote version {})"
+                       .format(constants.RIFT_MAJOR_VERSION, header.major_version))
+            self.error(self._rx_log, problem)
+            return (False, problem, False, True)
         if not self.is_valid_received_system_id(header.sender):
             # Section B.1.4.1 (3rd OR clause) / section 4.2.2.2
             return (False, "Invalid system ID", False, True)
         if self._node.system_id == header.sender:
             # Section 4.2.2.5 (DEV-4: rule is missing in section B.1.4)
-            return (False, "Remote systed ID is same as local system ID (loop)", False, False)
+            return (False, "Remote system ID is same as local system ID (loop)", False, False)
         if self._mtu != lie.link_mtu_size:
             # Section 4.2.2.6
             return (False, "MTU mismatch", False, True)
@@ -341,7 +357,7 @@ class Interface:
         self._lie_accept_or_reject_rule = rule
         # Section B.1.4.3
         # Note: We send an offer to the ZTP state machine directly from here instead of pushing an
-        # UDPATE_ZTP_OFFER event (see deviation DEV-2 in doc/deviations)
+        # UPDATE_ZTP_OFFER event (see deviation DEV-2 in doc/deviations)
         self.send_offer_to_ztp_fsm(new_neighbor)
         if not self._neighbor:
             self.info(self._log, "New neighbor detected with system-id {}"
@@ -448,17 +464,21 @@ class Interface:
         State.THREE_WAY: _state_three_way_transitions
     }
 
-    _state_entry_actions = {
-        State.ONE_WAY: [action_cleanup, action_send_lie]
+    _state_actions = {
+        State.ONE_WAY  : ([action_cleanup, action_send_lie], []),
+        State.THREE_WAY: ([action_start_flooding], [action_stop_flooding])
     }
 
     fsm_definition = fsm.FsmDefinition(
         state_enum=State,
         event_enum=Event,
         transitions=_transitions,
-        state_entry_actions=_state_entry_actions,
         initial_state=State.ONE_WAY,
+        state_actions=_state_actions,
         verbose_events=verbose_events)
+
+    # TODO: Use % formating for log messages
+    # See https://stackoverflow.com/questions/34619790/pylint-message-logging-format-interpolation
 
     def debug(self, logger, msg):
         logger.debug("[{}] {}".format(self._log_id, msg))
@@ -468,6 +488,9 @@ class Interface:
 
     def warning(self, logger, msg):
         logger.warning("[{}] {}".format(self._log_id, msg))
+
+    def error(self, logger, msg):
+        logger.error("[{}] {}".format(self._log_id, msg))
 
     def __init__(self, node, config):
         # TODO: process bandwidth field in config
@@ -508,6 +531,8 @@ class Interface:
         self._time_ticks_since_lie_received = None
         self._lie_accept_or_reject = "No LIE Received"
         self._lie_accept_or_reject_rule = "-"
+        self._lie_receive_handler = None
+        self._flood_receive_handler = None
         self._fsm = fsm.Fsm(
             definition=self.fsm_definition,
             action_handler=self,
@@ -518,21 +543,21 @@ class Interface:
             self._fsm.start()
 
     def run(self):
-        self._mcast_send_handler = mcast_send_handler.McastSendHandler(
+        self._udp_send_handler = udp_send_handler.UdpSendHandler(
             interface_name=self._interface_name,
             mcast_ipv4_address=self._tx_lie_ipv4_mcast_address,
             port=self._tx_lie_port,
             interface_ipv4_address=self._node.engine.tx_src_address,
             multicast_loopback=self._node.engine.multicast_loopback)
         # TODO: Use source address
-        (_, source_port) = self._mcast_send_handler.source_address_and_port()
+        (_, source_port) = self._udp_send_handler.source_address_and_port()
         self._lie_udp_source_port = source_port
-        self._mcast_receive_handler = mcast_receive_handler.McastReceiveHandler(
-            self._interface_name,
-            self._rx_lie_ipv4_mcast_address,
-            self._rx_lie_port,
-            self.receive_mcast_message,
-            self._node.engine.tx_src_address)
+        self._lie_receive_handler = udp_receive_handler.UdpReceiveHandler(
+            remote_address=self._rx_lie_ipv4_mcast_address,
+            port=self._rx_lie_port,
+            receive_function=self.receive_lie_message,
+            local_address=self._node.engine.tx_src_address)
+        self._flood_receive_handler = None
         self._one_second_timer = timer.Timer(1.0,
                                              lambda: self._fsm.push_event(self.Event.TIMER_TICK))
 
@@ -547,38 +572,70 @@ class Interface:
             return False
         return True
 
-    def receive_mcast_message(self, message, from_address_and_port):
-        # TODO: Handle decoding errors (does decode_protocol_packet throw an exception in
-        # that case? Try it...)
-        protocol_packet = decode_protocol_packet(message)
+    def receive_message_common(self, message, from_address_and_port):
+        (address, port) = from_address_and_port
+        from_str = "{}:{}".format(address, port)
+        protocol_packet = packet_common.decode_protocol_packet(message)
+        if protocol_packet is None:
+            self.error(self._rx_log,
+                       "Could not decode message received from {}".format(from_str))
+            return None
         if self._rx_fail:
-            self.debug(self._tx_log, "Failed receive {}".format(protocol_packet))
-            return
+            self.debug(self._rx_log, ("Simulated receive failure {} from {}"
+                                      .format(protocol_packet, from_str)))
+            return None
         if protocol_packet.header.sender == self._node.system_id:
-            self.debug(self._rx_log, "Looped receive {}".format(protocol_packet))
-            return
-        self.debug(self._rx_log, "Receive {}".format(protocol_packet))
+            self.debug(self._rx_log, ("Looped receive {} from {}"
+                                      .format(protocol_packet, from_str)))
+            return None
+        self.debug(self._rx_log, ("Receive {} from {}"
+                                  .format(protocol_packet, from_str)))
         if not protocol_packet.content:
-            self.warning(self._rx_log, "Received packet without content")
+            self.warning(self._rx_log, ("Received packet without content from {}"
+                                        .format(from_str)))
+            return None
+        if protocol_packet.header.major_version != constants.RIFT_MAJOR_VERSION:
+            self.error(self._rx_log, ("Received different major protocol version from {} "
+                                      "(local version {}, remote version {})"
+                                      .format(from_str,
+                                              constants.RIFT_MAJOR_VERSION,
+                                              protocol_packet.header.major_version)))
+            return None
+        return protocol_packet
+
+    def receive_lie_message(self, message, from_address_and_port):
+        protocol_packet = self.receive_message_common(message, from_address_and_port)
+        if protocol_packet is None:
             return
         if protocol_packet.content.lie:
             event_data = (protocol_packet, from_address_and_port)
             self._fsm.push_event(self.Event.LIE_RECEIVED, event_data)
-        if protocol_packet.content.tide:
-            # TODO: process TIDE
-            pass
-        if protocol_packet.content.tire:
-            # TODO: process TIDE
-            pass
         if protocol_packet.content.tie:
-            # TODO: process TIDE
-            pass
+            self.warning(self._rx_log, "Received TIE packet on LIE port (ignored)")
+        if protocol_packet.content.tide:
+            self.warning(self._rx_log, "Received TIDE packet on LIE port (ignored)")
+        if protocol_packet.content.tire:
+            self.warning(self._rx_log, "Received TIRE packet on LIE port (ignored)")
+
+    def receive_flood_message(self, message, from_address_and_port):
+        protocol_packet = self.receive_message_common(message, from_address_and_port)
+        if protocol_packet is None:
+            return
+        if protocol_packet.content.tie:
+            self.process_received_tie_packet(protocol_packet)
+        if protocol_packet.content.tide:
+            self.process_received_tide_packet(protocol_packet)
+        if protocol_packet.content.tire:
+            self.process_received_tire_packet(protocol_packet)
+        if protocol_packet.content.lie:
+            self.warning(self._rx_log, "Received LIE packet on flood port (ignored)")
 
     def set_failure(self, tx_fail, rx_fail):
         self._tx_fail = tx_fail
         self._rx_fail = rx_fail
 
     def failure_str(self):
+        # TODO: Implement _tx_fail
         if self._tx_fail:
             if self._rx_fail:
                 return "failed"
@@ -589,6 +646,13 @@ class Interface:
                 return "rx-failed"
             else:
                 return "ok"
+
+    @property
+    def state_name(self):
+        if self._fsm.state is None:
+            return ""
+        else:
+            return self._fsm.state.name
 
     @staticmethod
     def cli_summary_headers():
@@ -604,13 +668,13 @@ class Interface:
                 self._interface_name,
                 self._neighbor.name,
                 utils.system_id_str(self._neighbor.system_id),
-                self._fsm.state.name]
+                self.state_name]
         else:
             return [
                 self._interface_name,
                 "",
                 "",
-                self._fsm.state.name]
+                self.state_name]
 
     def cli_detailed_attributes(self):
         return [
@@ -630,7 +694,7 @@ class Interface:
             ["MTU", self._mtu],
             ["POD", self._pod],
             ["Failure", self.failure_str()],
-            ["State", self._fsm.state.name],
+            ["State", self.state_name],
             ["Received LIE Accepted or Rejected", self._lie_accept_or_reject],
             ["Received LIE Accept or Reject Reason", self._lie_accept_or_reject_rule],
             ["Neighbor", "True" if self._neighbor else "False"]
@@ -645,3 +709,18 @@ class Interface:
     @property
     def fsm(self):
         return self._fsm
+
+    # TODO: All TIE, TIDE, and TIRE packets are currently handled outside the context of any FSM.
+    # The spec says an FSM will be defined in the future; revisit this once that happens.
+
+    def process_received_tie_packet(self, tie_packet):
+        # TODO: Implement this
+        self.warning(self._rx_log, "Receive TIE packet {}".format(tie_packet))
+
+    def process_received_tide_packet(self, tide_packet):
+        # TODO: Implement this
+        self.warning(self._rx_log, "Receive TIDE packet {}".format(tide_packet))
+
+    def process_received_tire_packet(self, tire_packet):
+        # TODO: Implement this
+        self.warning(self._rx_log, "Receive TIRE packet {}".format(tire_packet))

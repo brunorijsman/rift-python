@@ -11,7 +11,9 @@
     "cSpell.words": [
         "adjacencies",
         "anycast",
+        "bksp",
         "codecov",
+        "deque",
         "disaggregated",
         "getenv",
         "hackathon",
@@ -29,9 +31,11 @@
         "pytest",
         "rootdir",
         "shutil",
+        "squirl",
         "stmts",
         "strftime",
         "strptime",
-        "unicast"
+        "unicast",
+        "unregister"
     ]
 }

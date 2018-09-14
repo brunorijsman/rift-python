@@ -1,6 +1,8 @@
 import collections
 import time
 
+import sortedcontainers
+
 import table
 
 # TODO: Check completeness of FSM
@@ -18,24 +20,31 @@ def _action_to_name(action):
     return action_name
 
 def _event_to_name(event):
-    return event.name
+    if event is None:
+        # Event None is used to record the state entry actions when the FSM is started
+        return "None"
+    else:
+        return event.name
 
 def _state_to_name(state):
     if state is None:
         # In the FSM, to-state None means no state change, so treat that special
-        return 'None'
+        return "None"
     else:
         return state.name
 
 class FsmDefinition:
 
-    def __init__(self, state_enum, event_enum, transitions, state_entry_actions, initial_state,
-                 verbose_events=None):
+    def __init__(self, state_enum, event_enum, transitions, initial_state,
+                 state_actions=None, verbose_events=None):
         self.state_enum = state_enum
         self.event_enum = event_enum
         self.transitions = transitions
-        self.state_entry_actions = state_entry_actions
         self.initial_state = initial_state
+        if state_actions is None:
+            self.state_actions = {}
+        else:
+            self.state_actions = state_actions
         if verbose_events is None:
             self.verbose_events = []
         else:
@@ -56,14 +65,14 @@ class FsmDefinition:
 
     def states_table(self):
         tab = table.Table()
-        tab.add_row(['State'])
+        tab.add_row(["State"])
         for state in self.state_enum:
             tab.add_row([state.name])
         return tab
 
     def events_table(self):
         tab = table.Table()
-        tab.add_row(['Event', 'Verbose'])
+        tab.add_row(["Event", "Verbose"])
         for event in self.event_enum:
             verbose = (event in self.verbose_events)
             tab.add_row([event.name, verbose])
@@ -71,7 +80,7 @@ class FsmDefinition:
 
     def transition_table(self, report_missing=False):
         tab = table.Table()
-        tab.add_row(['From state', 'Event', 'To state', 'Actions', 'Push events'])
+        tab.add_row(["From state", "Event", "To state", "Actions", "Push events"])
         for from_state in self.state_enum:
             if from_state in self.transitions:
                 from_state_transitions = self.transitions[from_state]
@@ -81,15 +90,23 @@ class FsmDefinition:
                                                 report_missing)
         return tab
 
-    def state_entry_actions_table(self):
+    def state_actions_table(self):
+        # Make sure table is sorted by state for deterministic output (needed for testing)
+        sorted_state_actions = sortedcontainers.SortedDict()
+        for state in self.state_actions:
+            (entry_actions, exit_actions) = self.state_actions[state]
+            entry_action_names = list(map(_action_to_name, entry_actions))
+            if entry_action_names == []:
+                entry_action_names = "-"
+            exit_action_names = list(map(_action_to_name, exit_actions))
+            if exit_action_names == []:
+                exit_action_names = "-"
+            sorted_state_actions[state.name] = (entry_action_names, exit_action_names)
         tab = table.Table()
-        tab.add_row(['State', 'Actions'])
-        for state in self.state_entry_actions:
-            actions = self.state_entry_actions[state]
-            action_names = list(map(_action_to_name, actions))
-            if action_names == []:
-                action_names = '-'
-            tab.add_row([state.name, action_names])
+        tab.add_row(["State", "Entry Actions", "Exit Actions"])
+        for state_name in sorted_state_actions:
+            (entry_action_names, exit_action_names) = sorted_state_actions[state_name]
+            tab.add_row([state_name, entry_action_names, exit_action_names])
         return tab
 
     def _add_from_transitions_to_table(self, tab, from_state, from_state_transitions,
@@ -113,44 +130,44 @@ class FsmDefinition:
             to_state_name = to_state.name
         action_names = list(map(_action_to_name, actions))
         if action_names == []:
-            action_names = '-'
+            action_names = "-"
         push_event_names = list(map(_event_to_name, push_events))
         if push_event_names == []:
-            push_event_names = '-'
+            push_event_names = "-"
         tab.add_row([from_state_name, event_name, to_state_name, action_names, push_event_names])
 
     # TODO: Add a way to report this
     def _add_missing_transition_to_table(self, tab, from_state, event):
         from_state_name = from_state.name
         event_name = event.name
-        tab.add_row([from_state_name, event_name, '* MISSING *',
+        tab.add_row([from_state_name, event_name, "* MISSING *",
                      table.Table.Format.EXTEND_LEFT_CELL, table.Table.Format.EXTEND_LEFT_CELL])
 
     def command_show_fsm(self, cli_session):
         self.command_show_states(cli_session)
         self.command_show_events(cli_session)
         self.command_show_transitions(cli_session)
-        self.command_show_state_entry_acts(cli_session)
+        self.command_show_state_actions(cli_session)
 
     def command_show_states(self, cli_session):
-        cli_session.print("States:")
+        cli_session.print_r("States:")
         tab = self.states_table()
-        cli_session.print(tab.to_string())
+        cli_session.print(tab.to_string(cli_session.current_end_line()))
 
     def command_show_events(self, cli_session):
-        cli_session.print("Events:")
+        cli_session.print_r("Events:")
         tab = self.events_table()
-        cli_session.print(tab.to_string())
+        cli_session.print(tab.to_string(cli_session.current_end_line()))
 
     def command_show_transitions(self, cli_session):
-        cli_session.print("Transitions:")
+        cli_session.print_r("Transitions:")
         tab = self.transition_table()
-        cli_session.print(tab.to_string())
+        cli_session.print(tab.to_string(cli_session.current_end_line()))
 
-    def command_show_state_entry_acts(self, cli_session):
-        cli_session.print("State entry actions:")
-        tab = self.state_entry_actions_table()
-        cli_session.print(tab.to_string())
+    def command_show_state_actions(self, cli_session):
+        cli_session.print_r("State entry actions:")
+        tab = self.state_actions_table()
+        cli_session.print(tab.to_string(cli_session.current_end_line()))
 
 class FsmRecord:
 
@@ -210,7 +227,7 @@ class Fsm:
         self._state_enum = definition.state_enum
         self._event_enum = definition.event_enum
         self._transitions = definition.transitions
-        self._state_entry_actions = definition.state_entry_actions
+        self._state_actions = definition.state_actions
         self._verbose_events = definition.verbose_events
         self._state = None
         self._action_handler = action_handler
@@ -223,7 +240,11 @@ class Fsm:
     def start(self):
         self._state = self._definition.initial_state
         self.info("Start FSM, state={}".format(self._state.name))
+        # Record start state and start state entry actions as from-state=None, and event=None
+        self._current_record = FsmRecord(self, None, None, False)
+        self._current_record.to_state = self._state
         self.invoke_state_entry_actions(self._state)
+        self.store_current_record()
 
     def push_event(self, event, event_data=None):
         fsm = self
@@ -265,8 +286,25 @@ class Fsm:
                 action(self._action_handler)
 
     def invoke_state_entry_actions(self, state):
-        if state in self._state_entry_actions:
-            self.invoke_actions(self._state_entry_actions[state])
+        if state in self._state_actions:
+            (state_entry_actions, _) = self._state_actions[state]
+            self.invoke_actions(state_entry_actions)
+
+    def invoke_state_exit_actions(self, state):
+        if state in self._state_actions:
+            (_, state_exit_actions) = self._state_actions[state]
+            self.invoke_actions(state_exit_actions)
+
+    def store_current_record(self):
+        self._verbose_records.appendleft(self._current_record)
+        if self._current_record.verbose:
+            self._verbose_records_skipped += 1
+        else:
+            self._current_record.skipped = self._verbose_records_skipped
+            self._verbose_records_skipped = 0
+            self._records.appendleft(self._current_record)
+        self.info_or_debug(self._current_record.verbose, self._current_record.log_str())
+        self._current_record = None
 
     def process_event(self, event, event_data):
         assert self._current_record is None
@@ -286,31 +324,24 @@ class Fsm:
             if to_state is not None:
                 self._current_record.to_state = to_state
                 if to_state != self._state:
+                    self.invoke_state_exit_actions(self._state)
                     self._state = to_state
                     self.invoke_state_entry_actions(to_state)
         else:
             self._current_record.implicit = True
-        self._verbose_records.appendleft(self._current_record)
-        if self._current_record.verbose:
-            self._verbose_records_skipped += 1
-        else:
-            self._current_record.skipped = self._verbose_records_skipped
-            self._verbose_records_skipped = 0
-            self._records.appendleft(self._current_record)
-        self.info_or_debug(self._current_record.verbose, self._current_record.log_str())
-        self._current_record = None
+        self.store_current_record()
 
     def history_table(self, verbose):
         tab = table.Table()
         tab.add_row([
-            ['Sequence', 'Nr'],
-            ['Time', 'Delta'],
-            ['Verbose', 'Skipped'],
-            ['From', 'State'],
-            'Event',
-            ['Actions and', 'Pushed Events'],
-            ['To', 'State'],
-            ['Implicit']])
+            ["Sequence", "Nr"],
+            ["Time", "Delta"],
+            ["Verbose", "Skipped"],
+            ["From", "State"],
+            "Event",
+            ["Actions and", "Pushed Events"],
+            ["To", "State"],
+            ["Implicit"]])
         prev_time = time.time()
         if verbose:
             records_to_show = self._verbose_records

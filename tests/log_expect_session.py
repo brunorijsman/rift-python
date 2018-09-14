@@ -176,7 +176,7 @@ class LogExpectSession:
             from_state="ONE_WAY",
             event="LIE_RECEIVED",
             to_state="None",
-            skip_events=["TIMER_TICK", "SEND_LIE"])
+            skip_events=["TIMER_TICK", "SEND_LIE", "None"])
         self.fsm_expect(
             target_id=target_id,
             from_state="ONE_WAY",
@@ -253,7 +253,7 @@ class LogExpectSession:
             from_state="ONE_WAY",
             event="LIE_RECEIVED",
             to_state="None",
-            skip_events=["TIMER_TICK", "SEND_LIE"])
+            skip_events=["TIMER_TICK", "SEND_LIE", "None"])
         # Initially, until an offer is accepted, one or both nodes will have level undefined and
         # hence do not advertise a level in the LIE messages that they send. In this phase *both*
         # nodes will reject all received LIE messages. One side will reject them because the

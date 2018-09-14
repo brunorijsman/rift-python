@@ -1,0 +1,33 @@
+# Topology: 2n_un_l2
+# 
+#  +-------------------+
+#  | node1             |
+#  | (level 2)         |
+#  +-------------------+
+#            | if1
+#            |
+#            | if1
+#  +-------------------+
+#  | node2             |
+#  | (level undefined) |
+#  +-------------------+
+
+shards:
+  - id: 0
+    nodes:
+      - name: node1
+        level: 2
+        systemid: 1
+        rx_lie_mcast_address: 224.0.1.1
+        rx_lie_port: 20001
+        interfaces:
+          - name: if1 # Connected to node2-if1
+            tx_lie_port: 20002
+      - name: node2
+        level: undefined
+        systemid: 2
+        rx_lie_mcast_address: 224.0.1.2
+        rx_lie_port: 20002
+        interfaces:
+          - name: if1 # Connected to node1-if1
+            tx_lie_port: 20001

@@ -5,6 +5,7 @@ import thrift.transport.TTransport
 import encoding.ttypes
 import encoding.constants
 
+# TODO: This is defined in two separate places
 RIFT_MAJOR_VERSION = encoding.constants.protocol_major_version
 RIFT_MINOR_VERSION = encoding.constants.protocol_minor_version
 
@@ -30,7 +31,14 @@ def decode_protocol_packet(encoded_protocol_packet):
     transport_in = thrift.transport.TTransport.TMemoryBuffer(encoded_protocol_packet)
     protocol_in = thrift.protocol.TBinaryProtocol.TBinaryProtocol(transport_in)
     protocol_packet = encoding.ttypes.ProtocolPacket()
-    protocol_packet.read(protocol_in)
+    # Thrift is prone to throw any unpredictable exception if the decode fails,
+    # so disable pylint warning "No exception type(s) specified"
+    # pylint: disable=W0702
+    try:
+        protocol_packet.read(protocol_in)
+    except:
+        # Decoding error
+        return None
     fix_prot_packet_after_decode(protocol_packet)
     return protocol_packet
 

@@ -1,7 +1,9 @@
 import socket
 import scheduler
 
-class McastSendHandler:
+# TODO: Add support for unicast (in addition to multicast)
+
+class UdpSendHandler:
 
     def __init__(self, interface_name, mcast_ipv4_address, port, interface_ipv4_address,
                  multicast_loopback):
