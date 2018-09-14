@@ -1,3 +1,4 @@
+import ipaddress
 import socket
 import struct
 import scheduler
@@ -9,28 +10,28 @@ import scheduler
 #         as the source address, but only receiving packets on the specified interface)? I would
 #         like to use SO_BINDTODEVICE but that is not portable (available on Linux but not MacOS X)
 
-# TODO: Add support for unicast (in addition to multicast)
-
 class UdpReceiveHandler:
 
     MAXIMUM_MESSAGE_SIZE = 65535
 
-    def __init__(self, mcast_ipv4_address, port, receive_function, interface_ipv4_address):
-        self._interface_ipv4_address = interface_ipv4_address
-        self._mcast_ipv4_address = mcast_ipv4_address
+    # TODO: Reorder parameters
+    def __init__(self, remote_address, port, receive_function, local_address):
+        self._local_address = local_address
+        self._remote_address = remote_address
         self._port = port
         self._receive_function = receive_function
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
         self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        # TODO: SO_REUSEPORT is not supported on all OSs
         self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-        self._sock.bind((mcast_ipv4_address, port))   # TODO: Should we bind to the mcast address?
-        if self._interface_ipv4_address:
-            req = struct.pack("=4s4s", socket.inet_aton(mcast_ipv4_address),
-                              socket.inet_aton(self._interface_ipv4_address)) # TODO: Is this right?
-        else:
-            req = struct.pack("=4sl", socket.inet_aton(mcast_ipv4_address), socket.INADDR_ANY)
-        self._sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, req)
+        self._sock.bind((remote_address, port))
+        # If remote address is multicast, join the group
+        if ipaddress.IPv4Address(remote_address).is_multicast:
+            if self._local_address:
+                req = struct.pack("=4s4s", socket.inet_aton(remote_address),
+                                  socket.inet_aton(self._local_address))
+            else:
+                req = struct.pack("=4sl", socket.inet_aton(remote_address), socket.INADDR_ANY)
+            self._sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, req)
         scheduler.SCHEDULER.register_handler(self, True, False)
 
     def close(self):

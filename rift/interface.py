@@ -5,19 +5,16 @@ import random
 
 import constants
 import fsm
-import udp_receive_handler
-import udp_send_handler
 import neighbor
 import offer
-import utils
+import packet_common
 import timer
-# TODO: Change this import
-from packet_common import create_packet_header, encode_protocol_packet, decode_protocol_packet
+import udp_receive_handler
+import udp_send_handler
+import utils
 
 import common.constants
 import common.ttypes
-# TODO: Change this import
-from encoding.ttypes import NodeCapabilities, LIEPacket
 import encoding.ttypes
 
 # TODO: LIEs arriving with a TTL larger than 1 MUST be ignored.
@@ -95,24 +92,31 @@ class Interface:
         pass
 
     def action_start_flooding(self):
-        # TODO: Implement this
-        self.warning(self._rx_log, "Start flooding")
+        rx_flood_port = self._rx_tie_port
+        self.info(self._rx_log, "Start flooding: receive on port {}".format(rx_flood_port))
+        self._flood_receive_handler = udp_receive_handler.UdpReceiveHandler(
+            remote_address=self._neighbor.address,
+            port=self._rx_tie_port,
+            receive_function=self.receive_flood_message,
+            local_address=self._node.engine.tx_src_address)
+            # TODO: This can't be the interface address since it is per engine
 
     def action_stop_flooding(self):
-        # TODO: Implement this
-        self.warning(self._rx_log, "Start flooding")
+        self.info(self._rx_log, "Stop flooding")
+        self._flood_receive_handler.close()
+        self._flood_receive_handler = None
 
     def send_protocol_packet(self, protocol_packet):
         if self._tx_fail:
             self.debug(self._tx_log, "Failed send {}".format(protocol_packet))
         else:
-            encoded_protocol_packet = encode_protocol_packet(protocol_packet)
+            encoded_protocol_packet = packet_common.encode_protocol_packet(protocol_packet)
             self._udp_send_handler.send_message(encoded_protocol_packet)
             self.debug(self._tx_log, "Send {}".format(protocol_packet))
 
     def action_send_lie(self):
-        packet_header = create_packet_header(self._node)
-        capabilities = NodeCapabilities(
+        packet_header = packet_common.create_packet_header(self._node)
+        capabilities = encoding.ttypes.NodeCapabilities(
             flood_reduction=True,
             hierarchy_indications=
             common.ttypes.HierarchyIndications.leaf_only_and_leaf_2_leaf_procedures)
@@ -123,10 +127,10 @@ class Interface:
         else:
             neighbor_system_id = None
             lie_neighbor = None
-        lie_packet = LIEPacket(
+        lie_packet = encoding.ttypes.LIEPacket(
             name=self._advertised_name,
             local_id=self._local_id,
-            flood_port=self._node.rx_tie_port,
+            flood_port=self._rx_tie_port,
             link_mtu_size=self._mtu,
             neighbor=lie_neighbor,
             pod=self._pod,
@@ -286,8 +290,12 @@ class Interface:
         if not header:
             return (False, "Missing header", False, True)
         if header.major_version != constants.RIFT_MAJOR_VERSION:
+            # Note: we never get here, since this is caught earlier receive_message_common
             # Section B.1.4.1 (1st OR clause) / section 4.2.2.2
-            return (False, "Different major protocol version", False, True)
+            problem = ("Different major protocol version (local version {}, remote version {})"
+                       .format(constants.RIFT_MAJOR_VERSION, header.major_version))
+            self.error(self._rx_log, problem)
+            return (False, problem, False, True)
         if not self.is_valid_received_system_id(header.sender):
             # Section B.1.4.1 (3rd OR clause) / section 4.2.2.2
             return (False, "Invalid system ID", False, True)
@@ -481,6 +489,9 @@ class Interface:
     def warning(self, logger, msg):
         logger.warning("[{}] {}".format(self._log_id, msg))
 
+    def error(self, logger, msg):
+        logger.error("[{}] {}".format(self._log_id, msg))
+
     def __init__(self, node, config):
         # TODO: process bandwidth field in config
         self._node = node
@@ -520,6 +531,8 @@ class Interface:
         self._time_ticks_since_lie_received = None
         self._lie_accept_or_reject = "No LIE Received"
         self._lie_accept_or_reject_rule = "-"
+        self._lie_receive_handler = None
+        self._flood_receive_handler = None
         self._fsm = fsm.Fsm(
             definition=self.fsm_definition,
             action_handler=self,
@@ -540,10 +553,10 @@ class Interface:
         (_, source_port) = self._udp_send_handler.source_address_and_port()
         self._lie_udp_source_port = source_port
         self._lie_receive_handler = udp_receive_handler.UdpReceiveHandler(
-            mcast_ipv4_address=self._rx_lie_ipv4_mcast_address,
+            remote_address=self._rx_lie_ipv4_mcast_address,
             port=self._rx_lie_port,
             receive_function=self.receive_lie_message,
-            interface_ipv4_address=self._node.engine.tx_src_address)
+            local_address=self._node.engine.tx_src_address)
         self._flood_receive_handler = None
         self._one_second_timer = timer.Timer(1.0,
                                              lambda: self._fsm.push_event(self.Event.TIMER_TICK))
@@ -559,19 +572,40 @@ class Interface:
             return False
         return True
 
-    def receive_lie_message(self, message, from_address_and_port):
-        # TODO: Handle decoding errors
-        # Does decode_protocol_packet throw an exception in that case? Try it...
-        protocol_packet = decode_protocol_packet(message)
+    def receive_message_common(self, message, from_address_and_port):
+        (address, port) = from_address_and_port
+        from_str = "{}:{}".format(address, port)
+        protocol_packet = packet_common.decode_protocol_packet(message)
+        if protocol_packet is None:
+            self.error(self._rx_log,
+                       "Could not decode message received from {}".format(from_str))
+            return None
         if self._rx_fail:
-            self.debug(self._tx_log, "Failed receive {}".format(protocol_packet))
-            return
+            self.debug(self._rx_log, ("Simulated receive failure {} from {}"
+                                      .format(protocol_packet, from_str)))
+            return None
         if protocol_packet.header.sender == self._node.system_id:
-            self.debug(self._rx_log, "Looped receive {}".format(protocol_packet))
-            return
-        self.debug(self._rx_log, "Receive {}".format(protocol_packet))
+            self.debug(self._rx_log, ("Looped receive {} from {}"
+                                      .format(protocol_packet, from_str)))
+            return None
+        self.debug(self._rx_log, ("Receive {} from {}"
+                                  .format(protocol_packet, from_str)))
         if not protocol_packet.content:
-            self.warning(self._rx_log, "Received packet without content")
+            self.warning(self._rx_log, ("Received packet without content from {}"
+                                        .format(from_str)))
+            return None
+        if protocol_packet.header.major_version != constants.RIFT_MAJOR_VERSION:
+            self.error(self._rx_log, ("Received different major protocol version from {} "
+                                      "(local version {}, remote version {})"
+                                      .format(from_str,
+                                              constants.RIFT_MAJOR_VERSION,
+                                              protocol_packet.header.major_version)))
+            return None
+        return protocol_packet
+
+    def receive_lie_message(self, message, from_address_and_port):
+        protocol_packet = self.receive_message_common(message, from_address_and_port)
+        if protocol_packet is None:
             return
         if protocol_packet.content.lie:
             event_data = (protocol_packet, from_address_and_port)
@@ -583,18 +617,9 @@ class Interface:
         if protocol_packet.content.tire:
             self.warning(self._rx_log, "Received TIRE packet on LIE port (ignored)")
 
-    def receive_flood_message(self, message, _from_address_and_port):
-        # TODO: Handle decoding errors
-        protocol_packet = decode_protocol_packet(message)
-        if self._rx_fail:
-            self.debug(self._tx_log, "Failed receive {}".format(protocol_packet))
-            return
-        if protocol_packet.header.sender == self._node.system_id:
-            self.debug(self._rx_log, "Looped receive {}".format(protocol_packet))
-            return
-        self.debug(self._rx_log, "Receive {}".format(protocol_packet))
-        if not protocol_packet.content:
-            self.warning(self._rx_log, "Received packet without content")
+    def receive_flood_message(self, message, from_address_and_port):
+        protocol_packet = self.receive_message_common(message, from_address_and_port)
+        if protocol_packet is None:
             return
         if protocol_packet.content.tie:
             self.process_received_tie_packet(protocol_packet)
@@ -603,13 +628,14 @@ class Interface:
         if protocol_packet.content.tire:
             self.process_received_tire_packet(protocol_packet)
         if protocol_packet.content.lie:
-            self.warning(self._rx_log, "Received LIE packet on TIE port (ignored)")
+            self.warning(self._rx_log, "Received LIE packet on flood port (ignored)")
 
     def set_failure(self, tx_fail, rx_fail):
         self._tx_fail = tx_fail
         self._rx_fail = rx_fail
 
     def failure_str(self):
+        # TODO: Implement _tx_fail
         if self._tx_fail:
             if self._rx_fail:
                 return "failed"
@@ -621,6 +647,13 @@ class Interface:
             else:
                 return "ok"
 
+    @property
+    def state_name(self):
+        if self._fsm.state is None:
+            return ""
+        else:
+            return self._fsm.state.name
+
     @staticmethod
     def cli_summary_headers():
         return [
@@ -630,22 +663,18 @@ class Interface:
             ["Neighbor", "State"]]
 
     def cli_summary_attributes(self):
-        if self._fsm.state is None:
-            state_name = ""
-        else:
-            state_name = self._fsm.state.name
         if self._neighbor:
             return [
                 self._interface_name,
                 self._neighbor.name,
                 utils.system_id_str(self._neighbor.system_id),
-                state_name]
+                self.state_name]
         else:
             return [
                 self._interface_name,
                 "",
                 "",
-                state_name]
+                self.state_name]
 
     def cli_detailed_attributes(self):
         return [
@@ -665,7 +694,7 @@ class Interface:
             ["MTU", self._mtu],
             ["POD", self._pod],
             ["Failure", self.failure_str()],
-            ["State", self._fsm.state.name],
+            ["State", self.state_name],
             ["Received LIE Accepted or Rejected", self._lie_accept_or_reject],
             ["Received LIE Accept or Reject Reason", self._lie_accept_or_reject_rule],
             ["Neighbor", "True" if self._neighbor else "False"]
