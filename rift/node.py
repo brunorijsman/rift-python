@@ -397,7 +397,7 @@ class Node:
         if self._configured_level is not None:
             return self._configured_level
         elif self._top_of_fabric_flag:
-            return common.constants.top_of_fabric_level
+            return common.constants.default_superspine_level
         elif self._leaf_only:
             return common.constants.leaf_level
         else:

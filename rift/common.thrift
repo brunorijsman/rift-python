@@ -3,6 +3,7 @@
 */
 
 namespace py common
+namespace rs models
 
 /** @note MUST be interpreted in implementation as unsigned 64 bits.
  *        The implementation SHOULD NOT use the MSB.
@@ -59,26 +60,24 @@ struct IEEE802_1ASTimeStampType {
 }
 
 /** Flags indicating nodes behavior in case of ZTP and support
-    for special optimization procedures. It will force level to `leaf_level` or
-    `top-of-fabric` level accordingly and enable according procedures
+    for special optimization procedures. It will force level to `leaf_level`
  */
-enum HierarchyIndications {
+enum LeafIndications {
     leaf_only                            = 0,
     leaf_only_and_leaf_2_leaf_procedures = 1,
-    top_of_fabric                        = 2,
 }
 
-/** This MUST be used when node is configured as top of fabric in ZTP.
-    This is kept reasonably low to alow for fast ZTP convergence on
-    failures. */
-const LevelType   top_of_fabric_level              = 24
 /** default bandwidth on a link */
 const BandwithInMegaBitsType  default_bandwidth    = 100
 /** fixed leaf level when ZTP is not used */
-const LevelType   leaf_level                  = 0
-const LevelType   default_level               = leaf_level
-const PodType     default_pod                 = 0
-const LinkIDType  undefined_linkid            = 0
+const LevelType   leaf_level              = 0
+const LevelType   default_level           = leaf_level
+/** This MUST be used when node is configured as superspine in ZTP.
+    This is kept reasonably low to alow for fast ZTP convergence on
+    failures. */
+const LevelType   default_superspine_level = 24
+const PodType     default_pod              = 0
+const LinkIDType  undefined_linkid         = 0
 /** default distance used */
 const MetricType  default_distance         = 1
 /** any distance larger than this will be considered infinity */
@@ -163,8 +162,7 @@ enum TIETypeType {
     TransitivePrefixTIEType = 4,
     PGPrefixTIEType         = 5,
     KeyValueTIEType         = 6,
-    ExternalPrefixTIEType   = 7,
-    TIETypeMaxValue         = 8,
+    TIETypeMaxValue         = 7,
 }
 
 /** @note: route types which MUST be ordered on their preference
@@ -197,11 +195,7 @@ enum RouteType {
     NorthPrefix           = 6,
     /** advertised in S-TIEs */
     SouthPrefix           = 7,
-    /** transitive southbound are least preferred of local variety */
+    /** transitive southbound are least preferred */
     TransitiveSouthPrefix = 8,
-    /** externally imported north */
-    NorthExternalPrefix   = 9,
-    /** externally imported south */
-    SouthExternalPrefix   = 10,
-    RouteTypeMaxValue     = 11,
+    RouteTypeMaxValue     = 9
 }

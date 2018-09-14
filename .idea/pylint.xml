@@ -2,5 +2,6 @@
 <project version="4">
   <component name="PylintConfigService">
     <option name="pylintPath" value="$PROJECT_DIR$/venv/bin/pylint" />
+    <option name="scanBeforeCheckin" value="false" />
   </component>
 </project>

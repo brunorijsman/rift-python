@@ -4,10 +4,11 @@
 
 include "common.thrift"
 
+namespace rs models
 namespace py encoding
 
 /** represents protocol encoding schema major version */
-const i32 protocol_major_version = 16
+const i32 protocol_major_version = 15
 /** represents protocol encoding schema minor version */
 const i32 protocol_minor_version = 0
 
@@ -40,11 +41,11 @@ struct Neighbor {
 /** Capabilities the node supports */
 struct NodeCapabilities {
     /** can this node participate in flood reduction */
-    1: optional bool                           flood_reduction =
+    1: optional bool                      flood_reduction =
             common.flood_reduction_default;
-    /** does this node restrict itself to be top-of-fabric or
-        leaf only (in ZTP) and does it support leaf-2-leaf procedures */
-    2: optional common.HierarchyIndications    hierarchy_indications;
+    /** does this node restrict itself to be leaf only (in ZTP) and
+        does it support leaf-2-leaf procedures */
+    2: optional common.LeafIndications    leaf_indications;
 }
 
 /** RIFT LIE packet
@@ -253,7 +254,7 @@ union TIEElement {
     /** in case of enum common.TIETypeType.PrefixTIEType */
     2: optional PrefixTIEElement          prefixes;
     /** transitive prefixes (always southbound) which
-     *  MUST be aggregated and propagated
+    *   MUST be aggregated and propagated
      *  according to the specification
      *  southwards towards lower levels to heal
      *  pathological upper level partitioning, otherwise
@@ -261,10 +262,7 @@ union TIEElement {
      *  It MUST NOT be advertised within a North TIE.
      */
     3: optional PrefixTIEElement          transitive_prefixes;
-    /** externally reimported prefixes */
-    4: optional PrefixTIEElement          external_prefixes;
-    /** Key-Value store elements */
-    5: optional KeyValueTIEElement        keyvalues;
+    4: optional KeyValueTIEElement        keyvalues;
     /** @todo: policy guided prefixes */
 }
 
