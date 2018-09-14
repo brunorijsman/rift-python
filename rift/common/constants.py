@@ -10,10 +10,10 @@ from thrift.Thrift import TType, TMessageType, TFrozenDict, TException, TApplica
 from thrift.protocol.TProtocol import TProtocolException
 import sys
 from .ttypes import *
-top_of_fabric_level = 24
 default_bandwidth = 100
 leaf_level = 0
 default_level = 0
+default_superspine_level = 24
 default_pod = 0
 undefined_linkid = 0
 default_distance = 1

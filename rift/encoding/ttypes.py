@@ -30,7 +30,7 @@ class PacketHeader(object):
 
     thrift_spec = (
         None,  # 0
-        (1, TType.I16, 'major_version', None, 16, ),  # 1
+        (1, TType.I16, 'major_version', None, 15, ),  # 1
         (2, TType.I16, 'minor_version', None, 0, ),  # 2
         (3, TType.I64, 'sender', None, None, ),  # 3
         (4, TType.I16, 'level', None, None, ),  # 4
@@ -38,7 +38,7 @@ class PacketHeader(object):
 
     def __init__(self, major_version=thrift_spec[1][4], minor_version=thrift_spec[2][4], sender=None, level=None,):
         if major_version is self.thrift_spec[1][4]:
-            major_version = 16
+            major_version = 15
         self.major_version = major_version
         if minor_version is self.thrift_spec[2][4]:
             minor_version = 0
@@ -287,19 +287,19 @@ class NodeCapabilities(object):
 
     Attributes:
      - flood_reduction: can this node participate in flood reduction
-     - hierarchy_indications: does this node restrict itself to be top-of-fabric or
-    leaf only (in ZTP) and does it support leaf-2-leaf procedures
+     - leaf_indications: does this node restrict itself to be leaf only (in ZTP) and
+    does it support leaf-2-leaf procedures
     """
 
     thrift_spec = (
         None,  # 0
         (1, TType.BOOL, 'flood_reduction', None, True, ),  # 1
-        (2, TType.I32, 'hierarchy_indications', None, None, ),  # 2
+        (2, TType.I32, 'leaf_indications', None, None, ),  # 2
     )
 
-    def __init__(self, flood_reduction=thrift_spec[1][4], hierarchy_indications=None,):
+    def __init__(self, flood_reduction=thrift_spec[1][4], leaf_indications=None,):
         self.flood_reduction = flood_reduction
-        self.hierarchy_indications = hierarchy_indications
+        self.leaf_indications = leaf_indications
 
     def read(self, iprot):
         if iprot._fast_decode is not None and isinstance(iprot.trans, TTransport.CReadableTransport) and self.thrift_spec is not None:
@@ -317,7 +317,7 @@ class NodeCapabilities(object):
                     iprot.skip(ftype)
             elif fid == 2:
                 if ftype == TType.I32:
-                    self.hierarchy_indications = iprot.readI32()
+                    self.leaf_indications = iprot.readI32()
                 else:
                     iprot.skip(ftype)
             else:
@@ -334,9 +334,9 @@ class NodeCapabilities(object):
             oprot.writeFieldBegin('flood_reduction', TType.BOOL, 1)
             oprot.writeBool(self.flood_reduction)
             oprot.writeFieldEnd()
-        if self.hierarchy_indications is not None:
-            oprot.writeFieldBegin('hierarchy_indications', TType.I32, 2)
-            oprot.writeI32(self.hierarchy_indications)
+        if self.leaf_indications is not None:
+            oprot.writeFieldBegin('leaf_indications', TType.I32, 2)
+            oprot.writeI32(self.leaf_indications)
             oprot.writeFieldEnd()
         oprot.writeFieldStop()
         oprot.writeStructEnd()
@@ -1724,14 +1724,13 @@ class TIEElement(object):
      - node: in case of enum common.TIETypeType.NodeTIEType
      - prefixes: in case of enum common.TIETypeType.PrefixTIEType
      - transitive_prefixes: transitive prefixes (always southbound) which
-    MUST be aggregated and propagated
-    according to the specification
-    southwards towards lower levels to heal
-    pathological upper level partitioning, otherwise
-    blackholes may occur.
-    It MUST NOT be advertised within a North TIE.
-     - external_prefixes: externally reimported prefixes
-     - keyvalues: Key-Value store elements
+    *   MUST be aggregated and propagated
+     *  according to the specification
+     *  southwards towards lower levels to heal
+     *  pathological upper level partitioning, otherwise
+     *  blackholes may occur.
+     *  It MUST NOT be advertised within a North TIE.
+     - keyvalues
     """
 
     thrift_spec = (
@@ -1739,15 +1738,13 @@ class TIEElement(object):
         (1, TType.STRUCT, 'node', (NodeTIEElement, NodeTIEElement.thrift_spec), None, ),  # 1
         (2, TType.STRUCT, 'prefixes', (PrefixTIEElement, PrefixTIEElement.thrift_spec), None, ),  # 2
         (3, TType.STRUCT, 'transitive_prefixes', (PrefixTIEElement, PrefixTIEElement.thrift_spec), None, ),  # 3
-        (4, TType.STRUCT, 'external_prefixes', (PrefixTIEElement, PrefixTIEElement.thrift_spec), None, ),  # 4
-        (5, TType.STRUCT, 'keyvalues', (KeyValueTIEElement, KeyValueTIEElement.thrift_spec), None, ),  # 5
+        (4, TType.STRUCT, 'keyvalues', (KeyValueTIEElement, KeyValueTIEElement.thrift_spec), None, ),  # 4
     )
 
-    def __init__(self, node=None, prefixes=None, transitive_prefixes=None, external_prefixes=None, keyvalues=None,):
+    def __init__(self, node=None, prefixes=None, transitive_prefixes=None, keyvalues=None,):
         self.node = node
         self.prefixes = prefixes
         self.transitive_prefixes = transitive_prefixes
-        self.external_prefixes = external_prefixes
         self.keyvalues = keyvalues
 
     def read(self, iprot):
@@ -1779,12 +1776,6 @@ class TIEElement(object):
                     iprot.skip(ftype)
             elif fid == 4:
                 if ftype == TType.STRUCT:
-                    self.external_prefixes = PrefixTIEElement()
-                    self.external_prefixes.read(iprot)
-                else:
-                    iprot.skip(ftype)
-            elif fid == 5:
-                if ftype == TType.STRUCT:
                     self.keyvalues = KeyValueTIEElement()
                     self.keyvalues.read(iprot)
                 else:
@@ -1811,12 +1802,8 @@ class TIEElement(object):
             oprot.writeFieldBegin('transitive_prefixes', TType.STRUCT, 3)
             self.transitive_prefixes.write(oprot)
             oprot.writeFieldEnd()
-        if self.external_prefixes is not None:
-            oprot.writeFieldBegin('external_prefixes', TType.STRUCT, 4)
-            self.external_prefixes.write(oprot)
-            oprot.writeFieldEnd()
         if self.keyvalues is not None:
-            oprot.writeFieldBegin('keyvalues', TType.STRUCT, 5)
+            oprot.writeFieldBegin('keyvalues', TType.STRUCT, 4)
             self.keyvalues.write(oprot)
             oprot.writeFieldEnd()
         oprot.writeFieldStop()
