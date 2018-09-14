@@ -1,7 +1,5 @@
 import utils
 
-# TODO: Should we rename this to adjacency? The current draft mixes terms neighbor and adjacency.
-
 # TODO: Store both IPv4 and IPv6 address of neighbor
 
 class Neighbor:

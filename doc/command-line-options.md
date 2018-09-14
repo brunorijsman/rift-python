@@ -92,8 +92,6 @@ simulated network topologies that can be tested on a single physical computer. I
 the configurion file "two_by_two_by_two.yaml" contains 10 simulated nodes with names core_1, core_2,
 agg_101, agg_102, etc.
 
-TODO: Document the syntax of the configuration file.
-
 ## Interactive mode
 
 By default, when you start the RIFT engine, it reports a port number on which it is listening for
