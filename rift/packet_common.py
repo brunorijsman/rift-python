@@ -26,7 +26,7 @@ def add_missing_methods_to_thrift():
                                          (self.ipv4prefix == other.ip4prefix) and
                                          (self.ipv6prefix == other.ip6prefix))
     encoding.ttypes.TIEID.__hash__ = (lambda self:
-                                      hash((self.direction, self.originator, 
+                                      hash((self.direction, self.originator,
                                             self.tietype, self.tie_nr)))
     encoding.ttypes.TIEID.__eq__ = (lambda self, other:
                                     (self.direction == other.direction) and
