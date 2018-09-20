@@ -26,8 +26,8 @@ https://thrift.apache.org/download) is the latest stable version as of
 
 Generate Python code:
 
-thrift --gen py common.thrift
-thrift --gen py encoding.thrift
+thrift --gen py -out . common.thrift
+thrift --gen py -out . encoding.thrift
 
 *** Helpful commands for debugging
 

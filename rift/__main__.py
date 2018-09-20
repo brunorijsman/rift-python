@@ -6,6 +6,7 @@ import config
 import constants
 import engine
 import multicast_checks
+import packet_common
 
 def log_level(string):
     string = string.lower()
@@ -66,6 +67,7 @@ def main():
     args = parse_command_line_arguments()
     parse_environment_variables(args)
     parsed_config = config.parse_configuration(args.configfile)
+    packet_common.add_missing_methods_to_thrift()
     eng = engine.Engine(run_which_nodes=run_which_nodes(args),
                         passive_nodes=args.passive_nodes,
                         interactive=args.interactive,

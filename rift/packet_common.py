@@ -1,13 +1,30 @@
-# TODO: Handle receiving malformed packets (i.e. decoding errors)
-
 import thrift.protocol.TBinaryProtocol
 import thrift.transport.TTransport
+import common.ttypes
 import encoding.ttypes
 import encoding.constants
 
 # TODO: This is defined in two separate places
 RIFT_MAJOR_VERSION = encoding.constants.protocol_major_version
 RIFT_MINOR_VERSION = encoding.constants.protocol_minor_version
+
+def add_missing_methods_to_thrift():
+    # See http://bit.ly/thrift-missing-hash for details about why this is needed
+    common.ttypes.IPv4PrefixType.__hash__ = (lambda self:
+                                             hash((self.address, self.prefixlen)))
+    common.ttypes.IPv4PrefixType.__eq__ = (lambda self, other:
+                                           (self.address == other.address) and
+                                           (self.prefixlen == other.prefixlen))
+    common.ttypes.IPv6PrefixType.__hash__ = (lambda self:
+                                             hash((self.address, self.prefixlen)))
+    common.ttypes.IPv6PrefixType.__eq__ = (lambda self, other:
+                                           (self.address == other.address) and
+                                           (self.prefixlen == other.prefixlen))
+    common.ttypes.IPPrefixType.__hash__ = (lambda self:
+                                           hash((self.ipv4prefix, self.ipv6prefix)))
+    common.ttypes.IPPrefixType.__eq__ = (lambda self, other:
+                                         (self.ipv4prefix == other.ip4prefix) and
+                                         (self.ipv6prefix == other.ip6prefix))
 
 def create_packet_header(node):
     packet_header = encoding.ttypes.PacketHeader(
