@@ -1,5 +1,6 @@
 # Topology Information Element DataBase (TIE_DB)
 
+import ipaddress
 import sortedcontainers
 
 import common.ttypes
@@ -61,13 +62,49 @@ class TIE_DB:
         else:
             return str(tietype)
 
+    @staticmethod
+    def ipv4_prefix_str(ipv4_prefix):
+        address = ipv4_prefix.address
+        length = ipv4_prefix.prefixlen
+        return str(ipaddress.IPv4Network((address, length)))
+
+    @staticmethod
+    def ipv6_prefix_str(ipv6_prefix):
+        address = ipv6_prefix.address.rjust(16, b"\x00")
+        length = ipv6_prefix.prefixlen
+        return str(ipaddress.IPv6Network((address, length)))
+
+    def ip_prefix_str(self, ip_prefix):
+        result = ""
+        if ip_prefix.ipv4prefix:
+            result += self.ipv4_prefix_str(ip_prefix.ipv4prefix)
+        if ip_prefix.ipv6prefix:
+            if result != "":
+                result += " "
+            result += self.ipv6_prefix_str(ip_prefix.ipv6prefix)
+        return result
+
     def node_element_str(self, _element):
         # TODO: Implement this
         return "TODO"
 
-    def prefix_element_str(self, _element):
-        # TODO: Implement this
-        return "TODO"
+    def prefix_element_str(self, element):
+        lines = []
+        for prefix, attributes in element.prefixes.items():
+            line = "Prefix: " + self.ip_prefix_str(prefix)
+            lines.append(line)
+            if attributes:
+                if attributes.metric:
+                    line = "  Metric: " + str(attributes.metric)
+                    lines.append(line)
+                if attributes.tags:
+                    for tag in attributes.tags:
+                        line = "  Tag: " + str(tag)
+                        lines.append(line)
+                if attributes.monotonic_clock:
+                    line = "  Monotonic-clock: " + str(attributes.monotonic_clock)
+                    lines.append(line)
+        return lines
 
     def transitive_prefix_element_str(self, _element):
         # TODO: Implement this
@@ -87,15 +124,15 @@ class TIE_DB:
 
     def element_str(self, tietype, element):
         if tietype == common.ttypes.TIETypeType.NodeTIEType:
-            return self.node_element_str(element)
+            return self.node_element_str(element.node)
         elif tietype == common.ttypes.TIETypeType.PrefixTIEType:
-            return self.prefix_element_str(element)
+            return self.prefix_element_str(element.prefixes)
         elif tietype == common.ttypes.TIETypeType.TransitivePrefixTIEType:
-            return self.transitive_prefix_element_str(element)
+            return self.transitive_prefix_element_str(element.transitive_prefixes)
         elif tietype == common.ttypes.TIETypeType.PGPrefixTIEType:
-            return self.pg_prefix_element_str(element)
+            return self.pg_prefix_element_str(element)   # TODO
         elif tietype == common.ttypes.TIETypeType.KeyValueTIEType:
-            return self.key_value_element_str(element)
+            return self.key_value_element_str(element.keyvalues)
         else:
             return self.unknown_element_str(element)
 
