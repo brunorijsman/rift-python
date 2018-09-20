@@ -21,7 +21,6 @@
         "interop",
         "intf",
         "lans",
-        "lsdb",
         "multicast",
         "pexpect",
         "pluggy",

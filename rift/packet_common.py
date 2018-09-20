@@ -25,6 +25,14 @@ def add_missing_methods_to_thrift():
     common.ttypes.IPPrefixType.__eq__ = (lambda self, other:
                                          (self.ipv4prefix == other.ip4prefix) and
                                          (self.ipv6prefix == other.ip6prefix))
+    encoding.ttypes.TIEID.__hash__ = (lambda self:
+                                      hash((self.direction, self.originator, 
+                                            self.tietype, self.tie_nr)))
+    encoding.ttypes.TIEID.__eq__ = (lambda self, other:
+                                    (self.direction == other.direction) and
+                                    (self.originator == other.originator) and
+                                    (self.tietype == other.tietype) and
+                                    (self.tie_nr == other.tie_nr))
 
 def create_packet_header(node):
     packet_header = encoding.ttypes.PacketHeader(

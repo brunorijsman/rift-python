@@ -12,6 +12,7 @@ import fsm
 import interface
 import offer
 import table
+import tie_db
 import timer
 import utils
 
@@ -344,6 +345,7 @@ class Node:
         if 'interfaces' in config:
             for interface_config in self._config['interfaces']:
                 self.create_interface(interface_config)
+        self.tie_db = tie_db.TIE_DB()
         self._fsm = fsm.Fsm(
             definition=self.fsm_definition,
             action_handler=self,
@@ -415,7 +417,7 @@ class Node:
 
     def send_not_a_ztp_offer_on_intf(self, interface_name):
         # If ZTP is not enabled (typically because the level is hard-configured), our level value
-        # is never derived from someone else's offer, so never send a poison reverse to anyone.
+        # is never derived from someone elses offer, so never send a poison reverse to anyone.
         if not self.zero_touch_provisioning_enabled():
             return False
         # TODO: Introduce concept of HALS (HAL offering Systems) and simply check for membership
@@ -538,6 +540,40 @@ class Node:
                 self._configured_level_symbol,
                 '?']
 
+    def command_show_intf_fsm_hist(self, cli_session, parameters, verbose):
+        interface_name = parameters['interface']
+        if not interface_name in self._interfaces:
+            cli_session.print_r("Error: interface {} not present".format(interface_name))
+            return
+        shown_interface = self._interfaces[interface_name]
+        tab = shown_interface.fsm.history_table(verbose)
+        cli_session.print(tab.to_string(cli_session.current_end_line()))
+
+    def command_show_interface(self, cli_session, parameters):
+        interface_name = parameters['interface']
+        if not interface_name in self._interfaces:
+            cli_session.print_r("Error: interface {} not present".format(interface_name))
+            return
+        interface_attributes = self._interfaces[interface_name].cli_detailed_attributes()
+        tab = table.Table(separators=False)
+        tab.add_rows(interface_attributes)
+        cli_session.print_r("Interface:")
+        cli_session.print(tab.to_string(cli_session.current_end_line()))
+        neighbor_attributes = self._interfaces[interface_name].cli_detailed_neighbor_attrs()
+        if neighbor_attributes:
+            tab = table.Table(separators=False)
+            tab.add_rows(neighbor_attributes)
+            cli_session.print("Neighbor:\r")
+            cli_session.print(tab.to_string(cli_session.current_end_line()))
+
+    def command_show_interfaces(self, cli_session):
+        # TODO: Report neighbor uptime (time in THREE_WAY state)
+        tab = table.Table()
+        tab.add_row(interface.Interface.cli_summary_headers())
+        for intf in self._interfaces.values():
+            tab.add_row(intf.cli_summary_attributes())
+        cli_session.print(tab.to_string(cli_session.current_end_line()))
+
     def command_show_node(self, cli_session):
         cli_session.print_r("Node:")
         tab = table.Table(separators=False)
@@ -562,39 +598,8 @@ class Node:
         tab = self._fsm.history_table(verbose)
         cli_session.print(tab.to_string(cli_session.current_end_line()))
 
-    def command_show_interfaces(self, cli_session):
-        # TODO: Report neighbor uptime (time in THREE_WAY state)
-        tab = table.Table()
-        tab.add_row(interface.Interface.cli_summary_headers())
-        for intf in self._interfaces.values():
-            tab.add_row(intf.cli_summary_attributes())
-        cli_session.print(tab.to_string(cli_session.current_end_line()))
-
-    def command_show_interface(self, cli_session, parameters):
-        interface_name = parameters['interface']
-        if not interface_name in self._interfaces:
-            cli_session.print_r("Error: interface {} not present".format(interface_name))
-            return
-        inteface_attributes = self._interfaces[interface_name].cli_detailed_attributes()
-        tab = table.Table(separators=False)
-        tab.add_rows(inteface_attributes)
-        cli_session.print_r("Interface:")
-        cli_session.print(tab.to_string(cli_session.current_end_line()))
-        neighbor_attributes = self._interfaces[interface_name].cli_detailed_neighbor_attrs()
-        if neighbor_attributes:
-            tab = table.Table(separators=False)
-            tab.add_rows(neighbor_attributes)
-            cli_session.print("Neighbor:\r")
-            cli_session.print(tab.to_string(cli_session.current_end_line()))
-
-    def command_show_intf_fsm_hist(self, cli_session, parameters, verbose):
-        interface_name = parameters['interface']
-        if not interface_name in self._interfaces:
-            cli_session.print_r("Error: interface {} not present".format(interface_name))
-            return
-        shown_interface = self._interfaces[interface_name]
-        tab = shown_interface.fsm.history_table(verbose)
-        cli_session.print(tab.to_string(cli_session.current_end_line()))
+    def command_show_tie_db(self, cli_session):
+        self.tie_db.command_show_tie_db(cli_session)
 
     def command_set_interface_failure(self, cli_session, parameters):
         interface_name = parameters['interface']

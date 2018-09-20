@@ -714,13 +714,14 @@ class Interface:
     # The spec says an FSM will be defined in the future; revisit this once that happens.
 
     def process_received_tie_packet(self, tie_packet):
-        # TODO: Implement this
-        self.warning(self._rx_log, "Receive TIE packet {}".format(tie_packet))
+        # TODO: Finish implementing this
+        self._node.tie_db.store_tie(tie_packet)
+        self.debug(self._rx_log, "Receive TIE packet {}".format(tie_packet))
 
     def process_received_tide_packet(self, tide_packet):
         # TODO: Implement this
-        self.warning(self._rx_log, "Receive TIDE packet {}".format(tide_packet))
+        self.debug(self._rx_log, "Receive TIDE packet {}".format(tide_packet))
 
     def process_received_tire_packet(self, tire_packet):
         # TODO: Implement this
-        self.warning(self._rx_log, "Receive TIRE packet {}".format(tire_packet))
+        self.debug(self._rx_log, "Receive TIRE packet {}".format(tire_packet))
