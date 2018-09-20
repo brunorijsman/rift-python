@@ -10,6 +10,7 @@ import table
 # - Encode only once, instead of each time the message is sent
 # - Ability to flood the message immediately before it is decoded
 
+# pylint: disable=invalid-name
 class TIE_DB:
 
     def __init__(self):
