@@ -21,12 +21,54 @@ class TIE_DB:
         tie_id = tie.content.tie.header.tieid
         self.ties[tie_id] = tie
 
-    def command_show_tie_db(self, cli_session):
+    def find_tie(self, tie_id):
+        return self.ties.get(tie_id)
+
+    def find_tie_range(self, start_tid_id_exclusive, end_tie_id_inclusive):
+        return self.ties.irange(minimum=start_tid_id_exclusive,
+                                maximum=end_tie_id_inclusive,
+                                inclusive=(False, True))
+
+    def process_received_tide_packet(self, tide_packet):
+        request_tie_ids = []
+        start_sending_tie_ids = []
+        stop_sending_tie_ids = []
+        # TODO: ignoring this rule for now:
+        # if TIDE.start_range > LAST_RCVD_TIDE_END then add all headers in TIDE to TXKEYS and then
+        last_processed_tie_id = tide_packet.start_range
+        for header_in_tide in tide_packet.headers:
+            # Make sure all tie_ids in the TIDE in the range advertised by the TIDE
+            if header_in_tide.tieid < last_processed_tie_id:
+                # TODO: Handle error (not sorted)
+                assert False
+            # Process all tie_ids in the TIDE
+            db_tie = self.find_tie(header_in_tide.tieid)
+            if db_tie is None:
+                # We don't have the TIE, request it
+                request_tie_ids.append(header_in_tide.tieid)
+            elif db_tie.header.seq_nr < header_in_tide.seq_nr:
+                # We have an older version of the TIE, request the newer version
+                request_tie_ids.append(header_in_tide.tieid)
+            elif db_tie.header.seq_nr > header_in_tide.seq_nr:
+                # We have a newer version of the TIE, send it
+                start_sending_tie_ids.append(header_in_tide.tieid)
+            else:
+                # db_tie.header.seq_nr == header_in_tide.seq_nr
+                # We have the same version of the TIE, if we are trying to send it, stop it
+                stop_sending_tie_ids.append(header_in_tide.tieid)
+            # Process the TIEs that we have in our TIE DB but which are missing in the TIDE
+            db_ties = self.find_tie_range(last_processed_tie_id, tide_packet.end_range)
+            for db_tie in db_ties:
+                # We have a TIE that our neighbor does not have, start sending it
+                start_sending_tie_ids.append(db_tie.header.tieid)
+        return (request_tie_ids, start_sending_tie_ids, stop_sending_tie_ids)
+
+    def tie_db_table(self):
         tab = table.Table()
         tab.add_row(self.cli_summary_headers())
         for tie in self.ties.values():
             tab.add_row(self.cli_summary_attributes(tie))
-        cli_session.print(tab.to_string(cli_session.current_end_line()))
+        return tab
 
     @staticmethod
     def cli_summary_headers():
@@ -75,12 +117,12 @@ class TIE_DB:
         return str(ipaddress.IPv6Network((address, length)))
 
     def ip_prefix_str(self, ip_prefix):
+        assert (ip_prefix.ipv4prefix is None) or (ip_prefix.ipv6prefix is None)
+        assert (ip_prefix.ipv4prefix is not None) or (ip_prefix.ipv6prefix is not None)
         result = ""
         if ip_prefix.ipv4prefix:
             result += self.ipv4_prefix_str(ip_prefix.ipv4prefix)
         if ip_prefix.ipv6prefix:
-            if result != "":
-                result += " "
             result += self.ipv6_prefix_str(ip_prefix.ipv6prefix)
         return result
 
@@ -90,7 +132,8 @@ class TIE_DB:
 
     def prefix_element_str(self, element):
         lines = []
-        for prefix, attributes in element.prefixes.items():
+        sorted_prefixes = sortedcontainers.SortedDict(element.prefixes)
+        for prefix, attributes in sorted_prefixes.items():
             line = "Prefix: " + self.ip_prefix_str(prefix)
             lines.append(line)
             if attributes:

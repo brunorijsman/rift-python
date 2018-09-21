@@ -599,7 +599,8 @@ class Node:
         cli_session.print(tab.to_string(cli_session.current_end_line()))
 
     def command_show_tie_db(self, cli_session):
-        self.tie_db.command_show_tie_db(cli_session)
+        tab = self.tie_db.tie_db_table()
+        cli_session.print(tab.to_string(cli_session.current_end_line()))
 
     def command_set_interface_failure(self, cli_session, parameters):
         interface_name = parameters['interface']

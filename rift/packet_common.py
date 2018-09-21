@@ -4,44 +4,44 @@ import common.ttypes
 import encoding.ttypes
 import encoding.constants
 
-# TODO: This is defined in two separate places
-RIFT_MAJOR_VERSION = encoding.constants.protocol_major_version
-RIFT_MINOR_VERSION = encoding.constants.protocol_minor_version
+def ipv4_prefix_tup(ipv4_prefix):
+    return (ipv4_prefix.address, ipv4_prefix.prefixlen)
+
+def ipv6_prefix_tup(ipv6_prefix):
+    return (ipv6_prefix.address, ipv6_prefix.prefixlen)
+
+def ip_prefix_tup(ip_prefix):
+    assert (ip_prefix.ipv4prefix is None) or (ip_prefix.ipv6prefix is None)
+    assert (ip_prefix.ipv4prefix is not None) or (ip_prefix.ipv6prefix is not None)
+    if ip_prefix.ipv4prefix:
+        return (4, ipv4_prefix_tup(ip_prefix.ipv4prefix))
+    return (6, ipv6_prefix_tup(ip_prefix.ipv6prefix))
+
+def tie_id_tup(tie_id):
+    return (tie_id.direction, tie_id.originator, tie_id.tietype, tie_id.tie_nr)
 
 def add_missing_methods_to_thrift():
     # See http://bit.ly/thrift-missing-hash for details about why this is needed
-    common.ttypes.IPv4PrefixType.__hash__ = (lambda self:
-                                             hash((self.address, self.prefixlen)))
-    common.ttypes.IPv4PrefixType.__eq__ = (lambda self, other:
-                                           (self.address == other.address) and
-                                           (self.prefixlen == other.prefixlen))
-    common.ttypes.IPv6PrefixType.__hash__ = (lambda self:
-                                             hash((self.address, self.prefixlen)))
-    common.ttypes.IPv6PrefixType.__eq__ = (lambda self, other:
-                                           (self.address == other.address) and
-                                           (self.prefixlen == other.prefixlen))
-    common.ttypes.IPPrefixType.__hash__ = (lambda self:
-                                           hash((self.ipv4prefix, self.ipv6prefix)))
-    common.ttypes.IPPrefixType.__eq__ = (lambda self, other:
-                                         (self.ipv4prefix == other.ip4prefix) and
-                                         (self.ipv6prefix == other.ip6prefix))
-    encoding.ttypes.TIEID.__hash__ = (lambda self:
-                                      hash((self.direction, self.originator,
-                                            self.tietype, self.tie_nr)))
-    encoding.ttypes.TIEID.__eq__ = (lambda self, other:
-                                    (self.direction == other.direction) and
-                                    (self.originator == other.originator) and
-                                    (self.tietype == other.tietype) and
-                                    (self.tie_nr == other.tie_nr))
-
-def create_packet_header(node):
-    packet_header = encoding.ttypes.PacketHeader(
-        major_version=RIFT_MAJOR_VERSION,
-        minor_version=RIFT_MINOR_VERSION,
-        sender=node.system_id,
-        level=node.level_value()
-    )
-    return packet_header
+    common.ttypes.IPv4PrefixType.__hash__ = (
+        lambda self: hash(ipv4_prefix_tup(self)))
+    common.ttypes.IPv4PrefixType.__eq__ = (
+        lambda self, other: ipv4_prefix_tup(self) == ipv4_prefix_tup(other))
+    common.ttypes.IPv6PrefixType.__hash__ = (
+        lambda self: hash(ipv6_prefix_tup(self)))
+    common.ttypes.IPv6PrefixType.__eq__ = (
+        lambda self, other: ipv6_prefix_tup(self) == ipv6_prefix_tup(other))
+    common.ttypes.IPPrefixType.__hash__ = (
+        lambda self: hash(ip_prefix_tup(self)))
+    common.ttypes.IPPrefixType.__eq__ = (
+        lambda self, other: ip_prefix_tup(self) == ip_prefix_tup(other))
+    common.ttypes.IPPrefixType.__lt__ = (
+        lambda self, other: ip_prefix_tup(self) < ip_prefix_tup(other))
+    encoding.ttypes.TIEID.__hash__ = (
+        lambda self: hash(tie_id_tup(self)))
+    encoding.ttypes.TIEID.__eq__ = (
+        lambda self, other: tie_id_tup(self) == tie_id_tup(other))
+    encoding.ttypes.TIEID.__lt__ = (
+        lambda self, other: tie_id_tup(self) < tie_id_tup(other))
 
 def encode_protocol_packet(protocol_packet):
     # This assumes we only encode a protocol_packet once (because we change it in place)

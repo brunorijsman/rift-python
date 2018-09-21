@@ -115,7 +115,9 @@ class Interface:
             self.debug(self._tx_log, "Send {}".format(protocol_packet))
 
     def action_send_lie(self):
-        packet_header = packet_common.create_packet_header(self._node)
+        packet_header = encoding.ttypes.PacketHeader(
+            sender=self._node.system_id,
+            level=self._node.level_value())
         capabilities = encoding.ttypes.NodeCapabilities(
             flood_reduction=True,
             leaf_indications=
@@ -719,8 +721,9 @@ class Interface:
         self.debug(self._rx_log, "Receive TIE packet {}".format(tie_packet))
 
     def process_received_tide_packet(self, tide_packet):
-        # TODO: Implement this
         self.debug(self._rx_log, "Receive TIDE packet {}".format(tide_packet))
+        ##@@ CONTINUE HERE
+        _ = self._node.tie_db.process_received_tide_packet(tide_packet)
 
     def process_received_tire_packet(self, tire_packet):
         # TODO: Implement this
