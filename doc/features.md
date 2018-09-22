@@ -21,12 +21,16 @@
 
 | Feature | Supported |
 | --- | --- |
-| Topology Information Element (TIE) Packet | No |
+| Topology Information Element (TIE) Packet | Partial (Receive) |
+| Topology Information Element (TIE) Database | Yes |
+| Node Topology Information Element | No |
+| Prefix Topology Information Element | No |
+| Transitive Prefix Topology Information Element | No |
+| Key-Value Topology Information Element | No |
+| South- and Northbound Representation | No |
 | Topology Information Description Element (TIDE) Packet | No |
 | Topology Information Request Element (TIRE) Packet | No |
 | Topology Exchange (TIE Exchange) | No |
-| Topology Information Elements | No |
-| South- and Northbound Representation | No |
 | Flooding  | No |
 | TIE Flooding Scopes  | No |
 | Initial and Periodic Database Synchronization  | No |
@@ -84,7 +88,7 @@
 | Telnet client for operational commands | Partial |
 | SSH client for operational commands | No |
 | Command Line Interface (CLI) for Operational Commands | Yes |
-| CLI Command History (^P and ^N) | No |
+| CLI Command History (^P and ^N) | Partial |
 | CLI Tab Completion | No |
 | CLI Context-Sensitive Help | Partial |
 | Logging | Yes |
@@ -115,4 +119,4 @@
 | Automated Pylint | Yes |
 | Automated Pytest Unit Tests | Yes |
 | Automated System Tests | Yes |
-| Automated Interoperability Tests | Yes |
+| Automated Interoperability Tests | Yes, with Juniper RIFT |
