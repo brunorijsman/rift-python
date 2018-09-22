@@ -120,40 +120,9 @@ def test_add_prefix_tie():
             "|           |            |        |        |        |   Metric: 10             |\n"
             "+-----------+------------+--------+--------+--------+--------------------------+\n")
 
-def test_process_tide():
+
+def check_process_tide_1(tdb):
     # pylint:disable=too-many-locals
-    #
-    # Contents of TIE database when TIDE is processed:
-    #
-    #   Direction  Originator  Type    TIE Nr  Seq Nr  Disposition
-    #   ---------  ----------  ------  ------  ------  --------------------------------------------
-    #   South      8           Prefix  1       1       In gap before TIDE-1; start sending
-    #   South      10          Prefix  1       2       Not in TIDE-1 (start gap); start sending
-    #   South      10          Prefix  2       5       Not in TIDE-1 (start gap); start sending
-    #   South      10          Prefix  10      10      Same version as in TIDE; stop sending
-    #   South      10          Prefix  12      5       Not in TIDE-1 (middle gap); start sending
-    #   South      10          Prefix  13      3       Older version than in TIDE-1; request it
-    #   North      3           Prefix  15      7       Newer version than in TIDE-1; start sending
-    #   North      4           Prefix  1       1       Not in TIDE-1 (end gap); start sending
-    #
-    packet_common.add_missing_methods_to_thrift()
-    tdb = tie_db.TIE_DB()
-    south = common.ttypes.TieDirectionType.South
-    north = common.ttypes.TieDirectionType.North
-    db_tie_info_list = [
-        # pylint:disable=bad-whitespace
-        # Sender  Level  Direction  Originator  Tie-Nr  Seq-Nr
-        ( 999,    999,   south,     8,          1,      1),
-        ( 999,    999,   south,     10,         1,      2),
-        ( 999,    999,   south,     10,         2,      5),
-        ( 777,    7,     south,     10,         10,     10),
-        ( 999,    999,   south,     10,         12,     5),
-        ( 999,    999,   south,     10,         13,     3),
-        ( 999,    999,   north,     3,          15,     7),
-        ( 999,    999,   north,     4,          1,      1)]
-    for db_tie_info in db_tie_info_list:
-        db_tie = make_prefix_tie(*db_tie_info)
-        tdb.store_tie(db_tie)
     #
     # Contents of first TIDE packet:
     #
@@ -169,8 +138,10 @@ def test_process_tide():
     #   South      10          Prefix  13      5       Newer version than in TIE-DB; request it
     #   North      3           Prefix  15      5       Older version than in TIE-DB; start sending
     #
+    south = common.ttypes.TieDirectionType.South
+    north = common.ttypes.TieDirectionType.North
     start_range = make_tie_id(direction=south, originator=10, tie_nr=1)
-    end_range = make_tie_id(direction=north, originator=20, tie_nr=999)
+    end_range = make_tie_id(direction=north, originator=8, tie_nr=999)
     tide_1 = make_tide(sender=999, level=999, start_range=start_range, end_range=end_range)
     tide_header_info_list = [
         # pylint:disable=bad-whitespace
@@ -225,6 +196,128 @@ def test_process_tide():
     for tie_id_info in tie_id_info_list:
         expected_stop_sending_tie_ids.append(make_tie_id(*tie_id_info))
     assert stop_sending_tie_ids == expected_stop_sending_tie_ids
+
+def check_process_tide_2(tdb):
+    # pylint:disable=too-many-locals
     #
-    # TODO: Test processing 2nd TIDE packet
+    # Contents of second TIDE packet:
+    #
+    #                 Direction  Originator  Type    TIE Nr
+    #                 ---------  ----------  ------  ------
+    #   Range start : North      20          Prefix  1
+    #   Range end   : North      100         Prefix  1
+    #
+    #   Note: There is a gap in the end_range of TIDE-1 (North 8 Prefix 999) and the start_range
+    #         of this TIDE-2 (North 20 Prefix  1)
+    #
+    #   Direction  Originator  Type    TIE Nr  Seq Nr  Disposition
+    #   ---------  ----------  ------  ------  ------  --------------------------------------------
+    #   North      21          Prefix  15      5       Newer version than in TIE-DB; request it
+    #
+    north = common.ttypes.TieDirectionType.North
+    start_range = make_tie_id(direction=north, originator=20, tie_nr=1)
+    end_range = make_tie_id(direction=north, originator=100, tie_nr=1)
+    tide_2 = make_tide(sender=666, level=0, start_range=start_range, end_range=end_range)
+    tide_header_info_list = [
+        # pylint:disable=bad-whitespace
+        # Direction  Originator  Tie-Nr  Seq-Nr
+        ( north,     21,         15,     5)]
+    for tide_header_info in tide_header_info_list:
+        add_tie_header_to_tide(tide_2, *tide_header_info)
+    #
+    # Process the second TIDE packet
+    #
+    result = tdb.process_received_tide_packet(tide_2)
+    (request_tie_ids, start_sending_tie_ids, stop_sending_tie_ids) = result
+    #
+    # Check request_tie_id
+    #
+    expected_request_tie_ids = []
+    tie_id_info_list = [
+        # pylint:disable=bad-whitespace
+        # Direction  Originator  Tie-Nr
+        ( north,     21,         15)]
+    for tie_id_info in tie_id_info_list:
+        expected_request_tie_ids.append(make_tie_id(*tie_id_info))
+    assert request_tie_ids == expected_request_tie_ids
+    #
+    # Check start_sending_tie_ids
+    #
+    expected_start_sending_tie_ids = []
+    tie_id_info_list = [
+        # pylint:disable=bad-whitespace
+        # Direction  Originator  Tie-Nr
+        ( north,     10,         7)]
+    for tie_id_info in tie_id_info_list:
+        expected_start_sending_tie_ids.append(make_tie_id(*tie_id_info))
+    assert start_sending_tie_ids == expected_start_sending_tie_ids
+    #
+    # Check stop_sending_tie_ids
+    #
+    expected_stop_sending_tie_ids = []
+    assert stop_sending_tie_ids == expected_stop_sending_tie_ids
+
+def test_process_tide():
+    # pylint:disable=too-many-locals
+    #
+    # Contents of TIE database when TIDEs are processed:
+    #
+    #   Direction  Originator  Type    TIE Nr  Seq Nr  Disposition
+    #   ---------  ----------  ------  ------  ------  --------------------------------------------
+    #   South      8           Prefix  1       1       In gap before TIDE-1; start sending
+    #   South      10          Prefix  1       2       Not in TIDE-1 (start gap); start sending
+    #   South      10          Prefix  2       5       Not in TIDE-1 (start gap); start sending
+    #   South      10          Prefix  10      10      Same version as in TIDE; stop sending
+    #   South      10          Prefix  12      5       Not in TIDE-1 (middle gap); start sending
+    #   South      10          Prefix  13      3       Older version than in TIDE-1; request it
+    #   North      3           Prefix  15      7       Newer version than in TIDE-1; start sending
+    #   North      4           Prefix  1       1       Not in TIDE-1 (end gap); start sending
+    #   North      10          Prefix  7       6       In TIDE-1...TIDE-2 gap; start sending
+    #   North      21          Prefix  15      3       Older version than in TIDE-2; request it
+    #
+    packet_common.add_missing_methods_to_thrift()
+    tdb = tie_db.TIE_DB()
+    south = common.ttypes.TieDirectionType.South
+    north = common.ttypes.TieDirectionType.North
+    db_tie_info_list = [
+        # pylint:disable=bad-whitespace
+        # Sender  Level  Direction  Originator  Tie-Nr  Seq-Nr
+        ( 999,    999,   south,     8,          1,      1),
+        ( 999,    999,   south,     10,         1,      2),
+        ( 999,    999,   south,     10,         2,      5),
+        ( 777,    7,     south,     10,         10,     10),
+        ( 999,    999,   south,     10,         12,     5),
+        ( 999,    999,   south,     10,         13,     3),
+        ( 999,    999,   north,     3,          15,     7),
+        ( 999,    999,   north,     4,          1,      1),
+        ( 999,    999,   north,     10,         7,      6)]
+    for db_tie_info in db_tie_info_list:
+        db_tie = make_prefix_tie(*db_tie_info)
+        tdb.store_tie(db_tie)
+    #
+    # Test receiving of the first TIDE packet
+    #
+    check_process_tide_1(tdb)
+    #
+    # Test receiving of the second TIDE packet
+    #
+    check_process_tide_2(tdb)
+    # TODO: Test processing 3rd TIDE packet
+    # TODO: Test processing wrap-around
     # TODO: Test errors (not sorted)
+
+
+def test_direction_str():
+    tdb = tie_db.TIE_DB()
+    assert tdb.direction_str(common.ttypes.TieDirectionType.South) == "South"
+    assert tdb.direction_str(common.ttypes.TieDirectionType.North) == "North"
+    assert tdb.direction_str(999) == "999"
+
+def test_tietype_str():
+    tdb = tie_db.TIE_DB()
+    assert tdb.tietype_str(common.ttypes.TIETypeType.NodeTIEType) == "Node"
+    assert tdb.tietype_str(common.ttypes.TIETypeType.PrefixTIEType) == "Prefix"
+    assert tdb.tietype_str(common.ttypes.TIETypeType.TransitivePrefixTIEType) == "TransitivePrefix"
+    assert tdb.tietype_str(common.ttypes.TIETypeType.PGPrefixTIEType) == "PolicyGuidedPrefix"
+    assert tdb.tietype_str(common.ttypes.TIETypeType.KeyValueTIEType) == "KeyValue"
+    assert tdb.tietype_str(888) == "888"
