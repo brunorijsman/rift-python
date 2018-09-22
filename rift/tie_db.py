@@ -47,9 +47,8 @@ class TIE_DB:
             db_ties = self.ties.irange(minimum=self._last_received_tide_end,
                                        maximum=tide_packet.start_range,
                                        inclusive=(True, False))
-            for db_tie in db_ties:
-                # We have a TIE that our neighbor does not have, start sending it
-                start_sending_tie_ids.append(db_tie.content.tie.header.tieid)
+            for db_tie_id in db_ties:
+                start_sending_tie_ids.append(db_tie_id)
         self._last_received_tide_end = tide_packet.end_range
         # The first gap that we need to consider starts at start_range (inclusive)
         last_processed_tie_id = tide_packet.start_range
