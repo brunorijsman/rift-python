@@ -271,7 +271,7 @@ def test_process_tide():
     # processing the gap before TIDE-1 will *not* kick in. We could add code to detect the
     # wrap-around and fix this. However, this is also problematic. For example, if we do that and
     # RIFT receives TIDE-2 before TIDE-1 (e.g. due to a UDP drop or during startup), then this RIFT
-    # will start sending all the TIEs which are reported in TIE-1.
+    # will start sending all the TIEs which are reported in TIDE-1 (which it hasn't seen yet)
     #
     # I suggested to Tony and alternative approach that requires that the ranges in the TIES must
     # be contiguous and collectively (union across all TIEs) must cover the entire TIE-ID space.
