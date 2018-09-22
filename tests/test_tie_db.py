@@ -128,7 +128,8 @@ def test_process_tide():
     #   Direction  Originator  Type    TIE Nr  Seq Nr  Disposition
     #   ---------  ----------  ------  ------  ------  --------------------------------------------
     #   South      10          Prefix  10      10      Same version as in TIDE; stop sending
-    #   South      10          Prefix  20      10      x
+    #   South      10          Prefix  13      3       Older version than in TIDE; request it
+    #   South      10          Prefix  15      7       Newer version than in TIDE; start sending
     #
     packet_common.add_missing_methods_to_thrift()
     tdb = tie_db.TIE_DB()
@@ -138,7 +139,8 @@ def test_process_tide():
         # pylint:disable=bad-whitespace
         # Sender  Level  Direction  Originator  Tie-Nr  Seq-Nr
         ( 999,    999,   south,     10,         10,     10),
-        ( 999,    999,   south,     10,         10,     10)]
+        ( 999,    999,   south,     10,         13,     3),
+        ( 999,    999,   south,     10,         15,     7)]
     for db_tie_info in db_tie_info_list:
         db_tie = make_prefix_tie(*db_tie_info)
         tdb.store_tie(db_tie)
@@ -153,6 +155,9 @@ def test_process_tide():
     #   Direction  Originator  Type    TIE Nr  Seq Nr  Disposition
     #   ---------  ----------  ------  ------  ------  --------------------------------------------
     #   South      10          Prefix  10      10      Same version as in TIE-DB; stop sending
+    #   South      10          Prefix  11      1       Not in TIE-DB; request it
+    #   South      10          Prefix  13      5       Newer version than in TIE-DB; request it
+    #   South      10          Prefix  15      5       Older version than in TIE-DB; start sending
     #
     start_range = make_tie_id(direction=south, originator=10, tie_nr=10)
     end_range = make_tie_id(direction=north, originator=999, tie_nr=999)
@@ -160,7 +165,10 @@ def test_process_tide():
     tide_header_info_list = [
         # pylint:disable=bad-whitespace
         # Direction  Originator  Tie-Nr  Seq-Nr
-        ( south,     10,         10,     10)]
+        ( south,     10,         10,     10),
+        ( south,     10,         11,     1),
+        ( south,     10,         13,     5),
+        ( south,     10,         15,     5)]
     for tide_header_info in tide_header_info_list:
         add_tie_header_to_tide(tide, *tide_header_info)
     #
@@ -172,7 +180,11 @@ def test_process_tide():
     # Check request_tie_id
     #
     expected_request_tie_ids = []
-    tie_id_info_list = []
+    tie_id_info_list = [
+        # pylint:disable=bad-whitespace
+        # Direction  Originator  Tie-Nr
+        ( south,     10,         11),
+        ( south,     10,         13)]
     for tie_id_info in tie_id_info_list:
         expected_request_tie_ids.append(make_tie_id(*tie_id_info))
     assert request_tie_ids == expected_request_tie_ids
@@ -180,7 +192,10 @@ def test_process_tide():
     # Check start_sending_tie_ids
     #
     expected_start_sending_tie_ids = []
-    tie_id_info_list = []
+    tie_id_info_list = [
+        # pylint:disable=bad-whitespace
+        # Direction  Originator  Tie-Nr
+        ( south,     10,         15)]
     for tie_id_info in tie_id_info_list:
         expected_start_sending_tie_ids.append(make_tie_id(*tie_id_info))
     assert start_sending_tie_ids == expected_start_sending_tie_ids
