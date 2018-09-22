@@ -4,6 +4,7 @@ import ipaddress
 import sortedcontainers
 
 import common.ttypes
+import encoding.ttypes
 import table
 
 # TODO: We currently only store the decoded TIE messages.
@@ -16,6 +17,16 @@ class TIE_DB:
 
     def __init__(self):
         self.ties = sortedcontainers.SortedDict()
+        # Statefull record of the end of the range of the most recently received TIDE. This is used
+        # to detect gaps between the range end of one received TIDE and the range beginning of the
+        # next received TIDE, and start sending any TIEs in our TIE DB that fall in that gap.
+        # When we have not yet received any TIDE yet, this is initialized to the lowest possible
+        # TIEID value.
+        self._last_received_tide_end = encoding.ttypes.TIEID(
+            direction=common.ttypes.TieDirectionType.Illegal,
+            originator=0,
+            tietype=common.ttypes.TIETypeType.Illegal,
+            tie_nr=0)
 
     def store_tie(self, tie):
         tie_id = tie.content.tie.header.tieid
@@ -24,17 +35,23 @@ class TIE_DB:
     def find_tie(self, tie_id):
         return self.ties.get(tie_id)
 
-    def find_tie_range(self, start_tid_id_exclusive, end_tie_id_inclusive):
-        return self.ties.irange(minimum=start_tid_id_exclusive,
-                                maximum=end_tie_id_inclusive,
-                                inclusive=(False, True))
-
-    def process_received_tide_packet(self, tide_packet):
+    def process_received_tide_packet(self, protocol_packet):
+        tide_packet = protocol_packet.content.tide
         request_tie_ids = []
         start_sending_tie_ids = []
         stop_sending_tie_ids = []
-        # TODO: ignoring this rule for now:
-        # if TIDE.start_range > LAST_RCVD_TIDE_END then add all headers in TIDE to TXKEYS and then
+        # It is assumed TIDEs are sent and received in increasing order or range. If we observe
+        # a gap between the end of the range of the last TIDE (if any) and the start of the range
+        # of this TIDE, then we must start sending all TIEs in our database that fall in that gap.
+        if tide_packet.start_range > self._last_received_tide_end:
+            db_ties = self.ties.irange(minimum=self._last_received_tide_end,
+                                       maximum=tide_packet.start_range,
+                                       inclusive=(True, False))
+            for db_tie in db_ties:
+                # We have a TIE that our neighbor does not have, start sending it
+                start_sending_tie_ids.append(db_tie.header.tieid)
+        self._last_received_tide_end = tide_packet.end_range
+        # Process the TIDE
         last_processed_tie_id = tide_packet.start_range
         for header_in_tide in tide_packet.headers:
             # Make sure all tie_ids in the TIDE in the range advertised by the TIDE
@@ -46,18 +63,20 @@ class TIE_DB:
             if db_tie is None:
                 # We don't have the TIE, request it
                 request_tie_ids.append(header_in_tide.tieid)
-            elif db_tie.header.seq_nr < header_in_tide.seq_nr:
+            elif db_tie.content.tie.header.seq_nr < header_in_tide.seq_nr:
                 # We have an older version of the TIE, request the newer version
                 request_tie_ids.append(header_in_tide.tieid)
-            elif db_tie.header.seq_nr > header_in_tide.seq_nr:
+            elif db_tie.content.tie.header.seq_nr > header_in_tide.seq_nr:
                 # We have a newer version of the TIE, send it
                 start_sending_tie_ids.append(header_in_tide.tieid)
             else:
-                # db_tie.header.seq_nr == header_in_tide.seq_nr
                 # We have the same version of the TIE, if we are trying to send it, stop it
+                assert db_tie.content.tie.header.seq_nr == header_in_tide.seq_nr
                 stop_sending_tie_ids.append(header_in_tide.tieid)
             # Process the TIEs that we have in our TIE DB but which are missing in the TIDE
-            db_ties = self.find_tie_range(last_processed_tie_id, tide_packet.end_range)
+            db_ties = self.ties.irange(minimum=last_processed_tie_id,
+                                       maximum=tide_packet.end_range,
+                                       inclusive=(False, True))
             for db_tie in db_ties:
                 # We have a TIE that our neighbor does not have, start sending it
                 start_sending_tie_ids.append(db_tie.header.tieid)
@@ -69,15 +88,6 @@ class TIE_DB:
         for tie in self.ties.values():
             tab.add_row(self.cli_summary_attributes(tie))
         return tab
-
-    @staticmethod
-    def cli_summary_headers():
-        return [
-            "Direction",
-            "Originator",
-            "Type",
-            "Nr",
-            "Contents"]
 
     _direction_to_str = {
         common.ttypes.TieDirectionType.South: "South",
@@ -179,6 +189,16 @@ class TIE_DB:
         else:
             return self.unknown_element_str(element)
 
+    @staticmethod
+    def cli_summary_headers():
+        return [
+            "Direction",
+            "Originator",
+            "Type",
+            "TIE Nr",
+            "Seq Nr",
+            "Contents"]
+
     def cli_summary_attributes(self, tie):
         tie_id = tie.content.tie.header.tieid
         return [
@@ -186,5 +206,6 @@ class TIE_DB:
             tie_id.originator,
             self.tietype_str(tie_id.tietype),
             tie_id.tie_nr,
+            tie.content.tie.header.seq_nr,
             self.element_str(tie_id.tietype, tie.content.tie.element)
         ]
