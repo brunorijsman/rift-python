@@ -49,15 +49,25 @@ class TIE_DB:
                                        inclusive=(True, False))
             for db_tie in db_ties:
                 # We have a TIE that our neighbor does not have, start sending it
-                start_sending_tie_ids.append(db_tie.header.tieid)
+                start_sending_tie_ids.append(db_tie.content.tie.header.tieid)
         self._last_received_tide_end = tide_packet.end_range
-        # Process the TIDE
+        # The first gap that we need to consider starts at start_range (inclusive)
         last_processed_tie_id = tide_packet.start_range
+        minimum_inclusive = True   # TODO: Have a special test case for this
+        # Process the TIDE
         for header_in_tide in tide_packet.headers:
             # Make sure all tie_ids in the TIDE in the range advertised by the TIDE
             if header_in_tide.tieid < last_processed_tie_id:
                 # TODO: Handle error (not sorted)
                 assert False
+            # Start/mid-gap processing: send TIEs that are in our TIE DB but missing in TIDE
+            db_ties = self.ties.irange(minimum=last_processed_tie_id,
+                                       maximum=header_in_tide.tieid,
+                                       inclusive=(minimum_inclusive, False))
+            for db_tie_id in db_ties:
+                start_sending_tie_ids.append(db_tie_id)
+            last_processed_tie_id = header_in_tide.tieid
+            minimum_inclusive = False
             # Process all tie_ids in the TIDE
             db_tie = self.find_tie(header_in_tide.tieid)
             if db_tie is None:
@@ -73,17 +83,12 @@ class TIE_DB:
                 # We have the same version of the TIE, if we are trying to send it, stop it
                 assert db_tie.content.tie.header.seq_nr == header_in_tide.seq_nr
                 stop_sending_tie_ids.append(header_in_tide.tieid)
-            # TODO: Wait for Tony's response to e-mail before implementing intra-TIDE gap processing
-            # # Process the TIEs that we have in our TIE DB but which are missing in the TIDE
-            # print("last_processed_tie_id =", last_processed_tie_id) ##@@
-            # print("tide_packet.end_range =", tide_packet.end_range) ##@@
-            # db_ties = self.ties.irange(minimum=last_processed_tie_id,
-            #                            maximum=tide_packet.end_range,
-            #                            inclusive=(False, True))
-            # for db_tie in db_ties:
-            #     print("db_tie =", db_tie)  ##@@
-            #     # We have a TIE that our neighbor does not have, start sending it
-            #     start_sending_tie_ids.append(db_tie.content.tie.header.tieid)
+        # End-gap processing: send TIEs that are in our TIE DB but missing in TIDE
+        db_ties = self.ties.irange(minimum=last_processed_tie_id,
+                                   maximum=tide_packet.end_range,
+                                   inclusive=(minimum_inclusive, True))
+        for db_tie_id in db_ties:
+            start_sending_tie_ids.append(db_tie_id)
         return (request_tie_ids, start_sending_tie_ids, stop_sending_tie_ids)
 
     def tie_db_table(self):

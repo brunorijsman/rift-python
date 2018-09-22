@@ -127,7 +127,10 @@ def test_process_tide():
     #
     #   Direction  Originator  Type    TIE Nr  Seq Nr  Disposition
     #   ---------  ----------  ------  ------  ------  --------------------------------------------
+    #   South      10          Prefix  1       2       Not in TIDE (start gap); start sending
+    #   South      10          Prefix  2       5       Not in TIDE (start gap); start sending
     #   South      10          Prefix  10      10      Same version as in TIDE; stop sending
+    #   South      10          Prefix  12      5       Not in TIDE (middle gap); start sending
     #   South      10          Prefix  13      3       Older version than in TIDE; request it
     #   South      10          Prefix  15      7       Newer version than in TIDE; start sending
     #
@@ -138,7 +141,10 @@ def test_process_tide():
     db_tie_info_list = [
         # pylint:disable=bad-whitespace
         # Sender  Level  Direction  Originator  Tie-Nr  Seq-Nr
+        ( 999,    999,   south,     10,         1,      2),
+        ( 999,    999,   south,     10,         2,      5),
         ( 999,    999,   south,     10,         10,     10),
+        ( 999,    999,   south,     10,         12,     5),
         ( 999,    999,   south,     10,         13,     3),
         ( 999,    999,   south,     10,         15,     7)]
     for db_tie_info in db_tie_info_list:
@@ -159,7 +165,7 @@ def test_process_tide():
     #   South      10          Prefix  13      5       Newer version than in TIE-DB; request it
     #   South      10          Prefix  15      5       Older version than in TIE-DB; start sending
     #
-    start_range = make_tie_id(direction=south, originator=10, tie_nr=10)
+    start_range = make_tie_id(direction=south, originator=10, tie_nr=1)
     end_range = make_tie_id(direction=north, originator=999, tie_nr=999)
     tide = make_tide(sender=999, level=999, start_range=start_range, end_range=end_range)
     tide_header_info_list = [
@@ -195,6 +201,9 @@ def test_process_tide():
     tie_id_info_list = [
         # pylint:disable=bad-whitespace
         # Direction  Originator  Tie-Nr
+        ( south,     10,         1),
+        ( south,     10,         2),
+        ( south,     10,         12),
         ( south,     10,         15)]
     for tie_id_info in tie_id_info_list:
         expected_start_sending_tie_ids.append(make_tie_id(*tie_id_info))
