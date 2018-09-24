@@ -8,6 +8,12 @@ import tie_db
 SOUTH = common.ttypes.TieDirectionType.South
 NORTH = common.ttypes.TieDirectionType.North
 
+REQUEST_MISSING = 1  # TIE-DB is missing a TIE-ID which is reported in TIDE. Request it.
+REQUEST_OLDER = 2    # TIE-DB has older version of TIE-ID than in TIDE. Request it.
+START_EXTRA = 3      # TIE-DB has extra TIE-ID which is not in TIDE. Start sending it.
+START_NEWER = 4      # TIE-DB has newer version of TIE-ID than in TIDE. Start sending it.
+STOP_SAME = 5        # TIE-DB has same version of TIE-ID as in TIDE. Stop sending it.
+
 def make_tie_id(direction, originator, tie_nr):
     # TODO: Add support for TIE types other than prefix
     tie_id = encoding.ttypes.TIEID(
@@ -124,121 +130,71 @@ def test_add_prefix_tie():
             "+-----------+------------+--------+--------+--------+--------------------------+\n")
 
 
-def check_process_tide_1(tdb):
+def tie_ids_with_disposition(disposition_list, filter_dispositions):
+    tie_id_list = []
+    for tide_content in disposition_list:
+        (direction, originator, tie_nr, _seq_nr, disposition) = tide_content
+        if disposition in filter_dispositions:
+            tie_id = make_tie_id(direction, originator, tie_nr)
+            tie_id_list.append(tie_id)
+    return tie_id_list
+
+def check_process_tide_common(tdb, sender, level, start_range, end_range, disposition_list):
     # pylint:disable=too-many-locals
+    # Prepare the TIDE packet
+    tide = make_tide(sender, level, start_range, end_range)
+    for (direction, originator, tie_nr, seq_nr, disposition) in disposition_list:
+        # START_EXTRA refers to a TIE-ID which is only in the TIE-DB and not in the TIDE, so don't
+        # add those.
+        if disposition != START_EXTRA:
+            add_tie_header_to_tide(tide, direction, originator, tie_nr, seq_nr)
+    # Process the TIDE packet
+    result = tdb.process_received_tide_packet(tide)
+    (request_tie_ids, start_sending_tie_ids, stop_sending_tie_ids) = result
+    # Check results
+    assert (tie_ids_with_disposition(disposition_list, [REQUEST_MISSING, REQUEST_OLDER]) ==
+            request_tie_ids)
+    assert (tie_ids_with_disposition(disposition_list, [START_EXTRA, START_NEWER]) ==
+            start_sending_tie_ids)
+    assert (tie_ids_with_disposition(disposition_list, [STOP_SAME]) ==
+            stop_sending_tie_ids)
+
+def check_process_tide_1(tdb):
     start_range = make_tie_id(direction=SOUTH, originator=10, tie_nr=1)
     end_range = make_tie_id(direction=NORTH, originator=8, tie_nr=999)
-    tide_1 = make_tide(sender=999, level=999, start_range=start_range, end_range=end_range)
-    tide_header_info_list = [
+    disposition_list = [
         # pylint:disable=bad-whitespace
         # Direction  Originator  Tie-Nr  Seq-Nr  Disposition
-        ( SOUTH,     10,         10,     10),    # Same version as in TIE-DB; stop sending
-        ( SOUTH,     10,         11,     1),     # Not in TIE-DB; request it
-        ( SOUTH,     10,         13,     5),     # Newer version than in TIE-DB; request it
-        ( NORTH,     3,          15,     5)]     # Older version than in TIE-DB; start sending
-    for tide_header_info in tide_header_info_list:
-        add_tie_header_to_tide(tide_1, *tide_header_info)
-    # Process the first TIDE packet
-    result = tdb.process_received_tide_packet(tide_1)
-    (request_tie_ids, start_sending_tie_ids, stop_sending_tie_ids) = result
-    # Check request_tie_id
-    expected_request_tie_ids = []
-    tie_id_info_list = [
-        # pylint:disable=bad-whitespace
-        # Direction  Originator  Tie-Nr
-        ( SOUTH,     10,         11),
-        ( SOUTH,     10,         13)]
-    for tie_id_info in tie_id_info_list:
-        expected_request_tie_ids.append(make_tie_id(*tie_id_info))
-    assert request_tie_ids == expected_request_tie_ids
-    # Check start_sending_tie_ids
-    expected_start_sending_tie_ids = []
-    tie_id_info_list = [
-        # pylint:disable=bad-whitespace
-        # Direction  Originator  Tie-Nr
-        ( SOUTH,     8,          1),
-        ( SOUTH,     10,         1),
-        ( SOUTH,     10,         2),
-        ( SOUTH,     10,         12),
-        ( NORTH,     3,          15),
-        ( NORTH,     4,          1)]
-    for tie_id_info in tie_id_info_list:
-        expected_start_sending_tie_ids.append(make_tie_id(*tie_id_info))
-    assert start_sending_tie_ids == expected_start_sending_tie_ids
-    # Check stop_sending_tie_ids
-    expected_stop_sending_tie_ids = []
-    tie_id_info_list = [
-        # pylint:disable=bad-whitespace
-        # Direction  Originator  Tie-Nr
-        ( SOUTH,     10,         10)]
-    for tie_id_info in tie_id_info_list:
-        expected_stop_sending_tie_ids.append(make_tie_id(*tie_id_info))
-    assert stop_sending_tie_ids == expected_stop_sending_tie_ids
+        ( SOUTH,     8,          1,      None,   START_EXTRA),
+        ( SOUTH,     10,         1,      None,   START_EXTRA),
+        ( SOUTH,     10,         2,      None,   START_EXTRA),
+        ( SOUTH,     10,         10,     10,     STOP_SAME),
+        ( SOUTH,     10,         11,     1,      REQUEST_MISSING),
+        ( SOUTH,     10,         12,     None,   START_EXTRA),
+        ( SOUTH,     10,         13,     5,      REQUEST_OLDER),
+        ( NORTH,     3,          15,     5,      START_NEWER),
+        ( NORTH,     4,          1,      None,   START_EXTRA)]
+    check_process_tide_common(tdb, 999, 999, start_range, end_range, disposition_list)
 
 def check_process_tide_2(tdb):
-    # pylint:disable=too-many-locals
-    # There is a gap in the end_range of TIDE-1 (North 8 Prefix 999) and the start_range of this
-    # TIDE-2 (North 20 Prefix  1)
     start_range = make_tie_id(direction=NORTH, originator=20, tie_nr=1)
     end_range = make_tie_id(direction=NORTH, originator=100, tie_nr=1)
-    tide_2 = make_tide(sender=666, level=0, start_range=start_range, end_range=end_range)
-    tide_header_info_list = [
+    disposition_list = [
         # pylint:disable=bad-whitespace
         # Direction  Originator  Tie-Nr  Seq-Nr  Disposition
-        ( NORTH,     21,         15,     5)]     # Newer version than in TIE-DB; request it
-    for tide_header_info in tide_header_info_list:
-        add_tie_header_to_tide(tide_2, *tide_header_info)
-    # Process the second TIDE packet
-    result = tdb.process_received_tide_packet(tide_2)
-    (request_tie_ids, start_sending_tie_ids, stop_sending_tie_ids) = result
-    # Check request_tie_id
-    expected_request_tie_ids = []
-    tie_id_info_list = [
-        # pylint:disable=bad-whitespace
-        # Direction  Originator  Tie-Nr
-        ( NORTH,     21,         15)]
-    for tie_id_info in tie_id_info_list:
-        expected_request_tie_ids.append(make_tie_id(*tie_id_info))
-    assert request_tie_ids == expected_request_tie_ids
-    # Check start_sending_tie_ids
-    expected_start_sending_tie_ids = []
-    tie_id_info_list = [
-        # pylint:disable=bad-whitespace
-        # Direction  Originator  Tie-Nr
-        ( NORTH,     10,         7)]
-    for tie_id_info in tie_id_info_list:
-        expected_start_sending_tie_ids.append(make_tie_id(*tie_id_info))
-    assert start_sending_tie_ids == expected_start_sending_tie_ids
-    # Check stop_sending_tie_ids
-    expected_stop_sending_tie_ids = []
-    assert stop_sending_tie_ids == expected_stop_sending_tie_ids
+        ( NORTH,     10,         7,      None,   START_EXTRA),
+        ( NORTH,     21,         15,     5,      REQUEST_OLDER)]
+    check_process_tide_common(tdb, 666, 0, start_range, end_range, disposition_list)
 
 def check_process_tide_3(tdb):
-    # pylint:disable=too-many-locals
-    # There is a gap in the end_range of TIDE-2 (North 100 Prefix 1) and the start_range of this
-    # TIDE-3 (North 200 Prefix  1)
     start_range = make_tie_id(direction=NORTH, originator=200, tie_nr=1)
     end_range = make_tie_id(direction=NORTH, originator=300, tie_nr=1)
-    tide_2 = make_tide(sender=666, level=0, start_range=start_range, end_range=end_range)
-    # Process the second TIDE packet
-    result = tdb.process_received_tide_packet(tide_2)
-    (request_tie_ids, start_sending_tie_ids, stop_sending_tie_ids) = result
-    # Check request_tie_id
-    expected_request_tie_ids = []
-    assert request_tie_ids == expected_request_tie_ids
-    # Check start_sending_tie_ids
-    expected_start_sending_tie_ids = []
-    tie_id_info_list = [
+    disposition_list = [
         # pylint:disable=bad-whitespace
-        # Direction  Originator  Tie-Nr
-        ( NORTH,     110,        40),
-        ( NORTH,     210,        6)]
-    for tie_id_info in tie_id_info_list:
-        expected_start_sending_tie_ids.append(make_tie_id(*tie_id_info))
-    assert start_sending_tie_ids == expected_start_sending_tie_ids
-    # Check stop_sending_tie_ids
-    expected_stop_sending_tie_ids = []
-    assert stop_sending_tie_ids == expected_stop_sending_tie_ids
+        # Direction  Originator  Tie-Nr  Seq-Nr  Disposition
+        ( NORTH,     110,        40,     None,   START_EXTRA),
+        ( NORTH,     210,        6,      None,   START_EXTRA)]
+    check_process_tide_common(tdb, 666, 0, start_range, end_range, disposition_list)
 
 def test_process_tide():
     # pylint:disable=too-many-locals
