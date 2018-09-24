@@ -265,23 +265,9 @@ def test_process_tide():
     check_process_tide_1(tdb)
     check_process_tide_2(tdb)
     check_process_tide_3(tdb)
-    #
-    # ISSUE: If you un-comment the next line, the test will fail. This is because the last received
-    # TIDE is TIDE-3 and the newly received TIDE is TIDE-1. Because TIDE-1 < TIDE-3, the code for
-    # processing the gap before TIDE-1 will *not* kick in. We could add code to detect the
-    # wrap-around and fix this. However, this is also problematic. For example, if we do that and
-    # RIFT receives TIDE-2 before TIDE-1 (e.g. due to a UDP drop or during startup), then this RIFT
-    # will start sending all the TIEs which are reported in TIDE-1 (which it hasn't seen yet)
-    #
-    # I suggested to Tony and alternative approach that requires that the ranges in the TIES must
-    # be contiguous and collectively (union across all TIEs) must cover the entire TIE-ID space.
-    # If we do that, then there would be no need to look for gaps between the TIDEs.
-    #
-    # An alternative approach would be to only start looking for gaps between the TIDEs when each
-    # TIDE has been received at least once. However, it would be a challenge to detect that and
-    # it would probably slow convergence down.
-    #
-    # check_process_tide_1(tdb)  # Wrap-around
+    # Test wrap-around. Finished sending all TIDEs, now send first TIDE again. The key test is
+    # whether the TIE in the TIE-DB in the gap before TIDE-1 is put on the send queue again.
+    check_process_tide_1(tdb)
 
 def test_direction_str():
     tdb = tie_db.TIE_DB()

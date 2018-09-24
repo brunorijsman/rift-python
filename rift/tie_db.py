@@ -15,6 +15,11 @@ import table
 # pylint: disable=invalid-name
 class TIE_DB:
 
+    MIN_TIE_ID = encoding.ttypes.TIEID(direction=common.ttypes.TieDirectionType.Illegal,
+                                       originator=0,
+                                       tietype=common.ttypes.TIETypeType.Illegal,
+                                       tie_nr=0)
+
     def __init__(self):
         self.ties = sortedcontainers.SortedDict()
         # Statefull record of the end of the range of the most recently received TIDE. This is used
@@ -22,11 +27,7 @@ class TIE_DB:
         # next received TIDE, and start sending any TIEs in our TIE DB that fall in that gap.
         # When we have not yet received any TIDE yet, this is initialized to the lowest possible
         # TIEID value.
-        self._last_received_tide_end = encoding.ttypes.TIEID(
-            direction=common.ttypes.TieDirectionType.Illegal,
-            originator=0,
-            tietype=common.ttypes.TIETypeType.Illegal,
-            tie_nr=0)
+        self._last_received_tide_end = self.MIN_TIE_ID
 
     def store_tie(self, tie):
         tie_id = tie.content.tie.header.tieid
@@ -43,7 +44,14 @@ class TIE_DB:
         # It is assumed TIDEs are sent and received in increasing order or range. If we observe
         # a gap between the end of the range of the last TIDE (if any) and the start of the range
         # of this TIDE, then we must start sending all TIEs in our database that fall in that gap.
+        if tide_packet.start_range < self._last_received_tide_end:
+            # The neighbor has wrapped around: it has sent its last TIDE and is not sending the
+            # first TIDE again (look for comment "wrap-around" in test_tie_db.py for an example)
+            # Note - I am not completely happy with this rule since it may lead to unnecessarily
+            # putting TIEs on the send queue if TIDEs are received out of order.
+            self._last_received_tide_end = self.MIN_TIE_ID
         if tide_packet.start_range > self._last_received_tide_end:
+            # There is a gap between the end of the previous TIDE and the start of this TIDE
             db_ties = self.ties.irange(minimum=self._last_received_tide_end,
                                        maximum=tide_packet.start_range,
                                        inclusive=(True, False))
