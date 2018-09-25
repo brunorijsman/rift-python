@@ -1,5 +1,3 @@
-import ipaddress
-
 import common.ttypes
 import encoding.ttypes
 import packet_common
@@ -8,6 +6,12 @@ import tie_db
 SOUTH = common.ttypes.TieDirectionType.South
 NORTH = common.ttypes.TieDirectionType.North
 
+NODE = common.ttypes.TIETypeType.NodeTIEType
+PREFIX = common.ttypes.TIETypeType.PrefixTIEType
+TRANSITIVE_PREFIX = common.ttypes.TIETypeType.TransitivePrefixTIEType
+PG_PREFIX = common.ttypes.TIETypeType.PGPrefixTIEType
+KEY_VALUE = common.ttypes.TIETypeType.KeyValueTIEType
+
 REQUEST_MISSING = 1  # TIE-DB is missing a TIE-ID which is reported in TIDE. Request it.
 REQUEST_OLDER = 2    # TIE-DB has older version of TIE-ID than in TIDE/TIRE. Request it.
 START_EXTRA = 3      # TIE-DB has extra TIE-ID which is not in TIDE. Start sending it.
@@ -15,94 +19,14 @@ START_NEWER = 4      # TIE-DB has newer version of TIE-ID than in TIDE/TIRE. Sta
 STOP_SAME = 5        # TIE-DB has same version of TIE-ID as in TIDE. Stop sending it.
 ACK = 6              # TIE-DB has same version of TIE-ID than in TIRE. Treat it as an ACK.
 
-def make_tie_id(direction, originator, tie_nr):
-    # TODO: Add support for TIE types other than prefix
-    tie_id = encoding.ttypes.TIEID(
-        direction=direction,
-        originator=originator,
-        tietype=common.ttypes.TIETypeType.PrefixTIEType,
-        tie_nr=tie_nr)
-    return tie_id
-
-def make_tie_header(direction, originator, tie_nr, seq_nr):
-    # TODO: Add support for TIE types other than prefix
-    # TODO: Add support for remaining_lifetime
-    # TODO: Add support for origination_time
-    tie_id = make_tie_id(direction, originator, tie_nr)
-    tie_header = encoding.ttypes.TIEHeader(
-        tieid=tie_id,
-        seq_nr=seq_nr,
-        remaining_lifetime=None,
-        origination_time=None)
-    return tie_header
-
-def make_prefix_tie(sender, level, direction, originator, tie_nr, seq_nr):
-    tie_header = make_tie_header(direction, originator, tie_nr, seq_nr)
-    prefixes = {}
-    prefix_tie_element = encoding.ttypes.PrefixTIEElement(prefixes=prefixes)
-    tie_element = encoding.ttypes.TIEElement(prefixes=prefix_tie_element)
-    tie_packet = encoding.ttypes.TIEPacket(header=tie_header, element=tie_element)
-    packet_header = encoding.ttypes.PacketHeader(sender=sender, level=level)
-    packet_content = encoding.ttypes.PacketContent(tie=tie_packet)
-    protocol_packet = encoding.ttypes.ProtocolPacket(header=packet_header, content=packet_content)
-    return protocol_packet
-
-def add_ipv4_prefix_to_tie(protocol_packet, ipv4_prefix_str, metric, tags=None,
-                           monotonic_clock=None):
-    ipv4_network = ipaddress.IPv4Network(ipv4_prefix_str)
-    address = ipv4_network.network_address.packed
-    prefixlen = ipv4_network.prefixlen
-    ipv4_prefix = common.ttypes.IPv4PrefixType(address, prefixlen)
-    prefix = common.ttypes.IPPrefixType(ipv4prefix=ipv4_prefix)
-    attributes = encoding.ttypes.PrefixAttributes(metric=metric,
-                                                  tags=tags,
-                                                  monotonic_clock=monotonic_clock)
-    protocol_packet.content.tie.element.prefixes.prefixes[prefix] = attributes
-
-def add_ipv6_prefix_to_tie(protocol_packet, ipv6_prefix_str, metric, tags=None,
-                           monotonic_clock=None):
-    ipv6_network = ipaddress.IPv6Network(ipv6_prefix_str)
-    address = ipv6_network.network_address.packed
-    prefixlen = ipv6_network.prefixlen
-    ipv6_prefix = common.ttypes.IPv6PrefixType(address, prefixlen)
-    prefix = common.ttypes.IPPrefixType(ipv6prefix=ipv6_prefix)
-    attributes = encoding.ttypes.PrefixAttributes(metric=metric,
-                                                  tags=tags,
-                                                  monotonic_clock=monotonic_clock)
-    protocol_packet.content.tie.element.prefixes.prefixes[prefix] = attributes
-
-def make_tide(sender, level, start_range, end_range):
-    tide_packet = encoding.ttypes.TIDEPacket(start_range=start_range,
-                                             end_range=end_range,
-                                             headers=[])
-    packet_header = encoding.ttypes.PacketHeader(sender=sender, level=level)
-    packet_content = encoding.ttypes.PacketContent(tide=tide_packet)
-    protocol_packet = encoding.ttypes.ProtocolPacket(header=packet_header, content=packet_content)
-    return protocol_packet
-
-def add_tie_header_to_tide(protocol_packet, direction, originator, tie_nr, seq_nr):
-    tie_header = make_tie_header(direction, originator, tie_nr, seq_nr)
-    protocol_packet.content.tide.headers.append(tie_header)
-
-def make_tire(sender, level):
-    tire_packet = encoding.ttypes.TIREPacket(headers=[])
-    packet_header = encoding.ttypes.PacketHeader(sender=sender, level=level)
-    packet_content = encoding.ttypes.PacketContent(tire=tire_packet)
-    protocol_packet = encoding.ttypes.ProtocolPacket(header=packet_header, content=packet_content)
-    return protocol_packet
-
-def add_tie_header_to_tire(protocol_packet, direction, originator, tie_nr, seq_nr):
-    tie_header = make_tie_header(direction, originator, tie_nr, seq_nr)
-    protocol_packet.content.tire.headers.append(tie_header)
-
 def test_tie_key():
     packet_common.add_missing_methods_to_thrift()
-    tie_key_1 = tie_db.TIEKey(make_tie_id(SOUTH, 5, 20), 30)
-    tie_key_2a = tie_db.TIEKey(make_tie_id(SOUTH, 10, 20), 30)
-    tie_key_2b = tie_db.TIEKey(make_tie_id(SOUTH, 10, 20), 30)
-    tie_key_3 = tie_db.TIEKey(make_tie_id(NORTH, 5, 5), 30)
-    tie_key_4 = tie_db.TIEKey(make_tie_id(NORTH, 5, 5), 35)
-    tie_key_5 = tie_db.TIEKey(make_tie_id(NORTH, 5, 5), 40)
+    tie_key_1 = tie_db.TIEKey(packet_common.make_tie_id(SOUTH, 5, PREFIX, 20), 30)
+    tie_key_2a = tie_db.TIEKey(packet_common.make_tie_id(SOUTH, 10, PREFIX, 20), 30)
+    tie_key_2b = tie_db.TIEKey(packet_common.make_tie_id(SOUTH, 10, PREFIX, 20), 30)
+    tie_key_3 = tie_db.TIEKey(packet_common.make_tie_id(NORTH, 5, PREFIX, 5), 30)
+    tie_key_4 = tie_db.TIEKey(packet_common.make_tie_id(NORTH, 5, PREFIX, 5), 35)
+    tie_key_5 = tie_db.TIEKey(packet_common.make_tie_id(NORTH, 5, PREFIX, 5), 40)
     assert hash(tie_key_2a) == hash(tie_key_2b)
     assert tie_key_2a == tie_key_2b
     assert tie_key_1 != tie_key_2a
@@ -117,22 +41,24 @@ def test_tie_key():
 def test_add_prefix_tie():
     packet_common.add_missing_methods_to_thrift()
     tdb = tie_db.TIE_DB()
-    prefix_tie_1 = make_prefix_tie(sender=111,
-                                   level=2,
-                                   direction=common.ttypes.TieDirectionType.South,
-                                   originator=222,
-                                   tie_nr=333,
-                                   seq_nr=444)
-    add_ipv4_prefix_to_tie(prefix_tie_1, "1.2.3.0/24", 2, [77, 88], 12345)
-    add_ipv6_prefix_to_tie(prefix_tie_1, "1234:abcd::/64", 3)
+    prefix_tie_1 = packet_common.make_prefix_tie(
+        sender=111,
+        level=2,
+        direction=common.ttypes.TieDirectionType.South,
+        originator=222,
+        tie_nr=333,
+        seq_nr=444)
+    packet_common.add_ipv4_prefix_to_tie(prefix_tie_1, "1.2.3.0/24", 2, [77, 88], 12345)
+    packet_common.add_ipv6_prefix_to_tie(prefix_tie_1, "1234:abcd::/64", 3)
     tdb.store_tie(prefix_tie_1)
-    prefix_tie_2 = make_prefix_tie(sender=555,
-                                   level=6,
-                                   direction=common.ttypes.TieDirectionType.North,
-                                   originator=777,
-                                   tie_nr=888,
-                                   seq_nr=999)
-    add_ipv4_prefix_to_tie(prefix_tie_2, "0.0.0.0/0", 10)
+    prefix_tie_2 = packet_common.make_prefix_tie(
+        sender=555,
+        level=6,
+        direction=common.ttypes.TieDirectionType.North,
+        originator=777,
+        tie_nr=888,
+        seq_nr=999)
+    packet_common.add_ipv4_prefix_to_tie(prefix_tie_2, "0.0.0.0/0", 10)
     tdb.store_tie(prefix_tie_2)
     assert tdb.find_tie(prefix_tie_1.content.tie.header.tieid) == prefix_tie_1
     assert tdb.find_tie(prefix_tie_2.content.tie.header.tieid) == prefix_tie_2
@@ -165,7 +91,7 @@ def tie_keys_with_disposition(tdb, disposition_list, filter_dispositions):
     tie_keys = []
     for (direction, originator, tie_nr, seq_nr, disposition) in disposition_list:
         if disposition in filter_dispositions:
-            tie_id = make_tie_id(direction, originator, tie_nr)
+            tie_id = packet_common.make_tie_id(direction, originator, PREFIX, tie_nr)
             if disposition in [START_EXTRA, START_NEWER]:
                 seq_nr = tdb.ties[tie_id].content.tie.header.seq_nr
             tie_key = tie_db.TIEKey(tie_id, seq_nr)
@@ -175,12 +101,13 @@ def tie_keys_with_disposition(tdb, disposition_list, filter_dispositions):
 def check_process_tide_common(tdb, sender, level, start_range, end_range, disposition_list):
     # pylint:disable=too-many-locals
     # Prepare the TIDE packet
-    tide = make_tide(sender, level, start_range, end_range)
+    tide = packet_common.make_tide(sender, level, start_range, end_range)
     for (direction, originator, tie_nr, seq_nr, disposition) in disposition_list:
         # START_EXTRA refers to a TIE-ID which is only in the TIE-DB and not in the TIDE, so don't
         # add those.
         if disposition != START_EXTRA:
-            add_tie_header_to_tide(tide, direction, originator, tie_nr, seq_nr)
+            packet_common.add_tie_header_to_tide(tide, direction, originator, PREFIX,
+                                                 tie_nr, seq_nr)
     # Process the TIDE packet
     result = tdb.process_received_tide_packet(tide)
     (request_tie_keys, start_sending_tie_keys, stop_sending_tie_keys) = result
@@ -193,8 +120,8 @@ def check_process_tide_common(tdb, sender, level, start_range, end_range, dispos
             stop_sending_tie_keys)
 
 def check_process_tide_1(tdb):
-    start_range = make_tie_id(direction=SOUTH, originator=10, tie_nr=1)
-    end_range = make_tie_id(direction=NORTH, originator=8, tie_nr=999)
+    start_range = packet_common.make_tie_id(SOUTH, 10, PREFIX, 1)
+    end_range = packet_common.make_tie_id(NORTH, 8, PREFIX, 999)
     disposition_list = [
         # pylint:disable=bad-whitespace
         # Direction  Originator  Tie-Nr  Seq-Nr  Disposition
@@ -210,8 +137,8 @@ def check_process_tide_1(tdb):
     check_process_tide_common(tdb, 999, 999, start_range, end_range, disposition_list)
 
 def check_process_tide_2(tdb):
-    start_range = make_tie_id(direction=NORTH, originator=20, tie_nr=1)
-    end_range = make_tie_id(direction=NORTH, originator=100, tie_nr=1)
+    start_range = packet_common.make_tie_id(NORTH, 20, PREFIX, 1)
+    end_range = packet_common.make_tie_id(NORTH, 100, PREFIX, 1)
     disposition_list = [
         # pylint:disable=bad-whitespace
         # Direction  Originator  Tie-Nr  Seq-Nr  Disposition
@@ -220,8 +147,8 @@ def check_process_tide_2(tdb):
     check_process_tide_common(tdb, 666, 0, start_range, end_range, disposition_list)
 
 def check_process_tide_3(tdb):
-    start_range = make_tie_id(direction=NORTH, originator=200, tie_nr=1)
-    end_range = make_tie_id(direction=NORTH, originator=300, tie_nr=1)
+    start_range = packet_common.make_tie_id(NORTH, 200, PREFIX, 1)
+    end_range = packet_common.make_tie_id(NORTH, 300, PREFIX, 1)
     disposition_list = [
         # pylint:disable=bad-whitespace
         # Direction  Originator  Tie-Nr  Seq-Nr  Disposition
@@ -231,6 +158,7 @@ def check_process_tide_3(tdb):
 
 def test_process_tide():
     # pylint:disable=too-many-locals
+    # TODO: Also have other TIEs than prefix TIEs
     packet_common.add_missing_methods_to_thrift()
     tdb = tie_db.TIE_DB()
     db_tie_info_list = [
@@ -248,8 +176,8 @@ def test_process_tide():
         ( 999,   999,  NORTH,    21,    15,   3),   # Older version than in TIDE-2; request it
         ( 999,   999,  NORTH,    110,   40,   1),   # In TIDE-2...TIDE-3 gap; start sending
         ( 999,   999,  NORTH,    210,   6,    6)]   # Not in TIDE-3 (empty); start sending
-    for db_tie_info in db_tie_info_list:
-        db_tie = make_prefix_tie(*db_tie_info)
+    for (sender, level, direction, originator, tie_nr, seq_nr) in db_tie_info_list:
+        db_tie = packet_common.make_prefix_tie(sender, level, direction, originator, tie_nr, seq_nr)
         tdb.store_tie(db_tie)
     check_process_tide_1(tdb)
     check_process_tide_2(tdb)
@@ -261,9 +189,9 @@ def test_process_tide():
 def check_process_tire_common(tdb, sender, level, disposition_list):
     # pylint:disable=too-many-locals
     # Prepare the TIRE packet
-    tire = make_tire(sender, level)
+    tire = packet_common.make_tire(sender, level)
     for (direction, originator, tie_nr, seq_nr, _disposition) in disposition_list:
-        add_tie_header_to_tire(tire, direction, originator, tie_nr, seq_nr)
+        packet_common.add_tie_header_to_tire(tire, direction, originator, PREFIX, tie_nr, seq_nr)
     # Process the TIRE packet
     result = tdb.process_received_tire_packet(tire)
     (request_tie_keys, start_sending_tie_keys, acked_tie_keys) = result
@@ -296,7 +224,7 @@ def test_process_tire():
         ( 777,   777,  NORTH,    3,     15,   7),   # Newer version than in TIRE; start sending
         ( 999,   999,  NORTH,    4,     1,    8)]   # Same version as in TIRE; ack
     for db_tie_info in db_tie_info_list:
-        db_tie = make_prefix_tie(*db_tie_info)
+        db_tie = packet_common.make_prefix_tie(*db_tie_info)
         tdb.store_tie(db_tie)
     check_process_tire(tdb)
 

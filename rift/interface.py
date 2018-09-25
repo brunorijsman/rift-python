@@ -35,6 +35,8 @@ class Interface:
 
     UNDEFINED_OR_ANY_POD = 0
 
+    SERVICE_QUEUES_INTERVAL = 1.0
+
     def generate_advertised_name(self):
         return self._node.name + '-' + self._interface_name
 
@@ -537,10 +539,16 @@ class Interface:
         self._lie_accept_or_reject_rule = "-"
         self._lie_receive_handler = None
         self._flood_receive_handler = None
+        # TODO: make the queues private
         self.ties_tx = []    # List of TIE keys to transmit
         self.ties_rtx = []   # List of TIE keys to re-transmit, with time to re-transmit
         self.ties_req = []   # List of TIE keys to request
         self.ties_ack = []   # List of TIE keys to acknowledge
+        self._service_queues_timer = timer.Timer(
+            interval=self.SERVICE_QUEUES_INTERVAL,
+            expire_function=self.service_queues,
+            periodic=True,
+            start=True)
         self._fsm = fsm.Fsm(
             definition=self.fsm_definition,
             action_handler=self,
@@ -656,9 +664,9 @@ class Interface:
                 return "ok"
 
     def process_received_tie_packet(self, tie_packet):
+        self.debug(self._rx_log, "Receive TIE packet {}".format(tie_packet))
         # TODO: Finish implementing this
         self._node.tie_db.store_tie(tie_packet)
-        self.debug(self._rx_log, "Receive TIE packet {}".format(tie_packet))
 
     def process_received_tide_packet(self, tide_packet):
         self.debug(self._rx_log, "Receive TIDE packet {}".format(tide_packet))
@@ -766,6 +774,30 @@ class Interface:
             if key.tie_id == tie_id:
                 return key
         return None
+
+    def service_queues(self):
+        # TODO: For now, we have an extremely simplistic send queue service implementation. Once
+        # per second we send all queued messages. Make this more sophisticated.
+        self.service_ties_ack()
+        self.service_ties_tx()
+        self.service_ties_rtx()
+        self.service_ties_req()
+
+    def service_ties_ack(self):
+        ##@@ TODO: implement this
+        pass
+
+    def service_ties_tx(self):
+        ##@@ TODO: implement this
+        pass
+
+    def service_ties_rtx(self):
+        ##@@ TODO: implement this
+        pass
+
+    def service_ties_req(self):
+        ##@@ TODO: implement this
+        pass
 
     @property
     def state_name(self):

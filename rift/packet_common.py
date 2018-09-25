@@ -1,3 +1,5 @@
+import ipaddress
+
 import thrift.protocol.TBinaryProtocol
 import thrift.transport.TTransport
 import common.ttypes
@@ -186,3 +188,82 @@ def fix_prot_packet_before_encode(protocol_packet):
 
 def fix_prot_packet_after_decode(protocol_packet):
     fix_packet_after_decode(protocol_packet, PROTOCOL_PACKET_FIXES)
+
+def make_tie_id(direction, originator, tie_type, tie_nr):
+    tie_id = encoding.ttypes.TIEID(
+        direction=direction,
+        originator=originator,
+        tietype=tie_type,
+        tie_nr=tie_nr)
+    return tie_id
+
+def make_tie_header(direction, originator, tie_type, tie_nr, seq_nr):
+    # TODO: Add support for remaining_lifetime
+    # TODO: Add support for origination_time
+    tie_id = make_tie_id(direction, originator, tie_type, tie_nr)
+    tie_header = encoding.ttypes.TIEHeader(
+        tieid=tie_id,
+        seq_nr=seq_nr,
+        remaining_lifetime=None,
+        origination_time=None)
+    return tie_header
+
+def make_prefix_tie(sender, level, direction, originator, tie_nr, seq_nr):
+    tie_type = common.ttypes.TIETypeType.PrefixTIEType
+    tie_header = make_tie_header(direction, originator, tie_type, tie_nr, seq_nr)
+    prefixes = {}
+    prefix_tie_element = encoding.ttypes.PrefixTIEElement(prefixes=prefixes)
+    tie_element = encoding.ttypes.TIEElement(prefixes=prefix_tie_element)
+    tie_packet = encoding.ttypes.TIEPacket(header=tie_header, element=tie_element)
+    packet_header = encoding.ttypes.PacketHeader(sender=sender, level=level)
+    packet_content = encoding.ttypes.PacketContent(tie=tie_packet)
+    protocol_packet = encoding.ttypes.ProtocolPacket(header=packet_header, content=packet_content)
+    return protocol_packet
+
+def add_ipv4_prefix_to_tie(protocol_packet, ipv4_prefix_str, metric, tags=None,
+                           monotonic_clock=None):
+    ipv4_network = ipaddress.IPv4Network(ipv4_prefix_str)
+    address = ipv4_network.network_address.packed
+    prefixlen = ipv4_network.prefixlen
+    ipv4_prefix = common.ttypes.IPv4PrefixType(address, prefixlen)
+    prefix = common.ttypes.IPPrefixType(ipv4prefix=ipv4_prefix)
+    attributes = encoding.ttypes.PrefixAttributes(metric=metric,
+                                                  tags=tags,
+                                                  monotonic_clock=monotonic_clock)
+    protocol_packet.content.tie.element.prefixes.prefixes[prefix] = attributes
+
+def add_ipv6_prefix_to_tie(protocol_packet, ipv6_prefix_str, metric, tags=None,
+                           monotonic_clock=None):
+    ipv6_network = ipaddress.IPv6Network(ipv6_prefix_str)
+    address = ipv6_network.network_address.packed
+    prefixlen = ipv6_network.prefixlen
+    ipv6_prefix = common.ttypes.IPv6PrefixType(address, prefixlen)
+    prefix = common.ttypes.IPPrefixType(ipv6prefix=ipv6_prefix)
+    attributes = encoding.ttypes.PrefixAttributes(metric=metric,
+                                                  tags=tags,
+                                                  monotonic_clock=monotonic_clock)
+    protocol_packet.content.tie.element.prefixes.prefixes[prefix] = attributes
+
+def make_tide(sender, level, start_range, end_range):
+    tide_packet = encoding.ttypes.TIDEPacket(start_range=start_range,
+                                             end_range=end_range,
+                                             headers=[])
+    packet_header = encoding.ttypes.PacketHeader(sender=sender, level=level)
+    packet_content = encoding.ttypes.PacketContent(tide=tide_packet)
+    protocol_packet = encoding.ttypes.ProtocolPacket(header=packet_header, content=packet_content)
+    return protocol_packet
+
+def add_tie_header_to_tide(protocol_packet, direction, originator, tie_type, tie_nr, seq_nr):
+    tie_header = make_tie_header(direction, originator, tie_type, tie_nr, seq_nr)
+    protocol_packet.content.tide.headers.append(tie_header)
+
+def make_tire(sender, level):
+    tire_packet = encoding.ttypes.TIREPacket(headers=[])
+    packet_header = encoding.ttypes.PacketHeader(sender=sender, level=level)
+    packet_content = encoding.ttypes.PacketContent(tire=tire_packet)
+    protocol_packet = encoding.ttypes.ProtocolPacket(header=packet_header, content=packet_content)
+    return protocol_packet
+
+def add_tie_header_to_tire(protocol_packet, direction, originator, tie_type, tie_nr, seq_nr):
+    tie_header = make_tie_header(direction, originator, tie_type, tie_nr, seq_nr)
+    protocol_packet.content.tire.headers.append(tie_header)
