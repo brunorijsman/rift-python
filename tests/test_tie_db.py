@@ -301,16 +301,15 @@ def test_process_tire():
     check_process_tire(tdb)
 
 def test_direction_str():
-    tdb = tie_db.TIE_DB()
-    assert tdb.direction_str(common.ttypes.TieDirectionType.South) == "South"
-    assert tdb.direction_str(common.ttypes.TieDirectionType.North) == "North"
-    assert tdb.direction_str(999) == "999"
+    assert tie_db.direction_str(common.ttypes.TieDirectionType.South) == "South"
+    assert tie_db.direction_str(common.ttypes.TieDirectionType.North) == "North"
+    assert tie_db.direction_str(999) == "999"
 
 def test_tietype_str():
-    tdb = tie_db.TIE_DB()
-    assert tdb.tietype_str(common.ttypes.TIETypeType.NodeTIEType) == "Node"
-    assert tdb.tietype_str(common.ttypes.TIETypeType.PrefixTIEType) == "Prefix"
-    assert tdb.tietype_str(common.ttypes.TIETypeType.TransitivePrefixTIEType) == "TransitivePrefix"
-    assert tdb.tietype_str(common.ttypes.TIETypeType.PGPrefixTIEType) == "PolicyGuidedPrefix"
-    assert tdb.tietype_str(common.ttypes.TIETypeType.KeyValueTIEType) == "KeyValue"
-    assert tdb.tietype_str(888) == "888"
+    assert tie_db.tietype_str(common.ttypes.TIETypeType.NodeTIEType) == "Node"
+    assert tie_db.tietype_str(common.ttypes.TIETypeType.PrefixTIEType) == "Prefix"
+    assert (tie_db.tietype_str(common.ttypes.TIETypeType.TransitivePrefixTIEType) ==
+            "TransitivePrefix")
+    assert tie_db.tietype_str(common.ttypes.TIETypeType.PGPrefixTIEType) == "PolicyGuidedPrefix"
+    assert tie_db.tietype_str(common.ttypes.TIETypeType.KeyValueTIEType) == "KeyValue"
+    assert tie_db.tietype_str(888) == "888"

@@ -12,6 +12,104 @@ import table
 # - Encode only once, instead of each time the message is sent
 # - Ability to flood the message immediately before it is decoded
 
+DIRECTION_TO_STR = {
+    common.ttypes.TieDirectionType.South: "South",
+    common.ttypes.TieDirectionType.North: "North"
+}
+
+def direction_str(direction):
+    if direction in DIRECTION_TO_STR:
+        return DIRECTION_TO_STR[direction]
+    else:
+        return str(direction)
+
+TIETYPE_TO_STR = {
+    common.ttypes.TIETypeType.NodeTIEType: "Node",
+    common.ttypes.TIETypeType.PrefixTIEType: "Prefix",
+    common.ttypes.TIETypeType.TransitivePrefixTIEType: "TransitivePrefix",
+    common.ttypes.TIETypeType.PGPrefixTIEType: "PolicyGuidedPrefix",
+    common.ttypes.TIETypeType.KeyValueTIEType: "KeyValue"
+}
+
+def ipv4_prefix_str(ipv4_prefix):
+    address = ipv4_prefix.address
+    length = ipv4_prefix.prefixlen
+    return str(ipaddress.IPv4Network((address, length)))
+
+def ipv6_prefix_str(ipv6_prefix):
+    address = ipv6_prefix.address.rjust(16, b"\x00")
+    length = ipv6_prefix.prefixlen
+    return str(ipaddress.IPv6Network((address, length)))
+
+def ip_prefix_str(ip_prefix):
+    assert (ip_prefix.ipv4prefix is None) or (ip_prefix.ipv6prefix is None)
+    assert (ip_prefix.ipv4prefix is not None) or (ip_prefix.ipv6prefix is not None)
+    result = ""
+    if ip_prefix.ipv4prefix:
+        result += ipv4_prefix_str(ip_prefix.ipv4prefix)
+    if ip_prefix.ipv6prefix:
+        result += ipv6_prefix_str(ip_prefix.ipv6prefix)
+    return result
+
+def tietype_str(tietype):
+    if tietype in TIETYPE_TO_STR:
+        return TIETYPE_TO_STR[tietype]
+    else:
+        return str(tietype)
+
+def node_element_str(_element):
+    # TODO: Implement this
+    return "TODO"
+
+def prefix_element_str(element):
+    lines = []
+    sorted_prefixes = sortedcontainers.SortedDict(element.prefixes)
+    for prefix, attributes in sorted_prefixes.items():
+        line = "Prefix: " + ip_prefix_str(prefix)
+        lines.append(line)
+        if attributes:
+            if attributes.metric:
+                line = "  Metric: " + str(attributes.metric)
+                lines.append(line)
+            if attributes.tags:
+                for tag in attributes.tags:
+                    line = "  Tag: " + str(tag)
+                    lines.append(line)
+            if attributes.monotonic_clock:
+                line = "  Monotonic-clock: " + str(attributes.monotonic_clock)
+                lines.append(line)
+    return lines
+
+def transitive_prefix_element_str(_element):
+    # TODO: Implement this
+    return "TODO"
+
+def pg_prefix_element_str(_element):
+    # TODO: Implement this
+    return "TODO"
+
+def key_value_element_str(_element):
+    # TODO: Implement this
+    return "TODO"
+
+def unknown_element_str(_element):
+    # TODO: Implement this
+    return "TODO"
+
+def element_str(tietype, element):
+    if tietype == common.ttypes.TIETypeType.NodeTIEType:
+        return node_element_str(element.node)
+    elif tietype == common.ttypes.TIETypeType.PrefixTIEType:
+        return prefix_element_str(element.prefixes)
+    elif tietype == common.ttypes.TIETypeType.TransitivePrefixTIEType:
+        return transitive_prefix_element_str(element.transitive_prefixes)
+    elif tietype == common.ttypes.TIETypeType.PGPrefixTIEType:
+        return pg_prefix_element_str(element)   # TODO
+    elif tietype == common.ttypes.TIETypeType.KeyValueTIEType:
+        return key_value_element_str(element.keyvalues)
+    else:
+        return unknown_element_str(element)
+
 # The TieKey class is when we need a key (e.g. as an index to a map) to uniquely identify one
 # particular version of a TIE.
 class TIEKey:
@@ -36,6 +134,23 @@ class TIEKey:
         return ("TIEKey(tie_id=TIEID(direction={}, originator={}, tietype={}, tie_nr={}),"
                 " seq_nr={})".format(self.tie_id.direction, self.tie_id.originator,
                                      self.tie_id.tietype, self.tie_id.tie_nr, self.seq_nr))
+
+    @staticmethod
+    def cli_summary_headers():
+        return [
+            "Direction",
+            "Originator",
+            "Type",
+            "TIE-Nr",
+            "Seq-Nr"]
+
+    def cli_summary_attributes(self):
+        return [
+            direction_str(self.tie_id.direction),
+            self.tie_id.originator,
+            tietype_str(self.tie_id.tietype),
+            self.tie_id.tie_nr,
+            self.seq_nr]
 
 # Extend the generated class TIEHeader with a method to extract the key as defined above
 encoding.ttypes.TIEHeader.to_key = (lambda self: TIEKey(self.tieid, self.seq_nr))
@@ -158,106 +273,6 @@ class TIE_DB:
             tab.add_row(self.cli_summary_attributes(tie))
         return tab
 
-    _direction_to_str = {
-        common.ttypes.TieDirectionType.South: "South",
-        common.ttypes.TieDirectionType.North: "North"
-    }
-
-    def direction_str(self, direction):
-        if direction in self._direction_to_str:
-            return self._direction_to_str[direction]
-        else:
-            return str(direction)
-
-    _tietype_to_str = {
-        common.ttypes.TIETypeType.NodeTIEType: "Node",
-        common.ttypes.TIETypeType.PrefixTIEType: "Prefix",
-        common.ttypes.TIETypeType.TransitivePrefixTIEType: "TransitivePrefix",
-        common.ttypes.TIETypeType.PGPrefixTIEType: "PolicyGuidedPrefix",
-        common.ttypes.TIETypeType.KeyValueTIEType: "KeyValue"
-    }
-
-    def tietype_str(self, tietype):
-        if tietype in self._tietype_to_str:
-            return self._tietype_to_str[tietype]
-        else:
-            return str(tietype)
-
-    @staticmethod
-    def ipv4_prefix_str(ipv4_prefix):
-        address = ipv4_prefix.address
-        length = ipv4_prefix.prefixlen
-        return str(ipaddress.IPv4Network((address, length)))
-
-    @staticmethod
-    def ipv6_prefix_str(ipv6_prefix):
-        address = ipv6_prefix.address.rjust(16, b"\x00")
-        length = ipv6_prefix.prefixlen
-        return str(ipaddress.IPv6Network((address, length)))
-
-    def ip_prefix_str(self, ip_prefix):
-        assert (ip_prefix.ipv4prefix is None) or (ip_prefix.ipv6prefix is None)
-        assert (ip_prefix.ipv4prefix is not None) or (ip_prefix.ipv6prefix is not None)
-        result = ""
-        if ip_prefix.ipv4prefix:
-            result += self.ipv4_prefix_str(ip_prefix.ipv4prefix)
-        if ip_prefix.ipv6prefix:
-            result += self.ipv6_prefix_str(ip_prefix.ipv6prefix)
-        return result
-
-    def node_element_str(self, _element):
-        # TODO: Implement this
-        return "TODO"
-
-    def prefix_element_str(self, element):
-        lines = []
-        sorted_prefixes = sortedcontainers.SortedDict(element.prefixes)
-        for prefix, attributes in sorted_prefixes.items():
-            line = "Prefix: " + self.ip_prefix_str(prefix)
-            lines.append(line)
-            if attributes:
-                if attributes.metric:
-                    line = "  Metric: " + str(attributes.metric)
-                    lines.append(line)
-                if attributes.tags:
-                    for tag in attributes.tags:
-                        line = "  Tag: " + str(tag)
-                        lines.append(line)
-                if attributes.monotonic_clock:
-                    line = "  Monotonic-clock: " + str(attributes.monotonic_clock)
-                    lines.append(line)
-        return lines
-
-    def transitive_prefix_element_str(self, _element):
-        # TODO: Implement this
-        return "TODO"
-
-    def pg_prefix_element_str(self, _element):
-        # TODO: Implement this
-        return "TODO"
-
-    def key_value_element_str(self, _element):
-        # TODO: Implement this
-        return "TODO"
-
-    def unknown_element_str(self, _element):
-        # TODO: Implement this
-        return "TODO"
-
-    def element_str(self, tietype, element):
-        if tietype == common.ttypes.TIETypeType.NodeTIEType:
-            return self.node_element_str(element.node)
-        elif tietype == common.ttypes.TIETypeType.PrefixTIEType:
-            return self.prefix_element_str(element.prefixes)
-        elif tietype == common.ttypes.TIETypeType.TransitivePrefixTIEType:
-            return self.transitive_prefix_element_str(element.transitive_prefixes)
-        elif tietype == common.ttypes.TIETypeType.PGPrefixTIEType:
-            return self.pg_prefix_element_str(element)   # TODO
-        elif tietype == common.ttypes.TIETypeType.KeyValueTIEType:
-            return self.key_value_element_str(element.keyvalues)
-        else:
-            return self.unknown_element_str(element)
-
     @staticmethod
     def cli_summary_headers():
         return [
@@ -271,10 +286,10 @@ class TIE_DB:
     def cli_summary_attributes(self, tie):
         tie_id = tie.content.tie.header.tieid
         return [
-            self.direction_str(tie_id.direction),
+            direction_str(tie_id.direction),
             tie_id.originator,
-            self.tietype_str(tie_id.tietype),
+            tietype_str(tie_id.tietype),
             tie_id.tie_nr,
             tie.content.tie.header.seq_nr,
-            self.element_str(tie_id.tietype, tie.content.tie.element)
+            element_str(tie_id.tietype, tie.content.tie.element)
         ]

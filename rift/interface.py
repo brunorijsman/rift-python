@@ -670,8 +670,15 @@ class Interface:
             self.remove_from_all_queues(tie_key)
 
     def process_received_tire_packet(self, tire_packet):
-        # TODO: Implement this
         self.debug(self._rx_log, "Receive TIRE packet {}".format(tire_packet))
+        result = self._node.tie_db.process_received_tire_packet(tire_packet)
+        (request_tie_keys, start_sending_tie_keys, acked_tie_keys) = result
+        for tie_key in start_sending_tie_keys:
+            self.try_to_transmit_tie(tie_key)
+        for tie_key in request_tie_keys:
+            self.request_tie(tie_key)
+        for tie_key in acked_tie_keys:
+            self.tie_been_acked(tie_key)
 
     def is_flood_reduced(self, _tie_key):
         # TODO: Implement this
