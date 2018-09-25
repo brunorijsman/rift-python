@@ -549,6 +549,25 @@ class Node:
         tab = shown_interface.fsm.history_table(verbose)
         cli_session.print(tab.to_string(cli_session.current_end_line()))
 
+    def command_show_intf_queues(self, cli_session, parameters):
+        interface_name = parameters['interface']
+        if not interface_name in self._interfaces:
+            cli_session.print_r("Error: interface {} not present".format(interface_name))
+            return
+        intf = self._interfaces[interface_name]
+        tab = intf.ties_tx_table()
+        cli_session.print_r("Transmit queue:")
+        cli_session.print(tab.to_string(cli_session.current_end_line()))
+        tab = intf.ties_rtx_table()
+        cli_session.print_r("Retransmit queue:")
+        cli_session.print(tab.to_string(cli_session.current_end_line()))
+        tab = intf.ties_req_table()
+        cli_session.print_r("Request queue:")
+        cli_session.print(tab.to_string(cli_session.current_end_line()))
+        tab = intf.ties_ack_table()
+        cli_session.print_r("Acknowledge queue:")
+        cli_session.print(tab.to_string(cli_session.current_end_line()))
+
     def command_show_interface(self, cli_session, parameters):
         interface_name = parameters['interface']
         if not interface_name in self._interfaces:

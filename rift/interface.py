@@ -8,6 +8,8 @@ import fsm
 import neighbor
 import offer
 import packet_common
+import table
+import tie_db
 import timer
 import udp_receive_handler
 import udp_send_handler
@@ -827,3 +829,22 @@ class Interface:
             return self._neighbor.cli_detailed_attributes()
         else:
             return None
+
+    def tie_keys_table_common(self, tie_keys):
+        tab = table.Table()
+        tab.add_row(tie_db.TIEKey.cli_summary_headers())
+        for tie_key in tie_keys:
+            tab.add_row(tie_key.cli_summary_attributes())
+        return tab
+
+    def ties_tx_table(self):
+        return self.tie_keys_table_common(self.ties_tx)
+
+    def ties_rtx_table(self):
+        return self.tie_keys_table_common(self.ties_rtx)
+
+    def ties_req_table(self):
+        return self.tie_keys_table_common(self.ties_req)
+
+    def ties_ack_table(self):
+        return self.tie_keys_table_common(self.ties_ack)

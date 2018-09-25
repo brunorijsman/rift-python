@@ -84,6 +84,9 @@ class Engine:
     def command_show_intf_fsm_vhis(self, cli_session, parameters):
         cli_session.current_node.command_show_intf_fsm_hist(cli_session, parameters, True)
 
+    def command_show_intf_queues(self, cli_session, parameters):
+        cli_session.current_node.command_show_intf_queues(cli_session, parameters)
+
     def command_show_interface(self, cli_session, parameters):
         cli_session.current_node.command_show_interface(cli_session, parameters)
 
@@ -164,7 +167,8 @@ class Engine:
                 "fsm": {
                     "history": command_show_intf_fsm_nvhis,
                     "verbose-history": command_show_intf_fsm_vhis,
-                }
+                },
+                "queues": command_show_intf_queues
             },
             "interfaces": command_show_interfaces,
             "tie-db": command_show_tie_db,
