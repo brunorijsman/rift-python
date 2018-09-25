@@ -535,10 +535,10 @@ class Interface:
         self._lie_accept_or_reject_rule = "-"
         self._lie_receive_handler = None
         self._flood_receive_handler = None
-        self.tie_tx_keys = []    # List of TIE keys to transmit
-        self.tie_rtx_keys = []   # List of TIE keys to re-transmit, with time to re-transmit
-        self.tie_req_keys = []   # List of TIE keys to request
-        self.tie_ack_keys = []   # List of TIE keys to acknowledge
+        self.ties_tx = []    # List of TIE keys to transmit
+        self.ties_rtx = []   # List of TIE keys to re-transmit, with time to re-transmit
+        self.ties_req = []   # List of TIE keys to request
+        self.ties_ack = []   # List of TIE keys to acknowledge
         self._fsm = fsm.Fsm(
             definition=self.fsm_definition,
             action_handler=self,
@@ -679,47 +679,51 @@ class Interface:
 
     def try_to_transmit_tie(self, tie_key):
         if not self.is_flood_filtered(tie_key):
-            self.remove_from_tie_rtx_keys(tie_key)
-            ack_key = self.find_id_in_tie_ack_keys(tie_key.tie_id)
+            self.remove_from_ties_rtx(tie_key)
+            ack_key = self.find_id_in_ties_ack(tie_key.tie_id)
             if ack_key is not None:
                 if ack_key.seq_nr < tie_key.seq_nr:
-                    self.remove_from_tie_ack_keys(ack_key)
-                    self.tie_tx_keys.append(tie_key)
+                    self.remove_from_ties_ack(ack_key)
+                    self.ties_tx.append(tie_key)
             else:
-                self.tie_tx_keys.append(tie_key)
+                self.ties_tx.append(tie_key)
 
     def request_tie(self, tie_key):
         # TODO: Implement this
         pass
 
-    def remove_from_tie_tx_keys(self, tie_key):
+    def remove_from_ties_tx(self, tie_key):
         try:
-            self.tie_tx_keys.remove(tie_key)
+            self.ties_tx.remove(tie_key)
         except ValueError:
             pass
 
-    def remove_from_tie_rtx_keys(self, tie_key):
+    def remove_from_ties_rtx(self, tie_key):
         try:
-            self.tie_rtx_keys.remove(tie_key)
+            self.ties_rtx.remove(tie_key)
         except ValueError:
             pass
 
-    def remove_from_tie_req_keys(self, _tie_key):
-        # TODO: Implement this
-        pass
+    def remove_from_ties_req(self, tie_key):
+        try:
+            self.ties_req.remove(tie_key)
+        except ValueError:
+            pass
 
-    def remove_from_tie_ack_keys(self, _tie_key):
-        # TODO: Implement this
-        pass
+    def remove_from_ties_ack(self, tie_key):
+        try:
+            self.ties_ack.remove(tie_key)
+        except ValueError:
+            pass
 
     def remove_from_all_queues(self, tie_key):
-        self.remove_from_tie_tx_keys(tie_key)
-        self.remove_from_tie_rtx_keys(tie_key)
-        self.remove_from_tie_req_keys(tie_key)
-        self.remove_from_tie_ack_keys(tie_key)
+        self.remove_from_ties_tx(tie_key)
+        self.remove_from_ties_rtx(tie_key)
+        self.remove_from_ties_req(tie_key)
+        self.remove_from_ties_ack(tie_key)
 
-    def find_id_in_tie_ack_keys(self, tie_id):
-        for key in self.tie_ack_keys:
+    def find_id_in_ties_ack(self, tie_id):
+        for key in self.ties_ack:
             if key.tie_id == tie_id:
                 return key
         return None

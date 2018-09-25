@@ -12,7 +12,6 @@ import table
 # - Encode only once, instead of each time the message is sent
 # - Ability to flood the message immediately before it is decoded
 
-
 # The TieKey class is when we need a key (e.g. as an index to a map) to uniquely identify one
 # particular version of a TIE.
 class TIEKey:
