@@ -12,6 +12,34 @@ import table
 # - Encode only once, instead of each time the message is sent
 # - Ability to flood the message immediately before it is decoded
 
+
+# The TieKey class is when we need a key (e.g. as an index to a map) to uniquely identify one
+# particular version of a TIE.
+class TIEKey:
+
+    def __init__(self, tie_id, seq_nr):
+        self.tie_id = tie_id
+        self.seq_nr = seq_nr
+
+    def tup(self):
+        return (self.tie_id, self.seq_nr)
+
+    def __hash__(self):
+        return hash(self.tup())
+
+    def __eq__(self, other):
+        return self.tup() == other.tup()
+
+    def __lt__(self, other):
+        return self.tup() < other.tup()
+
+    def __repr__(self):
+        lst = ['%s=%r' % (key, value) for key, value in self.__dict__.items()]
+        return '%s(%s)' % (self.__class__.__name__, ', '.join(lst))        
+
+# Extend the generated class TIEHeader with a method to extract the key as defined above
+encoding.ttypes.TIEHeader.to_key = (lambda self: TIEKey(self.tieid, self.seq_nr))
+
 # pylint: disable=invalid-name
 class TIE_DB:
 
@@ -36,11 +64,18 @@ class TIE_DB:
     def find_tie(self, tie_id):
         return self.ties.get(tie_id)
 
+    def start_sending_db_ties_in_range(self, start_sending_tie_keys, start_id, start_incl,
+                                       end_id, end_incl):
+        db_ties = self.ties.irange(start_id, end_id, (start_incl, end_incl))
+        for db_tie_id in db_ties:
+            db_tie = self.ties[db_tie_id]
+            start_sending_tie_keys.append(db_tie.content.tie.header.to_key())
+
     def process_received_tide_packet(self, protocol_packet):
         tide_packet = protocol_packet.content.tide
-        request_tie_ids = []
-        start_sending_tie_ids = []
-        stop_sending_tie_ids = []
+        request_tie_keys = []
+        start_sending_tie_keys = []
+        stop_sending_tie_keys = []
         # It is assumed TIDEs are sent and received in increasing order or range. If we observe
         # a gap between the end of the range of the last TIDE (if any) and the start of the range
         # of this TIDE, then we must start sending all TIEs in our database that fall in that gap.
@@ -52,11 +87,9 @@ class TIE_DB:
             self._last_received_tide_end = self.MIN_TIE_ID
         if tide_packet.start_range > self._last_received_tide_end:
             # There is a gap between the end of the previous TIDE and the start of this TIDE
-            db_ties = self.ties.irange(minimum=self._last_received_tide_end,
-                                       maximum=tide_packet.start_range,
-                                       inclusive=(True, False))
-            for db_tie_id in db_ties:
-                start_sending_tie_ids.append(db_tie_id)
+            self.start_sending_db_ties_in_range(start_sending_tie_keys, 
+                                                self._last_received_tide_end, True, 
+                                                tide_packet.start_range, False)
         self._last_received_tide_end = tide_packet.end_range
         # The first gap that we need to consider starts at start_range (inclusive)
         last_processed_tie_id = tide_packet.start_range
@@ -68,35 +101,31 @@ class TIE_DB:
                 # TODO: Handle error (not sorted)
                 assert False
             # Start/mid-gap processing: send TIEs that are in our TIE DB but missing in TIDE
-            db_ties = self.ties.irange(minimum=last_processed_tie_id,
-                                       maximum=header_in_tide.tieid,
-                                       inclusive=(minimum_inclusive, False))
-            for db_tie_id in db_ties:
-                start_sending_tie_ids.append(db_tie_id)
+            self.start_sending_db_ties_in_range(start_sending_tie_keys, 
+                                                last_processed_tie_id, minimum_inclusive, 
+                                                header_in_tide.tieid, False)
             last_processed_tie_id = header_in_tide.tieid
             minimum_inclusive = False
             # Process all tie_ids in the TIDE
             db_tie = self.find_tie(header_in_tide.tieid)
             if db_tie is None:
                 # We don't have the TIE, request it
-                request_tie_ids.append(header_in_tide.tieid)
+                request_tie_keys.append(header_in_tide.to_key())
             elif db_tie.content.tie.header.seq_nr < header_in_tide.seq_nr:
                 # We have an older version of the TIE, request the newer version
-                request_tie_ids.append(header_in_tide.tieid)
+                request_tie_keys.append(header_in_tide.to_key())
             elif db_tie.content.tie.header.seq_nr > header_in_tide.seq_nr:
                 # We have a newer version of the TIE, send it
-                start_sending_tie_ids.append(header_in_tide.tieid)
+                start_sending_tie_keys.append(db_tie.content.tie.header.to_key())
             else:
                 # We have the same version of the TIE, if we are trying to send it, stop it
                 assert db_tie.content.tie.header.seq_nr == header_in_tide.seq_nr
-                stop_sending_tie_ids.append(header_in_tide.tieid)
+                stop_sending_tie_keys.append(db_tie.content.tie.header.to_key())
         # End-gap processing: send TIEs that are in our TIE DB but missing in TIDE
-        db_ties = self.ties.irange(minimum=last_processed_tie_id,
-                                   maximum=tide_packet.end_range,
-                                   inclusive=(minimum_inclusive, True))
-        for db_tie_id in db_ties:
-            start_sending_tie_ids.append(db_tie_id)
-        return (request_tie_ids, start_sending_tie_ids, stop_sending_tie_ids)
+        self.start_sending_db_ties_in_range(start_sending_tie_keys, 
+                                            last_processed_tie_id, minimum_inclusive, 
+                                            tide_packet.end_range, True)
+        return (request_tie_keys, start_sending_tie_keys, stop_sending_tie_keys)
 
     def tie_db_table(self):
         tab = table.Table()

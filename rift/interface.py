@@ -535,6 +535,10 @@ class Interface:
         self._lie_accept_or_reject_rule = "-"
         self._lie_receive_handler = None
         self._flood_receive_handler = None
+        self.tie_tx_ids = []     # List of TIE IDs to transmit
+        self.tie_rtx_ids = []    # List of TIE IDs to re-transmit, with time to re-transmit
+        self.tie_req_keys = []   # List of TIE keys to request
+        self.tie_ack_keys = []   # List of TIE keys to acknowledge
         self._fsm = fsm.Fsm(
             definition=self.fsm_definition,
             action_handler=self,
@@ -649,12 +653,86 @@ class Interface:
             else:
                 return "ok"
 
+    def process_received_tie_packet(self, tie_packet):
+        # TODO: Finish implementing this
+        self._node.tie_db.store_tie(tie_packet)
+        self.debug(self._rx_log, "Receive TIE packet {}".format(tie_packet))
+
+    def process_received_tide_packet(self, tide_packet):
+        self.debug(self._rx_log, "Receive TIDE packet {}".format(tide_packet))
+        result = self._node.tie_db.process_received_tide_packet(tide_packet)
+        (request_tie_keys, start_sending_tie_ids, stop_sending_tie_ids) = result
+        for tie_id in start_sending_tie_ids:
+            self.try_to_transmit_tie(tie_id)
+        for tie_key in request_tie_keys:
+            self.request_tie(tie_key)
+        for tie_id in stop_sending_tie_ids:
+            self.remove_from_all_queues(tie_id)
+
+    def process_received_tire_packet(self, tire_packet):
+        # TODO: Implement this
+        self.debug(self._rx_log, "Receive TIRE packet {}".format(tire_packet))
+
+    def is_flood_filtered(self, _tie_id):
+        # TODO: Implement this
+        return False
+
+    def try_to_transmit_tie(self, tie_id):
+        if not self.is_flood_filtered(tie_id):
+            self.remove_id_from_tie_rtx_ids(tie_id)
+            ack_key = self.find_id_in_tie_ack_keys(tie_id)
+            if ack_key is not None:
+                if ack_key.seq_nr < tie_key.seq_nr:
+                    self.remove_id_from_tie_ack_keys(tie_id)
+                    self.tie_tx_ids.append(tie_id)
+            else:
+                self.tie_tx_ids.append(tie_id)
+
+    def request_tie(self, tie_key):
+        ##@@ TODO: Implement this
+        pass
+
+    def remove_id_from_tie_tx_ids(self, tie_id):
+        try:
+            self.tie_tx_ids.remove(tie_id)
+        except ValueError:
+            pass
+
+    def remove_id_from_tie_rtx_ids(self, tie_id):
+        try:
+            self.tie_rtx_ids.remove(tie_id)
+        except ValueError:
+            pass
+
+    def remove_id_from_tie_req_keys(self, _tie_id):
+        pass
+
+
+    def find_id_in_tie_ack_keys(self, tie_id):
+        for key in self.tie_ack_keys:
+            if key.tie_id == tie_id:
+                return key
+        return None
+
+    def remove_id_from_tie_ack_keys(self, _tie_id):
+        pass
+
+    def remove_from_all_queues(self, tie_id):
+        self.remove_id_from_tie_tx_ids(tie_id)
+        self.remove_id_from_tie_rtx_ids(tie_id)
+        self.remove_id_from_tie_req_keys(tie_id)
+        self.remove_id_from_tie_ack_keys(tie_id)
+
     @property
     def state_name(self):
         if self._fsm.state is None:
             return ""
         else:
             return self._fsm.state.name
+
+    @property
+    def fsm(self):
+        return self._fsm
 
     @staticmethod
     def cli_summary_headers():
@@ -707,24 +785,3 @@ class Interface:
             return self._neighbor.cli_detailed_attributes()
         else:
             return None
-
-    @property
-    def fsm(self):
-        return self._fsm
-
-    # TODO: All TIE, TIDE, and TIRE packets are currently handled outside the context of any FSM.
-    # The spec says an FSM will be defined in the future; revisit this once that happens.
-
-    def process_received_tie_packet(self, tie_packet):
-        # TODO: Finish implementing this
-        self._node.tie_db.store_tie(tie_packet)
-        self.debug(self._rx_log, "Receive TIE packet {}".format(tie_packet))
-
-    def process_received_tide_packet(self, tide_packet):
-        self.debug(self._rx_log, "Receive TIDE packet {}".format(tide_packet))
-        ##@@ CONTINUE HERE
-        _ = self._node.tie_db.process_received_tide_packet(tide_packet)
-
-    def process_received_tire_packet(self, tire_packet):
-        # TODO: Implement this
-        self.debug(self._rx_log, "Receive TIRE packet {}".format(tire_packet))

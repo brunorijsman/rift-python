@@ -83,6 +83,23 @@ def add_tie_header_to_tide(protocol_packet, direction, originator, tie_nr, seq_n
     tie_header = make_tie_header(direction, originator, tie_nr, seq_nr)
     protocol_packet.content.tide.headers.append(tie_header)
 
+def test_tie_key():
+    packet_common.add_missing_methods_to_thrift()
+    tie_key_1 = tie_db.TIEKey(make_tie_id(SOUTH, 5, 20), 30)
+    tie_key_2a = tie_db.TIEKey(make_tie_id(SOUTH, 10, 20), 30)
+    tie_key_2b = tie_db.TIEKey(make_tie_id(SOUTH, 10, 20), 30)
+    tie_key_3 = tie_db.TIEKey(make_tie_id(NORTH, 5, 5), 30)
+    tie_key_4 = tie_db.TIEKey(make_tie_id(NORTH, 5, 5), 35)
+    tie_key_5 = tie_db.TIEKey(make_tie_id(NORTH, 5, 5), 40)
+    assert hash(tie_key_2a) == hash(tie_key_2b)
+    assert tie_key_2a == tie_key_2b
+    assert tie_key_1 != tie_key_2a
+    assert tie_key_1 < tie_key_2a
+    assert tie_key_2a < tie_key_3
+    assert tie_key_3 < tie_key_4
+    assert tie_key_4 < tie_key_5
+    assert tie_key_2a > tie_key_1
+
 def test_add_prefix_tie():
     packet_common.add_missing_methods_to_thrift()
     tdb = tie_db.TIE_DB()
@@ -130,14 +147,16 @@ def test_add_prefix_tie():
             "+-----------+------------+--------+--------+--------+--------------------------+\n")
 
 
-def tie_ids_with_disposition(disposition_list, filter_dispositions):
-    tie_id_list = []
-    for tide_content in disposition_list:
-        (direction, originator, tie_nr, _seq_nr, disposition) = tide_content
+def tie_keys_with_disposition(tdb, disposition_list, filter_dispositions):
+    tie_keys = []
+    for (direction, originator, tie_nr, seq_nr, disposition) in disposition_list:
         if disposition in filter_dispositions:
             tie_id = make_tie_id(direction, originator, tie_nr)
-            tie_id_list.append(tie_id)
-    return tie_id_list
+            if disposition in [START_EXTRA, START_NEWER]:
+                seq_nr = tdb.ties[tie_id].content.tie.header.seq_nr
+            tie_key = tie_db.TIEKey(tie_id, seq_nr)
+            tie_keys.append(tie_key)
+    return tie_keys
 
 def check_process_tide_common(tdb, sender, level, start_range, end_range, disposition_list):
     # pylint:disable=too-many-locals
@@ -150,14 +169,14 @@ def check_process_tide_common(tdb, sender, level, start_range, end_range, dispos
             add_tie_header_to_tide(tide, direction, originator, tie_nr, seq_nr)
     # Process the TIDE packet
     result = tdb.process_received_tide_packet(tide)
-    (request_tie_ids, start_sending_tie_ids, stop_sending_tie_ids) = result
+    (request_tie_keys, start_sending_tie_keys, stop_sending_tie_keys) = result
     # Check results
-    assert (tie_ids_with_disposition(disposition_list, [REQUEST_MISSING, REQUEST_OLDER]) ==
-            request_tie_ids)
-    assert (tie_ids_with_disposition(disposition_list, [START_EXTRA, START_NEWER]) ==
-            start_sending_tie_ids)
-    assert (tie_ids_with_disposition(disposition_list, [STOP_SAME]) ==
-            stop_sending_tie_ids)
+    assert (tie_keys_with_disposition(tdb, disposition_list, [REQUEST_MISSING, REQUEST_OLDER]) ==
+            request_tie_keys)
+    assert (tie_keys_with_disposition(tdb, disposition_list, [START_EXTRA, START_NEWER]) ==
+            start_sending_tie_keys)
+    assert (tie_keys_with_disposition(tdb, disposition_list, [STOP_SAME]) ==
+            stop_sending_tie_keys)
 
 def check_process_tide_1(tdb):
     start_range = make_tie_id(direction=SOUTH, originator=10, tie_nr=1)
