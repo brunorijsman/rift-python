@@ -35,7 +35,7 @@ class TIEKey:
 
     def __repr__(self):
         lst = ['%s=%r' % (key, value) for key, value in self.__dict__.items()]
-        return '%s(%s)' % (self.__class__.__name__, ', '.join(lst))        
+        return '%s(%s)' % (self.__class__.__name__, ', '.join(lst))
 
 # Extend the generated class TIEHeader with a method to extract the key as defined above
 encoding.ttypes.TIEHeader.to_key = (lambda self: TIEKey(self.tieid, self.seq_nr))
@@ -87,8 +87,8 @@ class TIE_DB:
             self._last_received_tide_end = self.MIN_TIE_ID
         if tide_packet.start_range > self._last_received_tide_end:
             # There is a gap between the end of the previous TIDE and the start of this TIDE
-            self.start_sending_db_ties_in_range(start_sending_tie_keys, 
-                                                self._last_received_tide_end, True, 
+            self.start_sending_db_ties_in_range(start_sending_tie_keys,
+                                                self._last_received_tide_end, True,
                                                 tide_packet.start_range, False)
         self._last_received_tide_end = tide_packet.end_range
         # The first gap that we need to consider starts at start_range (inclusive)
@@ -101,8 +101,8 @@ class TIE_DB:
                 # TODO: Handle error (not sorted)
                 assert False
             # Start/mid-gap processing: send TIEs that are in our TIE DB but missing in TIDE
-            self.start_sending_db_ties_in_range(start_sending_tie_keys, 
-                                                last_processed_tie_id, minimum_inclusive, 
+            self.start_sending_db_ties_in_range(start_sending_tie_keys,
+                                                last_processed_tie_id, minimum_inclusive,
                                                 header_in_tide.tieid, False)
             last_processed_tie_id = header_in_tide.tieid
             minimum_inclusive = False
@@ -122,8 +122,8 @@ class TIE_DB:
                 assert db_tie.content.tie.header.seq_nr == header_in_tide.seq_nr
                 stop_sending_tie_keys.append(db_tie.content.tie.header.to_key())
         # End-gap processing: send TIEs that are in our TIE DB but missing in TIDE
-        self.start_sending_db_ties_in_range(start_sending_tie_keys, 
-                                            last_processed_tie_id, minimum_inclusive, 
+        self.start_sending_db_ties_in_range(start_sending_tie_keys,
+                                            last_processed_tie_id, minimum_inclusive,
                                             tide_packet.end_range, True)
         return (request_tie_keys, start_sending_tie_keys, stop_sending_tie_keys)
 

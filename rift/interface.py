@@ -535,8 +535,8 @@ class Interface:
         self._lie_accept_or_reject_rule = "-"
         self._lie_receive_handler = None
         self._flood_receive_handler = None
-        self.tie_tx_ids = []     # List of TIE IDs to transmit
-        self.tie_rtx_ids = []    # List of TIE IDs to re-transmit, with time to re-transmit
+        self.tie_tx_keys = []    # List of TIE keys to transmit
+        self.tie_rtx_keys = []   # List of TIE keys to re-transmit, with time to re-transmit
         self.tie_req_keys = []   # List of TIE keys to request
         self.tie_ack_keys = []   # List of TIE keys to acknowledge
         self._fsm = fsm.Fsm(
@@ -661,67 +661,68 @@ class Interface:
     def process_received_tide_packet(self, tide_packet):
         self.debug(self._rx_log, "Receive TIDE packet {}".format(tide_packet))
         result = self._node.tie_db.process_received_tide_packet(tide_packet)
-        (request_tie_keys, start_sending_tie_ids, stop_sending_tie_ids) = result
-        for tie_id in start_sending_tie_ids:
-            self.try_to_transmit_tie(tie_id)
+        (request_tie_keys, start_sending_tie_keys, stop_sending_tie_keys) = result
+        for tie_key in start_sending_tie_keys:
+            self.try_to_transmit_tie(tie_key)
         for tie_key in request_tie_keys:
             self.request_tie(tie_key)
-        for tie_id in stop_sending_tie_ids:
-            self.remove_from_all_queues(tie_id)
+        for tie_key in stop_sending_tie_keys:
+            self.remove_from_all_queues(tie_key)
 
     def process_received_tire_packet(self, tire_packet):
         # TODO: Implement this
         self.debug(self._rx_log, "Receive TIRE packet {}".format(tire_packet))
 
-    def is_flood_filtered(self, _tie_id):
+    def is_flood_filtered(self, _tie_key):
         # TODO: Implement this
         return False
 
-    def try_to_transmit_tie(self, tie_id):
-        if not self.is_flood_filtered(tie_id):
-            self.remove_id_from_tie_rtx_ids(tie_id)
-            ack_key = self.find_id_in_tie_ack_keys(tie_id)
+    def try_to_transmit_tie(self, tie_key):
+        if not self.is_flood_filtered(tie_key):
+            self.remove_from_tie_rtx_keys(tie_key)
+            ack_key = self.find_id_in_tie_ack_keys(tie_key.tie_id)
             if ack_key is not None:
                 if ack_key.seq_nr < tie_key.seq_nr:
-                    self.remove_id_from_tie_ack_keys(tie_id)
-                    self.tie_tx_ids.append(tie_id)
+                    self.remove_from_tie_ack_keys(ack_key)
+                    self.tie_tx_keys.append(tie_key)
             else:
-                self.tie_tx_ids.append(tie_id)
+                self.tie_tx_keys.append(tie_key)
 
     def request_tie(self, tie_key):
-        ##@@ TODO: Implement this
+        # TODO: Implement this
         pass
 
-    def remove_id_from_tie_tx_ids(self, tie_id):
+    def remove_from_tie_tx_keys(self, tie_key):
         try:
-            self.tie_tx_ids.remove(tie_id)
+            self.tie_tx_keys.remove(tie_key)
         except ValueError:
             pass
 
-    def remove_id_from_tie_rtx_ids(self, tie_id):
+    def remove_from_tie_rtx_keys(self, tie_key):
         try:
-            self.tie_rtx_ids.remove(tie_id)
+            self.tie_rtx_keys.remove(tie_key)
         except ValueError:
             pass
 
-    def remove_id_from_tie_req_keys(self, _tie_id):
+    def remove_from_tie_req_keys(self, _tie_key):
+        # TODO: Implement this
         pass
 
+    def remove_from_tie_ack_keys(self, _tie_key):
+        # TODO: Implement this
+        pass
+
+    def remove_from_all_queues(self, tie_key):
+        self.remove_from_tie_tx_keys(tie_key)
+        self.remove_from_tie_rtx_keys(tie_key)
+        self.remove_from_tie_req_keys(tie_key)
+        self.remove_from_tie_ack_keys(tie_key)
 
     def find_id_in_tie_ack_keys(self, tie_id):
         for key in self.tie_ack_keys:
             if key.tie_id == tie_id:
                 return key
         return None
-
-    def remove_id_from_tie_ack_keys(self, _tie_id):
-        pass
-
-    def remove_from_all_queues(self, tie_id):
-        self.remove_id_from_tie_tx_ids(tie_id)
-        self.remove_id_from_tie_rtx_ids(tie_id)
-        self.remove_id_from_tie_req_keys(tie_id)
-        self.remove_id_from_tie_ack_keys(tie_id)
 
     @property
     def state_name(self):
