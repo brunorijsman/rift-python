@@ -33,8 +33,9 @@ class TIEKey:
         return self.tup() < other.tup()
 
     def __repr__(self):
-        lst = ['%s=%r' % (key, value) for key, value in self.__dict__.items()]
-        return '%s(%s)' % (self.__class__.__name__, ', '.join(lst))
+        return ("TIEKey(tie_id=TIEID(direction={}, originator={}, tietype={}, tie_nr={}),"
+                " seq_nr={})".format(self.tie_id.direction, self.tie_id.originator,
+                                     self.tie_id.tietype, self.tie_id.tie_nr, self.seq_nr))
 
 # Extend the generated class TIEHeader with a method to extract the key as defined above
 encoding.ttypes.TIEHeader.to_key = (lambda self: TIEKey(self.tieid, self.seq_nr))
@@ -72,6 +73,7 @@ class TIE_DB:
 
     def process_received_tide_packet(self, protocol_packet):
         tide_packet = protocol_packet.content.tide
+        assert tide_packet is not None
         request_tie_keys = []
         start_sending_tie_keys = []
         stop_sending_tie_keys = []
@@ -125,6 +127,29 @@ class TIE_DB:
                                             last_processed_tie_id, minimum_inclusive,
                                             tide_packet.end_range, True)
         return (request_tie_keys, start_sending_tie_keys, stop_sending_tie_keys)
+
+    def process_received_tire_packet(self, protocol_packet):
+        tire_packet = protocol_packet.content.tire
+        assert tire_packet is not None
+        request_tie_keys = []
+        start_sending_tie_keys = []
+        acked_tie_keys = []
+        for header_in_tire in tire_packet.headers:
+            db_tie = self.find_tie(header_in_tire.tieid)
+            if db_tie is not None:
+                tire_seq_nr = header_in_tire.seq_nr
+                db_seq_nr = db_tie.content.tie.header.seq_nr
+                if db_seq_nr < tire_seq_nr:
+                    # TIE in TIE-DB is older than TIRE, request newer TIE from neighbor
+                    request_tie_keys.append(header_in_tire.to_key())
+                elif db_seq_nr > tire_seq_nr:
+                    # TIE in TIE-DB is newer than TIRE, send newer TIE to neighbor
+                    start_sending_tie_keys.append(db_tie.content.tie.header.to_key())
+                else:
+                    # TIE in TIE-DB is same version as TIRE, treat it as an ACK
+                    assert db_seq_nr == tire_seq_nr
+                    acked_tie_keys.append(header_in_tire.to_key())
+        return (request_tie_keys, start_sending_tie_keys, acked_tie_keys)
 
     def tie_db_table(self):
         tab = table.Table()

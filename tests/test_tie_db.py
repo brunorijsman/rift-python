@@ -9,10 +9,11 @@ SOUTH = common.ttypes.TieDirectionType.South
 NORTH = common.ttypes.TieDirectionType.North
 
 REQUEST_MISSING = 1  # TIE-DB is missing a TIE-ID which is reported in TIDE. Request it.
-REQUEST_OLDER = 2    # TIE-DB has older version of TIE-ID than in TIDE. Request it.
+REQUEST_OLDER = 2    # TIE-DB has older version of TIE-ID than in TIDE/TIRE. Request it.
 START_EXTRA = 3      # TIE-DB has extra TIE-ID which is not in TIDE. Start sending it.
-START_NEWER = 4      # TIE-DB has newer version of TIE-ID than in TIDE. Start sending it.
+START_NEWER = 4      # TIE-DB has newer version of TIE-ID than in TIDE/TIRE. Start sending it.
 STOP_SAME = 5        # TIE-DB has same version of TIE-ID as in TIDE. Stop sending it.
+ACK = 6              # TIE-DB has same version of TIE-ID than in TIRE. Treat it as an ACK.
 
 def make_tie_id(direction, originator, tie_nr):
     # TODO: Add support for TIE types other than prefix
@@ -83,6 +84,17 @@ def add_tie_header_to_tide(protocol_packet, direction, originator, tie_nr, seq_n
     tie_header = make_tie_header(direction, originator, tie_nr, seq_nr)
     protocol_packet.content.tide.headers.append(tie_header)
 
+def make_tire(sender, level):
+    tire_packet = encoding.ttypes.TIREPacket(headers=[])
+    packet_header = encoding.ttypes.PacketHeader(sender=sender, level=level)
+    packet_content = encoding.ttypes.PacketContent(tire=tire_packet)
+    protocol_packet = encoding.ttypes.ProtocolPacket(header=packet_header, content=packet_content)
+    return protocol_packet
+
+def add_tie_header_to_tire(protocol_packet, direction, originator, tie_nr, seq_nr):
+    tie_header = make_tie_header(direction, originator, tie_nr, seq_nr)
+    protocol_packet.content.tire.headers.append(tie_header)
+
 def test_tie_key():
     packet_common.add_missing_methods_to_thrift()
     tie_key_1 = tie_db.TIEKey(make_tie_id(SOUTH, 5, 20), 30)
@@ -99,6 +111,8 @@ def test_tie_key():
     assert tie_key_3 < tie_key_4
     assert tie_key_4 < tie_key_5
     assert tie_key_2a > tie_key_1
+    assert (str(tie_key_1) ==
+            "TIEKey(tie_id=TIEID(direction=1, originator=5, tietype=3, tie_nr=20), seq_nr=30)")
 
 def test_add_prefix_tie():
     packet_common.add_missing_methods_to_thrift()
@@ -243,6 +257,48 @@ def test_process_tide():
     # Test wrap-around. Finished sending all TIDEs, now send first TIDE again. The key test is
     # whether the TIE in the TIE-DB in the gap before TIDE-1 is put on the send queue again.
     check_process_tide_1(tdb)
+
+def check_process_tire_common(tdb, sender, level, disposition_list):
+    # pylint:disable=too-many-locals
+    # Prepare the TIRE packet
+    tire = make_tire(sender, level)
+    for (direction, originator, tie_nr, seq_nr, _disposition) in disposition_list:
+        add_tie_header_to_tire(tire, direction, originator, tie_nr, seq_nr)
+    # Process the TIRE packet
+    result = tdb.process_received_tire_packet(tire)
+    (request_tie_keys, start_sending_tie_keys, acked_tie_keys) = result
+    # Check results
+    assert (tie_keys_with_disposition(tdb, disposition_list, [REQUEST_OLDER]) ==
+            request_tie_keys)
+    assert (tie_keys_with_disposition(tdb, disposition_list, [START_NEWER]) ==
+            start_sending_tie_keys)
+    assert (tie_keys_with_disposition(tdb, disposition_list, [ACK]) ==
+            acked_tie_keys)
+
+def check_process_tire(tdb):
+    disposition_list = [
+        # pylint:disable=bad-whitespace
+        # Direction  Originator  Tie-Nr  Seq-Nr  Disposition
+        ( SOUTH,     10,         13,     5,      REQUEST_OLDER),
+        ( NORTH,     3,          15,     5,      START_NEWER),
+        ( NORTH,     4,          1,      8,      ACK)]
+    check_process_tire_common(tdb, 999, 999, disposition_list)
+
+def test_process_tire():
+    # pylint:disable=too-many-locals
+    packet_common.add_missing_methods_to_thrift()
+    tdb = tie_db.TIE_DB()
+    db_tie_info_list = [
+        # pylint:disable=bad-whitespace
+        # Sender Level Direction Origin TieNr SeqNr Disposition
+        ( 999,   999,  SOUTH,    10,    13,   3),   # Older version than in TIRE; request it
+        ( 999,   999,  SOUTH,    10,    14,   2),   # Not in TIRE; no action
+        ( 777,   777,  NORTH,    3,     15,   7),   # Newer version than in TIRE; start sending
+        ( 999,   999,  NORTH,    4,     1,    8)]   # Same version as in TIRE; ack
+    for db_tie_info in db_tie_info_list:
+        db_tie = make_prefix_tie(*db_tie_info)
+        tdb.store_tie(db_tie)
+    check_process_tire(tdb)
 
 def test_direction_str():
     tdb = tie_db.TIE_DB()
