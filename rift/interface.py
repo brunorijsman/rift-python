@@ -673,6 +673,14 @@ class Interface:
         # TODO: Implement this
         self.debug(self._rx_log, "Receive TIRE packet {}".format(tire_packet))
 
+    def is_flood_reduced(self, _tie_key):
+        # TODO: Implement this
+        return False
+
+    def is_request_filtered(self, _tie_key):
+        # TODO: Implement this
+        return False
+
     def is_flood_filtered(self, _tie_key):
         # TODO: Implement this
         return False
@@ -683,14 +691,28 @@ class Interface:
             ack_key = self.find_id_in_ties_ack(tie_key.tie_id)
             if ack_key is not None:
                 if ack_key.seq_nr < tie_key.seq_nr:
+                    # ACK for older TIE is in queue, remove ACK from queue and send newer TIE
                     self.remove_from_ties_ack(ack_key)
                     self.ties_tx.append(tie_key)
+                else:
+                    # ACK for newer TIE in in queue, keep ACK and don't send this older TIE
+                    pass
             else:
+                # No ACK in queue, send this TIE
                 self.ties_tx.append(tie_key)
 
-    def request_tie(self, tie_key):
-        # TODO: Implement this
-        pass
+    def ack_tie(self, tie_key):
+        self.remove_from_all_queues(tie_key)
+        self.ties_ack.append(tie_key)
+
+    def tie_been_acked(self, tie_key):
+        self.remove_from_all_queues(tie_key)
+
+    def remove_from_all_queues(self, tie_key):
+        self.remove_from_ties_tx(tie_key)
+        self.remove_from_ties_rtx(tie_key)
+        self.remove_from_ties_req(tie_key)
+        self.remove_from_ties_ack(tie_key)
 
     def remove_from_ties_tx(self, tie_key):
         try:
@@ -716,11 +738,19 @@ class Interface:
         except ValueError:
             pass
 
-    def remove_from_all_queues(self, tie_key):
-        self.remove_from_ties_tx(tie_key)
+    def request_tie(self, tie_key):
+        if not self.is_request_filtered(tie_key):
+            self.remove_from_all_queues(tie_key)
+            self.ties_req.append(tie_key)
+
+    # TODO: Defined in spec, but never invoked
+    def move_to_rtx_queue(self, tie_key):
         self.remove_from_ties_rtx(tie_key)
+        self.ties_rtx.append(tie_key)
+
+    # TODO: Defined in spec, but never invoked
+    def clear_requests(self, tie_key):
         self.remove_from_ties_req(tie_key)
-        self.remove_from_ties_ack(tie_key)
 
     def find_id_in_ties_ack(self, tie_id):
         for key in self.ties_ack:
