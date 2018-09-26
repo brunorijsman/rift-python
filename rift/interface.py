@@ -672,103 +672,103 @@ class Interface:
     def process_received_tide_packet(self, tide_packet):
         self.debug(self._rx_log, "Receive TIDE packet {}".format(tide_packet))
         result = self._node.tie_db.process_received_tide_packet(tide_packet)
-        (request_tie_keys, start_sending_tie_keys, stop_sending_tie_keys) = result
-        for tie_key in start_sending_tie_keys:
-            self.try_to_transmit_tie(tie_key)
-        for tie_key in request_tie_keys:
-            self.request_tie(tie_key)
-        for tie_key in stop_sending_tie_keys:
-            self.remove_from_all_queues(tie_key)
+        (request_tie_headers, start_sending_tie_headers, stop_sending_tie_headers) = result
+        for tie_header in start_sending_tie_headers:
+            self.try_to_transmit_tie(tie_header)
+        for tie_header in request_tie_headers:
+            self.request_tie(tie_header)
+        for tie_header in stop_sending_tie_headers:
+            self.remove_from_all_queues(tie_header)
 
     def process_received_tire_packet(self, tire_packet):
         self.debug(self._rx_log, "Receive TIRE packet {}".format(tire_packet))
         result = self._node.tie_db.process_received_tire_packet(tire_packet)
-        (request_tie_keys, start_sending_tie_keys, acked_tie_keys) = result
-        for tie_key in start_sending_tie_keys:
-            self.try_to_transmit_tie(tie_key)
-        for tie_key in request_tie_keys:
-            self.request_tie(tie_key)
-        for tie_key in acked_tie_keys:
-            self.tie_been_acked(tie_key)
+        (request_tie_headers, start_sending_tie_headers, acked_tie_headers) = result
+        for tie_header in start_sending_tie_headers:
+            self.try_to_transmit_tie(tie_header)
+        for tie_header in request_tie_headers:
+            self.request_tie(tie_header)
+        for tie_header in acked_tie_headers:
+            self.tie_been_acked(tie_header)
 
-    def is_flood_reduced(self, _tie_key):
+    def is_flood_reduced(self, _tie_header):
         # TODO: Implement this
         return False
 
-    def is_request_filtered(self, _tie_key):
+    def is_request_filtered(self, _tie_header):
         # TODO: Implement this
         return False
 
-    def is_flood_filtered(self, _tie_key):
+    def is_flood_filtered(self, _tie_header):
         # TODO: Implement this
         return False
 
-    def try_to_transmit_tie(self, tie_key):
-        if not self.is_flood_filtered(tie_key):
-            self.remove_from_ties_rtx(tie_key)
-            ack_key = self.find_id_in_ties_ack(tie_key.tie_id)
-            if ack_key is not None:
-                if ack_key.seq_nr < tie_key.seq_nr:
+    def try_to_transmit_tie(self, tie_header):
+        if not self.is_flood_filtered(tie_header):
+            self.remove_from_ties_rtx(tie_header)
+            ack_header = self.find_id_in_ties_ack(tie_header.tie_id)
+            if ack_header is not None:
+                if ack_header.seq_nr < tie_header.seq_nr:
                     # ACK for older TIE is in queue, remove ACK from queue and send newer TIE
-                    self.remove_from_ties_ack(ack_key)
-                    self.ties_tx.append(tie_key)
+                    self.remove_from_ties_ack(ack_header)
+                    self.ties_tx.append(tie_header)
                 else:
                     # ACK for newer TIE in in queue, keep ACK and don't send this older TIE
                     pass
             else:
                 # No ACK in queue, send this TIE
-                self.ties_tx.append(tie_key)
+                self.ties_tx.append(tie_header)
 
-    def ack_tie(self, tie_key):
-        self.remove_from_all_queues(tie_key)
-        self.ties_ack.append(tie_key)
+    def ack_tie(self, tie_header):
+        self.remove_from_all_queues(tie_header)
+        self.ties_ack.append(tie_header)
 
-    def tie_been_acked(self, tie_key):
-        self.remove_from_all_queues(tie_key)
+    def tie_been_acked(self, tie_header):
+        self.remove_from_all_queues(tie_header)
 
-    def remove_from_all_queues(self, tie_key):
-        self.remove_from_ties_tx(tie_key)
-        self.remove_from_ties_rtx(tie_key)
-        self.remove_from_ties_req(tie_key)
-        self.remove_from_ties_ack(tie_key)
+    def remove_from_all_queues(self, tie_header):
+        self.remove_from_ties_tx(tie_header)
+        self.remove_from_ties_rtx(tie_header)
+        self.remove_from_ties_req(tie_header)
+        self.remove_from_ties_ack(tie_header)
 
-    def remove_from_ties_tx(self, tie_key):
+    def remove_from_ties_tx(self, tie_header):
         try:
-            self.ties_tx.remove(tie_key)
+            self.ties_tx.remove(tie_header)
         except ValueError:
             pass
 
-    def remove_from_ties_rtx(self, tie_key):
+    def remove_from_ties_rtx(self, tie_header):
         try:
-            self.ties_rtx.remove(tie_key)
+            self.ties_rtx.remove(tie_header)
         except ValueError:
             pass
 
-    def remove_from_ties_req(self, tie_key):
+    def remove_from_ties_req(self, tie_header):
         try:
-            self.ties_req.remove(tie_key)
+            self.ties_req.remove(tie_header)
         except ValueError:
             pass
 
-    def remove_from_ties_ack(self, tie_key):
+    def remove_from_ties_ack(self, tie_header):
         try:
-            self.ties_ack.remove(tie_key)
+            self.ties_ack.remove(tie_header)
         except ValueError:
             pass
 
-    def request_tie(self, tie_key):
-        if not self.is_request_filtered(tie_key):
-            self.remove_from_all_queues(tie_key)
-            self.ties_req.append(tie_key)
+    def request_tie(self, tie_header):
+        if not self.is_request_filtered(tie_header):
+            self.remove_from_all_queues(tie_header)
+            self.ties_req.append(tie_header)
 
     # TODO: Defined in spec, but never invoked
-    def move_to_rtx_queue(self, tie_key):
-        self.remove_from_ties_rtx(tie_key)
-        self.ties_rtx.append(tie_key)
+    def move_to_rtx_queue(self, tie_header):
+        self.remove_from_ties_rtx(tie_header)
+        self.ties_rtx.append(tie_header)
 
     # TODO: Defined in spec, but never invoked
-    def clear_requests(self, tie_key):
-        self.remove_from_ties_req(tie_key)
+    def clear_requests(self, tie_header):
+        self.remove_from_ties_req(tie_header)
 
     def find_id_in_ties_ack(self, tie_id):
         for key in self.ties_ack:
@@ -804,8 +804,8 @@ class Interface:
         tire = packet_common.make_tire(
             sender=self._node.system_id,
             level=self._node.level_value())
-        for tie_key in self.ties_req:
-            packet_common.add_tie_key_to_tire(tire, tie_key)
+        for tie_header in self.ties_req:
+            packet_common.add_tie_header_to_tire(tire, tie_header)
         # TODO: ##@@ on the right port?
         self.send_protocol_packet(tire)
 
@@ -872,21 +872,35 @@ class Interface:
         else:
             return None
 
-    def tie_keys_table_common(self, tie_keys):
+    def tie_headers_table_common(self, tie_headers):
         tab = table.Table()
-        tab.add_row(tie_db.TIEKey.cli_summary_headers())
-        for tie_key in tie_keys:
-            tab.add_row(tie_key.cli_summary_attributes())
+        tab.add_row([
+            "Direction",
+            "Originator",
+            "Type",
+            "TIE Nr",
+            "Seq Nr",
+            ["Remaining", "Lifetime"],
+            ["Origination", "Time"]])
+        for tie_header in tie_headers:
+            # TODO: Move direction_str etc. to packet_common
+            tab.add_row([tie_db.direction_str(tie_header.tieid.direction),
+                         tie_header.tieid.originator,
+                         tie_db.tietype_str(tie_header.tieid.tietype),
+                         tie_header.tieid.tie_nr,
+                         tie_header.seq_nr,
+                         tie_header.remaining_lifetime,
+                         "-"])   # TODO: Report origination_time
         return tab
 
     def ties_tx_table(self):
-        return self.tie_keys_table_common(self.ties_tx)
+        return self.tie_headers_table_common(self.ties_tx)
 
     def ties_rtx_table(self):
-        return self.tie_keys_table_common(self.ties_rtx)
+        return self.tie_headers_table_common(self.ties_rtx)
 
     def ties_req_table(self):
-        return self.tie_keys_table_common(self.ties_req)
+        return self.tie_headers_table_common(self.ties_req)
 
     def ties_ack_table(self):
-        return self.tie_keys_table_common(self.ties_ack)
+        return self.tie_headers_table_common(self.ties_ack)

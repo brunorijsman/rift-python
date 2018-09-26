@@ -110,50 +110,19 @@ def element_str(tietype, element):
     else:
         return unknown_element_str(element)
 
-# The TieKey class is when we need a key (e.g. as an index to a map) to uniquely identify one
-# particular version of a TIE.
-class TIEKey:
+# Extend the generated class TIEHeader with additional methods
+# TODO: add remaining_lifetime
+# TODO: add origination_time
 
-    def __init__(self, tie_id, seq_nr):
-        self.tie_id = tie_id
-        self.seq_nr = seq_nr
+encoding.ttypes.TIEHeader.cli_summary_headers = (
+    lambda self: ["Direction", "Originator", "Type", "TIE-Nr", "Seq-Nr"])
 
-    def tup(self):
-        return (self.tie_id, self.seq_nr)
-
-    def __hash__(self):
-        return hash(self.tup())
-
-    def __eq__(self, other):
-        return self.tup() == other.tup()
-
-    def __lt__(self, other):
-        return self.tup() < other.tup()
-
-    def __repr__(self):
-        return ("TIEKey(tie_id=TIEID(direction={}, originator={}, tietype={}, tie_nr={}),"
-                " seq_nr={})".format(self.tie_id.direction, self.tie_id.originator,
-                                     self.tie_id.tietype, self.tie_id.tie_nr, self.seq_nr))
-
-    @staticmethod
-    def cli_summary_headers():
-        return [
-            "Direction",
-            "Originator",
-            "Type",
-            "TIE-Nr",
-            "Seq-Nr"]
-
-    def cli_summary_attributes(self):
-        return [
-            direction_str(self.tie_id.direction),
-            self.tie_id.originator,
-            tietype_str(self.tie_id.tietype),
-            self.tie_id.tie_nr,
-            self.seq_nr]
-
-# Extend the generated class TIEHeader with a method to extract the key as defined above
-encoding.ttypes.TIEHeader.to_key = (lambda self: TIEKey(self.tieid, self.seq_nr))
+encoding.ttypes.TIEHeader.cli_summary_attributes = (
+    lambda self: [direction_str(self.tie_id.direction),
+                  self.tie_id.originator,
+                  tietype_str(self.tie_id.tietype),
+                  self.tie_id.tie_nr,
+                  self.seq_nr])
 
 # pylint: disable=invalid-name
 class TIE_DB:
@@ -179,19 +148,21 @@ class TIE_DB:
     def find_tie(self, tie_id):
         return self.ties.get(tie_id)
 
-    def start_sending_db_ties_in_range(self, start_sending_tie_keys, start_id, start_incl,
+    def start_sending_db_ties_in_range(self, start_sending_tie_headers, start_id, start_incl,
                                        end_id, end_incl):
         db_ties = self.ties.irange(start_id, end_id, (start_incl, end_incl))
         for db_tie_id in db_ties:
             db_tie = self.ties[db_tie_id]
-            start_sending_tie_keys.append(db_tie.content.tie.header.to_key())
+            # TODO: Decrease TIE lifetime to account for time spent on this router
+            # TODO: Decrease TIE lifetime by at least 1
+            start_sending_tie_headers.append(db_tie.content.tie.header)
 
     def process_received_tide_packet(self, protocol_packet):
         tide_packet = protocol_packet.content.tide
         assert tide_packet is not None
-        request_tie_keys = []
-        start_sending_tie_keys = []
-        stop_sending_tie_keys = []
+        request_tie_headers = []
+        start_sending_tie_headers = []
+        stop_sending_tie_headers = []
         # It is assumed TIDEs are sent and received in increasing order or range. If we observe
         # a gap between the end of the range of the last TIDE (if any) and the start of the range
         # of this TIDE, then we must start sending all TIEs in our database that fall in that gap.
@@ -203,13 +174,13 @@ class TIE_DB:
             self._last_received_tide_end = self.MIN_TIE_ID
         if tide_packet.start_range > self._last_received_tide_end:
             # There is a gap between the end of the previous TIDE and the start of this TIDE
-            self.start_sending_db_ties_in_range(start_sending_tie_keys,
+            self.start_sending_db_ties_in_range(start_sending_tie_headers,
                                                 self._last_received_tide_end, True,
                                                 tide_packet.start_range, False)
         self._last_received_tide_end = tide_packet.end_range
         # The first gap that we need to consider starts at start_range (inclusive)
         last_processed_tie_id = tide_packet.start_range
-        minimum_inclusive = True   # TODO: Have a special test case for this
+        minimum_inclusive = True
         # Process the TIDE
         for header_in_tide in tide_packet.headers:
             # Make sure all tie_ids in the TIDE in the range advertised by the TIDE
@@ -217,7 +188,7 @@ class TIE_DB:
                 # TODO: Handle error (not sorted)
                 assert False
             # Start/mid-gap processing: send TIEs that are in our TIE DB but missing in TIDE
-            self.start_sending_db_ties_in_range(start_sending_tie_keys,
+            self.start_sending_db_ties_in_range(start_sending_tie_headers,
                                                 last_processed_tie_id, minimum_inclusive,
                                                 header_in_tide.tieid, False)
             last_processed_tie_id = header_in_tide.tieid
@@ -226,29 +197,29 @@ class TIE_DB:
             db_tie = self.find_tie(header_in_tide.tieid)
             if db_tie is None:
                 # We don't have the TIE, request it
-                request_tie_keys.append(header_in_tide.to_key())
+                request_tie_headers.append(header_in_tide)
             elif db_tie.content.tie.header.seq_nr < header_in_tide.seq_nr:
                 # We have an older version of the TIE, request the newer version
-                request_tie_keys.append(header_in_tide.to_key())
+                request_tie_headers.append(header_in_tide)
             elif db_tie.content.tie.header.seq_nr > header_in_tide.seq_nr:
                 # We have a newer version of the TIE, send it
-                start_sending_tie_keys.append(db_tie.content.tie.header.to_key())
+                start_sending_tie_headers.append(db_tie.content.tie.header)
             else:
                 # We have the same version of the TIE, if we are trying to send it, stop it
                 assert db_tie.content.tie.header.seq_nr == header_in_tide.seq_nr
-                stop_sending_tie_keys.append(db_tie.content.tie.header.to_key())
+                stop_sending_tie_headers.append(db_tie.content.tie.header)
         # End-gap processing: send TIEs that are in our TIE DB but missing in TIDE
-        self.start_sending_db_ties_in_range(start_sending_tie_keys,
+        self.start_sending_db_ties_in_range(start_sending_tie_headers,
                                             last_processed_tie_id, minimum_inclusive,
                                             tide_packet.end_range, True)
-        return (request_tie_keys, start_sending_tie_keys, stop_sending_tie_keys)
+        return (request_tie_headers, start_sending_tie_headers, stop_sending_tie_headers)
 
     def process_received_tire_packet(self, protocol_packet):
         tire_packet = protocol_packet.content.tire
         assert tire_packet is not None
-        request_tie_keys = []
-        start_sending_tie_keys = []
-        acked_tie_keys = []
+        request_tie_headers = []
+        start_sending_tie_headers = []
+        acked_tie_headers = []
         for header_in_tire in tire_packet.headers:
             db_tie = self.find_tie(header_in_tire.tieid)
             if db_tie is not None:
@@ -256,15 +227,15 @@ class TIE_DB:
                 db_seq_nr = db_tie.content.tie.header.seq_nr
                 if db_seq_nr < tire_seq_nr:
                     # TIE in TIE-DB is older than TIRE, request newer TIE from neighbor
-                    request_tie_keys.append(header_in_tire.to_key())
+                    request_tie_headers.append(header_in_tire)
                 elif db_seq_nr > tire_seq_nr:
                     # TIE in TIE-DB is newer than TIRE, send newer TIE to neighbor
-                    start_sending_tie_keys.append(db_tie.content.tie.header.to_key())
+                    start_sending_tie_headers.append(db_tie.content.tie.header)
                 else:
                     # TIE in TIE-DB is same version as TIRE, treat it as an ACK
                     assert db_seq_nr == tire_seq_nr
-                    acked_tie_keys.append(header_in_tire.to_key())
-        return (request_tie_keys, start_sending_tie_keys, acked_tie_keys)
+                    acked_tie_headers.append(header_in_tire)
+        return (request_tie_headers, start_sending_tie_headers, acked_tie_headers)
 
     def tie_db_table(self):
         tab = table.Table()
@@ -281,6 +252,7 @@ class TIE_DB:
             "Type",
             "TIE Nr",
             "Seq Nr",
+            "Lifetime",
             "Contents"]
 
     def cli_summary_attributes(self, tie):
@@ -291,5 +263,6 @@ class TIE_DB:
             tietype_str(tie_id.tietype),
             tie_id.tie_nr,
             tie.content.tie.header.seq_nr,
+            tie.content.tie.header.remaining_lifetime,
             element_str(tie_id.tietype, tie.content.tie.element)
         ]

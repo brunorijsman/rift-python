@@ -197,20 +197,20 @@ def make_tie_id(direction, originator, tie_type, tie_nr):
         tie_nr=tie_nr)
     return tie_id
 
-def make_tie_header(direction, originator, tie_type, tie_nr, seq_nr):
-    # TODO: Add support for remaining_lifetime
+def make_tie_header(direction, originator, tie_type, tie_nr, seq_nr, lifetime):
     # TODO: Add support for origination_time
     tie_id = make_tie_id(direction, originator, tie_type, tie_nr)
     tie_header = encoding.ttypes.TIEHeader(
         tieid=tie_id,
         seq_nr=seq_nr,
-        remaining_lifetime=None,
+        remaining_lifetime=lifetime,
         origination_time=None)
     return tie_header
 
-def make_prefix_tie(sender, level, direction, originator, tie_nr, seq_nr):
+def make_prefix_tie(sender, level, direction, originator, tie_nr, seq_nr, lifetime):
+    # pylint:disable=too-many-locals
     tie_type = common.ttypes.TIETypeType.PrefixTIEType
-    tie_header = make_tie_header(direction, originator, tie_type, tie_nr, seq_nr)
+    tie_header = make_tie_header(direction, originator, tie_type, tie_nr, seq_nr, lifetime)
     prefixes = {}
     prefix_tie_element = encoding.ttypes.PrefixTIEElement(prefixes=prefixes)
     tie_element = encoding.ttypes.TIEElement(prefixes=prefix_tie_element)
@@ -253,8 +253,7 @@ def make_tide(sender, level, start_range, end_range):
     protocol_packet = encoding.ttypes.ProtocolPacket(header=packet_header, content=packet_content)
     return protocol_packet
 
-def add_tie_header_to_tide(protocol_packet, direction, originator, tie_type, tie_nr, seq_nr):
-    tie_header = make_tie_header(direction, originator, tie_type, tie_nr, seq_nr)
+def add_tie_header_to_tide(protocol_packet, tie_header):
     protocol_packet.content.tide.headers.append(tie_header)
 
 def make_tire(sender, level):
@@ -264,15 +263,5 @@ def make_tire(sender, level):
     protocol_packet = encoding.ttypes.ProtocolPacket(header=packet_header, content=packet_content)
     return protocol_packet
 
-def add_tie_header_to_tire(protocol_packet, direction, originator, tie_type, tie_nr, seq_nr):
-    tie_header = make_tie_header(direction, originator, tie_type, tie_nr, seq_nr)
-    protocol_packet.content.tire.headers.append(tie_header)
-
-def add_tie_key_to_tire(protocol_packet, tie_key):
-    tie_header = make_tie_header(
-        tie_key.tie_id.direction,
-        tie_key.tie_id.originator,
-        tie_key.tie_id.tietype,
-        tie_key.tie_id.tie_nr,
-        tie_key.seq_nr)
+def add_tie_header_to_tire(protocol_packet, tie_header):
     protocol_packet.content.tire.headers.append(tie_header)
