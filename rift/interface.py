@@ -544,11 +544,6 @@ class Interface:
         self.ties_rtx = []   # List of TIE keys to re-transmit, with time to re-transmit
         self.ties_req = []   # List of TIE keys to request
         self.ties_ack = []   # List of TIE keys to acknowledge
-        self._service_queues_timer = timer.Timer(
-            interval=self.SERVICE_QUEUES_INTERVAL,
-            expire_function=self.service_queues,
-            periodic=True,
-            start=True)
         self._fsm = fsm.Fsm(
             definition=self.fsm_definition,
             action_handler=self,
@@ -574,8 +569,14 @@ class Interface:
             receive_function=self.receive_lie_message,
             local_address=self._node.engine.tx_src_address)
         self._flood_receive_handler = None
-        self._one_second_timer = timer.Timer(1.0,
-                                             lambda: self._fsm.push_event(self.Event.TIMER_TICK))
+        self._one_second_timer = timer.Timer(
+            1.0,
+            lambda: self._fsm.push_event(self.Event.TIMER_TICK))
+        self._service_queues_timer = timer.Timer(
+            interval=self.SERVICE_QUEUES_INTERVAL,
+            expire_function=self.service_queues,
+            periodic=True,
+            start=True)
 
     def get_config_attribute(self, config, attribute, default):
         if attribute in config:
@@ -778,10 +779,14 @@ class Interface:
     def service_queues(self):
         # TODO: For now, we have an extremely simplistic send queue service implementation. Once
         # per second we send all queued messages. Make this more sophisticated.
-        self.service_ties_ack()
-        self.service_ties_tx()
-        self.service_ties_rtx()
-        self.service_ties_req()
+        if self.ties_ack:
+            self.service_ties_ack()
+        if self.ties_tx:
+            self.service_ties_tx()
+        if self.ties_rtx:
+            self.service_ties_rtx()
+        if self.ties_req:
+            self.service_ties_req()
 
     def service_ties_ack(self):
         ##@@ TODO: implement this
@@ -796,8 +801,13 @@ class Interface:
         pass
 
     def service_ties_req(self):
-        ##@@ TODO: implement this
-        pass
+        tire = packet_common.make_tire(
+            sender=self._node.system_id,
+            level=self._node.level_value())
+        for tie_key in self.ties_req:
+            packet_common.add_tie_key_to_tire(tire, tie_key)
+        # TODO: ##@@ on the right port?
+        self.send_protocol_packet(tire)
 
     @property
     def state_name(self):

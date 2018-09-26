@@ -267,3 +267,12 @@ def make_tire(sender, level):
 def add_tie_header_to_tire(protocol_packet, direction, originator, tie_type, tie_nr, seq_nr):
     tie_header = make_tie_header(direction, originator, tie_type, tie_nr, seq_nr)
     protocol_packet.content.tire.headers.append(tie_header)
+
+def add_tie_key_to_tire(protocol_packet, tie_key):
+    tie_header = make_tie_header(
+        tie_key.tie_id.direction,
+        tie_key.tie_id.originator,
+        tie_key.tie_id.tietype,
+        tie_key.tie_id.tie_nr,
+        tie_key.seq_nr)
+    protocol_packet.content.tire.headers.append(tie_header)
