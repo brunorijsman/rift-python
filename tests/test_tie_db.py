@@ -81,6 +81,10 @@ def tie_headers_with_disposition(tdb, disposition_list, filter_dispositions):
             if disposition in [START_EXTRA, START_NEWER]:
                 tie_id = packet_common.make_tie_id(direction, originator, PREFIX, tie_nr)
                 seq_nr = tdb.ties[tie_id].content.tie.header.seq_nr
+                lifetime = tdb.ties[tie_id].content.tie.header.remaining_lifetime
+            elif disposition == REQUEST_MISSING:
+                seq_nr = 0
+                lifetime = 0
             tie_header = packet_common.make_tie_header(direction, originator, PREFIX, tie_nr,
                                                        seq_nr, lifetime)
             tie_headers.append(tie_header)
@@ -103,12 +107,15 @@ def check_process_tide_common(tdb, sender, level, start_range, end_range, dispos
     result = tdb.process_received_tide_packet(tide)
     (request_tie_headers, start_sending_tie_headers, stop_sending_tie_headers) = result
     # Check results
-    assert (tie_headers_with_disposition(tdb, disposition_list, [REQUEST_MISSING, REQUEST_OLDER]) ==
-            request_tie_headers)
-    assert (tie_headers_with_disposition(tdb, disposition_list, [START_EXTRA, START_NEWER]) ==
-            start_sending_tie_headers)
-    assert (tie_headers_with_disposition(tdb, disposition_list, [STOP_SAME]) ==
-            stop_sending_tie_headers)
+    compare_header_lists(
+        tie_headers_with_disposition(tdb, disposition_list, [REQUEST_MISSING, REQUEST_OLDER]),
+        request_tie_headers)
+    compare_header_lists(
+        tie_headers_with_disposition(tdb, disposition_list, [START_EXTRA, START_NEWER]),
+        start_sending_tie_headers)
+    compare_header_lists(
+        tie_headers_with_disposition(tdb, disposition_list, [STOP_SAME]),
+        stop_sending_tie_headers)
 
 def check_process_tide_1(tdb):
     start_range = packet_common.make_tie_id(SOUTH, 10, PREFIX, 1)
@@ -178,6 +185,14 @@ def test_process_tide():
     # whether the TIE in the TIE-DB in the gap before TIDE-1 is put on the send queue again.
     check_process_tide_1(tdb)
 
+def compare_header_lists(headers1, headers2):
+    # Order does not matter in comparison. This is maybe not the most efficient way of doing it,
+    # but it makes it easier to debug test failures (most clear error messages)
+    for header in headers1:
+        assert header in headers2
+    for header in headers2:
+        assert header in headers1
+
 def check_process_tire_common(tdb, sender, level, disposition_list):
     # pylint:disable=too-many-locals
     # Prepare the TIRE packet
@@ -190,12 +205,12 @@ def check_process_tire_common(tdb, sender, level, disposition_list):
     result = tdb.process_received_tire_packet(tire)
     (request_tie_headers, start_sending_tie_headers, acked_tie_headers) = result
     # Check results
-    assert (tie_headers_with_disposition(tdb, disposition_list, [REQUEST_OLDER]) ==
-            request_tie_headers)
-    assert (tie_headers_with_disposition(tdb, disposition_list, [START_NEWER]) ==
-            start_sending_tie_headers)
-    assert (tie_headers_with_disposition(tdb, disposition_list, [ACK]) ==
-            acked_tie_headers)
+    compare_header_lists(tie_headers_with_disposition(tdb, disposition_list, [REQUEST_OLDER]),
+                         request_tie_headers)
+    compare_header_lists(tie_headers_with_disposition(tdb, disposition_list, [START_NEWER]),
+                         start_sending_tie_headers)
+    compare_header_lists(tie_headers_with_disposition(tdb, disposition_list, [ACK]),
+                         acked_tie_headers)
 
 def check_process_tire(tdb):
     disposition_list = [

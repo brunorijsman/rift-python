@@ -1,5 +1,4 @@
-# TODO: Replace from...import... with import...
-
+import collections
 import enum
 import random
 
@@ -97,11 +96,19 @@ class Interface:
 
     def action_start_flooding(self):
         rx_flood_port = self._rx_tie_port
-        self.info(self._rx_log, "Start flooding: receive on port {}".format(rx_flood_port))
+        tx_flood_port = self._neighbor.flood_port
+        self.info(self._rx_log, ("Start flooding: receive on port {}, send on port {}"
+                                 .format(rx_flood_port, tx_flood_port)))
+        # TODO: the local addresses below should be the interface address, not the engine addresses
         self._flood_receive_handler = udp_receive_handler.UdpReceiveHandler(
             remote_address=self._neighbor.address,
-            port=self._rx_tie_port,
+            port=rx_flood_port,
             receive_function=self.receive_flood_message,
+            local_address=self._node.engine.tx_src_address)
+        self._flood_send_handler = udp_send_handler.UdpSendHandler(
+            interface_name=self._interface_name,
+            remote_address=self._neighbor.address,
+            port=tx_flood_port,
             local_address=self._node.engine.tx_src_address)
             # TODO: This can't be the interface address since it is per engine
 
@@ -109,14 +116,21 @@ class Interface:
         self.info(self._rx_log, "Stop flooding")
         self._flood_receive_handler.close()
         self._flood_receive_handler = None
+        self._flood_send_handler.close()
+        self._flood_send_handler = None
 
-    def send_protocol_packet(self, protocol_packet):
+    def send_protocol_packet(self, protocol_packet, flood):
+        if flood:
+            handler = self._flood_send_handler
+        else:
+            handler = self._lie_send_handler
+        to_str = "{}:{}".format(handler.remote_address, handler.port)
         if self._tx_fail:
-            self.debug(self._tx_log, "Failed send {}".format(protocol_packet))
+            self.debug(self._tx_log, "Failed send {} to {}".format(protocol_packet, to_str))
         else:
             encoded_protocol_packet = packet_common.encode_protocol_packet(protocol_packet)
-            self._udp_send_handler.send_message(encoded_protocol_packet)
-            self.debug(self._tx_log, "Send {}".format(protocol_packet))
+            handler.send_message(encoded_protocol_packet)
+            self.debug(self._tx_log, "Send {} to {}".format(protocol_packet, to_str))
 
     def action_send_lie(self):
         packet_header = encoding.ttypes.PacketHeader(
@@ -148,7 +162,7 @@ class Interface:
             label=None)
         packet_content = encoding.ttypes.PacketContent(lie=lie_packet)
         protocol_packet = encoding.ttypes.ProtocolPacket(packet_header, packet_content)
-        self.send_protocol_packet(protocol_packet)
+        self.send_protocol_packet(protocol_packet, False)
         tx_offer = offer.TxOffer(
             self._interface_name,
             self._node.system_id,
@@ -539,11 +553,12 @@ class Interface:
         self._lie_accept_or_reject_rule = "-"
         self._lie_receive_handler = None
         self._flood_receive_handler = None
-        # TODO: make the queues private
-        self.ties_tx = []    # List of TIE keys to transmit
-        self.ties_rtx = []   # List of TIE keys to re-transmit, with time to re-transmit
-        self.ties_req = []   # List of TIE keys to request
-        self.ties_ack = []   # List of TIE keys to acknowledge
+        self._flood_send_handler = None
+        self._ties_tx = collections.OrderedDict()
+        # TODO: Add time to retransmit to retransmit queue
+        self._ties_rtx = collections.OrderedDict()
+        self._ties_req = collections.OrderedDict()
+        self._ties_ack = collections.OrderedDict()
         self._fsm = fsm.Fsm(
             definition=self.fsm_definition,
             action_handler=self,
@@ -554,14 +569,14 @@ class Interface:
             self._fsm.start()
 
     def run(self):
-        self._udp_send_handler = udp_send_handler.UdpSendHandler(
+        self._lie_send_handler = udp_send_handler.UdpSendHandler(
             interface_name=self._interface_name,
-            mcast_ipv4_address=self._tx_lie_ipv4_mcast_address,
+            remote_address=self._tx_lie_ipv4_mcast_address,
             port=self._tx_lie_port,
-            interface_ipv4_address=self._node.engine.tx_src_address,
+            local_address=self._node.engine.tx_src_address,
             multicast_loopback=self._node.engine.multicast_loopback)
         # TODO: Use source address
-        (_, source_port) = self._udp_send_handler.source_address_and_port()
+        (_, source_port) = self._lie_send_handler.source_address_and_port()
         self._lie_udp_source_port = source_port
         self._lie_receive_handler = udp_receive_handler.UdpReceiveHandler(
             remote_address=self._rx_lie_ipv4_mcast_address,
@@ -569,6 +584,7 @@ class Interface:
             receive_function=self.receive_lie_message,
             local_address=self._node.engine.tx_src_address)
         self._flood_receive_handler = None
+        self._flood_send_handler = None
         self._one_second_timer = timer.Timer(
             1.0,
             lambda: self._fsm.push_event(self.Event.TIMER_TICK))
@@ -666,11 +682,14 @@ class Interface:
 
     def process_received_tie_packet(self, tie_packet):
         self.debug(self._rx_log, "Receive TIE packet {}".format(tie_packet))
-        # TODO: Finish implementing this
-        self._node.tie_db.store_tie(tie_packet)
+        result = self._node.tie_db.process_received_tie_packet(tie_packet, self._node.system_id)
+        (start_sending_tie_header, ack_tie_header) = result
+        if start_sending_tie_header is not None:
+            self.try_to_transmit_tie(start_sending_tie_header)
+        if ack_tie_header is not None:
+            self.ack_tie(ack_tie_header)
 
     def process_received_tide_packet(self, tide_packet):
-        self.debug(self._rx_log, "Receive TIDE packet {}".format(tide_packet))
         result = self._node.tie_db.process_received_tide_packet(tide_packet)
         (request_tie_headers, start_sending_tie_headers, stop_sending_tie_headers) = result
         for tie_header in start_sending_tie_headers:
@@ -711,17 +730,17 @@ class Interface:
                 if ack_header.seq_nr < tie_header.seq_nr:
                     # ACK for older TIE is in queue, remove ACK from queue and send newer TIE
                     self.remove_from_ties_ack(ack_header)
-                    self.ties_tx.append(tie_header)
+                    self._ties_tx[tie_header.tieid] = tie_header
                 else:
                     # ACK for newer TIE in in queue, keep ACK and don't send this older TIE
                     pass
             else:
                 # No ACK in queue, send this TIE
-                self.ties_tx.append(tie_header)
+                self._ties_tx[tie_header.tieid] = tie_header
 
     def ack_tie(self, tie_header):
         self.remove_from_all_queues(tie_header)
-        self.ties_ack.append(tie_header)
+        self._ties_ack[tie_header.tieid] = tie_header
 
     def tie_been_acked(self, tie_header):
         self.remove_from_all_queues(tie_header)
@@ -734,44 +753,44 @@ class Interface:
 
     def remove_from_ties_tx(self, tie_header):
         try:
-            self.ties_tx.remove(tie_header)
-        except ValueError:
+            del self._ties_tx[tie_header.tieid]
+        except KeyError:
             pass
 
     def remove_from_ties_rtx(self, tie_header):
         try:
-            self.ties_rtx.remove(tie_header)
-        except ValueError:
+            del self._ties_rtx[tie_header.tieid]
+        except KeyError:
             pass
 
     def remove_from_ties_req(self, tie_header):
         try:
-            self.ties_req.remove(tie_header)
-        except ValueError:
+            del self._ties_req[tie_header.tieid]
+        except KeyError:
             pass
 
     def remove_from_ties_ack(self, tie_header):
         try:
-            self.ties_ack.remove(tie_header)
-        except ValueError:
+            del self._ties_ack[tie_header.tieid]
+        except KeyError:
             pass
 
     def request_tie(self, tie_header):
         if not self.is_request_filtered(tie_header):
             self.remove_from_all_queues(tie_header)
-            self.ties_req.append(tie_header)
+            self._ties_req[tie_header.tieid] = tie_header
 
     # TODO: Defined in spec, but never invoked
     def move_to_rtx_queue(self, tie_header):
         self.remove_from_ties_rtx(tie_header)
-        self.ties_rtx.append(tie_header)
+        self._ties_rtx[tie_header.tieid] = tie_header
 
     # TODO: Defined in spec, but never invoked
     def clear_requests(self, tie_header):
         self.remove_from_ties_req(tie_header)
 
     def find_id_in_ties_ack(self, tie_id):
-        for key in self.ties_ack:
+        for key in self._ties_ack:
             if key.tie_id == tie_id:
                 return key
         return None
@@ -779,35 +798,38 @@ class Interface:
     def service_queues(self):
         # TODO: For now, we have an extremely simplistic send queue service implementation. Once
         # per second we send all queued messages. Make this more sophisticated.
-        if self.ties_ack:
+        if self._ties_ack:
             self.service_ties_ack()
-        if self.ties_tx:
+        if self._ties_tx:
             self.service_ties_tx()
-        if self.ties_rtx:
+        if self._ties_rtx:
             self.service_ties_rtx()
-        if self.ties_req:
+        if self._ties_req:
             self.service_ties_req()
 
     def service_ties_ack(self):
-        ##@@ TODO: implement this
-        pass
+        tire = packet_common.make_tire(
+            sender=self._node.system_id,
+            level=self._node.level_value())
+        for tie_header in self._ties_ack.values():
+            packet_common.add_tie_header_to_tire(tire, tie_header)
+        self.send_protocol_packet(tire, True)
 
     def service_ties_tx(self):
-        ##@@ TODO: implement this
+        # TODO: implement this
         pass
 
     def service_ties_rtx(self):
-        ##@@ TODO: implement this
+        # TODO: implement this
         pass
 
     def service_ties_req(self):
         tire = packet_common.make_tire(
             sender=self._node.system_id,
             level=self._node.level_value())
-        for tie_header in self.ties_req:
+        for tie_header in self._ties_req.values():
             packet_common.add_tie_header_to_tire(tire, tie_header)
-        # TODO: ##@@ on the right port?
-        self.send_protocol_packet(tire)
+        self.send_protocol_packet(tire, True)
 
     @property
     def state_name(self):
@@ -882,7 +904,7 @@ class Interface:
             "Seq Nr",
             ["Remaining", "Lifetime"],
             ["Origination", "Time"]])
-        for tie_header in tie_headers:
+        for tie_header in tie_headers.values():
             # TODO: Move direction_str etc. to packet_common
             tab.add_row([tie_db.direction_str(tie_header.tieid.direction),
                          tie_header.tieid.originator,
@@ -894,13 +916,13 @@ class Interface:
         return tab
 
     def ties_tx_table(self):
-        return self.tie_headers_table_common(self.ties_tx)
+        return self.tie_headers_table_common(self._ties_tx)
 
     def ties_rtx_table(self):
-        return self.tie_headers_table_common(self.ties_rtx)
+        return self.tie_headers_table_common(self._ties_rtx)
 
     def ties_req_table(self):
-        return self.tie_headers_table_common(self.ties_req)
+        return self.tie_headers_table_common(self._ties_req)
 
     def ties_ack_table(self):
-        return self.tie_headers_table_common(self.ties_ack)
+        return self.tie_headers_table_common(self._ties_ack)

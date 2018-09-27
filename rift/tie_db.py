@@ -124,6 +124,35 @@ encoding.ttypes.TIEHeader.cli_summary_attributes = (
                   self.tie_id.tie_nr,
                   self.seq_nr])
 
+def compare_tie_header_age(header1, header2):
+    # Returns -1 is header1 is older, returns +1 if header1 is newer, 0 if "same" age
+    # It is not allowed to call this function with headers with different TIE-IDs.
+    assert header1.tieid == header2.tieid
+    # Highest sequence number is newer
+    if header1.seq_nr < header2.seq_nr:
+        return -1
+    if header1.seq_nr > header2.seq_nr:
+        return 1
+    # When a node advertises remaining_lifetime 0 in a TIRE, it means a request (I don't have
+    # that TIRE, please send it). Thus, if one header has remaining_lifetime 0 and the other
+    # does not, then the one with non-zero remaining_lifetime is always newer.
+    if (header1.remaining_lifetime == 0) and (header2.remaining_lifetime != 0):
+        return -1
+    if (header1.remaining_lifetime != 0) and (header2.remaining_lifetime == 0):
+        return 1
+    # The header with the longest remaining lifetime is considered newer. However, if the
+    # difference in remaining lifetime is less than 5 minutes (300 seconds), they are considered
+    # to be the same age.
+    age_diff = abs(header1.remaining_lifetime - header2.remaining_lifetime)
+    if age_diff > 300:
+        if header1.remaining_lifetime < header2.remaining_lifetime:
+            return -1
+        if header1.remaining_lifetime > header2.remaining_lifetime:
+            return 1
+    # TODO: Figure out what to do with origination_time
+    # If we get this far, we have a tie (same age)
+    return 0
+
 # pylint: disable=invalid-name
 class TIE_DB:
 
@@ -141,9 +170,10 @@ class TIE_DB:
         # TIEID value.
         self._last_received_tide_end = self.MIN_TIE_ID
 
-    def store_tie(self, tie):
-        tie_id = tie.content.tie.header.tieid
-        self.ties[tie_id] = tie
+    def store_tie(self, protocol_packet):
+        assert protocol_packet.content.tie is not None
+        tie_id = protocol_packet.content.tie.header.tieid
+        self.ties[tie_id] = protocol_packet
 
     def find_tie(self, tie_id):
         return self.ties.get(tie_id)
@@ -197,17 +227,25 @@ class TIE_DB:
             db_tie = self.find_tie(header_in_tide.tieid)
             if db_tie is None:
                 # We don't have the TIE, request it
-                request_tie_headers.append(header_in_tide)
-            elif db_tie.content.tie.header.seq_nr < header_in_tide.seq_nr:
-                # We have an older version of the TIE, request the newer version
-                request_tie_headers.append(header_in_tide)
-            elif db_tie.content.tie.header.seq_nr > header_in_tide.seq_nr:
-                # We have a newer version of the TIE, send it
-                start_sending_tie_headers.append(db_tie.content.tie.header)
+                # To request a a missing TIE, we have to set the seq_nr to 0. This is not mentioned
+                # in the RIFT draft, but it is described in ISIS ISO/IEC 10589:1992 section 7.3.15.2
+                # bullet b.4
+                request_header = header_in_tide
+                request_header.seq_nr = 0
+                request_header.remaining_lifetime = 0
+                request_header.origination_time = None
+                request_tie_headers.append(request_header)
             else:
-                # We have the same version of the TIE, if we are trying to send it, stop it
-                assert db_tie.content.tie.header.seq_nr == header_in_tide.seq_nr
-                stop_sending_tie_headers.append(db_tie.content.tie.header)
+                comparison = compare_tie_header_age(db_tie.content.tie.header, header_in_tide)
+                if comparison < 0:
+                    # We have an older version of the TIE, request the newer version
+                    request_tie_headers.append(header_in_tide)
+                elif comparison > 0:
+                    # We have a newer version of the TIE, send it
+                    start_sending_tie_headers.append(db_tie.content.tie.header)
+                else:
+                    # We have the same version of the TIE, if we are trying to send it, stop it
+                    stop_sending_tie_headers.append(db_tie.content.tie.header)
         # End-gap processing: send TIEs that are in our TIE DB but missing in TIDE
         self.start_sending_db_ties_in_range(start_sending_tie_headers,
                                             last_processed_tie_id, minimum_inclusive,
@@ -223,19 +261,52 @@ class TIE_DB:
         for header_in_tire in tire_packet.headers:
             db_tie = self.find_tie(header_in_tire.tieid)
             if db_tie is not None:
-                tire_seq_nr = header_in_tire.seq_nr
-                db_seq_nr = db_tie.content.tie.header.seq_nr
-                if db_seq_nr < tire_seq_nr:
-                    # TIE in TIE-DB is older than TIRE, request newer TIE from neighbor
+                comparison = compare_tie_header_age(db_tie.content.tie.header, header_in_tire)
+                if comparison < 0:
+                    # We have an older version of the TIE, request the newer version
                     request_tie_headers.append(header_in_tire)
-                elif db_seq_nr > tire_seq_nr:
-                    # TIE in TIE-DB is newer than TIRE, send newer TIE to neighbor
+                elif comparison > 0:
+                    # We have a newer version of the TIE, send it
                     start_sending_tie_headers.append(db_tie.content.tie.header)
                 else:
-                    # TIE in TIE-DB is same version as TIRE, treat it as an ACK
-                    assert db_seq_nr == tire_seq_nr
-                    acked_tie_headers.append(header_in_tire)
+                    # We have the same version of the TIE, treat it as an ACK
+                    acked_tie_headers.append(db_tie.content.tie.header)
         return (request_tie_headers, start_sending_tie_headers, acked_tie_headers)
+
+    def process_received_tie_packet(self, protocol_packet, node_system_id):
+        tie_packet = protocol_packet.content.tie
+        assert tie_packet is not None
+        start_sending_tie_header = None
+        ack_tie_header = None
+        rx_tie_header = tie_packet.header
+        rx_tie_id = rx_tie_header.tieid
+        db_tie = self.find_tie(rx_tie_id)
+        if db_tie is None:
+            if rx_tie_id.originator == node_system_id:
+                # TODO: re-originate with higher sequence number
+                pass
+            else:
+                # We don't have this TIE in the database, store and ack it
+                self.store_tie(protocol_packet)
+                ack_tie_header = rx_tie_header
+        else:
+            comparison = compare_tie_header_age(db_tie.content.tie.header, rx_tie_header)
+            if comparison < 0:
+                # We have an older version of the TIE, ...
+                if rx_tie_id.originator == node_system_id:
+                    # TODO: We originated the TIE, re-originate with higher sequence number
+                    pass
+                else:
+                    # We did not originate the TIE, store the newer version and ack it
+                    self.store_tie(tie_packet)
+                    ack_tie_header = db_tie.content.tie.header
+            elif comparison > 0:
+                # We have a newer version of the TIE, send it
+                start_sending_tie_header = db_tie.content.tie.header
+            else:
+                # We have the same version of the TIE, ACK it
+                ack_tie_header = db_tie.content.tie.header
+        return (start_sending_tie_header, ack_tie_header)
 
     def tie_db_table(self):
         tab = table.Table()

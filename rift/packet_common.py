@@ -22,6 +22,9 @@ def ip_prefix_tup(ip_prefix):
 def tie_id_tup(tie_id):
     return (tie_id.direction, tie_id.originator, tie_id.tietype, tie_id.tie_nr)
 
+def link_id_pair_tup(link_id_pair):
+    return (link_id_pair.local_id, link_id_pair.remote_id)
+
 def add_missing_methods_to_thrift():
     # See http://bit.ly/thrift-missing-hash for details about why this is needed
     common.ttypes.IPv4PrefixType.__hash__ = (
@@ -44,6 +47,10 @@ def add_missing_methods_to_thrift():
         lambda self, other: tie_id_tup(self) == tie_id_tup(other))
     encoding.ttypes.TIEID.__lt__ = (
         lambda self, other: tie_id_tup(self) < tie_id_tup(other))
+    encoding.ttypes.LinkIDPair.__hash__ = (
+        lambda self: hash(link_id_pair_tup(self)))
+    encoding.ttypes.LinkIDPair.__eq__ = (
+        lambda self, other: link_id_pair_tup(self) == link_id_pair_tup(other))
 
 def encode_protocol_packet(protocol_packet):
     # This assumes we only encode a protocol_packet once (because we change it in place)
