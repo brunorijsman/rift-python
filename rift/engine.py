@@ -68,7 +68,10 @@ class Engine:
     def create_shard(self, shard_config, passive_nodes):
         if 'nodes' in shard_config:
             for node_config in shard_config['nodes']:
-                force_passive = node_config['name'] in passive_nodes
+                if 'name' in node_config:
+                    force_passive = node_config['name'] in passive_nodes
+                else:
+                    force_passive = False
                 self.create_node(node_config, force_passive)
 
     def create_node(self, node_config, force_passive):

@@ -19,13 +19,13 @@ class RiftExpectSession:
 
     expect_timeout = 1.0
 
-    def __init__(self, topology_file, converge_secs=start_converge_secs):
+    def __init__(self, topology_file=None, converge_secs=start_converge_secs):
         rift_cmd = ("rift "
                     "--interactive "
                     "--non-passive "
-                    "--log-level debug "
-                    "topology/{}.yaml"
-                    .format(topology_file))
+                    "--log-level debug")
+        if topology_file is not None:
+            rift_cmd += " topology/{}.yaml".format(topology_file)
         cmd = "coverage run --parallel-mode {}".format(rift_cmd)
         results_file_name = "rift_expect.log"
         if "RIFT_TEST_RESULTS_DIR" in os.environ:
