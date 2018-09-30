@@ -92,44 +92,41 @@ def decode_protocol_packet(encoded_protocol_packet):
 # 64 bits. Keep in mind Python does not have sized integers: values of type int are unbounded (i.e.
 # they have no limit on the size and no minimum or maximum value).
 
-_MAX_U64 = 0xffffffffffffffff
-_MAX_S64 = 0x7fffffffffffffff
+MAX_U64 = 0xffffffffffffffff
+MAX_S64 = 0x7fffffffffffffff
 
-_MAX_U32 = 0xffffffff
-_MAX_S32 = 0x7fffffff
+MAX_U32 = 0xffffffff
+MAX_S32 = 0x7fffffff
 
-_MAX_U16 = 0xffff
-_MAX_S16 = 0x7fff
+MAX_U16 = 0xffff
+MAX_S16 = 0x7fff
 
-_MAX_U16 = 0xffff
-_MAX_S16 = 0x7fff
-
-_MAX_U8 = 0xff
-_MAX_S8 = 0x7f
+MAX_U8 = 0xff
+MAX_S8 = 0x7f
 
 def u64_to_s64(u64):
-    return u64 if u64 <= _MAX_S64 else u64 - _MAX_U64 - 1
+    return u64 if u64 <= MAX_S64 else u64 - MAX_U64 - 1
 
 def u32_to_s32(u32):
-    return u32 if u32 <= _MAX_S32 else u32 - _MAX_U32 - 1
+    return u32 if u32 <= MAX_S32 else u32 - MAX_U32 - 1
 
 def u16_to_s16(u16):
-    return u16 if u16 <= _MAX_S16 else u16 - _MAX_U16 - 1
+    return u16 if u16 <= MAX_S16 else u16 - MAX_U16 - 1
 
 def u8_to_s8(u08):
-    return u08 if u08 <= _MAX_S8 else u08 - _MAX_U8 - 1
+    return u08 if u08 <= MAX_S8 else u08 - MAX_U8 - 1
 
 def s64_to_u64(s64):
-    return s64 if s64 >= 0 else s64 + _MAX_U64 + 1
+    return s64 if s64 >= 0 else s64 + MAX_U64 + 1
 
 def s32_to_u32(s32):
-    return s32 if s32 >= 0 else s32 + _MAX_U32 + 1
+    return s32 if s32 >= 0 else s32 + MAX_U32 + 1
 
 def s16_to_u16(s16):
-    return s16 if s16 >= 0 else s16 + _MAX_U16 + 1
+    return s16 if s16 >= 0 else s16 + MAX_U16 + 1
 
 def s8_to_u8(s08):
-    return s08 if s08 >= 0 else s08 + _MAX_U8 + 1
+    return s08 if s08 >= 0 else s08 + MAX_U8 + 1
 
 def fix_value(value, size, encode):
     if encode:
@@ -235,8 +232,8 @@ def make_prefix_tie(sender, level, direction, originator, tie_nr, seq_nr, lifeti
     protocol_packet = encoding.ttypes.ProtocolPacket(header=packet_header, content=packet_content)
     return protocol_packet
 
-def add_ipv4_prefix_to_tie(protocol_packet, ipv4_prefix_str, metric, tags=None,
-                           monotonic_clock=None):
+def add_ipv4_prefix_to_prefix_tie(protocol_packet, ipv4_prefix_str, metric, tags=None,
+                                  monotonic_clock=None):
     ipv4_network = ipaddress.IPv4Network(ipv4_prefix_str)
     address = ipv4_network.network_address.packed
     prefixlen = ipv4_network.prefixlen
@@ -247,8 +244,8 @@ def add_ipv4_prefix_to_tie(protocol_packet, ipv4_prefix_str, metric, tags=None,
                                                   monotonic_clock=monotonic_clock)
     protocol_packet.content.tie.element.prefixes.prefixes[prefix] = attributes
 
-def add_ipv6_prefix_to_tie(protocol_packet, ipv6_prefix_str, metric, tags=None,
-                           monotonic_clock=None):
+def add_ipv6_prefix_to_prefix_tie(protocol_packet, ipv6_prefix_str, metric, tags=None,
+                                  monotonic_clock=None):
     ipv6_network = ipaddress.IPv6Network(ipv6_prefix_str)
     address = ipv6_network.network_address.packed
     prefixlen = ipv6_network.prefixlen
@@ -258,6 +255,25 @@ def add_ipv6_prefix_to_tie(protocol_packet, ipv6_prefix_str, metric, tags=None,
                                                   tags=tags,
                                                   monotonic_clock=monotonic_clock)
     protocol_packet.content.tie.element.prefixes.prefixes[prefix] = attributes
+
+def make_node_tie(sender, name, level, direction, originator, tie_nr, seq_nr, lifetime):
+    # pylint:disable=too-many-locals
+    tie_type = common.ttypes.TIETypeType.NodeTIEType
+    tie_header = make_tie_header(direction, originator, tie_type, tie_nr, seq_nr, lifetime)
+    node_tie_element = encoding.ttypes.NodeTIEElement(
+        level=level,
+        neighbors={},
+        capabilities=None,  ##@@ TODO: Implement this
+        flags=None,         ##@@ TODO: Implement this
+        name=name,
+        visible_in_same_level=set(()),                 # TODO: Implement this
+        same_level_unknown_north_partitions=set(()))   # TODO: Implement this
+    tie_element = encoding.ttypes.TIEElement(node=node_tie_element)
+    tie_packet = encoding.ttypes.TIEPacket(header=tie_header, element=tie_element)
+    packet_header = encoding.ttypes.PacketHeader(sender=sender, level=level)
+    packet_content = encoding.ttypes.PacketContent(tie=tie_packet)
+    protocol_packet = encoding.ttypes.ProtocolPacket(header=packet_header, content=packet_content)
+    return protocol_packet
 
 def make_tide(sender, level, start_range, end_range):
     tide_packet = encoding.ttypes.TIDEPacket(start_range=start_range,

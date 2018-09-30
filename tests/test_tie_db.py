@@ -34,8 +34,8 @@ def test_add_prefix_tie():
         tie_nr=333,
         seq_nr=444,
         lifetime=555)
-    packet_common.add_ipv4_prefix_to_tie(prefix_tie_1, "1.2.3.0/24", 2, [77, 88], 12345)
-    packet_common.add_ipv6_prefix_to_tie(prefix_tie_1, "1234:abcd::/64", 3)
+    packet_common.add_ipv4_prefix_to_prefix_tie(prefix_tie_1, "1.2.3.0/24", 2, [77, 88], 12345)
+    packet_common.add_ipv6_prefix_to_prefix_tie(prefix_tie_1, "1234:abcd::/64", 3)
     tdb.store_tie(prefix_tie_1)
     prefix_tie_2 = packet_common.make_prefix_tie(
         sender=555,
@@ -45,7 +45,7 @@ def test_add_prefix_tie():
         tie_nr=888,
         seq_nr=999,
         lifetime=0)
-    packet_common.add_ipv4_prefix_to_tie(prefix_tie_2, "0.0.0.0/0", 10)
+    packet_common.add_ipv4_prefix_to_prefix_tie(prefix_tie_2, "0.0.0.0/0", 10)
     tdb.store_tie(prefix_tie_2)
     assert tdb.find_tie(prefix_tie_1.content.tie.header.tieid) == prefix_tie_1
     assert tdb.find_tie(prefix_tie_2.content.tie.header.tieid) == prefix_tie_2

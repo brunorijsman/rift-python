@@ -11,18 +11,22 @@ import constants
 import fsm
 import interface
 import offer
+import packet_common
 import table
 import tie_db
 import timer
 import utils
-
-# TODO: Command line argument and/or configuration option for CLI port
 
 class Node:
 
     _next_node_nr = 1
 
     ZTP_MIN_NUMBER_OF_PEER_FOR_LEVEL = 3
+
+    NODE_SOUTH_TIE_NR = 1
+    NODE_NORTH_TIE_NR = 2
+
+    LIFETIME = 600
 
     # TODO: This value is not specified anywhere in the specification
     DEFAULT_HOLD_DOWN_TIME = 3.0
@@ -296,8 +300,7 @@ class Node:
         verbose_events=verbose_events)
 
     def __init__(self, parent_engine, config, force_passive):
-        # TODO: process state_thrift_services_port field in config
-        # TODO: process config_thrift_services_port field in config
+        # pylint: disable=too-many-statements
         # TODO: process v4prefixes field in config
         # TODO: process v6prefixes field in config
         self._engine = parent_engine
@@ -346,6 +349,17 @@ class Node:
             for interface_config in self._config['interfaces']:
                 self.create_interface(interface_config)
         self.tie_db = tie_db.TIE_DB()
+        # The following couple of fields are dictionaries indexed by direction (south and north)
+        self.node_tie_seq_nrs = {}
+        self.node_tie_seq_nrs[common.ttypes.TieDirectionType.South] = 0
+        self.node_tie_seq_nrs[common.ttypes.TieDirectionType.North] = 0
+        self.node_ties = {}
+        self.encoded_node_ties = {}
+        self.regenerate_all_node_ties()
+        ##@@ TODO: Regenerate node tie whenever neighbor comes up or goes down
+        self.tides = {}
+        self.encoded_tides = {}
+        self.clear_all_generated_tides()
         self._fsm = fsm.Fsm(
             definition=self.fsm_definition,
             action_handler=self,
@@ -501,6 +515,79 @@ class Node:
         interface_id = self._next_interface_id
         self._next_interface_id += 1
         return interface_id
+
+    def regenerate_node_tie(self, direction):
+        if direction == common.ttypes.TieDirectionType.South:
+            tie_nr = self.NODE_SOUTH_TIE_NR
+        elif direction == common.ttypes.TieDirectionType.North:
+            tie_nr = self.NODE_NORTH_TIE_NR
+        else:
+            assert False, "Invalid direction"
+        self.node_tie_seq_nrs[direction] += 1
+        seq_nr = self.node_tie_seq_nrs[direction]
+        node_tie_protocol_packet = packet_common.make_node_tie(
+            sender=self._system_id,
+            name=self._name,
+            level=self.level_value(),
+            direction=direction,
+            originator=self._system_id,
+            tie_nr=tie_nr,
+            seq_nr=seq_nr,
+            lifetime=self.LIFETIME)
+        ##@@ TODO: Add neighbors
+        self.node_ties[direction] = node_tie_protocol_packet
+        self.encoded_node_ties[direction] = (
+            packet_common.encode_protocol_packet(node_tie_protocol_packet))
+        self.tie_db.store_tie(node_tie_protocol_packet)
+        ##@@ TODO: Log something (also the other functions)
+        ##@@ TODO: Report it in the TIDE
+
+    def regenerate_all_node_ties(self):
+        for direction in [common.ttypes.TieDirectionType.South,
+                          common.ttypes.TieDirectionType.North]:
+            self.regenerate_node_tie(direction)
+
+    def clear_all_generated_node_ties(self):
+        for direction in [common.ttypes.TieDirectionType.South,
+                          common.ttypes.TieDirectionType.North]:
+            self.node_ties[direction] = None
+            self.encoded_node_ties[direction] = None
+            # TODO: ##@@ Remove from DB
+
+    def regenerate_tide(self, direction):
+        # TODO: For now, we generate a single TIDE packet which covers the entire range and we
+        # report all TIE headers in that single TIDE packet. We simple assume that it will fit in
+        # a single UDP packet which can be up to 64K. And if a single TIE gets added or removed
+        # we swallow the inefficiency of regenerating and resending a potentially very large TIDE
+        # packet. In the future, we may introduce a more sophisticated mechanism with multiple TIDE
+        # packets, each with a smaller range.
+        start_range = packet_common.make_tie_id(
+            common.ttypes.TieDirectionType.Illegal,
+            0,
+            common.ttypes.TIETypeType.Illegal,
+            0)
+        end_range = packet_common.make_tie_id(
+            common.ttypes.TieDirectionType.Illegal,
+            packet_common.MAX_U64,
+            common.ttypes.TIETypeType.TIETypeMaxValue,
+            packet_common.MAX_U32)
+        tide_protocol_packet = packet_common.make_tide(
+            sender=self._system_id,
+            level=self.level_value(),
+            start_range=start_range,
+            end_range=end_range)
+        ##@@ TODO: Add TIE headers from the TIE-DB.
+        ##@@ TODO: Only include TIEs corresponding to the requested flooding_scope
+        self.tides[direction] = tide_protocol_packet
+        self.encoded_tides[direction] = (
+            packet_common.encode_protocol_packet(tide_protocol_packet))
+        ##@@ TODO: Actually send it out periodically
+
+    def clear_all_generated_tides(self):
+        for direction in [common.ttypes.TieDirectionType.South,
+                          common.ttypes.TieDirectionType.North]:
+            self.tides[direction] = None
+            self.encoded_tides[direction] = None
 
     @staticmethod
     def cli_summary_headers():

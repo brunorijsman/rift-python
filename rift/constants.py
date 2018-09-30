@@ -24,7 +24,6 @@ LEFT_ARROW = '1B5B44'
 RIGHT_ARROW = '1B5B43'
 BKSP_OVERWRITE = '082008'
 
-
 RIFT_MAJOR_VERSION = encoding.constants.protocol_major_version
 RIFT_MINOR_VERSION = encoding.constants.protocol_minor_version
 DEFAULT_LIE_IPV4_MCAST_ADDRESS = '224.0.0.120'
@@ -41,3 +40,8 @@ class ActiveNodes(enum.Enum):
     ALL_NODES = 1
     ONLY_PASSIVE_NODES = 2
     ALL_NODES_EXCEPT_PASSIVE_NODES = 3
+
+class FloodingScope(enum.Enum):
+    NORTH = 1
+    SOUTH = 2
+    EAST_WEST = 3
