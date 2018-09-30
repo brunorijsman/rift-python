@@ -18,6 +18,8 @@ class UdpSendHandler:
         if self.local_address:
             self.sock.setsockopt(socket.SOL_IP, socket.IP_MULTICAST_IF,
                                  socket.inet_aton(self.local_address))
+        # This may throw an exception. The caller must be prepared to catch the exception.
+        # TODO: The caller currently doesn't do that
         self.sock.connect((self.remote_address, self.port))
         scheduler.SCHEDULER.register_handler(self, False, False)
 
@@ -29,6 +31,7 @@ class UdpSendHandler:
         return self.sock.fileno()
 
     def send_message(self, message):
+        # This may throw an exception. The caller must be prepared to catch the exception.
         self.sock.send(message)
 
     def source_address_and_port(self):

@@ -1,6 +1,7 @@
 import collections
 import enum
 import random
+import socket
 
 import constants
 import fsm
@@ -111,9 +112,12 @@ class Interface:
             port=tx_flood_port,
             local_address=self._node.engine.tx_src_address)
             # TODO: This can't be the interface address since it is per engine
+        self._service_queues_timer.start()
 
     def action_stop_flooding(self):
         self.info(self._rx_log, "Stop flooding")
+        self._service_queues_timer.stop()
+        self.clear_all_queues()
         self._flood_receive_handler.close()
         self._flood_receive_handler = None
         self._flood_send_handler.close()
@@ -126,10 +130,16 @@ class Interface:
             handler = self._lie_send_handler
         to_str = "{}:{}".format(handler.remote_address, handler.port)
         if self._tx_fail:
-            self.debug(self._tx_log, "Failed send {} to {}".format(protocol_packet, to_str))
+            self.debug(self._tx_log, "Simulated send failure {} to {}"
+                       .format(protocol_packet, to_str))
         else:
             encoded_protocol_packet = packet_common.encode_protocol_packet(protocol_packet)
-            handler.send_message(encoded_protocol_packet)
+            try:
+                handler.send_message(encoded_protocol_packet)
+            except socket.error as error:
+                self.error(self._tx_log, "Error \"{}\" sending {} to {}"
+                           .format(error, protocol_packet, to_str))
+                return
             self.debug(self._tx_log, "Send {} to {}".format(protocol_packet, to_str))
 
     def action_send_lie(self):
@@ -592,7 +602,7 @@ class Interface:
             interval=self.SERVICE_QUEUES_INTERVAL,
             expire_function=self.service_queues,
             periodic=True,
-            start=True)
+            start=False)
 
     def get_config_attribute(self, config, attribute, default):
         if attribute in config:
@@ -668,7 +678,6 @@ class Interface:
         self._rx_fail = rx_fail
 
     def failure_str(self):
-        # TODO: Implement _tx_fail
         if self._tx_fail:
             if self._rx_fail:
                 return "failed"
@@ -725,8 +734,8 @@ class Interface:
     def try_to_transmit_tie(self, tie_header):
         if not self.is_flood_filtered(tie_header):
             self.remove_from_ties_rtx(tie_header)
-            ack_header = self.find_id_in_ties_ack(tie_header.tie_id)
-            if ack_header is not None:
+            if tie_header.tieid in self._ties_ack:
+                ack_header = self._ties_ack[tie_header.tieid]
                 if ack_header.seq_nr < tie_header.seq_nr:
                     # ACK for older TIE is in queue, remove ACK from queue and send newer TIE
                     self.remove_from_ties_ack(ack_header)
@@ -750,6 +759,12 @@ class Interface:
         self.remove_from_ties_rtx(tie_header)
         self.remove_from_ties_req(tie_header)
         self.remove_from_ties_ack(tie_header)
+
+    def clear_all_queues(self):
+        self._ties_tx.clear()
+        self._ties_rtx.clear()
+        self._ties_req.clear()
+        self._ties_ack.clear()
 
     def remove_from_ties_tx(self, tie_header):
         try:
@@ -788,12 +803,6 @@ class Interface:
     # TODO: Defined in spec, but never invoked
     def clear_requests(self, tie_header):
         self.remove_from_ties_req(tie_header)
-
-    def find_id_in_ties_ack(self, tie_id):
-        for key in self._ties_ack:
-            if key.tie_id == tie_id:
-                return key
-        return None
 
     def service_queues(self):
         # TODO: For now, we have an extremely simplistic send queue service implementation. Once

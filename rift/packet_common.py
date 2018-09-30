@@ -22,6 +22,10 @@ def ip_prefix_tup(ip_prefix):
 def tie_id_tup(tie_id):
     return (tie_id.direction, tie_id.originator, tie_id.tietype, tie_id.tie_nr)
 
+def tie_header_tup(tie_header):
+    return (tie_header.tieid, tie_header.seq_nr, tie_header.remaining_lifetime,
+            tie_header.origination_time)
+
 def link_id_pair_tup(link_id_pair):
     return (link_id_pair.local_id, link_id_pair.remote_id)
 
@@ -47,6 +51,10 @@ def add_missing_methods_to_thrift():
         lambda self, other: tie_id_tup(self) == tie_id_tup(other))
     encoding.ttypes.TIEID.__lt__ = (
         lambda self, other: tie_id_tup(self) < tie_id_tup(other))
+    encoding.ttypes.TIEHeader.__hash__ = (
+        lambda self: hash(tie_header_tup(self)))
+    encoding.ttypes.TIEHeader.__eq__ = (
+        lambda self, other: tie_header_tup(self) == tie_header_tup(other))
     encoding.ttypes.LinkIDPair.__hash__ = (
         lambda self: hash(link_id_pair_tup(self)))
     encoding.ttypes.LinkIDPair.__eq__ = (
