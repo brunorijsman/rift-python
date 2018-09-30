@@ -5,8 +5,6 @@ import tie_db
 
 # pylint: disable=line-too-long
 
-# pylint: disable=line-too-long
-
 SOUTH = common.ttypes.TieDirectionType.South
 NORTH = common.ttypes.TieDirectionType.North
 
