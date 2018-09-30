@@ -275,6 +275,17 @@ def make_node_tie(sender, name, level, direction, originator, tie_nr, seq_nr, li
     protocol_packet = encoding.ttypes.ProtocolPacket(header=packet_header, content=packet_content)
     return protocol_packet
 
+def make_node_neighbor(level):
+    # TODO: Add support for multiple parallel links (link_ids has more than one element)
+    node_neighbor = encoding.ttypes.NodeNeighborsTIEElement(
+        level=level,
+        cost=1,             # TODO: Implement this. Take cost from configuration file.
+        link_ids=None,      # TODO: ##@@ Implement
+        bandwidth=100)      # TODO: Implement this. Use actual bandwidth of link.
+    return node_neighbor
+
+
+
 def make_tide(sender, level, start_range, end_range):
     tide_packet = encoding.ttypes.TIDEPacket(start_range=start_range,
                                              end_range=end_range,

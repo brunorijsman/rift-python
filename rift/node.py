@@ -516,7 +516,7 @@ class Node:
         self._next_interface_id += 1
         return interface_id
 
-    def regenerate_node_tie(self, direction):
+    def regenerate_node_tie(self, direction, interface_going_down=None):
         if direction == common.ttypes.TieDirectionType.South:
             tie_nr = self.NODE_SOUTH_TIE_NR
         elif direction == common.ttypes.TieDirectionType.North:
@@ -534,7 +534,12 @@ class Node:
             tie_nr=tie_nr,
             seq_nr=seq_nr,
             lifetime=self.LIFETIME)
-        ##@@ TODO: Add neighbors
+        for intf in self._interfaces.values():
+            if ((intf.fsm.state == interface.Interface.State.THREE_WAY) and
+                    (intf != interface_going_down)):
+                node_neighbor = packet_common.make_node_neighbor(level=intf.neighbor.level)
+                node_tie = node_tie_protocol_packet.content.tie.element.node
+                node_tie.neighbors[intf.neighbor.system_id] = node_neighbor
         self.node_ties[direction] = node_tie_protocol_packet
         self.encoded_node_ties[direction] = (
             packet_common.encode_protocol_packet(node_tie_protocol_packet))
@@ -542,10 +547,10 @@ class Node:
         ##@@ TODO: Log something (also the other functions)
         ##@@ TODO: Report it in the TIDE
 
-    def regenerate_all_node_ties(self):
+    def regenerate_all_node_ties(self, interface_going_down=None):
         for direction in [common.ttypes.TieDirectionType.South,
                           common.ttypes.TieDirectionType.North]:
-            self.regenerate_node_tie(direction)
+            self.regenerate_node_tie(direction, interface_going_down)
 
     def clear_all_generated_node_ties(self):
         for direction in [common.ttypes.TieDirectionType.South,

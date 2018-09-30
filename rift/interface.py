@@ -96,25 +96,29 @@ class Interface:
         pass
 
     def action_start_flooding(self):
+        # Start sending TIE, TIRE, and TIDE packets to this neighbor
         rx_flood_port = self._rx_tie_port
-        tx_flood_port = self._neighbor.flood_port
+        tx_flood_port = self.neighbor.flood_port
         self.info(self._rx_log, ("Start flooding: receive on port {}, send on port {}"
                                  .format(rx_flood_port, tx_flood_port)))
         # TODO: the local addresses below should be the interface address, not the engine addresses
         self._flood_receive_handler = udp_receive_handler.UdpReceiveHandler(
-            remote_address=self._neighbor.address,
+            remote_address=self.neighbor.address,
             port=rx_flood_port,
             receive_function=self.receive_flood_message,
             local_address=self._node.engine.tx_src_address)
         self._flood_send_handler = udp_send_handler.UdpSendHandler(
             interface_name=self._interface_name,
-            remote_address=self._neighbor.address,
+            remote_address=self.neighbor.address,
             port=tx_flood_port,
             local_address=self._node.engine.tx_src_address)
             # TODO: This can't be the interface address since it is per engine
         self._service_queues_timer.start()
+        # Update the node TIEs originated by this node to include this neighbor
+        self._node.regenerate_all_node_ties()
 
     def action_stop_flooding(self):
+        # Stop sending TIE, TIRE, and TIDE packets to this neighbor
         self.info(self._rx_log, "Stop flooding")
         self._service_queues_timer.stop()
         self.clear_all_queues()
@@ -122,6 +126,10 @@ class Interface:
         self._flood_receive_handler = None
         self._flood_send_handler.close()
         self._flood_send_handler = None
+        # Update the node TIEs originated by this node to exclude this neighbor. We have to pass
+        # interface_going_down to regenerate_all_node_ties because the state of this interface is
+        # still THREE_WAY at this point.
+        self._node.regenerate_all_node_ties(interface_going_down=self)
 
     def send_protocol_packet(self, protocol_packet, flood):
         if flood:
@@ -150,9 +158,9 @@ class Interface:
             flood_reduction=True,
             leaf_indications=
             common.ttypes.LeafIndications.leaf_only_and_leaf_2_leaf_procedures)
-        if self._neighbor:
-            neighbor_system_id = self._neighbor.system_id
-            neighbor_link_id = self._neighbor.local_id
+        if self.neighbor:
+            neighbor_system_id = self.neighbor.system_id
+            neighbor_link_id = self.neighbor.local_id
             lie_neighbor = encoding.ttypes.Neighbor(neighbor_system_id, neighbor_link_id)
         else:
             neighbor_system_id = None
@@ -182,18 +190,18 @@ class Interface:
         self._node.record_tx_offer(tx_offer)
 
     def action_cleanup(self):
-        self._neighbor = None
+        self.neighbor = None
 
     def check_reflection(self):
         # Does the received LIE packet (which is now stored in _neighbor) report us as the neighbor?
-        if self._neighbor.neighbor_system_id != self._node.system_id:
+        if self.neighbor.neighbor_system_id != self._node.system_id:
             self.info(self._log,
                       "Neighbor does not report us as neighbor (system-id {:16x} instead of {:16x}"
-                      .format(self._neighbor.neighbor_system_id, self._node.system_id))
+                      .format(self.neighbor.neighbor_system_id, self._node.system_id))
             return False
-        if self._neighbor.neighbor_link_id != self._local_id:
+        if self.neighbor.neighbor_link_id != self._local_id:
             self.info(self._log, "Neighbor does not report us as neighbor (link-id {} instead of {}"
-                      .format(self._neighbor.neighbor_link_id, self._local_id))
+                      .format(self.neighbor.neighbor_link_id, self._local_id))
             return False
         return True
 
@@ -204,14 +212,14 @@ class Interface:
         if self._fsm.state == self.State.ONE_WAY:
             pass
         elif self._fsm.state == self.State.TWO_WAY:
-            if self._neighbor.neighbor_system_id is None:
+            if self.neighbor.neighbor_system_id is None:
                 pass
             elif self.check_reflection():
                 self._fsm.push_event(self.Event.VALID_REFLECTION)
             else:
                 self._fsm.push_event(self.Event.MULTIPLE_NEIGHBORS)
         else: # state is THREE_WAY
-            if self._neighbor.neighbor_system_id is None:
+            if self.neighbor.neighbor_system_id is None:
                 self._fsm.push_event(self.Event.NEIGHBOR_DROPPED_REFLECTION)
             elif self.check_reflection():
                 pass
@@ -227,17 +235,17 @@ class Interface:
         # TODO: what if you_are_flood_repeater changes?
         # TODO: what if label changes?
         minor_change = False
-        if new_neighbor.flood_port != self._neighbor.flood_port:
+        if new_neighbor.flood_port != self.neighbor.flood_port:
             msg = ("Neighbor flood-port changed from {} to {}"
-                   .format(self._neighbor.flood_port, new_neighbor.flood_port))
+                   .format(self.neighbor.flood_port, new_neighbor.flood_port))
             minor_change = True
-        elif new_neighbor.name != self._neighbor.name:
+        elif new_neighbor.name != self.neighbor.name:
             msg = ("Neighbor name changed from {} to {}"
-                   .format(self._neighbor.name, new_neighbor.name))
+                   .format(self.neighbor.name, new_neighbor.name))
             minor_change = True
-        elif new_neighbor.local_id != self._neighbor.local_id:
+        elif new_neighbor.local_id != self.neighbor.local_id:
             msg = ("Neighbor local-id changed from {} to {}"
-                   .format(self._neighbor.local_id, new_neighbor.local_id))
+                   .format(self.neighbor.local_id, new_neighbor.local_id))
             minor_change = True
         if minor_change:
             self.info(self._log, msg)
@@ -389,36 +397,36 @@ class Interface:
         # Note: We send an offer to the ZTP state machine directly from here instead of pushing an
         # UPDATE_ZTP_OFFER event (see deviation DEV-2 in doc/deviations)
         self.send_offer_to_ztp_fsm(new_neighbor)
-        if not self._neighbor:
+        if not self.neighbor:
             self.info(self._log, "New neighbor detected with system-id {}"
                       .format(utils.system_id_str(protocol_packet.header.sender)))
-            self._neighbor = new_neighbor
+            self.neighbor = new_neighbor
             self._fsm.push_event(self.Event.NEW_NEIGHBOR)
             self.check_three_way()
             return
         # Section B.1.4.3.1
-        if new_neighbor.system_id != self._neighbor.system_id:
+        if new_neighbor.system_id != self.neighbor.system_id:
             self.info(self._log, "Neighbor system-id changed from {} to {}"
-                      .format(utils.system_id_str(self._neighbor.system_id),
+                      .format(utils.system_id_str(self.neighbor.system_id),
                               utils.system_id_str(new_neighbor.system_id)))
             self._fsm.push_event(self.Event.MULTIPLE_NEIGHBORS)
             return
         # Section B.1.4.3.2
-        if new_neighbor.level != self._neighbor.level:
+        if new_neighbor.level != self.neighbor.level:
             self.info(self._log, "Neighbor level changed from {} to {}"
-                      .format(self._neighbor.level, new_neighbor.level))
+                      .format(self.neighbor.level, new_neighbor.level))
             self._fsm.push_event(self.Event.NEIGHBOR_CHANGED_LEVEL)
             return
         # Section B.1.4.3.3
-        if new_neighbor.address != self._neighbor.address:
+        if new_neighbor.address != self.neighbor.address:
             self.info(self._log, "Neighbor address changed from {} to {}"
-                      .format(self._neighbor.address, new_neighbor.address))
+                      .format(self.neighbor.address, new_neighbor.address))
             self._fsm.push_event(self.Event.NEIGHBOR_CHANGED_ADDRESS)
             return
         # Section B.1.4.3.4
         if self.check_minor_change(new_neighbor):
             self._fsm.push_event(self.Event.NEIGHBOR_CHANGED_MINOR_FIELDS)
-        self._neighbor = new_neighbor      # TODO: The draft does not specify this, but it is needed
+        self.neighbor = new_neighbor      # TODO: The draft does not specify this, but it is needed
         # Section B.1.4.3.5
         self.check_three_way()
 
@@ -429,8 +437,8 @@ class Interface:
         if self._time_ticks_since_lie_received is None:
             return
         self._time_ticks_since_lie_received += 1
-        if self._neighbor and self._neighbor.holdtime:
-            holdtime = self._neighbor.holdtime
+        if self.neighbor and self.neighbor.holdtime:
+            holdtime = self.neighbor.holdtime
         else:
             holdtime = common.constants.default_lie_holdtime
         if self._time_ticks_since_lie_received >= holdtime:
@@ -557,7 +565,7 @@ class Interface:
         self._local_id = node.allocate_interface_id()
         self._mtu = self.get_mtu()
         self._pod = self.UNDEFINED_OR_ANY_POD
-        self._neighbor = None
+        self.neighbor = None
         self._time_ticks_since_lie_received = None
         self._lie_accept_or_reject = "No LIE Received"
         self._lie_accept_or_reject_rule = "-"
@@ -860,11 +868,11 @@ class Interface:
             ["Neighbor", "State"]]
 
     def cli_summary_attributes(self):
-        if self._neighbor:
+        if self.neighbor:
             return [
                 self._interface_name,
-                self._neighbor.name,
-                utils.system_id_str(self._neighbor.system_id),
+                self.neighbor.name,
+                utils.system_id_str(self.neighbor.system_id),
                 self.state_name]
         else:
             return [
@@ -894,12 +902,12 @@ class Interface:
             ["State", self.state_name],
             ["Received LIE Accepted or Rejected", self._lie_accept_or_reject],
             ["Received LIE Accept or Reject Reason", self._lie_accept_or_reject_rule],
-            ["Neighbor", "True" if self._neighbor else "False"]
+            ["Neighbor", "True" if self.neighbor else "False"]
         ]
 
     def cli_detailed_neighbor_attrs(self):
-        if self._neighbor:
-            return self._neighbor.cli_detailed_attributes()
+        if self.neighbor:
+            return self.neighbor.cli_detailed_attributes()
         else:
             return None
 
