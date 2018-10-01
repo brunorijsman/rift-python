@@ -356,7 +356,6 @@ class Node:
         self.node_ties = {}
         self.encoded_node_ties = {}
         self.regenerate_all_node_ties()
-        ##@@ TODO: Regenerate node tie whenever neighbor comes up or goes down
         self.tides = {}
         self.encoded_tides = {}
         self.clear_all_generated_tides()
@@ -544,7 +543,8 @@ class Node:
         self.encoded_node_ties[direction] = (
             packet_common.encode_protocol_packet(node_tie_protocol_packet))
         self.tie_db.store_tie(node_tie_protocol_packet)
-        ##@@ TODO: Log something (also the other functions)
+        self.info("Regenerated node TIE for direction {}: {}"
+                  .format(tie_db.direction_str(direction), node_tie_protocol_packet))
         ##@@ TODO: Report it in the TIDE
 
     def regenerate_all_node_ties(self, interface_going_down=None):
@@ -727,11 +727,14 @@ class Node:
         rx_fail = failure in ["failed", "rx-failed"]
         self._interfaces[interface_name].set_failure(tx_fail, rx_fail)
 
+    def info(self, msg):
+        self._log.info("[%s] %s", self._log_id, msg)
+
     @property
     def name(self):
         return self._name
 
-    # TODO: get rid of these properties, more complicated than needed. Just remote _ instead
+    # TODO: get rid of these properties, more complicated than needed. Just remove _ instead
     @property
     def system_id(self):
         return self._system_id
