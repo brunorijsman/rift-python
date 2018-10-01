@@ -234,17 +234,3 @@ def test_process_tire():
         db_tie = packet_common.make_prefix_tie(*db_tie_info)
         tdb.store_tie(db_tie)
     check_process_tire(tdb)
-
-def test_direction_str():
-    assert tie_db.direction_str(common.ttypes.TieDirectionType.South) == "South"
-    assert tie_db.direction_str(common.ttypes.TieDirectionType.North) == "North"
-    assert tie_db.direction_str(999) == "999"
-
-def test_tietype_str():
-    assert tie_db.tietype_str(common.ttypes.TIETypeType.NodeTIEType) == "Node"
-    assert tie_db.tietype_str(common.ttypes.TIETypeType.PrefixTIEType) == "Prefix"
-    assert (tie_db.tietype_str(common.ttypes.TIETypeType.TransitivePrefixTIEType) ==
-            "TransitivePrefix")
-    assert tie_db.tietype_str(common.ttypes.TIETypeType.PGPrefixTIEType) == "PolicyGuidedPrefix"
-    assert tie_db.tietype_str(common.ttypes.TIETypeType.KeyValueTIEType) == "KeyValue"
-    assert tie_db.tietype_str(888) == "888"

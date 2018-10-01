@@ -544,7 +544,7 @@ class Node:
             packet_common.encode_protocol_packet(node_tie_protocol_packet))
         self.tie_db.store_tie(node_tie_protocol_packet)
         self.info("Regenerated node TIE for direction {}: {}"
-                  .format(tie_db.direction_str(direction), node_tie_protocol_packet))
+                  .format(packet_common.direction_str(direction), node_tie_protocol_packet))
         ##@@ TODO: Report it in the TIDE
 
     def regenerate_all_node_ties(self, interface_going_down=None):

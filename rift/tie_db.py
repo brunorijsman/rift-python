@@ -1,183 +1,27 @@
 # Topology Information Element DataBase (TIE_DB)
 
-import ipaddress
 import sortedcontainers
 
 import common.ttypes
 import encoding.ttypes
+import packet_common
 import table
-import utils
 
 # TODO: We currently only store the decoded TIE messages.
 # Also store the encoded TIE messages for the following reasons:
 # - Encode only once, instead of each time the message is sent
 # - Ability to flood the message immediately before it is decoded
 
-DIRECTION_TO_STR = {
-    common.ttypes.TieDirectionType.South: "South",
-    common.ttypes.TieDirectionType.North: "North"
-}
+###@@@
+# encoding.ttypes.TIEHeader.cli_summary_headers = (
+#     lambda self: ["Direction", "Originator", "Type", "TIE-Nr", "Seq-Nr"])
 
-def direction_str(direction):
-    if direction in DIRECTION_TO_STR:
-        return DIRECTION_TO_STR[direction]
-    else:
-        return str(direction)
-
-def ipv4_prefix_str(ipv4_prefix):
-    address = ipv4_prefix.address
-    length = ipv4_prefix.prefixlen
-    return str(ipaddress.IPv4Network((address, length)))
-
-def ipv6_prefix_str(ipv6_prefix):
-    address = ipv6_prefix.address.rjust(16, b"\x00")
-    length = ipv6_prefix.prefixlen
-    return str(ipaddress.IPv6Network((address, length)))
-
-def ip_prefix_str(ip_prefix):
-    assert (ip_prefix.ipv4prefix is None) or (ip_prefix.ipv6prefix is None)
-    assert (ip_prefix.ipv4prefix is not None) or (ip_prefix.ipv6prefix is not None)
-    result = ""
-    if ip_prefix.ipv4prefix:
-        result += ipv4_prefix_str(ip_prefix.ipv4prefix)
-    if ip_prefix.ipv6prefix:
-        result += ipv6_prefix_str(ip_prefix.ipv6prefix)
-    return result
-
-TIETYPE_TO_STR = {
-    common.ttypes.TIETypeType.NodeTIEType: "Node",
-    common.ttypes.TIETypeType.PrefixTIEType: "Prefix",
-    common.ttypes.TIETypeType.TransitivePrefixTIEType: "TransitivePrefix",
-    common.ttypes.TIETypeType.PGPrefixTIEType: "PolicyGuidedPrefix",
-    common.ttypes.TIETypeType.KeyValueTIEType: "KeyValue"
-}
-
-def tietype_str(tietype):
-    if tietype in TIETYPE_TO_STR:
-        return TIETYPE_TO_STR[tietype]
-    else:
-        return str(tietype)
-
-LEAF_INDICATIONS_TO_STR = {
-    common.ttypes.LeafIndications.leaf_only: "LeafOnly",
-    common.ttypes.LeafIndications.leaf_only_and_leaf_2_leaf_procedures: "LeafToLeaf",
-}
-
-def leaf_indications_str(leaf_indications):
-    if leaf_indications in LEAF_INDICATIONS_TO_STR:
-        return LEAF_INDICATIONS_TO_STR[leaf_indications]
-    else:
-        return str(leaf_indications)
-
-def bandwidth_str(bandwidth):
-    return str(bandwidth) + " Mbps"
-
-def link_id_pair_str(link_id_pair):
-    return str(link_id_pair.local_id) + "-" + str(link_id_pair.remote_id)
-
-def node_element_str(element):
-    lines = []
-    if element.name is not None:
-        lines.append("Name: " + str(element.name))
-    lines.append("Level: " + str(element.level))
-    if element.flags is not None:
-        lines.append("Flags:")
-        if element.flags.overload is not None:
-            lines.append("  Overload: " + str(element.flags.overload))
-    if element.capabilities is not None:
-        lines.append("Capabilities:")
-        if element.capabilities.flood_reduction is not None:
-            lines.append("  Flood reduction: " + str(element.capabilities.flood_reduction))
-        if element.capabilities.leaf_indications is not None:
-            lines.append("  Leaf indications: " +
-                         leaf_indications_str(element.capabilities.leaf_indications))
-    sorted_neighbors = sortedcontainers.SortedDict(element.neighbors)
-    for system_id, neighbor in sorted_neighbors.items():
-        lines.append("Neighbor: " + utils.system_id_str(system_id))
-        lines.append("  Level: " + str(neighbor.level))
-        if neighbor.cost is not None:
-            lines.append("  Cost: " + str(neighbor.cost))
-        if neighbor.bandwidth is not None:
-            lines.append("  Bandwidth: " + bandwidth_str(neighbor.bandwidth))
-        if neighbor.link_ids is not None:
-            sorted_link_ids = sorted(neighbor.link_ids)
-            for link_id_pair in sorted_link_ids:
-                lines.append("  Link: " + link_id_pair_str(link_id_pair))
-
-    if element.visible_in_same_level:
-        lines.append("Visible in same level:")
-        sorted_system_ids = sorted(element.visible_in_same_level)
-        for system_id in sorted_system_ids:
-            lines.append("  System ID: " + utils.system_id_str(system_id))
-    if element.same_level_unknown_north_partitions:
-        lines.append("Same level unknown north partitions:")
-        sorted_system_ids = sorted(element.same_level_unknown_north_partitions)
-        for system_id in sorted_system_ids:
-            lines.append("  System ID: " + utils.system_id_str(system_id))
-    return lines
-
-def prefix_element_str(element):
-    lines = []
-    sorted_prefixes = sortedcontainers.SortedDict(element.prefixes)
-    for prefix, attributes in sorted_prefixes.items():
-        line = "Prefix: " + ip_prefix_str(prefix)
-        lines.append(line)
-        if attributes:
-            if attributes.metric:
-                line = "  Metric: " + str(attributes.metric)
-                lines.append(line)
-            if attributes.tags:
-                for tag in attributes.tags:
-                    line = "  Tag: " + str(tag)
-                    lines.append(line)
-            if attributes.monotonic_clock:
-                line = "  Monotonic-clock: " + str(attributes.monotonic_clock)
-                lines.append(line)
-    return lines
-
-def transitive_prefix_element_str(_element):
-    # TODO: Implement this
-    return "TODO"
-
-def pg_prefix_element_str(_element):
-    # TODO: Implement this
-    return "TODO"
-
-def key_value_element_str(_element):
-    # TODO: Implement this
-    return "TODO"
-
-def unknown_element_str(_element):
-    # TODO: Implement this
-    return "TODO"
-
-def element_str(tietype, element):
-    if tietype == common.ttypes.TIETypeType.NodeTIEType:
-        return node_element_str(element.node)
-    elif tietype == common.ttypes.TIETypeType.PrefixTIEType:
-        return prefix_element_str(element.prefixes)
-    elif tietype == common.ttypes.TIETypeType.TransitivePrefixTIEType:
-        return transitive_prefix_element_str(element.transitive_prefixes)
-    elif tietype == common.ttypes.TIETypeType.PGPrefixTIEType:
-        return pg_prefix_element_str(element)   # TODO
-    elif tietype == common.ttypes.TIETypeType.KeyValueTIEType:
-        return key_value_element_str(element.keyvalues)
-    else:
-        return unknown_element_str(element)
-
-# Extend the generated class TIEHeader with additional methods
-# TODO: add remaining_lifetime
-# TODO: add origination_time
-
-encoding.ttypes.TIEHeader.cli_summary_headers = (
-    lambda self: ["Direction", "Originator", "Type", "TIE-Nr", "Seq-Nr"])
-
-encoding.ttypes.TIEHeader.cli_summary_attributes = (
-    lambda self: [direction_str(self.tie_id.direction),
-                  self.tie_id.originator,
-                  tietype_str(self.tie_id.tietype),
-                  self.tie_id.tie_nr,
-                  self.seq_nr])
+# encoding.ttypes.TIEHeader.cli_summary_attributes = (
+#     lambda self: [packet_common.direction_str(self.tie_id.direction),
+#                   self.tie_id.originator,
+#                   packet_common.tietype_str(self.tie_id.tietype),
+#                   self.tie_id.tie_nr,
+#                   self.seq_nr])
 
 def compare_tie_header_age(header1, header2):
     # Returns -1 is header1 is older, returns +1 if header1 is newer, 0 if "same" age
@@ -384,11 +228,11 @@ class TIE_DB:
     def cli_summary_attributes(self, tie):
         tie_id = tie.content.tie.header.tieid
         return [
-            direction_str(tie_id.direction),
+            packet_common.direction_str(tie_id.direction),
             tie_id.originator,
-            tietype_str(tie_id.tietype),
+            packet_common.tietype_str(tie_id.tietype),
             tie_id.tie_nr,
             tie.content.tie.header.seq_nr,
             tie.content.tie.header.remaining_lifetime,
-            element_str(tie_id.tietype, tie.content.tie.element)
+            packet_common.element_str(tie_id.tietype, tie.content.tie.element)
         ]

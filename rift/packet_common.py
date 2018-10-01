@@ -1,10 +1,13 @@
 import ipaddress
+import sortedcontainers
 
 import thrift.protocol.TBinaryProtocol
 import thrift.transport.TTransport
+
 import common.ttypes
 import encoding.ttypes
 import encoding.constants
+import utils
 
 def ipv4_prefix_tup(ipv4_prefix):
     return (ipv4_prefix.address, ipv4_prefix.prefixlen)
@@ -232,9 +235,9 @@ def make_prefix_tie(sender, level, direction, originator, tie_nr, seq_nr, lifeti
     protocol_packet = encoding.ttypes.ProtocolPacket(header=packet_header, content=packet_content)
     return protocol_packet
 
-def add_ipv4_prefix_to_prefix_tie(protocol_packet, ipv4_prefix_str, metric, tags=None,
+def add_ipv4_prefix_to_prefix_tie(protocol_packet, ipv4_prefix_string, metric, tags=None,
                                   monotonic_clock=None):
-    ipv4_network = ipaddress.IPv4Network(ipv4_prefix_str)
+    ipv4_network = ipaddress.IPv4Network(ipv4_prefix_string)
     address = ipv4_network.network_address.packed
     prefixlen = ipv4_network.prefixlen
     ipv4_prefix = common.ttypes.IPv4PrefixType(address, prefixlen)
@@ -244,9 +247,9 @@ def add_ipv4_prefix_to_prefix_tie(protocol_packet, ipv4_prefix_str, metric, tags
                                                   monotonic_clock=monotonic_clock)
     protocol_packet.content.tie.element.prefixes.prefixes[prefix] = attributes
 
-def add_ipv6_prefix_to_prefix_tie(protocol_packet, ipv6_prefix_str, metric, tags=None,
+def add_ipv6_prefix_to_prefix_tie(protocol_packet, ipv6_prefix_string, metric, tags=None,
                                   monotonic_clock=None):
-    ipv6_network = ipaddress.IPv6Network(ipv6_prefix_str)
+    ipv6_network = ipaddress.IPv6Network(ipv6_prefix_string)
     address = ipv6_network.network_address.packed
     prefixlen = ipv6_network.prefixlen
     ipv6_prefix = common.ttypes.IPv6PrefixType(address, prefixlen)
@@ -284,8 +287,6 @@ def make_node_neighbor(level):
         bandwidth=100)      # TODO: Implement this. Use actual bandwidth of link.
     return node_neighbor
 
-
-
 def make_tide(sender, level, start_range, end_range):
     tide_packet = encoding.ttypes.TIDEPacket(start_range=start_range,
                                              end_range=end_range,
@@ -307,3 +308,155 @@ def make_tire(sender, level):
 
 def add_tie_header_to_tire(protocol_packet, tie_header):
     protocol_packet.content.tire.headers.append(tie_header)
+
+DIRECTION_TO_STR = {
+    common.ttypes.TieDirectionType.South: "South",
+    common.ttypes.TieDirectionType.North: "North"
+}
+
+def direction_str(direction):
+    if direction in DIRECTION_TO_STR:
+        return DIRECTION_TO_STR[direction]
+    else:
+        return str(direction)
+
+def ipv4_prefix_str(ipv4_prefix):
+    address = ipv4_prefix.address
+    length = ipv4_prefix.prefixlen
+    return str(ipaddress.IPv4Network((address, length)))
+
+def ipv6_prefix_str(ipv6_prefix):
+    address = ipv6_prefix.address.rjust(16, b"\x00")
+    length = ipv6_prefix.prefixlen
+    return str(ipaddress.IPv6Network((address, length)))
+
+def ip_prefix_str(ip_prefix):
+    assert (ip_prefix.ipv4prefix is None) or (ip_prefix.ipv6prefix is None)
+    assert (ip_prefix.ipv4prefix is not None) or (ip_prefix.ipv6prefix is not None)
+    result = ""
+    if ip_prefix.ipv4prefix:
+        result += ipv4_prefix_str(ip_prefix.ipv4prefix)
+    if ip_prefix.ipv6prefix:
+        result += ipv6_prefix_str(ip_prefix.ipv6prefix)
+    return result
+
+TIETYPE_TO_STR = {
+    common.ttypes.TIETypeType.NodeTIEType: "Node",
+    common.ttypes.TIETypeType.PrefixTIEType: "Prefix",
+    common.ttypes.TIETypeType.TransitivePrefixTIEType: "TransitivePrefix",
+    common.ttypes.TIETypeType.PGPrefixTIEType: "PolicyGuidedPrefix",
+    common.ttypes.TIETypeType.KeyValueTIEType: "KeyValue"
+}
+
+def tietype_str(tietype):
+    if tietype in TIETYPE_TO_STR:
+        return TIETYPE_TO_STR[tietype]
+    else:
+        return str(tietype)
+
+LEAF_INDICATIONS_TO_STR = {
+    common.ttypes.LeafIndications.leaf_only: "LeafOnly",
+    common.ttypes.LeafIndications.leaf_only_and_leaf_2_leaf_procedures: "LeafToLeaf",
+}
+
+def leaf_indications_str(leaf_indications):
+    if leaf_indications in LEAF_INDICATIONS_TO_STR:
+        return LEAF_INDICATIONS_TO_STR[leaf_indications]
+    else:
+        return str(leaf_indications)
+
+def bandwidth_str(bandwidth):
+    return str(bandwidth) + " Mbps"
+
+def link_id_pair_str(link_id_pair):
+    return str(link_id_pair.local_id) + "-" + str(link_id_pair.remote_id)
+
+def node_element_str(element):
+    lines = []
+    if element.name is not None:
+        lines.append("Name: " + str(element.name))
+    lines.append("Level: " + str(element.level))
+    if element.flags is not None:
+        lines.append("Flags:")
+        if element.flags.overload is not None:
+            lines.append("  Overload: " + str(element.flags.overload))
+    if element.capabilities is not None:
+        lines.append("Capabilities:")
+        if element.capabilities.flood_reduction is not None:
+            lines.append("  Flood reduction: " + str(element.capabilities.flood_reduction))
+        if element.capabilities.leaf_indications is not None:
+            lines.append("  Leaf indications: " +
+                         leaf_indications_str(element.capabilities.leaf_indications))
+    sorted_neighbors = sortedcontainers.SortedDict(element.neighbors)
+    for system_id, neighbor in sorted_neighbors.items():
+        lines.append("Neighbor: " + utils.system_id_str(system_id))
+        lines.append("  Level: " + str(neighbor.level))
+        if neighbor.cost is not None:
+            lines.append("  Cost: " + str(neighbor.cost))
+        if neighbor.bandwidth is not None:
+            lines.append("  Bandwidth: " + bandwidth_str(neighbor.bandwidth))
+        if neighbor.link_ids is not None:
+            sorted_link_ids = sorted(neighbor.link_ids)
+            for link_id_pair in sorted_link_ids:
+                lines.append("  Link: " + link_id_pair_str(link_id_pair))
+
+    if element.visible_in_same_level:
+        lines.append("Visible in same level:")
+        sorted_system_ids = sorted(element.visible_in_same_level)
+        for system_id in sorted_system_ids:
+            lines.append("  System ID: " + utils.system_id_str(system_id))
+    if element.same_level_unknown_north_partitions:
+        lines.append("Same level unknown north partitions:")
+        sorted_system_ids = sorted(element.same_level_unknown_north_partitions)
+        for system_id in sorted_system_ids:
+            lines.append("  System ID: " + utils.system_id_str(system_id))
+    return lines
+
+def prefix_element_str(element):
+    lines = []
+    sorted_prefixes = sortedcontainers.SortedDict(element.prefixes)
+    for prefix, attributes in sorted_prefixes.items():
+        line = "Prefix: " + ip_prefix_str(prefix)
+        lines.append(line)
+        if attributes:
+            if attributes.metric:
+                line = "  Metric: " + str(attributes.metric)
+                lines.append(line)
+            if attributes.tags:
+                for tag in attributes.tags:
+                    line = "  Tag: " + str(tag)
+                    lines.append(line)
+            if attributes.monotonic_clock:
+                line = "  Monotonic-clock: " + str(attributes.monotonic_clock)
+                lines.append(line)
+    return lines
+
+def transitive_prefix_element_str(_element):
+    # TODO: Implement this
+    return "TODO"
+
+def pg_prefix_element_str(_element):
+    # TODO: Implement this
+    return "TODO"
+
+def key_value_element_str(_element):
+    # TODO: Implement this
+    return "TODO"
+
+def unknown_element_str(_element):
+    # TODO: Implement this
+    return "TODO"
+
+def element_str(tietype, element):
+    if tietype == common.ttypes.TIETypeType.NodeTIEType:
+        return node_element_str(element.node)
+    elif tietype == common.ttypes.TIETypeType.PrefixTIEType:
+        return prefix_element_str(element.prefixes)
+    elif tietype == common.ttypes.TIETypeType.TransitivePrefixTIEType:
+        return transitive_prefix_element_str(element.transitive_prefixes)
+    elif tietype == common.ttypes.TIETypeType.PGPrefixTIEType:
+        return pg_prefix_element_str(element)   # TODO
+    elif tietype == common.ttypes.TIETypeType.KeyValueTIEType:
+        return key_value_element_str(element.keyvalues)
+    else:
+        return unknown_element_str(element)

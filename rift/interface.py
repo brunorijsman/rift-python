@@ -9,7 +9,6 @@ import neighbor
 import offer
 import packet_common
 import table
-import tie_db
 import timer
 import udp_receive_handler
 import udp_send_handler
@@ -923,9 +922,9 @@ class Interface:
             ["Origination", "Time"]])
         for tie_header in tie_headers.values():
             # TODO: Move direction_str etc. to packet_common
-            tab.add_row([tie_db.direction_str(tie_header.tieid.direction),
+            tab.add_row([packet_common.direction_str(tie_header.tieid.direction),
                          tie_header.tieid.originator,
-                         tie_db.tietype_str(tie_header.tieid.tietype),
+                         packet_common.tietype_str(tie_header.tieid.tietype),
                          tie_header.tieid.tie_nr,
                          tie_header.seq_nr,
                          tie_header.remaining_lifetime,
