@@ -189,7 +189,16 @@ PROTOCOL_PACKET_FIXES = [
                 ('originator', 64)]),
             ('pod', 32),
             ('label', 32)]),
-        ('tide', []),           # TODO
+        ('tide', [
+            ('start_range', [
+                ('originator', 64),
+                ('tie_nr', 32)
+            ]),
+            ('end_range', [
+                ('originator', 64),
+                ('tie_nr', 32)
+            ]),
+        ]),           # TODO also fields in headers list (e.g. seq_nr)
         ('tire', []),           # TODO
         ('tie', [])])]          # TODO
 

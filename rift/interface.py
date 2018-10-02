@@ -115,6 +115,8 @@ class Interface:
         self._service_queues_timer.start()
         # Update the node TIEs originated by this node to include this neighbor
         self._node.regenerate_all_node_ties()
+        # Since we bumped the node TIE seq_nr, we have to regenerate the TIDE as well
+        self._node.regenerate_all_tides()
 
     def action_stop_flooding(self):
         # Stop sending TIE, TIRE, and TIDE packets to this neighbor
@@ -129,6 +131,8 @@ class Interface:
         # interface_going_down to regenerate_all_node_ties because the state of this interface is
         # still THREE_WAY at this point.
         self._node.regenerate_all_node_ties(interface_going_down=self)
+        # Since we bumped the node TIE seq_nr, we have to regenerate the TIDE as well
+        self._node.regenerate_all_tides()
 
     def send_protocol_packet(self, protocol_packet, flood):
         if flood:

@@ -12,17 +12,6 @@ import table
 # - Encode only once, instead of each time the message is sent
 # - Ability to flood the message immediately before it is decoded
 
-###@@@
-# encoding.ttypes.TIEHeader.cli_summary_headers = (
-#     lambda self: ["Direction", "Originator", "Type", "TIE-Nr", "Seq-Nr"])
-
-# encoding.ttypes.TIEHeader.cli_summary_attributes = (
-#     lambda self: [packet_common.direction_str(self.tie_id.direction),
-#                   self.tie_id.originator,
-#                   packet_common.tietype_str(self.tie_id.tietype),
-#                   self.tie_id.tie_nr,
-#                   self.seq_nr])
-
 def compare_tie_header_age(header1, header2):
     # Returns -1 is header1 is older, returns +1 if header1 is newer, 0 if "same" age
     # It is not allowed to call this function with headers with different TIE-IDs.
@@ -206,6 +195,32 @@ class TIE_DB:
                 # We have the same version of the TIE, ACK it
                 ack_tie_header = db_tie.content.tie.header
         return (start_sending_tie_header, ack_tie_header)
+
+    def generate_tide(self, _direction, system_id, level):
+        # We generate a single TIDE packet which covers the entire range and we report all TIE
+        # headers in that single TIDE packet. We simple assume that it will fit in a single UDP
+        # packet which can be up to 64K. And if a single TIE gets added or removed we swallow the
+        # cost of regenerating and resending the entire TIDE packet.
+        start_range = packet_common.make_tie_id(
+            common.ttypes.TieDirectionType.Illegal,
+            0,
+            common.ttypes.TIETypeType.Illegal,
+            0)
+        end_range = packet_common.make_tie_id(
+            common.ttypes.TieDirectionType.DirectionMaxValue,
+            packet_common.MAX_U64,
+            common.ttypes.TIETypeType.TIETypeMaxValue,
+            packet_common.MAX_U32)
+        tide_protocol_packet = packet_common.make_tide(
+            sender=system_id,
+            level=level,
+            start_range=start_range,
+            end_range=end_range)
+        ##@@ TODO: Apply flooding scope: only include TIEs corresponding to the requested direction
+        for tie_protocol_packet in self.ties.values():
+            tie_header = tie_protocol_packet.content.tie.header
+            packet_common.add_tie_header_to_tide(tide_protocol_packet, tie_header)
+        return tide_protocol_packet
 
     def tie_db_table(self):
         tab = table.Table()

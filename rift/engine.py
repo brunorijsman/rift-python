@@ -125,6 +125,9 @@ class Engine:
             tab.add_row(nod.cli_level_attributes())
         cli_session.print_r(tab.to_string(cli_session.current_end_line()))
 
+    def command_show_tides(self, cli_session):
+        cli_session.current_node.command_show_tides(cli_session)
+
     def command_show_tie_db(self, cli_session):
         cli_session.current_node.command_show_tie_db(cli_session)
 
@@ -174,6 +177,7 @@ class Engine:
                 "queues": command_show_intf_queues
             },
             "interfaces": command_show_interfaces,
+            "tides": command_show_tides,
             "tie-db": command_show_tie_db,
             "node": {
                 "": command_show_node,

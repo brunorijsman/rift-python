@@ -4,6 +4,7 @@ import os
 import socket
 import uuid
 
+import copy
 import sortedcontainers
 
 import common.constants
@@ -358,7 +359,7 @@ class Node:
         self.regenerate_all_node_ties()
         self.tides = {}
         self.encoded_tides = {}
-        self.clear_all_generated_tides()
+        self.regenerate_all_tides()
         self._fsm = fsm.Fsm(
             definition=self.fsm_definition,
             action_handler=self,
@@ -545,7 +546,6 @@ class Node:
         self.tie_db.store_tie(node_tie_protocol_packet)
         self.info("Regenerated node TIE for direction {}: {}"
                   .format(packet_common.direction_str(direction), node_tie_protocol_packet))
-        ##@@ TODO: Report it in the TIDE
 
     def regenerate_all_node_ties(self, interface_going_down=None):
         for direction in [common.ttypes.TieDirectionType.South,
@@ -560,33 +560,25 @@ class Node:
             # TODO: ##@@ Remove from DB
 
     def regenerate_tide(self, direction):
-        # TODO: For now, we generate a single TIDE packet which covers the entire range and we
-        # report all TIE headers in that single TIDE packet. We simple assume that it will fit in
-        # a single UDP packet which can be up to 64K. And if a single TIE gets added or removed
-        # we swallow the inefficiency of regenerating and resending a potentially very large TIDE
-        # packet. In the future, we may introduce a more sophisticated mechanism with multiple TIDE
-        # packets, each with a smaller range.
-        start_range = packet_common.make_tie_id(
-            common.ttypes.TieDirectionType.Illegal,
-            0,
-            common.ttypes.TIETypeType.Illegal,
-            0)
-        end_range = packet_common.make_tie_id(
-            common.ttypes.TieDirectionType.Illegal,
-            packet_common.MAX_U64,
-            common.ttypes.TIETypeType.TIETypeMaxValue,
-            packet_common.MAX_U32)
-        tide_protocol_packet = packet_common.make_tide(
-            sender=self._system_id,
-            level=self.level_value(),
-            start_range=start_range,
-            end_range=end_range)
-        ##@@ TODO: Add TIE headers from the TIE-DB.
-        ##@@ TODO: Only include TIEs corresponding to the requested flooding_scope
+        tide_protocol_packet = self.tie_db.generate_tide(
+            direction,
+            self._system_id,
+            self.level_value())
         self.tides[direction] = tide_protocol_packet
+        # Encoding a packet has the side-effect to "fixing" unsigned integers into the range of
+        # signed integers. We want the stored non-encoded packet to contain the non-fixed integers.
+        # For that reason, we make a deep copy before encoding.
+        copied_tide_protocol_packet = copy.deepcopy(tide_protocol_packet)
         self.encoded_tides[direction] = (
-            packet_common.encode_protocol_packet(tide_protocol_packet))
+            packet_common.encode_protocol_packet(copied_tide_protocol_packet))
+        self.info("Regenerated TIDE for direction {}: {}"
+                  .format(packet_common.direction_str(direction), tide_protocol_packet))
         ##@@ TODO: Actually send it out periodically
+
+    def regenerate_all_tides(self):
+        for direction in [common.ttypes.TieDirectionType.South,
+                          common.ttypes.TieDirectionType.North]:
+            self.regenerate_tide(direction)
 
     def clear_all_generated_tides(self):
         for direction in [common.ttypes.TieDirectionType.South,
@@ -707,6 +699,34 @@ class Node:
 
     def command_show_node_fsm_history(self, cli_session, verbose):
         tab = self._fsm.history_table(verbose)
+        cli_session.print(tab.to_string(cli_session.current_end_line()))
+
+    @staticmethod
+    def tide_content_append_tie_id(contents, tie_id):
+        contents.append("  Direction: " + packet_common.direction_str(tie_id.direction))
+        contents.append("  Originator: " + utils.system_id_str(tie_id.originator))
+        contents.append("  TIE Type: " + packet_common.tietype_str(tie_id.tietype))
+        contents.append("  TIE Nr: " + str(tie_id.tie_nr))
+
+    def command_show_tides(self, cli_session):
+        tab = table.Table()
+        tab.add_row(["Direction", "TIDE Contents"])
+        for direction, tide_protocol_packet in self.tides.items():
+            if tide_protocol_packet is not None:
+                tide = tide_protocol_packet.content.tide
+                contents = []
+                contents.append("Range start:")
+                self.tide_content_append_tie_id(contents, tide.start_range)
+                contents.append("Range end:")
+                self.tide_content_append_tie_id(contents, tide.end_range)
+                tab.add_row([packet_common.direction_str(direction), contents])
+                for header in tide.headers:
+                    contents.append("Header:")
+                    self.tide_content_append_tie_id(contents, header.tieid)
+                    contents.append("  Seq Nr: " + str(header.seq_nr))
+                    contents.append("  Remaining Lifetime: " + str(header.remaining_lifetime))
+                    if header.origination_time is not None:
+                        contents.append("  Origination Time: " + str(header.origination_time))
         cli_session.print(tab.to_string(cli_session.current_end_line()))
 
     def command_show_tie_db(self, cli_session):
