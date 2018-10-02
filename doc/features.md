@@ -21,32 +21,47 @@
 
 | Feature | Supported |
 | --- | --- |
-| Topology Information Element (TIE) Packet | Partial (Receive) |
-| Topology Information Element (TIE) Database | Yes |
-| Node Topology Information Element | No |
-| Prefix Topology Information Element | No |
-| Transitive Prefix Topology Information Element | No |
-| Key-Value Topology Information Element | No |
-| South- and Northbound Representation | No |
-| Topology Information Description Element (TIDE) Packet | No |
-| Topology Information Request Element (TIRE) Packet | No |
-| Topology Exchange (TIE Exchange) | No |
-| Flooding  | No |
-| TIE Flooding Scopes  | No |
-| Initial and Periodic Database Synchronization  | No |
-| Purging  | No |
+| Receive all types of TIE packets | Yes |
+| Store received TIE packets in TIE-DB | Yes |
+| Propagate all types of received TIE packets | Yes |
+| Propagate TIE packets without decoding and re-encoding | No |
+| Originate Node TIE packets | Yes |
+| Originate Prefix TIE packets | No |
+| Originate Positive Disaggregation TIE packets | No |
+| Originate Negative Disaggregation TIE packets | No |
+| Originate Policy Guided Prefix TIE packets | No |
+| Originate Key Value TIE packets | No |
+| Apply flooding scope rules when sending TIE packets | No |
+| Process received TIDE packets | Yes |
+| Request missing TIEs based on received TIDE packets | Yes |
+| Send newer TIEs based on received TIDE packets | Yes |
+| Acknowledge same TIEs based on received TIDE packets | Yes |
+| Originate TIDE packets | Yes |
+| Apply flooding scope rules when sending TIDE packets | No |
+| Process received TIRE packets | Yes |
+| Start sending TIES requested in received TIRE packet | Yes |
+| Stop sending TIES acknowledged in received TIRE packet | Yes |
 | Southbound Default Route Origination  | No |
 | Northbound TIE Flooding Reduction  | No |
-| Policy-Guided Prefixes  | No |
 | Ingress Filtering  | No |
 | Applying Policy  | No |
 | Store Policy-Guided Prefix for Route Computation and Regeneration  | No |
 | Re-origination  | No |
 | Overlap with Disaggregated Prefixes  | No |
+
+## Route Calculation
+
+| Feature | Supported |
+| --- | --- |
 | Reachability Computation  | No |
 | Northbound SPF  | No |
 | Southbound SPF  | No |
 | East-West Forwarding Within a Level  | No |
+
+## Additional Features
+
+| Feature | Supported |
+| --- | --- |
 | Attaching Prefixes  | No |
 | Attaching Policy-Guided Prefixes  | No |
 | Automatic Disaggregation on Link & Node Failures  | No |

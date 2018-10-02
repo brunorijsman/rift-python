@@ -573,7 +573,6 @@ class Node:
             packet_common.encode_protocol_packet(copied_tide_protocol_packet))
         self.info("Regenerated TIDE for direction {}: {}"
                   .format(packet_common.direction_str(direction), tide_protocol_packet))
-        ##@@ TODO: Actually send it out periodically
 
     def regenerate_all_tides(self):
         for direction in [common.ttypes.TieDirectionType.South,

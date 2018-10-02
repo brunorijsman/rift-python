@@ -44,10 +44,21 @@ def compare_tie_header_age(header1, header2):
 # pylint: disable=invalid-name
 class TIE_DB:
 
-    MIN_TIE_ID = encoding.ttypes.TIEID(direction=common.ttypes.TieDirectionType.Illegal,
-                                       originator=0,
-                                       tietype=common.ttypes.TIETypeType.Illegal,
-                                       tie_nr=0)
+    # Don't use the actual lowest value 0 (which is enum value Illegal) for direction or tietype,
+    # but value 1 (direction South) or value 2 (tietype TieTypeNode). Juniper RIFT doesn't accept
+    # illegal values.
+    MIN_TIE_ID = encoding.ttypes.TIEID(
+        direction=common.ttypes.TieDirectionType.South,
+        originator=0,
+        tietype=common.ttypes.TIETypeType.NodeTIEType,
+        tie_nr=0)
+    # For the same reason don't use DirectionMaxValue or TIETypeMaxValue but North and
+    # KeyValueTIEType instead
+    MAX_TIE_ID = encoding.ttypes.TIEID(
+        direction=common.ttypes.TieDirectionType.North,
+        originator=packet_common.MAX_U64,
+        tietype=common.ttypes.TIETypeType.KeyValueTIEType,
+        tie_nr=packet_common.MAX_U32)
 
     def __init__(self):
         self.ties = sortedcontainers.SortedDict()
@@ -201,16 +212,8 @@ class TIE_DB:
         # headers in that single TIDE packet. We simple assume that it will fit in a single UDP
         # packet which can be up to 64K. And if a single TIE gets added or removed we swallow the
         # cost of regenerating and resending the entire TIDE packet.
-        start_range = packet_common.make_tie_id(
-            common.ttypes.TieDirectionType.Illegal,
-            0,
-            common.ttypes.TIETypeType.Illegal,
-            0)
-        end_range = packet_common.make_tie_id(
-            common.ttypes.TieDirectionType.DirectionMaxValue,
-            packet_common.MAX_U64,
-            common.ttypes.TIETypeType.TIETypeMaxValue,
-            packet_common.MAX_U32)
+        start_range = self.MIN_TIE_ID
+        end_range = self.MAX_TIE_ID
         tide_protocol_packet = packet_common.make_tide(
             sender=system_id,
             level=level,

@@ -35,6 +35,7 @@ class Interface:
     UNDEFINED_OR_ANY_POD = 0
 
     SERVICE_QUEUES_INTERVAL = 1.0
+    SEND_TIDES_INTERVAL = 2.0
 
     def generate_advertised_name(self):
         return self._node.name + '-' + self._interface_name
@@ -112,7 +113,14 @@ class Interface:
             port=tx_flood_port,
             local_address=self._node.engine.tx_src_address)
             # TODO: This can't be the interface address since it is per engine
+        # Periodically start sending TIE packets and TIRE packets
         self._service_queues_timer.start()
+        # Periodically start sending TIE packets
+        self._send_tides_timer.start()
+        # We don't blindly send all TIEs to the neighbor because he might already have them. Instead
+        # we send a TIDE packet right now. If our neighbor is missing a TIE that is in our database
+        # he will request it after he receives the TIDE packet.
+        self.send_tides()
         # Update the node TIEs originated by this node to include this neighbor
         self._node.regenerate_all_node_ties()
         # Since we bumped the node TIE seq_nr, we have to regenerate the TIDE as well
@@ -122,6 +130,7 @@ class Interface:
         # Stop sending TIE, TIRE, and TIDE packets to this neighbor
         self.info(self._rx_log, "Stop flooding")
         self._service_queues_timer.stop()
+        self._send_tides_timer.stop()
         self.clear_all_queues()
         self._flood_receive_handler.close()
         self._flood_receive_handler = None
@@ -135,6 +144,10 @@ class Interface:
         self._node.regenerate_all_tides()
 
     def send_protocol_packet(self, protocol_packet, flood):
+        encoded_protocol_packet = packet_common.encode_protocol_packet(protocol_packet)
+        self.send_encoded_protocol_packet(protocol_packet, encoded_protocol_packet, flood)
+
+    def send_encoded_protocol_packet(self, protocol_packet, encoded_protocol_packet, flood):
         if flood:
             handler = self._flood_send_handler
         else:
@@ -144,7 +157,6 @@ class Interface:
             self.debug(self._tx_log, "Simulated send failure {} to {}"
                        .format(protocol_packet, to_str))
         else:
-            encoded_protocol_packet = packet_common.encode_protocol_packet(protocol_packet)
             try:
                 handler.send_message(encoded_protocol_packet)
             except socket.error as error:
@@ -575,8 +587,12 @@ class Interface:
         self._lie_receive_handler = None
         self._flood_receive_handler = None
         self._flood_send_handler = None
+        # The following queues (ties_tx, ties_rtx, ties_req, are ties_ack) are ordered dictionaries.
+        # The value is the header of the TIE. The index is the TIE-ID want to have two headers with
+        # same TIE-ID in the queue. The ordering is needed because we want to service the entries
+        # in the queue in the same order in which they were added (FIFO).
+        # TODO: For _ties_rtx, add time to retransmit to retransmit queue
         self._ties_tx = collections.OrderedDict()
-        # TODO: Add time to retransmit to retransmit queue
         self._ties_rtx = collections.OrderedDict()
         self._ties_req = collections.OrderedDict()
         self._ties_ack = collections.OrderedDict()
@@ -612,6 +628,11 @@ class Interface:
         self._service_queues_timer = timer.Timer(
             interval=self.SERVICE_QUEUES_INTERVAL,
             expire_function=self.service_queues,
+            periodic=True,
+            start=False)
+        self._send_tides_timer = timer.Timer(
+            interval=self.SEND_TIDES_INTERVAL,
+            expire_function=self.send_tides,
             periodic=True,
             start=False)
 
@@ -835,13 +856,19 @@ class Interface:
             packet_common.add_tie_header_to_tire(tire, tie_header)
         self.send_protocol_packet(tire, True)
 
+    def service_ties_queue(self, queue):
+        # Note: we only look at the TIE-ID in the queue and not at the header. If we have a more
+        # recent version of the TIE in the TIE-DB than the one requested, we send the one we have.
+        for tie_id in queue.keys():
+            db_tie = self._node.tie_db.find_tie(tie_id)
+            if db_tie is not None:
+                self.send_protocol_packet(db_tie, True)
+
     def service_ties_tx(self):
-        # TODO: implement this
-        pass
+        self.service_ties_queue(self._ties_tx)
 
     def service_ties_rtx(self):
-        # TODO: implement this
-        pass
+        self.service_ties_queue(self._ties_rtx)
 
     def service_ties_req(self):
         tire = packet_common.make_tire(
@@ -850,6 +877,13 @@ class Interface:
         for tie_header in self._ties_req.values():
             packet_common.add_tie_header_to_tire(tire, tie_header)
         self.send_protocol_packet(tire, True)
+
+    def send_tides(self):
+        ##@@ TODO: Only send the right one(s) based on flooding scope
+        for direction, encoded_tide in self._node.encoded_tides.items():
+            if encoded_tide is not None:
+                tide = self._node.tides[direction]
+                self.send_encoded_protocol_packet(tide, encoded_tide, True)
 
     @property
     def state_name(self):
