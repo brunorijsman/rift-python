@@ -317,26 +317,16 @@ class TIE_DB:
                 assert neighbor_direction is None
                 return (False, "N-TIE to ?: never flood")
 
-    def generate_tide(self, tie_direction, system_id, level):
+    def generate_tide(self, neighbor_direction, system_id, level):
         # We generate a single TIDE packet which covers the entire range and we report all TIE
         # headers in that single TIDE packet. We simple assume that it will fit in a single UDP
         # packet which can be up to 64K. And if a single TIE gets added or removed we swallow the
         # cost of regenerating and resending the entire TIDE packet.
-        start_range = self.MIN_TIE_ID
-        end_range = self.MAX_TIE_ID
         tide_protocol_packet = packet_common.make_tide(
             sender=system_id,
             level=level,
-            start_range=start_range,
-            end_range=end_range)
-        # Convert TIE direction to neighbor direction
-        # TODO: This goes away once we index the TIDEs by neighbor direction
-        if tie_direction == common.ttypes.TieDirectionType.South:
-            neighbor_direction = neighbor.Neighbor.Direction.SOUTH
-        elif tie_direction == common.ttypes.TieDirectionType.North:
-            neighbor_direction = neighbor.Neighbor.Direction.NORTH
-        else:
-            assert False
+            start_range=self.MIN_TIE_ID,
+            end_range=self.MAX_TIE_ID)
         # Apply flooding scope: only include TIEs corresponding to the requested direction
         # The scoping rules in the specification (table 3), somewhat vaguely, say to only "include
         # TIES in flooding scope" in the TIDE. We interpret this to mean that we should only

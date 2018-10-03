@@ -15,6 +15,16 @@ class Neighbor:
         NORTH = 2
         EAST_WEST = 3
 
+    @staticmethod
+    def direction_str(direction):
+        if direction == Neighbor.Direction.SOUTH:
+            return "South"
+        if direction == Neighbor.Direction.NORTH:
+            return "North"
+        if direction == Neighbor.Direction.EAST_WEST:
+            return "East-West"
+        return str(direction)
+
     def __init__(self, lie_protocol_packet, neighbor_address, neighbor_port):
         self.system_id = lie_protocol_packet.header.sender
         self.level = lie_protocol_packet.header.level

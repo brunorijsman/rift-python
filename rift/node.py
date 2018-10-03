@@ -4,13 +4,13 @@ import os
 import socket
 import uuid
 
-import copy
 import sortedcontainers
 
 import common.constants
 import constants
 import fsm
 import interface
+import neighbor
 import offer
 import packet_common
 import table
@@ -28,6 +28,8 @@ class Node:
     NODE_NORTH_TIE_NR = 2
 
     LIFETIME = 600
+
+    SEND_TIDES_INTERVAL = 2.0
 
     # TODO: This value is not specified anywhere in the specification
     DEFAULT_HOLD_DOWN_TIME = 3.0
@@ -358,9 +360,6 @@ class Node:
         self.node_ties = {}
         self.encoded_node_ties = {}
         self.regenerate_all_node_ties()
-        self.tides = {}
-        self.encoded_tides = {}
-        self.regenerate_all_tides()
         self._fsm = fsm.Fsm(
             definition=self.fsm_definition,
             action_handler=self,
@@ -371,6 +370,11 @@ class Node:
             expire_function=lambda: self._fsm.push_event(self.Event.HOLD_DOWN_EXPIRED),
             periodic=False,
             start=False)
+        self._send_tides_timer = timer.Timer(
+            interval=self.SEND_TIDES_INTERVAL,
+            expire_function=self.send_tides,
+            periodic=True,
+            start=True)
         self._fsm.start()
 
     def generate_system_id(self):
@@ -560,31 +564,36 @@ class Node:
             self.encoded_node_ties[direction] = None
             # TODO: ##@@ Remove from DB
 
-    def regenerate_tide(self, direction):
-        tide_protocol_packet = self.tie_db.generate_tide(
-            direction,
+    def send_tides(self):
+        for neighbor_direction in neighbor.Neighbor.Direction:
+            self.send_tides_in_direction(neighbor_direction)
+
+    def send_tides_on_interface(self, intf):
+        self.send_tides_in_direction(intf.neighbor_direction(), intf)
+
+    def send_tides_in_direction(self, neighbor_direction, one_intf=None):
+        # Collect all interfaces in the given direction
+        send_interfaces = []
+        for intf in self._interfaces.values():
+            if one_intf in (None, one_intf):
+                if ((intf.fsm.state == interface.Interface.State.THREE_WAY) and
+                        (intf.neighbor_direction() == neighbor_direction)):
+                    send_interfaces.append(intf)
+        # If we don't have any interfaces in that direction, there is no need to encode a TIDE
+        if send_interfaces == []:
+            return
+        # We send the same TIDE to all neighbors in a given neighbor direction (north, south,
+        # east-west), so we only need to generate and encode it once per neighbor direction.
+        protocol_packet = self.tie_db.generate_tide(
+            neighbor_direction,
             self._system_id,
             self.level_value())
-        self.tides[direction] = tide_protocol_packet
-        # Encoding a packet has the side-effect to "fixing" unsigned integers into the range of
-        # signed integers. We want the stored non-encoded packet to contain the non-fixed integers.
-        # For that reason, we make a deep copy before encoding.
-        copied_tide_protocol_packet = copy.deepcopy(tide_protocol_packet)
-        self.encoded_tides[direction] = (
-            packet_common.encode_protocol_packet(copied_tide_protocol_packet))
         self.info("Regenerated TIDE for direction {}: {}"
-                  .format(packet_common.direction_str(direction), tide_protocol_packet))
-
-    def regenerate_all_tides(self):
-        for direction in [common.ttypes.TieDirectionType.South,
-                          common.ttypes.TieDirectionType.North]:
-            self.regenerate_tide(direction)
-
-    def clear_all_generated_tides(self):
-        for direction in [common.ttypes.TieDirectionType.South,
-                          common.ttypes.TieDirectionType.North]:
-            self.tides[direction] = None
-            self.encoded_tides[direction] = None
+                  .format(neighbor.Neighbor.direction_str(neighbor_direction), protocol_packet))
+        encoded_protocol_packet = packet_common.encode_protocol_packet(protocol_packet)
+        # Send the TIDE on all interfaces that we collected above
+        for intf in send_interfaces:
+            intf.send_encoded_protocol_packet(protocol_packet, encoded_protocol_packet, True)
 
     @staticmethod
     def cli_summary_headers():
@@ -707,27 +716,6 @@ class Node:
         contents.append("  Originator: " + utils.system_id_str(tie_id.originator))
         contents.append("  TIE Type: " + packet_common.tietype_str(tie_id.tietype))
         contents.append("  TIE Nr: " + str(tie_id.tie_nr))
-
-    def command_show_tides(self, cli_session):
-        tab = table.Table()
-        tab.add_row(["Direction", "TIDE Contents"])
-        for direction, tide_protocol_packet in self.tides.items():
-            if tide_protocol_packet is not None:
-                tide = tide_protocol_packet.content.tide
-                contents = []
-                contents.append("Range start:")
-                self.tide_content_append_tie_id(contents, tide.start_range)
-                contents.append("Range end:")
-                self.tide_content_append_tie_id(contents, tide.end_range)
-                tab.add_row([packet_common.direction_str(direction), contents])
-                for header in tide.headers:
-                    contents.append("Header:")
-                    self.tide_content_append_tie_id(contents, header.tieid)
-                    contents.append("  Seq Nr: " + str(header.seq_nr))
-                    contents.append("  Remaining Lifetime: " + str(header.remaining_lifetime))
-                    if header.origination_time is not None:
-                        contents.append("  Origination Time: " + str(header.origination_time))
-        cli_session.print(tab.to_string(cli_session.current_end_line()))
 
     def command_show_tie_db(self, cli_session):
         tab = self.tie_db.tie_db_table()

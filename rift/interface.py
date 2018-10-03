@@ -37,7 +37,6 @@ class Interface:
     UNDEFINED_OR_ANY_POD = 0
 
     SERVICE_QUEUES_INTERVAL = 1.0
-    SEND_TIDES_INTERVAL = 2.0
 
     def generate_advertised_name(self):
         return self._node.name + '-' + self._interface_name
@@ -117,22 +116,17 @@ class Interface:
             # TODO: This can't be the interface address since it is per engine
         # Periodically start sending TIE packets and TIRE packets
         self._service_queues_timer.start()
-        # Periodically start sending TIE packets
-        self._send_tides_timer.start()
+        # Update the node TIEs originated by this node to include this neighbor
+        self._node.regenerate_all_node_ties()
         # We don't blindly send all TIEs to the neighbor because he might already have them. Instead
         # we send a TIDE packet right now. If our neighbor is missing a TIE that is in our database
         # he will request it after he receives the TIDE packet.
-        self.send_tides()
-        # Update the node TIEs originated by this node to include this neighbor
-        self._node.regenerate_all_node_ties()
-        # Since we bumped the node TIE seq_nr, we have to regenerate the TIDE as well
-        self._node.regenerate_all_tides()
+        self._node.send_tides_on_interface(self)
 
     def action_stop_flooding(self):
         # Stop sending TIE, TIRE, and TIDE packets to this neighbor
         self.info(self._rx_log, "Stop flooding")
         self._service_queues_timer.stop()
-        self._send_tides_timer.stop()
         self.clear_all_queues()
         self._flood_receive_handler.close()
         self._flood_receive_handler = None
@@ -142,8 +136,6 @@ class Interface:
         # interface_going_down to regenerate_all_node_ties because the state of this interface is
         # still THREE_WAY at this point.
         self._node.regenerate_all_node_ties(interface_going_down=self)
-        # Since we bumped the node TIE seq_nr, we have to regenerate the TIDE as well
-        self._node.regenerate_all_tides()
 
     def send_protocol_packet(self, protocol_packet, flood):
         encoded_protocol_packet = packet_common.encode_protocol_packet(protocol_packet)
@@ -632,11 +624,6 @@ class Interface:
             expire_function=self.service_queues,
             periodic=True,
             start=False)
-        self._send_tides_timer = timer.Timer(
-            interval=self.SEND_TIDES_INTERVAL,
-            expire_function=self.send_tides,
-            periodic=True,
-            start=False)
 
     def get_config_attribute(self, config, attribute, default):
         if attribute in config:
@@ -937,13 +924,6 @@ class Interface:
         for tie_header in self._ties_req.values():
             packet_common.add_tie_header_to_tire(tire, tie_header)
         self.send_protocol_packet(tire, True)
-
-    def send_tides(self):
-        ##@@ TODO: Only send the right one(s) based on flooding scope
-        for tie_direction, encoded_tide in self._node.encoded_tides.items():
-            if encoded_tide is not None:
-                tide = self._node.tides[tie_direction]
-                self.send_encoded_protocol_packet(tide, encoded_tide, True)
 
     @property
     def state_name(self):
