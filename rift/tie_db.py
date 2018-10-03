@@ -339,7 +339,7 @@ class TIE_DB:
             tie_header = tie_protocol_packet.content.tie.header
             (allowed, _reason) = self.is_flood_allowed(tie_header, neighbor_direction,
                                                        system_id, level)
-            ##@@ TODO
+            ##@@ TODO log message
             # if allowed:
             #     outcome = "allowed"
             # else:

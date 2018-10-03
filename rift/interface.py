@@ -768,27 +768,45 @@ class Interface:
         # TODO: Implement this
         return False
 
-    def is_request_allowed(self, _tie_header):
-        ###@@@ implement this
-        return True
+    def is_request_allowed(self, tie_header):
+        neighbor_direction = self.neighbor_direction()
+        if neighbor_direction == neighbor.Neighbor.Direction.SOUTH:
+            # Include all N-TIEs ...
+            if tie_header.tieid.direction == common.ttypes.TieDirectionType.North:
+                return (True, "to S: include all N-TIEs")
+            # ... and all peer's self-originated TIEs ...
+            if tie_header.tieid.originator == self.neighbor.system_id:
+                return (True, "to S: include peer self-originated")
+            # ... and all Node S-TIEs
+            if ((tie_header.tieid.tietype == common.ttypes.TIETypeType.NodeTIEType) and
+                    (tie_header.tieid.direction == common.ttypes.TieDirectionType.South)):
+                return (True, "to S: include node S-TIE")
+            # Exclude everything else
+            return (False, "to S: exclude")
+        elif neighbor_direction == neighbor.Neighbor.Direction.NORTH:
+            # Include only of TIE originator is equal to peer
+            if tie_header.tieid.originator == self.neighbor.system_id:
+                return (True, "to N: TIE originator is equal to peer")
+            # Exclude everything else
+            return (False, "to N: exclude")
+        elif neighbor_direction == neighbor.Neighbor.Direction.EAST_WEST:
+            ##@@ TODO: I cannot parse this sentence in the specification "if ToF same behavior as
+            # North otherwise South". For now, just exclude.
+            return (False, "to EW: TODO exclude for now")
+        else:
+            # Cannot determine direction of neighbor. Exclude.
+            return (False, "to ?: exclude")
 
     def is_request_filtered(self, tie_header):
-        # This function is invoked when we are considering request a specific TIE header in a sent
-        # TIRE packet. The question is should the request for the TIE header be filtered according
-        # to the flooding scopes rules? The function is called is_request_filtered; it returns True
-        # if we should filter (disallow) the request, and False if we should allow the request.
-        # However, the flooding scopes table (table 3) in the spec is defined the opposite way: it
-        # specifies which criteria need to be True to allow the request. To avoid confusion, we have
-        # another function is_request_allowed.
-        return not self.is_request_allowed(tie_header)
+        # The logic is more more easy to follow and mirrors the language of the flooding scope
+        # rules (table 3) more closely if we ask the opposite question: is the request allowed?
+        (allowed, reason) = self.is_request_allowed(tie_header)
+        filtered = not allowed
+        return (filtered, reason)
 
     def is_flood_filtered(self, tie_header):
-        # This function is invoked when we are considering to send a TIE packet to the neighbor;
-        # should the sending of the TIE packet be filtered according to the flooding scopes rules?
-        # The function is called is_flood_filtered; it returns True if we should filter, and False
-        # if we should flood. However, the flooding scopes table (table 3) in the spec is defined
-        # the opposite way: it specifies which criteria need to be True to allow flooding. To avoid
-        # confusion, we have another function is_flood_allowed.
+        # The logic is more more easy to follow and mirrors the language of the flooding scope
+        # rules (table 3) more closely if we ask the opposite question: is the TIE allowed?
         neighbor_direction = self.neighbor_direction()
         my_system_id = self._node.system_id
         my_level = self._node.level_value()
@@ -799,10 +817,7 @@ class Interface:
 
     def try_to_transmit_tie(self, tie_header):
         (filtered, reason) = self.is_flood_filtered(tie_header)
-        if filtered:
-            outcome = "filtered"
-        else:
-            outcome = "allowed"
+        outcome = "filtered" if filtered else "allowed"
         self.debug(self._tx_log, ("Transmit TIE {} is {} because {}"
                                   .format(tie_header, outcome, reason)))
         if not filtered:
@@ -864,7 +879,11 @@ class Interface:
             pass
 
     def request_tie(self, tie_header):
-        if not self.is_request_filtered(tie_header):
+        (filtered, reason) = self.is_request_filtered(tie_header)
+        outcome = "excluded" if filtered else "included"
+        self.debug(self._tx_log, ("Request TIE {} is {} in TIRE because {}"
+                                  .format(tie_header, outcome, reason)))
+        if not filtered:
             self.remove_from_all_queues(tie_header)
             self._ties_req[tie_header.tieid] = tie_header
 
