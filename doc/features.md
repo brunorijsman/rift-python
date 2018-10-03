@@ -23,7 +23,12 @@
 | --- | --- |
 | Receive all types of TIE packets | Yes |
 | Store received TIE packets in TIE-DB | Yes |
-| Propagate all types of received TIE packets | Yes |
+| Age TIE packets in TIE-DB and remove when they expire | Yes |
+| Add neighbor's newer TIEs to request queue | Yes |
+| Add neighbor's older TIEs to send queue | Yes |
+| Add neighbor's same TIEs to acknowledge queue | Yes |
+| Re-transmit TIEs if they are not acknowledged | Yes |
+| Periodically serve all queues (TX, RTX, REQ, ACK) | Yes |
 | Propagate TIE packets without decoding and re-encoding | No |
 | Originate Node TIE packets | Yes |
 | Originate Prefix TIE packets | No |
@@ -31,16 +36,19 @@
 | Originate Negative Disaggregation TIE packets | No |
 | Originate Policy Guided Prefix TIE packets | No |
 | Originate Key Value TIE packets | No |
-| Apply flooding scope rules when sending TIE packets | No |
 | Process received TIDE packets | Yes |
 | Request missing TIEs based on received TIDE packets | Yes |
 | Send newer TIEs based on received TIDE packets | Yes |
+| Detect extra TIEs based on gaps inside received TIDE packets | Yes |
+| Detect extra TIEs based on gaps between received TIDE packets | Yes |
 | Acknowledge same TIEs based on received TIDE packets | Yes |
-| Originate TIDE packets | Yes |
-| Apply flooding scope rules when sending TIDE packets | No |
+| Periodically originate TIDE packets | Yes |
 | Process received TIRE packets | Yes |
 | Start sending TIES requested in received TIRE packet | Yes |
 | Stop sending TIES acknowledged in received TIRE packet | Yes |
+| Apply flooding scope rules when sending TIE packets | Yes |
+| Apply flooding scope rules when sending TIDE packets | Yes |
+| Apply flooding scope rules when sending TIRE packets | Yes |
 | Southbound Default Route Origination  | No |
 | Northbound TIE Flooding Reduction  | No |
 | Ingress Filtering  | No |
