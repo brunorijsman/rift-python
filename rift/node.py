@@ -351,6 +351,7 @@ class Node:
                 self.create_interface(interface_config)
         self.tie_db = tie_db.TIE_DB()
         # The following couple of fields are dictionaries indexed by direction (south and north)
+        ##@@ TODO: Index by NeighborDirection (N,S,EW) instead of TIE direction (just N,S)
         self.node_tie_seq_nrs = {}
         self.node_tie_seq_nrs[common.ttypes.TieDirectionType.South] = 0
         self.node_tie_seq_nrs[common.ttypes.TieDirectionType.North] = 0

@@ -1,8 +1,19 @@
+import enum
+
 import utils
 
 # TODO: Store both IPv4 and IPv6 address of neighbor
 
 class Neighbor:
+
+    # The neighbor direction is slightly more general than the type TieDirectionType in the Thrift
+    # model. In addition to North and South, we also have the concept of EastWest. When we say
+    # TIE direction we mean North or South. When we say neighbor direction, we mean North or South
+    # or East-West.
+    class Direction(enum.Enum):
+        SOUTH = 1
+        NORTH = 2
+        EAST_WEST = 3
 
     def __init__(self, lie_protocol_packet, neighbor_address, neighbor_port):
         self.system_id = lie_protocol_packet.header.sender
@@ -29,6 +40,7 @@ class Neighbor:
 
     def cli_detailed_attributes(self):
         # TODO: Report capabilities (is it possible to report the unknown ones too?"
+        # TODO: Report neighbor direction in show command
         if self.neighbor_system_id:
             your_system_id_str = utils.system_id_str(self.neighbor_system_id)
         else:

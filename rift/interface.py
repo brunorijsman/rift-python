@@ -81,11 +81,6 @@ class Interface:
 
     verbose_events = [Event.TIMER_TICK, Event.LIE_RECEIVED, Event.SEND_LIE]
 
-    class NeighborDirection(enum.Enum):
-        NORTH = 1
-        SOUTH = 2
-        EAST_WEST = 3
-
     def action_store_hal(self):
         # TODO: Need to implement ZTP state machine first
         pass
@@ -763,111 +758,54 @@ class Interface:
             return None
         my_level = self._node.level_value()
         if self.neighbor.level > my_level:
-            return self.NeighborDirection.NORTH
+            return neighbor.Neighbor.Direction.NORTH
         elif self.neighbor.level < my_level:
-            return self.NeighborDirection.SOUTH
+            return neighbor.Neighbor.Direction.SOUTH
         else:
-            return self.NeighborDirection.EAST_WEST
+            return neighbor.Neighbor.Direction.EAST_WEST
 
     def is_flood_reduced(self, _tie_header):
         # TODO: Implement this
         return False
 
-    def is_request_filtered(self, _tie_header):
-        # TODO: Implement this
-        return False
+    def is_request_allowed(self, _tie_header):
+        ###@@@ implement this
+        return True
 
-
-    def tie_is_self_originated(self, tie_header):
-        return tie_header.tieid.originator == self._node.system_id
-
-    def tie_originator_level(self, tie_header):
-        # We cannot determine the level of the originator just by looking at the TIE header; we have
-        # to look in the TIE-DB to determine it. We can be confident the TIE is in the TIE-DB
-        # because we wouldn't be here, considering sending a TIE to a neighbor, if we did not have
-        # the TIE in the TIE-DB.
-        db_tie = self._node.tie_db.find_tie(tie_header.tieid)
-        if db_tie is None:
-            # Just in case it unexpectedly not in the TIE-DB
-            return None
-        else:
-            return db_tie.header.level
-
-    def is_flood_allowed(self, tie_header):
-        ##@@ TODO: Return reason string instead of False if not allowed, and use in logging msg
-        neighbor_direction = self.neighbor_direction()
-        # TODO: Implement Top-of-Fabric flag (for now assume not top of fabric). Question: whose
-        # ToF is being checked here? Ours? The neighbor's? The originator's?
-        top_of_fabric = False
-        if tie_header.tieid.direction == common.ttypes.TieDirectionType.South:
-            # The TIE is a South-TIE
-            if tie_header.tieid.tietype == common.ttypes.TIETypeType.NodeTIEType:
-                # The TIE is a Node South-TIE
-                if neighbor_direction == self.NeighborDirection.SOUTH:
-                    # Only flood a Node South-TIE to a South-Neighbor if it is self-originated
-                    return self.tie_is_self_originated(tie_header)
-                elif neighbor_direction == self.NeighborDirection.NORTH:
-                    # Only flood a Node South-TIE to a North-Neighbor if TIE originator level is
-                    # higher than my own level.
-                    originator_level = self.tie_originator_level(tie_header)
-                    return ((originator_level is not None) and
-                            (originator_level > self._node.level_value()))
-                elif neighbor_direction == self.NeighborDirection.EAST_WEST:
-                    # Only flood a Node South-TIE to an East-West-Neighbor if not Top-of-Fabric
-                    return not top_of_fabric
-                else:
-                    # We cannot determine the direction of the neighbor; don't flood
-                    assert neighbor_direction is None
-                    return False
-            else:
-                # The TIE is a non-Node South-TIE
-                if neighbor_direction == self.NeighborDirection.SOUTH:
-                    # Only flood a Node South-TIE to a South-Neighbor if it is self-originated
-                    return self.tie_is_self_originated(tie_header)
-                elif neighbor_direction == self.NeighborDirection.NORTH:
-                    # Only flood a Node South-TIE to a North-Neighbor if TIE originator level is
-                    # equal peer.
-                    # TODO: Does "is equal peer" mean "is same level as ME" or "is same level as
-                    # NEIGHBOR"? I need to think about that. For now, I assume the former.
-                    originator_level = self.tie_originator_level(tie_header)
-                    return ((originator_level is not None) and
-                            (originator_level == self._node.level_value()))
-                elif neighbor_direction == self.NeighborDirection.EAST_WEST:
-                    # Only flood a Node South-TIE to an East-West-Neighbor if self-originated and
-                    # not Top-of-Fabric
-                    return self.tie_is_self_originated(tie_header) and not top_of_fabric
-                else:
-                    # We cannot determine the direction of the neighbor; don't flood
-                    assert neighbor_direction is None
-                    return False
-        else:
-            # The TIE is a North-TIE
-            assert tie_header.tieid.direction == common.ttypes.TieDirectionType.North
-            if neighbor_direction == self.NeighborDirection.SOUTH:
-                # Never flood a North-TIE to a South-Neighbor
-                return False
-            elif neighbor_direction == self.NeighborDirection.NORTH:
-                # Always flood a North-TIE to a North-Neighbor
-                return False
-            elif neighbor_direction == self.NeighborDirection.EAST_WEST:
-                # Only flood a North-TIE to an East-West-Neighbor if Top-of-Fabric
-                return top_of_fabric
-            else:
-                # We cannot determine the direction of the neighbor; don't flood
-                assert neighbor_direction is None
-                return False
+    def is_request_filtered(self, tie_header):
+        # This function is invoked when we are considering request a specific TIE header in a sent
+        # TIRE packet. The question is should the request for the TIE header be filtered according
+        # to the flooding scopes rules? The function is called is_request_filtered; it returns True
+        # if we should filter (disallow) the request, and False if we should allow the request.
+        # However, the flooding scopes table (table 3) in the spec is defined the opposite way: it
+        # specifies which criteria need to be True to allow the request. To avoid confusion, we have
+        # another function is_request_allowed.
+        return not self.is_request_allowed(tie_header)
 
     def is_flood_filtered(self, tie_header):
         # This function is invoked when we are considering to send a TIE packet to the neighbor;
-        # should it be filtered according to the flooding scopes rules?
+        # should the sending of the TIE packet be filtered according to the flooding scopes rules?
         # The function is called is_flood_filtered; it returns True if we should filter, and False
         # if we should flood. However, the flooding scopes table (table 3) in the spec is defined
         # the opposite way: it specifies which criteria need to be True to allow flooding. To avoid
         # confusion, we have another function is_flood_allowed.
-        return not self.is_flood_allowed(tie_header)
+        neighbor_direction = self.neighbor_direction()
+        my_system_id = self._node.system_id
+        my_level = self._node.level_value()
+        (allowed, reason) = self._node.tie_db.is_flood_allowed(tie_header, neighbor_direction,
+                                                               my_system_id, my_level)
+        filtered = not allowed
+        return (filtered, reason)
 
     def try_to_transmit_tie(self, tie_header):
-        if not self.is_flood_filtered(tie_header):
+        (filtered, reason) = self.is_flood_filtered(tie_header)
+        if filtered:
+            outcome = "filtered"
+        else:
+            outcome = "allowed"
+        self.debug(self._tx_log, ("Transmit TIE {} is {} because {}"
+                                  .format(tie_header, outcome, reason)))
+        if not filtered:
             self.remove_from_ties_rtx(tie_header)
             if tie_header.tieid in self._ties_ack:
                 ack_header = self._ties_ack[tie_header.tieid]
@@ -983,9 +921,9 @@ class Interface:
 
     def send_tides(self):
         ##@@ TODO: Only send the right one(s) based on flooding scope
-        for direction, encoded_tide in self._node.encoded_tides.items():
+        for tie_direction, encoded_tide in self._node.encoded_tides.items():
             if encoded_tide is not None:
-                tide = self._node.tides[direction]
+                tide = self._node.tides[tie_direction]
                 self.send_encoded_protocol_packet(tide, encoded_tide, True)
 
     @property
