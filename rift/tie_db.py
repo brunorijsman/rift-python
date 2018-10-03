@@ -7,6 +7,7 @@ import encoding.ttypes
 import neighbor
 import packet_common
 import table
+import timer
 
 # TODO: We currently only store the decoded TIE messages.
 # Also store the encoded TIE messages for the following reasons:
@@ -45,6 +46,7 @@ def compare_tie_header_age(header1, header2):
 # pylint: disable=invalid-name
 class TIE_DB:
 
+    # TODO: Use constant from Thrift file (it is currently not there, but Tony said he added it)
     # Don't use the actual lowest value 0 (which is enum value Illegal) for direction or tietype,
     # but value 1 (direction South) or value 2 (tietype TieTypeNode). Juniper RIFT doesn't accept
     # illegal values.
@@ -69,6 +71,11 @@ class TIE_DB:
         # When we have not yet received any TIDE yet, this is initialized to the lowest possible
         # TIEID value.
         self._last_received_tide_end = self.MIN_TIE_ID
+        self._age_ties_timer = timer.Timer(
+            interval=1.0,
+            expire_function=self.age_ties,
+            periodic=True,
+            start=True)
 
     def store_tie(self, protocol_packet):
         assert protocol_packet.content.tie is not None
@@ -356,6 +363,16 @@ class TIE_DB:
         for tie in self.ties.values():
             tab.add_row(self.cli_summary_attributes(tie))
         return tab
+
+    def age_ties(self):
+        expired_key_ids = []
+        for tie_id, db_tie in self.ties.items():
+            db_tie.content.tie.header.remaining_lifetime -= 1
+            if db_tie.content.tie.header.remaining_lifetime <= 0:
+                expired_key_ids.append(tie_id)
+        for key_id in expired_key_ids:
+            ##@@ log a message
+            del self.ties[key_id]
 
     @staticmethod
     def cli_summary_headers():
