@@ -56,6 +56,9 @@ class Timer:
         if start:
             self.start()
 
+    def __del__(self):
+        self.stop()
+
     def running(self):
         return self._running
 
@@ -72,14 +75,11 @@ class Timer:
         else:
             return "Stopped"
 
-    def _update_expire_time(self):
-        self._expire_time = TIMER_SCHEDULER.now() + self._interval
-
     def start(self):
         if self._running:
             self.stop()
         self._running = True
-        self._update_expire_time()
+        self._expire_time = TIMER_SCHEDULER.now() + self._interval
         TIMER_SCHEDULER.schedule(self)
 
     def stop(self):
@@ -91,7 +91,10 @@ class Timer:
     def trigger_expire(self):
         self._expire_function()
         if self._periodic:
-            self._update_expire_time()
+            # Next expire is not now + interval but current expire_time + interval because the
+            # expire function may be called too late when the system is busy, in which case we
+            # try to catch up.
+            self._expire_time += self._interval
             TIMER_SCHEDULER.schedule(self)
         else:
             self._running = False

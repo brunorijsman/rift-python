@@ -5,6 +5,13 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Pytest timer",
+            "type": "python",
+            "request": "launch",
+            "program": "/Users/brunorijsman/rift-python/env/bin/pytest",
+            "args": ["-s", "-vvv", "tests/test_timer.py"] 
+        },
+        {
             "name": "Interop",
             "type": "python",
             "request": "launch",
