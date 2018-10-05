@@ -43,6 +43,12 @@ class TimerScheduler:
             for timer in expired_timers:
                 timer.trigger_expire()
 
+    def stop_all_timers(self):
+        while self._timers_by_expire_time:
+            timers = self._timers_by_expire_time.peekitem(0)[1]
+            for timer in timers:
+                timer.stop()
+
 TIMER_SCHEDULER = TimerScheduler()
 
 class Timer:

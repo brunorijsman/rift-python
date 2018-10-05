@@ -12,6 +12,8 @@ def context():
     class Context:
 
         def __init__(self):
+            # Make sure there are no timers running from previous tests
+            timer.TIMER_SCHEDULER.stop_all_timers()
             self.clear_counters()
 
         def clear_counters(self):
@@ -36,12 +38,15 @@ def context():
         def timer5_expired(self):
             self.timer5_expired_count += 1
 
-    return Context()
+    context = Context()
+    yield context
+
+    timer.TIMER_SCHEDULER.stop_all_timers()
 
 def test_periodic(context):
     # Timer1: interval 0.8 sec (expires 2x in 2.0 sec), started in constructor
     # Rely on default values for periodic and start parameters
-    timer1 = timer.Timer(
+    _timer1 = timer.Timer(
         interval=0.8,
         expire_function=context.timer1_expired)
     # Timer2: interval 2.2 sec (expires 0x in 2.0 sec), started outside constructor
@@ -52,7 +57,7 @@ def test_periodic(context):
         start=False)
     timer2.start()
     # Timer3: interval 2.4 sec (expires 0x in 2.0 sec), started in constructor
-    timer3 = timer.Timer(
+    _timer3 = timer.Timer(
         interval=2.4,
         expire_function=context.timer3_expired,
         periodic=True,
@@ -65,7 +70,7 @@ def test_periodic(context):
         start=False)
     timer4.start()
     # Timer5: interval 1.9 sec (expires 1x in 2.0 sec), started in constructor
-    timer5 = timer.Timer(
+    _timer5 = timer.Timer(
         interval=1.9,
         expire_function=context.timer5_expired,
         periodic=True,
@@ -87,17 +92,11 @@ def test_periodic(context):
     assert context.timer3_expired_count == 1   # Expired at 2.4, next at 4.8
     assert context.timer4_expired_count == 2   # Expired at 2.4 and 3.2, next at 4.0
     assert context.timer5_expired_count == 0   # Did not expire, next at 3.8
-    # Stop all timers (otherwise they will continue to exist and screw up other tests)
-    timer1.stop()
-    timer2.stop()
-    timer3.stop()
-    timer4.stop()
-    timer5.stop()
 
 def test_oneshot(context):
     # Timer1: interval 0.8 sec (expires 1x in 2.0 sec), started in constructor
     # Rely on default values for start parameter
-    timer1 = timer.Timer(
+    _timer1 = timer.Timer(
         interval=0.8,
         expire_function=context.timer1_expired,
         periodic=False)
@@ -109,7 +108,7 @@ def test_oneshot(context):
         start=False)
     timer2.start()
     # Timer3: interval 2.5 sec (expires 0x in 2.0 sec), never started
-    timer3 = timer.Timer(
+    _timer3 = timer.Timer(
         interval=2.5,
         expire_function=context.timer3_expired,
         periodic=False,
@@ -122,7 +121,7 @@ def test_oneshot(context):
         start=False)
     timer4.start()
     # Timer5: interval 1.4 sec (expires 1x in 2.0 sec), not started
-    timer5 = timer.Timer(
+    _timer5 = timer.Timer(
         interval=1.4,
         expire_function=context.timer5_expired,
         periodic=False,
@@ -134,12 +133,6 @@ def test_oneshot(context):
     assert context.timer3_expired_count == 0
     assert context.timer4_expired_count == 1
     assert context.timer5_expired_count == 0
-    # Stop all timers (otherwise they will continue to exist and screw up other tests)
-    timer1.stop()
-    timer2.stop()
-    timer3.stop()
-    timer4.stop()
-    timer5.stop()
 
 def test_start_stop(context):
     # Timer1: interval 0.8 sec (expires 2x in 2.0 sec), started in constructor
@@ -168,10 +161,6 @@ def test_start_stop(context):
     assert context.timer1_expired_count == 2
     assert context.timer2_expired_count == 3
     assert context.timer3_expired_count == 0
-    # Stop all timers (otherwise they will continue to exist and screw up other tests)
-    timer1.stop()
-    timer2.stop()
-    timer3.stop()
 
 def test_remaining_time(context):
     # Haven't created any timers yet
@@ -182,7 +171,7 @@ def test_remaining_time(context):
         interval=0.8,
         expire_function=context.timer1_expired)
     # Timer2: one-shot interval 0.8 sec
-    timer2 = timer.Timer(
+    _timer2 = timer.Timer(
         interval=0.8,
         expire_function=context.timer2_expired,
         periodic=False)
@@ -209,9 +198,6 @@ def test_remaining_time(context):
     assert time_to_next_expire is None
     assert context.timer1_expired_count == 0  # Not running
     assert context.timer2_expired_count == 0  # Not running
-    # Stop all timers (otherwise they will continue to exist and screw up other tests)
-    timer1.stop()
-    timer2.stop()
 
 def test_attributes(context):
     # Timer1: periodic interval 0.8 sec
@@ -234,15 +220,6 @@ def test_attributes(context):
     assert timer1.running() is True
     assert timer1.interval() == pytest.approx(0.8)
     assert re.match(r"0\.[0-9][0-9][0-9][0-9][0-9][0-9] secs", timer1.remaining_time_str())
-    assert timer2.running() is False
-    assert timer2.interval() == pytest.approx(0.7)
-    assert timer2.remaining_time_str() == "Stopped"
-    # Stop all timers (otherwise they will continue to exist and screw up other tests)
-    timer1.stop()
-    timer2.stop()
-    assert timer1.running() is False
-    assert timer1.interval() == pytest.approx(0.8)
-    assert timer1.remaining_time_str() == "Stopped"
     assert timer2.running() is False
     assert timer2.interval() == pytest.approx(0.7)
     assert timer2.remaining_time_str() == "Stopped"
