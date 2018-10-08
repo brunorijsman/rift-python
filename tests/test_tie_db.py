@@ -21,6 +21,92 @@ START_NEWER = 4      # TIE-DB has newer version of TIE-ID than in TIDE/TIRE. Sta
 STOP_SAME = 5        # TIE-DB has same version of TIE-ID as in TIDE. Stop sending it.
 ACK = 6              # TIE-DB has same version of TIE-ID than in TIRE. Treat it as an ACK.
 
+def test_compare_tie_header():
+    # Exactly same
+    header1 = packet_common.make_tie_header(
+        direction=NORTH,
+        originator=1,
+        tie_type=PREFIX,
+        tie_nr=6,
+        seq_nr=7,
+        lifetime=500)
+    header2 = packet_common.make_tie_header(
+        direction=NORTH,
+        originator=1,
+        tie_type=PREFIX,
+        tie_nr=6,
+        seq_nr=7,
+        lifetime=500)
+    assert tie_db.compare_tie_header_age(header1, header2) == 0
+    # Almost same, lifetime is different but close enough to call it same (within 300 seconds)
+    header1 = packet_common.make_tie_header(
+        direction=NORTH,
+        originator=1,
+        tie_type=PREFIX,
+        tie_nr=6,
+        seq_nr=7,
+        lifetime=1)
+    header2 = packet_common.make_tie_header(
+        direction=NORTH,
+        originator=1,
+        tie_type=PREFIX,
+        tie_nr=6,
+        seq_nr=7,
+        lifetime=300)
+    assert tie_db.compare_tie_header_age(header1, header2) == 0
+    # Different: lifetime is the tie breaker (more than 300 seconds difference)
+    header1 = packet_common.make_tie_header(
+        direction=NORTH,
+        originator=1,
+        tie_type=PREFIX,
+        tie_nr=6,
+        seq_nr=7,
+        lifetime=1)
+    header2 = packet_common.make_tie_header(
+        direction=NORTH,
+        originator=1,
+        tie_type=PREFIX,
+        tie_nr=6,
+        seq_nr=7,
+        lifetime=600)
+    assert tie_db.compare_tie_header_age(header1, header2) == -1
+    assert tie_db.compare_tie_header_age(header2, header1) == 1
+    # Different: lifetime is the tie breaker; the difference is less than 300 but one is zero and
+    # the other is non-zero. The one with zero lifetime is considered older.
+    header1 = packet_common.make_tie_header(
+        direction=NORTH,
+        originator=1,
+        tie_type=PREFIX,
+        tie_nr=6,
+        seq_nr=7,
+        lifetime=0)
+    header2 = packet_common.make_tie_header(
+        direction=NORTH,
+        originator=1,
+        tie_type=PREFIX,
+        tie_nr=6,
+        seq_nr=7,
+        lifetime=299)
+    assert tie_db.compare_tie_header_age(header1, header2) == -1
+    assert tie_db.compare_tie_header_age(header2, header1) == 1
+    # Different: seq_nr is the tie breaker.
+    header1 = packet_common.make_tie_header(
+        direction=NORTH,
+        originator=1,
+        tie_type=PREFIX,
+        tie_nr=6,
+        seq_nr=20,
+        lifetime=1)
+    header2 = packet_common.make_tie_header(
+        direction=NORTH,
+        originator=1,
+        tie_type=PREFIX,
+        tie_nr=6,
+        seq_nr=19,
+        lifetime=600)
+    assert tie_db.compare_tie_header_age(header1, header2) == 1
+    assert tie_db.compare_tie_header_age(header2, header1) == -1
+
 def test_add_prefix_tie():
     packet_common.add_missing_methods_to_thrift()
     tdb = tie_db.TIE_DB()
@@ -220,7 +306,6 @@ def check_process_tire(tdb):
     check_process_tire_common(tdb, 999, 999, disposition_list)
 
 def test_process_tire():
-    # pylint:disable=too-many-locals
     packet_common.add_missing_methods_to_thrift()
     tdb = tie_db.TIE_DB()
     db_tie_info_list = [
@@ -234,3 +319,49 @@ def test_process_tire():
         db_tie = packet_common.make_prefix_tie(*db_tie_info)
         tdb.store_tie(db_tie)
     check_process_tire(tdb)
+
+# ###@@@ Finish this
+
+# def check_process_tie_common(tdb, sender, level, disposition_list):
+#     # pylint:disable=too-many-locals
+#     # Prepare the TIRE packet
+#     tire = packet_common.make_tire(sender, level)
+#     for (direction, originator, tie_nr, seq_nr, lifetime, _disposition) in disposition_list:
+#         tie_header = packet_common.make_tie_header(direction, originator, PREFIX, tie_nr,
+#                                                    seq_nr, lifetime)
+#         packet_common.add_tie_header_to_tire(tire, tie_header)
+#     # Process the TIRE packet
+#     result = tdb.process_received_tire_packet(tire)
+#     (request_tie_headers, start_sending_tie_headers, acked_tie_headers) = result
+#     # Check results
+#     compare_header_lists(tie_headers_with_disposition(tdb, disposition_list, [REQUEST_OLDER]),
+#                          request_tie_headers)
+#     compare_header_lists(tie_headers_with_disposition(tdb, disposition_list, [START_NEWER]),
+#                          start_sending_tie_headers)
+#     compare_header_lists(tie_headers_with_disposition(tdb, disposition_list, [ACK]),
+#                          acked_tie_headers)
+
+# def check_process_tie(tdb):
+#     disposition_list = [
+#         # pylint:disable=bad-whitespace
+#         # Direction  Originator  Tie-Nr  Seq-Nr  Lifetime  Disposition
+#         ( SOUTH,     10,         13,     5,      100,      REQUEST_OLDER),
+#         ( NORTH,     3,          15,     5,      100,      START_NEWER),
+#         ( NORTH,     4,          1,      8,      100,      ACK)]
+#     check_process_tire_common(tdb, 999, 999, disposition_list)
+
+# def test_process_tie():
+#     packet_common.add_missing_methods_to_thrift()
+#     tdb = tie_db.TIE_DB()
+#     db_tie_info_list = [
+#         # pylint:disable=bad-whitespace
+#         # Sender Level Direction Origin TieNr SeqNr Lifetime  Disposition
+#         ( 999,   999,  SOUTH,    10,    13,   3,    100),   # ###@@@
+#         ( 999,   999,  SOUTH,    10,    14,   2,    100),   # ###@@@
+#         ( 777,   777,  NORTH,    3,     15,   7,    100),   # ###@@@
+#         ( 999,   999,  NORTH,    4,     1,    8,    100)]   # ###@@@
+#     for db_tie_info in db_tie_info_list:
+#         db_tie = packet_common.make_prefix_tie(*db_tie_info)
+#         tdb.store_tie(db_tie)
+#     check_process_tire(tdb)
+#     pass

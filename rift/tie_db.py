@@ -100,6 +100,7 @@ class TIE_DB:
         request_tie_headers = []
         start_sending_tie_headers = []
         stop_sending_tie_headers = []
+        # ###@@@ TODO: All consicously ignore list (for unit tsts)
         # It is assumed TIDEs are sent and received in increasing order or range. If we observe
         # a gap between the end of the range of the last TIDE (if any) and the start of the range
         # of this TIDE, then we must start sending all TIEs in our database that fall in that gap.
@@ -230,23 +231,31 @@ class TIE_DB:
         else:
             return db_tie.header.level
 
-    def is_flood_allowed(self, tie_header, neighbor_direction, my_system_id, my_level):
-        # TODO: Implement Top-of-Fabric flag (for now assume not top of fabric). Question: whose
-        # ToF is being checked here? Ours? The neighbor's? The originator's?
-        top_of_fabric = False
+    def is_flood_allowed(self, tie_header, neighbor_direction, neighbor_system_id, my_system_id,
+                         my_level, i_am_top_of_fabric):
+        # Note: there is exactly one rule below (the one marked with [*]) which actually depend on
+        # the neighbor_system_id. If that rule wasn't there we would have been able to encode a TIDE
+        # only one per direction (N, S, EW) instead of once per neighbor, and still follow all the
+        # flooding scope rules. We have chosen to follow the rules strictly (not doing so causes all
+        # sorts of other complications), so -alas- we swallow the performance overhead of encoding
+        # separate TIDE packets for every individual neighbor. TODO: I may revisit this decision
+        # when the exact nature of the "other complications" (namely persistent oscillations) are
+        # better understood (correctness first, performance later).
+        # See https://www.dropbox.com/s/b07dnhbxawaizpi/zoom_0.mp4?dl=0 for a video recording of a
+        # discussion where these complications were discussed in detail.
         if tie_header.tieid.direction == common.ttypes.TieDirectionType.South:
-            # The TIE is a South-TIE
+            # S-TIE
             if tie_header.tieid.tietype == common.ttypes.TIETypeType.NodeTIEType:
-                # The TIE is a Node South-TIE
+                # Node S-TIE
                 if neighbor_direction == neighbor.Neighbor.Direction.SOUTH:
-                    # Only flood a Node South-TIE to a South-Neighbor if it is self-originated
-                    if self.tie_is_self_originated(tie_header, my_system_id):
-                        return (True, "Node S-TIE to S: self-originated")
+                    # Node S-TIE to S: Flood if level of originator is same as level of this node
+                    if self.tie_originator_level(tie_header) == my_level:
+                        return (True, "Node S-TIE to S: originator level is same as mine")
                     else:
-                        return (False, "Node S-TIE to S: not self-originated")
+                        return (True, "Node S-TIE to S: originator level is same as mine")
                 elif neighbor_direction == neighbor.Neighbor.Direction.NORTH:
-                    # Only flood a Node South-TIE to a North-Neighbor if TIE originator level is
-                    # higher than my own level.
+                    # Node S-TIE to N: flood if level of originator is higher than level of this
+                    # node
                     originator_level = self.tie_originator_level(tie_header)
                     if originator_level is None:
                         return (False, "Node S-TIE to N: could not determine originator level")
@@ -255,40 +264,34 @@ class TIE_DB:
                     else:
                         return (False, "Node S-TIE to N: originator level is not higher than mine")
                 elif neighbor_direction == neighbor.Neighbor.Direction.EAST_WEST:
-                    # Only flood a Node South-TIE to an East-West-Neighbor if not Top-of-Fabric
-                    if top_of_fabric:
-                        return (False, "Node S-TIE to EW: top of fabric")
+                    # Node S-TIE to EW: Flood only if this node is not top of fabric
+                    if i_am_top_of_fabric:
+                        return (False, "Node S-TIE to EW: this node is top of fabric")
                     else:
-                        return (True, "Node S-TIE to EW: not top of fabric")
+                        return (True, "Node S-TIE to EW: this node is not top of fabric")
                 else:
-                    # We cannot determine the direction of the neighbor; don't flood
+                    # Node S-TIE to ?: We can't determine the direction of the neighbor; don't flood
                     assert neighbor_direction is None
                     return (False, "Node S-TIE to ?: never flood")
             else:
-                # The TIE is a non-Node South-TIE
+                # Non-Node S-TIE
                 if neighbor_direction == neighbor.Neighbor.Direction.SOUTH:
-                    # Only flood a Node South-TIE to a South-Neighbor if it is self-originated
+                    # Non-Node S-TIE to S: Flood self-originated only
                     if self.tie_is_self_originated(tie_header, my_system_id):
                         return (True, "Non-node S-TIE to S: self-originated")
                     else:
                         return (False, "Non-node S-TIE to S: not self-originated")
                 elif neighbor_direction == neighbor.Neighbor.Direction.NORTH:
-                    # Only flood a Node South-TIE to a North-Neighbor if TIE originator level is
-                    # equal peer.
-                    # TODO: Does "is equal peer" mean "is same level as ME" or "is same level as
-                    # NEIGHBOR"? I need to think about that. For now, I assume the former.
-                    originator_level = self.tie_originator_level(tie_header)
-                    if originator_level is None:
-                        return (False, "Non-node S-TIE to N: could not determine originator level")
-                    elif originator_level == my_level:
-                        return (True, "Non-node S-TIE to N: originator level is same as mine")
+                    # Non-Node S-TIE to S: Flood only if the neighbor is the originator of the TIE
+                    if neighbor_system_id == tie_header.tieid.originator:
+                        return (True, "Non-node S-TIE to S: neighbor is originator of TIE")
                     else:
-                        return (False, "Non-node S-TIE to N: originator level is not same as mine")
+                        return (False, "Non-node S-TIE to S: neighbor is not originator of TIE")
                 elif neighbor_direction == neighbor.Neighbor.Direction.EAST_WEST:
-                    # Only flood a Node South-TIE to an East-West-Neighbor if self-originated and
-                    # not Top-of-Fabric
-                    if top_of_fabric:
-                        return (False, "Non-node S-TIE to EW: top of fabric")
+                    # Non-Node S-TIE to EW: Flood only if if self-originated and this node is not
+                    # ToF
+                    if i_am_top_of_fabric:
+                        return (False, "Non-node S-TIE to EW: this top of fabric ")
                     elif self.tie_is_self_originated(tie_header, my_system_id):
                         return (True, "Non-node S-TIE to EW: self-originated and not top of fabric")
                     else:
@@ -298,33 +301,34 @@ class TIE_DB:
                     assert neighbor_direction is None
                     return (False, "None-node S-TIE to ?: never flood")
         else:
-            # The TIE is a North-TIE
+            # S-TIE
             assert tie_header.tieid.direction == common.ttypes.TieDirectionType.North
             if neighbor_direction == neighbor.Neighbor.Direction.SOUTH:
-                # Never flood a North-TIE to a South-Neighbor
+                # S-TIE to S: Never flood
                 return (False, "N-TIE to S: never flood")
             elif neighbor_direction == neighbor.Neighbor.Direction.NORTH:
-                # Always flood a North-TIE to a North-Neighbor
+                # S-TIE to N: Always flood
                 return (True, "N-TIE to N: always flood")
             elif neighbor_direction == neighbor.Neighbor.Direction.EAST_WEST:
-                # Only flood a North-TIE to an East-West-Neighbor if Top-of-Fabric
-                if top_of_fabric:
+                # S-TIE to EW: Flood only if this node is top of fabric
+                if i_am_top_of_fabric:
                     return (True, "N-TIE to EW: top of fabric")
                 else:
                     return (False, "N-TIE to EW: not top of fabric")
             else:
-                # We cannot determine the direction of the neighbor; don't flood
+                # S-TIE to ?: We cannot determine the direction of the neighbor; don't flood
                 assert neighbor_direction is None
                 return (False, "N-TIE to ?: never flood")
 
-    def generate_tide(self, neighbor_direction, system_id, level):
+    def generate_tide(self, neighbor_direction, neighbor_system_id, my_system_id, my_level,
+                      i_am_top_of_fabric):
         # We generate a single TIDE packet which covers the entire range and we report all TIE
         # headers in that single TIDE packet. We simple assume that it will fit in a single UDP
         # packet which can be up to 64K. And if a single TIE gets added or removed we swallow the
         # cost of regenerating and resending the entire TIDE packet.
         tide_protocol_packet = packet_common.make_tide(
-            sender=system_id,
-            level=level,
+            sender=my_system_id,
+            level=my_level,
             start_range=self.MIN_TIE_ID,
             end_range=self.MAX_TIE_ID)
         # Apply flooding scope: only include TIEs corresponding to the requested direction
@@ -335,7 +339,8 @@ class TIE_DB:
         for tie_protocol_packet in self.ties.values():
             tie_header = tie_protocol_packet.content.tie.header
             (allowed, _reason) = self.is_flood_allowed(tie_header, neighbor_direction,
-                                                       system_id, level)
+                                                       neighbor_system_id, my_system_id, my_level,
+                                                       i_am_top_of_fabric)
             ##@@ TODO log message
             # if allowed:
             #     outcome = "allowed"

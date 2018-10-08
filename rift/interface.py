@@ -755,50 +755,62 @@ class Interface:
         # TODO: Implement this
         return False
 
-    def is_request_allowed(self, tie_header):
+    def is_request_allowed(self, tie_header, i_am_top_of_fabric):
+        ###@@@
         neighbor_direction = self.neighbor_direction()
+        if neighbor_direction == neighbor.Neighbor.Direction.SOUTH:
+            dir_str = "S"
+        elif neighbor_direction == neighbor.Neighbor.Direction.NORTH:
+            dir_str = "N"
+        elif neighbor_direction == neighbor.Neighbor.Direction.EAST_WEST:
+            dir_str = "EW"
+        else:
+            dir_str = "?"
+        if neighbor_direction == neighbor.Neighbor.Direction.EAST_WEST:
+            # If this node is top of fabric, then apply north scope rules, otherwise apply south
+            # scope rules
+            if i_am_top_of_fabric:
+                neighbor_direction = neighbor.Neighbor.Direction.NORTH
+            else:
+                neighbor_direction = neighbor.Neighbor.Direction.SOUTH
+            # Fall-through to next if block is intentional
         if neighbor_direction == neighbor.Neighbor.Direction.SOUTH:
             # Include all N-TIEs ...
             if tie_header.tieid.direction == common.ttypes.TieDirectionType.North:
-                return (True, "to S: include all N-TIEs")
+                return (True, "to {}: include all N-TIEs".format(dir_str))
             # ... and all peer's self-originated TIEs ...
             if tie_header.tieid.originator == self.neighbor.system_id:
-                return (True, "to S: include peer self-originated")
+                return (True, "to {}: include peer self-originated".format(dir_str))
             # ... and all Node S-TIEs
             if ((tie_header.tieid.tietype == common.ttypes.TIETypeType.NodeTIEType) and
                     (tie_header.tieid.direction == common.ttypes.TieDirectionType.South)):
-                return (True, "to S: include node S-TIE")
+                return (True, "to {}: include node S-TIE".format(dir_str))
             # Exclude everything else
-            return (False, "to S: exclude")
-        elif neighbor_direction == neighbor.Neighbor.Direction.NORTH:
+            return (False, "to {}: exclude".format(dir_str))
+        if neighbor_direction == neighbor.Neighbor.Direction.NORTH:
             # Include only of TIE originator is equal to peer
             if tie_header.tieid.originator == self.neighbor.system_id:
-                return (True, "to N: TIE originator is equal to peer")
+                return (True, "to {}: TIE originator is equal to peer".format(dir_str))
             # Exclude everything else
-            return (False, "to N: exclude")
-        elif neighbor_direction == neighbor.Neighbor.Direction.EAST_WEST:
-            ##@@ TODO: I cannot parse this sentence in the specification "if ToF same behavior as
-            # North otherwise South". For now, just exclude.
-            return (False, "to EW: TODO exclude for now")
-        else:
-            # Cannot determine direction of neighbor. Exclude.
-            return (False, "to ?: exclude")
+            return (False, "to {}: exclude".format(dir_str))
+        # Cannot determine direction of neighbor. Exclude.
+        return (False, "to {}: exclude".format(dir_str))
 
     def is_request_filtered(self, tie_header):
         # The logic is more more easy to follow and mirrors the language of the flooding scope
         # rules (table 3) more closely if we ask the opposite question: is the request allowed?
-        (allowed, reason) = self.is_request_allowed(tie_header)
+        (allowed, reason) = self.is_request_allowed(tie_header, self._node.top_of_fabric())
         filtered = not allowed
         return (filtered, reason)
 
     def is_flood_filtered(self, tie_header):
-        # The logic is more more easy to follow and mirrors the language of the flooding scope
-        # rules (table 3) more closely if we ask the opposite question: is the TIE allowed?
-        neighbor_direction = self.neighbor_direction()
-        my_system_id = self._node.system_id
-        my_level = self._node.level_value()
-        (allowed, reason) = self._node.tie_db.is_flood_allowed(tie_header, neighbor_direction,
-                                                               my_system_id, my_level)
+        (allowed, reason) = self._node.tie_db.is_flood_allowed(
+            tie_header=tie_header,
+            neighbor_direction=self.neighbor_direction(),
+            neighbor_system_id=self.neighbor.system_id,
+            my_system_id=self._node.system_id,
+            my_level=self._node.level_value(),
+            i_am_top_of_fabric=self._node.top_of_fabric())
         filtered = not allowed
         return (filtered, reason)
 

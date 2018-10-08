@@ -10,7 +10,6 @@ import common.constants
 import constants
 import fsm
 import interface
-import neighbor
 import offer
 import packet_common
 import table
@@ -352,8 +351,6 @@ class Node:
             for interface_config in self._config['interfaces']:
                 self.create_interface(interface_config)
         self.tie_db = tie_db.TIE_DB()
-        # The following couple of fields are dictionaries indexed by direction (south and north)
-        ##@@ TODO: Index by NeighborDirection (N,S,EW) instead of TIE direction (just N,S)
         self.node_tie_seq_nrs = {}
         self.node_tie_seq_nrs[common.ttypes.TieDirectionType.South] = 0
         self.node_tie_seq_nrs[common.ttypes.TieDirectionType.North] = 0
@@ -430,6 +427,9 @@ class Node:
             return 'undefined'
         else:
             return str(level_value)
+
+    def top_of_fabric(self):
+        return self.level_value() == common.constants.default_superspine_level
 
     def record_tx_offer(self, tx_offer):
         self._tx_offers[tx_offer.interface_name] = tx_offer
@@ -565,35 +565,26 @@ class Node:
             # TODO: ##@@ Remove from DB
 
     def send_tides(self):
-        for neighbor_direction in neighbor.Neighbor.Direction:
-            self.send_tides_in_direction(neighbor_direction)
+        # The current implementation prepares, encodes, and sends a unique TIDE packet for each
+        # individual neighbor. We do NOT (yet) have any optimization that attempts to prepare and
+        # encode a TIDE only once in total or once per direction (N, S, EW). See the comment in the
+        # function is_flood_allowed for a more detailed discussion on why not.
+        for intf in self._interfaces.values():
+            self.send_tides_on_interface(intf)
 
     def send_tides_on_interface(self, intf):
-        self.send_tides_in_direction(intf.neighbor_direction(), intf)
-
-    def send_tides_in_direction(self, neighbor_direction, one_intf=None):
-        # Collect all interfaces in the given direction
-        send_interfaces = []
-        for intf in self._interfaces.values():
-            if one_intf in (None, one_intf):
-                if ((intf.fsm.state == interface.Interface.State.THREE_WAY) and
-                        (intf.neighbor_direction() == neighbor_direction)):
-                    send_interfaces.append(intf)
-        # If we don't have any interfaces in that direction, there is no need to encode a TIDE
-        if send_interfaces == []:
+        if intf.fsm.state != interface.Interface.State.THREE_WAY:
             return
-        # We send the same TIDE to all neighbors in a given neighbor direction (north, south,
-        # east-west), so we only need to generate and encode it once per neighbor direction.
         protocol_packet = self.tie_db.generate_tide(
-            neighbor_direction,
-            self._system_id,
-            self.level_value())
-        self.info("Regenerated TIDE for direction {}: {}"
-                  .format(neighbor.Neighbor.direction_str(neighbor_direction), protocol_packet))
+            neighbor_direction=intf.neighbor_direction(),
+            neighbor_system_id=intf.neighbor.system_id,
+            my_system_id=self._system_id,
+            my_level=self.level_value(),
+            i_am_top_of_fabric=self.top_of_fabric())
+        self.info("Regenerated TIDE for neighbor {}: {}"
+                  .format(intf.neighbor.system_id, protocol_packet))
         encoded_protocol_packet = packet_common.encode_protocol_packet(protocol_packet)
-        # Send the TIDE on all interfaces that we collected above
-        for intf in send_interfaces:
-            intf.send_encoded_protocol_packet(protocol_packet, encoded_protocol_packet, True)
+        intf.send_encoded_protocol_packet(protocol_packet, encoded_protocol_packet, True)
 
     @staticmethod
     def cli_summary_headers():
