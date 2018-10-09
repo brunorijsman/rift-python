@@ -8,6 +8,7 @@ import sortedcontainers
 
 import common.constants
 import constants
+import encoding.ttypes
 import fsm
 import interface
 import offer
@@ -356,7 +357,6 @@ class Node:
         self.node_tie_seq_nrs[common.ttypes.TieDirectionType.South] = 0
         self.node_tie_seq_nrs[common.ttypes.TieDirectionType.North] = 0
         self.node_ties = {}
-        self.encoded_node_ties = {}
         self.regenerate_all_node_ties()
         self._fsm = fsm.Fsm(
             definition=self.fsm_definition,
@@ -531,8 +531,7 @@ class Node:
             assert False, "Invalid direction"
         self.node_tie_seq_nrs[direction] += 1
         seq_nr = self.node_tie_seq_nrs[direction]
-        node_tie_protocol_packet = packet_common.make_node_tie(
-            sender=self._system_id,
+        node_tie_packet = packet_common.make_node_tie_packet(
             name=self._name,
             level=self.level_value(),
             direction=direction,
@@ -544,14 +543,11 @@ class Node:
             if ((intf.fsm.state == interface.Interface.State.THREE_WAY) and
                     (intf != interface_going_down)):
                 node_neighbor = packet_common.make_node_neighbor(level=intf.neighbor.level)
-                node_tie = node_tie_protocol_packet.content.tie.element.node
-                node_tie.neighbors[intf.neighbor.system_id] = node_neighbor
-        self.node_ties[direction] = node_tie_protocol_packet
-        self.encoded_node_ties[direction] = (
-            packet_common.encode_protocol_packet(node_tie_protocol_packet))
-        self.tie_db.store_tie(node_tie_protocol_packet)
+                node_tie_packet.element.node.neighbors[intf.neighbor.system_id] = node_neighbor
+        self.node_ties[direction] = node_tie_packet
+        self.tie_db.store_tie(node_tie_packet)
         self.info("Regenerated node TIE for direction {}: {}"
-                  .format(packet_common.direction_str(direction), node_tie_protocol_packet))
+                  .format(packet_common.direction_str(direction), node_tie_packet))
 
     def regenerate_all_node_ties(self, interface_going_down=None):
         for direction in [common.ttypes.TieDirectionType.South,
@@ -562,7 +558,6 @@ class Node:
         for direction in [common.ttypes.TieDirectionType.South,
                           common.ttypes.TieDirectionType.North]:
             self.node_ties[direction] = None
-            self.encoded_node_ties[direction] = None
             # TODO: ##@@ Remove from DB
 
     def send_tides(self):
@@ -576,16 +571,22 @@ class Node:
     def send_tides_on_interface(self, intf):
         if intf.fsm.state != interface.Interface.State.THREE_WAY:
             return
-        protocol_packet = self.tie_db.generate_tide(
+        tide_packet = self.tie_db.generate_tide_packet(
             neighbor_direction=intf.neighbor_direction(),
             neighbor_system_id=intf.neighbor.system_id,
             my_system_id=self._system_id,
             my_level=self.level_value(),
             i_am_top_of_fabric=self.top_of_fabric())
         self.info("Regenerated TIDE for neighbor {}: {}"
-                  .format(intf.neighbor.system_id, protocol_packet))
-        encoded_protocol_packet = packet_common.encode_protocol_packet(protocol_packet)
-        intf.send_encoded_protocol_packet(protocol_packet, encoded_protocol_packet, True)
+                  .format(intf.neighbor.system_id, tide_packet))
+        packet_content = encoding.ttypes.PacketContent(tide=tide_packet)
+        packet_header = encoding.ttypes.PacketHeader(
+            sender=self.system_id,
+            level=self.level_value())
+        protocol_packet = encoding.ttypes.ProtocolPacket(
+            header=packet_header,
+            content=packet_content)
+        intf.send_protocol_packet(protocol_packet, flood=True, dont_change=False)
 
     @staticmethod
     def cli_summary_headers():

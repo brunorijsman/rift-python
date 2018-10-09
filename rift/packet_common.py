@@ -1,3 +1,4 @@
+import copy
 import ipaddress
 import sortedcontainers
 
@@ -63,12 +64,19 @@ def add_missing_methods_to_thrift():
     encoding.ttypes.LinkIDPair.__eq__ = (
         lambda self, other: link_id_pair_tup(self) == link_id_pair_tup(other))
 
-def encode_protocol_packet(protocol_packet):
-    # This assumes we only encode a protocol_packet once (because we change it in place)
-    fix_prot_packet_before_encode(protocol_packet)
+def encode_protocol_packet(protocol_packet, dont_change):
+    # Since Thrift does not support unsigned integer, we need to "fix" unsigned integers to be
+    # encoded as signed integers. If the dont_change flag is set, it means that we are not allowed
+    # to change the protocol_packet that is passed to us (e.g. because it is a reference to an entry
+    # in the TIE-DB). In that case, we first make a deep copy (which sucks).
+    if dont_change:
+        fixed_protocol_packet = copy.deepcopy(protocol_packet)
+    else:
+        fixed_protocol_packet = protocol_packet
+    fix_prot_packet_before_encode(fixed_protocol_packet)
     transport_out = thrift.transport.TTransport.TMemoryBuffer()
     protocol_out = thrift.protocol.TBinaryProtocol.TBinaryProtocol(transport_out)
-    protocol_packet.write(protocol_out)
+    fixed_protocol_packet.write(protocol_out)
     encoded_protocol_packet = transport_out.getvalue()
     return encoded_protocol_packet
 
@@ -231,7 +239,7 @@ def make_tie_header(direction, originator, tie_type, tie_nr, seq_nr, lifetime,
         origination_time=origination_time)
     return tie_header
 
-def make_prefix_tie(sender, level, direction, originator, tie_nr, seq_nr, lifetime):
+def make_prefix_tie_packet(direction, originator, tie_nr, seq_nr, lifetime):
     # pylint:disable=too-many-locals
     tie_type = common.ttypes.TIETypeType.PrefixTIEType
     tie_header = make_tie_header(direction, originator, tie_type, tie_nr, seq_nr, lifetime)
@@ -239,12 +247,9 @@ def make_prefix_tie(sender, level, direction, originator, tie_nr, seq_nr, lifeti
     prefix_tie_element = encoding.ttypes.PrefixTIEElement(prefixes=prefixes)
     tie_element = encoding.ttypes.TIEElement(prefixes=prefix_tie_element)
     tie_packet = encoding.ttypes.TIEPacket(header=tie_header, element=tie_element)
-    packet_header = encoding.ttypes.PacketHeader(sender=sender, level=level)
-    packet_content = encoding.ttypes.PacketContent(tie=tie_packet)
-    protocol_packet = encoding.ttypes.ProtocolPacket(header=packet_header, content=packet_content)
-    return protocol_packet
+    return tie_packet
 
-def add_ipv4_prefix_to_prefix_tie(protocol_packet, ipv4_prefix_string, metric, tags=None,
+def add_ipv4_prefix_to_prefix_tie(prefix_tie_packet, ipv4_prefix_string, metric, tags=None,
                                   monotonic_clock=None):
     ipv4_network = ipaddress.IPv4Network(ipv4_prefix_string)
     address = ipv4_network.network_address.packed
@@ -254,9 +259,9 @@ def add_ipv4_prefix_to_prefix_tie(protocol_packet, ipv4_prefix_string, metric, t
     attributes = encoding.ttypes.PrefixAttributes(metric=metric,
                                                   tags=tags,
                                                   monotonic_clock=monotonic_clock)
-    protocol_packet.content.tie.element.prefixes.prefixes[prefix] = attributes
+    prefix_tie_packet.element.prefixes.prefixes[prefix] = attributes
 
-def add_ipv6_prefix_to_prefix_tie(protocol_packet, ipv6_prefix_string, metric, tags=None,
+def add_ipv6_prefix_to_prefix_tie(prefix_tie_packet, ipv6_prefix_string, metric, tags=None,
                                   monotonic_clock=None):
     ipv6_network = ipaddress.IPv6Network(ipv6_prefix_string)
     address = ipv6_network.network_address.packed
@@ -266,9 +271,9 @@ def add_ipv6_prefix_to_prefix_tie(protocol_packet, ipv6_prefix_string, metric, t
     attributes = encoding.ttypes.PrefixAttributes(metric=metric,
                                                   tags=tags,
                                                   monotonic_clock=monotonic_clock)
-    protocol_packet.content.tie.element.prefixes.prefixes[prefix] = attributes
+    prefix_tie_packet.element.prefixes.prefixes[prefix] = attributes
 
-def make_node_tie(sender, name, level, direction, originator, tie_nr, seq_nr, lifetime):
+def make_node_tie_packet(name, level, direction, originator, tie_nr, seq_nr, lifetime):
     # pylint:disable=too-many-locals
     tie_type = common.ttypes.TIETypeType.NodeTIEType
     tie_header = make_tie_header(direction, originator, tie_type, tie_nr, seq_nr, lifetime)
@@ -282,10 +287,7 @@ def make_node_tie(sender, name, level, direction, originator, tie_nr, seq_nr, li
         same_level_unknown_north_partitions=set(()))   # TODO: Implement this
     tie_element = encoding.ttypes.TIEElement(node=node_tie_element)
     tie_packet = encoding.ttypes.TIEPacket(header=tie_header, element=tie_element)
-    packet_header = encoding.ttypes.PacketHeader(sender=sender, level=level)
-    packet_content = encoding.ttypes.PacketContent(tie=tie_packet)
-    protocol_packet = encoding.ttypes.ProtocolPacket(header=packet_header, content=packet_content)
-    return protocol_packet
+    return tie_packet
 
 def make_node_neighbor(level):
     # TODO: Add support for multiple parallel links (link_ids has more than one element)
@@ -296,27 +298,21 @@ def make_node_neighbor(level):
         bandwidth=100)      # TODO: Implement this. Use actual bandwidth of link.
     return node_neighbor
 
-def make_tide(sender, level, start_range, end_range):
+def make_tide_packet(start_range, end_range):
     tide_packet = encoding.ttypes.TIDEPacket(start_range=start_range,
                                              end_range=end_range,
                                              headers=[])
-    packet_header = encoding.ttypes.PacketHeader(sender=sender, level=level)
-    packet_content = encoding.ttypes.PacketContent(tide=tide_packet)
-    protocol_packet = encoding.ttypes.ProtocolPacket(header=packet_header, content=packet_content)
-    return protocol_packet
+    return tide_packet
 
-def add_tie_header_to_tide(protocol_packet, tie_header):
-    protocol_packet.content.tide.headers.append(tie_header)
+def add_tie_header_to_tide(tide_packet, tie_header):
+    tide_packet.headers.append(tie_header)
 
-def make_tire(sender, level):
+def make_tire_packet():
     tire_packet = encoding.ttypes.TIREPacket(headers=[])
-    packet_header = encoding.ttypes.PacketHeader(sender=sender, level=level)
-    packet_content = encoding.ttypes.PacketContent(tire=tire_packet)
-    protocol_packet = encoding.ttypes.ProtocolPacket(header=packet_header, content=packet_content)
-    return protocol_packet
+    return tire_packet
 
-def add_tie_header_to_tire(protocol_packet, tie_header):
-    protocol_packet.content.tire.headers.append(tie_header)
+def add_tie_header_to_tire(tire_packet, tie_header):
+    tire_packet.headers.append(tie_header)
 
 DIRECTION_TO_STR = {
     common.ttypes.TieDirectionType.South: "South",
