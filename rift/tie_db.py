@@ -211,7 +211,7 @@ class TIE_DB:
                     pass
                 else:
                     # We did not originate the TIE, store the newer version and ack it
-                    self.store_tie(tie_packet)
+                    self.store_tie(protocol_packet)
                     ack_tie_header = db_tie.content.tie.header
             elif comparison > 0:
                 # We have a newer version of the TIE, send it

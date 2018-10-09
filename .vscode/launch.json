@@ -4,6 +4,7 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
+
         {
             "name": "Pytest timer",
             "type": "python",
@@ -31,6 +32,13 @@
             "request": "launch",
             "program": "${workspaceFolder}/rift/__main__.py",
             "args": ["topology/2n_un_l1.yaml"] 
+        },
+        {
+            "name": "RIFT two",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/rift/__main__.py",
+            "args": ["topology/two.yaml"] 
         },
         {
             "name": "Python: Current File",
