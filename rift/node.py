@@ -350,7 +350,8 @@ class Node:
         if 'interfaces' in config:
             for interface_config in self._config['interfaces']:
                 self.create_interface(interface_config)
-        self.tie_db = tie_db.TIE_DB()
+        tie_db_log = self._log.getChild("tie_db")
+        self.tie_db = tie_db.TIE_DB(name=self._name, log=tie_db_log)
         self.node_tie_seq_nrs = {}
         self.node_tie_seq_nrs[common.ttypes.TieDirectionType.South] = 0
         self.node_tie_seq_nrs[common.ttypes.TieDirectionType.North] = 0

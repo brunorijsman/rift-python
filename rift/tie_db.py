@@ -63,7 +63,9 @@ class TIE_DB:
         tietype=common.ttypes.TIETypeType.KeyValueTIEType,
         tie_nr=packet_common.MAX_U32)
 
-    def __init__(self):
+    def __init__(self, name=None, log=None):
+        self._name = name
+        self._log = log
         self.ties = sortedcontainers.SortedDict()
         # Statefull record of the end of the range of the most recently received TIDE. This is used
         # to detect gaps between the range end of one received TIDE and the range beginning of the
@@ -76,6 +78,10 @@ class TIE_DB:
             expire_function=self.age_ties,
             periodic=True,
             start=True)
+
+    def debug(self, msg):
+        if self._log is not None:
+            self._log.debug("[%s] %s", self._name, msg)
 
     def store_tie(self, protocol_packet):
         assert protocol_packet.content.tie is not None
@@ -100,7 +106,6 @@ class TIE_DB:
         request_tie_headers = []
         start_sending_tie_headers = []
         stop_sending_tie_headers = []
-        # ###@@@ TODO: All consicously ignore list (for unit tsts)
         # It is assumed TIDEs are sent and received in increasing order or range. If we observe
         # a gap between the end of the range of the last TIDE (if any) and the start of the range
         # of this TIDE, then we must start sending all TIEs in our database that fall in that gap.
@@ -338,16 +343,14 @@ class TIE_DB:
         # type of neighbor (N, S, EW).
         for tie_protocol_packet in self.ties.values():
             tie_header = tie_protocol_packet.content.tie.header
-            (allowed, _reason) = self.is_flood_allowed(tie_header, neighbor_direction,
-                                                       neighbor_system_id, my_system_id, my_level,
-                                                       i_am_top_of_fabric)
-            ##@@ TODO log message
-            # if allowed:
-            #     outcome = "allowed"
-            # else:
-            #     outcome = "filtered"
-            # self.debug(self._tx_log, ("Add TIE {} to TIDE is {} because {}"
-            #                           .format(tie_header, outcome, reason)))
+            (allowed, reason) = self.is_flood_allowed(tie_header, neighbor_direction,
+                                                      neighbor_system_id, my_system_id, my_level,
+                                                      i_am_top_of_fabric)
+            if allowed:
+                outcome = "allowed"
+            else:
+                outcome = "filtered"
+            self.debug("Add TIE {} to TIDE is {} because {}".format(tie_header, outcome, reason))
             if allowed:
                 packet_common.add_tie_header_to_tide(tide_protocol_packet, tie_header)
         return tide_protocol_packet
