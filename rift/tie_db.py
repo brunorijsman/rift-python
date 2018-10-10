@@ -197,7 +197,7 @@ class TIE_DB:
         # We have to originate an empty node TIE for the purpose of flushing it. Use the same
         # contents as the real node TIE that we actually originated, except don't report any
         # neighbors.
-        real_node_tie_id = copy.deepcopy(rx_tie.tie_header.tieid)
+        real_node_tie_id = copy.deepcopy(rx_tie.header.tieid)
         if rx_tie.header.tieid.direction == common.ttypes.TieDirectionType.South:
             real_node_tie_id.tie_nr = NODE_SOUTH_TIE_NR
         elif rx_tie.header.tieid.direction == common.ttypes.TieDirectionType.North:

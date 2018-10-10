@@ -5,6 +5,10 @@ import tie_db
 
 # pylint: disable=line-too-long
 
+MY_NAME = "name"
+MY_SYSTEM_ID = 999
+MY_LEVEL = 9
+
 SOUTH = common.ttypes.TieDirectionType.South
 NORTH = common.ttypes.TieDirectionType.North
 
@@ -17,13 +21,9 @@ KEY_VALUE = common.ttypes.TIETypeType.KeyValueTIEType
 REQUEST_MISSING = 1  # TIE-DB is missing a TIE-ID which is reported in TIDE. Request it.
 REQUEST_OLDER = 2    # TIE-DB has older version of TIE-ID than in TIDE/TIRE. Request it.
 START_EXTRA = 3      # TIE-DB has extra TIE-ID which is not in TIDE. Start sending it.
-START_NEWER = 4      # TIE-DB has newer version of TIE-ID than in TIE/TIDE/TIRE. Start sending it.
+START_NEWER = 4      # TIE-DB has newer version of TIE-ID than in TIDE/TIRE. Start sending it.
 STOP_SAME = 5        # TIE-DB has same version of TIE-ID as in TIDE. Stop sending it.
-ACK = 6              # TIE-DB has same version of TIE-ID than in TIRE. Treat it as an ACK. Or,
-                     # TIE-DB has same version of TIE-ID in TIE. Send an ACK
-STORE_AND_ACK = 7    # TIE-DB doesn't have TIE-ID in TIE. Store in DB and ACK.
-RE_ORIG = 8          # TIE-DB has older self-originated version of TIE. Re-originate newer.
-FLUSH = 9            # TIE appears to be self-originated but is not in DB. Flush (re-orig empty)
+ACK = 6              # TIE-DB has same version of TIE-ID than in TIRE. Treat it as an ACK.
 
 def test_compare_tie_header():
     # Exactly same
@@ -157,10 +157,10 @@ def test_add_prefix_tie():
             "|           |            |        |        |        |          |   Metric: 10             |\n"
             "+-----------+------------+--------+--------+--------+----------+--------------------------+\n")
 
-
-def tie_headers_with_disposition(tdb, disposition_list, filter_dispositions):
+def tie_headers_with_disposition(tdb, header_info_list, filter_dispositions):
     tie_headers = []
-    for (direction, originator, tie_nr, seq_nr, lifetime, disposition) in disposition_list:
+    for header_info in header_info_list:
+        (direction, originator, _tietype, tie_nr, seq_nr, lifetime, disposition) = header_info
         if disposition in filter_dispositions:
             if disposition in [START_EXTRA, START_NEWER]:
                 tie_id = packet_common.make_tie_id(direction, originator, PREFIX, tie_nr)
@@ -174,13 +174,12 @@ def tie_headers_with_disposition(tdb, disposition_list, filter_dispositions):
             tie_headers.append(tie_header)
     return tie_headers
 
-# TODO: Add test cases for lifetime same / different (less than 2 sec) / different (more than 2 sec)
-
-def check_process_tide_common(tdb, start_range, end_range, disposition_list):
+def check_process_tide_common(tdb, start_range, end_range, header_info_list):
     # pylint:disable=too-many-locals
     # Prepare the TIDE packet
     tide_packet = packet_common.make_tide_packet(start_range, end_range)
-    for (direction, originator, tie_nr, seq_nr, lifetime, disposition) in disposition_list:
+    for header_info in header_info_list:
+        (direction, originator, _prefixtype, tie_nr, seq_nr, lifetime, disposition) = header_info
         # START_EXTRA refers to a TIE-ID which is only in the TIE-DB and not in the TIDE, so don't
         # add those.
         if disposition != START_EXTRA:
@@ -192,75 +191,119 @@ def check_process_tide_common(tdb, start_range, end_range, disposition_list):
     (request_tie_headers, start_sending_tie_headers, stop_sending_tie_headers) = result
     # Check results
     compare_header_lists(
-        tie_headers_with_disposition(tdb, disposition_list, [REQUEST_MISSING, REQUEST_OLDER]),
+        tie_headers_with_disposition(tdb, header_info_list, [REQUEST_MISSING, REQUEST_OLDER]),
         request_tie_headers)
     compare_header_lists(
-        tie_headers_with_disposition(tdb, disposition_list, [START_EXTRA, START_NEWER]),
+        tie_headers_with_disposition(tdb, header_info_list, [START_EXTRA, START_NEWER]),
         start_sending_tie_headers)
     compare_header_lists(
-        tie_headers_with_disposition(tdb, disposition_list, [STOP_SAME]),
+        tie_headers_with_disposition(tdb, header_info_list, [STOP_SAME]),
         stop_sending_tie_headers)
 
 def check_process_tide_1(tdb):
     start_range = packet_common.make_tie_id(SOUTH, 10, PREFIX, 1)
     end_range = packet_common.make_tie_id(NORTH, 8, PREFIX, 999)
-    disposition_list = [
+    header_info_list = [
         # pylint:disable=bad-whitespace
-        # Direction  Originator  Tie-Nr  Seq-Nr  Lifetime  Disposition
-        ( SOUTH,     8,          1,      None,   100,      START_EXTRA),
-        ( SOUTH,     10,         1,      None,   100,      START_EXTRA),
-        ( SOUTH,     10,         2,      None,   100,      START_EXTRA),
-        ( SOUTH,     10,         10,     10,     100,      STOP_SAME),
-        ( SOUTH,     10,         11,     1,      100,      REQUEST_MISSING),
-        ( SOUTH,     10,         12,     None,   100,      START_EXTRA),
-        ( SOUTH,     10,         13,     5,      100,      REQUEST_OLDER),
-        ( NORTH,     3,          15,     5,      100,      START_NEWER),
-        ( NORTH,     4,          1,      None,   100,      START_EXTRA)]
-    check_process_tide_common(tdb, start_range, end_range, disposition_list)
+        # Direction  Originator  Type     Tie-Nr  Seq-Nr  Lifetime  Disposition
+        ( SOUTH,     8,          PREFIX,  1,      None,   100,      START_EXTRA),
+        ( SOUTH,     10,         PREFIX,  1,      None,   100,      START_EXTRA),
+        ( SOUTH,     10,         PREFIX,  2,      None,   100,      START_EXTRA),
+        ( SOUTH,     10,         PREFIX,  10,     10,     100,      STOP_SAME),
+        ( SOUTH,     10,         PREFIX,  11,     1,      100,      REQUEST_MISSING),
+        ( SOUTH,     10,         PREFIX,  12,     None,   100,      START_EXTRA),
+        ( SOUTH,     10,         PREFIX,  13,     5,      100,      REQUEST_OLDER),
+        ( NORTH,     3,          PREFIX,  15,     5,      100,      START_NEWER),
+        ( NORTH,     4,          PREFIX,  1,      None,   100,      START_EXTRA)]
+    check_process_tide_common(tdb, start_range, end_range, header_info_list)
 
 def check_process_tide_2(tdb):
     start_range = packet_common.make_tie_id(NORTH, 20, PREFIX, 1)
     end_range = packet_common.make_tie_id(NORTH, 100, PREFIX, 1)
-    disposition_list = [
+    header_info_list = [
         # pylint:disable=bad-whitespace
-        # Direction  Originator  Tie-Nr  Seq-Nr  Lifetime  Disposition
-        ( NORTH,     10,         7,      None,   100,      START_EXTRA),
-        ( NORTH,     21,         15,     5,      100,      REQUEST_OLDER)]
-    check_process_tide_common(tdb, start_range, end_range, disposition_list)
+        # Direction  Originator  Type     Tie-Nr  Seq-Nr  Lifetime  Disposition
+        ( NORTH,     10,         PREFIX,  7,      None,   100,      START_EXTRA),
+        ( NORTH,     21,         PREFIX,  15,     5,      100,      REQUEST_OLDER)]
+    check_process_tide_common(tdb, start_range, end_range, header_info_list)
 
 def check_process_tide_3(tdb):
     start_range = packet_common.make_tie_id(NORTH, 200, PREFIX, 1)
     end_range = packet_common.make_tie_id(NORTH, 300, PREFIX, 1)
-    disposition_list = [
+    header_info_list = [
         # pylint:disable=bad-whitespace
-        # Direction  Originator  Tie-Nr  Seq-Nr  Lifetime  Disposition
-        ( NORTH,     110,        40,     None,   100,      START_EXTRA),
-        ( NORTH,     210,        6,      None,   100,      START_EXTRA)]
-    check_process_tide_common(tdb, start_range, end_range, disposition_list)
+        # Direction  Originator  Type     Tie-Nr  Seq-Nr  Lifetime  Disposition
+        ( NORTH,     110,        PREFIX,  40,     None,   100,      START_EXTRA),
+        ( NORTH,     210,        PREFIX,  6,      None,   100,      START_EXTRA)]
+    check_process_tide_common(tdb, start_range, end_range, header_info_list)
+
+def make_tie_db(db_tie_info_list):
+    tdb = tie_db.TIE_DB()
+    for db_tie_info in db_tie_info_list:
+        (direction, origin, tietype, tie_nr, seq_nr, lifetime) = db_tie_info
+        if tietype == NODE:
+            db_tie = packet_common.make_node_tie_packet(
+                name=MY_NAME,
+                level=MY_LEVEL,
+                direction=direction,
+                originator=origin,
+                tie_nr=tie_nr,
+                seq_nr=seq_nr,
+                lifetime=lifetime)
+        elif tietype == PREFIX:
+            db_tie = packet_common.make_prefix_tie_packet(
+                direction,
+                origin,
+                tie_nr,
+                seq_nr,
+                lifetime)
+        else:
+            assert False
+        tdb.store_tie(db_tie)
+    return tdb
+
+def make_rx_tie(header_info):
+    (direction, origin, prefixtype, tie_nr, seq_nr, lifetime, _disposition) = header_info
+    if prefixtype == NODE:
+        rx_tie = packet_common.make_node_tie_packet(
+            name=MY_NAME,
+            level=MY_LEVEL,
+            direction=direction,
+            originator=origin,
+            tie_nr=tie_nr,
+            seq_nr=seq_nr,
+            lifetime=lifetime)
+    elif prefixtype == PREFIX:
+        rx_tie = packet_common.make_prefix_tie_packet(
+            direction,
+            origin,
+            tie_nr,
+            seq_nr,
+            lifetime)
+    else:
+        assert False
+    return rx_tie
 
 def test_process_tide():
     # pylint:disable=too-many-locals
     # TODO: Also have other TIEs than prefix TIEs
     packet_common.add_missing_methods_to_thrift()
-    tdb = tie_db.TIE_DB()
     db_tie_info_list = [
         # pylint:disable=bad-whitespace
-        # Direction Origin TieNr SeqNr Lifetime  Disposition
-        ( SOUTH,    8,     1,    1,    100),   # In gap before TIDE-1; start
-        ( SOUTH,    10,    1,    2,    100),   # Not in TIDE-1 (start gap); start
-        ( SOUTH,    10,    2,    5,    100),   # Not in TIDE-1 (start gap); start
-        ( SOUTH,    10,    10,   10,   100),   # Same version as in TIDE; stop
-        ( SOUTH,    10,    12,   5,    100),   # Not in TIDE-1 (middle gap); start
-        ( SOUTH,    10,    13,   3,    100),   # Older version than in TIDE-1; request
-        ( NORTH,    3,     15,   7,    100),   # Newer version than in TIDE-1; start
-        ( NORTH,    4,     1,    1,    100),   # Not in TIDE-1 (end gap); start
-        ( NORTH,    10,    7,    6,    100),   # In TIDE-1...TIDE-2 gap; start
-        ( NORTH,    21,    15,   3,    100),   # Older version than in TIDE-2; request
-        ( NORTH,    110,   40,   1,    100),   # In TIDE-2...TIDE-3 gap; start
-        ( NORTH,    210,   6,    6,    100)]   # Not in TIDE-3 (empty); start
-    for db_tie_info in db_tie_info_list:
-        db_tie = packet_common.make_prefix_tie_packet(*db_tie_info)
-        tdb.store_tie(db_tie)
+        # Direction Origin Type     TieNr SeqNr Lifetime  Disposition
+        ( SOUTH,    8,     PREFIX,  1,    1,    100),   # In gap before TIDE-1; start
+        ( SOUTH,    10,    PREFIX,  1,    2,    100),   # Not in TIDE-1 (start gap); start
+        ( SOUTH,    10,    PREFIX,  2,    5,    100),   # Not in TIDE-1 (start gap); start
+        ( SOUTH,    10,    PREFIX,  10,   10,   100),   # Same version as in TIDE; stop
+        ( SOUTH,    10,    PREFIX,  12,   5,    100),   # Not in TIDE-1 (middle gap); start
+        ( SOUTH,    10,    PREFIX,  13,   3,    100),   # Older version than in TIDE-1; request
+        ( NORTH,    3,     PREFIX,  15,   7,    100),   # Newer version than in TIDE-1; start
+        ( NORTH,    4,     PREFIX,  1,    1,    100),   # Not in TIDE-1 (end gap); start
+        ( NORTH,    10,    PREFIX,  7,    6,    100),   # In TIDE-1...TIDE-2 gap; start
+        ( NORTH,    21,    PREFIX,  15,   3,    100),   # Older version than in TIDE-2; request
+        ( NORTH,    110,   PREFIX,  40,   1,    100),   # In TIDE-2...TIDE-3 gap; start
+        ( NORTH,    210,   PREFIX,  6,    6,    100)]   # Not in TIDE-3 (empty); start
+    tdb = make_tie_db(db_tie_info_list)
     check_process_tide_1(tdb)
     check_process_tide_2(tdb)
     check_process_tide_3(tdb)
@@ -276,11 +319,12 @@ def compare_header_lists(headers1, headers2):
     for header in headers2:
         assert header in headers1
 
-def check_process_tire_common(tdb, disposition_list):
+def check_process_tire_common(tdb, header_info_list):
     # pylint:disable=too-many-locals
     # Prepare the TIRE packet
     tire = packet_common.make_tire_packet()
-    for (direction, originator, tie_nr, seq_nr, lifetime, _disposition) in disposition_list:
+    for header_info in header_info_list:
+        (direction, originator, _prefixtype, tie_nr, seq_nr, lifetime, _disposition) = header_info
         tie_header = packet_common.make_tie_header(direction, originator, PREFIX, tie_nr,
                                                    seq_nr, lifetime)
         packet_common.add_tie_header_to_tire(tire, tie_header)
@@ -288,35 +332,32 @@ def check_process_tire_common(tdb, disposition_list):
     result = tdb.process_received_tire_packet(tire)
     (request_tie_headers, start_sending_tie_headers, acked_tie_headers) = result
     # Check results
-    compare_header_lists(tie_headers_with_disposition(tdb, disposition_list, [REQUEST_OLDER]),
+    compare_header_lists(tie_headers_with_disposition(tdb, header_info_list, [REQUEST_OLDER]),
                          request_tie_headers)
-    compare_header_lists(tie_headers_with_disposition(tdb, disposition_list, [START_NEWER]),
+    compare_header_lists(tie_headers_with_disposition(tdb, header_info_list, [START_NEWER]),
                          start_sending_tie_headers)
-    compare_header_lists(tie_headers_with_disposition(tdb, disposition_list, [ACK]),
+    compare_header_lists(tie_headers_with_disposition(tdb, header_info_list, [ACK]),
                          acked_tie_headers)
 
 def check_process_tire(tdb):
-    disposition_list = [
+    header_info_list = [
         # pylint:disable=bad-whitespace
-        # Direction  Originator  Tie-Nr  Seq-Nr  Lifetime  Disposition
-        ( SOUTH,     10,         13,     5,      100,      REQUEST_OLDER),
-        ( NORTH,     3,          15,     5,      100,      START_NEWER),
-        ( NORTH,     4,          1,      8,      100,      ACK)]
-    check_process_tire_common(tdb, disposition_list)
+        # Direction  Originator  Type     Tie-Nr  Seq-Nr  Lifetime  Disposition
+        ( SOUTH,     10,         PREFIX,  13,     5,      100,      REQUEST_OLDER),
+        ( NORTH,     3,          PREFIX,  15,     5,      100,      START_NEWER),
+        ( NORTH,     4,          PREFIX,  1,      8,      100,      ACK)]
+    check_process_tire_common(tdb, header_info_list)
 
 def test_process_tire():
     packet_common.add_missing_methods_to_thrift()
-    tdb = tie_db.TIE_DB()
     db_tie_info_list = [
         # pylint:disable=bad-whitespace
-        # Direction Origin TieNr SeqNr Lifetime  Disposition
-        ( SOUTH,    10,    13,   3,    100),   # Older version than in TIRE; request
-        ( SOUTH,    10,    14,   2,    100),   # Not in TIRE; no action
-        ( NORTH,    3,     15,   7,    100),   # Newer version than in TIRE; start
-        ( NORTH,    4,     1,    8,    100)]   # Same version as in TIRE; ack
-    for db_tie_info in db_tie_info_list:
-        db_tie = packet_common.make_prefix_tie_packet(*db_tie_info)
-        tdb.store_tie(db_tie)
+        # Direction Origin Type     TieNr SeqNr Lifetime  Disposition
+        ( SOUTH,    10,    PREFIX,  13,   3,    100),   # Older version than in TIRE; request
+        ( SOUTH,    10,    PREFIX,  14,   2,    100),   # Not in TIRE; no action
+        ( NORTH,    3,     PREFIX,  15,   7,    100),   # Newer version than in TIRE; start
+        ( NORTH,    4,     PREFIX,  1,    8,    100)]   # Same version as in TIRE; ack
+    tdb = make_tie_db(db_tie_info_list)
     check_process_tire(tdb)
 
 TIE_SAME = 1           # DB TIE is (fudgy) same version as RX TIE
@@ -326,34 +367,34 @@ TIE_OLDER_SELF = 4     # DB TIE contains older version than RX TIE (self-origina
 TIE_MISSING = 5        # DB TIE does not yet contain RX TIE (not self-originated)
 TIE_MISSING_SELF = 6   # DB TIE does not yet contain RX TIE (not self-originated)
 
-def check_process_tie_common(tdb, my_system_id, disposition_list):
+def check_process_tie_common(tdb, rx_tie_info_list):
     # pylint:disable=too-many-locals
-    for (direction, originator, tie_nr, seq_nr, lifetime, disposition) in disposition_list:
-        tie_id = packet_common.make_tie_id(direction, originator, PREFIX, tie_nr)
-        old_db_tie = tdb.find_tie(tie_id)
-        rx_tie = packet_common.make_prefix_tie_packet(direction, originator, tie_nr, seq_nr,
-                                                      lifetime)
-        result = tdb.process_received_tie_packet(rx_tie, my_system_id)
+    for rx_tie_info in rx_tie_info_list:
+        rx_tie = make_rx_tie(rx_tie_info)
+        rx_tie_id = rx_tie.header.tieid
+        old_db_tie = tdb.find_tie(rx_tie_id)
+        result = tdb.process_received_tie_packet(rx_tie, MY_SYSTEM_ID)
         (start_sending_tie_header, ack_tie_header) = result
+        disposition = rx_tie_info[6]
         if disposition == TIE_SAME:
             # Acknowledge the TX TIE which is the "same" as the DB TIE
             # Note: the age in the DB TIE and the RX TIE could be slightly different; the ACK should
             # contain the DB TIE header.
-            new_db_tie = tdb.find_tie(tie_id)
+            new_db_tie = tdb.find_tie(rx_tie_id)
             assert new_db_tie is not None
             assert new_db_tie == old_db_tie
             assert ack_tie_header == new_db_tie.header
             assert start_sending_tie_header is None
         elif disposition == TIE_NEWER:
             # Start sending the DB TIE
-            new_db_tie = tdb.find_tie(tie_id)
+            new_db_tie = tdb.find_tie(rx_tie_id)
             assert new_db_tie is not None
             assert new_db_tie == old_db_tie
             assert start_sending_tie_header == new_db_tie.header
             assert ack_tie_header is None
         elif disposition == TIE_OLDER:
             # Store the RX TIE in the DB and ACK it
-            new_db_tie = tdb.find_tie(tie_id)
+            new_db_tie = tdb.find_tie(rx_tie_id)
             assert old_db_tie is not None
             assert new_db_tie is not None
             assert new_db_tie != old_db_tie
@@ -362,14 +403,14 @@ def check_process_tie_common(tdb, my_system_id, disposition_list):
             assert start_sending_tie_header is None
         elif disposition == TIE_OLDER_SELF:
             # Re-originate the DB TIE by bumping up the version to RX TIE version plus one
-            new_db_tie = tdb.find_tie(tie_id)
+            new_db_tie = tdb.find_tie(rx_tie_id)
             assert new_db_tie is not None
             assert new_db_tie.header.seq_nr == rx_tie.header.seq_nr + 1
             assert start_sending_tie_header == new_db_tie.header
             assert ack_tie_header is None
         elif disposition == TIE_MISSING:
             # Store the RX TIE in the DB and ACK it
-            new_db_tie = tdb.find_tie(tie_id)
+            new_db_tie = tdb.find_tie(rx_tie_id)
             assert old_db_tie is None
             assert new_db_tie is not None
             assert new_db_tie.header == rx_tie.header
@@ -377,7 +418,7 @@ def check_process_tie_common(tdb, my_system_id, disposition_list):
             assert start_sending_tie_header is None
         elif disposition == TIE_MISSING_SELF:
             # Re-originate an empty version of the RX TIE with a higher version than the RX TIE
-            new_db_tie = tdb.find_tie(tie_id)
+            new_db_tie = tdb.find_tie(rx_tie_id)
             assert old_db_tie is None
             assert new_db_tie is not None
             assert new_db_tie.header.seq_nr == rx_tie.header.seq_nr + 1
@@ -386,33 +427,33 @@ def check_process_tie_common(tdb, my_system_id, disposition_list):
         else:
             assert False
 
-def check_process_tie(tdb, my_system_id):
-    disposition_list = [
+def check_process_tie(tdb):
+    rx_tie_info_list = [
         # pylint:disable=bad-whitespace
-        # Direction  Originator  Tie-Nr  Seq-Nr  Lifetime  Disposition
-        ( SOUTH,     10,         13,     3,      599,      TIE_NEWER),
-        ( SOUTH,     20,         4,      1,      600,      TIE_MISSING),
-        ( SOUTH,     999,        1,      9,      500,      TIE_OLDER_SELF),
-        ( SOUTH,     999,        4,      3,      200,      TIE_MISSING_SELF),
-        ( NORTH,     5,          3,      3,      600,      TIE_OLDER),
-        ( NORTH,     5,          8,      12,     100,      TIE_SAME),   # Exact same
-        ( NORTH,     6,          7,      4,      550,      TIE_SAME),   # Almost same - DB is older
-        ( NORTH,     6,          7,      4,      490,      TIE_SAME)]   # Almost same - DB is newer
-    check_process_tie_common(tdb, my_system_id, disposition_list)
+        # Direction  Originator     Type,    Tie-Nr  Seq-Nr  Lifetime  Disposition
+        ( SOUTH,     12,            NODE,    3,      2,      100,      TIE_NEWER),
+        ( SOUTH,     10,            PREFIX,  13,     3,      599,      TIE_NEWER),
+        ( SOUTH,     20,            PREFIX,  4,      1,      600,      TIE_MISSING),
+        ( SOUTH,     MY_SYSTEM_ID,  PREFIX,  1,      9,      500,      TIE_OLDER_SELF),
+        ( SOUTH,     MY_SYSTEM_ID,  NODE,    8,      12,     10,       TIE_MISSING_SELF),
+        ( SOUTH,     MY_SYSTEM_ID,  PREFIX,  4,      3,      200,      TIE_MISSING_SELF),
+        ( NORTH,     5,             PREFIX,  3,      3,      600,      TIE_OLDER),
+        ( NORTH,     5,             PREFIX,  8,      12,     100,      TIE_SAME),  # Exact same
+        ( NORTH,     6,             PREFIX,  7,      4,      550,      TIE_SAME),  # Slightly older
+        ( NORTH,     6,             PREFIX,  7,      4,      490,      TIE_SAME)]  # Slightly newer
+    check_process_tie_common(tdb, rx_tie_info_list)
 
 def test_process_tie():
     packet_common.add_missing_methods_to_thrift()
-    tdb = tie_db.TIE_DB()
-    my_id = 999
     db_tie_info_list = [
         # pylint:disable=bad-whitespace
-        # Direction Origin TieNr SeqNr Lifetime  Disposition
-        ( SOUTH,    10,    13,   5,    100),   # TIE_NEWER
-        ( SOUTH,    999,   1,    4,    69),    # TIE_OLDER_SELF
-        ( NORTH,    5,     3,    2,    200),   # TIE_OLDER
-        ( NORTH,    5,     8,    12,   100),   # TIE_SAME
-        ( NORTH,    6,     7,    4,    500)]   # TIE_SAME
-    for db_tie_info in db_tie_info_list:
-        db_tie = packet_common.make_prefix_tie_packet(*db_tie_info)
-        tdb.store_tie(db_tie)
-    check_process_tie(tdb, my_system_id=my_id)
+        # Direction Origin         Type     TieNr SeqNr Lifetime  Disposition
+        ( SOUTH,    12,            NODE,    3,    2,    600),   # TIE_NEWER
+        ( SOUTH,    10,            PREFIX,  13,   5,    100),   # TIE_NEWER
+        ( SOUTH,    MY_SYSTEM_ID,  NODE,    1,    8,    150),   # My real node TIE
+        ( SOUTH,    MY_SYSTEM_ID,  PREFIX,  1,    4,    69),    # TIE_OLDER_SELF
+        ( NORTH,    5,             PREFIX,  3,    2,    200),   # TIE_OLDER
+        ( NORTH,    5,             PREFIX,  8,    12,   100),   # TIE_SAME
+        ( NORTH,    6,             PREFIX,  7,    4,    500)]   # TIE_SAME
+    tdb = make_tie_db(db_tie_info_list)
+    check_process_tie(tdb)
