@@ -1,5 +1,6 @@
 # Topology Information Element DataBase (TIE_DB)
 
+import copy
 import sortedcontainers
 
 import common.ttypes
@@ -8,6 +9,12 @@ import neighbor
 import packet_common
 import table
 import timer
+
+NODE_SOUTH_TIE_NR = 1
+NODE_NORTH_TIE_NR = 2
+
+ORIGINATE_LIFETIME = 600
+FLUSH_LIFETIME = 60
 
 # TODO: We currently only store the decoded TIE messages.
 # Also store the encoded TIE messages for the following reasons:
@@ -186,31 +193,82 @@ class TIE_DB:
                     acked_tie_headers.append(db_tie.header)
         return (request_tie_headers, start_sending_tie_headers, acked_tie_headers)
 
-    def process_received_tie_packet(self, tie_packet, node_system_id):
+    def find_according_real_node_tie(self, rx_tie):
+        # We have to originate an empty node TIE for the purpose of flushing it. Use the same
+        # contents as the real node TIE that we actually originated, except don't report any
+        # neighbors.
+        real_node_tie_id = copy.deepcopy(rx_tie.tie_header.tieid)
+        if rx_tie.header.tieid.direction == common.ttypes.TieDirectionType.South:
+            real_node_tie_id.tie_nr = NODE_SOUTH_TIE_NR
+        elif rx_tie.header.tieid.direction == common.ttypes.TieDirectionType.North:
+            real_node_tie_id.tie_nr = NODE_NORTH_TIE_NR
+        else:
+            assert False
+        real_node_tie = self.find_tie(real_node_tie_id)
+        assert real_node_tie is not None
+        return real_node_tie
+
+    def make_according_empty_tie(self, rx_tie):
+        new_tie_header = packet_common.make_tie_header(
+            rx_tie.header.tieid.direction,
+            rx_tie.header.tieid.originator,
+            rx_tie.header.tieid.tietype,
+            rx_tie.header.tieid.tie_nr,
+            rx_tie.header.seq_nr + 1,     # Higher sequence number
+            FLUSH_LIFETIME)                     # Short remaining life time
+        tietype = rx_tie.header.tieid.tietype
+        if tietype == common.ttypes.TIETypeType.NodeTIEType:
+            real_node_tie_packet = self.find_according_real_node_tie(rx_tie)
+            new_element = copy.deepcopy(real_node_tie_packet.element)
+            new_element.node.neighbors = {}
+        elif tietype == common.ttypes.TIETypeType.PrefixTIEType:
+            empty_prefixes = encoding.ttypes.PrefixTIEElement()
+            new_element = encoding.ttypes.TIEElement(prefixes=empty_prefixes)
+        elif tietype == common.ttypes.TIETypeType.TransitivePrefixTIEType:
+            empty_prefixes = encoding.ttypes.PrefixTIEElement()
+            new_element = encoding.ttypes.TIEElement(transitive_prefixes=empty_prefixes)
+        elif tietype == common.ttypes.TIETypeType.PGPrefixTIEType:
+            # TODO: Policy guided prefixes are not yet in model in specification
+            assert False
+        elif tietype == common.ttypes.TIETypeType.KeyValueTIEType:
+            empty_keyvalues = encoding.ttypes.KeyValueTIEElement()
+            new_element = encoding.ttypes.TIEElement(keyvalues=empty_keyvalues)
+        else:
+            assert False
+        according_empty_tie = encoding.ttypes.TIEPacket(
+            header=new_tie_header,
+            element=new_element)
+        return according_empty_tie
+
+    def process_received_tie_packet(self, rx_tie, my_system_id):
         start_sending_tie_header = None
         ack_tie_header = None
-        rx_tie_header = tie_packet.header
+        rx_tie_header = rx_tie.header
         rx_tie_id = rx_tie_header.tieid
         db_tie = self.find_tie(rx_tie_id)
         if db_tie is None:
-            if rx_tie_id.originator == node_system_id:
-                # TODO: re-originate with higher sequence number
-                pass
+            if rx_tie_id.originator == my_system_id:
+                # Re-originate the according empty TIE with a higher sequence number and a short
+                # remaining life time
+                according_empty_tie_packet = self.make_according_empty_tie(rx_tie)
+                self.store_tie(according_empty_tie_packet)
+                start_sending_tie_header = according_empty_tie_packet.header
             else:
                 # We don't have this TIE in the database, store and ack it
-                self.store_tie(tie_packet)
+                self.store_tie(rx_tie)
                 ack_tie_header = rx_tie_header
         else:
             comparison = compare_tie_header_age(db_tie.header, rx_tie_header)
             if comparison < 0:
                 # We have an older version of the TIE, ...
-                if rx_tie_id.originator == node_system_id:
-                    # TODO: We originated the TIE, re-originate with higher sequence number
-                    pass
+                if rx_tie_id.originator == my_system_id:
+                    # Re-originate DB TIE with higher sequence number than the one in RX TIE
+                    db_tie.header.seq_nr = rx_tie_header.seq_nr + 1
+                    start_sending_tie_header = db_tie.header
                 else:
                     # We did not originate the TIE, store the newer version and ack it
-                    self.store_tie(tie_packet)
-                    ack_tie_header = db_tie.header
+                    self.store_tie(rx_tie)
+                    ack_tie_header = rx_tie.header
             elif comparison > 0:
                 # We have a newer version of the TIE, send it
                 start_sending_tie_header = db_tie.header

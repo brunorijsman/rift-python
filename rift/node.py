@@ -24,11 +24,6 @@ class Node:
 
     ZTP_MIN_NUMBER_OF_PEER_FOR_LEVEL = 3
 
-    NODE_SOUTH_TIE_NR = 1
-    NODE_NORTH_TIE_NR = 2
-
-    LIFETIME = 600
-
     SEND_TIDES_INTERVAL = 2.0
 
     # TODO: This value is not specified anywhere in the specification
@@ -524,9 +519,9 @@ class Node:
 
     def regenerate_node_tie(self, direction, interface_going_down=None):
         if direction == common.ttypes.TieDirectionType.South:
-            tie_nr = self.NODE_SOUTH_TIE_NR
+            tie_nr = tie_db.NODE_SOUTH_TIE_NR
         elif direction == common.ttypes.TieDirectionType.North:
-            tie_nr = self.NODE_NORTH_TIE_NR
+            tie_nr = tie_db.NODE_NORTH_TIE_NR
         else:
             assert False, "Invalid direction"
         self.node_tie_seq_nrs[direction] += 1
@@ -538,7 +533,7 @@ class Node:
             originator=self._system_id,
             tie_nr=tie_nr,
             seq_nr=seq_nr,
-            lifetime=self.LIFETIME)
+            lifetime=tie_db.ORIGINATE_LIFETIME)
         for intf in self._interfaces.values():
             if ((intf.fsm.state == interface.Interface.State.THREE_WAY) and
                     (intf != interface_going_down)):

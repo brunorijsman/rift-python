@@ -17,9 +17,13 @@ KEY_VALUE = common.ttypes.TIETypeType.KeyValueTIEType
 REQUEST_MISSING = 1  # TIE-DB is missing a TIE-ID which is reported in TIDE. Request it.
 REQUEST_OLDER = 2    # TIE-DB has older version of TIE-ID than in TIDE/TIRE. Request it.
 START_EXTRA = 3      # TIE-DB has extra TIE-ID which is not in TIDE. Start sending it.
-START_NEWER = 4      # TIE-DB has newer version of TIE-ID than in TIDE/TIRE. Start sending it.
+START_NEWER = 4      # TIE-DB has newer version of TIE-ID than in TIE/TIDE/TIRE. Start sending it.
 STOP_SAME = 5        # TIE-DB has same version of TIE-ID as in TIDE. Stop sending it.
-ACK = 6              # TIE-DB has same version of TIE-ID than in TIRE. Treat it as an ACK.
+ACK = 6              # TIE-DB has same version of TIE-ID than in TIRE. Treat it as an ACK. Or,
+                     # TIE-DB has same version of TIE-ID in TIE. Send an ACK
+STORE_AND_ACK = 7    # TIE-DB doesn't have TIE-ID in TIE. Store in DB and ACK.
+RE_ORIG = 8          # TIE-DB has older self-originated version of TIE. Re-originate newer.
+FLUSH = 9            # TIE appears to be self-originated but is not in DB. Flush (re-orig empty)
 
 def test_compare_tie_header():
     # Exactly same
@@ -315,26 +319,70 @@ def test_process_tire():
         tdb.store_tie(db_tie)
     check_process_tire(tdb)
 
+TIE_SAME = 1           # DB TIE is (fudgy) same version as RX TIE
+TIE_NEWER = 2          # DB TIE contains newer version than RX TIE
+TIE_OLDER = 3          # DB TIE contains older version than RX TIE (not self-originated)
+TIE_OLDER_SELF = 4     # DB TIE contains older version than RX TIE (self-originated)
+TIE_MISSING = 5        # DB TIE does not yet contain RX TIE (not self-originated)
+TIE_MISSING_SELF = 6   # DB TIE does not yet contain RX TIE (not self-originated)
+
 def check_process_tie_common(tdb, my_system_id, disposition_list):
     # pylint:disable=too-many-locals
     for (direction, originator, tie_nr, seq_nr, lifetime, disposition) in disposition_list:
-        rx_tie_header = packet_common.make_tie_header(direction, originator, PREFIX, tie_nr,
-                                                      seq_nr, lifetime)
+        tie_id = packet_common.make_tie_id(direction, originator, PREFIX, tie_nr)
+        old_db_tie = tdb.find_tie(tie_id)
         rx_tie = packet_common.make_prefix_tie_packet(direction, originator, tie_nr, seq_nr,
                                                       lifetime)
-        (start_sending_tie_header, ack_tie_header) = (
-            tdb.process_received_tie_packet(rx_tie, my_system_id))
-        if disposition == START_NEWER:
-            # Start sending the DB TIE
-            tie_id = packet_common.make_tie_id(direction, originator, PREFIX, tie_nr)
-            seq_nr = tdb.ties[tie_id].header.seq_nr
-            db_tie_header = tdb.ties[tie_id].header
-            assert start_sending_tie_header == db_tie_header
-            assert ack_tie_header is None
-        elif disposition == ACK:
-            # Acknowledge the RX TIE
+        result = tdb.process_received_tie_packet(rx_tie, my_system_id)
+        (start_sending_tie_header, ack_tie_header) = result
+        if disposition == TIE_SAME:
+            # Acknowledge the TX TIE which is the "same" as the DB TIE
+            # Note: the age in the DB TIE and the RX TIE could be slightly different; the ACK should
+            # contain the DB TIE header.
+            new_db_tie = tdb.find_tie(tie_id)
+            assert new_db_tie is not None
+            assert new_db_tie == old_db_tie
+            assert ack_tie_header == new_db_tie.header
             assert start_sending_tie_header is None
-            assert ack_tie_header == rx_tie_header
+        elif disposition == TIE_NEWER:
+            # Start sending the DB TIE
+            new_db_tie = tdb.find_tie(tie_id)
+            assert new_db_tie is not None
+            assert new_db_tie == old_db_tie
+            assert start_sending_tie_header == new_db_tie.header
+            assert ack_tie_header is None
+        elif disposition == TIE_OLDER:
+            # Store the RX TIE in the DB and ACK it
+            new_db_tie = tdb.find_tie(tie_id)
+            assert old_db_tie is not None
+            assert new_db_tie is not None
+            assert new_db_tie != old_db_tie
+            assert new_db_tie.header == rx_tie.header
+            assert ack_tie_header == new_db_tie.header
+            assert start_sending_tie_header is None
+        elif disposition == TIE_OLDER_SELF:
+            # Re-originate the DB TIE by bumping up the version to RX TIE version plus one
+            new_db_tie = tdb.find_tie(tie_id)
+            assert new_db_tie is not None
+            assert new_db_tie.header.seq_nr == rx_tie.header.seq_nr + 1
+            assert start_sending_tie_header == new_db_tie.header
+            assert ack_tie_header is None
+        elif disposition == TIE_MISSING:
+            # Store the RX TIE in the DB and ACK it
+            new_db_tie = tdb.find_tie(tie_id)
+            assert old_db_tie is None
+            assert new_db_tie is not None
+            assert new_db_tie.header == rx_tie.header
+            assert ack_tie_header == new_db_tie.header
+            assert start_sending_tie_header is None
+        elif disposition == TIE_MISSING_SELF:
+            # Re-originate an empty version of the RX TIE with a higher version than the RX TIE
+            new_db_tie = tdb.find_tie(tie_id)
+            assert old_db_tie is None
+            assert new_db_tie is not None
+            assert new_db_tie.header.seq_nr == rx_tie.header.seq_nr + 1
+            assert start_sending_tie_header == new_db_tie.header
+            assert ack_tie_header is None
         else:
             assert False
 
@@ -342,17 +390,29 @@ def check_process_tie(tdb, my_system_id):
     disposition_list = [
         # pylint:disable=bad-whitespace
         # Direction  Originator  Tie-Nr  Seq-Nr  Lifetime  Disposition
-        ( SOUTH,     10,         13,     3,      599,      START_NEWER)]
+        ( SOUTH,     10,         13,     3,      599,      TIE_NEWER),
+        ( SOUTH,     20,         4,      1,      600,      TIE_MISSING),
+        ( SOUTH,     999,        1,      9,      500,      TIE_OLDER_SELF),
+        ( SOUTH,     999,        4,      3,      200,      TIE_MISSING_SELF),
+        ( NORTH,     5,          3,      3,      600,      TIE_OLDER),
+        ( NORTH,     5,          8,      12,     100,      TIE_SAME),   # Exact same
+        ( NORTH,     6,          7,      4,      550,      TIE_SAME),   # Almost same - DB is older
+        ( NORTH,     6,          7,      4,      490,      TIE_SAME)]   # Almost same - DB is newer
     check_process_tie_common(tdb, my_system_id, disposition_list)
 
 def test_process_tie():
     packet_common.add_missing_methods_to_thrift()
     tdb = tie_db.TIE_DB()
+    my_id = 999
     db_tie_info_list = [
         # pylint:disable=bad-whitespace
         # Direction Origin TieNr SeqNr Lifetime  Disposition
-        ( SOUTH,    10,    13,   5,    100)]   # DB TIE is newer than RX TIE; send it
+        ( SOUTH,    10,    13,   5,    100),   # TIE_NEWER
+        ( SOUTH,    999,   1,    4,    69),    # TIE_OLDER_SELF
+        ( NORTH,    5,     3,    2,    200),   # TIE_OLDER
+        ( NORTH,    5,     8,    12,   100),   # TIE_SAME
+        ( NORTH,    6,     7,    4,    500)]   # TIE_SAME
     for db_tie_info in db_tie_info_list:
         db_tie = packet_common.make_prefix_tie_packet(*db_tie_info)
         tdb.store_tie(db_tie)
-    check_process_tie(tdb, my_system_id=999)
+    check_process_tie(tdb, my_system_id=my_id)
