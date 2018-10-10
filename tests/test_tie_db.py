@@ -465,6 +465,7 @@ def test_process_tie():
 
 def test_is_flood_allowed():
     # pylint:disable=too-many-locals
+    packet_common.add_missing_methods_to_thrift()
     tdb = tie_db.TIE_DB()
     # Node 66 is same level as me
     node_66_tie = packet_common.make_node_tie_packet(
@@ -532,3 +533,23 @@ def test_is_flood_allowed():
                                                  MY_SYSTEM_ID, MY_LEVEL, i_am_top_of_fabric)
         assert allowed == expected_allowed
         assert reason == expected_reason
+
+def test_generate_tide_packet():
+    packet_common.add_missing_methods_to_thrift()
+    db_tie_info_list = [
+        # pylint:disable=bad-whitespace
+        # Direction Origin         Type     TieNr SeqNr Lifetime  Allowed in TIDE
+        ( SOUTH,     55,           PREFIX,  2,    4,    600),     # No : Non-node S-TIE to S, not self-originated
+        ( SOUTH,     MY_SYSTEM_ID, PREFIX,  18,   903,  400)]     # Yes: Non-node S-TIE to S, self-originated
+    tdb = make_tie_db(db_tie_info_list)
+    tide_packet = tdb.generate_tide_packet(
+        neighbor_direction=NBR_S,
+        neighbor_system_id=55,
+        my_system_id=MY_SYSTEM_ID,
+        my_level=MY_LEVEL,
+        i_am_top_of_fabric=True)
+    assert tide_packet.start_range == tie_db.TIE_DB.MIN_TIE_ID
+    assert tide_packet.end_range == tie_db.TIE_DB.MAX_TIE_ID
+    assert len(tide_packet.headers) == 1
+    expected_header = packet_common.make_tie_header(SOUTH, MY_SYSTEM_ID, PREFIX, 18, 903, 400)
+    assert tide_packet.headers[0] == expected_header
