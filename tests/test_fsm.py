@@ -113,7 +113,7 @@ def dog():
             self.fsm_instance = fsm.Fsm(
                 definition=self.fsm_definition,
                 action_handler=self,
-                log=None,                   # TODO: Testing logging output
+                log=None,
                 log_id=None)
 
         @property

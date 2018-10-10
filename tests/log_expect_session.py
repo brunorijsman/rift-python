@@ -213,10 +213,11 @@ class LogExpectSession:
             skip_events=["TIMER_TICK", "SEND_LIE", "LIE_RECEIVED"])
         self.close()
 
-    def check_lie_fsm_1way_bad_level(self, node, interface):
+    def check_lie_fsm_1way_unacc_hdr(self, node, interface):
         # Check that an adjacency is stuck in 1-way because the header is persistently unacceptable
-        # because both this node and the remote node have hard-configured levels that
-        # are more than one level apart.
+        # because of some reason, for example:
+        # - both nodes have hard-configured levels that are more than one level apart
+        # - one node is undefined and the other is leaf
         # We look for the first UNACCEPTABLE_HEADER and then look for 2 more to make sure it is not
         # transient.
         target_id = node + "-" + interface

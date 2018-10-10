@@ -87,12 +87,10 @@ Command Line Interface (CLI) available on port 49178
 The configuration file specifies a specifies the configuration attributes for the RIFT protocol 
 instance, including the attribute of the RIFT node and the RIFT interfaces.
 
-It is also possible to configure multiple RIFT nodes in the configurion file. This is used to build
+It is also possible to configure multiple RIFT nodes in the configuration file. This is used to build
 simulated network topologies that can be tested on a single physical computer. In the above example,
-the configurion file "two_by_two_by_two.yaml" contains 10 simulated nodes with names core_1, core_2,
+the configuration file "two_by_two_by_two.yaml" contains 10 simulated nodes with names core_1, core_2,
 agg_101, agg_102, etc.
-
-TODO: Document the syntax of the configuration file.
 
 ## Interactive mode
 
@@ -176,7 +174,7 @@ The auto-detect mechanism uses the following rules:
 
 * If any other behavior is observed it generates an assertion failure with a message describing the observed behavior.
 
-The auto-detection mechanism takes between 1 and 2 seconds to complete, which causes a noticable delay during startup.
+The auto-detection mechanism takes between 1 and 2 seconds to complete, which causes a noticeable delay during startup.
 
 You can use the following command-line options to disable the auto-detection mechanism (and hence avoid the startup delay).
 

@@ -37,7 +37,7 @@
 # - But the offer in the receive LIE message is still considered a VOL and used to compute HAL
 # - The HAL and HAT are the correct values
 # - The level value is the correct value
-# - Check explictly for rejection of the LIE message because of level mismatch
+# - Check explicitly for rejection of the LIE message because of level mismatch
 
 # Allow long test names
 # pylint: disable=invalid-name
@@ -113,10 +113,10 @@ def check_rift_node2(res):
         level_value=1)
 
 def check_log_node1(les):
-    les.check_lie_fsm_1way_bad_level("node1", "if1")
+    les.check_lie_fsm_1way_unacc_hdr("node1", "if1")
 
 def check_log_node2(les):
-    les.check_lie_fsm_1way_bad_level("node2", "if1")
+    les.check_lie_fsm_1way_unacc_hdr("node2", "if1")
 
 def test_2n_l1_l3():
     passive_nodes = os.getenv("RIFT_PASSIVE_NODES", "").split(",")

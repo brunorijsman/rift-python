@@ -11,17 +11,24 @@ import constants
 import fsm
 import interface
 import offer
+import packet_common
 import table
+import tie_db
 import timer
 import utils
-
-# TODO: Command line argument and/or configuration option for CLI port
 
 class Node:
 
     _next_node_nr = 1
 
     ZTP_MIN_NUMBER_OF_PEER_FOR_LEVEL = 3
+
+    NODE_SOUTH_TIE_NR = 1
+    NODE_NORTH_TIE_NR = 2
+
+    LIFETIME = 600
+
+    SEND_TIDES_INTERVAL = 2.0
 
     # TODO: This value is not specified anywhere in the specification
     DEFAULT_HOLD_DOWN_TIME = 3.0
@@ -295,8 +302,7 @@ class Node:
         verbose_events=verbose_events)
 
     def __init__(self, parent_engine, config, force_passive):
-        # TODO: process state_thrift_services_port field in config
-        # TODO: process config_thrift_services_port field in config
+        # pylint: disable=too-many-statements
         # TODO: process v4prefixes field in config
         # TODO: process v6prefixes field in config
         self._engine = parent_engine
@@ -344,6 +350,14 @@ class Node:
         if 'interfaces' in config:
             for interface_config in self._config['interfaces']:
                 self.create_interface(interface_config)
+        tie_db_log = self._log.getChild("tie_db")
+        self.tie_db = tie_db.TIE_DB(name=self._name, log=tie_db_log)
+        self.node_tie_seq_nrs = {}
+        self.node_tie_seq_nrs[common.ttypes.TieDirectionType.South] = 0
+        self.node_tie_seq_nrs[common.ttypes.TieDirectionType.North] = 0
+        self.node_ties = {}
+        self.encoded_node_ties = {}
+        self.regenerate_all_node_ties()
         self._fsm = fsm.Fsm(
             definition=self.fsm_definition,
             action_handler=self,
@@ -354,6 +368,11 @@ class Node:
             expire_function=lambda: self._fsm.push_event(self.Event.HOLD_DOWN_EXPIRED),
             periodic=False,
             start=False)
+        self._send_tides_timer = timer.Timer(
+            interval=self.SEND_TIDES_INTERVAL,
+            expire_function=self.send_tides,
+            periodic=True,
+            start=True)
         self._fsm.start()
 
     def generate_system_id(self):
@@ -410,12 +429,15 @@ class Node:
         else:
             return str(level_value)
 
+    def top_of_fabric(self):
+        return self.level_value() == common.constants.default_superspine_level
+
     def record_tx_offer(self, tx_offer):
         self._tx_offers[tx_offer.interface_name] = tx_offer
 
     def send_not_a_ztp_offer_on_intf(self, interface_name):
         # If ZTP is not enabled (typically because the level is hard-configured), our level value
-        # is never derived from someone else's offer, so never send a poison reverse to anyone.
+        # is never derived from someone elses offer, so never send a poison reverse to anyone.
         if not self.zero_touch_provisioning_enabled():
             return False
         # TODO: Introduce concept of HALS (HAL offering Systems) and simply check for membership
@@ -500,6 +522,71 @@ class Node:
         self._next_interface_id += 1
         return interface_id
 
+    def regenerate_node_tie(self, direction, interface_going_down=None):
+        if direction == common.ttypes.TieDirectionType.South:
+            tie_nr = self.NODE_SOUTH_TIE_NR
+        elif direction == common.ttypes.TieDirectionType.North:
+            tie_nr = self.NODE_NORTH_TIE_NR
+        else:
+            assert False, "Invalid direction"
+        self.node_tie_seq_nrs[direction] += 1
+        seq_nr = self.node_tie_seq_nrs[direction]
+        node_tie_protocol_packet = packet_common.make_node_tie(
+            sender=self._system_id,
+            name=self._name,
+            level=self.level_value(),
+            direction=direction,
+            originator=self._system_id,
+            tie_nr=tie_nr,
+            seq_nr=seq_nr,
+            lifetime=self.LIFETIME)
+        for intf in self._interfaces.values():
+            if ((intf.fsm.state == interface.Interface.State.THREE_WAY) and
+                    (intf != interface_going_down)):
+                node_neighbor = packet_common.make_node_neighbor(level=intf.neighbor.level)
+                node_tie = node_tie_protocol_packet.content.tie.element.node
+                node_tie.neighbors[intf.neighbor.system_id] = node_neighbor
+        self.node_ties[direction] = node_tie_protocol_packet
+        self.encoded_node_ties[direction] = (
+            packet_common.encode_protocol_packet(node_tie_protocol_packet))
+        self.tie_db.store_tie(node_tie_protocol_packet)
+        self.info("Regenerated node TIE for direction {}: {}"
+                  .format(packet_common.direction_str(direction), node_tie_protocol_packet))
+
+    def regenerate_all_node_ties(self, interface_going_down=None):
+        for direction in [common.ttypes.TieDirectionType.South,
+                          common.ttypes.TieDirectionType.North]:
+            self.regenerate_node_tie(direction, interface_going_down)
+
+    def clear_all_generated_node_ties(self):
+        for direction in [common.ttypes.TieDirectionType.South,
+                          common.ttypes.TieDirectionType.North]:
+            self.node_ties[direction] = None
+            self.encoded_node_ties[direction] = None
+            # TODO: ##@@ Remove from DB
+
+    def send_tides(self):
+        # The current implementation prepares, encodes, and sends a unique TIDE packet for each
+        # individual neighbor. We do NOT (yet) have any optimization that attempts to prepare and
+        # encode a TIDE only once in total or once per direction (N, S, EW). See the comment in the
+        # function is_flood_allowed for a more detailed discussion on why not.
+        for intf in self._interfaces.values():
+            self.send_tides_on_interface(intf)
+
+    def send_tides_on_interface(self, intf):
+        if intf.fsm.state != interface.Interface.State.THREE_WAY:
+            return
+        protocol_packet = self.tie_db.generate_tide(
+            neighbor_direction=intf.neighbor_direction(),
+            neighbor_system_id=intf.neighbor.system_id,
+            my_system_id=self._system_id,
+            my_level=self.level_value(),
+            i_am_top_of_fabric=self.top_of_fabric())
+        self.info("Regenerated TIDE for neighbor {}: {}"
+                  .format(intf.neighbor.system_id, protocol_packet))
+        encoded_protocol_packet = packet_common.encode_protocol_packet(protocol_packet)
+        intf.send_encoded_protocol_packet(protocol_packet, encoded_protocol_packet, True)
+
     @staticmethod
     def cli_summary_headers():
         return [
@@ -538,6 +625,59 @@ class Node:
                 self._configured_level_symbol,
                 '?']
 
+    def command_show_intf_fsm_hist(self, cli_session, parameters, verbose):
+        interface_name = parameters['interface']
+        if not interface_name in self._interfaces:
+            cli_session.print_r("Error: interface {} not present".format(interface_name))
+            return
+        shown_interface = self._interfaces[interface_name]
+        tab = shown_interface.fsm.history_table(verbose)
+        cli_session.print(tab.to_string(cli_session.current_end_line()))
+
+    def command_show_intf_queues(self, cli_session, parameters):
+        interface_name = parameters['interface']
+        if not interface_name in self._interfaces:
+            cli_session.print_r("Error: interface {} not present".format(interface_name))
+            return
+        intf = self._interfaces[interface_name]
+        tab = intf.ties_tx_table()
+        cli_session.print_r("Transmit queue:")
+        cli_session.print(tab.to_string(cli_session.current_end_line()))
+        tab = intf.ties_rtx_table()
+        cli_session.print_r("Retransmit queue:")
+        cli_session.print(tab.to_string(cli_session.current_end_line()))
+        tab = intf.ties_req_table()
+        cli_session.print_r("Request queue:")
+        cli_session.print(tab.to_string(cli_session.current_end_line()))
+        tab = intf.ties_ack_table()
+        cli_session.print_r("Acknowledge queue:")
+        cli_session.print(tab.to_string(cli_session.current_end_line()))
+
+    def command_show_interface(self, cli_session, parameters):
+        interface_name = parameters['interface']
+        if not interface_name in self._interfaces:
+            cli_session.print_r("Error: interface {} not present".format(interface_name))
+            return
+        interface_attributes = self._interfaces[interface_name].cli_detailed_attributes()
+        tab = table.Table(separators=False)
+        tab.add_rows(interface_attributes)
+        cli_session.print_r("Interface:")
+        cli_session.print(tab.to_string(cli_session.current_end_line()))
+        neighbor_attributes = self._interfaces[interface_name].cli_detailed_neighbor_attrs()
+        if neighbor_attributes:
+            tab = table.Table(separators=False)
+            tab.add_rows(neighbor_attributes)
+            cli_session.print("Neighbor:\r")
+            cli_session.print(tab.to_string(cli_session.current_end_line()))
+
+    def command_show_interfaces(self, cli_session):
+        # TODO: Report neighbor uptime (time in THREE_WAY state)
+        tab = table.Table()
+        tab.add_row(interface.Interface.cli_summary_headers())
+        for intf in self._interfaces.values():
+            tab.add_row(intf.cli_summary_attributes())
+        cli_session.print(tab.to_string(cli_session.current_end_line()))
+
     def command_show_node(self, cli_session):
         cli_session.print_r("Node:")
         tab = table.Table(separators=False)
@@ -562,38 +702,15 @@ class Node:
         tab = self._fsm.history_table(verbose)
         cli_session.print(tab.to_string(cli_session.current_end_line()))
 
-    def command_show_interfaces(self, cli_session):
-        # TODO: Report neighbor uptime (time in THREE_WAY state)
-        tab = table.Table()
-        tab.add_row(interface.Interface.cli_summary_headers())
-        for intf in self._interfaces.values():
-            tab.add_row(intf.cli_summary_attributes())
-        cli_session.print(tab.to_string(cli_session.current_end_line()))
+    @staticmethod
+    def tide_content_append_tie_id(contents, tie_id):
+        contents.append("  Direction: " + packet_common.direction_str(tie_id.direction))
+        contents.append("  Originator: " + utils.system_id_str(tie_id.originator))
+        contents.append("  TIE Type: " + packet_common.tietype_str(tie_id.tietype))
+        contents.append("  TIE Nr: " + str(tie_id.tie_nr))
 
-    def command_show_interface(self, cli_session, parameters):
-        interface_name = parameters['interface']
-        if not interface_name in self._interfaces:
-            cli_session.print_r("Error: interface {} not present".format(interface_name))
-            return
-        inteface_attributes = self._interfaces[interface_name].cli_detailed_attributes()
-        tab = table.Table(separators=False)
-        tab.add_rows(inteface_attributes)
-        cli_session.print_r("Interface:")
-        cli_session.print(tab.to_string(cli_session.current_end_line()))
-        neighbor_attributes = self._interfaces[interface_name].cli_detailed_neighbor_attrs()
-        if neighbor_attributes:
-            tab = table.Table(separators=False)
-            tab.add_rows(neighbor_attributes)
-            cli_session.print("Neighbor:\r")
-            cli_session.print(tab.to_string(cli_session.current_end_line()))
-
-    def command_show_intf_fsm_hist(self, cli_session, parameters, verbose):
-        interface_name = parameters['interface']
-        if not interface_name in self._interfaces:
-            cli_session.print_r("Error: interface {} not present".format(interface_name))
-            return
-        shown_interface = self._interfaces[interface_name]
-        tab = shown_interface.fsm.history_table(verbose)
+    def command_show_tie_db(self, cli_session):
+        tab = self.tie_db.tie_db_table()
         cli_session.print(tab.to_string(cli_session.current_end_line()))
 
     def command_set_interface_failure(self, cli_session, parameters):
@@ -610,11 +727,14 @@ class Node:
         rx_fail = failure in ["failed", "rx-failed"]
         self._interfaces[interface_name].set_failure(tx_fail, rx_fail)
 
+    def info(self, msg):
+        self._log.info("[%s] %s", self._log_id, msg)
+
     @property
     def name(self):
         return self._name
 
-    # TODO: get rid of these properties, more complicated than needed. Just remote _ instead
+    # TODO: get rid of these properties, more complicated than needed. Just remove _ instead
     @property
     def system_id(self):
         return self._system_id

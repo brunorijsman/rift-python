@@ -68,7 +68,10 @@ class Engine:
     def create_shard(self, shard_config, passive_nodes):
         if 'nodes' in shard_config:
             for node_config in shard_config['nodes']:
-                force_passive = node_config['name'] in passive_nodes
+                if 'name' in node_config:
+                    force_passive = node_config['name'] in passive_nodes
+                else:
+                    force_passive = False
                 self.create_node(node_config, force_passive)
 
     def create_node(self, node_config, force_passive):
@@ -78,11 +81,35 @@ class Engine:
     def run(self):
         scheduler.SCHEDULER.run()
 
+    def command_show_intf_fsm_nvhis(self, cli_session, parameters):
+        cli_session.current_node.command_show_intf_fsm_hist(cli_session, parameters, False)
+
+    def command_show_intf_fsm_vhis(self, cli_session, parameters):
+        cli_session.current_node.command_show_intf_fsm_hist(cli_session, parameters, True)
+
+    def command_show_intf_queues(self, cli_session, parameters):
+        cli_session.current_node.command_show_intf_queues(cli_session, parameters)
+
+    def command_show_interface(self, cli_session, parameters):
+        cli_session.current_node.command_show_interface(cli_session, parameters)
+
+    def command_set_interface_failure(self, cli_session, parameters):
+        cli_session.current_node.command_set_interface_failure(cli_session, parameters)
+
+    def command_show_interfaces(self, cli_session):
+        cli_session.current_node.command_show_interfaces(cli_session)
+
     def command_show_lie_fsm(self, cli_session):
         interface.Interface.fsm_definition.command_show_fsm(cli_session)
 
-    def command_show_ztp_fsm(self, cli_session):
-        node.Node.fsm_definition.command_show_fsm(cli_session)
+    def command_show_node(self, cli_session):
+        cli_session.current_node.command_show_node(cli_session)
+
+    def command_show_node_fsm_nvhis(self, cli_session):
+        cli_session.current_node.command_show_node_fsm_history(cli_session, False)
+
+    def command_show_node_fsm_vhis(self, cli_session):
+        cli_session.current_node.command_show_node_fsm_history(cli_session, True)
 
     def command_show_nodes(self, cli_session):
         tab = table.Table()
@@ -98,29 +125,11 @@ class Engine:
             tab.add_row(nod.cli_level_attributes())
         cli_session.print_r(tab.to_string(cli_session.current_end_line()))
 
-    def command_show_node(self, cli_session):
-        cli_session.current_node.command_show_node(cli_session)
+    def command_show_tie_db(self, cli_session):
+        cli_session.current_node.command_show_tie_db(cli_session)
 
-    def command_show_node_fsm_nvhis(self, cli_session):
-        cli_session.current_node.command_show_node_fsm_history(cli_session, False)
-
-    def command_show_node_fsm_vhis(self, cli_session):
-        cli_session.current_node.command_show_node_fsm_history(cli_session, True)
-
-    def command_show_interfaces(self, cli_session):
-        cli_session.current_node.command_show_interfaces(cli_session)
-
-    def command_show_interface(self, cli_session, parameters):
-        cli_session.current_node.command_show_interface(cli_session, parameters)
-
-    def command_show_intf_fsm_nvhis(self, cli_session, parameters):
-        cli_session.current_node.command_show_intf_fsm_hist(cli_session, parameters, False)
-
-    def command_show_intf_fsm_vhis(self, cli_session, parameters):
-        cli_session.current_node.command_show_intf_fsm_hist(cli_session, parameters, True)
-
-    def command_set_interface_failure(self, cli_session, parameters):
-        cli_session.current_node.command_set_interface_failure(cli_session, parameters)
+    def command_show_ztp_fsm(self, cli_session):
+        node.Node.fsm_definition.command_show_fsm(cli_session)
 
     def command_set_node(self, cli_session, parameters):
         node_name = parameters['node']
@@ -156,6 +165,16 @@ class Engine:
                 "lie": command_show_lie_fsm,
                 "ztp": command_show_ztp_fsm,
             },
+            "$interface": {
+                "": command_show_interface,
+                "fsm": {
+                    "history": command_show_intf_fsm_nvhis,
+                    "verbose-history": command_show_intf_fsm_vhis,
+                },
+                "queues": command_show_intf_queues
+            },
+            "interfaces": command_show_interfaces,
+            "tie-db": command_show_tie_db,
             "node": {
                 "": command_show_node,
                 "fsm": {
@@ -167,14 +186,6 @@ class Engine:
                 "": command_show_nodes,
                 "level": command_show_nodes_level,
             },
-            "$interface": {
-                "": command_show_interface,
-                "fsm": {
-                    "history": command_show_intf_fsm_nvhis,
-                    "verbose-history": command_show_intf_fsm_vhis,
-                }
-            },
-            "interfaces": command_show_interfaces,
         },
     }
 

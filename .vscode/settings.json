@@ -2,6 +2,10 @@
     "python.pythonPath": "${workspaceFolder}/env/bin/python",
     "python.linting.enabled": true,
     "python.linting.pylintEnabled": true,
+    "python.linting.ignorePatterns": [
+        "rift/common/**",
+        "rift/encoding/**"
+    ],
     "python.unitTest.pyTestArgs": [
         "tests"
     ],
@@ -21,7 +25,6 @@
         "interop",
         "intf",
         "lans",
-        "lsdb",
         "multicast",
         "pexpect",
         "pluggy",

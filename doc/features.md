@@ -21,28 +21,55 @@
 
 | Feature | Supported |
 | --- | --- |
-| Topology Information Element (TIE) Packet | No |
-| Topology Information Description Element (TIDE) Packet | No |
-| Topology Information Request Element (TIRE) Packet | No |
-| Topology Exchange (TIE Exchange) | No |
-| Topology Information Elements | No |
-| South- and Northbound Representation | No |
-| Flooding  | No |
-| TIE Flooding Scopes  | No |
-| Initial and Periodic Database Synchronization  | No |
-| Purging  | No |
+| Receive all types of TIE packets | Yes |
+| Store received TIE packets in TIE-DB | Yes |
+| Age TIE packets in TIE-DB and remove when they expire | Yes |
+| Add neighbor's newer TIEs to request queue | Yes |
+| Add neighbor's older TIEs to send queue | Yes |
+| Add neighbor's same TIEs to acknowledge queue | Yes |
+| Re-transmit TIEs if they are not acknowledged | Yes |
+| Periodically serve all queues (TX, RTX, REQ, ACK) | Yes |
+| Propagate TIE packets without decoding and re-encoding | No |
+| Originate Node TIE packets | Yes |
+| Originate Prefix TIE packets | No |
+| Originate Positive Disaggregation TIE packets | No |
+| Originate Negative Disaggregation TIE packets | No |
+| Originate Policy Guided Prefix TIE packets | No |
+| Originate Key Value TIE packets | No |
+| Process received TIDE packets | Yes |
+| Request missing TIEs based on received TIDE packets | Yes |
+| Send newer TIEs based on received TIDE packets | Yes |
+| Detect extra TIEs based on gaps inside received TIDE packets | Yes |
+| Detect extra TIEs based on gaps between received TIDE packets | Yes |
+| Acknowledge same TIEs based on received TIDE packets | Yes |
+| Periodically originate TIDE packets | Yes |
+| Process received TIRE packets | Yes |
+| Start sending TIES requested in received TIRE packet | Yes |
+| Stop sending TIES acknowledged in received TIRE packet | Yes |
+| Apply flooding scope rules when sending TIE packets | Yes |
+| Apply flooding scope rules when sending TIDE packets | Yes |
+| Apply flooding scope rules when sending TIRE packets | Yes |
 | Southbound Default Route Origination  | No |
 | Northbound TIE Flooding Reduction  | No |
-| Policy-Guided Prefixes  | No |
 | Ingress Filtering  | No |
 | Applying Policy  | No |
 | Store Policy-Guided Prefix for Route Computation and Regeneration  | No |
 | Re-origination  | No |
 | Overlap with Disaggregated Prefixes  | No |
+
+## Route Calculation
+
+| Feature | Supported |
+| --- | --- |
 | Reachability Computation  | No |
 | Northbound SPF  | No |
 | Southbound SPF  | No |
 | East-West Forwarding Within a Level  | No |
+
+## Additional Features
+
+| Feature | Supported |
+| --- | --- |
 | Attaching Prefixes  | No |
 | Attaching Policy-Guided Prefixes  | No |
 | Automatic Disaggregation on Link & Node Failures  | No |
@@ -84,7 +111,7 @@
 | Telnet client for operational commands | Partial |
 | SSH client for operational commands | No |
 | Command Line Interface (CLI) for Operational Commands | Yes |
-| CLI Command History (^P and ^N) | No |
+| CLI Command History (^P and ^N) | Partial |
 | CLI Tab Completion | No |
 | CLI Context-Sensitive Help | Partial |
 | Logging | Yes |
@@ -115,4 +142,4 @@
 | Automated Pylint | Yes |
 | Automated Pytest Unit Tests | Yes |
 | Automated System Tests | Yes |
-| Automated Interoperability Tests | Yes |
+| Automated Interoperability Tests | Yes, with Juniper RIFT |

@@ -46,12 +46,12 @@ def check_rift_node1_intf_up(res):
         interface="if1",
         system_id="2",
         level=0,
-        not_a_ztp_offer="(False/True)", # TODO: Juniper lenient
+        not_a_ztp_offer="(False/True)", # Juniper lenient
         state="THREE_WAY",
         best=False,
         best_3way=False,
         removed=True,
-        removed_reason="(Level is leaf/Not a ZTP offer flag set)")  # TODO: Juniper lenient
+        removed_reason="(Level is leaf/Not a ZTP offer flag set)")  # Juniper lenient
     res.check_tx_offer(
         node="node1",
         interface="if1",
@@ -75,7 +75,7 @@ def check_rift_node1_intf_down(res):
         interface="if1",
         system_id="2",
         level=0,
-        not_a_ztp_offer="(False/True)", # TODO: Juniper lenient
+        not_a_ztp_offer="(False/True)", # Juniper lenient
         state="THREE_WAY",
         best=False,
         best_3way=False,
