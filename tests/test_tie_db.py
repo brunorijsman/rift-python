@@ -553,3 +553,22 @@ def test_generate_tide_packet():
     assert len(tide_packet.headers) == 1
     expected_header = packet_common.make_tie_header(SOUTH, MY_SYSTEM_ID, PREFIX, 18, 903, 400)
     assert tide_packet.headers[0] == expected_header
+
+def test_age_ties():
+    packet_common.add_missing_methods_to_thrift()
+    db_tie_info_list = [
+        # pylint:disable=bad-whitespace
+        # Direction Origin         Type     TieNr SeqNr Lifetime
+        ( SOUTH,     55,           NODE,    2,    4,    600),
+        ( SOUTH,     MY_SYSTEM_ID, PREFIX,  18,   903,  1)]
+    tdb = make_tie_db(db_tie_info_list)
+    tie_id_1 = packet_common.make_tie_id(SOUTH, 55, NODE, 2)
+    tie_id_2 = packet_common.make_tie_id(SOUTH, MY_SYSTEM_ID, PREFIX, 18)
+    assert tdb.find_tie(tie_id_1) is not None
+    assert tdb.find_tie(tie_id_2) is not None
+    tdb.age_ties()
+    tie_1 = tdb.find_tie(tie_id_1)
+    assert tie_1 is not None
+    assert tie_1.header.seq_nr == 4
+    assert tie_1.header.remaining_lifetime == 599
+    assert tdb.find_tie(tie_id_2) is None
