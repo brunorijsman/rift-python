@@ -315,7 +315,7 @@ class TIE_DB:
                     if self.tie_originator_level(tie_header) == my_level:
                         return (True, "Node S-TIE to S: originator level is same as mine")
                     else:
-                        return (True, "Node S-TIE to S: originator level is same as mine")
+                        return (False, "Node S-TIE to S: originator level is not same as mine")
                 elif neighbor_direction == neighbor.Neighbor.Direction.NORTH:
                     # Node S-TIE to N: flood if level of originator is higher than level of this
                     # node
@@ -345,16 +345,17 @@ class TIE_DB:
                     else:
                         return (False, "Non-node S-TIE to S: not self-originated")
                 elif neighbor_direction == neighbor.Neighbor.Direction.NORTH:
-                    # Non-Node S-TIE to S: Flood only if the neighbor is the originator of the TIE
+                    # [*] Non-Node S-TIE to N: Flood only if the neighbor is the originator of
+                    # the TIE
                     if neighbor_system_id == tie_header.tieid.originator:
-                        return (True, "Non-node S-TIE to S: neighbor is originator of TIE")
+                        return (True, "Non-node S-TIE to N: neighbor is originator of TIE")
                     else:
-                        return (False, "Non-node S-TIE to S: neighbor is not originator of TIE")
+                        return (False, "Non-node S-TIE to N: neighbor is not originator of TIE")
                 elif neighbor_direction == neighbor.Neighbor.Direction.EAST_WEST:
                     # Non-Node S-TIE to EW: Flood only if if self-originated and this node is not
                     # ToF
                     if i_am_top_of_fabric:
-                        return (False, "Non-node S-TIE to EW: this top of fabric ")
+                        return (False, "Non-node S-TIE to EW: this top of fabric")
                     elif self.tie_is_self_originated(tie_header, my_system_id):
                         return (True, "Non-node S-TIE to EW: self-originated and not top of fabric")
                     else:

@@ -1,5 +1,6 @@
 import common.ttypes
 import encoding.ttypes
+import neighbor
 import packet_common
 import tie_db
 
@@ -11,6 +12,10 @@ MY_LEVEL = 9
 
 SOUTH = common.ttypes.TieDirectionType.South
 NORTH = common.ttypes.TieDirectionType.North
+
+NBR_S = neighbor.Neighbor.Direction.SOUTH
+NBR_N = neighbor.Neighbor.Direction.NORTH
+NBR_EW = neighbor.Neighbor.Direction.EAST_WEST
 
 NODE = common.ttypes.TIETypeType.NodeTIEType
 PREFIX = common.ttypes.TIETypeType.PrefixTIEType
@@ -457,3 +462,73 @@ def test_process_tie():
         ( NORTH,    6,             PREFIX,  7,    4,    500)]   # TIE_SAME
     tdb = make_tie_db(db_tie_info_list)
     check_process_tie(tdb)
+
+def test_is_flood_allowed():
+    # pylint:disable=too-many-locals
+    tdb = tie_db.TIE_DB()
+    # Node 66 is same level as me
+    node_66_tie = packet_common.make_node_tie_packet(
+        name="node66",
+        level=MY_LEVEL,
+        direction=SOUTH,
+        originator=66,
+        tie_nr=5,
+        seq_nr=7,
+        lifetime=300)
+    tdb.store_tie(node_66_tie)
+    # Node 77 has higher level than me
+    node_77_tie = packet_common.make_node_tie_packet(
+        name="node77",
+        level=MY_LEVEL + 1,
+        direction=SOUTH,
+        originator=77,
+        tie_nr=3,
+        seq_nr=2,
+        lifetime=400)
+    tdb.store_tie(node_77_tie)
+    # Node 88 has lower level than me
+    node_88_tie = packet_common.make_node_tie_packet(
+        name="node88",
+        level=MY_LEVEL - 1,
+        direction=SOUTH,
+        originator=88,
+        tie_nr=7,
+        seq_nr=3,
+        lifetime=400)
+    tdb.store_tie(node_88_tie)
+    tx_tie_info_list = [
+        # pylint:disable=bad-whitespace
+        #                                                              Neighbor   Neighbor   I am    Allowed  Reason
+        # Direction  Originator     Type,    Tie-Nr  Seq-Nr  Lifetime  Direction  System-ID  ToF
+        ( SOUTH,     66,             NODE,    5,      7,      400,     NBR_S,     22,        False,  True,    "Node S-TIE to S: originator level is same as mine"),
+        ( SOUTH,     77,             NODE,    3,      2,      300,     NBR_S,     18,        False,  False,   "Node S-TIE to S: originator level is not same as mine"),
+        ( SOUTH,     55,             NODE,    8,      12,     500,     NBR_N,     17,        False,  False,   "Node S-TIE to N: could not determine originator level"),
+        ( SOUTH,     77,             NODE,    3,      3,      200,     NBR_N,     17,        True,   True,    "Node S-TIE to N: originator level is higher than mine"),
+        ( SOUTH,     88,             NODE,    7,      3,      400,     NBR_N,     19,        False,  False,   "Node S-TIE to N: originator level is not higher than mine"),
+        ( SOUTH,     55,             NODE,    8,      12,     550,     NBR_EW,    19,        True,   False,   "Node S-TIE to EW: this node is top of fabric"),
+        ( SOUTH,     55,             NODE,    8,      12,     550,     NBR_EW,    19,        False,  True,    "Node S-TIE to EW: this node is not top of fabric"),
+        ( SOUTH,     55,             NODE,    8,      12,     550,     None,      19,        False,  False,   "Node S-TIE to ?: never flood"),
+        ( SOUTH,     MY_SYSTEM_ID,   PREFIX,  4,      7,      200,     NBR_S,     20,        False,  True,    "Non-node S-TIE to S: self-originated"),
+        ( SOUTH,     55,             PREFIX,  2,      4,      600,     NBR_S,     20,        True,   False,   "Non-node S-TIE to S: not self-originated"),
+        ( SOUTH,     MY_SYSTEM_ID,   PREFIX,  18,     903,    400,     NBR_S,     33,        True,   True,    "Non-node S-TIE to S: self-originated"),
+        ( SOUTH,     55,             PREFIX,  2,      4,      600,     NBR_N,     55,        False,  True,    "Non-node S-TIE to N: neighbor is originator of TIE"),
+        ( SOUTH,     55,             PREFIX,  2,      4,      600,     NBR_N,     33,        False,  False,   "Non-node S-TIE to N: neighbor is not originator of TIE"),
+        ( SOUTH,     55,             PREFIX,  2,      4,      600,     NBR_EW,    33,        True,   False,   "Non-node S-TIE to EW: this top of fabric"),
+        ( SOUTH,     MY_SYSTEM_ID,   PREFIX,  18,     903,    400,     NBR_EW,    33,        False,  True,    "Non-node S-TIE to EW: self-originated and not top of fabric"),
+        ( SOUTH,     55,             PREFIX,  2,      4,      600,     NBR_EW,    33,        False,  False,   "Non-node S-TIE to EW: not self-originated"),
+        ( SOUTH,     55,             PREFIX,  2,      4,      600,     None,      33,        True,   False,   "None-node S-TIE to ?: never flood"),
+        ( NORTH,     55,             NODE,    3,      3,      500,     NBR_S,     20,        False,  False,   "N-TIE to S: never flood"),
+        ( NORTH,     55,             PREFIX,  2,      4,      500,     NBR_S,     20,        True,   False,   "N-TIE to S: never flood"),
+        ( NORTH,     55,             NODE,    3,      3,      500,     NBR_N,     20,        False,  True,    "N-TIE to N: always flood"),
+        ( NORTH,     55,             PREFIX,  2,      4,      500,     NBR_N,     20,        True,   True,    "N-TIE to N: always flood"),
+        ( NORTH,     55,             NODE,    3,      3,      500,     NBR_EW,    20,        True,   True,    "N-TIE to EW: top of fabric"),
+        ( NORTH,     55,             NODE,    3,      3,      500,     NBR_EW,    20,        False,  False,   "N-TIE to EW: not top of fabric"),
+        ( NORTH,     55,             NODE,    3,      3,      500,     None,      20,        False,  False,   "N-TIE to ?: never flood")]
+    for tx_tie_info in tx_tie_info_list:
+        (direction, originator, tietype, tie_nr, seq_nr, lifetime, neighbor_direction,
+         neighbor_system_id, i_am_top_of_fabric, expected_allowed, expected_reason) = tx_tie_info
+        tie_header = packet_common.make_tie_header(direction, originator, tietype, tie_nr, seq_nr, lifetime)
+        (allowed, reason) = tdb.is_flood_allowed(tie_header, neighbor_direction, neighbor_system_id,
+                                                 MY_SYSTEM_ID, MY_LEVEL, i_am_top_of_fabric)
+        assert allowed == expected_allowed
+        assert reason == expected_reason
