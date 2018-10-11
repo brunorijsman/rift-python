@@ -162,8 +162,8 @@ class Interface:
             level=self._node.level_value())
         capabilities = encoding.ttypes.NodeCapabilities(
             flood_reduction=True,
-            leaf_indications=
-            common.ttypes.LeafIndications.leaf_only_and_leaf_2_leaf_procedures)
+            hierarchy_indications=
+            common.ttypes.HierarchyIndications.leaf_only_and_leaf_2_leaf_procedures)
         if self.neighbor:
             neighbor_system_id = self.neighbor.system_id
             neighbor_link_id = self.neighbor.local_id
@@ -289,8 +289,8 @@ class Interface:
         if lie.capabilities is None:
             # Remote node does not support leaf-2-leaf
             return False
-        if (lie.capabilities.leaf_indications !=
-                common.ttypes.LeafIndications.leaf_only_and_leaf_2_leaf_procedures):
+        if (lie.capabilities.hierarchy_indications !=
+                common.ttypes.HierarchyIndications.leaf_only_and_leaf_2_leaf_procedures):
             # Remote node does not support leaf-2-leaf
             return False
         return True

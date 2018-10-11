@@ -19,7 +19,7 @@ NBR_EW = neighbor.Neighbor.Direction.EAST_WEST
 
 NODE = common.ttypes.TIETypeType.NodeTIEType
 PREFIX = common.ttypes.TIETypeType.PrefixTIEType
-TRANSITIVE_PREFIX = common.ttypes.TIETypeType.TransitivePrefixTIEType
+TRANSITIVE_PREFIX = common.ttypes.TIETypeType.PositiveDisaggregationPrefixTIEType
 PG_PREFIX = common.ttypes.TIETypeType.PGPrefixTIEType
 KEY_VALUE = common.ttypes.TIETypeType.KeyValueTIEType
 
