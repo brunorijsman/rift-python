@@ -13,22 +13,26 @@ import sys
 from thrift.transport import TTransport
 
 
-class LeafIndications(object):
+class HierarchyIndications(object):
     """
     Flags indicating nodes behavior in case of ZTP and support
-    for special optimization procedures. It will force level to `leaf_level`
+    for special optimization procedures. It will force level to `leaf_level` or
+    `top-of-fabric` level accordingly and enable according procedures
     """
     leaf_only = 0
     leaf_only_and_leaf_2_leaf_procedures = 1
+    top_of_fabric = 2
 
     _VALUES_TO_NAMES = {
         0: "leaf_only",
         1: "leaf_only_and_leaf_2_leaf_procedures",
+        2: "top_of_fabric",
     }
 
     _NAMES_TO_VALUES = {
         "leaf_only": 0,
         "leaf_only_and_leaf_2_leaf_procedures": 1,
+        "top_of_fabric": 2,
     }
 
 
@@ -86,20 +90,24 @@ class TIETypeType(object):
     TIETypeMinValue = 1
     NodeTIEType = 2
     PrefixTIEType = 3
-    TransitivePrefixTIEType = 4
-    PGPrefixTIEType = 5
-    KeyValueTIEType = 6
-    TIETypeMaxValue = 7
+    PositiveDisaggregationPrefixTIEType = 4
+    NegativeDisaggregationPrefixTIEType = 5
+    PGPrefixTIEType = 6
+    KeyValueTIEType = 7
+    ExternalPrefixTIEType = 8
+    TIETypeMaxValue = 9
 
     _VALUES_TO_NAMES = {
         0: "Illegal",
         1: "TIETypeMinValue",
         2: "NodeTIEType",
         3: "PrefixTIEType",
-        4: "TransitivePrefixTIEType",
-        5: "PGPrefixTIEType",
-        6: "KeyValueTIEType",
-        7: "TIETypeMaxValue",
+        4: "PositiveDisaggregationPrefixTIEType",
+        5: "NegativeDisaggregationPrefixTIEType",
+        6: "PGPrefixTIEType",
+        7: "KeyValueTIEType",
+        8: "ExternalPrefixTIEType",
+        9: "TIETypeMaxValue",
     }
 
     _NAMES_TO_VALUES = {
@@ -107,10 +115,12 @@ class TIETypeType(object):
         "TIETypeMinValue": 1,
         "NodeTIEType": 2,
         "PrefixTIEType": 3,
-        "TransitivePrefixTIEType": 4,
-        "PGPrefixTIEType": 5,
-        "KeyValueTIEType": 6,
-        "TIETypeMaxValue": 7,
+        "PositiveDisaggregationPrefixTIEType": 4,
+        "NegativeDisaggregationPrefixTIEType": 5,
+        "PGPrefixTIEType": 6,
+        "KeyValueTIEType": 7,
+        "ExternalPrefixTIEType": 8,
+        "TIETypeMaxValue": 9,
     }
 
 
@@ -135,8 +145,10 @@ class RouteType(object):
     NorthPGPPrefix = 5
     NorthPrefix = 6
     SouthPrefix = 7
-    TransitiveSouthPrefix = 8
-    RouteTypeMaxValue = 9
+    NorthExternalPrefix = 8
+    SouthExternalPrefix = 9
+    NegativeNorthPrefix = 10
+    RouteTypeMaxValue = 11
 
     _VALUES_TO_NAMES = {
         0: "Illegal",
@@ -147,8 +159,10 @@ class RouteType(object):
         5: "NorthPGPPrefix",
         6: "NorthPrefix",
         7: "SouthPrefix",
-        8: "TransitiveSouthPrefix",
-        9: "RouteTypeMaxValue",
+        8: "NorthExternalPrefix",
+        9: "SouthExternalPrefix",
+        10: "NegativeNorthPrefix",
+        11: "RouteTypeMaxValue",
     }
 
     _NAMES_TO_VALUES = {
@@ -160,8 +174,10 @@ class RouteType(object):
         "NorthPGPPrefix": 5,
         "NorthPrefix": 6,
         "SouthPrefix": 7,
-        "TransitiveSouthPrefix": 8,
-        "RouteTypeMaxValue": 9,
+        "NorthExternalPrefix": 8,
+        "SouthExternalPrefix": 9,
+        "NegativeNorthPrefix": 10,
+        "RouteTypeMaxValue": 11,
     }
 
 
