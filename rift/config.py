@@ -152,7 +152,8 @@ class RiftValidator(cerberus.Validator):
             return 1 <= port <= 65535
 
     def _validate_type_level(self, value):
-        if isinstance(value, str) and value.lower() in ['undefined', 'leaf', 'spine', 'top-of-fabric']:
+        if isinstance(value, str) and value.lower() in ['undefined', 'leaf',
+                                                        'spine', 'top-of-fabric']:
             return True
         try:
             level = int(value)

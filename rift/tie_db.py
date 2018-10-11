@@ -228,7 +228,8 @@ class TIE_DB:
             new_element = encoding.ttypes.TIEElement(prefixes=empty_prefixes)
         elif tietype == common.ttypes.TIETypeType.PositiveDisaggregationPrefixTIEType:
             empty_prefixes = encoding.ttypes.PrefixTIEElement()
-            new_element = encoding.ttypes.TIEElement(positive_disaggregation_prefixes=empty_prefixes)
+            new_element = encoding.ttypes.TIEElement(
+                positive_disaggregation_prefixes=empty_prefixes)
         elif tietype == common.ttypes.TIETypeType.NegativeDisaggregationPrefixTIEType:
             # TODO: Policy guided prefixes are not yet in model in specification
             assert False
