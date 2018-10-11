@@ -137,11 +137,8 @@ class Interface:
         # still THREE_WAY at this point.
         self._node.regenerate_all_node_ties(interface_going_down=self)
 
-    def send_protocol_packet(self, protocol_packet, flood):
-        encoded_protocol_packet = packet_common.encode_protocol_packet(protocol_packet)
-        self.send_encoded_protocol_packet(protocol_packet, encoded_protocol_packet, flood)
-
-    def send_encoded_protocol_packet(self, protocol_packet, encoded_protocol_packet, flood):
+    def send_protocol_packet(self, protocol_packet, flood, dont_change):
+        encoded_protocol_packet = packet_common.encode_protocol_packet(protocol_packet, dont_change)
         if flood:
             handler = self._flood_send_handler
         else:
@@ -189,7 +186,7 @@ class Interface:
             label=None)
         packet_content = encoding.ttypes.PacketContent(lie=lie_packet)
         protocol_packet = encoding.ttypes.ProtocolPacket(packet_header, packet_content)
-        self.send_protocol_packet(protocol_packet, False)
+        self.send_protocol_packet(protocol_packet, flood=False, dont_change=False)
         tx_offer = offer.TxOffer(
             self._interface_name,
             self._node.system_id,
@@ -685,12 +682,12 @@ class Interface:
         protocol_packet = self.receive_message_common(message, from_address_and_port)
         if protocol_packet is None:
             return
-        if protocol_packet.content.tie:
-            self.process_received_tie_packet(protocol_packet)
+        if protocol_packet.content.tie is not None:
+            self.process_received_tie_packet(protocol_packet.content.tie)
         if protocol_packet.content.tide:
-            self.process_received_tide_packet(protocol_packet)
+            self.process_received_tide_packet(protocol_packet.content.tide)
         if protocol_packet.content.tire:
-            self.process_received_tire_packet(protocol_packet)
+            self.process_received_tire_packet(protocol_packet.content.tire)
         if protocol_packet.content.lie:
             self.warning(self._rx_log, "Received LIE packet on flood port (ignored)")
 
@@ -756,7 +753,6 @@ class Interface:
         return False
 
     def is_request_allowed(self, tie_header, i_am_top_of_fabric):
-        ###@@@
         neighbor_direction = self.neighbor_direction()
         if neighbor_direction == neighbor.Neighbor.Direction.SOUTH:
             dir_str = "S"
@@ -788,7 +784,7 @@ class Interface:
             # Exclude everything else
             return (False, "to {}: exclude".format(dir_str))
         if neighbor_direction == neighbor.Neighbor.Direction.NORTH:
-            # Include only of TIE originator is equal to peer
+            # Include only if neighbor is originator of TIE
             if tie_header.tieid.originator == self.neighbor.system_id:
                 return (True, "to {}: TIE originator is equal to peer".format(dir_str))
             # Exclude everything else
@@ -908,20 +904,33 @@ class Interface:
             self.service_ties_req()
 
     def service_ties_ack(self):
-        tire = packet_common.make_tire(
+        tire_packet = packet_common.make_tire_packet()
+        for tie_header in self._ties_ack.values():
+            packet_common.add_tie_header_to_tire(tire_packet, tie_header)
+        packet_content = encoding.ttypes.PacketContent(tire=tire_packet)
+        packet_header = encoding.ttypes.PacketHeader(
             sender=self._node.system_id,
             level=self._node.level_value())
-        for tie_header in self._ties_ack.values():
-            packet_common.add_tie_header_to_tire(tire, tie_header)
-        self.send_protocol_packet(tire, True)
+        protocol_packet = encoding.ttypes.ProtocolPacket(
+            header=packet_header,
+            content=packet_content)
+        self.send_protocol_packet(protocol_packet, flood=True, dont_change=False)
 
     def service_ties_queue(self, queue):
         # Note: we only look at the TIE-ID in the queue and not at the header. If we have a more
         # recent version of the TIE in the TIE-DB than the one requested, we send the one we have.
+        packet_header = encoding.ttypes.PacketHeader(
+            sender=self._node.system_id,
+            level=self._node.level_value())
+        packet_content = encoding.ttypes.PacketContent()
+        protocol_packet = encoding.ttypes.ProtocolPacket(
+            header=packet_header,
+            content=packet_content)
         for tie_id in queue.keys():
             db_tie = self._node.tie_db.find_tie(tie_id)
             if db_tie is not None:
-                self.send_protocol_packet(db_tie, True)
+                protocol_packet.content.tie = db_tie
+                self.send_protocol_packet(protocol_packet, flood=True, dont_change=True)
 
     def service_ties_tx(self):
         self.service_ties_queue(self._ties_tx)
@@ -930,12 +939,17 @@ class Interface:
         self.service_ties_queue(self._ties_rtx)
 
     def service_ties_req(self):
-        tire = packet_common.make_tire(
+        tire_packet = packet_common.make_tire_packet()
+        for tie_header in self._ties_req.values():
+            packet_common.add_tie_header_to_tire(tire_packet, tie_header)
+        packet_content = encoding.ttypes.PacketContent(tire=tire_packet)
+        packet_header = encoding.ttypes.PacketHeader(
             sender=self._node.system_id,
             level=self._node.level_value())
-        for tie_header in self._ties_req.values():
-            packet_common.add_tie_header_to_tire(tire, tie_header)
-        self.send_protocol_packet(tire, True)
+        protocol_packet = encoding.ttypes.ProtocolPacket(
+            header=packet_header,
+            content=packet_content)
+        self.send_protocol_packet(protocol_packet, flood=True, dont_change=False)
 
     @property
     def state_name(self):

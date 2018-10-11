@@ -1,5 +1,6 @@
 # Topology Information Element DataBase (TIE_DB)
 
+import copy
 import sortedcontainers
 
 import common.ttypes
@@ -9,10 +10,19 @@ import packet_common
 import table
 import timer
 
+NODE_SOUTH_TIE_NR = 1
+NODE_NORTH_TIE_NR = 2
+
+ORIGINATE_LIFETIME = 600
+FLUSH_LIFETIME = 60
+
 # TODO: We currently only store the decoded TIE messages.
 # Also store the encoded TIE messages for the following reasons:
 # - Encode only once, instead of each time the message is sent
 # - Ability to flood the message immediately before it is decoded
+# Note: the encoded TIE protocol packet that we send is different from the encoded TIE protocol
+# packet that we send (specifically, the content is the same but the header reflect us as the
+# sender)
 
 def compare_tie_header_age(header1, header2):
     # Returns -1 is header1 is older, returns +1 if header1 is newer, 0 if "same" age
@@ -66,6 +76,8 @@ class TIE_DB:
     def __init__(self, name=None, log=None):
         self._name = name
         self._log = log
+        # The ties dictionary contains all TIEPacket objects (not ProtocolPacket objects) indexed
+        # by TIEID.
         self.ties = sortedcontainers.SortedDict()
         # Statefull record of the end of the range of the most recently received TIDE. This is used
         # to detect gaps between the range end of one received TIDE and the range beginning of the
@@ -83,12 +95,12 @@ class TIE_DB:
         if self._log is not None:
             self._log.debug("[%s] %s", self._name, msg)
 
-    def store_tie(self, protocol_packet):
-        assert protocol_packet.content.tie is not None
-        tie_id = protocol_packet.content.tie.header.tieid
-        self.ties[tie_id] = protocol_packet
+    def store_tie(self, tie_packet):
+        tie_id = tie_packet.header.tieid
+        self.ties[tie_id] = tie_packet
 
     def find_tie(self, tie_id):
+        # Returns None if tie_id is not in database
         return self.ties.get(tie_id)
 
     def start_sending_db_ties_in_range(self, start_sending_tie_headers, start_id, start_incl,
@@ -96,13 +108,10 @@ class TIE_DB:
         db_ties = self.ties.irange(start_id, end_id, (start_incl, end_incl))
         for db_tie_id in db_ties:
             db_tie = self.ties[db_tie_id]
-            # TODO: Decrease TIE lifetime to account for time spent on this router
-            # TODO: Decrease TIE lifetime by at least 1
-            start_sending_tie_headers.append(db_tie.content.tie.header)
+            # TODO: Make sure that lifetime is decreased by at least one before propagating
+            start_sending_tie_headers.append(db_tie.header)
 
-    def process_received_tide_packet(self, protocol_packet):
-        tide_packet = protocol_packet.content.tide
-        assert tide_packet is not None
+    def process_received_tide_packet(self, tide_packet):
         request_tie_headers = []
         start_sending_tie_headers = []
         stop_sending_tie_headers = []
@@ -149,76 +158,123 @@ class TIE_DB:
                 request_header.origination_time = None
                 request_tie_headers.append(request_header)
             else:
-                comparison = compare_tie_header_age(db_tie.content.tie.header, header_in_tide)
+                comparison = compare_tie_header_age(db_tie.header, header_in_tide)
                 if comparison < 0:
                     # We have an older version of the TIE, request the newer version
                     request_tie_headers.append(header_in_tide)
                 elif comparison > 0:
                     # We have a newer version of the TIE, send it
-                    start_sending_tie_headers.append(db_tie.content.tie.header)
+                    start_sending_tie_headers.append(db_tie.header)
                 else:
                     # We have the same version of the TIE, if we are trying to send it, stop it
-                    stop_sending_tie_headers.append(db_tie.content.tie.header)
+                    stop_sending_tie_headers.append(db_tie.header)
         # End-gap processing: send TIEs that are in our TIE DB but missing in TIDE
         self.start_sending_db_ties_in_range(start_sending_tie_headers,
                                             last_processed_tie_id, minimum_inclusive,
                                             tide_packet.end_range, True)
         return (request_tie_headers, start_sending_tie_headers, stop_sending_tie_headers)
 
-    def process_received_tire_packet(self, protocol_packet):
-        tire_packet = protocol_packet.content.tire
-        assert tire_packet is not None
+    def process_received_tire_packet(self, tire_packet):
         request_tie_headers = []
         start_sending_tie_headers = []
         acked_tie_headers = []
         for header_in_tire in tire_packet.headers:
             db_tie = self.find_tie(header_in_tire.tieid)
             if db_tie is not None:
-                comparison = compare_tie_header_age(db_tie.content.tie.header, header_in_tire)
+                comparison = compare_tie_header_age(db_tie.header, header_in_tire)
                 if comparison < 0:
                     # We have an older version of the TIE, request the newer version
                     request_tie_headers.append(header_in_tire)
                 elif comparison > 0:
                     # We have a newer version of the TIE, send it
-                    start_sending_tie_headers.append(db_tie.content.tie.header)
+                    start_sending_tie_headers.append(db_tie.header)
                 else:
                     # We have the same version of the TIE, treat it as an ACK
-                    acked_tie_headers.append(db_tie.content.tie.header)
+                    acked_tie_headers.append(db_tie.header)
         return (request_tie_headers, start_sending_tie_headers, acked_tie_headers)
 
-    def process_received_tie_packet(self, protocol_packet, node_system_id):
-        tie_packet = protocol_packet.content.tie
-        assert tie_packet is not None
+    def find_according_real_node_tie(self, rx_tie):
+        # We have to originate an empty node TIE for the purpose of flushing it. Use the same
+        # contents as the real node TIE that we actually originated, except don't report any
+        # neighbors.
+        real_node_tie_id = copy.deepcopy(rx_tie.header.tieid)
+        if rx_tie.header.tieid.direction == common.ttypes.TieDirectionType.South:
+            real_node_tie_id.tie_nr = NODE_SOUTH_TIE_NR
+        elif rx_tie.header.tieid.direction == common.ttypes.TieDirectionType.North:
+            real_node_tie_id.tie_nr = NODE_NORTH_TIE_NR
+        else:
+            assert False
+        real_node_tie = self.find_tie(real_node_tie_id)
+        assert real_node_tie is not None
+        return real_node_tie
+
+    def make_according_empty_tie(self, rx_tie):
+        new_tie_header = packet_common.make_tie_header(
+            rx_tie.header.tieid.direction,
+            rx_tie.header.tieid.originator,
+            rx_tie.header.tieid.tietype,
+            rx_tie.header.tieid.tie_nr,
+            rx_tie.header.seq_nr + 1,     # Higher sequence number
+            FLUSH_LIFETIME)                     # Short remaining life time
+        tietype = rx_tie.header.tieid.tietype
+        if tietype == common.ttypes.TIETypeType.NodeTIEType:
+            real_node_tie_packet = self.find_according_real_node_tie(rx_tie)
+            new_element = copy.deepcopy(real_node_tie_packet.element)
+            new_element.node.neighbors = {}
+        elif tietype == common.ttypes.TIETypeType.PrefixTIEType:
+            empty_prefixes = encoding.ttypes.PrefixTIEElement()
+            new_element = encoding.ttypes.TIEElement(prefixes=empty_prefixes)
+        elif tietype == common.ttypes.TIETypeType.TransitivePrefixTIEType:
+            empty_prefixes = encoding.ttypes.PrefixTIEElement()
+            new_element = encoding.ttypes.TIEElement(transitive_prefixes=empty_prefixes)
+        elif tietype == common.ttypes.TIETypeType.PGPrefixTIEType:
+            # TODO: Policy guided prefixes are not yet in model in specification
+            assert False
+        elif tietype == common.ttypes.TIETypeType.KeyValueTIEType:
+            empty_keyvalues = encoding.ttypes.KeyValueTIEElement()
+            new_element = encoding.ttypes.TIEElement(keyvalues=empty_keyvalues)
+        else:
+            assert False
+        according_empty_tie = encoding.ttypes.TIEPacket(
+            header=new_tie_header,
+            element=new_element)
+        return according_empty_tie
+
+    def process_received_tie_packet(self, rx_tie, my_system_id):
         start_sending_tie_header = None
         ack_tie_header = None
-        rx_tie_header = tie_packet.header
+        rx_tie_header = rx_tie.header
         rx_tie_id = rx_tie_header.tieid
         db_tie = self.find_tie(rx_tie_id)
         if db_tie is None:
-            if rx_tie_id.originator == node_system_id:
-                # TODO: re-originate with higher sequence number
-                pass
+            if rx_tie_id.originator == my_system_id:
+                # Re-originate the according empty TIE with a higher sequence number and a short
+                # remaining life time
+                according_empty_tie_packet = self.make_according_empty_tie(rx_tie)
+                self.store_tie(according_empty_tie_packet)
+                start_sending_tie_header = according_empty_tie_packet.header
             else:
                 # We don't have this TIE in the database, store and ack it
-                self.store_tie(protocol_packet)
+                self.store_tie(rx_tie)
                 ack_tie_header = rx_tie_header
         else:
-            comparison = compare_tie_header_age(db_tie.content.tie.header, rx_tie_header)
+            comparison = compare_tie_header_age(db_tie.header, rx_tie_header)
             if comparison < 0:
                 # We have an older version of the TIE, ...
-                if rx_tie_id.originator == node_system_id:
-                    # TODO: We originated the TIE, re-originate with higher sequence number
-                    pass
+                if rx_tie_id.originator == my_system_id:
+                    # Re-originate DB TIE with higher sequence number than the one in RX TIE
+                    db_tie.header.seq_nr = rx_tie_header.seq_nr + 1
+                    start_sending_tie_header = db_tie.header
                 else:
                     # We did not originate the TIE, store the newer version and ack it
-                    self.store_tie(protocol_packet)
-                    ack_tie_header = db_tie.content.tie.header
+                    self.store_tie(rx_tie)
+                    ack_tie_header = rx_tie.header
             elif comparison > 0:
                 # We have a newer version of the TIE, send it
-                start_sending_tie_header = db_tie.content.tie.header
+                start_sending_tie_header = db_tie.header
             else:
                 # We have the same version of the TIE, ACK it
-                ack_tie_header = db_tie.content.tie.header
+                ack_tie_header = db_tie.header
         return (start_sending_tie_header, ack_tie_header)
 
     def tie_is_self_originated(self, tie_header, my_system_id):
@@ -228,13 +284,15 @@ class TIE_DB:
         # We cannot determine the level of the originator just by looking at the TIE header; we have
         # to look in the TIE-DB to determine it. We can be confident the TIE is in the TIE-DB
         # because we wouldn't be here, considering sending a TIE to a neighbor, if we did not have
-        # the TIE in the TIE-DB.
+        # the TIE in the TIE-DB. Also, this question can only be asked about Node TIEs (other TIEs
+        # don't store the level of the originator in the TIEPacket)
+        assert tie_header.tieid.tietype == common.ttypes.TIETypeType.NodeTIEType
         db_tie = self.find_tie(tie_header.tieid)
         if db_tie is None:
             # Just in case it unexpectedly not in the TIE-DB
             return None
         else:
-            return db_tie.header.level
+            return db_tie.element.node.level
 
     def is_flood_allowed(self, tie_header, neighbor_direction, neighbor_system_id, my_system_id,
                          my_level, i_am_top_of_fabric):
@@ -257,7 +315,7 @@ class TIE_DB:
                     if self.tie_originator_level(tie_header) == my_level:
                         return (True, "Node S-TIE to S: originator level is same as mine")
                     else:
-                        return (True, "Node S-TIE to S: originator level is same as mine")
+                        return (False, "Node S-TIE to S: originator level is not same as mine")
                 elif neighbor_direction == neighbor.Neighbor.Direction.NORTH:
                     # Node S-TIE to N: flood if level of originator is higher than level of this
                     # node
@@ -287,16 +345,17 @@ class TIE_DB:
                     else:
                         return (False, "Non-node S-TIE to S: not self-originated")
                 elif neighbor_direction == neighbor.Neighbor.Direction.NORTH:
-                    # Non-Node S-TIE to S: Flood only if the neighbor is the originator of the TIE
+                    # [*] Non-Node S-TIE to N: Flood only if the neighbor is the originator of
+                    # the TIE
                     if neighbor_system_id == tie_header.tieid.originator:
-                        return (True, "Non-node S-TIE to S: neighbor is originator of TIE")
+                        return (True, "Non-node S-TIE to N: neighbor is originator of TIE")
                     else:
-                        return (False, "Non-node S-TIE to S: neighbor is not originator of TIE")
+                        return (False, "Non-node S-TIE to N: neighbor is not originator of TIE")
                 elif neighbor_direction == neighbor.Neighbor.Direction.EAST_WEST:
                     # Non-Node S-TIE to EW: Flood only if if self-originated and this node is not
                     # ToF
                     if i_am_top_of_fabric:
-                        return (False, "Non-node S-TIE to EW: this top of fabric ")
+                        return (False, "Non-node S-TIE to EW: this top of fabric")
                     elif self.tie_is_self_originated(tie_header, my_system_id):
                         return (True, "Non-node S-TIE to EW: self-originated and not top of fabric")
                     else:
@@ -325,15 +384,13 @@ class TIE_DB:
                 assert neighbor_direction is None
                 return (False, "N-TIE to ?: never flood")
 
-    def generate_tide(self, neighbor_direction, neighbor_system_id, my_system_id, my_level,
-                      i_am_top_of_fabric):
+    def generate_tide_packet(self, neighbor_direction, neighbor_system_id, my_system_id, my_level,
+                             i_am_top_of_fabric):
         # We generate a single TIDE packet which covers the entire range and we report all TIE
         # headers in that single TIDE packet. We simple assume that it will fit in a single UDP
         # packet which can be up to 64K. And if a single TIE gets added or removed we swallow the
         # cost of regenerating and resending the entire TIDE packet.
-        tide_protocol_packet = packet_common.make_tide(
-            sender=my_system_id,
-            level=my_level,
+        tide_packet = packet_common.make_tide_packet(
             start_range=self.MIN_TIE_ID,
             end_range=self.MAX_TIE_ID)
         # Apply flooding scope: only include TIEs corresponding to the requested direction
@@ -341,8 +398,8 @@ class TIE_DB:
         # TIES in flooding scope" in the TIDE. We interpret this to mean that we should only
         # announce a TIE in our TIDE packet, if we were willing to send a TIE to that particular
         # type of neighbor (N, S, EW).
-        for tie_protocol_packet in self.ties.values():
-            tie_header = tie_protocol_packet.content.tie.header
+        for tie_packet in self.ties.values():
+            tie_header = tie_packet.header
             (allowed, reason) = self.is_flood_allowed(tie_header, neighbor_direction,
                                                       neighbor_system_id, my_system_id, my_level,
                                                       i_am_top_of_fabric)
@@ -352,8 +409,8 @@ class TIE_DB:
                 outcome = "filtered"
             self.debug("Add TIE {} to TIDE is {} because {}".format(tie_header, outcome, reason))
             if allowed:
-                packet_common.add_tie_header_to_tide(tide_protocol_packet, tie_header)
-        return tide_protocol_packet
+                packet_common.add_tie_header_to_tide(tide_packet, tie_header)
+        return tide_packet
 
     def tie_db_table(self):
         tab = table.Table()
@@ -365,8 +422,8 @@ class TIE_DB:
     def age_ties(self):
         expired_key_ids = []
         for tie_id, db_tie in self.ties.items():
-            db_tie.content.tie.header.remaining_lifetime -= 1
-            if db_tie.content.tie.header.remaining_lifetime <= 0:
+            db_tie.header.remaining_lifetime -= 1
+            if db_tie.header.remaining_lifetime <= 0:
                 expired_key_ids.append(tie_id)
         for key_id in expired_key_ids:
             ##@@ log a message
@@ -383,14 +440,14 @@ class TIE_DB:
             "Lifetime",
             "Contents"]
 
-    def cli_summary_attributes(self, tie):
-        tie_id = tie.content.tie.header.tieid
+    def cli_summary_attributes(self, tie_packet):
+        tie_id = tie_packet.header.tieid
         return [
             packet_common.direction_str(tie_id.direction),
             tie_id.originator,
             packet_common.tietype_str(tie_id.tietype),
             tie_id.tie_nr,
-            tie.content.tie.header.seq_nr,
-            tie.content.tie.header.remaining_lifetime,
-            packet_common.element_str(tie_id.tietype, tie.content.tie.element)
+            tie_packet.header.seq_nr,
+            tie_packet.header.remaining_lifetime,
+            packet_common.element_str(tie_id.tietype, tie_packet.element)
         ]

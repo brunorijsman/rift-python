@@ -4,13 +4,12 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
-
         {
-            "name": "Pytest timer",
+            "name": "Pytest tie_db",
             "type": "python",
             "request": "launch",
             "program": "/Users/brunorijsman/rift-python/env/bin/pytest",
-            "args": ["-s", "-vvv", "tests/test_timer.py"] 
+            "args": ["-s", "-vvv", "tests/test_tie_db.py"] 
         },
         {
             "name": "Interop",
