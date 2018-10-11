@@ -9,7 +9,8 @@ def test_direction_str():
 def test_tietype_str():
     assert packet_common.tietype_str(common.ttypes.TIETypeType.NodeTIEType) == "Node"
     assert packet_common.tietype_str(common.ttypes.TIETypeType.PrefixTIEType) == "Prefix"
-    assert (packet_common.tietype_str(common.ttypes.TIETypeType.PositiveDisaggregationPrefixTIEType) ==
+    assert (packet_common.tietype_str(
+        common.ttypes.TIETypeType.PositiveDisaggregationPrefixTIEType) ==
             "PositiveDisaggregationPrefix")
     assert (packet_common.tietype_str(common.ttypes.TIETypeType.PGPrefixTIEType) ==
             "PolicyGuidedPrefix")
