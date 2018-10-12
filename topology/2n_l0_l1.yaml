@@ -23,6 +23,7 @@ shards:
         interfaces:
           - name: if1 # Connected to node2-if1
             tx_lie_port: 20002
+            rx_tie_port: 10001
       - name: node2
         level: 0
         systemid: 2
@@ -31,3 +32,4 @@ shards:
         interfaces:
           - name: if1 # Connected to node1-if1
             tx_lie_port: 20001
+            rx_tie_port: 10002

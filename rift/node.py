@@ -572,8 +572,8 @@ class Node:
             my_system_id=self._system_id,
             my_level=self.level_value(),
             i_am_top_of_fabric=self.top_of_fabric())
-        self.info("Regenerated TIDE for neighbor {}: {}"
-                  .format(intf.neighbor.system_id, tide_packet))
+        self.debug("Regenerated TIDE for neighbor {}: {}"
+                   .format(intf.neighbor.system_id, tide_packet))
         packet_content = encoding.ttypes.PacketContent(tide=tide_packet)
         packet_header = encoding.ttypes.PacketHeader(
             sender=self.system_id,
@@ -722,6 +722,9 @@ class Node:
         tx_fail = failure in ["failed", "tx-failed"]
         rx_fail = failure in ["failed", "rx-failed"]
         self._interfaces[interface_name].set_failure(tx_fail, rx_fail)
+
+    def debug(self, msg):
+        self._log.debug("[%s] %s", self._log_id, msg)
 
     def info(self, msg):
         self._log.info("[%s] %s", self._log_id, msg)
