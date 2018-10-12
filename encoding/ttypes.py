@@ -30,7 +30,7 @@ class PacketHeader(object):
 
     thrift_spec = (
         None,  # 0
-        (1, TType.I16, 'major_version', None, 15, ),  # 1
+        (1, TType.I16, 'major_version', None, 19, ),  # 1
         (2, TType.I16, 'minor_version', None, 0, ),  # 2
         (3, TType.I64, 'sender', None, None, ),  # 3
         (4, TType.I16, 'level', None, None, ),  # 4
@@ -38,7 +38,7 @@ class PacketHeader(object):
 
     def __init__(self, major_version=thrift_spec[1][4], minor_version=thrift_spec[2][4], sender=None, level=None,):
         if major_version is self.thrift_spec[1][4]:
-            major_version = 15
+            major_version = 19
         self.major_version = major_version
         if minor_version is self.thrift_spec[2][4]:
             minor_version = 0
@@ -287,19 +287,19 @@ class NodeCapabilities(object):
 
     Attributes:
      - flood_reduction: can this node participate in flood reduction
-     - leaf_indications: does this node restrict itself to be leaf only (in ZTP) and
-    does it support leaf-2-leaf procedures
+     - hierarchy_indications: does this node restrict itself to be top-of-fabric or
+    leaf only (in ZTP) and does it support leaf-2-leaf procedures
     """
 
     thrift_spec = (
         None,  # 0
         (1, TType.BOOL, 'flood_reduction', None, True, ),  # 1
-        (2, TType.I32, 'leaf_indications', None, None, ),  # 2
+        (2, TType.I32, 'hierarchy_indications', None, None, ),  # 2
     )
 
-    def __init__(self, flood_reduction=thrift_spec[1][4], leaf_indications=None,):
+    def __init__(self, flood_reduction=thrift_spec[1][4], hierarchy_indications=None,):
         self.flood_reduction = flood_reduction
-        self.leaf_indications = leaf_indications
+        self.hierarchy_indications = hierarchy_indications
 
     def read(self, iprot):
         if iprot._fast_decode is not None and isinstance(iprot.trans, TTransport.CReadableTransport) and self.thrift_spec is not None:
@@ -317,7 +317,7 @@ class NodeCapabilities(object):
                     iprot.skip(ftype)
             elif fid == 2:
                 if ftype == TType.I32:
-                    self.leaf_indications = iprot.readI32()
+                    self.hierarchy_indications = iprot.readI32()
                 else:
                     iprot.skip(ftype)
             else:
@@ -334,9 +334,9 @@ class NodeCapabilities(object):
             oprot.writeFieldBegin('flood_reduction', TType.BOOL, 1)
             oprot.writeBool(self.flood_reduction)
             oprot.writeFieldEnd()
-        if self.leaf_indications is not None:
-            oprot.writeFieldBegin('leaf_indications', TType.I32, 2)
-            oprot.writeI32(self.leaf_indications)
+        if self.hierarchy_indications is not None:
+            oprot.writeFieldBegin('hierarchy_indications', TType.I32, 2)
+            oprot.writeI32(self.hierarchy_indications)
             oprot.writeFieldEnd()
         oprot.writeFieldStop()
         oprot.writeStructEnd()
@@ -689,7 +689,7 @@ class TIEID(object):
 
     @note: TIEID space is a total order achieved by comparing the elements
            in sequence defined and comparing each value as an
-           unsigned integer of according length
+           unsigned integer of according length.
 
     Attributes:
      - direction: indicates direction of the TIE
@@ -795,16 +795,25 @@ class TIEID(object):
 
 class TIEHeader(object):
     """
-    Header of a TIE
+    Header of a TIE.
+
+    @note: TIEID space is a total order achieved by comparing the elements
+               in sequence defined and comparing each value as an
+               unsigned integer of according length. `origination_time` is
+               disregarded for comparison purposes.
 
     Attributes:
      - tieid
      - seq_nr
-     - remaining_lifetime: remaining lifetime that expires down to 0 just like in ISIS
-     - origination_time: optional absolute timestamp of when the TIE
+     - remaining_lifetime: remaining lifetime that expires down to 0 just like in ISIS.
+    TIEs with lifetimes differing by less than `lifetime_diff2ignore` MUST
+    be considered EQUAL.
+     - origination_time: optional absolute timestamp when the TIE
     was generated. This can be used on fabrics with
-    some kind of synchronized clock to prevent
-    lifetime modification attacks.
+    synchronized clock to prevent lifetime modification attacks.
+     - origination_lifetime: optional original lifetime when the TIE
+    was generated. This can be used on fabrics with
+    synchronized clock to prevent lifetime modification attacks.
     """
 
     thrift_spec = (
@@ -819,13 +828,16 @@ class TIEHeader(object):
         None,  # 8
         None,  # 9
         (10, TType.STRUCT, 'origination_time', (common.ttypes.IEEE802_1ASTimeStampType, common.ttypes.IEEE802_1ASTimeStampType.thrift_spec), None, ),  # 10
+        None,  # 11
+        (12, TType.I32, 'origination_lifetime', None, None, ),  # 12
     )
 
-    def __init__(self, tieid=None, seq_nr=None, remaining_lifetime=None, origination_time=None,):
+    def __init__(self, tieid=None, seq_nr=None, remaining_lifetime=None, origination_time=None, origination_lifetime=None,):
         self.tieid = tieid
         self.seq_nr = seq_nr
         self.remaining_lifetime = remaining_lifetime
         self.origination_time = origination_time
+        self.origination_lifetime = origination_lifetime
 
     def read(self, iprot):
         if iprot._fast_decode is not None and isinstance(iprot.trans, TTransport.CReadableTransport) and self.thrift_spec is not None:
@@ -858,6 +870,11 @@ class TIEHeader(object):
                     self.origination_time.read(iprot)
                 else:
                     iprot.skip(ftype)
+            elif fid == 12:
+                if ftype == TType.I32:
+                    self.origination_lifetime = iprot.readI32()
+                else:
+                    iprot.skip(ftype)
             else:
                 iprot.skip(ftype)
             iprot.readFieldEnd()
@@ -883,6 +900,10 @@ class TIEHeader(object):
         if self.origination_time is not None:
             oprot.writeFieldBegin('origination_time', TType.STRUCT, 10)
             self.origination_time.write(oprot)
+            oprot.writeFieldEnd()
+        if self.origination_lifetime is not None:
+            oprot.writeFieldBegin('origination_lifetime', TType.I32, 12)
+            oprot.writeI32(self.origination_lifetime)
             oprot.writeFieldEnd()
         oprot.writeFieldStop()
         oprot.writeStructEnd()
@@ -910,7 +931,7 @@ class TIEHeader(object):
 
 class TIDEPacket(object):
     """
-    A sorted TIDE packet, if unsorted, behavior is undefined
+    A TIDE with sorted TIE headers, if headers unsorted, behavior is undefined
 
     Attributes:
      - start_range: all 00s marks starts
@@ -1289,15 +1310,6 @@ class NodeTIEElement(object):
      - capabilities
      - flags
      - name: optional node name for easier operations
-     - visible_in_same_level: Nodes seen an the same level through reflection through nodes
-    having backlink to both nodes. They are equivalent to |V(N) in
-    future specifications. Ignored in Node S-TIEs if present.
-     - same_level_unknown_north_partitions: Non-overloaded nodes in |V seen as attached to another north
-    level partition due to the fact that some nodes in its |V have
-    adjacencies to higher level nodes that this node doesn't see.
-    This may be used in the computation at higher levels to prevent
-    blackholing. Ignored in Node S-TIEs if present.
-    Equivalent to |PUL(N) in spec.
     """
 
     thrift_spec = (
@@ -1307,26 +1319,14 @@ class NodeTIEElement(object):
         (3, TType.STRUCT, 'capabilities', (NodeCapabilities, NodeCapabilities.thrift_spec), None, ),  # 3
         (4, TType.STRUCT, 'flags', (NodeFlags, NodeFlags.thrift_spec), None, ),  # 4
         (5, TType.STRING, 'name', 'UTF8', None, ),  # 5
-        (6, TType.SET, 'visible_in_same_level', (TType.I64, None, False), set((
-        )), ),  # 6
-        (7, TType.SET, 'same_level_unknown_north_partitions', (TType.I64, None, False), set((
-        )), ),  # 7
     )
 
-    def __init__(self, level=None, neighbors=None, capabilities=None, flags=None, name=None, visible_in_same_level=thrift_spec[6][4], same_level_unknown_north_partitions=thrift_spec[7][4],):
+    def __init__(self, level=None, neighbors=None, capabilities=None, flags=None, name=None,):
         self.level = level
         self.neighbors = neighbors
         self.capabilities = capabilities
         self.flags = flags
         self.name = name
-        if visible_in_same_level is self.thrift_spec[6][4]:
-            visible_in_same_level = set((
-            ))
-        self.visible_in_same_level = visible_in_same_level
-        if same_level_unknown_north_partitions is self.thrift_spec[7][4]:
-            same_level_unknown_north_partitions = set((
-            ))
-        self.same_level_unknown_north_partitions = same_level_unknown_north_partitions
 
     def read(self, iprot):
         if iprot._fast_decode is not None and isinstance(iprot.trans, TTransport.CReadableTransport) and self.thrift_spec is not None:
@@ -1371,26 +1371,6 @@ class NodeTIEElement(object):
                     self.name = iprot.readString().decode('utf-8') if sys.version_info[0] == 2 else iprot.readString()
                 else:
                     iprot.skip(ftype)
-            elif fid == 6:
-                if ftype == TType.SET:
-                    self.visible_in_same_level = set()
-                    (_etype31, _size28) = iprot.readSetBegin()
-                    for _i32 in range(_size28):
-                        _elem33 = iprot.readI64()
-                        self.visible_in_same_level.add(_elem33)
-                    iprot.readSetEnd()
-                else:
-                    iprot.skip(ftype)
-            elif fid == 7:
-                if ftype == TType.SET:
-                    self.same_level_unknown_north_partitions = set()
-                    (_etype37, _size34) = iprot.readSetBegin()
-                    for _i38 in range(_size34):
-                        _elem39 = iprot.readI64()
-                        self.same_level_unknown_north_partitions.add(_elem39)
-                    iprot.readSetEnd()
-                else:
-                    iprot.skip(ftype)
             else:
                 iprot.skip(ftype)
             iprot.readFieldEnd()
@@ -1408,9 +1388,9 @@ class NodeTIEElement(object):
         if self.neighbors is not None:
             oprot.writeFieldBegin('neighbors', TType.MAP, 2)
             oprot.writeMapBegin(TType.I64, TType.STRUCT, len(self.neighbors))
-            for kiter40, viter41 in self.neighbors.items():
-                oprot.writeI64(kiter40)
-                viter41.write(oprot)
+            for kiter28, viter29 in self.neighbors.items():
+                oprot.writeI64(kiter28)
+                viter29.write(oprot)
             oprot.writeMapEnd()
             oprot.writeFieldEnd()
         if self.capabilities is not None:
@@ -1424,20 +1404,6 @@ class NodeTIEElement(object):
         if self.name is not None:
             oprot.writeFieldBegin('name', TType.STRING, 5)
             oprot.writeString(self.name.encode('utf-8') if sys.version_info[0] == 2 else self.name)
-            oprot.writeFieldEnd()
-        if self.visible_in_same_level is not None:
-            oprot.writeFieldBegin('visible_in_same_level', TType.SET, 6)
-            oprot.writeSetBegin(TType.I64, len(self.visible_in_same_level))
-            for iter42 in self.visible_in_same_level:
-                oprot.writeI64(iter42)
-            oprot.writeSetEnd()
-            oprot.writeFieldEnd()
-        if self.same_level_unknown_north_partitions is not None:
-            oprot.writeFieldBegin('same_level_unknown_north_partitions', TType.SET, 7)
-            oprot.writeSetBegin(TType.I64, len(self.same_level_unknown_north_partitions))
-            for iter43 in self.same_level_unknown_north_partitions:
-                oprot.writeI64(iter43)
-            oprot.writeSetEnd()
             oprot.writeFieldEnd()
         oprot.writeFieldStop()
         oprot.writeStructEnd()
@@ -1502,10 +1468,10 @@ class PrefixAttributes(object):
             elif fid == 3:
                 if ftype == TType.SET:
                     self.tags = set()
-                    (_etype47, _size44) = iprot.readSetBegin()
-                    for _i48 in range(_size44):
-                        _elem49 = iprot.readI64()
-                        self.tags.add(_elem49)
+                    (_etype33, _size30) = iprot.readSetBegin()
+                    for _i34 in range(_size30):
+                        _elem35 = iprot.readI64()
+                        self.tags.add(_elem35)
                     iprot.readSetEnd()
                 else:
                     iprot.skip(ftype)
@@ -1532,8 +1498,8 @@ class PrefixAttributes(object):
         if self.tags is not None:
             oprot.writeFieldBegin('tags', TType.SET, 3)
             oprot.writeSetBegin(TType.I64, len(self.tags))
-            for iter50 in self.tags:
-                oprot.writeI64(iter50)
+            for iter36 in self.tags:
+                oprot.writeI64(iter36)
             oprot.writeSetEnd()
             oprot.writeFieldEnd()
         if self.monotonic_clock is not None:
@@ -1590,13 +1556,13 @@ class PrefixTIEElement(object):
             if fid == 1:
                 if ftype == TType.MAP:
                     self.prefixes = {}
-                    (_ktype52, _vtype53, _size51) = iprot.readMapBegin()
-                    for _i55 in range(_size51):
-                        _key56 = common.ttypes.IPPrefixType()
-                        _key56.read(iprot)
-                        _val57 = PrefixAttributes()
-                        _val57.read(iprot)
-                        self.prefixes[_key56] = _val57
+                    (_ktype38, _vtype39, _size37) = iprot.readMapBegin()
+                    for _i41 in range(_size37):
+                        _key42 = common.ttypes.IPPrefixType()
+                        _key42.read(iprot)
+                        _val43 = PrefixAttributes()
+                        _val43.read(iprot)
+                        self.prefixes[_key42] = _val43
                     iprot.readMapEnd()
                 else:
                     iprot.skip(ftype)
@@ -1613,9 +1579,9 @@ class PrefixTIEElement(object):
         if self.prefixes is not None:
             oprot.writeFieldBegin('prefixes', TType.MAP, 1)
             oprot.writeMapBegin(TType.STRUCT, TType.STRUCT, len(self.prefixes))
-            for kiter58, viter59 in self.prefixes.items():
-                kiter58.write(oprot)
-                viter59.write(oprot)
+            for kiter44, viter45 in self.prefixes.items():
+                kiter44.write(oprot)
+                viter45.write(oprot)
             oprot.writeMapEnd()
             oprot.writeFieldEnd()
         oprot.writeFieldStop()
@@ -1667,11 +1633,11 @@ class KeyValueTIEElement(object):
             if fid == 1:
                 if ftype == TType.MAP:
                     self.keyvalues = {}
-                    (_ktype61, _vtype62, _size60) = iprot.readMapBegin()
-                    for _i64 in range(_size60):
-                        _key65 = iprot.readString().decode('utf-8') if sys.version_info[0] == 2 else iprot.readString()
-                        _val66 = iprot.readString().decode('utf-8') if sys.version_info[0] == 2 else iprot.readString()
-                        self.keyvalues[_key65] = _val66
+                    (_ktype47, _vtype48, _size46) = iprot.readMapBegin()
+                    for _i50 in range(_size46):
+                        _key51 = iprot.readString().decode('utf-8') if sys.version_info[0] == 2 else iprot.readString()
+                        _val52 = iprot.readString().decode('utf-8') if sys.version_info[0] == 2 else iprot.readString()
+                        self.keyvalues[_key51] = _val52
                     iprot.readMapEnd()
                 else:
                     iprot.skip(ftype)
@@ -1688,9 +1654,9 @@ class KeyValueTIEElement(object):
         if self.keyvalues is not None:
             oprot.writeFieldBegin('keyvalues', TType.MAP, 1)
             oprot.writeMapBegin(TType.STRING, TType.STRING, len(self.keyvalues))
-            for kiter67, viter68 in self.keyvalues.items():
-                oprot.writeString(kiter67.encode('utf-8') if sys.version_info[0] == 2 else kiter67)
-                oprot.writeString(viter68.encode('utf-8') if sys.version_info[0] == 2 else viter68)
+            for kiter53, viter54 in self.keyvalues.items():
+                oprot.writeString(kiter53.encode('utf-8') if sys.version_info[0] == 2 else kiter53)
+                oprot.writeString(viter54.encode('utf-8') if sys.version_info[0] == 2 else viter54)
             oprot.writeMapEnd()
             oprot.writeFieldEnd()
         oprot.writeFieldStop()
@@ -1723,28 +1689,35 @@ class TIEElement(object):
     Attributes:
      - node: in case of enum common.TIETypeType.NodeTIEType
      - prefixes: in case of enum common.TIETypeType.PrefixTIEType
-     - transitive_prefixes: transitive prefixes (always southbound) which
-    *   MUST be aggregated and propagated
-     *  according to the specification
-     *  southwards towards lower levels to heal
-     *  pathological upper level partitioning, otherwise
-     *  blackholes may occur.
-     *  It MUST NOT be advertised within a North TIE.
-     - keyvalues
+     - positive_disaggregation_prefixes: positive prefixes (always southbound)
+    It MUST NOT be advertised within a North TIE.
+     - negative_disaggregation_prefixes: transitive, negative prefixes (always southbound) which
+    MUST be aggregated and propagated
+    according to the specification
+    southwards towards lower levels to heal
+    pathological upper level partitioning, otherwise
+    blackholes may occur in multiplane fabrics.
+    It MUST NOT be advertised within a North TIE.
+     - external_prefixes: externally reimported prefixes
+     - keyvalues: Key-Value store elements
     """
 
     thrift_spec = (
         None,  # 0
         (1, TType.STRUCT, 'node', (NodeTIEElement, NodeTIEElement.thrift_spec), None, ),  # 1
         (2, TType.STRUCT, 'prefixes', (PrefixTIEElement, PrefixTIEElement.thrift_spec), None, ),  # 2
-        (3, TType.STRUCT, 'transitive_prefixes', (PrefixTIEElement, PrefixTIEElement.thrift_spec), None, ),  # 3
-        (4, TType.STRUCT, 'keyvalues', (KeyValueTIEElement, KeyValueTIEElement.thrift_spec), None, ),  # 4
+        (3, TType.STRUCT, 'positive_disaggregation_prefixes', (PrefixTIEElement, PrefixTIEElement.thrift_spec), None, ),  # 3
+        (4, TType.STRUCT, 'negative_disaggregation_prefixes', (PrefixTIEElement, PrefixTIEElement.thrift_spec), None, ),  # 4
+        (5, TType.STRUCT, 'external_prefixes', (PrefixTIEElement, PrefixTIEElement.thrift_spec), None, ),  # 5
+        (6, TType.STRUCT, 'keyvalues', (KeyValueTIEElement, KeyValueTIEElement.thrift_spec), None, ),  # 6
     )
 
-    def __init__(self, node=None, prefixes=None, transitive_prefixes=None, keyvalues=None,):
+    def __init__(self, node=None, prefixes=None, positive_disaggregation_prefixes=None, negative_disaggregation_prefixes=None, external_prefixes=None, keyvalues=None,):
         self.node = node
         self.prefixes = prefixes
-        self.transitive_prefixes = transitive_prefixes
+        self.positive_disaggregation_prefixes = positive_disaggregation_prefixes
+        self.negative_disaggregation_prefixes = negative_disaggregation_prefixes
+        self.external_prefixes = external_prefixes
         self.keyvalues = keyvalues
 
     def read(self, iprot):
@@ -1770,11 +1743,23 @@ class TIEElement(object):
                     iprot.skip(ftype)
             elif fid == 3:
                 if ftype == TType.STRUCT:
-                    self.transitive_prefixes = PrefixTIEElement()
-                    self.transitive_prefixes.read(iprot)
+                    self.positive_disaggregation_prefixes = PrefixTIEElement()
+                    self.positive_disaggregation_prefixes.read(iprot)
                 else:
                     iprot.skip(ftype)
             elif fid == 4:
+                if ftype == TType.STRUCT:
+                    self.negative_disaggregation_prefixes = PrefixTIEElement()
+                    self.negative_disaggregation_prefixes.read(iprot)
+                else:
+                    iprot.skip(ftype)
+            elif fid == 5:
+                if ftype == TType.STRUCT:
+                    self.external_prefixes = PrefixTIEElement()
+                    self.external_prefixes.read(iprot)
+                else:
+                    iprot.skip(ftype)
+            elif fid == 6:
                 if ftype == TType.STRUCT:
                     self.keyvalues = KeyValueTIEElement()
                     self.keyvalues.read(iprot)
@@ -1798,12 +1783,20 @@ class TIEElement(object):
             oprot.writeFieldBegin('prefixes', TType.STRUCT, 2)
             self.prefixes.write(oprot)
             oprot.writeFieldEnd()
-        if self.transitive_prefixes is not None:
-            oprot.writeFieldBegin('transitive_prefixes', TType.STRUCT, 3)
-            self.transitive_prefixes.write(oprot)
+        if self.positive_disaggregation_prefixes is not None:
+            oprot.writeFieldBegin('positive_disaggregation_prefixes', TType.STRUCT, 3)
+            self.positive_disaggregation_prefixes.write(oprot)
+            oprot.writeFieldEnd()
+        if self.negative_disaggregation_prefixes is not None:
+            oprot.writeFieldBegin('negative_disaggregation_prefixes', TType.STRUCT, 4)
+            self.negative_disaggregation_prefixes.write(oprot)
+            oprot.writeFieldEnd()
+        if self.external_prefixes is not None:
+            oprot.writeFieldBegin('external_prefixes', TType.STRUCT, 5)
+            self.external_prefixes.write(oprot)
             oprot.writeFieldEnd()
         if self.keyvalues is not None:
-            oprot.writeFieldBegin('keyvalues', TType.STRUCT, 4)
+            oprot.writeFieldBegin('keyvalues', TType.STRUCT, 6)
             self.keyvalues.write(oprot)
             oprot.writeFieldEnd()
         oprot.writeFieldStop()

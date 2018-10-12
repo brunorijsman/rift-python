@@ -2,8 +2,10 @@
 
 import copy
 import sortedcontainers
+from py._path import common
 
 import common.ttypes
+import common.constants
 import encoding.ttypes
 import neighbor
 import packet_common
@@ -13,7 +15,7 @@ import timer
 NODE_SOUTH_TIE_NR = 1
 NODE_NORTH_TIE_NR = 2
 
-ORIGINATE_LIFETIME = 600
+ORIGINATE_LIFETIME = common.constants.default_lifetime
 FLUSH_LIFETIME = 60
 
 # TODO: We currently only store the decoded TIE messages.
@@ -44,7 +46,7 @@ def compare_tie_header_age(header1, header2):
     # difference in remaining lifetime is less than 5 minutes (300 seconds), they are considered
     # to be the same age.
     age_diff = abs(header1.remaining_lifetime - header2.remaining_lifetime)
-    if age_diff > 300:
+    if age_diff > common.constants.lifetime_diff2ignore:
         if header1.remaining_lifetime < header2.remaining_lifetime:
             return -1
         if header1.remaining_lifetime > header2.remaining_lifetime:
@@ -224,9 +226,13 @@ class TIE_DB:
         elif tietype == common.ttypes.TIETypeType.PrefixTIEType:
             empty_prefixes = encoding.ttypes.PrefixTIEElement()
             new_element = encoding.ttypes.TIEElement(prefixes=empty_prefixes)
-        elif tietype == common.ttypes.TIETypeType.TransitivePrefixTIEType:
+        elif tietype == common.ttypes.TIETypeType.PositiveDisaggregationPrefixTIEType:
             empty_prefixes = encoding.ttypes.PrefixTIEElement()
-            new_element = encoding.ttypes.TIEElement(transitive_prefixes=empty_prefixes)
+            new_element = encoding.ttypes.TIEElement(
+                positive_disaggregation_prefixes=empty_prefixes)
+        elif tietype == common.ttypes.TIETypeType.NegativeDisaggregationPrefixTIEType:
+            # TODO: Policy guided prefixes are not yet in model in specification
+            assert False
         elif tietype == common.ttypes.TIETypeType.PGPrefixTIEType:
             # TODO: Policy guided prefixes are not yet in model in specification
             assert False

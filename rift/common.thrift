@@ -3,7 +3,6 @@
 */
 
 namespace py common
-namespace rs models
 
 /** @note MUST be interpreted in implementation as unsigned 64 bits.
  *        The implementation SHOULD NOT use the MSB.
@@ -60,24 +59,27 @@ struct IEEE802_1ASTimeStampType {
 }
 
 /** Flags indicating nodes behavior in case of ZTP and support
-    for special optimization procedures. It will force level to `leaf_level`
+    for special optimization procedures. It will force level to `leaf_level` or
+    `top-of-fabric` level accordingly and enable according procedures
  */
-enum LeafIndications {
+enum HierarchyIndications {
     leaf_only                            = 0,
     leaf_only_and_leaf_2_leaf_procedures = 1,
+    top_of_fabric                        = 2,
 }
 
+/** This MUST be used when node is configured as top of fabric in ZTP.
+    This is kept reasonably low to alow for fast ZTP convergence on
+    failures. */
+const LevelType   top_of_fabric_level              = 24
 /** default bandwidth on a link */
 const BandwithInMegaBitsType  default_bandwidth    = 100
 /** fixed leaf level when ZTP is not used */
-const LevelType   leaf_level              = 0
-const LevelType   default_level           = leaf_level
-/** This MUST be used when node is configured as superspine in ZTP.
-    This is kept reasonably low to alow for fast ZTP convergence on
-    failures. */
-const LevelType   default_superspine_level = 24
-const PodType     default_pod              = 0
-const LinkIDType  undefined_linkid         = 0
+const LevelType   leaf_level                  = 0
+const LevelType   default_level               = leaf_level
+const PodType     default_pod                 = 0
+const LinkIDType  undefined_linkid            = 0
+
 /** default distance used */
 const MetricType  default_distance         = 1
 /** any distance larger than this will be considered infinity */
@@ -98,6 +100,11 @@ const bool default_you_are_flood_repeater = true
 const SystemIDType IllegalSystemID        = 0
 /** empty set of nodes */
 const set<SystemIDType> empty_set_of_nodeids = {}
+/** default lifetime is one week */
+const LifeTimeInSecType default_lifetime      = 604800
+/** any `TieHeader` that has a smaller lifetime difference
+    than this constant is equal (if other fields equal) */
+const LifeTimeInSecType lifetime_diff2ignore  = 300
 
 /** default UDP port to run LIEs on */
 const UDPPortType     default_lie_udp_port       =  911
@@ -154,15 +161,17 @@ struct PrefixSequenceType {
 }
 
 enum TIETypeType {
-    Illegal                 = 0,
-    TIETypeMinValue         = 1,
+    Illegal                             = 0,
+    TIETypeMinValue                     = 1,
     /** first legal value */
-    NodeTIEType             = 2,
-    PrefixTIEType           = 3,
-    TransitivePrefixTIEType = 4,
-    PGPrefixTIEType         = 5,
-    KeyValueTIEType         = 6,
-    TIETypeMaxValue         = 7,
+    NodeTIEType                         = 2,
+    PrefixTIEType                       = 3,
+    PositiveDisaggregationPrefixTIEType = 4,
+    NegativeDisaggregationPrefixTIEType = 5,
+    PGPrefixTIEType                     = 6,
+    KeyValueTIEType                     = 7,
+    ExternalPrefixTIEType               = 8,
+    TIETypeMaxValue                     = 9,
 }
 
 /** @note: route types which MUST be ordered on their preference
@@ -193,9 +202,14 @@ enum RouteType {
     NorthPGPPrefix        = 5,
     /** advertised in N-TIEs */
     NorthPrefix           = 6,
-    /** advertised in S-TIEs */
+    /** advertised in S-TIEs, either normal prefix or positive disaggregation */
     SouthPrefix           = 7,
-    /** transitive southbound are least preferred */
-    TransitiveSouthPrefix = 8,
-    RouteTypeMaxValue     = 9
+    /** externally imported north */
+    NorthExternalPrefix   = 8,
+    /** externally imported south */
+    SouthExternalPrefix   = 9,
+    /** negative, transitive are least preferred of
+        local variety */
+    NegativeNorthPrefix   = 10,
+    RouteTypeMaxValue     = 11,
 }

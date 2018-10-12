@@ -184,7 +184,7 @@ class Node:
         self.level_compute()
 
     def action_store_leaf_flags(self, leaf_flags):
-        # TODO: on ChangeLocalLeafIndications in UpdatingClients finishes in ComputeBestOffer:
+        # TODO: on ChangeLocalHierarchyIndications in UpdatingClients finishes in ComputeBestOffer:
         # store leaf flags
         pass
 
@@ -389,7 +389,7 @@ class Node:
         # - leaf => This node is hard-configured to be a leaf (not using leaf-2-leaf procedures)
         # - leaf-to-leaf => This node is hard-configured to be a leaf (does use leaf-2-leaf
         #   procedures)
-        # - superspine => This node is hard-configured to be a superspine (level value 24)
+        # - top-of-fabric => This node is hard-configured to be a top-of-fabric (level value 24)
         # - integer value => This node is hard-configured to be the specified level (0 means leaf)
         # This function returns
         #  - None if the level_symbol is invalid (i.e. one of the above)
@@ -400,7 +400,7 @@ class Node:
             return (None, True, False, False)
         elif level_symbol == 'leaf-2-leaf':
             return (None, True, True, False)
-        elif level_symbol == 'superspine':
+        elif level_symbol == 'top-of-fabric':
             return (None, False, False, True)
         elif isinstance(level_symbol, int):
             return (level_symbol, level_symbol == 0, False, True)
@@ -411,7 +411,7 @@ class Node:
         if self._configured_level is not None:
             return self._configured_level
         elif self._top_of_fabric_flag:
-            return common.constants.default_superspine_level
+            return common.constants.top_of_fabric_level
         elif self._leaf_only:
             return common.constants.leaf_level
         else:
@@ -425,7 +425,7 @@ class Node:
             return str(level_value)
 
     def top_of_fabric(self):
-        return self.level_value() == common.constants.default_superspine_level
+        return self.level_value() == common.constants.top_of_fabric_level
 
     def record_tx_offer(self, tx_offer):
         self._tx_offers[tx_offer.interface_name] = tx_offer

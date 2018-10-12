@@ -143,7 +143,7 @@ class Engine:
         parsed_level = node.Node.parse_level_symbol(level_symbol)
         if parsed_level is None:
             cli_session.print_r("Invalid level value (expected undefined, leaf, leaf-to-leaf, "
-                                "superspine, or number)")
+                                "top-of-fabric, or number)")
             return
         cli_session.current_node.fsm.push_event(node.Node.Event.CHANGE_LOCAL_CONFIGURED_LEVEL,
                                                 level_symbol)

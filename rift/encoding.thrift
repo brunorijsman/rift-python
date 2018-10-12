@@ -4,11 +4,10 @@
 
 include "common.thrift"
 
-namespace rs models
 namespace py encoding
 
 /** represents protocol encoding schema major version */
-const i32 protocol_major_version = 15
+const i32 protocol_major_version = 19
 /** represents protocol encoding schema minor version */
 const i32 protocol_minor_version = 0
 
@@ -41,11 +40,11 @@ struct Neighbor {
 /** Capabilities the node supports */
 struct NodeCapabilities {
     /** can this node participate in flood reduction */
-    1: optional bool                      flood_reduction =
+    1: optional bool                           flood_reduction =
             common.flood_reduction_default;
-    /** does this node restrict itself to be leaf only (in ZTP) and
-        does it support leaf-2-leaf procedures */
-    2: optional common.LeafIndications    leaf_indications;
+    /** does this node restrict itself to be top-of-fabric or
+        leaf only (in ZTP) and does it support leaf-2-leaf procedures */
+    2: optional common.HierarchyIndications    hierarchy_indications;
 }
 
 /** RIFT LIE packet
@@ -113,7 +112,7 @@ struct LinkIDPair {
 
     @note: TIEID space is a total order achieved by comparing the elements
            in sequence defined and comparing each value as an
-           unsigned integer of according length
+           unsigned integer of according length.
 */
 struct TIEID {
     /** indicates direction of the TIE */
@@ -124,20 +123,31 @@ struct TIEID {
     4: required common.TIENrType           tie_nr;
 }
 
-/** Header of a TIE */
+/** Header of a TIE.
+
+   @note: TIEID space is a total order achieved by comparing the elements
+              in sequence defined and comparing each value as an
+              unsigned integer of according length. `origination_time` is
+              disregarded for comparison purposes.
+*/
 struct TIEHeader {
     2: required TIEID                             tieid;
     3: required common.SeqNrType                  seq_nr;
-    /** remaining lifetime that expires down to 0 just like in ISIS */
+    /** remaining lifetime that expires down to 0 just like in ISIS.
+        TIEs with lifetimes differing by less than `lifetime_diff2ignore` MUST
+        be considered EQUAL. */
     4: required common.LifeTimeInSecType          remaining_lifetime;
-    /** optional absolute timestamp of when the TIE
+    /** optional absolute timestamp when the TIE
         was generated. This can be used on fabrics with
-        some kind of synchronized clock to prevent
-        lifetime modification attacks. */
+        synchronized clock to prevent lifetime modification attacks. */
    10: optional common.IEEE802_1ASTimeStampType   origination_time;
+   /** optional original lifetime when the TIE
+       was generated. This can be used on fabrics with
+       synchronized clock to prevent lifetime modification attacks. */
+   12: optional common.LifeTimeInSecType          origination_lifetime;
 }
 
-/** A sorted TIDE packet, if unsorted, behavior is undefined */
+/** A TIDE with sorted TIE headers, if headers unsorted, behavior is undefined */
 struct TIDEPacket {
     /** all 00s marks starts */
     1: required TIEID           start_range;
@@ -202,21 +212,6 @@ struct NodeTIEElement {
     4: optional NodeFlags                   flags;
     /** optional node name for easier operations */
     5: optional string                      name;
-
-    /** Nodes seen an the same level through reflection through nodes
-        having backlink to both nodes. They are equivalent to |V(N) in
-        future specifications. Ignored in Node S-TIEs if present.
-      */
-    6: optional set<common.SystemIDType>    visible_in_same_level
-            = common.empty_set_of_nodeids;
-    /** Non-overloaded nodes in |V seen as attached to another north
-      * level partition due to the fact that some nodes in its |V have
-      * adjacencies to higher level nodes that this node doesn't see.
-      * This may be used in the computation at higher levels to prevent
-      * blackholing. Ignored in Node S-TIEs if present.
-      * Equivalent to |PUL(N) in spec. */
-    7: optional set<common.SystemIDType>    same_level_unknown_north_partitions
-            = common.empty_set_of_nodeids;
 }
 
 struct PrefixAttributes {
@@ -246,27 +241,37 @@ struct KeyValueTIEElement {
 /** single element in a TIE. enum common.TIETypeType
     in TIEID indicates which elements MUST be present
     in the TIEElement. In case of mismatch the unexpected
-    elements MUST be ignored.
+    elements MUST be ignored. In case of lack of expected
+    element the TIE an error MUST be reported and the TIE
+    MUST be ignored.
  */
 union TIEElement {
     /** in case of enum common.TIETypeType.NodeTIEType */
     1: optional NodeTIEElement            node;
     /** in case of enum common.TIETypeType.PrefixTIEType */
     2: optional PrefixTIEElement          prefixes;
-    /** transitive prefixes (always southbound) which
-    *   MUST be aggregated and propagated
-     *  according to the specification
-     *  southwards towards lower levels to heal
-     *  pathological upper level partitioning, otherwise
-     *  blackholes may occur.
-     *  It MUST NOT be advertised within a North TIE.
-     */
-    3: optional PrefixTIEElement          transitive_prefixes;
-    4: optional KeyValueTIEElement        keyvalues;
+    /** positive prefixes (always southbound)
+        It MUST NOT be advertised within a North TIE.
+    */
+    3: optional PrefixTIEElement          positive_disaggregation_prefixes;
+    /** transitive, negative prefixes (always southbound) which
+        MUST be aggregated and propagated
+        according to the specification
+        southwards towards lower levels to heal
+        pathological upper level partitioning, otherwise
+        blackholes may occur in multiplane fabrics.
+        It MUST NOT be advertised within a North TIE.
+    */
+    4: optional PrefixTIEElement          negative_disaggregation_prefixes;
+    /** externally reimported prefixes */
+    5: optional PrefixTIEElement          external_prefixes;
+    /** Key-Value store elements */
+    6: optional KeyValueTIEElement        keyvalues;
     /** @todo: policy guided prefixes */
 }
 
 /** @todo: flood header separately in UDP to allow changing lifetime and SHA without reserialization
+
  */
 struct TIEPacket {
     1: required TIEHeader  header;

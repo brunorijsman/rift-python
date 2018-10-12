@@ -282,9 +282,7 @@ def make_node_tie_packet(name, level, direction, originator, tie_nr, seq_nr, lif
         neighbors={},
         capabilities=None,  ##@@ TODO: Implement this
         flags=None,         ##@@ TODO: Implement this
-        name=name,
-        visible_in_same_level=set(()),                 # TODO: Implement this
-        same_level_unknown_north_partitions=set(()))   # TODO: Implement this
+        name=name)
     tie_element = encoding.ttypes.TIEElement(node=node_tie_element)
     tie_packet = encoding.ttypes.TIEPacket(header=tie_header, element=tie_element)
     return tie_packet
@@ -348,7 +346,9 @@ def ip_prefix_str(ip_prefix):
 TIETYPE_TO_STR = {
     common.ttypes.TIETypeType.NodeTIEType: "Node",
     common.ttypes.TIETypeType.PrefixTIEType: "Prefix",
-    common.ttypes.TIETypeType.TransitivePrefixTIEType: "TransitivePrefix",
+    common.ttypes.TIETypeType.PositiveDisaggregationPrefixTIEType: "PositiveDisaggregationPrefix",
+    common.ttypes.TIETypeType.NegativeDisaggregationPrefixTIEType: "NegativeDisaggregationPrefix",
+    common.ttypes.TIETypeType.ExternalPrefixTIEType: "ExternalPrefix",
     common.ttypes.TIETypeType.PGPrefixTIEType: "PolicyGuidedPrefix",
     common.ttypes.TIETypeType.KeyValueTIEType: "KeyValue"
 }
@@ -359,16 +359,17 @@ def tietype_str(tietype):
     else:
         return str(tietype)
 
-LEAF_INDICATIONS_TO_STR = {
-    common.ttypes.LeafIndications.leaf_only: "LeafOnly",
-    common.ttypes.LeafIndications.leaf_only_and_leaf_2_leaf_procedures: "LeafToLeaf",
+HIERARCHY_INDICATIONS_TO_STR = {
+    common.ttypes.HierarchyIndications.leaf_only: "LeafOnly",
+    common.ttypes.HierarchyIndications.leaf_only_and_leaf_2_leaf_procedures: "LeafToLeaf",
+    common.ttypes.HierarchyIndications.top_of_fabric: "TopOfFabric",
 }
 
-def leaf_indications_str(leaf_indications):
-    if leaf_indications in LEAF_INDICATIONS_TO_STR:
-        return LEAF_INDICATIONS_TO_STR[leaf_indications]
+def hierarchy_indications_str(hierarchy_indications):
+    if hierarchy_indications in HIERARCHY_INDICATIONS_TO_STR:
+        return HIERARCHY_INDICATIONS_TO_STR[hierarchy_indications]
     else:
-        return str(leaf_indications)
+        return str(hierarchy_indications)
 
 def bandwidth_str(bandwidth):
     return str(bandwidth) + " Mbps"
@@ -389,9 +390,9 @@ def node_element_str(element):
         lines.append("Capabilities:")
         if element.capabilities.flood_reduction is not None:
             lines.append("  Flood reduction: " + str(element.capabilities.flood_reduction))
-        if element.capabilities.leaf_indications is not None:
+        if element.capabilities.hierarchy_indications is not None:
             lines.append("  Leaf indications: " +
-                         leaf_indications_str(element.capabilities.leaf_indications))
+                         hierarchy_indications_str(element.capabilities.hierarchy_indications))
     sorted_neighbors = sortedcontainers.SortedDict(element.neighbors)
     for system_id, neighbor in sorted_neighbors.items():
         lines.append("Neighbor: " + utils.system_id_str(system_id))
@@ -457,7 +458,7 @@ def element_str(tietype, element):
         return node_element_str(element.node)
     elif tietype == common.ttypes.TIETypeType.PrefixTIEType:
         return prefix_element_str(element.prefixes)
-    elif tietype == common.ttypes.TIETypeType.TransitivePrefixTIEType:
+    elif tietype == common.ttypes.TIETypeType.PositiveDisaggregationPrefixTIEType:
         return transitive_prefix_element_str(element.transitive_prefixes)
     elif tietype == common.ttypes.TIETypeType.PGPrefixTIEType:
         return pg_prefix_element_str(element)   # TODO
