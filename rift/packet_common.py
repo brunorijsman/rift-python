@@ -405,17 +405,6 @@ def node_element_str(element):
             sorted_link_ids = sorted(neighbor.link_ids)
             for link_id_pair in sorted_link_ids:
                 lines.append("  Link: " + link_id_pair_str(link_id_pair))
-
-    if element.visible_in_same_level:
-        lines.append("Visible in same level:")
-        sorted_system_ids = sorted(element.visible_in_same_level)
-        for system_id in sorted_system_ids:
-            lines.append("  System ID: " + utils.system_id_str(system_id))
-    if element.same_level_unknown_north_partitions:
-        lines.append("Same level unknown north partitions:")
-        sorted_system_ids = sorted(element.same_level_unknown_north_partitions)
-        for system_id in sorted_system_ids:
-            lines.append("  System ID: " + utils.system_id_str(system_id))
     return lines
 
 def prefix_element_str(element):
