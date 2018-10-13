@@ -66,7 +66,7 @@ class Target:
             Target.nodes[self.node_id] = self
             self.xpos = NODE_X + self.node_index * NODE_X_INTERVAL
 
-class PendingMessage:
+class SentMessage:
 
     def __init__(self, nonce, xstart, ystart):
         self.nonce = nonce
@@ -178,7 +178,8 @@ class Visualizer:
         ypos = tick_y_mid(record.tick)
         color = log_record_color(record)
         self.svg_dot(xpos, ypos, DOT_RADIUS, color)
-        self.sent_messages[record.nonce] = PendingMessage(record.nonce, xpos, ypos)
+        if record.nonce is not None:
+            self.sent_messages[record.nonce] = SentMessage(record.nonce, xpos, ypos)
         xpos += 2 * DOT_RADIUS
         text = "TX " + record.packet_type + " " + record.packet
         self.svg_text(xpos, ypos, text, color)
@@ -188,7 +189,7 @@ class Visualizer:
         ypos = tick_y_mid(record.tick)
         color = log_record_color(record)
         self.svg_dot(xpos, ypos, DOT_RADIUS, color)
-        if record.nonce in self.sent_messages:
+        if (record.nonce is not None) and (record.nonce in self.sent_messages):
             xstart = self.sent_messages[record.nonce].xstart
             ystart = self.sent_messages[record.nonce].ystart
             xend = record.target.xpos
