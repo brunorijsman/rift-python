@@ -40,6 +40,24 @@ def log_record_color(record):
         return CLI_COLOR
     return DEFAULT_COLOR
 
+def log_record_class(record):
+    if record.type in ["start-fsm", "push-event", "transition"]:
+        if record.target.type == "if":
+            return "if_fsm"
+        if record.target.type == "node":
+            return "node_fsm"
+    if record.type == "cli":
+        return "cli"
+    if record.packet_type == "LIE":
+        return "lie_msg"
+    if record.packet_type == "TIE":
+        return "tie_msg"
+    if record.packet_type == "TIDE":
+        return "tide_msg"
+    if record.packet_type == "TIRE":
+        return "tire_msg"
+    return "other"
+
 class Target:
 
     nodes = {}
@@ -86,6 +104,7 @@ class Visualizer:
 
     def run(self):
         with open(self.svg_file_name, "w") as self.svgfile:
+            self.html_start()
             self.svg_start()
             with open(self.logfile_name, "r") as self.logfile:
                 for logline in self.logfile:
@@ -127,7 +146,7 @@ class Visualizer:
         ypos = tick_y_mid(tick)
         tick_str = "{:06d}".format(tick)
         text = tick_str + " " + timestamp
-        self.svg_text(xpos, ypos, text, TIMESTAMP_COLOR)
+        self.svg_text(xpos, ypos, text, TIMESTAMP_COLOR, "other")
 
     def show_all_target_ticks(self):
         for target in self.targets.values():
@@ -137,76 +156,116 @@ class Visualizer:
         xpos = target.xpos + 2
         ypos = tick_y_mid(self.tick)
         text = target.target_id
-        self.svg_text(xpos, ypos, text, TARGET_COLOR)
+        self.svg_text(xpos, ypos, text, TARGET_COLOR, "other")
 
     def show_target_tick(self, target):
         xpos = target.xpos
         ystart = tick_y_top(self.tick)
         yend = tick_y_bottom(self.tick)
-        self.svg_line(xpos, ystart, xpos, yend, TARGET_COLOR)
+        self.svg_line(xpos, ystart, xpos, yend, TARGET_COLOR, "other")
 
     def show_start_fsm(self, record):
         xpos = record.target.xpos
         ypos = tick_y_mid(record.tick)
         color = log_record_color(record)
-        self.svg_dot(xpos, ypos, DOT_RADIUS, color)
+        the_class = log_record_class(record)
+        self.svg_dot(xpos, ypos, DOT_RADIUS, color, the_class)
         xpos += 2 * DOT_RADIUS
         text = "[" + record.state + "]"
-        self.svg_text(xpos, ypos, text, color)
+        self.svg_text(xpos, ypos, text, color, the_class)
 
     def show_push_event(self, record):
         xpos = record.target.xpos
         ypos = tick_y_mid(record.tick)
         color = log_record_color(record)
-        self.svg_dot(xpos, ypos, DOT_RADIUS, color)
+        the_class = log_record_class(record)
+        self.svg_dot(xpos, ypos, DOT_RADIUS, color, the_class)
         xpos += 2 * DOT_RADIUS
         text = "Push " + record.event
-        self.svg_text(xpos, ypos, text, color)
+        self.svg_text(xpos, ypos, text, color, the_class)
 
     def show_transition(self, record):
         xpos = record.target.xpos
         ypos = tick_y_mid(record.tick)
         color = log_record_color(record)
-        self.svg_dot(xpos, ypos, DOT_RADIUS, color)
+        the_class = log_record_class(record)
+        self.svg_dot(xpos, ypos, DOT_RADIUS, color, the_class)
         xpos += 2 * DOT_RADIUS
         text = ("Transition " + record.event + " [" + record.from_state + "] > " +
                 record.actions_and_pushed_events + " [" + record.to_state + "]")
-        self.svg_text(xpos, ypos, text, color)
+        self.svg_text(xpos, ypos, text, color, the_class)
 
     def show_send(self, record):
         xpos = record.target.xpos
         ypos = tick_y_mid(record.tick)
         color = log_record_color(record)
-        self.svg_dot(xpos, ypos, DOT_RADIUS, color)
+        the_class = log_record_class(record)
+        self.svg_dot(xpos, ypos, DOT_RADIUS, color, the_class)
         if record.nonce is not None:
             self.sent_messages[record.nonce] = SentMessage(record.nonce, xpos, ypos)
         xpos += 2 * DOT_RADIUS
         text = "TX " + record.packet_type + " " + record.packet
-        self.svg_text(xpos, ypos, text, color)
+        self.svg_text(xpos, ypos, text, color, the_class)
 
     def show_receive(self, record):
         xpos = record.target.xpos
         ypos = tick_y_mid(record.tick)
         color = log_record_color(record)
-        self.svg_dot(xpos, ypos, DOT_RADIUS, color)
+        the_class = log_record_class(record)
+        self.svg_dot(xpos, ypos, DOT_RADIUS, color, the_class)
         if (record.nonce is not None) and (record.nonce in self.sent_messages):
             xstart = self.sent_messages[record.nonce].xstart
             ystart = self.sent_messages[record.nonce].ystart
             xend = record.target.xpos
             yend = tick_y_mid(record.tick)
-            self.svg_line(xstart, ystart, xend, yend, color)
+            self.svg_line(xstart, ystart, xend, yend, color, the_class)
         xpos += 2 * DOT_RADIUS
         text = "RX " + record.packet_type + " " + record.packet
-        self.svg_text(xpos, ypos, text, color)
+        self.svg_text(xpos, ypos, text, color, the_class)
 
     def show_cli(self, record):
         xpos = record.target.xpos
         ypos = tick_y_mid(record.tick)
         color = log_record_color(record)
-        self.svg_dot(xpos, ypos, DOT_RADIUS, color)
+        the_class = log_record_class(record)
+        self.svg_dot(xpos, ypos, DOT_RADIUS, color, the_class)
         xpos += 2 * DOT_RADIUS
         text = record.cli_command
-        self.svg_text(xpos, ypos, text, color)
+        self.svg_text(xpos, ypos, text, color, the_class)
+
+    def html_start(self):
+        self.svgfile.write('<script '
+                           'src="https://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js">'
+                           '</script>\n')
+        buttons = [("Interface FSM", "if_fsm"),
+                   ("Node FSM", "node_fsm"),
+                   ("CLI", "cli"),
+                   ("LIE Messages", "lie_msg"),
+                   ("TIE Messages", "tie_msg"),
+                   ("TIDE Messages", "tide_msg"),
+                   ("TIRE Messages", "tire_msg")]
+        for (description, the_class) in buttons:
+            self.html_checkbox(description, the_class)
+        self.svgfile.write('<script type="text/javascript">\n')
+        for (description, the_class) in buttons:
+            self.script_checkbox(the_class)
+        self.svgfile.write('</script>\n')
+
+    def html_checkbox(self, description, the_class):
+        self.svgfile.write('<input type="checkbox" '
+                           'class="{0}_checkbox" '
+                           'onchange="{0}_change()" '
+                           'checked> {1} <br>\n'
+                           .format(the_class, description))
+
+    def script_checkbox(self, the_class):
+        self.svgfile.write('function {0}_change()\n'
+                           '{{\n'
+                           '  if($(".{0}_checkbox").is(":checked"))\n'
+                           '    $(".{0}").show();\n'
+                           '  else\n'
+                           '    $(".{0}").hide();\n'
+                           '}}\n'.format(the_class))
 
     def svg_start(self):
         self.svgfile.write('<svg '
@@ -218,33 +277,36 @@ class Visualizer:
     def svg_end(self):
         self.svgfile.write('</svg>\n')
 
-    def svg_line(self, xstart, ystart, xend, yend, color):
+    def svg_line(self, xstart, ystart, xend, yend, color, the_class):
         self.svgfile.write('<line '
                            'x1="{}" '
                            'y1="{}" '
                            'x2="{}" '
                            'y2="{}" '
-                           'style="stroke:{};">'
+                           'style="stroke:{};" '
+                           'class="{}">'
                            '</line>\n'
-                           .format(xstart, ystart, xend, yend, color))
+                           .format(xstart, ystart, xend, yend, color, the_class))
 
-    def svg_dot(self, xpos, ypos, radius, color):
+    def svg_dot(self, xpos, ypos, radius, color, the_class):
         self.svgfile.write('<circle '
                            'cx="{}" '
                            'cy="{}" '
                            'r="{}" '
-                           'style="stroke:{};fill:{}">'
+                           'style="stroke:{};fill:{}"'
+                           'class="{}">'
                            '</circle>\n'
-                           .format(xpos, ypos, radius, color, color))
+                           .format(xpos, ypos, radius, color, color, the_class))
 
-    def svg_text(self, xpos, ypos, text, color):
+    def svg_text(self, xpos, ypos, text, color, the_class):
         self.svgfile.write('<text '
                            'x="{}" '
                            'y="{}" '
-                           'style="font-family:monospace;stroke:{}">'
+                           'style="font-family:monospace;stroke:{}"'
+                           'class="{}">'
                            '{}'
                            '</text>\n'
-                           .format(xpos, ypos, color, text))
+                           .format(xpos, ypos, color, the_class, text))
 
 def main():
     args = parse_command_line_arguments()
