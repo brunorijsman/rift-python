@@ -192,7 +192,7 @@ def check_process_tide_common(tdb, start_range, end_range, header_info_list):
                                                        seq_nr, lifetime)
             packet_common.add_tie_header_to_tide(tide_packet, tie_header)
     # Process the TIDE packet
-    result = tdb.process_received_tide_packet(tide_packet)
+    result = tdb.process_received_tide_packet(tide_packet, MY_SYSTEM_ID)
     (request_tie_headers, start_sending_tie_headers, stop_sending_tie_headers) = result
     # Check results
     compare_header_lists(

@@ -113,7 +113,7 @@ class TIE_DB:
             # TODO: Make sure that lifetime is decreased by at least one before propagating
             start_sending_tie_headers.append(db_tie.header)
 
-    def process_received_tide_packet(self, tide_packet):
+    def process_received_tide_packet(self, tide_packet, my_system_id):
         request_tie_headers = []
         start_sending_tie_headers = []
         stop_sending_tie_headers = []
@@ -150,20 +150,30 @@ class TIE_DB:
             # Process all tie_ids in the TIDE
             db_tie = self.find_tie(header_in_tide.tieid)
             if db_tie is None:
-                # We don't have the TIE, request it
-                # To request a a missing TIE, we have to set the seq_nr to 0. This is not mentioned
-                # in the RIFT draft, but it is described in ISIS ISO/IEC 10589:1992 section 7.3.15.2
-                # bullet b.4
-                request_header = header_in_tide
-                request_header.seq_nr = 0
-                request_header.remaining_lifetime = 0
-                request_header.origination_time = None
-                request_tie_headers.append(request_header)
+                if header_in_tide.tieid.originator == my_system_id:
+                    # Self-originate an empty TIE with a higher sequence number.
+                    bumped_own_tie_header = self.bump_own_tie(db_tie, header_in_tide.tieid)
+                    start_sending_tie_headers.append(bumped_own_tie_header)
+                else:
+                    # We don't have the TIE, request it
+                    # To request a a missing TIE, we have to set the seq_nr to 0. This is not
+                    # mentioned in the RIFT draft, but it is described in ISIS ISO/IEC 10589:1992
+                    # section 7.3.15.2 bullet b.4
+                    request_header = header_in_tide
+                    request_header.seq_nr = 0
+                    request_header.remaining_lifetime = 0
+                    request_header.origination_time = None
+                    request_tie_headers.append(request_header)
             else:
                 comparison = compare_tie_header_age(db_tie.header, header_in_tide)
                 if comparison < 0:
-                    # We have an older version of the TIE, request the newer version
-                    request_tie_headers.append(header_in_tide)
+                    if header_in_tide.tieid.originator == my_system_id:
+                        # Re-originate DB TIE with higher sequence number than the one in TIDE
+                        bumped_own_tie_header = self.bump_own_tie(db_tie, header_in_tide.tieid)
+                        start_sending_tie_headers.append(bumped_own_tie_header)
+                    else:
+                        # We have an older version of the TIE, request the newer version
+                        request_tie_headers.append(header_in_tide)
                 elif comparison > 0:
                     # We have a newer version of the TIE, send it
                     start_sending_tie_headers.append(db_tie.header)
@@ -246,6 +256,20 @@ class TIE_DB:
             element=new_element)
         return according_empty_tie
 
+    def bump_own_tie(self, db_tie, rx_tie):
+        if db_tie is None:
+            # We received a TIE (rx_tie) which appears to be self-originated, but we don't have that
+            # TIE in our database. Re-originate the "according" (same TIE ID) TIE, but then empty
+            # (i.e. no neighbor, no prefixes, no key-values, etc.), with a higher sequence number,
+            # and a short remaining life time
+            according_empty_tie_packet = self.make_according_empty_tie(rx_tie)
+            self.store_tie(according_empty_tie_packet)
+            return according_empty_tie_packet.header
+        else:
+            # Re-originate DB TIE with higher sequence number than the one in RX TIE
+            db_tie.header.seq_nr = rx_tie.header.seq_nr + 1
+            return db_tie.header
+
     def process_received_tie_packet(self, rx_tie, my_system_id):
         start_sending_tie_header = None
         ack_tie_header = None
@@ -254,11 +278,8 @@ class TIE_DB:
         db_tie = self.find_tie(rx_tie_id)
         if db_tie is None:
             if rx_tie_id.originator == my_system_id:
-                # Re-originate the according empty TIE with a higher sequence number and a short
-                # remaining life time
-                according_empty_tie_packet = self.make_according_empty_tie(rx_tie)
-                self.store_tie(according_empty_tie_packet)
-                start_sending_tie_header = according_empty_tie_packet.header
+                # Self-originate an empty TIE with a higher sequence number.
+                start_sending_tie_header = self.bump_own_tie(db_tie, rx_tie)
             else:
                 # We don't have this TIE in the database, store and ack it
                 self.store_tie(rx_tie)
@@ -269,8 +290,7 @@ class TIE_DB:
                 # We have an older version of the TIE, ...
                 if rx_tie_id.originator == my_system_id:
                     # Re-originate DB TIE with higher sequence number than the one in RX TIE
-                    db_tie.header.seq_nr = rx_tie_header.seq_nr + 1
-                    start_sending_tie_header = db_tie.header
+                    start_sending_tie_header = self.bump_own_tie(db_tie, rx_tie)
                 else:
                     # We did not originate the TIE, store the newer version and ack it
                     self.store_tie(rx_tie)

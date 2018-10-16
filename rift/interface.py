@@ -719,7 +719,7 @@ class Interface:
             self.ack_tie(ack_tie_header)
 
     def process_received_tide_packet(self, tide_packet):
-        result = self._node.tie_db.process_received_tide_packet(tide_packet)
+        result = self._node.tie_db.process_received_tide_packet(tide_packet, self._node.system_id)
         (request_tie_headers, start_sending_tie_headers, stop_sending_tie_headers) = result
         for tie_header in start_sending_tie_headers:
             self.try_to_transmit_tie(tie_header)
