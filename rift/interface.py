@@ -138,23 +138,25 @@ class Interface:
         self._node.regenerate_all_node_ties(interface_going_down=self)
 
     def send_protocol_packet(self, protocol_packet, flood, dont_change):
-        encoded_protocol_packet = packet_common.encode_protocol_packet(protocol_packet, dont_change)
         if flood:
             handler = self._flood_send_handler
         else:
             handler = self._lie_send_handler
         to_str = "{}:{}".format(handler.remote_address, handler.port)
+        protocol_packet_str = str(protocol_packet)
+        # TODO: Don't do this expensive to_str if logging is not at level debug
+        encoded_protocol_packet = packet_common.encode_protocol_packet(protocol_packet, dont_change)
         if self._tx_fail:
             self.debug(self._tx_log, "Simulated send failure {} to {}"
-                       .format(protocol_packet, to_str))
+                       .format(protocol_packet_str, to_str))
         else:
             try:
                 handler.send_message(encoded_protocol_packet)
             except socket.error as error:
                 self.error(self._tx_log, "Error \"{}\" sending {} to {}"
-                           .format(error, protocol_packet, to_str))
+                           .format(error, protocol_packet_str, to_str))
                 return
-            self.debug(self._tx_log, "Send {} to {}".format(protocol_packet, to_str))
+            self.debug(self._tx_log, "Send {} to {}".format(protocol_packet_str, to_str))
 
     def action_send_lie(self):
         packet_header = encoding.ttypes.PacketHeader(

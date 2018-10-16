@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import argparse
+import re
 
 import log_record
 
@@ -18,6 +19,79 @@ NODE_FSM_COLOR = "coral"
 MSG_COLOR = "blue"
 CLI_COLOR = "green"
 DEFAULT_COLOR = "black"
+END_OF_SVG = """
+<g id="tooltip" visibility="hidden" >
+    <rect x="2" y="2" width="80" height="24" fill="black" opacity="0.4" rx="2" ry="2"/>
+    <rect width="80" height="24" fill="yellow" rx="2" ry="2"/>
+    <text x="4" 
+          y="16"
+          style="font-family:monospace;stroke:black;fill:black">
+    Tooltip
+    </text>
+</g>
+
+<script type="text/javascript"><![CDATA[
+
+(function() {
+    var tooltip = document.getElementById('tooltip');
+})();
+
+var svg = document.getElementById('tooltip-svg');
+
+function ShowTooltip(evt) {
+    var CTM = svg.getScreenCTM();
+    var x = (evt.clientX - CTM.e + 6) / CTM.a;
+    var y = (evt.clientY - CTM.f + 20) / CTM.d;
+    tooltip.setAttributeNS(null, "transform", "translate(" + x + " " + y + ")");  
+    var tooltipText = tooltip.getElementsByTagName('text')[0];
+    var startX = tooltipText.getAttributeNS(null, 'x');
+    var fc = tooltipText.firstChild;
+    while (fc) {
+        tooltipText.removeChild(fc);
+        fc = tooltipText.firstChild;
+    }
+    lines = evt.target.getAttributeNS(null, "data-tooltip-text").split("$");
+    var length = 0;
+    var height = 0
+    for (var i = 0; i < lines.length; i++) {
+        line = lines[i];
+        var tspanElement = document.createElementNS("http://www.w3.org/2000/svg", "tspan");
+        tspanElement.setAttributeNS(null, "x", startX);
+        if (i > 0) {
+            tspanElement.setAttributeNS(null, "dy", 20);
+        }
+        var textNode = document.createTextNode(line);
+        tspanElement.appendChild(textNode);
+        tooltipText.appendChild(tspanElement);
+        var thisLength = tspanElement.getComputedTextLength();
+        if (thisLength > length) {
+            length = thisLength;
+        }
+        height += 20
+    }
+    var tooltipRects = tooltip.getElementsByTagName('rect');
+    for (var i = 0; i < tooltipRects.length; i++) {
+        tooltipRects[i].setAttributeNS(null, "width", length + 8);
+        tooltipRects[i].setAttributeNS(null, "height", height + 8);
+    }  
+	tooltip.setAttributeNS(null, "visibility", "visible");
+}
+
+function HideTooltip() {
+    tooltip.setAttributeNS(null, "visibility", "hidden");
+}
+
+var triggers = document.getElementsByClassName('tooltip-trigger');
+
+for (var i = 0; i < triggers.length; i++) {
+    triggers[i].addEventListener('mouseover', ShowTooltip);
+    triggers[i].addEventListener('mouseout', HideTooltip);
+}
+
+]]></script>
+
+</svg>
+"""
 
 def tick_y_top(tick):
     return TICK_Y_START + tick * TICK_Y_INTERVAL
@@ -57,6 +131,98 @@ def log_record_class(record):
     if record.packet_type == "TIRE":
         return "tire_msg"
     return "other"
+
+def remove_none_fields(msg_str):
+    new_msg_str = re.sub(r"[a-zA-Z_]+=None, ", "", msg_str)
+    new_msg_str = re.sub(r", [a-zA-Z_]+=None\)", ")", new_msg_str)
+    return new_msg_str
+
+def normalize_tie_ids(msg_str):
+    new_msg_str = msg_str
+    while True:
+        match = re.search(r"(TIEID\(.*?\))", new_msg_str)
+        if match is None:
+            return new_msg_str
+        old_tie_str = match.group(1)
+        direction = re.search(r"TIEID\(.*direction=([-0-9])+.*?\)", old_tie_str).group(1)
+        if direction == "1":
+            direction = "South"
+        elif direction == "2":
+            direction = "North"
+        originator = re.search(r"TIEID\(.*originator=([-0-9])+.*?\)", old_tie_str).group(1)
+        tietype = re.search(r"TIEID\(.*tietype=([-0-9])+.*?\)", old_tie_str).group(1)
+        if tietype == "2":
+            tietype = "Node"
+        elif tietype == "3":
+            tietype = "Prefix"
+        elif tietype == "4":
+            tietype = "PositiveDisaggregationPrefix"
+        elif tietype == "5":
+            tietype = "NegativeDisaggregationPrefix"
+        elif tietype == "6":
+            tietype = "PolicyGuidedPrefix"
+        elif tietype == "7":
+            tietype = "External"
+        elif tietype == "8":
+            tietype = "KeyValue"
+        tie_nr = re.search(r"TIEID\(.*tie_nr=([-0-9])+.*?\)", old_tie_str).group(1)
+        new_tie_str = ("TIEID<direction={}, originator={}, tietype={}, tie_nr={}>"
+                       .format(direction, originator, tietype, tie_nr))
+        new_msg_str = re.sub(r"(TIEID\(.*?\))", new_tie_str, new_msg_str, count=1)
+    return new_msg_str
+
+def pretty_format_rift_msg(msg_str, newline='\n'):
+    space = "\u00A0"
+    one_line_types = ["TIEID", "PacketHeader", "NodeNeighborsTIEElement"]
+    new_msg_str = remove_none_fields(msg_str)
+    pretty_str = ""
+    indent = 0
+    pending_newline = False
+    one_line_depth = 0
+    for char in new_msg_str:
+        if pending_newline:
+            if char == ",":
+                if one_line_depth > 0:
+                    pretty_str += ", "
+                else:
+                    pending_newline = False
+                    pretty_str += "," + newline + space * indent * 4
+                continue
+            elif char not in ")}]":
+                pending_newline = False
+                pretty_str += newline + space * indent * 4
+        if char == " ":
+            if indent == 0:
+                pretty_str += char
+        elif char == ",":
+            if one_line_depth > 0:
+                pretty_str += char + " "
+            else:
+                pretty_str += char + newline + space * indent * 4
+        elif char in "({[":
+            one_line = False
+            for one_line_type in one_line_types:
+                if pretty_str.endswith(one_line_type):
+                    one_line = True
+                    break
+            if one_line:
+                pretty_str += char
+                one_line_depth += 1
+            else:
+                indent += 1
+                pretty_str += char + newline + space * indent * 4
+        elif char in ")}]":
+            pretty_str += char
+            if one_line_depth > 0:
+                one_line_depth -= 1
+            else:
+                indent -= 1
+            if one_line_depth > 0:
+                pending_newline = True
+        else:
+            pretty_str += char
+    pretty_str = normalize_tie_ids(pretty_str)
+    return pretty_str
 
 class Target:
 
@@ -200,7 +366,8 @@ class Visualizer:
         ypos = tick_y_mid(record.tick)
         color = log_record_color(record)
         the_class = log_record_class(record)
-        self.svg_dot(xpos, ypos, DOT_RADIUS, color, the_class)
+        pretty_msg = pretty_format_rift_msg(record.packet, newline="$")
+        self.svg_dot(xpos, ypos, DOT_RADIUS, color, the_class, pretty_msg)
         if record.nonce is not None:
             self.sent_messages[record.nonce] = SentMessage(record.nonce, xpos, ypos)
         xpos += 2 * DOT_RADIUS
@@ -212,7 +379,8 @@ class Visualizer:
         ypos = tick_y_mid(record.tick)
         color = log_record_color(record)
         the_class = log_record_class(record)
-        self.svg_dot(xpos, ypos, DOT_RADIUS, color, the_class)
+        pretty_msg = pretty_format_rift_msg(record.packet, newline="$")
+        self.svg_dot(xpos, ypos, DOT_RADIUS, color, the_class, pretty_msg)
         if (record.nonce is not None) and (record.nonce in self.sent_messages):
             xstart = self.sent_messages[record.nonce].xstart
             ystart = self.sent_messages[record.nonce].ystart
@@ -272,10 +440,11 @@ class Visualizer:
                            'xmlns="http://www.w3.org/2000/svg '
                            'xmlns:xlink="http://www.w3.org/1999/xlink" '
                            'width=1000000 '
-                           'height=1000000>\n')
+                           'height=1000000 '
+                           'id="tooltip-svg">\n')
 
     def svg_end(self):
-        self.svgfile.write('</svg>\n')
+        self.svgfile.write(END_OF_SVG)
 
     def svg_line(self, xstart, ystart, xend, yend, color, the_class):
         self.svgfile.write('<line '
@@ -288,15 +457,22 @@ class Visualizer:
                            '</line>\n'
                            .format(xstart, ystart, xend, yend, color, the_class))
 
-    def svg_dot(self, xpos, ypos, radius, color, the_class):
+    def svg_dot(self, xpos, ypos, radius, color, the_class, tooltip=None):
+        classes = the_class
+        if tooltip is None:
+            tooltip_attr = ''
+        else:
+            classes += " tooltip-trigger"
+            tooltip_attr = ' data-tooltip-text="{}"'.format(tooltip)
         self.svgfile.write('<circle '
                            'cx="{}" '
                            'cy="{}" '
                            'r="{}" '
                            'style="stroke:{};fill:{}"'
-                           'class="{}">'
+                           'class="{}"'
+                           '{}>'
                            '</circle>\n'
-                           .format(xpos, ypos, radius, color, color, the_class))
+                           .format(xpos, ypos, radius, color, color, classes, tooltip_attr))
 
     def svg_text(self, xpos, ypos, text, color, the_class):
         self.svgfile.write('<text '

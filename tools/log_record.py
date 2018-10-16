@@ -2,7 +2,7 @@ import re
 
 class LogRecord:
 
-    _record_regex = re.compile(r"(....-..-.. ..:..:..[^:]*):([^:]*):([^:]*):\[(.*)\] (.*)$")
+    _record_regex = re.compile(r"(....-..-.. ..:..:..[^:]*):([^:]*):([^:]*):\[(.*?)\] (.*)$")
     _start_fsm_regex = re.compile(r"Start FSM, state=(.*)")
     _push_event_regex = re.compile(r"FSM push event, "
                                    "event=(.*)")
