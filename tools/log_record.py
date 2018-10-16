@@ -13,9 +13,9 @@ class LogRecord:
                                    "actions-and-pushed-events=(.*) "
                                    "to-state=(.*) "
                                    "implicit=(.*)")
-    _send_regex = re.compile(r"Send.*(ProtocolPacket.*)")
-    _receive_regex = re.compile(r"Receive.*(ProtocolPacket.*)")
-    _lie_packet_regex = re.compile(r".*lie=LIEPacket.*nonce=([0-9]*)")
+    _send_regex = re.compile(r"Send.*(ProtocolPacket.*) to .*$")
+    _receive_regex = re.compile(r"Receive.*(ProtocolPacket.*) from .*$")
+    _lie_packet_regex = re.compile(r".*lie=LIEPacket.*[^_]nonce=([0-9]*)")
     _tie_packet_regex = re.compile(r".*tie=TIEPacket")
     _tide_packet_regex = re.compile(r".*tide=TIDEPacket")
     _tire_packet_regex = re.compile(r".*tire=TIREPacket")

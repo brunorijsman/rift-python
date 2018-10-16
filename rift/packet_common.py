@@ -311,11 +311,11 @@ def add_tie_header_to_tide(tide_packet, tie_header):
     tide_packet.headers.append(tie_header)
 
 def make_tire_packet():
-    tire_packet = encoding.ttypes.TIREPacket(headers=[])
+    tire_packet = encoding.ttypes.TIREPacket(headers=set())
     return tire_packet
 
 def add_tie_header_to_tire(tire_packet, tie_header):
-    tire_packet.headers.append(tie_header)
+    tire_packet.headers.add(tie_header)
 
 DIRECTION_TO_STR = {
     common.ttypes.TieDirectionType.South: "South",
