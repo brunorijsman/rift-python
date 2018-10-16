@@ -137,7 +137,7 @@ class Interface:
         # still THREE_WAY at this point.
         self._node.regenerate_all_node_ties(interface_going_down=self)
 
-    def send_protocol_packet(self, protocol_packet, flood, dont_change):
+    def send_protocol_packet(self, protocol_packet, flood):
         if flood:
             handler = self._flood_send_handler
         else:
@@ -145,7 +145,7 @@ class Interface:
         to_str = "{}:{}".format(handler.remote_address, handler.port)
         protocol_packet_str = str(protocol_packet)
         # TODO: Don't do this expensive to_str if logging is not at level debug
-        encoded_protocol_packet = packet_common.encode_protocol_packet(protocol_packet, dont_change)
+        encoded_protocol_packet = packet_common.encode_protocol_packet(protocol_packet)
         if self._tx_fail:
             self.debug(self._tx_log, "Simulated send failure {} to {}"
                        .format(protocol_packet_str, to_str))
@@ -188,7 +188,7 @@ class Interface:
             label=None)
         packet_content = encoding.ttypes.PacketContent(lie=lie_packet)
         protocol_packet = encoding.ttypes.ProtocolPacket(packet_header, packet_content)
-        self.send_protocol_packet(protocol_packet, flood=False, dont_change=False)
+        self.send_protocol_packet(protocol_packet, flood=False)
         tx_offer = offer.TxOffer(
             self._interface_name,
             self._node.system_id,
@@ -916,7 +916,7 @@ class Interface:
         protocol_packet = encoding.ttypes.ProtocolPacket(
             header=packet_header,
             content=packet_content)
-        self.send_protocol_packet(protocol_packet, flood=True, dont_change=False)
+        self.send_protocol_packet(protocol_packet, flood=True)
 
     def service_ties_queue(self, queue):
         # Note: we only look at the TIE-ID in the queue and not at the header. If we have a more
@@ -932,7 +932,7 @@ class Interface:
             db_tie = self._node.tie_db.find_tie(tie_id)
             if db_tie is not None:
                 protocol_packet.content.tie = db_tie
-                self.send_protocol_packet(protocol_packet, flood=True, dont_change=True)
+                self.send_protocol_packet(protocol_packet, flood=True)
 
     def service_ties_tx(self):
         self.service_ties_queue(self._ties_tx)
@@ -951,7 +951,7 @@ class Interface:
         protocol_packet = encoding.ttypes.ProtocolPacket(
             header=packet_header,
             content=packet_content)
-        self.send_protocol_packet(protocol_packet, flood=True, dont_change=False)
+        self.send_protocol_packet(protocol_packet, flood=True)
 
     @property
     def state_name(self):

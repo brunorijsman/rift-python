@@ -581,7 +581,7 @@ class Node:
         protocol_packet = encoding.ttypes.ProtocolPacket(
             header=packet_header,
             content=packet_content)
-        intf.send_protocol_packet(protocol_packet, flood=True, dont_change=False)
+        intf.send_protocol_packet(protocol_packet, flood=True)
 
     @staticmethod
     def cli_summary_headers():

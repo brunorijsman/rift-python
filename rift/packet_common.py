@@ -64,15 +64,20 @@ def add_missing_methods_to_thrift():
     encoding.ttypes.LinkIDPair.__eq__ = (
         lambda self, other: link_id_pair_tup(self) == link_id_pair_tup(other))
 
-def encode_protocol_packet(protocol_packet, dont_change):
+def encode_protocol_packet(protocol_packet):
     # Since Thrift does not support unsigned integer, we need to "fix" unsigned integers to be
-    # encoded as signed integers. If the dont_change flag is set, it means that we are not allowed
-    # to change the protocol_packet that is passed to us (e.g. because it is a reference to an entry
-    # in the TIE-DB). In that case, we first make a deep copy (which sucks).
-    if dont_change:
-        fixed_protocol_packet = copy.deepcopy(protocol_packet)
-    else:
-        fixed_protocol_packet = protocol_packet
+    # encoded as signed integers.
+    # We have to make a deep copy of the non-encoded packet, but this "fixing" involves changing
+    # various fields in the non-encoded packet from the range (0...MAX_UNSIGNED_INT) to
+    # (MIN_SIGNED_INT...MAX_SIGNED_INT) for various sizes of integers.
+    # For the longest time, I tried to avoid making a deep copy of the non-encoded packets, at least
+    # for some of the packets. For transient messages (e.g. LIEs) that is easier than for persistent
+    # messages (e.g. TIE which are stored in the database, or TIDEs which are encoded once and sent
+    # multiple times). However, in the end this turned out to be impossible or at least a
+    # bountiful source of bugs, because transient messages contain direct or indirect references
+    # to persistent objects.
+    # So, I gave up, and now always do a deep copy of the message to be encoded.
+    fixed_protocol_packet = copy.deepcopy(protocol_packet)
     fix_prot_packet_before_encode(fixed_protocol_packet)
     transport_out = thrift.transport.TTransport.TMemoryBuffer()
     protocol_out = thrift.protocol.TBinaryProtocol.TBinaryProtocol(transport_out)

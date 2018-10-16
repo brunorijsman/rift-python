@@ -144,13 +144,13 @@ def normalize_tie_ids(msg_str):
         if match is None:
             return new_msg_str
         old_tie_str = match.group(1)
-        direction = re.search(r"TIEID\(.*direction=([-0-9])+.*?\)", old_tie_str).group(1)
+        direction = re.search(r"TIEID\(.*direction=([-0-9]+).*?\)", old_tie_str).group(1)
         if direction == "1":
             direction = "South"
         elif direction == "2":
             direction = "North"
-        originator = re.search(r"TIEID\(.*originator=([-0-9])+.*?\)", old_tie_str).group(1)
-        tietype = re.search(r"TIEID\(.*tietype=([-0-9])+.*?\)", old_tie_str).group(1)
+        originator = re.search(r"TIEID\(.*originator=([-0-9]+).*?\)", old_tie_str).group(1)
+        tietype = re.search(r"TIEID\(.*tietype=([-0-9]+).*?\)", old_tie_str).group(1)
         if tietype == "2":
             tietype = "Node"
         elif tietype == "3":
@@ -165,7 +165,7 @@ def normalize_tie_ids(msg_str):
             tietype = "External"
         elif tietype == "8":
             tietype = "KeyValue"
-        tie_nr = re.search(r"TIEID\(.*tie_nr=([-0-9])+.*?\)", old_tie_str).group(1)
+        tie_nr = re.search(r"TIEID\(.*tie_nr=([-0-9]+).*?\)", old_tie_str).group(1)
         new_tie_str = ("TIEID<direction={}, originator={}, tietype={}, tie_nr={}>"
                        .format(direction, originator, tietype, tie_nr))
         new_msg_str = re.sub(r"(TIEID\(.*?\))", new_tie_str, new_msg_str, count=1)
