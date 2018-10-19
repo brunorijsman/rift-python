@@ -416,6 +416,41 @@ class TIE_DB:
                 assert to_node_direction is None
                 return (False, "N-TIE to ?: never flood")
 
+    def is_flood_allowed_from_me_to_neighbor(self,
+                                             tie_header,
+                                             neighbor_direction,
+                                             neighbor_system_id,
+                                             my_system_id,
+                                             my_level,
+                                             i_am_top_of_fabric):
+        return self.is_flood_allowed(
+            tie_header=tie_header,
+            to_node_direction=neighbor_direction,
+            to_node_system_id=neighbor_system_id,
+            from_node_system_id=my_system_id,
+            from_node_level=my_level,
+            from_node_is_top_of_fabric=i_am_top_of_fabric)
+
+    def is_flood_allowed_from_neighbor_to_me(self,
+                                             tie_header,
+                                             neighbor_direction,
+                                             neighbor_system_id,
+                                             neighbor_level,
+                                             neighbor_is_top_of_fabric,
+                                             my_system_id):
+        if neighbor_direction == neighbor.Neighbor.Direction.SOUTH:
+            neighbor_reverse_direction = neighbor.Neighbor.Direction.NORTH
+        elif neighbor_direction == neighbor.Neighbor.Direction.NORTH:
+            neighbor_reverse_direction = neighbor.Neighbor.Direction.SOUTH
+        else:
+            neighbor_reverse_direction = neighbor_direction
+        return self.is_flood_allowed(
+            tie_header=tie_header,
+            to_node_direction=neighbor_reverse_direction,
+            to_node_system_id=my_system_id,
+            from_node_system_id=neighbor_system_id,
+            from_node_level=neighbor_level,
+            from_node_is_top_of_fabric=neighbor_is_top_of_fabric)
     def generate_tide_packet(self,
                              neighbor_direction,
                              neighbor_system_id,
@@ -425,6 +460,14 @@ class TIE_DB:
                              my_level,
                              i_am_top_of_fabric):
         # pylint:disable=too-many-locals
+        #
+        # The algorithm for deciding which TIE headers go into a TIDE packet are based on what is
+        # described as "the solution to oscillation #1" in slide deck
+        # http://bit.ly/rift-flooding-oscillations-v1. During the RIFT core team conference call on
+        # 19 Oct 2018, Tony reported that the RIFT specification was already updated with the same
+        # rules, but IMHO sections Table 3 / B.3.1. / B.3.2.1 in the draft are still ambiguous and
+        # I am not sure if they specify the same behavior.
+        #
         # We generate a single TIDE packet which covers the entire range and we report all TIE
         # headers in that single TIDE packet. We simple assume that it will fit in a single UDP
         # packet which can be up to 64K. And if a single TIE gets added or removed we swallow the
@@ -440,13 +483,13 @@ class TIE_DB:
             # The first possible reason for including a TIE header in the TIDE is to announce that
             # we have a TIE that we want to send to the neighbor. In other words the TIE in the
             # flooding scope from us to the neighbor.
-            (allowed, reason1) = self.is_flood_allowed(
-                tie_header=tie_header,
-                to_node_direction=neighbor_direction,
-                to_node_system_id=neighbor_system_id,
-                from_node_system_id=my_system_id,
-                from_node_level=my_level,
-                from_node_is_top_of_fabric=i_am_top_of_fabric)
+            (allowed, reason1) = self.is_flood_allowed_from_me_to_neighbor(
+                tie_header,
+                neighbor_direction,
+                neighbor_system_id,
+                my_system_id,
+                my_level,
+                i_am_top_of_fabric)
             if allowed:
                 self.debug("Include TIE {} in TIDE because {} (perspective us to neighbor)"
                            .format(tie_header, reason1))
@@ -455,19 +498,13 @@ class TIE_DB:
             # The second possible reason for including a TIE header in the TIDE is because the
             # neighbor might be considering to send the TIE to us, and we want to let the neighbor
             # know that we already have the TIE and what version it it.
-            if neighbor_direction == neighbor.Neighbor.Direction.SOUTH:
-                neighbor_reverse_direction = neighbor.Neighbor.Direction.NORTH
-            elif neighbor_direction == neighbor.Neighbor.Direction.NORTH:
-                neighbor_reverse_direction = neighbor.Neighbor.Direction.SOUTH
-            else:
-                neighbor_reverse_direction = neighbor_direction
-            (allowed, reason2) = self.is_flood_allowed(
-                tie_header=tie_header,
-                to_node_direction=neighbor_reverse_direction,
-                to_node_system_id=my_system_id,
-                from_node_system_id=neighbor_system_id,
-                from_node_level=neighbor_level,
-                from_node_is_top_of_fabric=neighbor_is_top_of_fabric)
+            (allowed, reason2) = self.is_flood_allowed_from_neighbor_to_me(
+                tie_header,
+                neighbor_direction,
+                neighbor_system_id,
+                neighbor_level,
+                neighbor_is_top_of_fabric,
+                my_system_id)
             if allowed:
                 self.debug("Include TIE {} in TIDE because {} (perspective neighbor to us)"
                            .format(tie_header, reason2))
