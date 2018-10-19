@@ -425,6 +425,7 @@ class Node:
             return str(level_value)
 
     def top_of_fabric(self):
+        # TODO: Is this right? Should we look at capabilities.hierarchy_indications?
         return self.level_value() == common.constants.top_of_fabric_level
 
     def record_tx_offer(self, tx_offer):
@@ -569,6 +570,8 @@ class Node:
         tide_packet = self.tie_db.generate_tide_packet(
             neighbor_direction=intf.neighbor_direction(),
             neighbor_system_id=intf.neighbor.system_id,
+            neighbor_level=intf.neighbor.level,
+            neighbor_is_top_of_fabric=intf.neighbor.top_of_fabric(),
             my_system_id=self._system_id,
             my_level=self.level_value(),
             i_am_top_of_fabric=self.top_of_fabric())

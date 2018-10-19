@@ -804,11 +804,11 @@ class Interface:
     def is_flood_filtered(self, tie_header):
         (allowed, reason) = self._node.tie_db.is_flood_allowed(
             tie_header=tie_header,
-            neighbor_direction=self.neighbor_direction(),
-            neighbor_system_id=self.neighbor.system_id,
-            my_system_id=self._node.system_id,
-            my_level=self._node.level_value(),
-            i_am_top_of_fabric=self._node.top_of_fabric())
+            to_node_direction=self.neighbor_direction(),
+            to_node_system_id=self.neighbor.system_id,
+            from_node_system_id=self._node.system_id,
+            from_node_level=self._node.level_value(),
+            from_node_is_top_of_fabric=self._node.top_of_fabric())
         filtered = not allowed
         return (filtered, reason)
 

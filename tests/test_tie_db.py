@@ -501,19 +501,19 @@ def test_is_flood_allowed():
         # pylint:disable=bad-whitespace
         #                                                              Neighbor   Neighbor   I am    Allowed  Reason
         # Direction  Originator     Type,    Tie-Nr  Seq-Nr  Lifetime  Direction  System-ID  ToF
-        ( SOUTH,     66,             NODE,    5,      7,      400,     NBR_S,     22,        False,  True,    "Node S-TIE to S: originator level is same as mine"),
-        ( SOUTH,     77,             NODE,    3,      2,      300,     NBR_S,     18,        False,  False,   "Node S-TIE to S: originator level is not same as mine"),
+        ( SOUTH,     66,             NODE,    5,      7,      400,     NBR_S,     22,        False,  True,    "Node S-TIE to S: originator level is same as from-node"),
+        ( SOUTH,     77,             NODE,    3,      2,      300,     NBR_S,     18,        False,  False,   "Node S-TIE to S: originator level is not same as from-node"),
         ( SOUTH,     55,             NODE,    8,      12,     500,     NBR_N,     17,        False,  False,   "Node S-TIE to N: could not determine originator level"),
-        ( SOUTH,     77,             NODE,    3,      3,      200,     NBR_N,     17,        True,   True,    "Node S-TIE to N: originator level is higher than mine"),
-        ( SOUTH,     88,             NODE,    7,      3,      400,     NBR_N,     19,        False,  False,   "Node S-TIE to N: originator level is not higher than mine"),
-        ( SOUTH,     55,             NODE,    8,      12,     550,     NBR_EW,    19,        True,   False,   "Node S-TIE to EW: this node is top of fabric"),
-        ( SOUTH,     55,             NODE,    8,      12,     550,     NBR_EW,    19,        False,  True,    "Node S-TIE to EW: this node is not top of fabric"),
+        ( SOUTH,     77,             NODE,    3,      3,      200,     NBR_N,     17,        True,   True,    "Node S-TIE to N: originator level is higher than from-node"),
+        ( SOUTH,     88,             NODE,    7,      3,      400,     NBR_N,     19,        False,  False,   "Node S-TIE to N: originator level is not higher than from-node"),
+        ( SOUTH,     55,             NODE,    8,      12,     550,     NBR_EW,    19,        True,   False,   "Node S-TIE to EW: from-node is top of fabric"),
+        ( SOUTH,     55,             NODE,    8,      12,     550,     NBR_EW,    19,        False,  True,    "Node S-TIE to EW: from-node is not top of fabric"),
         ( SOUTH,     55,             NODE,    8,      12,     550,     None,      19,        False,  False,   "Node S-TIE to ?: never flood"),
         ( SOUTH,     MY_SYSTEM_ID,   PREFIX,  4,      7,      200,     NBR_S,     20,        False,  True,    "Non-node S-TIE to S: self-originated"),
         ( SOUTH,     55,             PREFIX,  2,      4,      600,     NBR_S,     20,        True,   False,   "Non-node S-TIE to S: not self-originated"),
         ( SOUTH,     MY_SYSTEM_ID,   PREFIX,  18,     903,    400,     NBR_S,     33,        True,   True,    "Non-node S-TIE to S: self-originated"),
-        ( SOUTH,     55,             PREFIX,  2,      4,      600,     NBR_N,     55,        False,  True,    "Non-node S-TIE to N: neighbor is originator of TIE"),
-        ( SOUTH,     55,             PREFIX,  2,      4,      600,     NBR_N,     33,        False,  False,   "Non-node S-TIE to N: neighbor is not originator of TIE"),
+        ( SOUTH,     55,             PREFIX,  2,      4,      600,     NBR_N,     55,        False,  True,    "Non-node S-TIE to N: to-node is originator of TIE"),
+        ( SOUTH,     55,             PREFIX,  2,      4,      600,     NBR_N,     33,        False,  False,   "Non-node S-TIE to N: to-node is not originator of TIE"),
         ( SOUTH,     55,             PREFIX,  2,      4,      600,     NBR_EW,    33,        True,   False,   "Non-node S-TIE to EW: this top of fabric"),
         ( SOUTH,     MY_SYSTEM_ID,   PREFIX,  18,     903,    400,     NBR_EW,    33,        False,  True,    "Non-node S-TIE to EW: self-originated and not top of fabric"),
         ( SOUTH,     55,             PREFIX,  2,      4,      600,     NBR_EW,    33,        False,  False,   "Non-node S-TIE to EW: not self-originated"),
@@ -529,9 +529,14 @@ def test_is_flood_allowed():
         (direction, originator, tietype, tie_nr, seq_nr, lifetime, neighbor_direction,
          neighbor_system_id, i_am_top_of_fabric, expected_allowed, expected_reason) = tx_tie_info
         tie_header = packet_common.make_tie_header(direction, originator, tietype, tie_nr, seq_nr, lifetime)
-        (allowed, reason) = tdb.is_flood_allowed(tie_header, neighbor_direction, neighbor_system_id,
-                                                 MY_SYSTEM_ID, MY_LEVEL, i_am_top_of_fabric)
-        assert allowed == expected_allowed
+        (allowed, reason) = tdb.is_flood_allowed(
+            tie_header=tie_header,
+            to_node_direction=neighbor_direction,
+            to_node_system_id=neighbor_system_id,
+            from_node_system_id=MY_SYSTEM_ID,
+            from_node_level=MY_LEVEL,
+            from_node_is_top_of_fabric=i_am_top_of_fabric)
+        assert allowed == expected_allowed, expected_reason
         assert reason == expected_reason
 
 def test_generate_tide_packet():
@@ -545,6 +550,8 @@ def test_generate_tide_packet():
     tide_packet = tdb.generate_tide_packet(
         neighbor_direction=NBR_S,
         neighbor_system_id=55,
+        neighbor_level=8,
+        neighbor_is_top_of_fabric=False,
         my_system_id=MY_SYSTEM_ID,
         my_level=MY_LEVEL,
         i_am_top_of_fabric=True)

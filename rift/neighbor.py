@@ -1,5 +1,6 @@
 import enum
 
+import common.constants
 import utils
 
 # TODO: Store both IPv4 and IPv6 address of neighbor
@@ -47,6 +48,10 @@ class Neighbor:
         self.not_a_ztp_offer = lie.not_a_ztp_offer
         self.you_are_flood_repeater = lie.you_are_flood_repeater
         self.label = lie.label
+
+    def top_of_fabric(self):
+        # TODO: Is this right? Should we look at capabilities.hierarchy_indications?
+        return self.level == common.constants.top_of_fabric_level
 
     def cli_detailed_attributes(self):
         # TODO: Report capabilities (is it possible to report the unknown ones too?"
