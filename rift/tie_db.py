@@ -451,6 +451,7 @@ class TIE_DB:
             from_node_system_id=neighbor_system_id,
             from_node_level=neighbor_level,
             from_node_is_top_of_fabric=neighbor_is_top_of_fabric)
+
     def generate_tide_packet(self,
                              neighbor_direction,
                              neighbor_system_id,
