@@ -11,6 +11,7 @@ import constants
 import encoding.ttypes
 import fsm
 import interface
+import neighbor
 import offer
 import packet_common
 import table
@@ -346,12 +347,16 @@ class Node:
         if 'interfaces' in config:
             for interface_config in self._config['interfaces']:
                 self.create_interface(interface_config)
-        self.regenerate_prefix_tie()
         self.node_tie_seq_nrs = {}
         self.node_tie_seq_nrs[common.ttypes.TieDirectionType.South] = 0
         self.node_tie_seq_nrs[common.ttypes.TieDirectionType.North] = 0
         self.node_ties = {}
         self.regenerate_all_node_ties()
+        self._prefix_tie = None
+        self.regenerate_prefix_tie()
+        self._originating_default = False
+        self._default_prefix_tie = None
+        self.reevaluate_default_prefix_tie()
         self._fsm = fsm.Fsm(
             definition=self.fsm_definition,
             action_handler=self,
@@ -579,13 +584,93 @@ class Node:
             self.tie_db.remove_tie(tie_id)
         else:
             self.tie_db.store_tie(self._prefix_tie)
-            self.info("Regenerated prefix TIE for direction North: {}".format(self._prefix_tie))
+            self.info("Regenerated north prefix TIE: {}".format(self._prefix_tie))
+
+    def is_overloaded(self):
+        # Is this node overloaded?
+        # TODO: The concept of being overloaded has not been implemented yet.
+        return False
+
+    def have_s_or_ew_adjacency(self, interface_going_down):
+        # Does this node have at least one south-bound or east-west adjacency?
+        for intf in self._interfaces.values():
+            if ((intf.fsm.state == interface.Interface.State.THREE_WAY) and
+                    (intf != interface_going_down)):
+                if intf.neighbor_direction() in [neighbor.Neighbor.Direction.SOUTH,
+                                                 neighbor.Neighbor.Direction.EAST_WEST]:
+                    return True
+        return False
+
+    def other_nodes_are_overloaded(self):
+        # Are all the other nodes at my level overloaded?
+        # TODO: The concept of being overloaded has not been implemented yet.
+        ####@@@
+        return False
+
+    def other_nodes_have_no_n_adjacency(self):
+        # Do all the other nodes at my level have NO north-bound adjacencies?
+        # TODO: implement this
+        ####@@@
+        return False
+
+    def have_n_spf_route_to_default(self):
+        # Has this node computed reachability to a default route during N-SPF?
+        # TODO: implement this
+        ####@@@
+        return True
+
+    def reevaluate_default_prefix_tie(self, interface_going_down=None):
+        if self.is_overloaded():
+            decision = (False, "This node is overloaded")
+        elif not self.have_s_or_ew_adjacency(interface_going_down):
+            decision = (False, "This node has no south-bound or east-west adjacency")
+        elif self.other_nodes_are_overloaded():
+            decision = (True, "All other nodes at my level are overloaded")
+        elif self.other_nodes_have_no_n_adjacency():
+            decision = (True, "All other nodes at my level have no north-bound adjacencies")
+        elif self.have_n_spf_route_to_default():
+            decision = (True, "This node has computed reachability to a default route during N-SPF")
+        (must_originate_default, reason) = decision
+        # If we don't want to originate a default now, and we never originated one in the past, then
+        # we don't create a prefix TIE at all. But if we have ever originated one in the past, then
+        # we have to flush it by originating an empty prefix TIE.
+        if (not must_originate_default) and (self._default_prefix_tie is None):
+            self.info("Don't originate south prefix TIE because {}: {}"
+                      .format(reason, self._default_prefix_tie))
+            return
+        if ((must_originate_default != self._originating_default) or
+                (self._default_prefix_tie is None)):
+            self._originating_default = must_originate_default
+            if self._default_prefix_tie is None:
+                next_seq_nr = 1
+            else:
+                next_seq_nr = self._default_prefix_tie.header.seq_nr + 1
+            self._default_prefix_tie = packet_common.make_prefix_tie_packet(
+                direction=common.ttypes.TieDirectionType.South,
+                originator=self._system_id,
+                tie_nr=tie_db.SOUTH_PREFIX_TIE_NR,
+                seq_nr=next_seq_nr,
+                lifetime=tie_db.ORIGINATE_LIFETIME)
+            if must_originate_default:
+                # The specification does not mention what metric the default route should be
+                # originated with. Juniper originates with metric 1, so that is what I will do as
+                # well.
+                metric = 1
+                packet_common.add_ipv4_prefix_to_prefix_tie(self._default_prefix_tie,
+                                                            "0.0.0.0/0", metric)
+                packet_common.add_ipv6_prefix_to_prefix_tie(self._default_prefix_tie,
+                                                            "::0/0", metric)
+            self.tie_db.store_tie(self._default_prefix_tie)
+            self.info("Regenerated south prefix TIE because {}: {}"
+                      .format(reason, self._default_prefix_tie))
 
     def clear_all_generated_node_ties(self):
         for direction in [common.ttypes.TieDirectionType.South,
                           common.ttypes.TieDirectionType.North]:
-            self.node_ties[direction] = None
-            # TODO: ##@@ Remove from DB
+            node_tie = self.node_ties[direction]
+            if node_tie is not None:
+                self.tie_db.remove_tie(node_tie.header)
+                self.node_ties[direction] = None
 
     def send_tides(self):
         # The current implementation prepares, encodes, and sends a unique TIDE packet for each

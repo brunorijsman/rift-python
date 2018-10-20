@@ -13,6 +13,7 @@ import table
 import timer
 
 SOUTH_NODE_TIE_NR = 1
+SOUTH_PREFIX_TIE_NR = 1
 NORTH_NODE_TIE_NR = 1
 NORTH_PREFIX_TIE_NR = 1
 
