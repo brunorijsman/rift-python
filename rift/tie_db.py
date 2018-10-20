@@ -17,7 +17,6 @@ SOUTH_PREFIX_TIE_NR = 1
 NORTH_NODE_TIE_NR = 1
 NORTH_PREFIX_TIE_NR = 1
 
-ORIGINATE_LIFETIME = common.constants.default_lifetime
 FLUSH_LIFETIME = 60
 
 # TODO: We currently only store the decoded TIE messages.
@@ -233,7 +232,7 @@ class TIE_DB:
             rx_tie.header.tieid.originator,
             rx_tie.header.tieid.tietype,
             rx_tie.header.tieid.tie_nr,
-            rx_tie.header.seq_nr + 1,     # Higher sequence number
+            rx_tie.header.seq_nr + 1,           # Higher sequence number
             FLUSH_LIFETIME)                     # Short remaining life time
         tietype = rx_tie.header.tieid.tietype
         if tietype == common.ttypes.TIETypeType.NodeTIEType:

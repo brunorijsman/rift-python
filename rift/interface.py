@@ -119,9 +119,9 @@ class Interface:
         # Periodically start sending TIE packets and TIRE packets
         self._service_queues_timer.start()
         # Update the node TIEs originated by this node to include this neighbor
-        self._node.regenerate_all_node_ties()
+        self._node.regenerate_my_node_ties()
         # Update the south prefix TIE: we may have to start or stop originating a default route
-        self._node.reevaluate_default_prefix_tie()
+        self._node.regenerate_my_south_prefix_tie()
         # We don't blindly send all TIEs to the neighbor because he might already have them. Instead
         # we send a TIDE packet right now. If our neighbor is missing a TIE that is in our database
         # he will request it after he receives the TIDE packet.
@@ -137,11 +137,11 @@ class Interface:
         self._flood_send_handler.close()
         self._flood_send_handler = None
         # Update the node TIEs originated by this node to exclude this neighbor. We have to pass
-        # interface_going_down to regenerate_all_node_ties because the state of this interface is
+        # interface_going_down to regenerate_my_node_ties because the state of this interface is
         # still THREE_WAY at this point.
-        self._node.regenerate_all_node_ties(interface_going_down=self)
+        self._node.regenerate_my_node_ties(interface_going_down=self)
         # Update the south prefix TIE: we may have to start or stop originating a default route
-        self._node.reevaluate_default_prefix_tie(interface_going_down=self)
+        self._node.regenerate_my_south_prefix_tie(interface_going_down=self)
 
     def send_protocol_packet(self, protocol_packet, flood):
         if flood:
@@ -970,7 +970,7 @@ class Interface:
             if allowed:
                 packet_common.add_tie_header_to_tire(tire_packet, tie_header)
             else:
-                ###@@@ log
+                # TODO: log message
                 pass
         packet_content = encoding.ttypes.PacketContent(tire=tire_packet)
         packet_header = encoding.ttypes.PacketHeader(
