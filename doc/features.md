@@ -32,7 +32,7 @@
 | Propagate TIE packets without decoding and re-encoding | No |
 | Originate Node TIE packets | Yes |
 | Originate North Prefix TIE packets (configured prefixes)  | Yes |
-| Originate South Prefix TIE packets (default prefixes)  | No |
+| Originate South Prefix TIE packets (default prefixes)  | Yes |
 | Originate Positive Disaggregation TIE packets | No |
 | Originate Negative Disaggregation TIE packets | No |
 | Originate Policy Guided Prefix TIE packets | No |
