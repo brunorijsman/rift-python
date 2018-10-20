@@ -24,6 +24,13 @@ shards:
           - name: if1 # Connected to node2-if1
             tx_lie_port: 20002
             rx_tie_port: 10001
+        v4prefixes:
+          - address: 1.1.1.0
+            mask: 24
+            metric: 1
+          - address: 1.1.2.2
+            mask: 32
+            metric: 2
       - name: node2
         level: 0
         systemid: 2
@@ -33,3 +40,10 @@ shards:
           - name: if1 # Connected to node1-if1
             tx_lie_port: 20001
             rx_tie_port: 10002
+        v4prefixes:
+          - address: 2.2.1.0
+            mask: 24
+            metric: 1
+          - address: 2.2.2.2
+            mask: 32
+            metric: 2

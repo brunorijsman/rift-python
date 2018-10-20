@@ -12,8 +12,9 @@ import packet_common
 import table
 import timer
 
-NODE_SOUTH_TIE_NR = 1
-NODE_NORTH_TIE_NR = 2
+SOUTH_NODE_TIE_NR = 1
+NORTH_NODE_TIE_NR = 1
+NORTH_PREFIX_TIE_NR = 1
 
 ORIGINATE_LIFETIME = common.constants.default_lifetime
 FLUSH_LIFETIME = 60
@@ -100,6 +101,11 @@ class TIE_DB:
     def store_tie(self, tie_packet):
         tie_id = tie_packet.header.tieid
         self.ties[tie_id] = tie_packet
+
+    def remove_tie(self, tie_id):
+        # It is not an error to attempt to delete a TIE which is not in the database
+        if tie_id in self.ties:
+            del self.ties[tie_id]
 
     def find_tie(self, tie_id):
         # Returns None if tie_id is not in database
@@ -211,9 +217,9 @@ class TIE_DB:
         # neighbors.
         real_node_tie_id = copy.deepcopy(rx_tie.header.tieid)
         if rx_tie.header.tieid.direction == common.ttypes.TieDirectionType.South:
-            real_node_tie_id.tie_nr = NODE_SOUTH_TIE_NR
+            real_node_tie_id.tie_nr = SOUTH_NODE_TIE_NR
         elif rx_tie.header.tieid.direction == common.ttypes.TieDirectionType.North:
-            real_node_tie_id.tie_nr = NODE_NORTH_TIE_NR
+            real_node_tie_id.tie_nr = NORTH_NODE_TIE_NR
         else:
             assert False
         real_node_tie = self.find_tie(real_node_tie_id)

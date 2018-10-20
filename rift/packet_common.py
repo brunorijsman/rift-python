@@ -257,7 +257,7 @@ def make_prefix_tie_packet(direction, originator, tie_nr, seq_nr, lifetime):
 def add_ipv4_prefix_to_prefix_tie(prefix_tie_packet, ipv4_prefix_string, metric, tags=None,
                                   monotonic_clock=None):
     ipv4_network = ipaddress.IPv4Network(ipv4_prefix_string)
-    address = ipv4_network.network_address.packed
+    address = int(ipv4_network.network_address)
     prefixlen = ipv4_network.prefixlen
     ipv4_prefix = common.ttypes.IPv4PrefixType(address, prefixlen)
     prefix = common.ttypes.IPPrefixType(ipv4prefix=ipv4_prefix)

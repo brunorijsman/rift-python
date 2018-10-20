@@ -31,7 +31,8 @@
 | Periodically serve all queues (TX, RTX, REQ, ACK) | Yes |
 | Propagate TIE packets without decoding and re-encoding | No |
 | Originate Node TIE packets | Yes |
-| Originate Prefix TIE packets | No |
+| Originate North Prefix TIE packets (configured prefixes)  | Yes |
+| Originate South Prefix TIE packets (default prefixes)  | No |
 | Originate Positive Disaggregation TIE packets | No |
 | Originate Negative Disaggregation TIE packets | No |
 | Originate Policy Guided Prefix TIE packets | No |
@@ -54,7 +55,7 @@
 | Ingress Filtering  | No |
 | Applying Policy  | No |
 | Store Policy-Guided Prefix for Route Computation and Regeneration  | No |
-| Re-origination  | No |
+| Re-origination | No |
 | Overlap with Disaggregated Prefixes  | No |
 
 ## Route Calculation

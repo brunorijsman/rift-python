@@ -299,8 +299,6 @@ class Node:
 
     def __init__(self, parent_engine, config, force_passive):
         # pylint: disable=too-many-statements
-        # TODO: process v4prefixes field in config
-        # TODO: process v6prefixes field in config
         self._engine = parent_engine
         self._config = config
         self._node_nr = Node._next_node_nr
@@ -343,11 +341,12 @@ class Node:
         self._fsm_log = self._log.getChild("fsm")
         self._holdtime = 1
         self._next_interface_id = 1
+        tie_db_log = self._log.getChild("tie_db")
+        self.tie_db = tie_db.TIE_DB(name=self._name, log=tie_db_log)
         if 'interfaces' in config:
             for interface_config in self._config['interfaces']:
                 self.create_interface(interface_config)
-        tie_db_log = self._log.getChild("tie_db")
-        self.tie_db = tie_db.TIE_DB(name=self._name, log=tie_db_log)
+        self.regenerate_prefix_tie()
         self.node_tie_seq_nrs = {}
         self.node_tie_seq_nrs[common.ttypes.TieDirectionType.South] = 0
         self.node_tie_seq_nrs[common.ttypes.TieDirectionType.North] = 0
@@ -520,9 +519,9 @@ class Node:
 
     def regenerate_node_tie(self, direction, interface_going_down=None):
         if direction == common.ttypes.TieDirectionType.South:
-            tie_nr = tie_db.NODE_SOUTH_TIE_NR
+            tie_nr = tie_db.SOUTH_NODE_TIE_NR
         elif direction == common.ttypes.TieDirectionType.North:
-            tie_nr = tie_db.NODE_NORTH_TIE_NR
+            tie_nr = tie_db.NORTH_NODE_TIE_NR
         else:
             assert False, "Invalid direction"
         self.node_tie_seq_nrs[direction] += 1
@@ -549,6 +548,38 @@ class Node:
         for direction in [common.ttypes.TieDirectionType.South,
                           common.ttypes.TieDirectionType.North]:
             self.regenerate_node_tie(direction, interface_going_down)
+
+    def regenerate_prefix_tie(self):
+        config = self._config
+        if ('v4prefixes' in config) or ('v6prefixes' in config):
+            self._prefix_tie = packet_common.make_prefix_tie_packet(
+                direction=common.ttypes.TieDirectionType.North,
+                originator=self._system_id,
+                tie_nr=tie_db.NORTH_PREFIX_TIE_NR,
+                seq_nr=1,
+                lifetime=tie_db.ORIGINATE_LIFETIME)
+        else:
+            self._prefix_tie = None
+        if 'v4prefixes' in config:
+            for v4prefix in config['v4prefixes']:
+                prefix_str = v4prefix['address'] + "/" + str(v4prefix['mask'])
+                metric = v4prefix['metric']
+                packet_common.add_ipv4_prefix_to_prefix_tie(self._prefix_tie, prefix_str, metric)
+        if 'v6prefixes' in config:
+            for v6prefix in config['v6prefixes']:
+                prefix_str = v6prefix['address'] + "/" + str(v6prefix['mask'])
+                metric = v6prefix['metric']
+                packet_common.add_ipv6_prefix_to_prefix_tie(self._prefix_tie, prefix_str, metric)
+        if self._prefix_tie is None:
+            tie_id = packet_common.make_tie_id(
+                direction=common.ttypes.TieDirectionType.North,
+                originator=self._system_id,
+                tie_type=common.ttypes.TIETypeType.PrefixTIEType,
+                tie_nr=tie_db.NORTH_PREFIX_TIE_NR)
+            self.tie_db.remove_tie(tie_id)
+        else:
+            self.tie_db.store_tie(self._prefix_tie)
+            self.info("Regenerated prefix TIE for direction North: {}".format(self._prefix_tie))
 
     def clear_all_generated_node_ties(self):
         for direction in [common.ttypes.TieDirectionType.South,

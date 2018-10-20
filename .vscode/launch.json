@@ -4,6 +4,7 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
+
         {
             "name": "Pytest tie_db",
             "type": "python",
@@ -26,11 +27,11 @@
             "args": [""] 
         },
         {
-            "name": "RIFT 2n_un_l1",
+            "name": "RIFT 2n_l0_l1",
             "type": "python",
             "request": "launch",
             "program": "${workspaceFolder}/rift/__main__.py",
-            "args": ["topology/2n_un_l1.yaml"] 
+            "args": ["topology/2n_l0_l1.yaml"] 
         },
         {
             "name": "RIFT two",
