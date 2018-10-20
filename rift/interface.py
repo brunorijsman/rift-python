@@ -845,6 +845,30 @@ class Interface:
         filtered = not allowed
         return (filtered, reason)
 
+    def add_to_ties_tx(self, tie_header):
+        # If the TIE is not already on the send queue or if the TIE is a newer version than what's
+        # already on the send queue, then send it immediately instead of (in addition to, really)
+        # waiting for the next service timer.
+        if tie_header.tieid not in self._ties_tx:
+            send_now = True
+        elif tie_header.seq_nr > self._ties_tx[tie_header.tieid].seq_nr:
+            send_now = True
+        else:
+            send_now = False
+        self._ties_tx[tie_header.tieid] = tie_header
+        if send_now:
+            db_tie = self._node.tie_db.find_tie(tie_header.tieid)
+            if db_tie is not None:
+                packet_header = encoding.ttypes.PacketHeader(
+                    sender=self._node.system_id,
+                    level=self._node.level_value())
+                packet_content = encoding.ttypes.PacketContent()
+                protocol_packet = encoding.ttypes.ProtocolPacket(
+                    header=packet_header,
+                    content=packet_content)
+                protocol_packet.content.tie = db_tie
+                self.send_protocol_packet(protocol_packet, flood=True)
+
     def try_to_transmit_tie(self, tie_header):
         (filtered, reason) = self.is_flood_filtered(tie_header)
         outcome = "filtered" if filtered else "allowed"
@@ -857,13 +881,13 @@ class Interface:
                 if ack_header.seq_nr < tie_header.seq_nr:
                     # ACK for older TIE is in queue, remove ACK from queue and send newer TIE
                     self.remove_from_ties_ack(ack_header)
-                    self._ties_tx[tie_header.tieid] = tie_header
+                    self.add_to_ties_tx(tie_header)
                 else:
                     # ACK for newer TIE in in queue, keep ACK and don't send this older TIE
                     pass
             else:
                 # No ACK in queue, send this TIE
-                self._ties_tx[tie_header.tieid] = tie_header
+                self.add_to_ties_tx(tie_header)
 
     def ack_tie(self, tie_header):
         self.remove_from_all_queues(tie_header)
