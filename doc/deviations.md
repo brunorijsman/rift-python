@@ -1,6 +1,6 @@
 # Deviations
 
-This section describes places where this Python RIFT engine implementation consciously an purposely deviates from the draft-ietf-rift-rift-02 specification.
+This section describes places where this Python RIFT engine implementation consciously an purposely deviates from the draft-ietf-rift-rift-03 specification.
 
 | ID | Short description |
 | --- | --- |
