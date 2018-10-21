@@ -22,8 +22,8 @@ TEST_CASES = [("test_sys_2n_l0_l1.py", "2n_l0_l1.yaml", ["node1"]),
               ("test_sys_2n_un_l1.py", "2n_un_l1.yaml", ["node2"]),
               ("test_sys_2n_un_l2.py", "2n_un_l2.yaml", ["node1"]),
               ("test_sys_2n_un_l2.py", "2n_un_l2.yaml", ["node2"]),
-              ("test_sys_2n_un_l0.py", "2n_un_l2.yaml", ["node1"]),
-              ("test_sys_2n_un_l0.py", "2n_un_l2.yaml", ["node2"])]
+              ("test_sys_2n_un_l0.py", "2n_un_l0.yaml", ["node1"]),
+              ("test_sys_2n_un_l0.py", "2n_un_l0.yaml", ["node2"])]
 
 def read_config(filename):
     with open(filename, 'r') as in_file:
@@ -104,7 +104,7 @@ def start_juniper_rift(juniper_config_file_name, test_results_dir):
                                         "-C", "flood",
                                         "-C", "lsdb",
                                         "-C", "interface_manager",
-                                        "-C", "spf",
+                                        "-C", "path_computation",
                                         "-C", "flood_reduction",
                                         "-C", "rib",
                                         "-C", "fib",
