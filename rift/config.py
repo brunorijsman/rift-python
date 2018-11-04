@@ -47,7 +47,7 @@ SCHEMA = {
                                     'schema': {
                                         'address': {'required': True, 'type': 'ipv4address'},
                                         'mask': {'required': True, 'type': 'ipv4mask'},
-                                        'metric': {'type': 'integer', 'min': 1},
+                                        'metric': {'type': 'integer', 'min': 1, 'default': 1},
                                     }
                                 }
                             },
@@ -58,7 +58,7 @@ SCHEMA = {
                                     'schema': {
                                         'address': {'required': True, 'type': 'ipv6address'},
                                         'mask': {'required': True, 'type': 'ipv6mask'},
-                                        'metric': {'type': 'integer', 'min': 1},
+                                        'metric': {'type': 'integer', 'min': 1, 'default': 1},
                                     }
                                 }
                             },

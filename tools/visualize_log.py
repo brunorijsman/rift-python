@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import argparse
+import re
 
 import log_record
 
@@ -18,6 +19,79 @@ NODE_FSM_COLOR = "coral"
 MSG_COLOR = "blue"
 CLI_COLOR = "green"
 DEFAULT_COLOR = "black"
+END_OF_SVG = """
+<g id="tooltip" visibility="hidden" >
+    <rect x="2" y="2" width="80" height="24" fill="black" opacity="0.4" rx="2" ry="2"/>
+    <rect width="80" height="24" fill="yellow" rx="2" ry="2"/>
+    <text x="4" 
+          y="16"
+          style="font-family:monospace;stroke:black;fill:black">
+    Tooltip
+    </text>
+</g>
+
+<script type="text/javascript"><![CDATA[
+
+(function() {
+    var tooltip = document.getElementById('tooltip');
+})();
+
+var svg = document.getElementById('tooltip-svg');
+
+function ShowTooltip(evt) {
+    var CTM = svg.getScreenCTM();
+    var x = (evt.clientX - CTM.e + 6) / CTM.a;
+    var y = (evt.clientY - CTM.f + 20) / CTM.d;
+    tooltip.setAttributeNS(null, "transform", "translate(" + x + " " + y + ")");  
+    var tooltipText = tooltip.getElementsByTagName('text')[0];
+    var startX = tooltipText.getAttributeNS(null, 'x');
+    var fc = tooltipText.firstChild;
+    while (fc) {
+        tooltipText.removeChild(fc);
+        fc = tooltipText.firstChild;
+    }
+    lines = evt.target.getAttributeNS(null, "data-tooltip-text").split("$");
+    var length = 0;
+    var height = 0
+    for (var i = 0; i < lines.length; i++) {
+        line = lines[i];
+        var tspanElement = document.createElementNS("http://www.w3.org/2000/svg", "tspan");
+        tspanElement.setAttributeNS(null, "x", startX);
+        if (i > 0) {
+            tspanElement.setAttributeNS(null, "dy", 20);
+        }
+        var textNode = document.createTextNode(line);
+        tspanElement.appendChild(textNode);
+        tooltipText.appendChild(tspanElement);
+        var thisLength = tspanElement.getComputedTextLength();
+        if (thisLength > length) {
+            length = thisLength;
+        }
+        height += 20
+    }
+    var tooltipRects = tooltip.getElementsByTagName('rect');
+    for (var i = 0; i < tooltipRects.length; i++) {
+        tooltipRects[i].setAttributeNS(null, "width", length + 8);
+        tooltipRects[i].setAttributeNS(null, "height", height + 8);
+    }  
+	tooltip.setAttributeNS(null, "visibility", "visible");
+}
+
+function HideTooltip() {
+    tooltip.setAttributeNS(null, "visibility", "hidden");
+}
+
+var triggers = document.getElementsByClassName('tooltip-trigger');
+
+for (var i = 0; i < triggers.length; i++) {
+    triggers[i].addEventListener('mouseover', ShowTooltip);
+    triggers[i].addEventListener('mouseout', HideTooltip);
+}
+
+]]></script>
+
+</svg>
+"""
 
 def tick_y_top(tick):
     return TICK_Y_START + tick * TICK_Y_INTERVAL
@@ -39,6 +113,116 @@ def log_record_color(record):
     elif record.type == "cli":
         return CLI_COLOR
     return DEFAULT_COLOR
+
+def log_record_class(record):
+    if record.type in ["start-fsm", "push-event", "transition"]:
+        if record.target.type == "if":
+            return "if_fsm"
+        if record.target.type == "node":
+            return "node_fsm"
+    if record.type == "cli":
+        return "cli"
+    if record.packet_type == "LIE":
+        return "lie_msg"
+    if record.packet_type == "TIE":
+        return "tie_msg"
+    if record.packet_type == "TIDE":
+        return "tide_msg"
+    if record.packet_type == "TIRE":
+        return "tire_msg"
+    return "other"
+
+def remove_none_fields(msg_str):
+    new_msg_str = re.sub(r"[a-zA-Z_]+=None, ", "", msg_str)
+    new_msg_str = re.sub(r", [a-zA-Z_]+=None\)", ")", new_msg_str)
+    return new_msg_str
+
+def normalize_tie_ids(msg_str):
+    new_msg_str = msg_str
+    while True:
+        match = re.search(r"(TIEID\(.*?\))", new_msg_str)
+        if match is None:
+            return new_msg_str
+        old_tie_str = match.group(1)
+        direction = re.search(r"TIEID\(.*direction=([-0-9]+).*?\)", old_tie_str).group(1)
+        if direction == "1":
+            direction = "South"
+        elif direction == "2":
+            direction = "North"
+        originator = re.search(r"TIEID\(.*originator=([-0-9]+).*?\)", old_tie_str).group(1)
+        tietype = re.search(r"TIEID\(.*tietype=([-0-9]+).*?\)", old_tie_str).group(1)
+        if tietype == "2":
+            tietype = "Node"
+        elif tietype == "3":
+            tietype = "Prefix"
+        elif tietype == "4":
+            tietype = "PositiveDisaggregationPrefix"
+        elif tietype == "5":
+            tietype = "NegativeDisaggregationPrefix"
+        elif tietype == "6":
+            tietype = "PolicyGuidedPrefix"
+        elif tietype == "7":
+            tietype = "External"
+        elif tietype == "8":
+            tietype = "KeyValue"
+        tie_nr = re.search(r"TIEID\(.*tie_nr=([-0-9]+).*?\)", old_tie_str).group(1)
+        new_tie_str = ("TIEID<direction={}, originator={}, tietype={}, tie_nr={}>"
+                       .format(direction, originator, tietype, tie_nr))
+        new_msg_str = re.sub(r"(TIEID\(.*?\))", new_tie_str, new_msg_str, count=1)
+    return new_msg_str
+
+def pretty_format_rift_msg(msg_str, newline='\n'):
+    space = "\u00A0"
+    one_line_types = ["TIEID", "PacketHeader", "NodeNeighborsTIEElement"]
+    new_msg_str = remove_none_fields(msg_str)
+    pretty_str = ""
+    indent = 0
+    pending_newline = False
+    one_line_depth = 0
+    for char in new_msg_str:
+        if pending_newline:
+            if char == ",":
+                if one_line_depth > 0:
+                    pretty_str += ", "
+                else:
+                    pending_newline = False
+                    pretty_str += "," + newline + space * indent * 4
+                continue
+            elif char not in ")}]":
+                pending_newline = False
+                pretty_str += newline + space * indent * 4
+        if char == " ":
+            if indent == 0:
+                pretty_str += char
+        elif char == ",":
+            if one_line_depth > 0:
+                pretty_str += char + " "
+            else:
+                pretty_str += char + newline + space * indent * 4
+        elif char in "({[":
+            one_line = False
+            for one_line_type in one_line_types:
+                if pretty_str.endswith(one_line_type):
+                    one_line = True
+                    break
+            if one_line:
+                pretty_str += char
+                one_line_depth += 1
+            else:
+                indent += 1
+                pretty_str += char + newline + space * indent * 4
+        elif char in ")}]":
+            pretty_str += char
+            if one_line_depth > 0:
+                one_line_depth -= 1
+            else:
+                indent -= 1
+            if one_line_depth > 0:
+                pending_newline = True
+        else:
+            pretty_str += char
+    pretty_str = normalize_tie_ids(pretty_str)
+    return pretty_str
 
 class Target:
 
@@ -66,10 +250,9 @@ class Target:
             Target.nodes[self.node_id] = self
             self.xpos = NODE_X + self.node_index * NODE_X_INTERVAL
 
-class PendingMessage:
+class SentMessage:
 
-    def __init__(self, nonce, xstart, ystart):
-        self.nonce = nonce
+    def __init__(self, xstart, ystart):
         self.xstart = xstart
         self.ystart = ystart
 
@@ -86,6 +269,7 @@ class Visualizer:
 
     def run(self):
         with open(self.svg_file_name, "w") as self.svgfile:
+            self.html_start()
             self.svg_start()
             with open(self.logfile_name, "r") as self.logfile:
                 for logline in self.logfile:
@@ -127,7 +311,7 @@ class Visualizer:
         ypos = tick_y_mid(tick)
         tick_str = "{:06d}".format(tick)
         text = tick_str + " " + timestamp
-        self.svg_text(xpos, ypos, text, TIMESTAMP_COLOR)
+        self.svg_text(xpos, ypos, text, TIMESTAMP_COLOR, "other")
 
     def show_all_target_ticks(self):
         for target in self.targets.values():
@@ -137,113 +321,192 @@ class Visualizer:
         xpos = target.xpos + 2
         ypos = tick_y_mid(self.tick)
         text = target.target_id
-        self.svg_text(xpos, ypos, text, TARGET_COLOR)
+        self.svg_text(xpos, ypos, text, TARGET_COLOR, "other")
 
     def show_target_tick(self, target):
         xpos = target.xpos
         ystart = tick_y_top(self.tick)
         yend = tick_y_bottom(self.tick)
-        self.svg_line(xpos, ystart, xpos, yend, TARGET_COLOR)
+        self.svg_line(xpos, ystart, xpos, yend, TARGET_COLOR, "other")
 
     def show_start_fsm(self, record):
         xpos = record.target.xpos
         ypos = tick_y_mid(record.tick)
         color = log_record_color(record)
-        self.svg_dot(xpos, ypos, DOT_RADIUS, color)
+        the_class = log_record_class(record)
+        self.svg_dot(xpos, ypos, DOT_RADIUS, color, the_class)
         xpos += 2 * DOT_RADIUS
         text = "[" + record.state + "]"
-        self.svg_text(xpos, ypos, text, color)
+        self.svg_text(xpos, ypos, text, color, the_class)
 
     def show_push_event(self, record):
         xpos = record.target.xpos
         ypos = tick_y_mid(record.tick)
         color = log_record_color(record)
-        self.svg_dot(xpos, ypos, DOT_RADIUS, color)
+        the_class = log_record_class(record)
+        self.svg_dot(xpos, ypos, DOT_RADIUS, color, the_class)
         xpos += 2 * DOT_RADIUS
         text = "Push " + record.event
-        self.svg_text(xpos, ypos, text, color)
+        self.svg_text(xpos, ypos, text, color, the_class)
 
     def show_transition(self, record):
         xpos = record.target.xpos
         ypos = tick_y_mid(record.tick)
         color = log_record_color(record)
-        self.svg_dot(xpos, ypos, DOT_RADIUS, color)
+        the_class = log_record_class(record)
+        self.svg_dot(xpos, ypos, DOT_RADIUS, color, the_class)
         xpos += 2 * DOT_RADIUS
         text = ("Transition " + record.event + " [" + record.from_state + "] > " +
                 record.actions_and_pushed_events + " [" + record.to_state + "]")
-        self.svg_text(xpos, ypos, text, color)
+        self.svg_text(xpos, ypos, text, color, the_class)
+
+    def record_sent_message(self, sent_msg_record):
+        xpos = sent_msg_record.target.xpos
+        ypos = tick_y_mid(sent_msg_record.tick)        
+        if sent_msg_record.nonce is not None:
+            self.sent_messages[sent_msg_record.nonce] = SentMessage(xpos, ypos)
+        elif sent_msg_record.packet is not None:
+            # I wish TIE / TIDE / TIRE messages also had nonces. There is really nothing to uniquely
+            # identify a message. Just store the message string itself. This is less than optimal
+            # because the sequence of fields can vary, and the same message is often sent multiple
+            # times.
+            self.sent_messages[sent_msg_record.packet] = SentMessage(xpos, ypos)
 
     def show_send(self, record):
         xpos = record.target.xpos
         ypos = tick_y_mid(record.tick)
         color = log_record_color(record)
-        self.svg_dot(xpos, ypos, DOT_RADIUS, color)
-        self.sent_messages[record.nonce] = PendingMessage(record.nonce, xpos, ypos)
+        the_class = log_record_class(record)
+        pretty_msg = pretty_format_rift_msg(record.packet, newline="$")
+        self.svg_dot(xpos, ypos, DOT_RADIUS, color, the_class, pretty_msg)
+        self.record_sent_message(record)
         xpos += 2 * DOT_RADIUS
         text = "TX " + record.packet_type + " " + record.packet
-        self.svg_text(xpos, ypos, text, color)
+        self.svg_text(xpos, ypos, text, color, the_class)
+
+    def find_sent_message(self, received_msg_record):
+        ##@@
+        if ((received_msg_record.nonce is not None) and
+                (received_msg_record.nonce not in self.sent_messages)):
+                print("nonce", received_msg_record, "not found")
+        if ((received_msg_record.nonce is not None) and
+                (received_msg_record.nonce in self.sent_messages)):
+            return self.sent_messages[received_msg_record.nonce]
+        if ((received_msg_record.packet is not None) and
+                (received_msg_record.packet in self.sent_messages)):
+            return self.sent_messages[received_msg_record.packet]
+        return None
 
     def show_receive(self, record):
         xpos = record.target.xpos
         ypos = tick_y_mid(record.tick)
         color = log_record_color(record)
-        self.svg_dot(xpos, ypos, DOT_RADIUS, color)
-        if record.nonce in self.sent_messages:
-            xstart = self.sent_messages[record.nonce].xstart
-            ystart = self.sent_messages[record.nonce].ystart
+        the_class = log_record_class(record)
+        pretty_msg = pretty_format_rift_msg(record.packet, newline="$")
+        self.svg_dot(xpos, ypos, DOT_RADIUS, color, the_class, pretty_msg)
+        sent_msg = self.find_sent_message(record)
+        if sent_msg is not None:
+            xstart = sent_msg.xstart
+            ystart = sent_msg.ystart
             xend = record.target.xpos
             yend = tick_y_mid(record.tick)
-            self.svg_line(xstart, ystart, xend, yend, color)
+            self.svg_line(xstart, ystart, xend, yend, color, the_class)
         xpos += 2 * DOT_RADIUS
         text = "RX " + record.packet_type + " " + record.packet
-        self.svg_text(xpos, ypos, text, color)
+        self.svg_text(xpos, ypos, text, color, the_class)
 
     def show_cli(self, record):
         xpos = record.target.xpos
         ypos = tick_y_mid(record.tick)
         color = log_record_color(record)
-        self.svg_dot(xpos, ypos, DOT_RADIUS, color)
+        the_class = log_record_class(record)
+        self.svg_dot(xpos, ypos, DOT_RADIUS, color, the_class)
         xpos += 2 * DOT_RADIUS
         text = record.cli_command
-        self.svg_text(xpos, ypos, text, color)
+        self.svg_text(xpos, ypos, text, color, the_class)
+
+    def html_start(self):
+        self.svgfile.write('<script '
+                           'src="https://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js">'
+                           '</script>\n')
+        buttons = [("Interface FSM", "if_fsm"),
+                   ("Node FSM", "node_fsm"),
+                   ("CLI", "cli"),
+                   ("LIE Messages", "lie_msg"),
+                   ("TIE Messages", "tie_msg"),
+                   ("TIDE Messages", "tide_msg"),
+                   ("TIRE Messages", "tire_msg")]
+        for (description, the_class) in buttons:
+            self.html_checkbox(description, the_class)
+        self.svgfile.write('<script type="text/javascript">\n')
+        for (description, the_class) in buttons:
+            self.script_checkbox(the_class)
+        self.svgfile.write('</script>\n')
+
+    def html_checkbox(self, description, the_class):
+        self.svgfile.write('<input type="checkbox" '
+                           'class="{0}_checkbox" '
+                           'onchange="{0}_change()" '
+                           'checked> {1} <br>\n'
+                           .format(the_class, description))
+
+    def script_checkbox(self, the_class):
+        self.svgfile.write('function {0}_change()\n'
+                           '{{\n'
+                           '  if($(".{0}_checkbox").is(":checked"))\n'
+                           '    $(".{0}").show();\n'
+                           '  else\n'
+                           '    $(".{0}").hide();\n'
+                           '}}\n'.format(the_class))
 
     def svg_start(self):
         self.svgfile.write('<svg '
                            'xmlns="http://www.w3.org/2000/svg '
                            'xmlns:xlink="http://www.w3.org/1999/xlink" '
                            'width=1000000 '
-                           'height=1000000>\n')
+                           'height=1000000 '
+                           'id="tooltip-svg">\n')
 
     def svg_end(self):
-        self.svgfile.write('</svg>\n')
+        self.svgfile.write(END_OF_SVG)
 
-    def svg_line(self, xstart, ystart, xend, yend, color):
+    def svg_line(self, xstart, ystart, xend, yend, color, the_class):
         self.svgfile.write('<line '
                            'x1="{}" '
                            'y1="{}" '
                            'x2="{}" '
                            'y2="{}" '
-                           'style="stroke:{};">'
+                           'style="stroke:{};" '
+                           'class="{}">'
                            '</line>\n'
-                           .format(xstart, ystart, xend, yend, color))
+                           .format(xstart, ystart, xend, yend, color, the_class))
 
-    def svg_dot(self, xpos, ypos, radius, color):
+    def svg_dot(self, xpos, ypos, radius, color, the_class, tooltip=None):
+        classes = the_class
+        if tooltip is None:
+            tooltip_attr = ''
+        else:
+            classes += " tooltip-trigger"
+            tooltip_attr = ' data-tooltip-text="{}"'.format(tooltip)
         self.svgfile.write('<circle '
                            'cx="{}" '
                            'cy="{}" '
                            'r="{}" '
-                           'style="stroke:{};fill:{}">'
+                           'style="stroke:{};fill:{}"'
+                           'class="{}"'
+                           '{}>'
                            '</circle>\n'
-                           .format(xpos, ypos, radius, color, color))
+                           .format(xpos, ypos, radius, color, color, classes, tooltip_attr))
 
-    def svg_text(self, xpos, ypos, text, color):
+    def svg_text(self, xpos, ypos, text, color, the_class):
         self.svgfile.write('<text '
                            'x="{}" '
                            'y="{}" '
-                           'style="font-family:monospace;stroke:{}">'
+                           'style="font-family:monospace;stroke:{}"'
+                           'class="{}">'
                            '{}'
                            '</text>\n'
-                           .format(xpos, ypos, color, text))
+                           .format(xpos, ypos, color, the_class, text))
 
 def main():
     args = parse_command_line_arguments()

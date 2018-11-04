@@ -20,6 +20,8 @@ import common.constants
 import common.ttypes
 import encoding.ttypes
 
+USE_SIMPLE_REQUEST_FILTERING = True
+
 # TODO: LIEs arriving with a TTL larger than 1 MUST be ignored.
 
 # TODO: Implement configuration of POD numbers
@@ -117,7 +119,9 @@ class Interface:
         # Periodically start sending TIE packets and TIRE packets
         self._service_queues_timer.start()
         # Update the node TIEs originated by this node to include this neighbor
-        self._node.regenerate_all_node_ties()
+        self._node.regenerate_my_node_ties()
+        # Update the south prefix TIE: we may have to start or stop originating a default route
+        self._node.regenerate_my_south_prefix_tie()
         # We don't blindly send all TIEs to the neighbor because he might already have them. Instead
         # we send a TIDE packet right now. If our neighbor is missing a TIE that is in our database
         # he will request it after he receives the TIDE packet.
@@ -133,28 +137,32 @@ class Interface:
         self._flood_send_handler.close()
         self._flood_send_handler = None
         # Update the node TIEs originated by this node to exclude this neighbor. We have to pass
-        # interface_going_down to regenerate_all_node_ties because the state of this interface is
+        # interface_going_down to regenerate_my_node_ties because the state of this interface is
         # still THREE_WAY at this point.
-        self._node.regenerate_all_node_ties(interface_going_down=self)
+        self._node.regenerate_my_node_ties(interface_going_down=self)
+        # Update the south prefix TIE: we may have to start or stop originating a default route
+        self._node.regenerate_my_south_prefix_tie(interface_going_down=self)
 
-    def send_protocol_packet(self, protocol_packet, flood, dont_change):
-        encoded_protocol_packet = packet_common.encode_protocol_packet(protocol_packet, dont_change)
+    def send_protocol_packet(self, protocol_packet, flood):
         if flood:
             handler = self._flood_send_handler
         else:
             handler = self._lie_send_handler
         to_str = "{}:{}".format(handler.remote_address, handler.port)
+        protocol_packet_str = str(protocol_packet)
+        # TODO: Don't do this expensive to_str if logging is not at level debug
+        encoded_protocol_packet = packet_common.encode_protocol_packet(protocol_packet)
         if self._tx_fail:
             self.debug(self._tx_log, "Simulated send failure {} to {}"
-                       .format(protocol_packet, to_str))
+                       .format(protocol_packet_str, to_str))
         else:
             try:
                 handler.send_message(encoded_protocol_packet)
             except socket.error as error:
                 self.error(self._tx_log, "Error \"{}\" sending {} to {}"
-                           .format(error, protocol_packet, to_str))
+                           .format(error, protocol_packet_str, to_str))
                 return
-            self.debug(self._tx_log, "Send {} to {}".format(protocol_packet, to_str))
+            self.debug(self._tx_log, "Send {} to {}".format(protocol_packet_str, to_str))
 
     def action_send_lie(self):
         packet_header = encoding.ttypes.PacketHeader(
@@ -186,7 +194,7 @@ class Interface:
             label=None)
         packet_content = encoding.ttypes.PacketContent(lie=lie_packet)
         protocol_packet = encoding.ttypes.ProtocolPacket(packet_header, packet_content)
-        self.send_protocol_packet(protocol_packet, flood=False, dont_change=False)
+        self.send_protocol_packet(protocol_packet, flood=False)
         tx_offer = offer.TxOffer(
             self._interface_name,
             self._node.system_id,
@@ -717,7 +725,7 @@ class Interface:
             self.ack_tie(ack_tie_header)
 
     def process_received_tide_packet(self, tide_packet):
-        result = self._node.tie_db.process_received_tide_packet(tide_packet)
+        result = self._node.tie_db.process_received_tide_packet(tide_packet, self._node.system_id)
         (request_tie_headers, start_sending_tie_headers, stop_sending_tie_headers) = result
         for tie_header in start_sending_tie_headers:
             self.try_to_transmit_tie(tie_header)
@@ -752,7 +760,14 @@ class Interface:
         # TODO: Implement this
         return False
 
-    def is_request_allowed(self, tie_header, i_am_top_of_fabric):
+    # The basic idea for the next two functions (is_request_allowed_...) is that we should not
+    # request any TIEs from our neighbor if the neighbor is not allowed to send the TIE to us
+    # according to the scoping rules. If have two different implementations of this.
+
+    # This is the first implementation of is_request_allowed. It follows the letter of the draft
+    # specification.
+    #
+    def is_request_allowed_complex(self, tie_header, i_am_top_of_fabric):
         neighbor_direction = self.neighbor_direction()
         if neighbor_direction == neighbor.Neighbor.Direction.SOUTH:
             dir_str = "S"
@@ -771,7 +786,7 @@ class Interface:
                 neighbor_direction = neighbor.Neighbor.Direction.SOUTH
             # Fall-through to next if block is intentional
         if neighbor_direction == neighbor.Neighbor.Direction.SOUTH:
-            # Include all N-TIEs ...
+            # Request all N-TIEs ...
             if tie_header.tieid.direction == common.ttypes.TieDirectionType.North:
                 return (True, "to {}: include all N-TIEs".format(dir_str))
             # ... and all peer's self-originated TIEs ...
@@ -784,13 +799,33 @@ class Interface:
             # Exclude everything else
             return (False, "to {}: exclude".format(dir_str))
         if neighbor_direction == neighbor.Neighbor.Direction.NORTH:
-            # Include only if neighbor is originator of TIE
-            if tie_header.tieid.originator == self.neighbor.system_id:
-                return (True, "to {}: TIE originator is equal to peer".format(dir_str))
+            # Request all S-TIEs
+            if tie_header.tieid.direction == common.ttypes.TieDirectionType.South:
+                return (True, "to {}: include all S-TIEs".format(dir_str))
             # Exclude everything else
             return (False, "to {}: exclude".format(dir_str))
         # Cannot determine direction of neighbor. Exclude.
         return (False, "to {}: exclude".format(dir_str))
+
+    # This is the simplified implementation of s_request_allowed as described in "the solution to
+    # oscillation #2" in slide deck http://bit.ly/rift-flooding-oscillations-v1. During the RIFT
+    # core team conference call on 19 Oct 2018, Tony reported it was his intent to apply the same
+    # logic. However, this seems like a simpler (and less error prone) way to achieve that.
+    #
+    def is_request_allowed_simple(self, tie_header, _i_am_top_of_fabric):
+        return self._node.tie_db.is_flood_allowed_from_neighbor_to_me(
+            tie_header,
+            self.neighbor_direction(),
+            self.neighbor.system_id,
+            self.neighbor.level,
+            self.neighbor.top_of_fabric(),
+            self._node.system_id)
+
+    def is_request_allowed(self, tie_header, i_am_top_of_fabric):
+        if USE_SIMPLE_REQUEST_FILTERING:
+            return self.is_request_allowed_simple(tie_header, i_am_top_of_fabric)
+        else:
+            return self.is_request_allowed_complex(tie_header, i_am_top_of_fabric)
 
     def is_request_filtered(self, tie_header):
         # The logic is more more easy to follow and mirrors the language of the flooding scope
@@ -802,13 +837,37 @@ class Interface:
     def is_flood_filtered(self, tie_header):
         (allowed, reason) = self._node.tie_db.is_flood_allowed(
             tie_header=tie_header,
-            neighbor_direction=self.neighbor_direction(),
-            neighbor_system_id=self.neighbor.system_id,
-            my_system_id=self._node.system_id,
-            my_level=self._node.level_value(),
-            i_am_top_of_fabric=self._node.top_of_fabric())
+            to_node_direction=self.neighbor_direction(),
+            to_node_system_id=self.neighbor.system_id,
+            from_node_system_id=self._node.system_id,
+            from_node_level=self._node.level_value(),
+            from_node_is_top_of_fabric=self._node.top_of_fabric())
         filtered = not allowed
         return (filtered, reason)
+
+    def add_to_ties_tx(self, tie_header):
+        # If the TIE is not already on the send queue or if the TIE is a newer version than what's
+        # already on the send queue, then send it immediately instead of (in addition to, really)
+        # waiting for the next service timer.
+        if tie_header.tieid not in self._ties_tx:
+            send_now = True
+        elif tie_header.seq_nr > self._ties_tx[tie_header.tieid].seq_nr:
+            send_now = True
+        else:
+            send_now = False
+        self._ties_tx[tie_header.tieid] = tie_header
+        if send_now:
+            db_tie = self._node.tie_db.find_tie(tie_header.tieid)
+            if db_tie is not None:
+                packet_header = encoding.ttypes.PacketHeader(
+                    sender=self._node.system_id,
+                    level=self._node.level_value())
+                packet_content = encoding.ttypes.PacketContent()
+                protocol_packet = encoding.ttypes.ProtocolPacket(
+                    header=packet_header,
+                    content=packet_content)
+                protocol_packet.content.tie = db_tie
+                self.send_protocol_packet(protocol_packet, flood=True)
 
     def try_to_transmit_tie(self, tie_header):
         (filtered, reason) = self.is_flood_filtered(tie_header)
@@ -822,13 +881,13 @@ class Interface:
                 if ack_header.seq_nr < tie_header.seq_nr:
                     # ACK for older TIE is in queue, remove ACK from queue and send newer TIE
                     self.remove_from_ties_ack(ack_header)
-                    self._ties_tx[tie_header.tieid] = tie_header
+                    self.add_to_ties_tx(tie_header)
                 else:
                     # ACK for newer TIE in in queue, keep ACK and don't send this older TIE
                     pass
             else:
                 # No ACK in queue, send this TIE
-                self._ties_tx[tie_header.tieid] = tie_header
+                self.add_to_ties_tx(tie_header)
 
     def ack_tie(self, tie_header):
         self.remove_from_all_queues(tie_header)
@@ -905,6 +964,8 @@ class Interface:
 
     def service_ties_ack(self):
         tire_packet = packet_common.make_tire_packet()
+        # We always send an ACK for every TIE header on the ACK queue. I.e. we always ACK the TIEs
+        # that we received and accepted.
         for tie_header in self._ties_ack.values():
             packet_common.add_tie_header_to_tire(tire_packet, tie_header)
         packet_content = encoding.ttypes.PacketContent(tire=tire_packet)
@@ -914,7 +975,35 @@ class Interface:
         protocol_packet = encoding.ttypes.ProtocolPacket(
             header=packet_header,
             content=packet_content)
-        self.send_protocol_packet(protocol_packet, flood=True, dont_change=False)
+        self.send_protocol_packet(protocol_packet, flood=True)
+
+    def service_ties_req(self):
+        tire_packet = packet_common.make_tire_packet()
+        for tie_header in self._ties_req.values():
+            # We don't request a TIE from our neighbor if the flooding scope rules say that the
+            # neighbor is not allowed to flood the TIE to us. Why? Because the neighbor is allowed
+            # to advertise extra TIEs in the TIDE, and if we request them we will get an
+            # oscillation.
+            (allowed, _reason) = self._node.tie_db.is_flood_allowed_from_neighbor_to_me(
+                tie_header,
+                self.neighbor_direction(),
+                self.neighbor.system_id,
+                self.neighbor.level,
+                self.neighbor.top_of_fabric(),
+                self._node.system_id)
+            if allowed:
+                packet_common.add_tie_header_to_tire(tire_packet, tie_header)
+            else:
+                # TODO: log message
+                pass
+        packet_content = encoding.ttypes.PacketContent(tire=tire_packet)
+        packet_header = encoding.ttypes.PacketHeader(
+            sender=self._node.system_id,
+            level=self._node.level_value())
+        protocol_packet = encoding.ttypes.ProtocolPacket(
+            header=packet_header,
+            content=packet_content)
+        self.send_protocol_packet(protocol_packet, flood=True)
 
     def service_ties_queue(self, queue):
         # Note: we only look at the TIE-ID in the queue and not at the header. If we have a more
@@ -930,26 +1019,13 @@ class Interface:
             db_tie = self._node.tie_db.find_tie(tie_id)
             if db_tie is not None:
                 protocol_packet.content.tie = db_tie
-                self.send_protocol_packet(protocol_packet, flood=True, dont_change=True)
+                self.send_protocol_packet(protocol_packet, flood=True)
 
     def service_ties_tx(self):
         self.service_ties_queue(self._ties_tx)
 
     def service_ties_rtx(self):
         self.service_ties_queue(self._ties_rtx)
-
-    def service_ties_req(self):
-        tire_packet = packet_common.make_tire_packet()
-        for tie_header in self._ties_req.values():
-            packet_common.add_tie_header_to_tire(tire_packet, tie_header)
-        packet_content = encoding.ttypes.PacketContent(tire=tire_packet)
-        packet_header = encoding.ttypes.PacketHeader(
-            sender=self._node.system_id,
-            level=self._node.level_value())
-        protocol_packet = encoding.ttypes.ProtocolPacket(
-            header=packet_header,
-            content=packet_content)
-        self.send_protocol_packet(protocol_packet, flood=True, dont_change=False)
 
     @property
     def state_name(self):

@@ -64,15 +64,20 @@ def add_missing_methods_to_thrift():
     encoding.ttypes.LinkIDPair.__eq__ = (
         lambda self, other: link_id_pair_tup(self) == link_id_pair_tup(other))
 
-def encode_protocol_packet(protocol_packet, dont_change):
+def encode_protocol_packet(protocol_packet):
     # Since Thrift does not support unsigned integer, we need to "fix" unsigned integers to be
-    # encoded as signed integers. If the dont_change flag is set, it means that we are not allowed
-    # to change the protocol_packet that is passed to us (e.g. because it is a reference to an entry
-    # in the TIE-DB). In that case, we first make a deep copy (which sucks).
-    if dont_change:
-        fixed_protocol_packet = copy.deepcopy(protocol_packet)
-    else:
-        fixed_protocol_packet = protocol_packet
+    # encoded as signed integers.
+    # We have to make a deep copy of the non-encoded packet, but this "fixing" involves changing
+    # various fields in the non-encoded packet from the range (0...MAX_UNSIGNED_INT) to
+    # (MIN_SIGNED_INT...MAX_SIGNED_INT) for various sizes of integers.
+    # For the longest time, I tried to avoid making a deep copy of the non-encoded packets, at least
+    # for some of the packets. For transient messages (e.g. LIEs) that is easier than for persistent
+    # messages (e.g. TIE which are stored in the database, or TIDEs which are encoded once and sent
+    # multiple times). However, in the end this turned out to be impossible or at least a
+    # bountiful source of bugs, because transient messages contain direct or indirect references
+    # to persistent objects.
+    # So, I gave up, and now always do a deep copy of the message to be encoded.
+    fixed_protocol_packet = copy.deepcopy(protocol_packet)
     fix_prot_packet_before_encode(fixed_protocol_packet)
     transport_out = thrift.transport.TTransport.TMemoryBuffer()
     protocol_out = thrift.protocol.TBinaryProtocol.TBinaryProtocol(transport_out)
@@ -252,7 +257,7 @@ def make_prefix_tie_packet(direction, originator, tie_nr, seq_nr, lifetime):
 def add_ipv4_prefix_to_prefix_tie(prefix_tie_packet, ipv4_prefix_string, metric, tags=None,
                                   monotonic_clock=None):
     ipv4_network = ipaddress.IPv4Network(ipv4_prefix_string)
-    address = ipv4_network.network_address.packed
+    address = int(ipv4_network.network_address)
     prefixlen = ipv4_network.prefixlen
     ipv4_prefix = common.ttypes.IPv4PrefixType(address, prefixlen)
     prefix = common.ttypes.IPPrefixType(ipv4prefix=ipv4_prefix)
@@ -306,11 +311,11 @@ def add_tie_header_to_tide(tide_packet, tie_header):
     tide_packet.headers.append(tie_header)
 
 def make_tire_packet():
-    tire_packet = encoding.ttypes.TIREPacket(headers=[])
+    tire_packet = encoding.ttypes.TIREPacket(headers=set())
     return tire_packet
 
 def add_tie_header_to_tire(tire_packet, tie_header):
-    tire_packet.headers.append(tie_header)
+    tire_packet.headers.add(tie_header)
 
 DIRECTION_TO_STR = {
     common.ttypes.TieDirectionType.South: "South",
@@ -405,17 +410,6 @@ def node_element_str(element):
             sorted_link_ids = sorted(neighbor.link_ids)
             for link_id_pair in sorted_link_ids:
                 lines.append("  Link: " + link_id_pair_str(link_id_pair))
-
-    if element.visible_in_same_level:
-        lines.append("Visible in same level:")
-        sorted_system_ids = sorted(element.visible_in_same_level)
-        for system_id in sorted_system_ids:
-            lines.append("  System ID: " + utils.system_id_str(system_id))
-    if element.same_level_unknown_north_partitions:
-        lines.append("Same level unknown north partitions:")
-        sorted_system_ids = sorted(element.same_level_unknown_north_partitions)
-        for system_id in sorted_system_ids:
-            lines.append("  System ID: " + utils.system_id_str(system_id))
     return lines
 
 def prefix_element_str(element):

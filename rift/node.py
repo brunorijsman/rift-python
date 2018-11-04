@@ -11,6 +11,7 @@ import constants
 import encoding.ttypes
 import fsm
 import interface
+import neighbor
 import offer
 import packet_common
 import table
@@ -299,8 +300,6 @@ class Node:
 
     def __init__(self, parent_engine, config, force_passive):
         # pylint: disable=too-many-statements
-        # TODO: process v4prefixes field in config
-        # TODO: process v6prefixes field in config
         self._engine = parent_engine
         self._config = config
         self._node_nr = Node._next_node_nr
@@ -336,23 +335,29 @@ class Node:
         self._lie_send_interval_secs = constants.DEFAULT_LIE_SEND_INTERVAL_SECS
         self._rx_tie_port = self.get_config_attribute('rx_tie_port', constants.DEFAULT_TIE_PORT)
         self._derived_level = None
-        self._rx_offers = {}
-        self._tx_offers = {}
+        self._rx_offers = {}     # Indexed by interface name
+        self._tx_offers = {}     # Indexed by interface name
         self._highest_available_level = None
         self._highest_adjacency_three_way = None
         self._fsm_log = self._log.getChild("fsm")
         self._holdtime = 1
         self._next_interface_id = 1
+        tie_db_log = self._log.getChild("tie_db")
+        self.tie_db = tie_db.TIE_DB(name=self._name, log=tie_db_log)
         if 'interfaces' in config:
             for interface_config in self._config['interfaces']:
                 self.create_interface(interface_config)
-        tie_db_log = self._log.getChild("tie_db")
-        self.tie_db = tie_db.TIE_DB(name=self._name, log=tie_db_log)
-        self.node_tie_seq_nrs = {}
-        self.node_tie_seq_nrs[common.ttypes.TieDirectionType.South] = 0
-        self.node_tie_seq_nrs[common.ttypes.TieDirectionType.North] = 0
-        self.node_ties = {}
-        self.regenerate_all_node_ties()
+        self.my_node_tie_seq_nrs = {}
+        self.my_node_tie_seq_nrs[common.ttypes.TieDirectionType.South] = 0
+        self.my_node_tie_seq_nrs[common.ttypes.TieDirectionType.North] = 0
+        self.my_node_ties = {}                   # Indexed by neighbor direction
+        self.other_node_ties_at_my_level = {}    # Indexed by tie_id
+        self._my_north_prefix_tie = None
+        self._originating_default = False
+        self._my_south_prefix_tie = None
+        self.regenerate_my_node_ties()
+        self.regenerate_my_north_prefix_tie()
+        self.regenerate_my_south_prefix_tie()
         self._fsm = fsm.Fsm(
             definition=self.fsm_definition,
             action_handler=self,
@@ -425,6 +430,7 @@ class Node:
             return str(level_value)
 
     def top_of_fabric(self):
+        # TODO: Is this right? Should we look at capabilities.hierarchy_indications?
         return self.level_value() == common.constants.top_of_fabric_level
 
     def record_tx_offer(self, tx_offer):
@@ -517,15 +523,31 @@ class Node:
         self._next_interface_id += 1
         return interface_id
 
+    # TODO: Need to re-evaluate other_node_ties_at_my_level when the level of this node changes
+    # TODO: Have a show comman to report other_node_ties_at_my_level
+
+    def store_tie_in_db(self, tie):
+        self.tie_db.store_tie(tie)
+        if ((tie.header.tieid.tietype == common.ttypes.TIETypeType.NodeTIEType) and
+                (tie.element.node.level == self.level_value())):
+            self.other_node_ties_at_my_level[tie.header.tieid] = tie
+            self.regenerate_my_south_prefix_tie()
+
+    def remove_tie_from_db(self, tie_id):
+        self.tie_db.remove_tie(tie_id)
+        if tie_id in self.other_node_ties_at_my_level:
+            del self.other_node_ties_at_my_level[tie_id]
+            self.regenerate_my_south_prefix_tie()
+
     def regenerate_node_tie(self, direction, interface_going_down=None):
         if direction == common.ttypes.TieDirectionType.South:
-            tie_nr = tie_db.NODE_SOUTH_TIE_NR
+            tie_nr = tie_db.SOUTH_NODE_TIE_NR
         elif direction == common.ttypes.TieDirectionType.North:
-            tie_nr = tie_db.NODE_NORTH_TIE_NR
+            tie_nr = tie_db.NORTH_NODE_TIE_NR
         else:
             assert False, "Invalid direction"
-        self.node_tie_seq_nrs[direction] += 1
-        seq_nr = self.node_tie_seq_nrs[direction]
+        self.my_node_tie_seq_nrs[direction] += 1
+        seq_nr = self.my_node_tie_seq_nrs[direction]
         node_tie_packet = packet_common.make_node_tie_packet(
             name=self._name,
             level=self.level_value(),
@@ -533,27 +555,151 @@ class Node:
             originator=self._system_id,
             tie_nr=tie_nr,
             seq_nr=seq_nr,
-            lifetime=tie_db.ORIGINATE_LIFETIME)
+            lifetime=common.constants.default_lifetime)
         for intf in self._interfaces.values():
             if ((intf.fsm.state == interface.Interface.State.THREE_WAY) and
                     (intf != interface_going_down)):
                 node_neighbor = packet_common.make_node_neighbor(level=intf.neighbor.level)
                 node_tie_packet.element.node.neighbors[intf.neighbor.system_id] = node_neighbor
-        self.node_ties[direction] = node_tie_packet
-        self.tie_db.store_tie(node_tie_packet)
+        self.my_node_ties[direction] = node_tie_packet
+        self.store_tie_in_db(node_tie_packet)
         self.info("Regenerated node TIE for direction {}: {}"
                   .format(packet_common.direction_str(direction), node_tie_packet))
 
-    def regenerate_all_node_ties(self, interface_going_down=None):
+    def regenerate_my_node_ties(self, interface_going_down=None):
         for direction in [common.ttypes.TieDirectionType.South,
                           common.ttypes.TieDirectionType.North]:
             self.regenerate_node_tie(direction, interface_going_down)
 
+    def regenerate_my_north_prefix_tie(self):
+        config = self._config
+        if ('v4prefixes' in config) or ('v6prefixes' in config):
+            self._my_north_prefix_tie = packet_common.make_prefix_tie_packet(
+                direction=common.ttypes.TieDirectionType.North,
+                originator=self._system_id,
+                tie_nr=tie_db.NORTH_PREFIX_TIE_NR,
+                seq_nr=1,
+                lifetime=common.constants.default_lifetime)
+        else:
+            self._my_north_prefix_tie = None
+        if 'v4prefixes' in config:
+            for v4prefix in config['v4prefixes']:
+                prefix_str = v4prefix['address'] + "/" + str(v4prefix['mask'])
+                metric = v4prefix['metric']
+                packet_common.add_ipv4_prefix_to_prefix_tie(self._my_north_prefix_tie, prefix_str,
+                                                            metric)
+        if 'v6prefixes' in config:
+            for v6prefix in config['v6prefixes']:
+                prefix_str = v6prefix['address'] + "/" + str(v6prefix['mask'])
+                metric = v6prefix['metric']
+                packet_common.add_ipv6_prefix_to_prefix_tie(self._my_north_prefix_tie, prefix_str,
+                                                            metric)
+        if self._my_north_prefix_tie is None:
+            tie_id = packet_common.make_tie_id(
+                direction=common.ttypes.TieDirectionType.North,
+                originator=self._system_id,
+                tie_type=common.ttypes.TIETypeType.PrefixTIEType,
+                tie_nr=tie_db.NORTH_PREFIX_TIE_NR)
+            self.remove_tie_from_db(tie_id)
+        else:
+            self.store_tie_in_db(self._my_north_prefix_tie)
+            self.info("Regenerated north prefix TIE: {}".format(self._my_north_prefix_tie))
+
+    def is_overloaded(self):
+        # Is this node overloaded?
+        # In the current implementation, we are never overloaded.
+        return False
+
+    def have_s_or_ew_adjacency(self, interface_going_down):
+        # Does this node have at least one south-bound or east-west adjacency?
+        for intf in self._interfaces.values():
+            if ((intf.fsm.state == interface.Interface.State.THREE_WAY) and
+                    (intf != interface_going_down)):
+                if intf.neighbor_direction() in [neighbor.Neighbor.Direction.SOUTH,
+                                                 neighbor.Neighbor.Direction.EAST_WEST]:
+                    return True
+        return False
+
+    def other_nodes_are_overloaded(self):
+        # Are all the other nodes at my level overloaded?
+        if not self.other_node_ties_at_my_level:
+            # There are no other nodes at my level
+            return False
+        for node_tie in self.other_node_ties_at_my_level.values():
+            flags = node_tie.element.node.flags
+            if (flags is not None) and (not flags.overload):
+                return False
+        return True
+
+    def other_nodes_have_no_n_adjacency(self):
+        # Do all the other nodes at my level have NO north-bound adjacencies?
+        if not self.other_node_ties_at_my_level:
+            # There are no other nodes at my level
+            return False
+        for node_tie in self.other_node_ties_at_my_level.values():
+            for check_neighbor in node_tie.element.node.neighbors.values():
+                if check_neighbor.level > self.level_value():
+                    return False
+        return True
+
+    def have_n_spf_route_to_default(self):
+        # Has this node computed reachability to a default route during N-SPF?
+        # TODO: We need to implement SPF (route calculation before we can implement this; for now
+        # always return True)
+        return True
+
+    def regenerate_my_south_prefix_tie(self, interface_going_down=None):
+        if self.is_overloaded():
+            decision = (False, "This node is overloaded")
+        elif not self.have_s_or_ew_adjacency(interface_going_down):
+            decision = (False, "This node has no south-bound or east-west adjacency")
+        elif self.other_nodes_are_overloaded():
+            decision = (True, "All other nodes at my level are overloaded")
+        elif self.other_nodes_have_no_n_adjacency():
+            decision = (True, "All other nodes at my level have no north-bound adjacencies")
+        elif self.have_n_spf_route_to_default():
+            decision = (True, "This node has computed reachability to a default route during N-SPF")
+        (must_originate_default, reason) = decision
+        # If we don't want to originate a default now, and we never originated one in the past, then
+        # we don't create a prefix TIE at all. But if we have ever originated one in the past, then
+        # we have to flush it by originating an empty prefix TIE.
+        if (not must_originate_default) and (self._my_south_prefix_tie is None):
+            self.info("Don't originate south prefix TIE because {}: {}"
+                      .format(reason, self._my_south_prefix_tie))
+            return
+        if ((must_originate_default != self._originating_default) or
+                (self._my_south_prefix_tie is None)):
+            self._originating_default = must_originate_default
+            if self._my_south_prefix_tie is None:
+                next_seq_nr = 1
+            else:
+                next_seq_nr = self._my_south_prefix_tie.header.seq_nr + 1
+            self._my_south_prefix_tie = packet_common.make_prefix_tie_packet(
+                direction=common.ttypes.TieDirectionType.South,
+                originator=self._system_id,
+                tie_nr=tie_db.SOUTH_PREFIX_TIE_NR,
+                seq_nr=next_seq_nr,
+                lifetime=common.constants.default_lifetime)
+            if must_originate_default:
+                # The specification does not mention what metric the default route should be
+                # originated with. Juniper originates with metric 1, so that is what I will do as
+                # well.
+                metric = 1
+                packet_common.add_ipv4_prefix_to_prefix_tie(self._my_south_prefix_tie,
+                                                            "0.0.0.0/0", metric)
+                packet_common.add_ipv6_prefix_to_prefix_tie(self._my_south_prefix_tie,
+                                                            "::0/0", metric)
+            self.store_tie_in_db(self._my_south_prefix_tie)
+            self.info("Regenerated south prefix TIE because {}: {}"
+                      .format(reason, self._my_south_prefix_tie))
+
     def clear_all_generated_node_ties(self):
         for direction in [common.ttypes.TieDirectionType.South,
                           common.ttypes.TieDirectionType.North]:
-            self.node_ties[direction] = None
-            # TODO: ##@@ Remove from DB
+            node_tie = self.my_node_ties[direction]
+            if node_tie is not None:
+                self.remove_tie_from_db(node_tie.header)
+                self.my_node_ties[direction] = None
 
     def send_tides(self):
         # The current implementation prepares, encodes, and sends a unique TIDE packet for each
@@ -569,11 +715,13 @@ class Node:
         tide_packet = self.tie_db.generate_tide_packet(
             neighbor_direction=intf.neighbor_direction(),
             neighbor_system_id=intf.neighbor.system_id,
+            neighbor_level=intf.neighbor.level,
+            neighbor_is_top_of_fabric=intf.neighbor.top_of_fabric(),
             my_system_id=self._system_id,
             my_level=self.level_value(),
             i_am_top_of_fabric=self.top_of_fabric())
-        self.info("Regenerated TIDE for neighbor {}: {}"
-                  .format(intf.neighbor.system_id, tide_packet))
+        self.debug("Regenerated TIDE for neighbor {}: {}"
+                   .format(intf.neighbor.system_id, tide_packet))
         packet_content = encoding.ttypes.PacketContent(tide=tide_packet)
         packet_header = encoding.ttypes.PacketHeader(
             sender=self.system_id,
@@ -581,7 +729,7 @@ class Node:
         protocol_packet = encoding.ttypes.ProtocolPacket(
             header=packet_header,
             content=packet_content)
-        intf.send_protocol_packet(protocol_packet, flood=True, dont_change=False)
+        intf.send_protocol_packet(protocol_packet, flood=True)
 
     @staticmethod
     def cli_summary_headers():
@@ -722,6 +870,9 @@ class Node:
         tx_fail = failure in ["failed", "tx-failed"]
         rx_fail = failure in ["failed", "rx-failed"]
         self._interfaces[interface_name].set_failure(tx_fail, rx_fail)
+
+    def debug(self, msg):
+        self._log.debug("[%s] %s", self._log_id, msg)
 
     def info(self, msg):
         self._log.info("[%s] %s", self._log_id, msg)

@@ -30,6 +30,7 @@ shards:
           - name: if1 # Connected to node2-if1
             rx_lie_port: 20012
             tx_lie_port: 20021
+            rx_tie_port: 10012
       - name: node2
         level: 1
         systemid: 2
@@ -38,9 +39,11 @@ shards:
           - name: if1 # Connected to node1-if1
             rx_lie_port: 20021
             tx_lie_port: 20012
+            rx_tie_port: 10021
           - name: if2 # Connected to node3-if1
             rx_lie_port: 20023
             tx_lie_port: 20032
+            rx_tie_port: 10023
       - name: node3
         level: 0
         systemid: 3
@@ -49,3 +52,4 @@ shards:
           - name: if1 # Connected to node2-if1
             rx_lie_port: 20032
             tx_lie_port: 20023
+            rx_tie_port: 10032
