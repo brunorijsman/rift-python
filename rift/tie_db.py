@@ -1,5 +1,6 @@
 # Topology Information Element DataBase (TIE_DB)
 
+import collections
 import copy
 import sortedcontainers
 from py._path import common
@@ -76,6 +77,9 @@ class TIE_DB:
         tietype=common.ttypes.TIETypeType.KeyValueTIEType,
         tie_nr=packet_common.MAX_U32)
 
+    MIN_SPF_INTERVAL = 1.0
+    SPF_TRIGGER_HISTORY_LENGTH = 10
+
     def __init__(self, name=None, log=None):
         self._name = name
         self._log = log
@@ -93,6 +97,12 @@ class TIE_DB:
             expire_function=self.age_ties,
             periodic=True,
             start=True)
+        self._defer_spf_timer = None
+        self._spf_triggers_count = 0
+        self._spf_triggers_deferred_count = 0
+        self._spf_deferred_trigger_pending = False
+        self._spf_runs_count = 0
+        self._spf_trigger_history = collections.deque([], self.SPF_TRIGGER_HISTORY_LENGTH)
 
     def debug(self, msg):
         if self._log is not None:
@@ -101,11 +111,16 @@ class TIE_DB:
     def store_tie(self, tie_packet):
         tie_id = tie_packet.header.tieid
         self.ties[tie_id] = tie_packet
+        ###@@@ only if meaningful change
+        reason = "TIE " + packet_common.tie_id_str(tie_id) + " changed"
+        self.trigger_spf(reason)
 
     def remove_tie(self, tie_id):
         # It is not an error to attempt to delete a TIE which is not in the database
         if tie_id in self.ties:
             del self.ties[tie_id]
+            reason = "TIE " + packet_common.tie_id_str(tie_id) + " removed"
+            self.trigger_spf(reason)
 
     def find_tie(self, tie_id):
         # Returns None if tie_id is not in database
@@ -561,3 +576,32 @@ class TIE_DB:
             tie_packet.header.remaining_lifetime,
             packet_common.element_str(tie_id.tietype, tie_packet.element)
         ]
+
+    def trigger_spf(self, reason):
+        self._spf_triggers_count += 1
+        self._spf_trigger_history.appendleft(reason)
+        if self._defer_spf_timer is None:
+            self.start_defer_spf_timer()
+            self._spf_deferred_trigger_pending = False
+            self.run_spf()
+        else:
+            self._spf_deferred_trigger_pending = True
+            self._spf_triggers_deferred_count += 1
+
+    def start_defer_spf_timer(self):
+        self._defer_spf_timer = timer.Timer(
+            interval=self.MIN_SPF_INTERVAL,
+            expire_function=self.defer_spf_timer_expired,
+            periodic=False,
+            start=True)
+
+    def defer_spf_timer_expired(self):
+        self._defer_spf_timer = None
+        if self._spf_deferred_trigger_pending:
+            self.start_defer_spf_timer()
+            self._spf_deferred_trigger_pending = False
+            self.run_spf()
+
+    def run_spf(self):
+        self._spf_runs_count += 1
+        ###@@@ TODO: Implement this

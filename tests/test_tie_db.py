@@ -1,8 +1,11 @@
+import time
+
 import common.ttypes
 import encoding.ttypes
 import neighbor
 import packet_common
 import tie_db
+import timer
 
 # pylint: disable=line-too-long
 
@@ -579,3 +582,57 @@ def test_age_ties():
     assert tie_1.header.seq_nr == 4
     assert tie_1.header.remaining_lifetime == 599
     assert tdb.find_tie(tie_id_2) is None
+
+def test_trigger_spf():
+    # Make sure there are no timers running from previous tests
+    timer.TIMER_SCHEDULER.stop_all_timers()
+    tdb = tie_db.TIE_DB()
+    # pylint:disable=protected-access
+    assert tdb._spf_triggers_count == 0
+    assert tdb._spf_triggers_deferred_count == 0
+    assert tdb._spf_runs_count == 0
+    # Trigger #1, runs immediately
+    tdb.trigger_spf("Test 1")
+    assert tdb._spf_triggers_count == 1
+    assert tdb._spf_triggers_deferred_count == 0
+    assert tdb._spf_runs_count == 1
+    # Trigger #2 within 1 second of trigger #1, deferred
+    tdb.trigger_spf("Test 2")
+    assert tdb._spf_triggers_count == 2
+    assert tdb._spf_triggers_deferred_count == 1
+    assert tdb._spf_runs_count == 1
+    # Trigger #3 also within 1 second of trigger #1, deferred
+    tdb.trigger_spf("Test 3")
+    assert tdb._spf_triggers_count == 3
+    assert tdb._spf_triggers_deferred_count == 2
+    assert tdb._spf_runs_count == 1
+    # Sleep 1.2 seconds
+    time.sleep(1.2)
+    timer.TIMER_SCHEDULER.trigger_all_expired_timers()
+    # There should be a single SPF run, for deferred triggers #2 and #3 combined
+    assert tdb._spf_triggers_count == 3
+    assert tdb._spf_triggers_deferred_count == 2
+    assert tdb._spf_runs_count == 2
+    # We just ran the deferred SPF. Trigger SPF #4 within 1 second of that last run, it should be
+    # deferred.
+    tdb.trigger_spf("Test 4")
+    assert tdb._spf_triggers_count == 4
+    assert tdb._spf_triggers_deferred_count == 3
+    assert tdb._spf_runs_count == 2
+    # Sleep 1.2 seconds.
+    time.sleep(1.2)
+    timer.TIMER_SCHEDULER.trigger_all_expired_timers()
+    # The deferred SPF for trigger #4 should have happened.
+    assert tdb._spf_triggers_count == 4
+    assert tdb._spf_triggers_deferred_count == 3
+    assert tdb._spf_runs_count == 3
+    # Sleep 1.2 seconds.
+    time.sleep(1.2)
+    timer.TIMER_SCHEDULER.trigger_all_expired_timers()
+    # Trigger #5, runs immediately
+    tdb.trigger_spf("Test 5")
+    assert tdb._spf_triggers_count == 5
+    assert tdb._spf_triggers_deferred_count == 3
+    assert tdb._spf_runs_count == 4
+    # Check history
+    assert list(tdb._spf_trigger_history) == ["Test 5", "Test 4", "Test 3", "Test 2", "Test 1"]

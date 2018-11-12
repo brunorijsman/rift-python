@@ -362,7 +362,7 @@ class Visualizer:
 
     def record_sent_message(self, sent_msg_record):
         xpos = sent_msg_record.target.xpos
-        ypos = tick_y_mid(sent_msg_record.tick)        
+        ypos = tick_y_mid(sent_msg_record.tick)   
         if sent_msg_record.nonce is not None:
             self.sent_messages[sent_msg_record.nonce] = SentMessage(xpos, ypos)
         elif sent_msg_record.packet is not None:

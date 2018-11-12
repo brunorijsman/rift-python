@@ -364,6 +364,12 @@ def tietype_str(tietype):
     else:
         return str(tietype)
 
+def tie_id_str(tie_id):
+    return (direction_str(tie_id.direction) + ":" +
+            str(tie_id.originator) + ":" +
+            tietype_str(tie_id.tietype) + ":" +
+            str(tie_id.tie_nr))
+
 HIERARCHY_INDICATIONS_TO_STR = {
     common.ttypes.HierarchyIndications.leaf_only: "LeafOnly",
     common.ttypes.HierarchyIndications.leaf_only_and_leaf_2_leaf_procedures: "LeafToLeaf",
