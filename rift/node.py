@@ -342,7 +342,10 @@ class Node:
         self._fsm_log = self._log.getChild("fsm")
         self._holdtime = 1
         self._next_interface_id = 1
-        self.tie_db = tie_db.TIE_DB(name=self._name, parent_log=self._log)
+        self.tie_db = tie_db.TIE_DB(
+            name=self._name,
+            system_id=self._system_id,
+            parent_log=self._log)
         if 'interfaces' in config:
             for interface_config in self._config['interfaces']:
                 self.create_interface(interface_config)
@@ -539,12 +542,7 @@ class Node:
             self.regenerate_my_south_prefix_tie()
 
     def regenerate_node_tie(self, direction, interface_going_down=None):
-        if direction == common.ttypes.TieDirectionType.South:
-            tie_nr = tie_db.SOUTH_NODE_TIE_NR
-        elif direction == common.ttypes.TieDirectionType.North:
-            tie_nr = tie_db.NORTH_NODE_TIE_NR
-        else:
-            assert False, "Invalid direction"
+        tie_nr = tie_db.MY_TIE_NR
         self.my_node_tie_seq_nrs[direction] += 1
         seq_nr = self.my_node_tie_seq_nrs[direction]
         node_tie_packet = packet_common.make_node_tie_packet(
@@ -576,7 +574,7 @@ class Node:
             self._my_north_prefix_tie = packet_common.make_prefix_tie_packet(
                 direction=common.ttypes.TieDirectionType.North,
                 originator=self._system_id,
-                tie_nr=tie_db.NORTH_PREFIX_TIE_NR,
+                tie_nr=tie_db.MY_TIE_NR,
                 seq_nr=1,
                 lifetime=common.constants.default_lifetime)
         else:
@@ -598,7 +596,7 @@ class Node:
                 direction=common.ttypes.TieDirectionType.North,
                 originator=self._system_id,
                 tie_type=common.ttypes.TIETypeType.PrefixTIEType,
-                tie_nr=tie_db.NORTH_PREFIX_TIE_NR)
+                tie_nr=tie_db.MY_TIE_NR)
             self.remove_tie_from_db(tie_id)
         else:
             self.store_tie_in_db(self._my_north_prefix_tie)
@@ -676,7 +674,7 @@ class Node:
             self._my_south_prefix_tie = packet_common.make_prefix_tie_packet(
                 direction=common.ttypes.TieDirectionType.South,
                 originator=self._system_id,
-                tie_nr=tie_db.SOUTH_PREFIX_TIE_NR,
+                tie_nr=tie_db.MY_TIE_NR,
                 seq_nr=next_seq_nr,
                 lifetime=common.constants.default_lifetime)
             if must_originate_default:
@@ -716,7 +714,6 @@ class Node:
             neighbor_system_id=intf.neighbor.system_id,
             neighbor_level=intf.neighbor.level,
             neighbor_is_top_of_fabric=intf.neighbor.top_of_fabric(),
-            my_system_id=self._system_id,
             my_level=self.level_value(),
             i_am_top_of_fabric=self.top_of_fabric())
         self.debug("Regenerated TIDE for neighbor {}: {}"

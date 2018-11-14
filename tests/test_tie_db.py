@@ -121,7 +121,7 @@ def test_compare_tie_header():
 
 def test_add_prefix_tie():
     packet_common.add_missing_methods_to_thrift()
-    tdb = tie_db.TIE_DB()
+    tdb = tie_db.TIE_DB(name="test", system_id=MY_SYSTEM_ID)
     prefix_tie_1 = packet_common.make_prefix_tie_packet(
         direction=common.ttypes.TieDirectionType.South,
         originator=222,
@@ -195,7 +195,7 @@ def check_process_tide_common(tdb, start_range, end_range, header_info_list):
                                                        seq_nr, lifetime)
             packet_common.add_tie_header_to_tide(tide_packet, tie_header)
     # Process the TIDE packet
-    result = tdb.process_received_tide_packet(tide_packet, MY_SYSTEM_ID)
+    result = tdb.process_received_tide_packet(tide_packet)
     (request_tie_headers, start_sending_tie_headers, stop_sending_tie_headers) = result
     # Check results
     compare_header_lists(
@@ -246,7 +246,7 @@ def check_process_tide_3(tdb):
     check_process_tide_common(tdb, start_range, end_range, header_info_list)
 
 def make_tie_db(db_tie_info_list):
-    tdb = tie_db.TIE_DB()
+    tdb = tie_db.TIE_DB(name="test", system_id=MY_SYSTEM_ID)
     for db_tie_info in db_tie_info_list:
         (direction, origin, tietype, tie_nr, seq_nr, lifetime) = db_tie_info
         if tietype == NODE:
@@ -381,7 +381,7 @@ def check_process_tie_common(tdb, rx_tie_info_list):
         rx_tie = make_rx_tie(rx_tie_info)
         rx_tie_id = rx_tie.header.tieid
         old_db_tie = tdb.find_tie(rx_tie_id)
-        result = tdb.process_received_tie_packet(rx_tie, MY_SYSTEM_ID)
+        result = tdb.process_received_tie_packet(rx_tie)
         (start_sending_tie_header, ack_tie_header) = result
         disposition = rx_tie_info[6]
         if disposition == TIE_SAME:
@@ -469,7 +469,7 @@ def test_process_tie():
 def test_is_flood_allowed():
     # pylint:disable=too-many-locals
     packet_common.add_missing_methods_to_thrift()
-    tdb = tie_db.TIE_DB()
+    tdb = tie_db.TIE_DB(name="test", system_id=MY_SYSTEM_ID)
     # Node 66 is same level as me
     node_66_tie = packet_common.make_node_tie_packet(
         name="node66",
@@ -555,7 +555,6 @@ def test_generate_tide_packet():
         neighbor_system_id=55,
         neighbor_level=8,
         neighbor_is_top_of_fabric=False,
-        my_system_id=MY_SYSTEM_ID,
         my_level=MY_LEVEL,
         i_am_top_of_fabric=True)
     assert tide_packet.start_range == tie_db.TIE_DB.MIN_TIE_ID
@@ -586,7 +585,7 @@ def test_age_ties():
 def test_trigger_spf():
     # Make sure there are no timers running from previous tests
     timer.TIMER_SCHEDULER.stop_all_timers()
-    tdb = tie_db.TIE_DB()
+    tdb = tie_db.TIE_DB(name="test", system_id=MY_SYSTEM_ID)
     # pylint:disable=protected-access
     assert tdb._spf_triggers_count == 0
     assert tdb._spf_triggers_deferred_count == 0

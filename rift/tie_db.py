@@ -13,10 +13,7 @@ import packet_common
 import table
 import timer
 
-SOUTH_NODE_TIE_NR = 1
-SOUTH_PREFIX_TIE_NR = 1
-NORTH_NODE_TIE_NR = 1
-NORTH_PREFIX_TIE_NR = 1
+MY_TIE_NR = 1
 
 FLUSH_LIFETIME = 60
 
@@ -80,8 +77,11 @@ class TIE_DB:
     MIN_SPF_INTERVAL = 1.0
     SPF_TRIGGER_HISTORY_LENGTH = 10
 
-    def __init__(self, name=None, parent_log=None):
+    def __init__(self, name, system_id, parent_log=None):
+        # TODO: Should we also pass my_level and i_am_top_of_fabric here? If so, make sure to update
+        # them, because they can change as a result of ZTP.
         self._name = name
+        self._system_id = system_id
         if parent_log is None:
             self._tie_db_log = None
             self._spf_log = None
@@ -168,7 +168,7 @@ class TIE_DB:
             # TODO: Make sure that lifetime is decreased by at least one before propagating
             start_sending_tie_headers.append(db_tie.header)
 
-    def process_received_tide_packet(self, tide_packet, my_system_id):
+    def process_received_tide_packet(self, tide_packet):
         request_tie_headers = []
         start_sending_tie_headers = []
         stop_sending_tie_headers = []
@@ -205,7 +205,7 @@ class TIE_DB:
             # Process all tie_ids in the TIDE
             db_tie = self.find_tie(header_in_tide.tieid)
             if db_tie is None:
-                if header_in_tide.tieid.originator == my_system_id:
+                if header_in_tide.tieid.originator == self._system_id:
                     # Self-originate an empty TIE with a higher sequence number.
                     bumped_own_tie_header = self.bump_own_tie(db_tie, header_in_tide.tieid)
                     start_sending_tie_headers.append(bumped_own_tie_header)
@@ -222,7 +222,7 @@ class TIE_DB:
             else:
                 comparison = compare_tie_header_age(db_tie.header, header_in_tide)
                 if comparison < 0:
-                    if header_in_tide.tieid.originator == my_system_id:
+                    if header_in_tide.tieid.originator == self._system_id:
                         # Re-originate DB TIE with higher sequence number than the one in TIDE
                         bumped_own_tie_header = self.bump_own_tie(db_tie, header_in_tide.tieid)
                         start_sending_tie_headers.append(bumped_own_tie_header)
@@ -265,12 +265,7 @@ class TIE_DB:
         # contents as the real node TIE that we actually originated, except don't report any
         # neighbors.
         real_node_tie_id = copy.deepcopy(rx_tie.header.tieid)
-        if rx_tie.header.tieid.direction == common.ttypes.TieDirectionType.South:
-            real_node_tie_id.tie_nr = SOUTH_NODE_TIE_NR
-        elif rx_tie.header.tieid.direction == common.ttypes.TieDirectionType.North:
-            real_node_tie_id.tie_nr = NORTH_NODE_TIE_NR
-        else:
-            assert False
+        real_node_tie_id.tie_nr = MY_TIE_NR
         real_node_tie = self.find_tie(real_node_tie_id)
         assert real_node_tie is not None
         return real_node_tie
@@ -296,7 +291,7 @@ class TIE_DB:
             new_element = encoding.ttypes.TIEElement(
                 positive_disaggregation_prefixes=empty_prefixes)
         elif tietype == common.ttypes.TIETypeType.NegativeDisaggregationPrefixTIEType:
-            # TODO: Policy guided prefixes are not yet in model in specification
+            # TODO: Negative disaggregation prefixes are not yet in model in specification
             assert False
         elif tietype == common.ttypes.TIETypeType.PGPrefixTIEType:
             # TODO: Policy guided prefixes are not yet in model in specification
@@ -325,14 +320,14 @@ class TIE_DB:
             db_tie.header.seq_nr = rx_tie.header.seq_nr + 1
             return db_tie.header
 
-    def process_received_tie_packet(self, rx_tie, my_system_id):
+    def process_received_tie_packet(self, rx_tie):
         start_sending_tie_header = None
         ack_tie_header = None
         rx_tie_header = rx_tie.header
         rx_tie_id = rx_tie_header.tieid
         db_tie = self.find_tie(rx_tie_id)
         if db_tie is None:
-            if rx_tie_id.originator == my_system_id:
+            if rx_tie_id.originator == self._system_id:
                 # Self-originate an empty TIE with a higher sequence number.
                 start_sending_tie_header = self.bump_own_tie(db_tie, rx_tie)
             else:
@@ -343,7 +338,7 @@ class TIE_DB:
             comparison = compare_tie_header_age(db_tie.header, rx_tie_header)
             if comparison < 0:
                 # We have an older version of the TIE, ...
-                if rx_tie_id.originator == my_system_id:
+                if rx_tie_id.originator == self._system_id:
                     # Re-originate DB TIE with higher sequence number than the one in RX TIE
                     start_sending_tie_header = self.bump_own_tie(db_tie, rx_tie)
                 else:
@@ -358,8 +353,8 @@ class TIE_DB:
                 ack_tie_header = db_tie.header
         return (start_sending_tie_header, ack_tie_header)
 
-    def tie_is_self_originated(self, tie_header, my_system_id):
-        return tie_header.tieid.originator == my_system_id
+    def tie_is_originated_by_node(self, tie_header, node_system_id):
+        return tie_header.tieid.originator == node_system_id
 
     def tie_originator_level(self, tie_header):
         # We cannot determine the level of the originator just by looking at the TIE header; we have
@@ -427,7 +422,7 @@ class TIE_DB:
                 # Non-Node S-TIE
                 if to_node_direction == neighbor.Neighbor.Direction.SOUTH:
                     # Non-Node S-TIE to S: Flood self-originated only
-                    if self.tie_is_self_originated(tie_header, from_node_system_id):
+                    if self.tie_is_originated_by_node(tie_header, from_node_system_id):
                         return (True, "Non-node S-TIE to S: self-originated")
                     else:
                         return (False, "Non-node S-TIE to S: not self-originated")
@@ -443,7 +438,7 @@ class TIE_DB:
                     # ToF
                     if from_node_is_top_of_fabric:
                         return (False, "Non-node S-TIE to EW: this top of fabric")
-                    elif self.tie_is_self_originated(tie_header, from_node_system_id):
+                    elif self.tie_is_originated_by_node(tie_header, from_node_system_id):
                         return (True, "Non-node S-TIE to EW: self-originated and not top of fabric")
                     else:
                         return (False, "Non-node S-TIE to EW: not self-originated")
@@ -471,28 +466,28 @@ class TIE_DB:
                 assert to_node_direction is None
                 return (False, "N-TIE to ?: never flood")
 
-    def is_flood_allowed_from_me_to_neighbor(self,
-                                             tie_header,
-                                             neighbor_direction,
-                                             neighbor_system_id,
-                                             my_system_id,
-                                             my_level,
-                                             i_am_top_of_fabric):
+    def is_flood_allowed_from_node_to_neighbor(self,
+                                               tie_header,
+                                               neighbor_direction,
+                                               neighbor_system_id,
+                                               node_system_id,
+                                               node_level,
+                                               node_is_top_of_fabric):
         return self.is_flood_allowed(
             tie_header=tie_header,
             to_node_direction=neighbor_direction,
             to_node_system_id=neighbor_system_id,
-            from_node_system_id=my_system_id,
-            from_node_level=my_level,
-            from_node_is_top_of_fabric=i_am_top_of_fabric)
+            from_node_system_id=node_system_id,
+            from_node_level=node_level,
+            from_node_is_top_of_fabric=node_is_top_of_fabric)
 
-    def is_flood_allowed_from_neighbor_to_me(self,
-                                             tie_header,
-                                             neighbor_direction,
-                                             neighbor_system_id,
-                                             neighbor_level,
-                                             neighbor_is_top_of_fabric,
-                                             my_system_id):
+    def is_flood_allowed_from_neighbor_to_node(self,
+                                               tie_header,
+                                               neighbor_direction,
+                                               neighbor_system_id,
+                                               neighbor_level,
+                                               neighbor_is_top_of_fabric,
+                                               node_system_id):
         if neighbor_direction == neighbor.Neighbor.Direction.SOUTH:
             neighbor_reverse_direction = neighbor.Neighbor.Direction.NORTH
         elif neighbor_direction == neighbor.Neighbor.Direction.NORTH:
@@ -502,7 +497,7 @@ class TIE_DB:
         return self.is_flood_allowed(
             tie_header=tie_header,
             to_node_direction=neighbor_reverse_direction,
-            to_node_system_id=my_system_id,
+            to_node_system_id=node_system_id,
             from_node_system_id=neighbor_system_id,
             from_node_level=neighbor_level,
             from_node_is_top_of_fabric=neighbor_is_top_of_fabric)
@@ -512,7 +507,6 @@ class TIE_DB:
                              neighbor_system_id,
                              neighbor_level,
                              neighbor_is_top_of_fabric,
-                             my_system_id,
                              my_level,
                              i_am_top_of_fabric):
         # pylint:disable=too-many-locals
@@ -539,11 +533,11 @@ class TIE_DB:
             # The first possible reason for including a TIE header in the TIDE is to announce that
             # we have a TIE that we want to send to the neighbor. In other words the TIE in the
             # flooding scope from us to the neighbor.
-            (allowed, reason1) = self.is_flood_allowed_from_me_to_neighbor(
+            (allowed, reason1) = self.is_flood_allowed_from_node_to_neighbor(
                 tie_header,
                 neighbor_direction,
                 neighbor_system_id,
-                my_system_id,
+                self._system_id,
                 my_level,
                 i_am_top_of_fabric)
             if allowed:
@@ -554,13 +548,13 @@ class TIE_DB:
             # The second possible reason for including a TIE header in the TIDE is because the
             # neighbor might be considering to send the TIE to us, and we want to let the neighbor
             # know that we already have the TIE and what version it it.
-            (allowed, reason2) = self.is_flood_allowed_from_neighbor_to_me(
+            (allowed, reason2) = self.is_flood_allowed_from_neighbor_to_node(
                 tie_header,
                 neighbor_direction,
                 neighbor_system_id,
                 neighbor_level,
                 neighbor_is_top_of_fabric,
-                my_system_id)
+                self._system_id)
             if allowed:
                 self.db_debug("Include TIE {} in TIDE because {} (perspective neighbor to us)"
                               .format(tie_header, reason2))
@@ -586,7 +580,7 @@ class TIE_DB:
                 expired_key_ids.append(tie_id)
         for key_id in expired_key_ids:
             ##@@ log a message
-            del self.ties[key_id]
+            self.remove_tie(key_id)
 
     @staticmethod
     def cli_summary_headers():
@@ -641,4 +635,16 @@ class TIE_DB:
 
     def run_spf(self):
         self._spf_runs_count += 1
+        # TODO: Currently we simply always run both North-SPF and South-SPF, but maybe we can be
+        # more intelligent about selectively triggering North-SPF and South-SPF separately.
+        self.run_north_spf()
+        self.run_south_spf()
+
+    def run_north_spf(self):
         ###@@@ TODO: Implement this
+        pass
+
+    def run_south_spf(self):
+        ###@@@ TODO: Implement this
+        # Locate this node's South-Node-TIE
+        pass

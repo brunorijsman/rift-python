@@ -717,7 +717,7 @@ class Interface:
 
     def process_received_tie_packet(self, tie_packet):
         self.debug(self._rx_log, "Receive TIE packet {}".format(tie_packet))
-        result = self._node.tie_db.process_received_tie_packet(tie_packet, self._node.system_id)
+        result = self._node.tie_db.process_received_tie_packet(tie_packet)
         (start_sending_tie_header, ack_tie_header) = result
         if start_sending_tie_header is not None:
             self.try_to_transmit_tie(start_sending_tie_header)
@@ -725,7 +725,7 @@ class Interface:
             self.ack_tie(ack_tie_header)
 
     def process_received_tide_packet(self, tide_packet):
-        result = self._node.tie_db.process_received_tide_packet(tide_packet, self._node.system_id)
+        result = self._node.tie_db.process_received_tide_packet(tide_packet)
         (request_tie_headers, start_sending_tie_headers, stop_sending_tie_headers) = result
         for tie_header in start_sending_tie_headers:
             self.try_to_transmit_tie(tie_header)
@@ -813,7 +813,7 @@ class Interface:
     # logic. However, this seems like a simpler (and less error prone) way to achieve that.
     #
     def is_request_allowed_simple(self, tie_header, _i_am_top_of_fabric):
-        return self._node.tie_db.is_flood_allowed_from_neighbor_to_me(
+        return self._node.tie_db.is_flood_allowed_from_neighbor_to_node(
             tie_header,
             self.neighbor_direction(),
             self.neighbor.system_id,
@@ -984,7 +984,7 @@ class Interface:
             # neighbor is not allowed to flood the TIE to us. Why? Because the neighbor is allowed
             # to advertise extra TIEs in the TIDE, and if we request them we will get an
             # oscillation.
-            (allowed, _reason) = self._node.tie_db.is_flood_allowed_from_neighbor_to_me(
+            (allowed, _reason) = self._node.tie_db.is_flood_allowed_from_neighbor_to_node(
                 tie_header,
                 self.neighbor_direction(),
                 self.neighbor.system_id,
