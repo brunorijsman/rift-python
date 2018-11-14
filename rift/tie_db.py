@@ -80,9 +80,14 @@ class TIE_DB:
     MIN_SPF_INTERVAL = 1.0
     SPF_TRIGGER_HISTORY_LENGTH = 10
 
-    def __init__(self, name=None, log=None):
+    def __init__(self, name=None, parent_log=None):
         self._name = name
-        self._log = log
+        if parent_log is None:
+            self._tie_db_log = None
+            self._spf_log = None
+        else:
+            self._tie_db_log = parent_log.getChild("tie_db")
+            self._spf_log = parent_log.getChild("spf")
         # The ties dictionary contains all TIEPacket objects (not ProtocolPacket objects) indexed
         # by TIEID.
         self.ties = sortedcontainers.SortedDict()
@@ -104,9 +109,13 @@ class TIE_DB:
         self._spf_runs_count = 0
         self._spf_trigger_history = collections.deque([], self.SPF_TRIGGER_HISTORY_LENGTH)
 
-    def debug(self, msg):
-        if self._log is not None:
-            self._log.debug("[%s] %s", self._name, msg)
+    def db_debug(self, msg):
+        if self._tie_db_log is not None:
+            self._tie_db_log.debug("[%s] %s", self._name, msg)
+
+    def spf_debug(self, msg):
+        if self._spf_log is not None:
+            self._spf_log.debug("[%s] %s", self._name, msg)
 
     def store_tie(self, tie_packet):
         tie_id = tie_packet.header.tieid
@@ -513,8 +522,8 @@ class TIE_DB:
                 my_level,
                 i_am_top_of_fabric)
             if allowed:
-                self.debug("Include TIE {} in TIDE because {} (perspective us to neighbor)"
-                           .format(tie_header, reason1))
+                self.db_debug("Include TIE {} in TIDE because {} (perspective us to neighbor)"
+                              .format(tie_header, reason1))
                 packet_common.add_tie_header_to_tide(tide_packet, tie_header)
                 continue
             # The second possible reason for including a TIE header in the TIDE is because the
@@ -528,13 +537,13 @@ class TIE_DB:
                 neighbor_is_top_of_fabric,
                 my_system_id)
             if allowed:
-                self.debug("Include TIE {} in TIDE because {} (perspective neighbor to us)"
-                           .format(tie_header, reason2))
+                self.db_debug("Include TIE {} in TIDE because {} (perspective neighbor to us)"
+                              .format(tie_header, reason2))
                 packet_common.add_tie_header_to_tide(tide_packet, tie_header)
                 continue
             # If we get here, we decided not to include the TIE header in the TIDE
-            self.debug("Exclude TIE {} in TIDE because {} (perspective us to neighbor) and "
-                       "{} (perspective neighbor to us)".format(tie_header, reason1, reason2))
+            self.db_debug("Exclude TIE {} in TIDE because {} (perspective us to neighbor) and "
+                          "{} (perspective neighbor to us)".format(tie_header, reason1, reason2))
         return tide_packet
 
     def tie_db_table(self):
@@ -583,10 +592,12 @@ class TIE_DB:
         if self._defer_spf_timer is None:
             self.start_defer_spf_timer()
             self._spf_deferred_trigger_pending = False
+            self.spf_debug("Trigger and run SPF: {}".format(reason))
             self.run_spf()
         else:
             self._spf_deferred_trigger_pending = True
             self._spf_triggers_deferred_count += 1
+            self.spf_debug("Trigger and defer SPF: {}".format(reason))
 
     def start_defer_spf_timer(self):
         self._defer_spf_timer = timer.Timer(
@@ -600,6 +611,7 @@ class TIE_DB:
         if self._spf_deferred_trigger_pending:
             self.start_defer_spf_timer()
             self._spf_deferred_trigger_pending = False
+            self.spf_debug("Run deferred SPF")
             self.run_spf()
 
     def run_spf(self):

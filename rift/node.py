@@ -342,8 +342,7 @@ class Node:
         self._fsm_log = self._log.getChild("fsm")
         self._holdtime = 1
         self._next_interface_id = 1
-        tie_db_log = self._log.getChild("tie_db")
-        self.tie_db = tie_db.TIE_DB(name=self._name, log=tie_db_log)
+        self.tie_db = tie_db.TIE_DB(name=self._name, parent_log=self._log)
         if 'interfaces' in config:
             for interface_config in self._config['interfaces']:
                 self.create_interface(interface_config)
