@@ -117,12 +117,37 @@ class TIE_DB:
         if self._spf_log is not None:
             self._spf_log.debug("[%s] %s", self._name, msg)
 
+    def ties_different_enough_to_trigger_spf(self, old_tie, new_tie):
+        # Only TIEs with the same TIEID should be compared
+        assert old_tie.header.tieid == new_tie.header.tieid
+        # Any change in seq_nr triggers an SPF
+        if old_tie.header.seq_nr != new_tie.header.seq_nr:
+            return True
+        # All remaining_lifetime values are the same, except zero, for the purpose of running SPF
+        if (old_tie.header.remaining_lifetime == 0) and (new_tie.header.remaining_lifetime != 0):
+            return True
+        if (old_tie.header.remaining_lifetime != 0) and (new_tie.header.remaining_lifetime == 0):
+            return True
+        # Ignore any changes in origination_lifetime for the purpose of running SPF (TODO: really?)
+        # Any change in the element contents (node, prefixes, etc.) trigger an SPF
+        if old_tie.element != new_tie.element:
+            return True
+        # If we get here, nothing of relevance to SPF changed
+        return False
+
     def store_tie(self, tie_packet):
         tie_id = tie_packet.header.tieid
+        if tie_id in self.ties:
+            old_tie_packet = self.ties[tie_id]
+            trigger_spf = self.ties_different_enough_to_trigger_spf(old_tie_packet, tie_packet)
+            if trigger_spf:
+                reason = "TIE " + packet_common.tie_id_str(tie_id) + " changed"
+        else:
+            trigger_spf = True
+            reason = "TIE " + packet_common.tie_id_str(tie_id) + " added"
         self.ties[tie_id] = tie_packet
-        ###@@@ only if meaningful change
-        reason = "TIE " + packet_common.tie_id_str(tie_id) + " changed"
-        self.trigger_spf(reason)
+        if trigger_spf:
+            self.trigger_spf(reason)
 
     def remove_tie(self, tie_id):
         # It is not an error to attempt to delete a TIE which is not in the database
