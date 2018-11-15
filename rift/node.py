@@ -556,7 +556,15 @@ class Node:
         for intf in self._interfaces.values():
             if ((intf.fsm.state == interface.Interface.State.THREE_WAY) and
                     (intf != interface_going_down)):
-                node_neighbor = packet_common.make_node_neighbor(level=intf.neighbor.level)
+                local_id = self.system_id
+                remote_id = intf.neighbor.system_id
+                # TODO: Add support for reporting multiple parallel links to neighbor (i.e. more
+                # than one LinkIDPair in link_ids set)
+                node_neighbor = encoding.ttypes.NodeNeighborsTIEElement(
+                    level=intf.neighbor.level,
+                    cost=1,         ###@@@ TODO: Take this from config file
+                    link_ids=set([encoding.ttypes.LinkIDPair(local_id, remote_id)]),
+                    bandwidth=100)  ###@@@ TODO: Take this from config file or interface
                 node_tie_packet.element.node.neighbors[intf.neighbor.system_id] = node_neighbor
         self.my_node_ties[direction] = node_tie_packet
         self.store_tie_in_db(node_tie_packet)

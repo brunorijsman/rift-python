@@ -22,6 +22,7 @@ class UdpReceiveHandler:
         self._receive_function = receive_function
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
         self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        # TODO: SO_REUSEPORT is not portable
         self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
         self._sock.bind((remote_address, port))
         # If remote address is multicast, join the group
