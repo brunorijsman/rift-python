@@ -384,7 +384,7 @@ class Node:
         self.name = self.get_config_attribute("name", self.generatename())
         self._passive = force_passive or self.get_config_attribute('passive', False)
         self.running = self.is_running()
-        self.system_id = self.get_config_attribute("systemid", self.generatesystem_id())
+        self.system_id = self.get_config_attribute("systemid", self.generate_system_id())
         self.log_id = self.name
         self.log = logging.getLogger('node')
         # TODO: Make sure formating of log message is deferred everywhere, not just direct calls
@@ -467,7 +467,7 @@ class Node:
             start=True)
         self.fsm.start()
 
-    def generatesystem_id(self):
+    def generate_system_id(self):
         mac_address = uuid.getnode()
         pid = os.getpid()
         system_id = (
@@ -1606,11 +1606,11 @@ class Node:
 
             # Remove the candidate node with the lowest cost from the candidate priority queue.
             candidate_entry = candidates.popitem()
-            (candidatesystem_id, _candidate_cost) = candidate_entry
+            (candidate_system_id, _candidate_cost) = candidate_entry
 
             # If we have already visited the node (i.e. if we already definitely know the best path)
             # skip the candidate.
-            if candidatesystem_id in visited:
+            if candidate_system_id in visited:
                 continue
 
             # Locate the Dir-Node-TIE(s) of the visited node, where Dir is the direction of the SPF.
@@ -1619,22 +1619,22 @@ class Node:
             ###@@@: TODO: The spec clearly says that for the top node we need to use tie_direction
             # instead of reverse_tie_direction, but that doesn't work for the deeper nodes (about
             # which the spec is vaguer)
-            candidate_node_ties = self.node_ties(reverse_spf_direction, candidatesystem_id)
+            candidate_node_ties = self.node_ties(reverse_spf_direction, candidate_system_id)
             if candidate_node_ties == []:
                 continue
 
             # Add that node to the visited list.
             visit_entry = candidate_entry
-            (visitsystem_id, visit_cost) = visit_entry
+            (visit_system_id, visit_cost) = visit_entry
             visit_node_ties = candidate_node_ties
-            visited.add(visitsystem_id)
+            visited.add(visit_system_id)
 
             # Consider each neighbor of the visited node in the right direction.
             for nbr in self.node_neighbors(visit_node_ties, nbr_direction):
                 (nbr_system_id, nbr_tie_element) = nbr
 
                 # Is the adjacency bi-directional? If not, skip neighbor.
-                if not self.is_neighbor_bidirectional(visitsystem_id, nbr_system_id,
+                if not self.is_neighbor_bidirectional(visit_system_id, nbr_system_id,
                                                       nbr_tie_element, spf_direction):
                     continue
 
@@ -1648,7 +1648,7 @@ class Node:
 
                     # We did not have any previous path to the neighbor. The new path to the
                     # neighbor is the best path.
-                    self.set_spf_predecessor(nbr_system_id, visitsystem_id, new_nbr_cost)
+                    self.set_spf_predecessor(nbr_system_id, visit_system_id, new_nbr_cost)
 
                     # Store the neighbor as a candidate
                     candidates[nbr_system_id] = new_nbr_cost
@@ -1667,7 +1667,7 @@ class Node:
 
                         # The new path is strictly better than the existing path. Replace the
                         # existing path with the new path.
-                        self.set_spf_predecessor(nbr_system_id, visitsystem_id, new_nbr_cost)
+                        self.set_spf_predecessor(nbr_system_id, visit_system_id, new_nbr_cost)
 
                         # Update (lower) the cost of the candidate in the priority queue
                         candidates[nbr_system_id] = new_nbr_cost
@@ -1677,23 +1677,23 @@ class Node:
                         # The new path is equal cost to the existing path. Add an ECMP path to the
                         # existing path.
                         assert new_nbr_cost == nbr_spf_node.cost
-                        self.add_spf_predecessor(nbr_spf_node, visitsystem_id)
+                        self.add_spf_predecessor(nbr_spf_node, visit_system_id)
 
-    def set_spf_predecessor(self, destinationsystem_id, predecessorsystem_id, cost):
-        spf_nod = spf_node.SPFNode(destinationsystem_id, cost)
-        spf_nod.add_predecessor(predecessorsystem_id)
-        if predecessorsystem_id == self.system_id:
+    def set_spf_predecessor(self, destination_system_id, predecessor_system_id, cost):
+        spf_nod = spf_node.SPFNode(destination_system_id, cost)
+        spf_nod.add_predecessor(predecessor_system_id)
+        if predecessor_system_id == self.system_id:
             ###@@@ TODO: implement this
             pass
         else:
-            spf_nod.inherit_direct_next_hops(self._spf_nodes[predecessorsystem_id])
-        self._spf_nodes[destinationsystem_id] = spf_nod
+            spf_nod.inherit_direct_next_hops(self._spf_nodes[predecessor_system_id])
+        self._spf_nodes[destination_system_id] = spf_nod
 
-    def add_spf_predecessor(self, destination_spf_node, predecessorsystem_id):
-        destination_spf_node.add_predecessor(predecessorsystem_id)
-        destination_spf_node.inherit_direct_next_hops(self._spf_nodes[predecessorsystem_id])
+    def add_spf_predecessor(self, destination_spf_node, predecessor_system_id):
+        destination_spf_node.add_predecessor(predecessor_system_id)
+        destination_spf_node.inherit_direct_next_hops(self._spf_nodes[predecessor_system_id])
 
-    def is_neighbor_bidirectional(self, visitsystem_id, nbr_system_id, nbr_tie_element,
+    def is_neighbor_bidirectional(self, visit_system_id, nbr_system_id, nbr_tie_element,
                                   spf_direction):
         # Determine reverse directions
         if spf_direction == TIE_SOUTH:
@@ -1715,7 +1715,7 @@ class Node:
         for nbr_nbr in self.node_neighbors(nbr_node_ties, reverse_nbr_direction):
             (nbr_nbr_system_id, nbr_nbr_tie_element) = nbr_nbr
             # Does the neighbor report the visited node as its neighbor?
-            if nbr_nbr_system_id != visitsystem_id:
+            if nbr_nbr_system_id != visit_system_id:
                 continue
             # Are the link_ids bidirectional?
             if not self.are_link_ids_bidirectional(nbr_tie_element, nbr_nbr_tie_element):
