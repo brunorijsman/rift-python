@@ -3,8 +3,8 @@ import time
 import common.ttypes
 import encoding.ttypes
 import neighbor
+import node
 import packet_common
-import tie_db
 import timer
 
 # pylint: disable=line-too-long
@@ -49,7 +49,7 @@ def test_compare_tie_header():
         tie_nr=6,
         seq_nr=7,
         lifetime=500)
-    assert tie_db.compare_tie_header_age(header1, header2) == 0
+    assert node.compare_tie_header_age(header1, header2) == 0
     # Almost same, lifetime is different but close enough to call it same (within 300 seconds)
     header1 = packet_common.make_tie_header(
         direction=NORTH,
@@ -65,7 +65,7 @@ def test_compare_tie_header():
         tie_nr=6,
         seq_nr=7,
         lifetime=300)
-    assert tie_db.compare_tie_header_age(header1, header2) == 0
+    assert node.compare_tie_header_age(header1, header2) == 0
     # Different: lifetime is the tie breaker (more than 300 seconds difference)
     header1 = packet_common.make_tie_header(
         direction=NORTH,
@@ -81,8 +81,8 @@ def test_compare_tie_header():
         tie_nr=6,
         seq_nr=7,
         lifetime=600)
-    assert tie_db.compare_tie_header_age(header1, header2) == -1
-    assert tie_db.compare_tie_header_age(header2, header1) == 1
+    assert node.compare_tie_header_age(header1, header2) == -1
+    assert node.compare_tie_header_age(header2, header1) == 1
     # Different: lifetime is the tie breaker; the difference is less than 300 but one is zero and
     # the other is non-zero. The one with zero lifetime is considered older.
     header1 = packet_common.make_tie_header(
@@ -99,8 +99,8 @@ def test_compare_tie_header():
         tie_nr=6,
         seq_nr=7,
         lifetime=299)
-    assert tie_db.compare_tie_header_age(header1, header2) == -1
-    assert tie_db.compare_tie_header_age(header2, header1) == 1
+    assert node.compare_tie_header_age(header1, header2) == -1
+    assert node.compare_tie_header_age(header2, header1) == 1
     # Different: seq_nr is the tie breaker.
     header1 = packet_common.make_tie_header(
         direction=NORTH,
@@ -116,12 +116,12 @@ def test_compare_tie_header():
         tie_nr=6,
         seq_nr=19,
         lifetime=600)
-    assert tie_db.compare_tie_header_age(header1, header2) == 1
-    assert tie_db.compare_tie_header_age(header2, header1) == -1
+    assert node.compare_tie_header_age(header1, header2) == 1
+    assert node.compare_tie_header_age(header2, header1) == -1
 
 def test_add_prefix_tie():
     packet_common.add_missing_methods_to_thrift()
-    tdb = tie_db.TIE_DB(name="test", system_id=MY_SYSTEM_ID)
+    test_node = make_test_node()
     prefix_tie_1 = packet_common.make_prefix_tie_packet(
         direction=common.ttypes.TieDirectionType.South,
         originator=222,
@@ -130,7 +130,7 @@ def test_add_prefix_tie():
         lifetime=555)
     packet_common.add_ipv4_prefix_to_prefix_tie(prefix_tie_1, "1.2.3.0/24", 2, [77, 88], 12345)
     packet_common.add_ipv6_prefix_to_prefix_tie(prefix_tie_1, "1234:abcd::/64", 3)
-    tdb.store_tie(prefix_tie_1)
+    test_node.store_tie(prefix_tie_1)
     prefix_tie_2 = packet_common.make_prefix_tie_packet(
         direction=common.ttypes.TieDirectionType.North,
         originator=777,
@@ -138,16 +138,16 @@ def test_add_prefix_tie():
         seq_nr=999,
         lifetime=0)
     packet_common.add_ipv4_prefix_to_prefix_tie(prefix_tie_2, "0.0.0.0/0", 10)
-    tdb.store_tie(prefix_tie_2)
-    assert tdb.find_tie(prefix_tie_1.header.tieid) == prefix_tie_1
-    assert tdb.find_tie(prefix_tie_2.header.tieid) == prefix_tie_2
+    test_node.store_tie(prefix_tie_2)
+    assert test_node.find_tie(prefix_tie_1.header.tieid) == prefix_tie_1
+    assert test_node.find_tie(prefix_tie_2.header.tieid) == prefix_tie_2
     missing_tie_id = encoding.ttypes.TIEID(
         direction=common.ttypes.TieDirectionType.South,
         originator=321,
         tietype=common.ttypes.TIETypeType.PrefixTIEType,
         tie_nr=654)
-    assert tdb.find_tie(missing_tie_id) is None
-    tab = tdb.tie_db_table()
+    assert test_node.find_tie(missing_tie_id) is None
+    tab = test_node.tie_db_table()
     tab_str = tab.to_string()
     assert (tab_str ==
             "+-----------+------------+--------+--------+--------+----------+--------------------------+\n"
@@ -165,15 +165,15 @@ def test_add_prefix_tie():
             "|           |            |        |        |        |          |   Metric: 10             |\n"
             "+-----------+------------+--------+--------+--------+----------+--------------------------+\n")
 
-def tie_headers_with_disposition(tdb, header_info_list, filter_dispositions):
+def tie_headers_with_disposition(test_node, header_info_list, filter_dispositions):
     tie_headers = []
     for header_info in header_info_list:
         (direction, originator, _tietype, tie_nr, seq_nr, lifetime, disposition) = header_info
         if disposition in filter_dispositions:
             if disposition in [START_EXTRA, START_NEWER]:
                 tie_id = packet_common.make_tie_id(direction, originator, PREFIX, tie_nr)
-                seq_nr = tdb.ties[tie_id].header.seq_nr
-                lifetime = tdb.ties[tie_id].header.remaining_lifetime
+                seq_nr = test_node.ties[tie_id].header.seq_nr
+                lifetime = test_node.ties[tie_id].header.remaining_lifetime
             elif disposition == REQUEST_MISSING:
                 seq_nr = 0
                 lifetime = 0
@@ -182,7 +182,7 @@ def tie_headers_with_disposition(tdb, header_info_list, filter_dispositions):
             tie_headers.append(tie_header)
     return tie_headers
 
-def check_process_tide_common(tdb, start_range, end_range, header_info_list):
+def check_process_tide_common(test_node, start_range, end_range, header_info_list):
     # pylint:disable=too-many-locals
     # Prepare the TIDE packet
     tide_packet = packet_common.make_tide_packet(start_range, end_range)
@@ -195,20 +195,20 @@ def check_process_tide_common(tdb, start_range, end_range, header_info_list):
                                                        seq_nr, lifetime)
             packet_common.add_tie_header_to_tide(tide_packet, tie_header)
     # Process the TIDE packet
-    result = tdb.process_received_tide_packet(tide_packet)
+    result = test_node.process_received_tide_packet(tide_packet)
     (request_tie_headers, start_sending_tie_headers, stop_sending_tie_headers) = result
     # Check results
     compare_header_lists(
-        tie_headers_with_disposition(tdb, header_info_list, [REQUEST_MISSING, REQUEST_OLDER]),
+        tie_headers_with_disposition(test_node, header_info_list, [REQUEST_MISSING, REQUEST_OLDER]),
         request_tie_headers)
     compare_header_lists(
-        tie_headers_with_disposition(tdb, header_info_list, [START_EXTRA, START_NEWER]),
+        tie_headers_with_disposition(test_node, header_info_list, [START_EXTRA, START_NEWER]),
         start_sending_tie_headers)
     compare_header_lists(
-        tie_headers_with_disposition(tdb, header_info_list, [STOP_SAME]),
+        tie_headers_with_disposition(test_node, header_info_list, [STOP_SAME]),
         stop_sending_tie_headers)
 
-def check_process_tide_1(tdb):
+def check_process_tide_1(test_node):
     start_range = packet_common.make_tie_id(SOUTH, 10, PREFIX, 1)
     end_range = packet_common.make_tie_id(NORTH, 8, PREFIX, 999)
     header_info_list = [
@@ -223,9 +223,9 @@ def check_process_tide_1(tdb):
         ( SOUTH,     10,         PREFIX,  13,     5,      100,      REQUEST_OLDER),
         ( NORTH,     3,          PREFIX,  15,     5,      100,      START_NEWER),
         ( NORTH,     4,          PREFIX,  1,      None,   100,      START_EXTRA)]
-    check_process_tide_common(tdb, start_range, end_range, header_info_list)
+    check_process_tide_common(test_node, start_range, end_range, header_info_list)
 
-def check_process_tide_2(tdb):
+def check_process_tide_2(test_node):
     start_range = packet_common.make_tie_id(NORTH, 20, PREFIX, 1)
     end_range = packet_common.make_tie_id(NORTH, 100, PREFIX, 1)
     header_info_list = [
@@ -233,9 +233,9 @@ def check_process_tide_2(tdb):
         # Direction  Originator  Type     Tie-Nr  Seq-Nr  Lifetime  Disposition
         ( NORTH,     10,         PREFIX,  7,      None,   100,      START_EXTRA),
         ( NORTH,     21,         PREFIX,  15,     5,      100,      REQUEST_OLDER)]
-    check_process_tide_common(tdb, start_range, end_range, header_info_list)
+    check_process_tide_common(test_node, start_range, end_range, header_info_list)
 
-def check_process_tide_3(tdb):
+def check_process_tide_3(test_node):
     start_range = packet_common.make_tie_id(NORTH, 200, PREFIX, 1)
     end_range = packet_common.make_tie_id(NORTH, 300, PREFIX, 1)
     header_info_list = [
@@ -243,10 +243,17 @@ def check_process_tide_3(tdb):
         # Direction  Originator  Type     Tie-Nr  Seq-Nr  Lifetime  Disposition
         ( NORTH,     110,        PREFIX,  40,     None,   100,      START_EXTRA),
         ( NORTH,     210,        PREFIX,  6,      None,   100,      START_EXTRA)]
-    check_process_tide_common(tdb, start_range, end_range, header_info_list)
+    check_process_tide_common(test_node, start_range, end_range, header_info_list)
 
-def make_tie_db(db_tie_info_list):
-    tdb = tie_db.TIE_DB(name="test", system_id=MY_SYSTEM_ID)
+def make_test_node(db_tie_info_list=None):
+    if db_tie_info_list is None:
+        db_tie_info_list = []
+    config = {
+        "name": "test",
+        "systemid": MY_SYSTEM_ID,
+        "skip-self-orginated-ties": True
+    }
+    test_node = node.Node(config)
     for db_tie_info in db_tie_info_list:
         (direction, origin, tietype, tie_nr, seq_nr, lifetime) = db_tie_info
         if tietype == NODE:
@@ -267,8 +274,8 @@ def make_tie_db(db_tie_info_list):
                 lifetime)
         else:
             assert False
-        tdb.store_tie(db_tie)
-    return tdb
+        test_node.store_tie(db_tie)
+    return test_node
 
 def make_rx_tie(header_info):
     (direction, origin, prefixtype, tie_nr, seq_nr, lifetime, _disposition) = header_info
@@ -311,13 +318,13 @@ def test_process_tide():
         ( NORTH,    21,    PREFIX,  15,   3,    100),   # Older version than in TIDE-2; request
         ( NORTH,    110,   PREFIX,  40,   1,    100),   # In TIDE-2...TIDE-3 gap; start
         ( NORTH,    210,   PREFIX,  6,    6,    100)]   # Not in TIDE-3 (empty); start
-    tdb = make_tie_db(db_tie_info_list)
-    check_process_tide_1(tdb)
-    check_process_tide_2(tdb)
-    check_process_tide_3(tdb)
+    test_node = make_test_node(db_tie_info_list)
+    check_process_tide_1(test_node)
+    check_process_tide_2(test_node)
+    check_process_tide_3(test_node)
     # Test wrap-around. Finished sending all TIDEs, now send first TIDE again. The key test is
     # whether the TIE in the TIE-DB in the gap before TIDE-1 is put on the send queue again.
-    check_process_tide_1(tdb)
+    check_process_tide_1(test_node)
 
 def compare_header_lists(headers1, headers2):
     # Order does not matter in comparison. This is maybe not the most efficient way of doing it,
@@ -327,7 +334,7 @@ def compare_header_lists(headers1, headers2):
     for header in headers2:
         assert header in headers1
 
-def check_process_tire_common(tdb, header_info_list):
+def check_process_tire_common(test_node, header_info_list):
     # pylint:disable=too-many-locals
     # Prepare the TIRE packet
     tire = packet_common.make_tire_packet()
@@ -337,24 +344,24 @@ def check_process_tire_common(tdb, header_info_list):
                                                    seq_nr, lifetime)
         packet_common.add_tie_header_to_tire(tire, tie_header)
     # Process the TIRE packet
-    result = tdb.process_received_tire_packet(tire)
+    result = test_node.process_received_tire_packet(tire)
     (request_tie_headers, start_sending_tie_headers, acked_tie_headers) = result
     # Check results
-    compare_header_lists(tie_headers_with_disposition(tdb, header_info_list, [REQUEST_OLDER]),
+    compare_header_lists(tie_headers_with_disposition(test_node, header_info_list, [REQUEST_OLDER]),
                          request_tie_headers)
-    compare_header_lists(tie_headers_with_disposition(tdb, header_info_list, [START_NEWER]),
+    compare_header_lists(tie_headers_with_disposition(test_node, header_info_list, [START_NEWER]),
                          start_sending_tie_headers)
-    compare_header_lists(tie_headers_with_disposition(tdb, header_info_list, [ACK]),
+    compare_header_lists(tie_headers_with_disposition(test_node, header_info_list, [ACK]),
                          acked_tie_headers)
 
-def check_process_tire(tdb):
+def check_process_tire(test_node):
     header_info_list = [
         # pylint:disable=bad-whitespace
         # Direction  Originator  Type     Tie-Nr  Seq-Nr  Lifetime  Disposition
         ( SOUTH,     10,         PREFIX,  13,     5,      100,      REQUEST_OLDER),
         ( NORTH,     3,          PREFIX,  15,     5,      100,      START_NEWER),
         ( NORTH,     4,          PREFIX,  1,      8,      100,      ACK)]
-    check_process_tire_common(tdb, header_info_list)
+    check_process_tire_common(test_node, header_info_list)
 
 def test_process_tire():
     packet_common.add_missing_methods_to_thrift()
@@ -365,8 +372,8 @@ def test_process_tire():
         ( SOUTH,    10,    PREFIX,  14,   2,    100),   # Not in TIRE; no action
         ( NORTH,    3,     PREFIX,  15,   7,    100),   # Newer version than in TIRE; start
         ( NORTH,    4,     PREFIX,  1,    8,    100)]   # Same version as in TIRE; ack
-    tdb = make_tie_db(db_tie_info_list)
-    check_process_tire(tdb)
+    test_node = make_test_node(db_tie_info_list)
+    check_process_tire(test_node)
 
 TIE_SAME = 1           # DB TIE is (fudgy) same version as RX TIE
 TIE_NEWER = 2          # DB TIE contains newer version than RX TIE
@@ -375,34 +382,34 @@ TIE_OLDER_SELF = 4     # DB TIE contains older version than RX TIE (self-origina
 TIE_MISSING = 5        # DB TIE does not yet contain RX TIE (not self-originated)
 TIE_MISSING_SELF = 6   # DB TIE does not yet contain RX TIE (not self-originated)
 
-def check_process_tie_common(tdb, rx_tie_info_list):
+def check_process_tie_common(test_node, rx_tie_info_list):
     # pylint:disable=too-many-locals
     for rx_tie_info in rx_tie_info_list:
         rx_tie = make_rx_tie(rx_tie_info)
         rx_tie_id = rx_tie.header.tieid
-        old_db_tie = tdb.find_tie(rx_tie_id)
-        result = tdb.process_received_tie_packet(rx_tie)
+        old_db_tie = test_node.find_tie(rx_tie_id)
+        result = test_node.process_received_tie_packet(rx_tie)
         (start_sending_tie_header, ack_tie_header) = result
         disposition = rx_tie_info[6]
         if disposition == TIE_SAME:
             # Acknowledge the TX TIE which is the "same" as the DB TIE
             # Note: the age in the DB TIE and the RX TIE could be slightly different; the ACK should
             # contain the DB TIE header.
-            new_db_tie = tdb.find_tie(rx_tie_id)
+            new_db_tie = test_node.find_tie(rx_tie_id)
             assert new_db_tie is not None
             assert new_db_tie == old_db_tie
             assert ack_tie_header == new_db_tie.header
             assert start_sending_tie_header is None
         elif disposition == TIE_NEWER:
             # Start sending the DB TIE
-            new_db_tie = tdb.find_tie(rx_tie_id)
+            new_db_tie = test_node.find_tie(rx_tie_id)
             assert new_db_tie is not None
             assert new_db_tie == old_db_tie
             assert start_sending_tie_header == new_db_tie.header
             assert ack_tie_header is None
         elif disposition == TIE_OLDER:
             # Store the RX TIE in the DB and ACK it
-            new_db_tie = tdb.find_tie(rx_tie_id)
+            new_db_tie = test_node.find_tie(rx_tie_id)
             assert old_db_tie is not None
             assert new_db_tie is not None
             assert new_db_tie != old_db_tie
@@ -411,14 +418,14 @@ def check_process_tie_common(tdb, rx_tie_info_list):
             assert start_sending_tie_header is None
         elif disposition == TIE_OLDER_SELF:
             # Re-originate the DB TIE by bumping up the version to RX TIE version plus one
-            new_db_tie = tdb.find_tie(rx_tie_id)
+            new_db_tie = test_node.find_tie(rx_tie_id)
             assert new_db_tie is not None
             assert new_db_tie.header.seq_nr == rx_tie.header.seq_nr + 1
             assert start_sending_tie_header == new_db_tie.header
             assert ack_tie_header is None
         elif disposition == TIE_MISSING:
             # Store the RX TIE in the DB and ACK it
-            new_db_tie = tdb.find_tie(rx_tie_id)
+            new_db_tie = test_node.find_tie(rx_tie_id)
             assert old_db_tie is None
             assert new_db_tie is not None
             assert new_db_tie.header == rx_tie.header
@@ -426,7 +433,7 @@ def check_process_tie_common(tdb, rx_tie_info_list):
             assert start_sending_tie_header is None
         elif disposition == TIE_MISSING_SELF:
             # Re-originate an empty version of the RX TIE with a higher version than the RX TIE
-            new_db_tie = tdb.find_tie(rx_tie_id)
+            new_db_tie = test_node.find_tie(rx_tie_id)
             assert old_db_tie is None
             assert new_db_tie is not None
             assert new_db_tie.header.seq_nr == rx_tie.header.seq_nr + 1
@@ -435,7 +442,7 @@ def check_process_tie_common(tdb, rx_tie_info_list):
         else:
             assert False
 
-def check_process_tie(tdb):
+def check_process_tie(test_node):
     rx_tie_info_list = [
         # pylint:disable=bad-whitespace
         # Direction  Originator     Type,    Tie-Nr  Seq-Nr  Lifetime  Disposition
@@ -449,7 +456,7 @@ def check_process_tie(tdb):
         ( NORTH,     5,             PREFIX,  8,      12,     100,      TIE_SAME),  # Exact same
         ( NORTH,     6,             PREFIX,  7,      4,      550,      TIE_SAME),  # Slightly older
         ( NORTH,     6,             PREFIX,  7,      4,      490,      TIE_SAME)]  # Slightly newer
-    check_process_tie_common(tdb, rx_tie_info_list)
+    check_process_tie_common(test_node, rx_tie_info_list)
 
 def test_process_tie():
     packet_common.add_missing_methods_to_thrift()
@@ -463,13 +470,13 @@ def test_process_tie():
         ( NORTH,    5,             PREFIX,  3,    2,    200),   # TIE_OLDER
         ( NORTH,    5,             PREFIX,  8,    12,   100),   # TIE_SAME
         ( NORTH,    6,             PREFIX,  7,    4,    500)]   # TIE_SAME
-    tdb = make_tie_db(db_tie_info_list)
-    check_process_tie(tdb)
+    test_node = make_test_node(db_tie_info_list)
+    check_process_tie(test_node)
 
 def test_is_flood_allowed():
     # pylint:disable=too-many-locals
     packet_common.add_missing_methods_to_thrift()
-    tdb = tie_db.TIE_DB(name="test", system_id=MY_SYSTEM_ID)
+    test_node = make_test_node()
     # Node 66 is same level as me
     node_66_tie = packet_common.make_node_tie_packet(
         name="node66",
@@ -479,7 +486,7 @@ def test_is_flood_allowed():
         tie_nr=5,
         seq_nr=7,
         lifetime=300)
-    tdb.store_tie(node_66_tie)
+    test_node.store_tie(node_66_tie)
     # Node 77 has higher level than me
     node_77_tie = packet_common.make_node_tie_packet(
         name="node77",
@@ -489,7 +496,7 @@ def test_is_flood_allowed():
         tie_nr=3,
         seq_nr=2,
         lifetime=400)
-    tdb.store_tie(node_77_tie)
+    test_node.store_tie(node_77_tie)
     # Node 88 has lower level than me
     node_88_tie = packet_common.make_node_tie_packet(
         name="node88",
@@ -499,7 +506,7 @@ def test_is_flood_allowed():
         tie_nr=7,
         seq_nr=3,
         lifetime=400)
-    tdb.store_tie(node_88_tie)
+    test_node.store_tie(node_88_tie)
     tx_tie_info_list = [
         # pylint:disable=bad-whitespace
         #                                                              Neighbor   Neighbor   I am    Allowed  Reason
@@ -532,7 +539,7 @@ def test_is_flood_allowed():
         (direction, originator, tietype, tie_nr, seq_nr, lifetime, neighbor_direction,
          neighbor_system_id, i_am_top_of_fabric, expected_allowed, expected_reason) = tx_tie_info
         tie_header = packet_common.make_tie_header(direction, originator, tietype, tie_nr, seq_nr, lifetime)
-        (allowed, reason) = tdb.is_flood_allowed(
+        (allowed, reason) = test_node.is_flood_allowed(
             tie_header=tie_header,
             to_node_direction=neighbor_direction,
             to_node_system_id=neighbor_system_id,
@@ -549,16 +556,16 @@ def test_generate_tide_packet():
         # Direction Origin         Type     TieNr SeqNr Lifetime  Allowed in TIDE
         ( SOUTH,     55,           PREFIX,  2,    4,    600),     # No : Non-node S-TIE to S, not self-originated
         ( SOUTH,     MY_SYSTEM_ID, PREFIX,  18,   903,  400)]     # Yes: Non-node S-TIE to S, self-originated
-    tdb = make_tie_db(db_tie_info_list)
-    tide_packet = tdb.generate_tide_packet(
+    test_node = make_test_node(db_tie_info_list)
+    tide_packet = test_node.generate_tide_packet(
         neighbor_direction=NBR_S,
         neighbor_system_id=55,
         neighbor_level=8,
         neighbor_is_top_of_fabric=False,
         my_level=MY_LEVEL,
         i_am_top_of_fabric=True)
-    assert tide_packet.start_range == tie_db.TIE_DB.MIN_TIE_ID
-    assert tide_packet.end_range == tie_db.TIE_DB.MAX_TIE_ID
+    assert tide_packet.start_range == node.Node.MIN_TIE_ID
+    assert tide_packet.end_range == node.Node.MAX_TIE_ID
     assert len(tide_packet.headers) == 1
     expected_header = packet_common.make_tie_header(SOUTH, MY_SYSTEM_ID, PREFIX, 18, 903, 400)
     assert tide_packet.headers[0] == expected_header
@@ -570,68 +577,68 @@ def test_age_ties():
         # Direction Origin         Type     TieNr SeqNr Lifetime
         ( SOUTH,     55,           NODE,    2,    4,    600),
         ( SOUTH,     MY_SYSTEM_ID, PREFIX,  18,   903,  1)]
-    tdb = make_tie_db(db_tie_info_list)
+    test_node = make_test_node(db_tie_info_list)
     tie_id_1 = packet_common.make_tie_id(SOUTH, 55, NODE, 2)
     tie_id_2 = packet_common.make_tie_id(SOUTH, MY_SYSTEM_ID, PREFIX, 18)
-    assert tdb.find_tie(tie_id_1) is not None
-    assert tdb.find_tie(tie_id_2) is not None
-    tdb.age_ties()
-    tie_1 = tdb.find_tie(tie_id_1)
+    assert test_node.find_tie(tie_id_1) is not None
+    assert test_node.find_tie(tie_id_2) is not None
+    test_node.age_ties()
+    tie_1 = test_node.find_tie(tie_id_1)
     assert tie_1 is not None
     assert tie_1.header.seq_nr == 4
     assert tie_1.header.remaining_lifetime == 599
-    assert tdb.find_tie(tie_id_2) is None
+    assert test_node.find_tie(tie_id_2) is None
 
 def test_trigger_spf():
     # Make sure there are no timers running from previous tests
     timer.TIMER_SCHEDULER.stop_all_timers()
-    tdb = tie_db.TIE_DB(name="test", system_id=MY_SYSTEM_ID)
+    test_node = make_test_node()
     # pylint:disable=protected-access
-    assert tdb._spf_triggers_count == 0
-    assert tdb._spf_triggers_deferred_count == 0
-    assert tdb._spf_runs_count == 0
+    assert test_node._spf_triggers_count == 0
+    assert test_node._spf_triggers_deferred_count == 0
+    assert test_node._spf_runs_count == 0
     # Trigger #1, runs immediately
-    tdb.trigger_spf("Test 1")
-    assert tdb._spf_triggers_count == 1
-    assert tdb._spf_triggers_deferred_count == 0
-    assert tdb._spf_runs_count == 1
+    test_node.trigger_spf("Test 1")
+    assert test_node._spf_triggers_count == 1
+    assert test_node._spf_triggers_deferred_count == 0
+    assert test_node._spf_runs_count == 1
     # Trigger #2 within 1 second of trigger #1, deferred
-    tdb.trigger_spf("Test 2")
-    assert tdb._spf_triggers_count == 2
-    assert tdb._spf_triggers_deferred_count == 1
-    assert tdb._spf_runs_count == 1
+    test_node.trigger_spf("Test 2")
+    assert test_node._spf_triggers_count == 2
+    assert test_node._spf_triggers_deferred_count == 1
+    assert test_node._spf_runs_count == 1
     # Trigger #3 also within 1 second of trigger #1, deferred
-    tdb.trigger_spf("Test 3")
-    assert tdb._spf_triggers_count == 3
-    assert tdb._spf_triggers_deferred_count == 2
-    assert tdb._spf_runs_count == 1
+    test_node.trigger_spf("Test 3")
+    assert test_node._spf_triggers_count == 3
+    assert test_node._spf_triggers_deferred_count == 2
+    assert test_node._spf_runs_count == 1
     # Sleep 1.2 seconds
     time.sleep(1.2)
     timer.TIMER_SCHEDULER.trigger_all_expired_timers()
     # There should be a single SPF run, for deferred triggers #2 and #3 combined
-    assert tdb._spf_triggers_count == 3
-    assert tdb._spf_triggers_deferred_count == 2
-    assert tdb._spf_runs_count == 2
+    assert test_node._spf_triggers_count == 3
+    assert test_node._spf_triggers_deferred_count == 2
+    assert test_node._spf_runs_count == 2
     # We just ran the deferred SPF. Trigger SPF #4 within 1 second of that last run, it should be
     # deferred.
-    tdb.trigger_spf("Test 4")
-    assert tdb._spf_triggers_count == 4
-    assert tdb._spf_triggers_deferred_count == 3
-    assert tdb._spf_runs_count == 2
+    test_node.trigger_spf("Test 4")
+    assert test_node._spf_triggers_count == 4
+    assert test_node._spf_triggers_deferred_count == 3
+    assert test_node._spf_runs_count == 2
     # Sleep 1.2 seconds.
     time.sleep(1.2)
     timer.TIMER_SCHEDULER.trigger_all_expired_timers()
     # The deferred SPF for trigger #4 should have happened.
-    assert tdb._spf_triggers_count == 4
-    assert tdb._spf_triggers_deferred_count == 3
-    assert tdb._spf_runs_count == 3
+    assert test_node._spf_triggers_count == 4
+    assert test_node._spf_triggers_deferred_count == 3
+    assert test_node._spf_runs_count == 3
     # Sleep 1.2 seconds.
     time.sleep(1.2)
     timer.TIMER_SCHEDULER.trigger_all_expired_timers()
     # Trigger #5, runs immediately
-    tdb.trigger_spf("Test 5")
-    assert tdb._spf_triggers_count == 5
-    assert tdb._spf_triggers_deferred_count == 3
-    assert tdb._spf_runs_count == 4
+    test_node.trigger_spf("Test 5")
+    assert test_node._spf_triggers_count == 5
+    assert test_node._spf_triggers_deferred_count == 3
+    assert test_node._spf_runs_count == 4
     # Check history
-    assert list(tdb._spf_trigger_history) == ["Test 5", "Test 4", "Test 3", "Test 2", "Test 1"]
+    assert list(test_node._spf_trigger_history) == ["Test 5", "Test 4", "Test 3", "Test 2", "Test 1"]

@@ -75,7 +75,7 @@ class Engine:
                 self.create_node(node_config, force_passive)
 
     def create_node(self, node_config, force_passive):
-        new_node = node.Node(self, node_config, force_passive)
+        new_node = node.Node(node_config, self, force_passive)
         self._nodes[new_node.name] = new_node
 
     def run(self):

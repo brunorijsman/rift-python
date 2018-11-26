@@ -717,7 +717,7 @@ class Interface:
 
     def process_received_tie_packet(self, tie_packet):
         self.debug(self._rx_log, "Receive TIE packet {}".format(tie_packet))
-        result = self._node.tie_db.process_received_tie_packet(tie_packet)
+        result = self._node.process_received_tie_packet(tie_packet)
         (start_sending_tie_header, ack_tie_header) = result
         if start_sending_tie_header is not None:
             self.try_to_transmit_tie(start_sending_tie_header)
@@ -725,7 +725,7 @@ class Interface:
             self.ack_tie(ack_tie_header)
 
     def process_received_tide_packet(self, tide_packet):
-        result = self._node.tie_db.process_received_tide_packet(tide_packet)
+        result = self._node.process_received_tide_packet(tide_packet)
         (request_tie_headers, start_sending_tie_headers, stop_sending_tie_headers) = result
         for tie_header in start_sending_tie_headers:
             self.try_to_transmit_tie(tie_header)
@@ -736,7 +736,7 @@ class Interface:
 
     def process_received_tire_packet(self, tire_packet):
         self.debug(self._rx_log, "Receive TIRE packet {}".format(tire_packet))
-        result = self._node.tie_db.process_received_tire_packet(tire_packet)
+        result = self._node.process_received_tire_packet(tire_packet)
         (request_tie_headers, start_sending_tie_headers, acked_tie_headers) = result
         for tie_header in start_sending_tie_headers:
             self.try_to_transmit_tie(tie_header)
@@ -813,7 +813,7 @@ class Interface:
     # logic. However, this seems like a simpler (and less error prone) way to achieve that.
     #
     def is_request_allowed_simple(self, tie_header, _i_am_top_of_fabric):
-        return self._node.tie_db.is_flood_allowed_from_neighbor_to_node(
+        return self._node.flood_allowed_from_nbr_to_node(
             tie_header,
             self.neighbor_direction(),
             self.neighbor.system_id,
@@ -835,7 +835,7 @@ class Interface:
         return (filtered, reason)
 
     def is_flood_filtered(self, tie_header):
-        (allowed, reason) = self._node.tie_db.is_flood_allowed(
+        (allowed, reason) = self._node.is_flood_allowed(
             tie_header=tie_header,
             to_node_direction=self.neighbor_direction(),
             to_node_system_id=self.neighbor.system_id,
@@ -857,7 +857,7 @@ class Interface:
             send_now = False
         self._ties_tx[tie_header.tieid] = tie_header
         if send_now:
-            db_tie = self._node.tie_db.find_tie(tie_header.tieid)
+            db_tie = self._node.find_tie(tie_header.tieid)
             if db_tie is not None:
                 packet_header = encoding.ttypes.PacketHeader(
                     sender=self._node.system_id,
@@ -984,7 +984,7 @@ class Interface:
             # neighbor is not allowed to flood the TIE to us. Why? Because the neighbor is allowed
             # to advertise extra TIEs in the TIDE, and if we request them we will get an
             # oscillation.
-            (allowed, _reason) = self._node.tie_db.is_flood_allowed_from_neighbor_to_node(
+            (allowed, _reason) = self._node.flood_allowed_from_nbr_to_node(
                 tie_header,
                 self.neighbor_direction(),
                 self.neighbor.system_id,
@@ -1016,7 +1016,7 @@ class Interface:
             header=packet_header,
             content=packet_content)
         for tie_id in queue.keys():
-            db_tie = self._node.tie_db.find_tie(tie_id)
+            db_tie = self._node.find_tie(tie_id)
             if db_tie is not None:
                 protocol_packet.content.tie = db_tie
                 self.send_protocol_packet(protocol_packet, flood=True)
