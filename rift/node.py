@@ -141,20 +141,20 @@ class Node:
             hal = None
         if self._highest_available_level != hal:
             if hal:
-                self._fsm.push_event(self.Event.BETTER_HAL)
+                self.fsm.push_event(self.Event.BETTER_HAL)
             else:
-                self._fsm.push_event(self.Event.LOST_HAL)
+                self.fsm.push_event(self.Event.LOST_HAL)
         # Determine if the Highest Adjacency Three-way (HAT) would change based on the current
         # offer. If it would change, push an event, but don't update the HAL yet.
         if best_offer_three_way:
             hat = best_offer_three_way.level
         else:
             hat = None
-        if self._highest_adjacency_three_way != hat:
+        if self.highest_adjacency_three_way != hat:
             if hat:
-                self._fsm.push_event(self.Event.BETTER_HAT)
+                self.fsm.push_event(self.Event.BETTER_HAT)
             else:
-                self._fsm.push_event(self.Event.LOST_HAT)
+                self.fsm.push_event(self.Event.LOST_HAT)
 
     def level_compute(self):
         # Find best offer overall and best offer in state 3-way. This was computer earlier in
@@ -177,9 +177,9 @@ class Node:
             hat = best_offer_three_way.level
         else:
             hat = None
-        self._highest_adjacency_three_way = hat
+        self.highest_adjacency_three_way = hat
         # Push event COMPUTATION_DONE
-        self._fsm.push_event(self.Event.COMPUTATION_DONE)
+        self.fsm.push_event(self.Event.COMPUTATION_DONE)
 
     def action_level_compute(self):
         self.level_compute()
@@ -204,9 +204,9 @@ class Node:
         parse_result = self.parse_level_symbol(self._configured_level_symbol)
         assert parse_result is not None, "Set command should not have allowed invalid config"
         (configured_level, leaf_only, leaf_2_leaf, top_of_fabric_flag) = parse_result
-        self._configured_level = configured_level
+        self.configured_level = configured_level
         self._leaf_only = leaf_only
-        self._leaf_2_leaf = leaf_2_leaf
+        self.leaf_2_leaf = leaf_2_leaf
         self._top_of_fabric_flag = top_of_fabric_flag
 
     def action_purge_offers(self):
@@ -244,7 +244,7 @@ class Node:
         if self.any_southbound_adjacencies():
             self._hold_down_timer.start()
         else:
-            self._fsm.push_event(self.Event.HOLD_DOWN_EXPIRED)
+            self.fsm.push_event(self.Event.HOLD_DOWN_EXPIRED)
 
     def action_stop_hold_down_timer(self):
         self._hold_down_timer.stop()
@@ -300,52 +300,52 @@ class Node:
 
     def __init__(self, parent_engine, config, force_passive):
         # pylint: disable=too-many-statements
-        self._engine = parent_engine
+        self.engine = parent_engine
         self._config = config
         self._node_nr = Node._next_node_nr
         Node._next_node_nr += 1
-        self._name = self.get_config_attribute('name', self.generate_name())
+        self.name = self.get_config_attribute('name', self.generate_name())
         self._passive = force_passive or self.get_config_attribute('passive', False)
-        self._running = self.is_running()
-        self._system_id = self.get_config_attribute('systemid', self.generate_system_id())
-        self._log_id = self._name
-        self._log = logging.getLogger('node')
+        self.running = self.is_running()
+        self.system_id = self.get_config_attribute('systemid', self.generate_system_id())
+        self.log_id = self.name
+        self.log = logging.getLogger('node')
         # TODO: Make sure formating of log message is deferred everywhere, not just direct calls
-        self._log.info("[%s] Create node", self._log_id)
+        self.log.info("[%s] Create node", self.log_id)
         self._configured_level_symbol = self.get_config_attribute('level', 'undefined')
         parse_result = self.parse_level_symbol(self._configured_level_symbol)
         assert parse_result is not None, "Configuration validation should have caught this"
         (configured_level, leaf_only, leaf_2_leaf, top_of_fabric_flag) = parse_result
-        self._configured_level = configured_level
+        self.configured_level = configured_level
         self._leaf_only = leaf_only
-        self._leaf_2_leaf = leaf_2_leaf
+        self.leaf_2_leaf = leaf_2_leaf
         self._top_of_fabric_flag = top_of_fabric_flag
         self._interfaces = sortedcontainers.SortedDict()
-        self._rx_lie_ipv4_mcast_address = self.get_config_attribute(
+        self.rx_lie_ipv4_mcast_address = self.get_config_attribute(
             'rx_lie_mcast_address', constants.DEFAULT_LIE_IPV4_MCAST_ADDRESS)
         self._tx_lie_ipv4_mcast_address = self.get_config_attribute(
             'tx_lie_mcast_address', constants.DEFAULT_LIE_IPV4_MCAST_ADDRESS)
-        self._rx_lie_ipv6_mcast_address = self.get_config_attribute(
+        self.rx_lie_ipv6_mcast_address = self.get_config_attribute(
             'rx_lie_v6_mcast_address', constants.DEFAULT_LIE_IPV6_MCAST_ADDRESS)
         self._tx_lie_ipv6_mcast_address = self.get_config_attribute(
             'tx_lie_v6_mcast_address', constants.DEFAULT_LIE_IPV6_MCAST_ADDRESS)
         self._rx_lie_port = self.get_config_attribute('rx_lie_port', constants.DEFAULT_LIE_PORT)
-        self._tx_lie_port = self.get_config_attribute('tx_lie_port', constants.DEFAULT_LIE_PORT)
+        self.tx_lie_port = self.get_config_attribute('tx_lie_port', constants.DEFAULT_LIE_PORT)
         # TODO: make lie-send-interval configurable
-        self._lie_send_interval_secs = constants.DEFAULT_LIE_SEND_INTERVAL_SECS
-        self._rx_tie_port = self.get_config_attribute('rx_tie_port', constants.DEFAULT_TIE_PORT)
+        self.lie_send_interval_secs = constants.DEFAULT_LIE_SEND_INTERVAL_SECS
+        self.rx_tie_port = self.get_config_attribute('rx_tie_port', constants.DEFAULT_TIE_PORT)
         self._derived_level = None
         self._rx_offers = {}     # Indexed by interface name
         self._tx_offers = {}     # Indexed by interface name
         self._highest_available_level = None
-        self._highest_adjacency_three_way = None
-        self._fsm_log = self._log.getChild("fsm")
+        self.highest_adjacency_three_way = None
+        self._fsm_log = self.log.getChild("fsm")
         self._holdtime = 1
         self._next_interface_id = 1
         self.tie_db = tie_db.TIE_DB(
-            name=self._name,
-            system_id=self._system_id,
-            parent_log=self._log)
+            name=self.name,
+            system_id=self.system_id,
+            parent_log=self.log)
         if 'interfaces' in config:
             for interface_config in self._config['interfaces']:
                 self.create_interface(interface_config)
@@ -360,14 +360,14 @@ class Node:
         self.regenerate_my_node_ties()
         self.regenerate_my_north_prefix_tie()
         self.regenerate_my_south_prefix_tie()
-        self._fsm = fsm.Fsm(
+        self.fsm = fsm.Fsm(
             definition=self.fsm_definition,
             action_handler=self,
             log=self._fsm_log,
-            log_id=self._log_id)
+            log_id=self.log_id)
         self._hold_down_timer = timer.Timer(
             interval=self.DEFAULT_HOLD_DOWN_TIME,
-            expire_function=lambda: self._fsm.push_event(self.Event.HOLD_DOWN_EXPIRED),
+            expire_function=lambda: self.fsm.push_event(self.Event.HOLD_DOWN_EXPIRED),
             periodic=False,
             start=False)
         self._send_tides_timer = timer.Timer(
@@ -375,7 +375,7 @@ class Node:
             expire_function=self.send_tides,
             periodic=True,
             start=True)
-        self._fsm.start()
+        self.fsm.start()
 
     def generate_system_id(self):
         mac_address = uuid.getnode()
@@ -415,8 +415,8 @@ class Node:
             return None
 
     def level_value(self):
-        if self._configured_level is not None:
-            return self._configured_level
+        if self.configured_level is not None:
+            return self.configured_level
         elif self._top_of_fabric_flag:
             return common.constants.top_of_fabric_level
         elif self._leaf_only:
@@ -465,7 +465,7 @@ class Node:
         # Is "Zero Touch Provisioning (ZTP)" aka "automatic level derivation" aka "level
         # determination procedure" aka "auto configuration" active? The criteria that determine
         # whether ZTP is enabled are spelled out in the first paragraph of section 4.2.9.4.
-        if self._configured_level is not None:
+        if self.configured_level is not None:
             return False
         elif self._top_of_fabric_flag:
             return False
@@ -475,9 +475,9 @@ class Node:
             return True
 
     def is_running(self):
-        if self._engine.active_nodes == constants.ActiveNodes.ONLY_PASSIVE_NODES:
+        if self.engine.active_nodes == constants.ActiveNodes.ONLY_PASSIVE_NODES:
             running = self._passive
-        elif self._engine.active_nodes == constants.ActiveNodes.ALL_NODES_EXCEPT_PASSIVE_NODES:
+        elif self.engine.active_nodes == constants.ActiveNodes.ALL_NODES_EXCEPT_PASSIVE_NODES:
             running = not self._passive
         else:
             running = True
@@ -495,28 +495,28 @@ class Node:
 
     def cli_detailed_attributes(self):
         return [
-            ["Name", self._name],
+            ["Name", self.name],
             ["Passive", self._passive],
             ["Running", self.is_running()],
-            ["System ID", utils.system_id_str(self._system_id)],
+            ["System ID", utils.system_id_str(self.system_id)],
             ["Configured Level", self._configured_level_symbol],
             ["Leaf Only", self._leaf_only],
-            ["Leaf 2 Leaf", self._leaf_2_leaf],
+            ["Leaf 2 Leaf", self.leaf_2_leaf],
             ["Top of Fabric Flag", self._top_of_fabric_flag],
             ["Zero Touch Provisioning (ZTP) Enabled", self.zero_touch_provisioning_enabled()],
-            ["ZTP FSM State", self._fsm.state.name],
+            ["ZTP FSM State", self.fsm.state.name],
             ["ZTP Hold Down Timer", self._hold_down_timer.remaining_time_str()],
             ["Highest Available Level (HAL)", self._highest_available_level],
-            ["Highest Adjacency Three-way (HAT)", self._highest_adjacency_three_way],
+            ["Highest Adjacency Three-way (HAT)", self.highest_adjacency_three_way],
             ["Level Value", self.level_value_str()],
-            ["Receive LIE IPv4 Multicast Address", self._rx_lie_ipv4_mcast_address],
+            ["Receive LIE IPv4 Multicast Address", self.rx_lie_ipv4_mcast_address],
             ["Transmit LIE IPv4 Multicast Address", self._tx_lie_ipv4_mcast_address],
-            ["Receive LIE IPv6 Multicast Address", self._rx_lie_ipv6_mcast_address],
+            ["Receive LIE IPv6 Multicast Address", self.rx_lie_ipv6_mcast_address],
             ["Transmit LIE IPv6 Multicast Address", self._tx_lie_ipv6_mcast_address],
             ["Receive LIE Port", self._rx_lie_port],
-            ["Transmit LIE Port", self._tx_lie_port],
-            ["LIE Send Interval", "{} secs".format(self._lie_send_interval_secs)],
-            ["Receive TIE Port", self._rx_tie_port]
+            ["Transmit LIE Port", self.tx_lie_port],
+            ["LIE Send Interval", "{} secs".format(self.lie_send_interval_secs)],
+            ["Receive TIE Port", self.rx_tie_port]
         ]
 
     def allocate_interface_id(self):
@@ -546,10 +546,10 @@ class Node:
         self.my_node_tie_seq_nrs[direction] += 1
         seq_nr = self.my_node_tie_seq_nrs[direction]
         node_tie_packet = packet_common.make_node_tie_packet(
-            name=self._name,
+            name=self.name,
             level=self.level_value(),
             direction=direction,
-            originator=self._system_id,
+            originator=self.system_id,
             tie_nr=tie_nr,
             seq_nr=seq_nr,
             lifetime=common.constants.default_lifetime)
@@ -581,7 +581,7 @@ class Node:
         if ('v4prefixes' in config) or ('v6prefixes' in config):
             self._my_north_prefix_tie = packet_common.make_prefix_tie_packet(
                 direction=common.ttypes.TieDirectionType.North,
-                originator=self._system_id,
+                originator=self.system_id,
                 tie_nr=tie_db.MY_TIE_NR,
                 seq_nr=1,
                 lifetime=common.constants.default_lifetime)
@@ -602,7 +602,7 @@ class Node:
         if self._my_north_prefix_tie is None:
             tie_id = packet_common.make_tie_id(
                 direction=common.ttypes.TieDirectionType.North,
-                originator=self._system_id,
+                originator=self.system_id,
                 tie_type=common.ttypes.TIETypeType.PrefixTIEType,
                 tie_nr=tie_db.MY_TIE_NR)
             self.remove_tie_from_db(tie_id)
@@ -681,7 +681,7 @@ class Node:
                 next_seq_nr = self._my_south_prefix_tie.header.seq_nr + 1
             self._my_south_prefix_tie = packet_common.make_prefix_tie_packet(
                 direction=common.ttypes.TieDirectionType.South,
-                originator=self._system_id,
+                originator=self.system_id,
                 tie_nr=tie_db.MY_TIE_NR,
                 seq_nr=next_seq_nr,
                 lifetime=common.constants.default_lifetime)
@@ -744,9 +744,9 @@ class Node:
 
     def cli_summary_attributes(self):
         return [
-            self._name,
-            utils.system_id_str(self._system_id),
-            self._running]
+            self.name,
+            utils.system_id_str(self.system_id),
+            self.running]
 
     @staticmethod
     def cli_level_headers():
@@ -758,18 +758,18 @@ class Node:
             ["Level", "Value"]]
 
     def cli_level_attributes(self):
-        if self._running:
+        if self.running:
             return [
-                self._name,
-                utils.system_id_str(self._system_id),
-                self._running,
+                self.name,
+                utils.system_id_str(self.system_id),
+                self.running,
                 self._configured_level_symbol,
                 self.level_value_str()]
         else:
             return [
-                self._name,
-                utils.system_id_str(self._system_id),
-                self._running,
+                self.name,
+                utils.system_id_str(self.system_id),
+                self.running,
                 self._configured_level_symbol,
                 '?']
 
@@ -847,7 +847,7 @@ class Node:
         cli_session.print(tab.to_string(cli_session.current_end_line()))
 
     def command_show_node_fsm_history(self, cli_session, verbose):
-        tab = self._fsm.history_table(verbose)
+        tab = self.fsm.history_table(verbose)
         cli_session.print(tab.to_string(cli_session.current_end_line()))
 
     @staticmethod
@@ -880,68 +880,7 @@ class Node:
         self._interfaces[interface_name].set_failure(tx_fail, rx_fail)
 
     def debug(self, msg):
-        self._log.debug("[%s] %s", self._log_id, msg)
+        self.log.debug("[%s] %s", self.log_id, msg)
 
     def info(self, msg):
-        self._log.info("[%s] %s", self._log_id, msg)
-
-    @property
-    def name(self):
-        return self._name
-
-    # TODO: get rid of these properties, more complicated than needed. Just remove _ instead
-    @property
-    def system_id(self):
-        return self._system_id
-
-    @property
-    def configured_level(self):
-        return self._configured_level
-
-    @property
-    def lie_ipv4_mcast_address(self):
-        return self._rx_lie_ipv4_mcast_address
-
-    @property
-    def lie_ipv6_mcast_address(self):
-        return self._rx_lie_ipv6_mcast_address
-
-    @property
-    def lie_destination_port(self):
-        return self._tx_lie_port
-
-    @property
-    def rx_tie_port(self):
-        return self._rx_tie_port
-
-    @property
-    def lie_send_interval_secs(self):
-        return self._lie_send_interval_secs
-
-    @property
-    def running(self):
-        return self._running
-
-    @property
-    def engine(self):
-        return self._engine
-
-    @property
-    def highest_adjacency_three_way(self):
-        return self._highest_adjacency_three_way
-
-    @property
-    def leaf_2_leaf(self):
-        return self._leaf_2_leaf
-
-    @property
-    def log(self):
-        return self._log
-
-    @property
-    def log_id(self):
-        return self._log_id
-
-    @property
-    def fsm(self):
-        return self._fsm
+        self.log.info("[%s] %s", self.log_id, msg)
