@@ -1567,12 +1567,6 @@ class Node:
         # pylint:disable=too-many-locals
         # pylint:disable=too-many-statements
 
-        ###@@@ While testing, only run SPF on node core_1
-        if self.name != "core_1":
-            return
-
-        print("\n*** SPF run, name =", self.name, " spf_direction =", spf_direction, "***\n")
-
         # Candidates is a priority queue that contains the system_ids of candidate nodes with the
         # best known cost thus far as the priority. A node is a candidate if we know some path to
         # the node, but we have not yet established whether or not that path is the best path.
@@ -1612,14 +1606,11 @@ class Node:
 
             # Remove the candidate node with the lowest cost from the candidate priority queue.
             candidate_entry = candidates.popitem()
-            (candidatesystem_id, candidate_cost) = candidate_entry
-            print("Removed from candidates: cost =", candidate_cost,
-                  "system_id =", candidatesystem_id)
+            (candidatesystem_id, _candidate_cost) = candidate_entry
 
             # If we have already visited the node (i.e. if we already definitely know the best path)
             # skip the candidate.
             if candidatesystem_id in visited:
-                print("Candidate already visited")
                 continue
 
             # Locate the Dir-Node-TIE(s) of the visited node, where Dir is the direction of the SPF.
@@ -1630,7 +1621,6 @@ class Node:
             # which the spec is vaguer)
             candidate_node_ties = self.node_ties(reverse_spf_direction, candidatesystem_id)
             if candidate_node_ties == []:
-                print("Cannot locate Node TIEs for candidate")
                 continue
 
             # Add that node to the visited list.
@@ -1638,24 +1628,18 @@ class Node:
             (visitsystem_id, visit_cost) = visit_entry
             visit_node_ties = candidate_node_ties
             visited.add(visitsystem_id)
-            print("Add to visited: cost =", visit_cost, "system_id =", visitsystem_id)
 
             # Consider each neighbor of the visited node in the right direction.
             for nbr in self.node_neighbors(visit_node_ties, nbr_direction):
-
-                # Debug print
                 (nbr_system_id, nbr_tie_element) = nbr
-                print("Considering neighbor: nbr_system_id =", nbr_system_id)
 
                 # Is the adjacency bi-directional? If not, skip neighbor.
                 if not self.is_neighbor_bidirectional(visitsystem_id, nbr_system_id,
                                                       nbr_tie_element, spf_direction):
-                    print("Neighbor is not bi-directional")
                     continue
 
                 # We have found a feasible path to the neighbor. What is the cost of this path?
                 new_nbr_cost = visit_cost + nbr_tie_element.cost
-                print("Discovered new path to neighbor: cost =", new_nbr_cost)
 
                 # Did we already have some path to the neighbor?
                 if nbr_system_id not in self._spf_nodes:
@@ -1664,7 +1648,6 @@ class Node:
 
                     # We did not have any previous path to the neighbor. The new path to the
                     # neighbor is the best path.
-                    print("First candidate path to neighbor")
                     self.set_spf_predecessor(nbr_system_id, visitsystem_id, new_nbr_cost)
 
                     # Store the neighbor as a candidate
@@ -1678,13 +1661,12 @@ class Node:
                     if new_nbr_cost > nbr_spf_node.cost:
 
                         # The new path is strictly worse than the existing path. Do nothing.
-                        print("New path is worse than existing path - keep using old path")
+                        pass
 
                     elif new_nbr_cost < nbr_spf_node.cost:
 
                         # The new path is strictly better than the existing path. Replace the
                         # existing path with the new path.
-                        print("New path is better than existing path - use new path")
                         self.set_spf_predecessor(nbr_system_id, visitsystem_id, new_nbr_cost)
 
                         # Update (lower) the cost of the candidate in the priority queue
@@ -1695,21 +1677,15 @@ class Node:
                         # The new path is equal cost to the existing path. Add an ECMP path to the
                         # existing path.
                         assert new_nbr_cost == nbr_spf_node.cost
-                        print("New path is equal cost to existing path - add new path")
                         self.add_spf_predecessor(nbr_spf_node, visitsystem_id)
-
-        print("SPF nodes:")
-        for system_id, spf_nod in self._spf_nodes.items():
-            print(system_id, spf_nod)
 
     def set_spf_predecessor(self, destinationsystem_id, predecessorsystem_id, cost):
         spf_nod = spf_node.SPFNode(destinationsystem_id, cost)
         spf_nod.add_predecessor(predecessorsystem_id)
         if predecessorsystem_id == self.system_id:
-            # TODO: implement this
-            print("First hop: determine direct next-hop")
+            ###@@@ TODO: implement this
+            pass
         else:
-            print("Non-first hop: inherit direct next-hop")
             spf_nod.inherit_direct_next_hops(self._spf_nodes[predecessorsystem_id])
         self._spf_nodes[destinationsystem_id] = spf_nod
 
