@@ -13,6 +13,7 @@ import neighbor
 import packet_common
 import table
 import timer
+import utils
 
 MY_TIE_NR = 1
 
@@ -66,7 +67,9 @@ class SPFNode:
 
     # TODO: Add support for Non-Equal Cost Multi-Path (NECMP)
 
-    def __init__(self, cost):
+    def __init__(self, destination, cost):
+        # System-id of the destination
+        self.destination = destination
         # Cost of best-known path to this node (is always a single cost, even in the case of ECMP)
         self.cost = cost
         # System-ID of node before this node (predecessor) on best known path (*)
@@ -91,6 +94,7 @@ class SPFNode:
     def __repr__(self):
         return (
             "SPFInfo(" +
+            "destination={}, ".format(self.destination) +
             "cost={}, ".format(self.cost) +
             "predecessors={}, ".format(self.predecessors) +
             "direct_nexthops={})".format(self.direct_nexthops))
@@ -607,11 +611,19 @@ class TIE_DB:
                           "{} (perspective neighbor to us)".format(tie_header, reason1, reason2))
         return tide_packet
 
+    def spf_table(self):
+        tab = table.Table()
+        tab.add_row(self.cli_spf_summary_headers())
+        sorted_spf_nodes = sortedcontainers.SortedDict(self._spf_nodes)
+        for spf_node in sorted_spf_nodes.values():
+            tab.add_row(self.cli_spf_summary_attributes(spf_node))
+        return tab
+
     def tie_db_table(self):
         tab = table.Table()
-        tab.add_row(self.cli_summary_headers())
+        tab.add_row(self.cli_tie_db_summary_headers())
         for tie in self.ties.values():
-            tab.add_row(self.cli_summary_attributes(tie))
+            tab.add_row(self.cli_tie_db_summary_attributes(tie))
         return tab
 
     def age_ties(self):
@@ -625,7 +637,7 @@ class TIE_DB:
             self.remove_tie(key_id)
 
     @staticmethod
-    def cli_summary_headers():
+    def cli_tie_db_summary_headers():
         return [
             "Direction",
             "Originator",
@@ -635,7 +647,7 @@ class TIE_DB:
             "Lifetime",
             "Contents"]
 
-    def cli_summary_attributes(self, tie_packet):
+    def cli_tie_db_summary_attributes(self, tie_packet):
         tie_id = tie_packet.header.tieid
         return [
             packet_common.direction_str(tie_id.direction),
@@ -645,6 +657,22 @@ class TIE_DB:
             tie_packet.header.seq_nr,
             tie_packet.header.remaining_lifetime,
             packet_common.element_str(tie_id.tietype, tie_packet.element)
+        ]
+
+    @staticmethod
+    def cli_spf_summary_headers():
+        return [
+            "Destination",
+            "Cost",
+            "Predecessors",
+            "Next hops"]
+
+    def cli_spf_summary_attributes(self, spf_node):
+        return [
+            utils.system_id_str(spf_node.destination),
+            spf_node.cost,
+            spf_node.predecessors,
+            spf_node.direct_nexthops
         ]
 
     def trigger_spf(self, reason):
@@ -717,10 +745,6 @@ class TIE_DB:
         # pylint:disable=too-many-locals
         # pylint:disable=too-many-statements
 
-        # For the intermediate daily commit -- disable the code for now
-        # pylint:disable=W0101
-        return
-
         ###@@@ While testing, only run SPF on node core_1
         if self._name != "core_1":
             return
@@ -749,7 +773,7 @@ class TIE_DB:
         # you can use the "show spf" command to see the results of the most recent SPF run.
         # TODO: implement that command
         self._spf_nodes = {}
-        self._spf_nodes[self._system_id] = SPFNode(cost=0)
+        self._spf_nodes[self._system_id] = SPFNode(destination=self._system_id, cost=0)
 
         # Which neighbors of the currently visited node are we considering?
         # TODO: When do we consider EAST-WEST as well?
@@ -847,7 +871,7 @@ class TIE_DB:
                     # We did not have any previous path to the neighbor. The new path to the
                     # neighbor is the best path.
                     print("First candidate path to neighbor")
-                    spf_node = SPFNode(new_nbr_cost)
+                    spf_node = SPFNode(nbr_system_id, new_nbr_cost)
                     spf_node.add_predecessor(visit_system_id)
                     spf_node.inherit_direct_next_hops(self._spf_nodes[visit_system_id])
                     self._spf_nodes[nbr_system_id] = spf_node
@@ -883,8 +907,6 @@ class TIE_DB:
                         assert new_nbr_cost == nbr_spf_node.cost
                         print("New path is equal cost to existing path - use new path")
                         # TODO: Implement this
-
-
 
         print("SPF nodes:")
         for system_id, spf_node in self._spf_nodes.items():

@@ -857,6 +857,10 @@ class Node:
         contents.append("  TIE Type: " + packet_common.tietype_str(tie_id.tietype))
         contents.append("  TIE Nr: " + str(tie_id.tie_nr))
 
+    def command_show_spf(self, cli_session):
+        tab = self.tie_db.spf_table()
+        cli_session.print(tab.to_string(cli_session.current_end_line()))
+
     def command_show_tie_db(self, cli_session):
         tab = self.tie_db.tie_db_table()
         cli_session.print(tab.to_string(cli_session.current_end_line()))

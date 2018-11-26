@@ -125,6 +125,9 @@ class Engine:
             tab.add_row(nod.cli_level_attributes())
         cli_session.print_r(tab.to_string(cli_session.current_end_line()))
 
+    def command_show_spf(self, cli_session):
+        cli_session.current_node.command_show_spf(cli_session)
+
     def command_show_tie_db(self, cli_session):
         cli_session.current_node.command_show_tie_db(cli_session)
 
@@ -174,7 +177,6 @@ class Engine:
                 "queues": command_show_intf_queues
             },
             "interfaces": command_show_interfaces,
-            "tie-db": command_show_tie_db,
             "node": {
                 "": command_show_node,
                 "fsm": {
@@ -186,6 +188,8 @@ class Engine:
                 "": command_show_nodes,
                 "level": command_show_nodes_level,
             },
+            "spf": command_show_spf,
+            "tie-db": command_show_tie_db,
         },
     }
 
