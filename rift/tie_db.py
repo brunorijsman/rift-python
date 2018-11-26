@@ -671,7 +671,7 @@ class TIE_DB:
         return [
             utils.system_id_str(spf_node.destination),
             spf_node.cost,
-            spf_node.predecessors,
+            sorted(spf_node.predecessors),
             spf_node.direct_nexthops
         ]
 
@@ -866,7 +866,7 @@ class TIE_DB:
 
                     # TODO: Direct next-hop interface names and addresses for first hop
 
-                    # Put the following in a common routine
+                    # TODO: Put the following in a common routine
 
                     # We did not have any previous path to the neighbor. The new path to the
                     # neighbor is the best path.
@@ -894,8 +894,10 @@ class TIE_DB:
                         # The new path is strictly better than the existing path. Replace the
                         # existing path with the new path.
                         print("New path is better than existing path - use new path")
-
-                        # TODO: Implement this
+                        spf_node = SPFNode(nbr_system_id, new_nbr_cost)
+                        spf_node.add_predecessor(visit_system_id)
+                        spf_node.inherit_direct_next_hops(self._spf_nodes[visit_system_id])
+                        self._spf_nodes[nbr_system_id] = spf_node
 
                         # Update (lower) the cost of the candidate in the priority queue
                         candidates[nbr_system_id] = new_nbr_cost
@@ -905,8 +907,9 @@ class TIE_DB:
                         # The new path is equal cost to the existing path. Add an ECMP path to the
                         # existing path.
                         assert new_nbr_cost == nbr_spf_node.cost
-                        print("New path is equal cost to existing path - use new path")
-                        # TODO: Implement this
+                        print("New path is equal cost to existing path - add new path")
+                        nbr_spf_node.add_predecessor(visit_system_id)
+                        nbr_spf_node.inherit_direct_next_hops(self._spf_nodes[visit_system_id])
 
         print("SPF nodes:")
         for system_id, spf_node in self._spf_nodes.items():
