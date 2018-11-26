@@ -741,7 +741,7 @@ class TIE_DB:
         self.run_direction_spf(TIE_SOUTH)
         ###@@@ self.run_direction_spf(TIE_NORTH)
 
-    def run_direction_spf(self, tie_direction):
+    def run_direction_spf(self, spf_direction):
         # pylint:disable=too-many-locals
         # pylint:disable=too-many-statements
 
@@ -749,7 +749,7 @@ class TIE_DB:
         if self._name != "core_1":
             return
 
-        print("\n*** SPF run, name =", self._name, " direction =", tie_direction, "***\n")
+        print("\n*** SPF run, name =", self._name, " spf_direction =", spf_direction, "***\n")
 
         # Candidates is a priority queue that contains the system_ids of candidate nodes with the
         # best known cost thus far as the priority. A node is a candidate if we know some path to
@@ -771,20 +771,17 @@ class TIE_DB:
         # spf_nodes contains all SPF-related information for each candidate and each visited
         # node. After the SPF run is complete, we maintain the spf_nodes for debugging purposes;
         # you can use the "show spf" command to see the results of the most recent SPF run.
-        # TODO: implement that command
         self._spf_nodes = {}
         self._spf_nodes[self._system_id] = SPFNode(destination=self._system_id, cost=0)
 
         # Which neighbors of the currently visited node are we considering?
         # TODO: When do we consider EAST-WEST as well?
-        if tie_direction == TIE_SOUTH:
+        if spf_direction == TIE_SOUTH:
             nbr_direction = NEIGHBOR_SOUTH
-            reverse_nbr_direction = NEIGHBOR_NORTH
-            reverse_tie_direction = TIE_NORTH
-        elif tie_direction == TIE_NORTH:
+            reverse_spf_direction = TIE_NORTH
+        elif spf_direction == TIE_NORTH:
             nbr_direction = NEIGHBOR_NORTH
-            reverse_nbr_direction = NEIGHBOR_SOUTH
-            reverse_tie_direction = TIE_SOUTH
+            reverse_spf_direction = TIE_SOUTH
         else:
             assert False
 
@@ -809,7 +806,7 @@ class TIE_DB:
             ###@@@: TODO: The spec clearly says that for the top node we need to use tie_direction
             # instead of reverse_tie_direction, but that doesn't work for the deeper nodes (about
             # which the spec is vaguer)
-            candidate_node_ties = self.node_ties(reverse_tie_direction, candidate_system_id)
+            candidate_node_ties = self.node_ties(reverse_spf_direction, candidate_system_id)
             if candidate_node_ties == []:
                 print("Cannot locate Node TIEs for candidate")
                 continue
@@ -828,34 +825,11 @@ class TIE_DB:
                 (nbr_system_id, nbr_tie_element) = nbr
                 print("Considering neighbor: nbr_system_id =", nbr_system_id)
 
-                # Locate the OpDir-Node-TIE(s) of the neighbor node, where OpDir is the opposite
-                # direction of the SPF. If we cannot find the Node-TIE, move on to the next neighbor
-                # without adding this neighbor to the candidate priority queue.
-                nbr_node_ties = self.node_ties(reverse_tie_direction, nbr_system_id)
-                if nbr_node_ties == []:
+                # Is the adjacency bi-directional? If not, skip neighbor.
+                if not self.is_neighbor_bidirectional(visit_system_id, nbr_system_id,
+                                                      nbr_tie_element, spf_direction):
+                    print("Neighbor is not bi-directional")
                     continue
-                print("Neighbor has Node-TIE(s)")
-
-                # Check for bi-directional connectivity: the neighbor must report the visited node
-                # as an adjacency with the same link-id pair (in reverse). If connectivity is not
-                # bi-directional, move on to the next neighbor without adding adding this neighbor
-                # to the candidate priority queue.
-                bidirectional = False
-                for nbr_nbr in self.node_neighbors(nbr_node_ties, reverse_nbr_direction):
-                    (nbr_nbr_system_id, nbr_nbr_tie_element) = nbr_nbr
-                    # Does the neighbor report the visited node as its neighbor?
-                    if nbr_nbr_system_id != visit_system_id:
-                        continue
-                    # Are the link_ids bidirectional?
-                    if not self.bidirectional_link_ids(nbr_tie_element.link_ids,
-                                                       nbr_nbr_tie_element.link_ids):
-                        continue
-                    # Yes, connectivity is bidirectional
-                    bidirectional = True
-                    break
-                if not bidirectional:
-                    continue
-                print("Visited node and neighbor have bidirectional connectivity")
 
                 # We have found a feasible path to the neighbor. What is the cost of this path?
                 new_nbr_cost = visit_cost + nbr_tie_element.cost
@@ -866,15 +840,10 @@ class TIE_DB:
 
                     # TODO: Direct next-hop interface names and addresses for first hop
 
-                    # TODO: Put the following in a common routine
-
                     # We did not have any previous path to the neighbor. The new path to the
                     # neighbor is the best path.
                     print("First candidate path to neighbor")
-                    spf_node = SPFNode(nbr_system_id, new_nbr_cost)
-                    spf_node.add_predecessor(visit_system_id)
-                    spf_node.inherit_direct_next_hops(self._spf_nodes[visit_system_id])
-                    self._spf_nodes[nbr_system_id] = spf_node
+                    self.set_spf_predecessor(nbr_system_id, visit_system_id, new_nbr_cost)
 
                     # Store the neighbor as a candidate
                     candidates[nbr_system_id] = new_nbr_cost
@@ -894,10 +863,7 @@ class TIE_DB:
                         # The new path is strictly better than the existing path. Replace the
                         # existing path with the new path.
                         print("New path is better than existing path - use new path")
-                        spf_node = SPFNode(nbr_system_id, new_nbr_cost)
-                        spf_node.add_predecessor(visit_system_id)
-                        spf_node.inherit_direct_next_hops(self._spf_nodes[visit_system_id])
-                        self._spf_nodes[nbr_system_id] = spf_node
+                        self.set_spf_predecessor(nbr_system_id, visit_system_id, new_nbr_cost)
 
                         # Update (lower) the cost of the candidate in the priority queue
                         candidates[nbr_system_id] = new_nbr_cost
@@ -908,18 +874,64 @@ class TIE_DB:
                         # existing path.
                         assert new_nbr_cost == nbr_spf_node.cost
                         print("New path is equal cost to existing path - add new path")
-                        nbr_spf_node.add_predecessor(visit_system_id)
-                        nbr_spf_node.inherit_direct_next_hops(self._spf_nodes[visit_system_id])
+                        self.add_spf_predecessor(nbr_spf_node, visit_system_id)
 
         print("SPF nodes:")
         for system_id, spf_node in self._spf_nodes.items():
             print(system_id, spf_node)
 
-    def bidirectional_link_ids(self, link_ids_1, link_ids_2):
+    def set_spf_predecessor(self, destination_system_id, predecessor_system_id, cost):
+        spf_node = SPFNode(destination_system_id, cost)
+        spf_node.add_predecessor(predecessor_system_id)
+        if predecessor_system_id == self._system_id:
+            # TODO: implement this
+            print("First hop: determine direct next-hop")
+        else:
+            print("Non-first hop: inherit direct next-hop")
+            spf_node.inherit_direct_next_hops(self._spf_nodes[predecessor_system_id])
+        self._spf_nodes[destination_system_id] = spf_node
+
+    def add_spf_predecessor(self, destination_spf_node, predecessor_system_id):
+        destination_spf_node.add_predecessor(predecessor_system_id)
+        destination_spf_node.inherit_direct_next_hops(self._spf_nodes[predecessor_system_id])
+
+    def is_neighbor_bidirectional(self, visit_system_id, nbr_system_id, nbr_tie_element,
+                                  spf_direction):
+        # Determine reverse directions
+        if spf_direction == TIE_SOUTH:
+            reverse_nbr_direction = NEIGHBOR_NORTH
+            reverse_spf_direction = TIE_NORTH
+        elif spf_direction == TIE_NORTH:
+            reverse_nbr_direction = NEIGHBOR_SOUTH
+            reverse_spf_direction = TIE_SOUTH
+        else:
+            assert False
+        # Locate the Node-TIE(s) of the neighbor node in the opposite direction. If we can't find
+        # the neighbor's Node-TIE(s), we declare the adjacency to be not bi-directional.
+        nbr_node_ties = self.node_ties(reverse_spf_direction, nbr_system_id)
+        if nbr_node_ties == []:
+            return False
+        # Check for bi-directional connectivity: the neighbor must report the visited node
+        # as an adjacency with the same link-id pair (in reverse).
+        bidirectional = False
+        for nbr_nbr in self.node_neighbors(nbr_node_ties, reverse_nbr_direction):
+            (nbr_nbr_system_id, nbr_nbr_tie_element) = nbr_nbr
+            # Does the neighbor report the visited node as its neighbor?
+            if nbr_nbr_system_id != visit_system_id:
+                continue
+            # Are the link_ids bidirectional?
+            if not self.are_link_ids_bidirectional(nbr_tie_element, nbr_nbr_tie_element):
+                continue
+            # Yes, connectivity is bidirectional
+            bidirectional = True
+            break
+        return bidirectional
+
+    def are_link_ids_bidirectional(self, nbr_tie_element_1, nbr_tie_element_2):
         # Does the set link_ids_1 contain any link-id (local_id, remote_id) which is present in
         # reverse (remote_id, local_id) in set link_ids_2?
-        for id1 in link_ids_1:
-            for id2 in link_ids_2:
+        for id1 in nbr_tie_element_1.link_ids:
+            for id2 in nbr_tie_element_2.link_ids:
                 if (id1.local_id == id2.remote_id) and (id1.remote_id == id2.local_id):
                     return True
         return False
