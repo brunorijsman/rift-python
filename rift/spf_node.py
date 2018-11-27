@@ -16,15 +16,15 @@ class SPFNode:
     def add_predecessor(self, predecessor_system_id):
         self.predecessors.append(predecessor_system_id)
 
-    def add_direct_next_hop(self, direct_next_hop_if, direct_next_hop_addr):
-        direct_next_hop = (direct_next_hop_if, direct_next_hop_addr)
-        if direct_next_hop not in self.direct_nexthops:
-            self.direct_nexthops.append(direct_next_hop)
+    def add_direct_nexthop(self, direct_nexthop_if_name, direct_nexthop_addr):
+        direct_nexthop = (direct_nexthop_if_name, direct_nexthop_addr)
+        if direct_nexthop not in self.direct_nexthops:
+            self.direct_nexthops.append(direct_nexthop)
 
-    def inherit_direct_next_hops(self, other_spf_node):
-        for direct_next_hop in other_spf_node.direct_nexthops:
-            if direct_next_hop not in self.direct_nexthops:
-                self.direct_nexthops.append(direct_next_hop)
+    def inherit_direct_nexthops(self, other_spf_node):
+        for direct_nexthop in other_spf_node.direct_nexthops:
+            if direct_nexthop not in self.direct_nexthops:
+                self.direct_nexthops.append(direct_nexthop)
 
     # TODO: get rid of this
     def __repr__(self):

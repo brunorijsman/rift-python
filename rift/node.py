@@ -397,7 +397,8 @@ class Node:
         self._leaf_only = leaf_only
         self.leaf_2_leaf = leaf_2_leaf
         self._top_of_fabric_flag = top_of_fabric_flag
-        self._interfaces = sortedcontainers.SortedDict()
+        self._interfaces_by_name = sortedcontainers.SortedDict()
+        self._interfaces_by_id = {}
         self.rx_lie_ipv4_mcast_address = self.get_config_attribute(
             'rx_lie_mcast_address', constants.DEFAULT_LIE_IPV4_MCAST_ADDRESS)
         self._tx_lie_ipv4_mcast_address = self.get_config_attribute(
@@ -583,7 +584,9 @@ class Node:
 
     def create_interface(self, interface_config):
         interface_name = interface_config['name']
-        self._interfaces[interface_name] = interface.Interface(self, interface_config)
+        intf = interface.Interface(self, interface_config)
+        self._interfaces_by_name[interface_name] = intf
+        self._interfaces_by_id[intf.local_id] = intf
 
     def cli_detailed_attributes(self):
         return [
@@ -645,11 +648,11 @@ class Node:
             tie_nr=tie_nr,
             seq_nr=seq_nr,
             lifetime=common.constants.default_lifetime)
-        for intf in self._interfaces.values():
+        for intf in self._interfaces_by_name.values():
             if ((intf.fsm.state == interface.Interface.State.THREE_WAY) and
                     (intf != interface_going_down)):
-                local_id = self.system_id
-                remote_id = intf.neighbor.system_id
+                local_id = intf.local_id
+                remote_id = intf.neighbor.local_id
                 # TODO: Add support for reporting multiple parallel links to neighbor (i.e. more
                 # than one LinkIDPair in link_ids set)
                 node_neighbor = encoding.ttypes.NodeNeighborsTIEElement(
@@ -709,7 +712,7 @@ class Node:
 
     def have_s_or_ew_adjacency(self, interface_going_down):
         # Does this node have at least one south-bound or east-west adjacency?
-        for intf in self._interfaces.values():
+        for intf in self._interfaces_by_name.values():
             if ((intf.fsm.state == interface.Interface.State.THREE_WAY) and
                     (intf != interface_going_down)):
                 if intf.neighbor_direction() in [neighbor.Neighbor.Direction.SOUTH,
@@ -803,7 +806,7 @@ class Node:
         # individual neighbor. We do NOT (yet) have any optimization that attempts to prepare and
         # encode a TIDE only once in total or once per direction (N, S, EW). See the comment in the
         # function is_flood_allowed for a more detailed discussion on why not.
-        for intf in self._interfaces.values():
+        for intf in self._interfaces_by_name.values():
             self.send_tides_on_interface(intf)
 
     def send_tides_on_interface(self, intf):
@@ -867,19 +870,19 @@ class Node:
 
     def command_show_intf_fsm_hist(self, cli_session, parameters, verbose):
         interface_name = parameters['interface']
-        if not interface_name in self._interfaces:
+        if not interface_name in self._interfaces_by_name:
             cli_session.print_r("Error: interface {} not present".format(interface_name))
             return
-        shown_interface = self._interfaces[interface_name]
+        shown_interface = self._interfaces_by_name[interface_name]
         tab = shown_interface.fsm.history_table(verbose)
         cli_session.print(tab.to_string(cli_session.current_end_line()))
 
     def command_show_intf_queues(self, cli_session, parameters):
         interface_name = parameters['interface']
-        if not interface_name in self._interfaces:
+        if not interface_name in self._interfaces_by_name:
             cli_session.print_r("Error: interface {} not present".format(interface_name))
             return
-        intf = self._interfaces[interface_name]
+        intf = self._interfaces_by_name[interface_name]
         tab = intf.ties_tx_table()
         cli_session.print_r("Transmit queue:")
         cli_session.print(tab.to_string(cli_session.current_end_line()))
@@ -895,15 +898,15 @@ class Node:
 
     def command_show_interface(self, cli_session, parameters):
         interface_name = parameters['interface']
-        if not interface_name in self._interfaces:
+        if not interface_name in self._interfaces_by_name:
             cli_session.print_r("Error: interface {} not present".format(interface_name))
             return
-        interface_attributes = self._interfaces[interface_name].cli_detailed_attributes()
+        interface_attributes = self._interfaces_by_name[interface_name].cli_detailed_attributes()
         tab = table.Table(separators=False)
         tab.add_rows(interface_attributes)
         cli_session.print_r("Interface:")
         cli_session.print(tab.to_string(cli_session.current_end_line()))
-        neighbor_attributes = self._interfaces[interface_name].cli_detailed_neighbor_attrs()
+        neighbor_attributes = self._interfaces_by_name[interface_name].cli_detailed_neighbor_attrs()
         if neighbor_attributes:
             tab = table.Table(separators=False)
             tab.add_rows(neighbor_attributes)
@@ -914,7 +917,7 @@ class Node:
         # TODO: Report neighbor uptime (time in THREE_WAY state)
         tab = table.Table()
         tab.add_row(interface.Interface.cli_summary_headers())
-        for intf in self._interfaces.values():
+        for intf in self._interfaces_by_name.values():
             tab.add_row(intf.cli_summary_attributes())
         cli_session.print(tab.to_string(cli_session.current_end_line()))
 
@@ -959,7 +962,7 @@ class Node:
 
     def command_set_interface_failure(self, cli_session, parameters):
         interface_name = parameters['interface']
-        if not interface_name in self._interfaces:
+        if not interface_name in self._interfaces_by_name:
             cli_session.print("Error: interface {} not present".format(interface_name))
             return
         failure = parameters['failure'].lower()
@@ -969,7 +972,7 @@ class Node:
             return
         tx_fail = failure in ["failed", "tx-failed"]
         rx_fail = failure in ["failed", "rx-failed"]
-        self._interfaces[interface_name].set_failure(tx_fail, rx_fail)
+        self._interfaces_by_name[interface_name].set_failure(tx_fail, rx_fail)
 
     def debug(self, msg):
         self.log.debug("[%s] %s", self.log_id, msg)
@@ -1487,14 +1490,23 @@ class Node:
             "Destination",
             "Cost",
             "Predecessors",
-            "Next hops"]
+            "Nexthops"]
+
+    def nexthop_str(self, nexthop):
+        (nexthop_intf_name, nexthop_addr) = nexthop
+        result_str = ""
+        if nexthop_intf_name is not None:
+            result_str += nexthop_intf_name + " "
+        if nexthop_addr is not None:
+            result_str += str(nexthop_addr)
+        return result_str
 
     def cli_spf_summary_attributes(self, spf_nod):
         return [
             utils.system_id_str(spf_nod.destination),
             spf_nod.cost,
             sorted(spf_nod.predecessors),
-            spf_nod.direct_nexthops
+            [self.nexthop_str(nexthop) for nexthop in sorted(spf_nod.direct_nexthops)]
         ]
 
     def trigger_spf(self, reason):
@@ -1648,7 +1660,8 @@ class Node:
 
                     # We did not have any previous path to the neighbor. The new path to the
                     # neighbor is the best path.
-                    self.set_spf_predecessor(nbr_system_id, visit_system_id, new_nbr_cost)
+                    self.set_spf_predecessor(nbr_system_id, nbr_tie_element, visit_system_id,
+                                             new_nbr_cost)
 
                     # Store the neighbor as a candidate
                     candidates[nbr_system_id] = new_nbr_cost
@@ -1667,7 +1680,8 @@ class Node:
 
                         # The new path is strictly better than the existing path. Replace the
                         # existing path with the new path.
-                        self.set_spf_predecessor(nbr_system_id, visit_system_id, new_nbr_cost)
+                        self.set_spf_predecessor(nbr_system_id, nbr_tie_element, visit_system_id,
+                                                 new_nbr_cost)
 
                         # Update (lower) the cost of the candidate in the priority queue
                         candidates[nbr_system_id] = new_nbr_cost
@@ -1679,19 +1693,32 @@ class Node:
                         assert new_nbr_cost == nbr_spf_node.cost
                         self.add_spf_predecessor(nbr_spf_node, visit_system_id)
 
-    def set_spf_predecessor(self, destination_system_id, predecessor_system_id, cost):
-        spf_nod = spf_node.SPFNode(destination_system_id, cost)
-        spf_nod.add_predecessor(predecessor_system_id)
-        if predecessor_system_id == self.system_id:
-            ###@@@ TODO: implement this
-            pass
+    def interface_id_to_nexthop(self, interface_id):
+        if interface_id in self._interfaces_by_id:
+            intf = self._interfaces_by_id[interface_id]
+            if intf.neighbor is not None:
+                remote_address = intf.neighbor.address
+            else:
+                remote_address = None
+            return (intf.name, remote_address)
         else:
-            spf_nod.inherit_direct_next_hops(self._spf_nodes[predecessor_system_id])
-        self._spf_nodes[destination_system_id] = spf_nod
+            return (None, None)
+
+    def set_spf_predecessor(self, nbr_system_id, nbr_tie_element, visit_system_id, cost):
+        spf_nod = spf_node.SPFNode(nbr_system_id, cost)
+        spf_nod.add_predecessor(visit_system_id)
+        if visit_system_id == self.system_id:
+            for link_id_pair in nbr_tie_element.link_ids:
+                nexthop = self.interface_id_to_nexthop(link_id_pair.local_id)
+                (nexthop_intf_name, nexthop_addr) = nexthop
+                spf_nod.add_direct_nexthop(nexthop_intf_name, nexthop_addr)
+        else:
+            spf_nod.inherit_direct_nexthops(self._spf_nodes[visit_system_id])
+        self._spf_nodes[nbr_system_id] = spf_nod
 
     def add_spf_predecessor(self, destination_spf_node, predecessor_system_id):
         destination_spf_node.add_predecessor(predecessor_system_id)
-        destination_spf_node.inherit_direct_next_hops(self._spf_nodes[predecessor_system_id])
+        destination_spf_node.inherit_direct_nexthops(self._spf_nodes[predecessor_system_id])
 
     def is_neighbor_bidirectional(self, visit_system_id, nbr_system_id, nbr_tie_element,
                                   spf_direction):

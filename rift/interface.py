@@ -41,7 +41,7 @@ class Interface:
     SERVICE_QUEUES_INTERVAL = 1.0
 
     def generate_advertised_name(self):
-        return self._node.name + '-' + self._interface_name
+        return self._node.name + '-' + self.name
 
     def get_mtu(self):
         # TODO: Find a portable (or even non-portable) way to get the interface MTU
@@ -111,7 +111,7 @@ class Interface:
             receive_function=self.receive_flood_message,
             local_address=self._node.engine.tx_src_address)
         self._flood_send_handler = udp_send_handler.UdpSendHandler(
-            interface_name=self._interface_name,
+            interface_name=self.name,
             remote_address=self.neighbor.address,
             port=tx_flood_port,
             local_address=self._node.engine.tx_src_address)
@@ -181,7 +181,7 @@ class Interface:
             lie_neighbor = None
         lie_packet = encoding.ttypes.LIEPacket(
             name=self._advertised_name,
-            local_id=self._local_id,
+            local_id=self.local_id,
             flood_port=self._rx_tie_port,
             link_mtu_size=self._mtu,
             neighbor=lie_neighbor,
@@ -189,18 +189,18 @@ class Interface:
             nonce=Interface.generate_nonce(),
             capabilities=capabilities,
             holdtime=3,
-            not_a_ztp_offer=self._node.send_not_a_ztp_offer_on_intf(self._interface_name),
+            not_a_ztp_offer=self._node.send_not_a_ztp_offer_on_intf(self.name),
             you_are_flood_repeater=True,     # TODO: Set you_are_not_flood_repeater
             label=None)
         packet_content = encoding.ttypes.PacketContent(lie=lie_packet)
         protocol_packet = encoding.ttypes.ProtocolPacket(packet_header, packet_content)
         self.send_protocol_packet(protocol_packet, flood=False)
         tx_offer = offer.TxOffer(
-            self._interface_name,
+            self.name,
             self._node.system_id,
             packet_header.level,
             lie_packet.not_a_ztp_offer,
-            self._fsm.state)
+            self.fsm.state)
         self._node.record_tx_offer(tx_offer)
 
     def action_cleanup(self):
@@ -213,9 +213,9 @@ class Interface:
                       "Neighbor does not report us as neighbor (system-id {:16x} instead of {:16x}"
                       .format(self.neighbor.neighbor_system_id, self._node.system_id))
             return False
-        if self.neighbor.neighbor_link_id != self._local_id:
+        if self.neighbor.neighbor_link_id != self.local_id:
             self.info(self._log, "Neighbor does not report us as neighbor (link-id {} instead of {}"
-                      .format(self.neighbor.neighbor_link_id, self._local_id))
+                      .format(self.neighbor.neighbor_link_id, self.local_id))
             return False
         return True
 
@@ -223,22 +223,22 @@ class Interface:
         # Section B.1.5
         # CHANGE: This is a little bit different from the specification
         # (see comment [CheckThreeWay])
-        if self._fsm.state == self.State.ONE_WAY:
+        if self.fsm.state == self.State.ONE_WAY:
             pass
-        elif self._fsm.state == self.State.TWO_WAY:
+        elif self.fsm.state == self.State.TWO_WAY:
             if self.neighbor.neighbor_system_id is None:
                 pass
             elif self.check_reflection():
-                self._fsm.push_event(self.Event.VALID_REFLECTION)
+                self.fsm.push_event(self.Event.VALID_REFLECTION)
             else:
-                self._fsm.push_event(self.Event.MULTIPLE_NEIGHBORS)
+                self.fsm.push_event(self.Event.MULTIPLE_NEIGHBORS)
         else: # state is THREE_WAY
             if self.neighbor.neighbor_system_id is None:
-                self._fsm.push_event(self.Event.NEIGHBOR_DROPPED_REFLECTION)
+                self.fsm.push_event(self.Event.NEIGHBOR_DROPPED_REFLECTION)
             elif self.check_reflection():
                 pass
             else:
-                self._fsm.push_event(self.Event.MULTIPLE_NEIGHBORS)
+                self.fsm.push_event(self.Event.MULTIPLE_NEIGHBORS)
 
     def check_minor_change(self, new_neighbor):
         # TODO: what if link_mtu_size changes?
@@ -267,11 +267,11 @@ class Interface:
 
     def send_offer_to_ztp_fsm(self, offering_neighbor):
         offer_for_ztp = offer.RxOffer(
-            self._interface_name,
+            self.name,
             offering_neighbor.system_id,
             offering_neighbor.level,
             offering_neighbor.not_a_ztp_offer,
-            self._fsm.state)
+            self.fsm.state)
         self._node.fsm.push_event(self._node.Event.NEIGHBOR_OFFER, offer_for_ztp)
 
     def this_node_is_leaf(self):
@@ -403,7 +403,7 @@ class Interface:
             self.action_cleanup()
             if offer_to_ztp:
                 self.send_offer_to_ztp_fsm(new_neighbor)
-                self._fsm.push_event(self.Event.UNACCEPTABLE_HEADER)
+                self.fsm.push_event(self.Event.UNACCEPTABLE_HEADER)
             return
         self._lie_accept_or_reject = "Accepted"
         self._lie_accept_or_reject_rule = rule
@@ -415,7 +415,7 @@ class Interface:
             self.info(self._log, "New neighbor detected with system-id {}"
                       .format(utils.system_id_str(protocol_packet.header.sender)))
             self.neighbor = new_neighbor
-            self._fsm.push_event(self.Event.NEW_NEIGHBOR)
+            self.fsm.push_event(self.Event.NEW_NEIGHBOR)
             self.check_three_way()
             return
         # Section B.1.4.3.1
@@ -423,23 +423,23 @@ class Interface:
             self.info(self._log, "Neighbor system-id changed from {} to {}"
                       .format(utils.system_id_str(self.neighbor.system_id),
                               utils.system_id_str(new_neighbor.system_id)))
-            self._fsm.push_event(self.Event.MULTIPLE_NEIGHBORS)
+            self.fsm.push_event(self.Event.MULTIPLE_NEIGHBORS)
             return
         # Section B.1.4.3.2
         if new_neighbor.level != self.neighbor.level:
             self.info(self._log, "Neighbor level changed from {} to {}"
                       .format(self.neighbor.level, new_neighbor.level))
-            self._fsm.push_event(self.Event.NEIGHBOR_CHANGED_LEVEL)
+            self.fsm.push_event(self.Event.NEIGHBOR_CHANGED_LEVEL)
             return
         # Section B.1.4.3.3
         if new_neighbor.address != self.neighbor.address:
             self.info(self._log, "Neighbor address changed from {} to {}"
                       .format(self.neighbor.address, new_neighbor.address))
-            self._fsm.push_event(self.Event.NEIGHBOR_CHANGED_ADDRESS)
+            self.fsm.push_event(self.Event.NEIGHBOR_CHANGED_ADDRESS)
             return
         # Section B.1.4.3.4
         if self.check_minor_change(new_neighbor):
-            self._fsm.push_event(self.Event.NEIGHBOR_CHANGED_MINOR_FIELDS)
+            self.fsm.push_event(self.Event.NEIGHBOR_CHANGED_MINOR_FIELDS)
         self.neighbor = new_neighbor      # TODO: The draft does not specify this, but it is needed
         # Section B.1.4.3.5
         self.check_three_way()
@@ -456,10 +456,10 @@ class Interface:
         else:
             holdtime = common.constants.default_lie_holdtime
         if self._time_ticks_since_lie_received >= holdtime:
-            self._fsm.push_event(self.Event.HOLD_TIME_EXPIRED)
+            self.fsm.push_event(self.Event.HOLD_TIME_EXPIRED)
 
     def action_hold_time_expired(self):
-        self._node.expire_offer(self._interface_name)
+        self._node.expire_offer(self.name)
 
     _state_one_way_transitions = {
         Event.TIMER_TICK: (None, [], [Event.SEND_LIE]),
@@ -547,13 +547,13 @@ class Interface:
     def __init__(self, node, config):
         # TODO: process bandwidth field in config
         self._node = node
-        self._interface_name = config['name']
+        self.name = config['name']
         # TODO: Make the default metric/bandwidth depend on the speed of the interface
         self._metric = self.get_config_attribute(config, 'metric',
                                                  common.constants.default_bandwidth)
         self._advertised_name = self.generate_advertised_name()
-        self._log_id = node.log_id + "-{}".format(self._interface_name)
-        self._ipv4_address = utils.interface_ipv4_address(self._interface_name,
+        self._log_id = node.log_id + "-{}".format(self.name)
+        self._ipv4_address = utils.interface_ipv4_address(self.name,
                                                           self._node.engine.tx_src_address)
         self._rx_lie_ipv4_mcast_address = self.get_config_attribute(
             config, 'rx_lie_mcast_address', constants.DEFAULT_LIE_IPV4_MCAST_ADDRESS)
@@ -576,7 +576,7 @@ class Interface:
         self._rx_log = self._log.getChild("rx")
         self._tx_log = self._log.getChild("tx")
         self._fsm_log = self._log.getChild("fsm")
-        self._local_id = node.allocate_interface_id()
+        self.local_id = node.allocate_interface_id()
         self._mtu = self.get_mtu()
         self._pod = self.UNDEFINED_OR_ANY_POD
         self.neighbor = None
@@ -595,18 +595,18 @@ class Interface:
         self._ties_rtx = collections.OrderedDict()
         self._ties_req = collections.OrderedDict()
         self._ties_ack = collections.OrderedDict()
-        self._fsm = fsm.Fsm(
+        self.fsm = fsm.Fsm(
             definition=self.fsm_definition,
             action_handler=self,
             log=self._fsm_log,
             log_id=self._log_id)
         if self._node.running:
             self.run()
-            self._fsm.start()
+            self.fsm.start()
 
     def run(self):
         self._lie_send_handler = udp_send_handler.UdpSendHandler(
-            interface_name=self._interface_name,
+            interface_name=self.name,
             remote_address=self._tx_lie_ipv4_mcast_address,
             port=self._tx_lie_port,
             local_address=self._node.engine.tx_src_address,
@@ -623,7 +623,7 @@ class Interface:
         self._flood_send_handler = None
         self._one_second_timer = timer.Timer(
             1.0,
-            lambda: self._fsm.push_event(self.Event.TIMER_TICK))
+            lambda: self.fsm.push_event(self.Event.TIMER_TICK))
         self._service_queues_timer = timer.Timer(
             interval=self.SERVICE_QUEUES_INTERVAL,
             expire_function=self.service_queues,
@@ -678,7 +678,7 @@ class Interface:
             return
         if protocol_packet.content.lie:
             event_data = (protocol_packet, from_address_and_port)
-            self._fsm.push_event(self.Event.LIE_RECEIVED, event_data)
+            self.fsm.push_event(self.Event.LIE_RECEIVED, event_data)
         if protocol_packet.content.tie:
             self.warning(self._rx_log, "Received TIE packet on LIE port (ignored)")
         if protocol_packet.content.tide:
@@ -1029,14 +1029,10 @@ class Interface:
 
     @property
     def state_name(self):
-        if self._fsm.state is None:
+        if self.fsm.state is None:
             return ""
         else:
-            return self._fsm.state.name
-
-    @property
-    def fsm(self):
-        return self._fsm
+            return self.fsm.state.name
 
     @staticmethod
     def cli_summary_headers():
@@ -1049,20 +1045,20 @@ class Interface:
     def cli_summary_attributes(self):
         if self.neighbor:
             return [
-                self._interface_name,
+                self.name,
                 self.neighbor.name,
                 utils.system_id_str(self.neighbor.system_id),
                 self.state_name]
         else:
             return [
-                self._interface_name,
+                self.name,
                 "",
                 "",
                 self.state_name]
 
     def cli_detailed_attributes(self):
         return [
-            ["Interface Name", self._interface_name],
+            ["Interface Name", self.name],
             ["Advertised Name", self._advertised_name],
             ["Interface IPv4 Address", self._ipv4_address],
             ["Metric", self._metric],
@@ -1074,7 +1070,7 @@ class Interface:
             ["Transmit LIE Port", self._tx_lie_port],
             ["Receive TIE Port", self._rx_tie_port],
             ["System ID", utils.system_id_str(self._node.system_id)],
-            ["Local ID", self._local_id],
+            ["Local ID", self.local_id],
             ["MTU", self._mtu],
             ["POD", self._pod],
             ["Failure", self.failure_str()],
