@@ -1,12 +1,42 @@
 import os
 import sys
-import string
 import sortedcontainers
 
 import scheduler
-import constants
 
-# TODO: Make cursor up and down keys work... (implement a real Telnet/SSH server)
+# TODO: Implement SSH server
+# TODO: Add context sensitive help, immediately when ? is pressed
+# TODO: Add tab and space completion
+# TODO: Add control right/left arrow for end/start of line (VT100 escape sequence)
+
+READ_CHUNK_SIZE = 1024
+
+MAX_HISTORY = 100
+
+CONTROL_A = 1
+CONTROL_E = 5
+BELL = 7
+LINE_FEED = 10
+CARRIAGE_RETURN = 13
+ESCAPE = 27
+SPACE = 32
+DELETE = 127
+
+TELNET_NULL = 0
+TELNET_OPTION_ECHO = 1
+TELNET_OPTION_SUPPRESS_GO_AHEAD = 3
+TELNET_WILL = 251
+TELNET_WONT = 252
+TELNET_DO = 253
+TELNET_DONT = 254
+TELNET_INTERPRET_AS_COMMAND = 255
+
+VT100_LEFT_SQUARE_BRACKET = 91
+VT100_CURSOR_UP = 65
+VT100_CURSOR_DOWN = 66
+VT100_CURSOR_RIGHT = 67
+VT100_CURSOR_LEFT = 68
+VT100_ERASE_TO_END_OF_LINE = 75
 
 class CliSessionHandler:
 
@@ -21,16 +51,21 @@ class CliSessionHandler:
         self._command_handler = command_handler
         self._log = log
         self._current_node = node
+        self._input_bytes_buffer = bytes()
+        self._command_buffer = bytes()
+        self._command_buffer_pos = 0
+        self._command_history = []
+        self._command_history_pos = None
+        self._next_commands = []
         self.info("Open CLI session")
-        self._str = ""
-        self._command_buffer = ["" for i in range(constants.HISTORY)]
-        self._command = ""
-        self._position = 0
-        self._linemode = True
-        self._end_line = "\n"
-
+        self._telnet = (sock is not None)
+        self._telnet_suppress_go_ahead = False
+        self._telnet_echo = False
+        if self._telnet:
+            self.send_will_suppress_go_ahead()
+            self.send_will_echo()
         scheduler.SCHEDULER.register_handler(self, True, False)
-        self.send_prompt()
+        self.print_prompt()
 
     def peername(self):
         if self._sock:
@@ -44,6 +79,11 @@ class CliSessionHandler:
     def close(self):
         self.info("Close CLI session")
         scheduler.SCHEDULER.unregister_handler(self)
+        os.close(self._rx_fd)
+        if self._tx_fd != self._rx_fd:
+            os.close(self._tx_fd)
+        self._rx_fd = None
+        self._tx_fd = None
         # If this was the interactive (stdin/stdout) CLI session, exit the RIFT engine as well
         if self._sock is None:
             sys.exit(0)
@@ -55,14 +95,15 @@ class CliSessionHandler:
         return self._tx_fd
 
     def print(self, message, add_newline=True):
+        if self._tx_fd is None:
+            return
         if add_newline:
             message += '\n'
-        os.write(self._tx_fd, message.encode('utf-8'))
-
-    def print_r(self, message, add_newline=True):
-        if not self._linemode:
-            message += '\r'
-        self.print(message, add_newline)
+        if self._telnet_echo:
+            fixed_message = message.replace('\n', '\r\n')
+        else:
+            fixed_message = message
+        os.write(self._tx_fd, fixed_message.encode('utf-8'))
 
     def print_help(self, parse_subtree):
         self.print_help_recursion("", parse_subtree)
@@ -71,7 +112,7 @@ class CliSessionHandler:
     # TODO: Handle "show interfaces help" in a better way
     def print_help_recursion(self, command_str, parse_subtree):
         if callable(parse_subtree):
-            self.print_r(command_str)
+            self.print(command_str)
         else:
             sorted_parse_subtree = sortedcontainers.SortedDict(parse_subtree)
             for match_str, new_parse_subtree in sorted_parse_subtree.items():
@@ -85,7 +126,8 @@ class CliSessionHandler:
 
     def parse_command(self, command):
         tokens = command.split()
-        return self.parse_tokens(tokens, self._parse_tree, {})
+        if tokens:
+            self.parse_tokens(tokens, self._parse_tree, {})
 
     def consume_token(self, tokens):
         if tokens:
@@ -111,7 +153,7 @@ class CliSessionHandler:
                 self.parse_tokens(tokens, new_parse_subtree, parameters)
             else:
                 # There should have been more to parse. Generate an error
-                self.print_r("Missing input, possible completions:")
+                self.print("Missing input, possible completions:")
                 self.print_help(parse_subtree)
                 return
         else:
@@ -119,7 +161,7 @@ class CliSessionHandler:
             (token, tokens) = self.consume_token(tokens)
             if (token is not None) and callable(parse_subtree):
                 # We have more tokens, but we have reached a leaf of the parse tree. Report error.
-                self.print_r("Unexpected extra input: {}".format(token))
+                self.print("Unexpected extra input: {}".format(token))
                 return
             if (token in ["help", "?"]):
                 # Token is context-sensitive help. Show help and stop.
@@ -134,13 +176,12 @@ class CliSessionHandler:
                 parameter_name = token
                 (token, tokens) = self.consume_token(tokens)
                 if token is None:
-                    self.print_r("Missing value for parameter {}". \
-                                 format(parameter_name))
+                    self.print("Missing value for parameter {}".format(parameter_name))
                     return
                 parameters[parameter_name] = token
             else:
                 # Token is neither a keyword nor a parameter. Generate an error.
-                self.print_r("Unrecognized input {}, expected:".format(token))
+                self.print("Unrecognized input {}, expected:".format(token))
                 self.print_help(parse_subtree)
                 return
             self.parse_tokens(tokens, parse_subtree, parameters)
@@ -151,197 +192,61 @@ class CliSessionHandler:
         else:
             return ""
 
-    def send_prompt(self):
-        if self._linemode:
-            self.print(self.current_node_name() + "> ", False)
-        else:
-            self.print(self.current_node_name() + "] ", False)
+    def print_prompt(self):
+        self.print(self.current_node_name() + "> ", False)
 
+    def refresh_command_from_pos(self):
+        self.send_erase_to_end_of_line()
+        positions = len(self._command_buffer[self._command_buffer_pos:])
+        self.send_bytes(self._command_buffer[self._command_buffer_pos:])
+        self.send_cursor_left(positions)
 
-    def send_raw(self, cmd):
-        pat = bytes.fromhex(cmd)
-        os.write(self._tx_fd, pat)
+    def send_will_suppress_go_ahead(self):
+        msg = bytes([TELNET_INTERPRET_AS_COMMAND, TELNET_WILL, TELNET_OPTION_SUPPRESS_GO_AHEAD])
+        self.send_bytes(msg)
 
-    def history_buff(self, char):
-        if char == constants.ESC_UP:
-            if self._command != "":
-                self._command_buffer.append(self._command)
-            self._command = self._command_buffer.pop(0)
-            if len(self._command_buffer) < constants.HISTORY:
-                self._command_buffer.insert(int(constants.HISTORY/2), "")
-                # command_buffer always has HISTORY elements
-        else:
-            if self._command != "":
-                self._command_buffer.insert(0, self._command)
-            self._command = self._command_buffer.pop()
-            if len(self._command_buffer) < constants.HISTORY:
-                self._command_buffer.insert(int(constants.HISTORY/2), "")
-                # command_buffer always has HISTORY elements
+    def send_will_echo(self):
+        msg = bytes([TELNET_INTERPRET_AS_COMMAND, TELNET_WILL, TELNET_OPTION_ECHO])
+        self.send_bytes(msg)
 
-    # This handles arrows, delete and backspace but occasionally
-    # a character can follow a control sequence.This case is not handled.   I suppose
-    # the same can happen a character then a control sequence but you can fix
-    # extraneous characters by editing.
-    def handle_esc(self, chars):
-        if self._linemode is False and chars[1] == constants.LEFT_SQB:  # "[" but cant use character
-            # Up arrow & down arrow
-            if chars[2] == constants.ESC_UP or chars[2] == constants.ESC_DN:
-                self.print('\r', False)
-                self.print_r((len(self._command) + 10) * " ", False)
-                self.history_buff(chars[2])
-                self.print(self.current_node_name() + "] " + self._command, False)
-                self._position = len(self._command)
-            elif chars[2] == constants.ESC_RT:
-                if self._command and self._position < len(self._command):
-                    self._position += 1
-                    # Echo back RT arrow but chars might have extraneous chars
-                    pat = bytes.fromhex(constants.RIGHT_ARROW)
-                    self._sock.send(pat)
-            elif chars[2] == constants.ESC_LT:
-                if self._position > 0:
-                    self._position -= 1
-                    pat = bytes.fromhex(constants.LEFT_ARROW)
-                    self._sock.send(pat)
-            # Delete is a sequence of 4 chars ESC [ 3 ~
-            elif chars[2] == constants.DEL_SEQ_3:
-                if len(chars) > 3 and chars[3] == constants.DEL_SEQ_TILDE:
-                    if self._command  and self._position < len(self._command):
-                        if len(self._command) > self._position:
-                            self.print_r(self._command[(self._position + 1):] + " ", False)
-                            self.print(self.current_node_name() + "] " + \
-                                       self._command[:self._position], False)
-                            self._command = self._command[:self._position] + \
-                                            self._command[(self._position + 1):]
-                        else:
-                            self.print('\r' +  self.current_node_name() + "] " + \
-                                        self._command[:self._position], False)
-                            self._command = self._command[:self._position]
-        # F1 toggles line mode.
-        elif chars[1] == constants.CAP_O:
-            if chars[2] == constants.CAP_P:  # F1 Key
-                if self._linemode:
-                    # Magic to Character mode"
-                    # Literally tell telnet "IAC Will suppress go ahead IAC WILL ECHO"
-                    self.send_raw('FFFB03FFFB01')
-                    self._linemode = False
-                    self._end_line = "\r\n"
-                    # It appears telnet does something funky and will not accept chars
-                    # until the user hits return when changing to character mode
-                else:
-                    # Literally tell telnet "IAC Do suppress go ahead IAC do ECHO"ed
-                    self.send_raw('FFFC03FFFC01')
-                    self._linemode = True
-                    self._end_line = "\n"
-                self._position = 0 # Purge the command if any
-                self._command = ""
-                self.print_r("")
-                self.send_prompt()
-
-    def handle_backspace(self):
-        if self._position > 0:
-            pat = bytes.fromhex(constants.BKSP_OVERWRITE) # Backspace, space and backspace
-            self._sock.send(pat)
-            self._position -= 1
-            # Now pull any character that are to the right
-            if len(self._command) > (self._position + 1):
-                self.print_r(self._command[(self._position + 1):] + " ", False)
-                self.print(self.current_node_name() + "] " + \
-                           self._command[:self._position], False)
-                self._command = self._command[:self._position] + \
-                                    self._command[(self._position + 1):]
-            else:
-                self.print('\r' +  self.current_node_name() + "] " + \
-                           self._command[:self._position], False)
-                self._command = self._command[:self._position]
-
-    def build_n_display_command(self, char):
-        if not self._command:
-            self._command = char
-        else:
-            # This code handles inserts as well as characters at the end
-            self._command = self._command[:self._position] + \
-                                          char + \
-                                          self._command[self._position:]
-            # This code prints characters after then backs up to the insert position
-            if self._command[self._position+1:]:
-                self.print(self._command[self._position+1:], False)
-                # backspace left arrow works too but is a 3 byte sequence
-                pat = bytes.fromhex('08')
-                for _ in range(len(self._command[self._position+1:])):
-                    self._sock.send(pat)
-
-    # Simple history buffer
-    def update_history(self):
-        if self._command != "":
-            # Delete from middle and push on front this allows up and down arrows
-            # for recent commands but the history is half the size
-            self._command_buffer.pop(int(constants.HISTORY/2))
-            self._command_buffer.insert(0, self._command)
-            self._str = self._command + '\n'
-        self._position = 0 # Done Editing
-        self._command = ""
-
-    def ready_to_read(self):
-
-        chars = os.read(self._rx_fd, 1024)
-        if not chars:
-            # Remote side closed session
-            scheduler.SCHEDULER.unregister_handler(self)
-            os.close(self._rx_fd)
-            if self._tx_fd != self._rx_fd:
-                os.close(self._tx_fd)
-            self._rx_fd = None
-            self._tx_fd = None
+    def send_cursor_left(self, positions=1):
+        if positions == 0:
             return
-        #initially we are in 8 - bit mode.
-        if chars[0] == constants.COMMAND:
-            #command sequence ignored although this tells us remote capabilities.
+        msg = (bytes([ESCAPE, VT100_LEFT_SQUARE_BRACKET]) +
+               str(positions).encode() +
+               bytes([VT100_CURSOR_LEFT]))
+        self.send_bytes(msg)
+
+    def send_cursor_right(self, positions=1):
+        if positions == 0:
             return
-        elif chars[0] == constants.ESC: # ESC
-            if len(chars) > 2:
-                self.handle_esc(chars)
+        msg = (bytes([ESCAPE, VT100_LEFT_SQUARE_BRACKET]) +
+               str(positions).encode() +
+               bytes([VT100_CURSOR_RIGHT]))
+        self.send_bytes(msg)
+
+    def send_bell(self):
+        self.send_byte(BELL)
+
+    def send_erase_to_end_of_line(self):
+        msg = bytes([ESCAPE, VT100_LEFT_SQUARE_BRACKET, VT100_ERASE_TO_END_OF_LINE])
+        self.send_bytes(msg)
+
+    def send_byte(self, byte):
+        self.send_bytes(bytes([byte]))
+
+    def send_bytes(self, msg):
+        if self._tx_fd is None:
             return
-        # Backspace is DEL in my setup
-        elif chars[0] == constants.BS or chars[0] == constants.DEL:
-            self.handle_backspace()
-            return
-        # Below here is "normal text" 7-bit Ascii
-        try:
-            temp_str = chars.decode("utf-8", "ignore")  # type: string
-        except UnicodeDecodeError:
-            # Could not parse UTF-8, ignore input
-            return
-        last_char = False
-        if not self._linemode:
-            #Building character by character
-            for char in temp_str:
-                if char in string.printable:
-                    if char == '\r': #Everything after \r ignored.
-                        last_char = True
-                        if self._command != "":
-                            self._str = self._command
-                        else:
-                            self._str = "\r\n" #mimic empty for help
-                        break
-                    self.print(char, False) # Print current char
-                    self.build_n_display_command(char)
-                    self._position += 1
-        else: # Linemode = True
-            self._str = temp_str # Whole Command(s) in _str
-        # Only execute the follwing on a complete command
-        if self._linemode or last_char:
-            if last_char:
-                self.print_r("")
-                self.update_history()
-            # Process Commands
-            while '\n' in self._str:
-                split = self._str.split('\n', 1)
-                command = split[0]
-                self._str = split[1]
-                if command != '':
-                    self.info("Execute CLI command \"{}\"".format(command))
-                    self.parse_command(command)
-                self.send_prompt()
+        os.write(self._tx_fd, msg)
+
+    def echo_byte(self, byte):
+        if self._telnet_echo:
+            self.send_bytes(bytes([byte]))
+
+    def echo_bytes(self, byte_list):
+        if self._telnet_echo:
+            self.send_bytes(bytes(byte_list))
 
     def set_current_node(self, node):
         self._current_node = node
@@ -350,5 +255,198 @@ class CliSessionHandler:
     def current_node(self):
         return self._current_node
 
-    def current_end_line(self):
-        return self._end_line
+    def ready_to_read(self):
+        new_input_bytes = os.read(self._rx_fd, READ_CHUNK_SIZE)
+        if not new_input_bytes:
+            # Remote side closed session
+            self.close()
+            return
+        self._input_bytes_buffer += new_input_bytes
+        self.parse_input_bytes()
+
+    def parse_input_bytes(self):
+        need_more_input = False
+        while not need_more_input and self._input_bytes_buffer:
+            byte = self._input_bytes_buffer[0]
+            self._input_bytes_buffer = self._input_bytes_buffer[1:]
+            if byte == TELNET_NULL:
+                pass
+            elif byte == LINE_FEED:
+                need_more_input = self.process_line_feed()
+            elif byte == CARRIAGE_RETURN:
+                need_more_input = self.process_carriage_return()
+            elif byte == CONTROL_A:
+                need_more_input = self.process_cursor_to_start_of_line()
+            elif byte == CONTROL_E:
+                need_more_input = self.process_cursor_to_end_of_line()
+            elif byte == TELNET_INTERPRET_AS_COMMAND:
+                need_more_input = self.process_telnet_command()
+            elif byte == DELETE:
+                need_more_input = self.process_delete()
+            elif byte == ESCAPE:
+                need_more_input = self.process_escape()
+            else:
+                need_more_input = self.process_other(byte)
+            if need_more_input:
+                # Byte was not consumed, put it back
+                self._input_bytes_buffer = bytes([byte]) + self._input_bytes_buffer
+
+    def process_line_feed(self):
+        return self.parse_end_of_line()
+
+    def process_carriage_return(self):
+        if not self._input_bytes_buffer:
+            # We need to read more bytes to complete the CR+LF pair
+            return True
+        line_feed = self._input_bytes_buffer[0]
+        if line_feed == LINE_FEED:
+            self._input_bytes_buffer = self._input_bytes_buffer[1:]
+        return self.parse_end_of_line()
+
+    def parse_end_of_line(self):
+        self.echo_bytes([CARRIAGE_RETURN, LINE_FEED])
+        try:
+            command = self._command_buffer.decode("utf-8", "ignore")
+        except UnicodeDecodeError:
+            self.print("UTF-8 decode of command failed")
+        else:
+            self.info("Execute CLI command \"{}\"".format(command))
+            self.parse_command(command)
+            self.print_prompt()
+        if self._command_buffer:
+            self._command_history.append(self._command_buffer)
+            while len(self._command_history) > MAX_HISTORY:
+                self._command_history = self._command_history[1:]
+            self._command_history_pos = None
+        self._command_buffer = bytes()
+        self._command_buffer_pos = 0
+        return False
+
+    def process_telnet_command(self):
+        if len(self._input_bytes_buffer) < 2:
+            # We need to receive more bytes before we can parse the Telnet command
+            return True
+        telnet_command = self._input_bytes_buffer[0]
+        telnet_option = self._input_bytes_buffer[1]
+        self._input_bytes_buffer = self._input_bytes_buffer[2:]
+        if telnet_command == TELNET_DO:
+            if telnet_option == TELNET_OPTION_SUPPRESS_GO_AHEAD:
+                self._telnet_suppress_go_ahead = True
+            if telnet_option == TELNET_OPTION_ECHO:
+                self._telnet_echo = True
+        elif telnet_command == TELNET_DONT:
+            if telnet_option == TELNET_OPTION_SUPPRESS_GO_AHEAD:
+                self._telnet_suppress_go_ahead = False
+            if telnet_option == TELNET_OPTION_ECHO:
+                self._telnet_echo = False
+        return False
+
+    def process_delete(self):
+        pos = self._command_buffer_pos
+        if pos > 0:
+            before = self._command_buffer[0:pos-1]
+            after = self._command_buffer[pos:]
+            self._command_buffer = before + after
+            self._command_buffer_pos -= 1
+            self.send_cursor_left()
+            self.refresh_command_from_pos()
+        else:
+            self.send_bell()
+        return False
+
+    def process_escape(self):
+        # We only support VT100 escape sequences of the form ESCAPE + [ + letter
+        if len(self._input_bytes_buffer) < 2:
+            # Need at least two characters after the ESCAPE
+            return True
+        vt100_char_1 = self._input_bytes_buffer[0]
+        vt100_char_2 = self._input_bytes_buffer[1]
+        self._input_bytes_buffer = self._input_bytes_buffer[2:]
+        if vt100_char_1 != VT100_LEFT_SQUARE_BRACKET:
+            return False
+        if vt100_char_2 == VT100_CURSOR_LEFT:
+            self.process_cursor_left()
+        elif vt100_char_2 == VT100_CURSOR_RIGHT:
+            self.process_cursor_right()
+        elif vt100_char_2 == VT100_CURSOR_UP:
+            self.process_prev_history()
+        elif vt100_char_2 == VT100_CURSOR_DOWN:
+            self.process_next_history()
+        return False
+
+    def process_cursor_left(self):
+        if self._command_buffer_pos > 0:
+            self._command_buffer_pos -= 1
+            self.send_cursor_left()
+        else:
+            self.send_bell()
+
+    def process_cursor_right(self):
+        if self._command_buffer_pos < len(self._command_buffer):
+            self._command_buffer_pos += 1
+            self.send_cursor_right()
+        else:
+            self.send_bell()
+
+    def process_cursor_to_start_of_line(self):
+        if self._command_buffer_pos > 0:
+            positions = self._command_buffer_pos
+            self.send_cursor_left(positions)
+            self._command_buffer_pos = 0
+        return False
+
+    def process_cursor_to_end_of_line(self):
+        if self._command_buffer_pos < len(self._command_buffer):
+            positions = len(self._command_buffer) - self._command_buffer_pos
+            self.send_cursor_right(positions)
+            self._command_buffer_pos = len(self._command_buffer)
+        return False
+
+    def process_prev_history(self):
+        if self._command_history == []:
+            self.send_bell()
+            return
+        if self._command_history_pos is None:
+            self._command_history_pos = len(self._command_history)
+            if self._command_buffer:
+                self._command_history.append(self._command_buffer)
+        if self._command_history_pos == 0:
+            self.send_bell()
+            return
+        self._command_history_pos -= 1
+        self._command_buffer = self._command_history[self._command_history_pos]
+        self.process_cursor_to_start_of_line()
+        self.refresh_command_from_pos()
+        self.process_cursor_to_end_of_line()
+
+    def process_next_history(self):
+        if self._command_history_pos is None:
+            self.send_bell()
+            return
+        if self._command_history_pos >= len(self._command_history):
+            self.send_bell()
+            return
+        self._command_history_pos += 1
+        if self._command_history_pos == len(self._command_history):
+            self._command_history_pos = None
+            self._command_buffer = bytes()
+        else:
+            self._command_buffer = self._command_history[self._command_history_pos]
+        self.process_cursor_to_start_of_line()
+        self.refresh_command_from_pos()
+        self.process_cursor_to_end_of_line()
+
+    def process_other(self, byte):
+        if self._command_buffer_pos >= len(self._command_buffer):
+            self.echo_byte(byte)
+            self._command_buffer += bytes([byte])
+            self._command_buffer_pos += 1
+        else:
+            pos = self._command_buffer_pos
+            before = self._command_buffer[0:pos]
+            after = self._command_buffer[pos:]
+            self._command_buffer = before + bytes([byte]) + after
+            self.refresh_command_from_pos()
+            self._command_buffer_pos += 1
+            self.send_cursor_right()
+        return False

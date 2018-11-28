@@ -871,47 +871,47 @@ class Node:
     def command_show_intf_fsm_hist(self, cli_session, parameters, verbose):
         interface_name = parameters['interface']
         if not interface_name in self._interfaces_by_name:
-            cli_session.print_r("Error: interface {} not present".format(interface_name))
+            cli_session.print("Error: interface {} not present".format(interface_name))
             return
         shown_interface = self._interfaces_by_name[interface_name]
         tab = shown_interface.fsm.history_table(verbose)
-        cli_session.print(tab.to_string(cli_session.current_end_line()))
+        cli_session.print(tab.to_string())
 
     def command_show_intf_queues(self, cli_session, parameters):
         interface_name = parameters['interface']
         if not interface_name in self._interfaces_by_name:
-            cli_session.print_r("Error: interface {} not present".format(interface_name))
+            cli_session.print("Error: interface {} not present".format(interface_name))
             return
         intf = self._interfaces_by_name[interface_name]
         tab = intf.ties_tx_table()
-        cli_session.print_r("Transmit queue:")
-        cli_session.print(tab.to_string(cli_session.current_end_line()))
+        cli_session.print("Transmit queue:")
+        cli_session.print(tab.to_string())
         tab = intf.ties_rtx_table()
-        cli_session.print_r("Retransmit queue:")
-        cli_session.print(tab.to_string(cli_session.current_end_line()))
+        cli_session.print("Retransmit queue:")
+        cli_session.print(tab.to_string())
         tab = intf.ties_req_table()
-        cli_session.print_r("Request queue:")
-        cli_session.print(tab.to_string(cli_session.current_end_line()))
+        cli_session.print("Request queue:")
+        cli_session.print(tab.to_string())
         tab = intf.ties_ack_table()
-        cli_session.print_r("Acknowledge queue:")
-        cli_session.print(tab.to_string(cli_session.current_end_line()))
+        cli_session.print("Acknowledge queue:")
+        cli_session.print(tab.to_string())
 
     def command_show_interface(self, cli_session, parameters):
         interface_name = parameters['interface']
         if not interface_name in self._interfaces_by_name:
-            cli_session.print_r("Error: interface {} not present".format(interface_name))
+            cli_session.print("Error: interface {} not present".format(interface_name))
             return
         interface_attributes = self._interfaces_by_name[interface_name].cli_detailed_attributes()
         tab = table.Table(separators=False)
         tab.add_rows(interface_attributes)
-        cli_session.print_r("Interface:")
-        cli_session.print(tab.to_string(cli_session.current_end_line()))
+        cli_session.print("Interface:")
+        cli_session.print(tab.to_string())
         neighbor_attributes = self._interfaces_by_name[interface_name].cli_detailed_neighbor_attrs()
         if neighbor_attributes:
             tab = table.Table(separators=False)
             tab.add_rows(neighbor_attributes)
-            cli_session.print("Neighbor:\r")
-            cli_session.print(tab.to_string(cli_session.current_end_line()))
+            cli_session.print("Neighbor:")
+            cli_session.print(tab.to_string())
 
     def command_show_interfaces(self, cli_session):
         # TODO: Report neighbor uptime (time in THREE_WAY state)
@@ -919,31 +919,31 @@ class Node:
         tab.add_row(interface.Interface.cli_summary_headers())
         for intf in self._interfaces_by_name.values():
             tab.add_row(intf.cli_summary_attributes())
-        cli_session.print(tab.to_string(cli_session.current_end_line()))
+        cli_session.print(tab.to_string())
 
     def command_show_node(self, cli_session):
-        cli_session.print_r("Node:")
+        cli_session.print("Node:")
         tab = table.Table(separators=False)
         tab.add_rows(self.cli_detailed_attributes())
-        cli_session.print(tab.to_string(cli_session.current_end_line()))
-        cli_session.print_r("Received Offers:")
+        cli_session.print(tab.to_string())
+        cli_session.print("Received Offers:")
         tab = table.Table()
         tab.add_row(offer.RxOffer.cli_headers())
         sorted_rx_offers = sortedcontainers.SortedDict(self._rx_offers)
         for off in sorted_rx_offers.values():
             tab.add_row(off.cli_attributes())
-        cli_session.print(tab.to_string(cli_session.current_end_line()))
-        cli_session.print_r("Sent Offers:")
+        cli_session.print(tab.to_string())
+        cli_session.print("Sent Offers:")
         tab = table.Table()
         tab.add_row(offer.TxOffer.cli_headers())
         sorted_tx_offers = sortedcontainers.SortedDict(self._tx_offers)
         for off in sorted_tx_offers.values():
             tab.add_row(off.cli_attributes())
-        cli_session.print(tab.to_string(cli_session.current_end_line()))
+        cli_session.print(tab.to_string())
 
     def command_show_node_fsm_history(self, cli_session, verbose):
         tab = self.fsm.history_table(verbose)
-        cli_session.print(tab.to_string(cli_session.current_end_line()))
+        cli_session.print(tab.to_string())
 
     @staticmethod
     def tide_content_append_tie_id(contents, tie_id):
@@ -954,11 +954,11 @@ class Node:
 
     def command_show_spf(self, cli_session):
         tab = self.spf_table()
-        cli_session.print(tab.to_string(cli_session.current_end_line()))
+        cli_session.print(tab.to_string())
 
     def command_show_tie_db(self, cli_session):
         tab = self.tie_db_table()
-        cli_session.print(tab.to_string(cli_session.current_end_line()))
+        cli_session.print(tab.to_string())
 
     def command_set_interface_failure(self, cli_session, parameters):
         interface_name = parameters['interface']

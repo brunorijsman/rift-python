@@ -116,14 +116,14 @@ class Engine:
         tab.add_row(node.Node.cli_summary_headers())
         for nod in self._nodes.values():
             tab.add_row(nod.cli_summary_attributes())
-        cli_session.print_r(tab.to_string(cli_session.current_end_line()))
+        cli_session.print(tab.to_string())
 
     def command_show_nodes_level(self, cli_session):
         tab = table.Table()
         tab.add_row(node.Node.cli_level_headers())
         for nod in self._nodes.values():
             tab.add_row(nod.cli_level_attributes())
-        cli_session.print_r(tab.to_string(cli_session.current_end_line()))
+        cli_session.print(tab.to_string())
 
     def command_show_spf(self, cli_session):
         cli_session.current_node.command_show_spf(cli_session)
@@ -139,14 +139,14 @@ class Engine:
         if node_name in self._nodes:
             cli_session.set_current_node(self._nodes[node_name])
         else:
-            cli_session.print_r("Node {} does not exist".format(node_name))
+            cli_session.print("Node {} does not exist".format(node_name))
 
     def command_set_level(self, cli_session, parameters):
         level_symbol = parameters['level'].lower()
         parsed_level = node.Node.parse_level_symbol(level_symbol)
         if parsed_level is None:
-            cli_session.print_r("Invalid level value (expected undefined, leaf, leaf-to-leaf, "
-                                "top-of-fabric, or number)")
+            cli_session.print("Invalid level value (expected undefined, leaf, leaf-to-leaf, "
+                              "top-of-fabric, or number)")
             return
         cli_session.current_node.fsm.push_event(node.Node.Event.CHANGE_LOCAL_CONFIGURED_LEVEL,
                                                 level_symbol)

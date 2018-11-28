@@ -49,7 +49,7 @@ class Table:
                 row_height = len(line_list)
         return row_height
 
-    def row_string(self, row, end_line):
+    def row_string(self, row):
         row_str = ""
         row_height = self.determine_row_height(row)
         for line_nr in range(row_height):
@@ -70,24 +70,24 @@ class Table:
                 else:
                     row_str += "|"
                 column_nr += 1
-            row_str += end_line
+            row_str += '\n'
         return row_str
 
-    def separator_string(self, end_line):
+    def separator_string(self):
         sep_str = ""
         for _, width in self._column_widths.items():
             sep_str += "+-" + "-" * width + "-"
-        sep_str += "+" + end_line
+        sep_str += "+" + '\n'
         return sep_str
 
-    def to_string(self, end_line="\n"):
+    def to_string(self):
         self.determine_column_widths()
         table_str = ""
-        table_str += self.separator_string(end_line)
+        table_str += self.separator_string()
         for row in self._rows:
-            table_str += self.row_string(row, end_line)
+            table_str += self.row_string(row)
             if self._separators:
-                table_str += self.separator_string(end_line)
+                table_str += self.separator_string()
         if not self._separators:
-            table_str += self.separator_string(end_line)
+            table_str += self.separator_string()
         return table_str

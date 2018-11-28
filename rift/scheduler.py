@@ -25,14 +25,14 @@ class Scheduler:
             rx_fd = handler.rx_fd()
         else:
             rx_fd = None
-        if rx_fd and rx_fd in self._handlers_by_rx_fd:
+        if rx_fd is not None and rx_fd in self._handlers_by_rx_fd:
             del self._handlers_by_rx_fd[rx_fd]
             self._rx_fds.remove(rx_fd)
         if hasattr(handler, "tx_fd"):
             tx_fd = handler.tx_fd()
         else:
             tx_fd = None
-        if tx_fd and tx_fd in self._handlers_by_tx_fd:
+        if tx_fd is not None and tx_fd in self._handlers_by_tx_fd:
             del self._handlers_by_tx_fd[tx_fd]
             self._tx_fds.remove(tx_fd)
 
