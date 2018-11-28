@@ -39,6 +39,7 @@
         "strftime",
         "strptime",
         "unicast",
-        "unregister"
+        "unregister",
+        "ydef"
     ]
 }

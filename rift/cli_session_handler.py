@@ -201,6 +201,13 @@ class CliSessionHandler:
         self.send_bytes(self._command_buffer[self._command_buffer_pos:])
         self.send_cursor_left(positions)
 
+    def replace_command(self, new_command):
+        self.process_cursor_to_start_of_line()
+        self.send_erase_to_end_of_line()
+        self._command_buffer = new_command
+        self.send_bytes(self._command_buffer)
+        self._command_buffer_pos = len(self._command_buffer)
+
     def send_will_suppress_go_ahead(self):
         msg = bytes([TELNET_INTERPRET_AS_COMMAND, TELNET_WILL, TELNET_OPTION_SUPPRESS_GO_AHEAD])
         self.send_bytes(msg)
@@ -414,27 +421,18 @@ class CliSessionHandler:
             self.send_bell()
             return
         self._command_history_pos -= 1
-        self._command_buffer = self._command_history[self._command_history_pos]
-        self.process_cursor_to_start_of_line()
-        self.refresh_command_from_pos()
-        self.process_cursor_to_end_of_line()
+        self.replace_command(self._command_history[self._command_history_pos])
 
     def process_next_history(self):
         if self._command_history_pos is None:
             self.send_bell()
             return
-        if self._command_history_pos >= len(self._command_history):
-            self.send_bell()
-            return
         self._command_history_pos += 1
-        if self._command_history_pos == len(self._command_history):
+        if self._command_history_pos >= len(self._command_history):
             self._command_history_pos = None
-            self._command_buffer = bytes()
+            self.replace_command(bytes())
         else:
-            self._command_buffer = self._command_history[self._command_history_pos]
-        self.process_cursor_to_start_of_line()
-        self.refresh_command_from_pos()
-        self.process_cursor_to_end_of_line()
+            self.replace_command(self._command_history[self._command_history_pos])
 
     def process_other(self, byte):
         if self._command_buffer_pos >= len(self._command_buffer):

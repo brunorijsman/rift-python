@@ -154,6 +154,10 @@ class Engine:
     def command_exit(self, cli_session):
         cli_session.close()
 
+    def command_stop(self, cli_session):
+        cli_session.close()
+        sys.exit(0)
+
     parse_tree = {
         "exit": command_exit,
         "set": {
@@ -191,6 +195,7 @@ class Engine:
             "spf": command_show_spf,
             "tie-db": command_show_tie_db,
         },
+        "stop": command_stop,
     }
 
     @property
