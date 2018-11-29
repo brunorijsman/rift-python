@@ -1592,8 +1592,6 @@ class Node:
 
     def run_direction_spf(self, spf_direction):
         # pylint:disable=too-many-locals
-        # TODO: Break this huge function down into smaller functions
-        # pylint:disable=too-many-statements
 
         # Candidates is a priority queue that contains the system_ids of candidate nodes with the
         # best known cost thus far as the priority. A node is a candidate if we know some path to
@@ -1641,73 +1639,88 @@ class Node:
             if candidate_system_id in visited:
                 continue
 
-            # Locate the Dir-Node-TIE(s) of the visited node, where Dir is the direction of the SPF.
-            # If we cannot find the Node-TIE, move on to the next candidate without adding the node
-            # to the visited list.
+            # Locate the RevDir-Node-TIE(s) of the visited node, where RevDir is the reverse
+            # direction of the SPF.
             ###@@@: TODO: The spec clearly says that for the top node we need to use tie_direction
             # instead of reverse_tie_direction, but that doesn't work for the deeper nodes (about
             # which the spec is vaguer)
             candidate_node_ties = self.node_ties(reverse_spf_direction, candidate_system_id)
+
+            # If we cannot find any RevDir-Node-TIE(s), move on to the next candidate without adding
+            # the node to the visited list.
             if candidate_node_ties == []:
                 continue
 
-            # Add that node to the visited list.
+            # The node becomes the "visited node"; add it to the visited nodes list.
             visit_entry = candidate_entry
             (visit_system_id, visit_cost) = visit_entry
             visit_node_ties = candidate_node_ties
             visited.add(visit_system_id)
 
-            # Consider each neighbor of the visited node in the right direction.
-            for nbr in self.node_neighbors(visit_node_ties, nbr_direction):
-                (nbr_system_id, nbr_tie_element) = nbr
+            # Look at each neighbor node of the visited node, and either add it to or update it in
+            # the set of candidate nodes.
+            self.spf_consider_neighbor_nodes(
+                visit_system_id,
+                visit_cost,
+                visit_node_ties,
+                candidates,
+                spf_direction,
+                nbr_direction)
 
-                # Is the adjacency bi-directional? If not, skip neighbor.
-                if not self.is_neighbor_bidirectional(visit_system_id, nbr_system_id,
-                                                      nbr_tie_element, spf_direction):
-                    continue
+    def spf_consider_neighbor_nodes(self, visit_system_id, visit_cost, visit_node_ties, candidates,
+                                    spf_direction, nbr_direction):
 
-                # We have found a feasible path to the neighbor. What is the cost of this path?
-                new_nbr_cost = visit_cost + nbr_tie_element.cost
+        # Consider each neighbor of the visited node in the right direction.
+        for nbr in self.node_neighbors(visit_node_ties, nbr_direction):
+            (nbr_system_id, nbr_tie_element) = nbr
 
-                # Did we already have some path to the neighbor?
-                if nbr_system_id not in self._spf_vertices:
+            # Is the adjacency bi-directional? If not, skip neighbor.
+            if not self.is_neighbor_bidirectional(visit_system_id, nbr_system_id,
+                                                  nbr_tie_element, spf_direction):
+                continue
 
-                    # TODO: Direct next-hop interface names and addresses for first hop
+            # We have found a feasible path to the neighbor. What is the cost of this path?
+            new_nbr_cost = visit_cost + nbr_tie_element.cost
 
-                    # We did not have any previous path to the neighbor. The new path to the
-                    # neighbor is the best path.
+            # Did we already have some path to the neighbor?
+            if nbr_system_id not in self._spf_vertices:
+
+                # TODO: Direct next-hop interface names and addresses for first hop
+
+                # We did not have any previous path to the neighbor. The new path to the
+                # neighbor is the best path.
+                self.set_spf_predecessor(nbr_system_id, nbr_tie_element, visit_system_id,
+                                         new_nbr_cost)
+
+                # Store the neighbor as a candidate
+                candidates[nbr_system_id] = new_nbr_cost
+
+            else:
+
+                # We already had a previous path to the neighbor. How does the new path compare
+                # to the existing path in terms of cost?
+                nbr_spf_vertex = self._spf_vertices[nbr_system_id]
+                if new_nbr_cost > nbr_spf_vertex.cost:
+
+                    # The new path is strictly worse than the existing path. Do nothing.
+                    pass
+
+                elif new_nbr_cost < nbr_spf_vertex.cost:
+
+                    # The new path is strictly better than the existing path. Replace the
+                    # existing path with the new path.
                     self.set_spf_predecessor(nbr_system_id, nbr_tie_element, visit_system_id,
                                              new_nbr_cost)
 
-                    # Store the neighbor as a candidate
+                    # Update (lower) the cost of the candidate in the priority queue
                     candidates[nbr_system_id] = new_nbr_cost
 
                 else:
 
-                    # We already had a previous path to the neighbor. How does the new path compare
-                    # to the existing path in terms of cost?
-                    nbr_spf_vertex = self._spf_vertices[nbr_system_id]
-                    if new_nbr_cost > nbr_spf_vertex.cost:
-
-                        # The new path is strictly worse than the existing path. Do nothing.
-                        pass
-
-                    elif new_nbr_cost < nbr_spf_vertex.cost:
-
-                        # The new path is strictly better than the existing path. Replace the
-                        # existing path with the new path.
-                        self.set_spf_predecessor(nbr_system_id, nbr_tie_element, visit_system_id,
-                                                 new_nbr_cost)
-
-                        # Update (lower) the cost of the candidate in the priority queue
-                        candidates[nbr_system_id] = new_nbr_cost
-
-                    else:
-
-                        # The new path is equal cost to the existing path. Add an ECMP path to the
-                        # existing path.
-                        assert new_nbr_cost == nbr_spf_vertex.cost
-                        self.add_spf_predecessor(nbr_spf_vertex, visit_system_id)
+                    # The new path is equal cost to the existing path. Add an ECMP path to the
+                    # existing path.
+                    assert new_nbr_cost == nbr_spf_vertex.cost
+                    self.add_spf_predecessor(nbr_spf_vertex, visit_system_id)
 
     def interface_id_to_nexthop(self, interface_id):
         if interface_id in self._interfaces_by_id:
