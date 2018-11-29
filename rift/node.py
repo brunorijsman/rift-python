@@ -19,7 +19,7 @@ import interface
 import neighbor
 import offer
 import packet_common
-import spf_node
+import spf_vertex
 import table
 import timer
 import utils
@@ -73,7 +73,6 @@ def compare_tie_header_age(header1, header2):
     # If we get this far, we have a tie (same age)
     return 0
 
-# TODO: Rename to router
 class Node:
 
     _next_node_nr = 1
@@ -442,7 +441,7 @@ class Node:
         self._spf_deferred_trigger_pending = False
         self._spf_runs_count = 0
         self._spf_trigger_history = collections.deque([], self.SPF_TRIGGER_HISTORY_LENGTH)
-        self._spf_nodes = {}
+        self._spf_vertices = {}
         if "skip-self-orginated-ties" not in self._config:
             self.regenerate_my_node_ties()
             self.regenerate_my_north_prefix_tie()
@@ -1455,9 +1454,9 @@ class Node:
     def spf_tree_table(self):
         tab = table.Table()
         tab.add_row(self.cli_spf_summary_headers())
-        sorted_spf_nodes = sortedcontainers.SortedDict(self._spf_nodes)
-        for spf_nod in sorted_spf_nodes.values():
-            tab.add_row(self.cli_spf_summary_attributes(spf_nod))
+        sorted_spf_vertices = sortedcontainers.SortedDict(self._spf_vertices)
+        for vertex in sorted_spf_vertices.values():
+            tab.add_row(self.cli_spf_summary_attributes(vertex))
         return tab
 
     def tie_db_table(self):
@@ -1517,12 +1516,12 @@ class Node:
             result_str += str(nexthop_addr)
         return result_str
 
-    def cli_spf_summary_attributes(self, spf_nod):
+    def cli_spf_summary_attributes(self, vertex):
         return [
-            utils.system_id_str(spf_nod.destination),
-            spf_nod.cost,
-            sorted(spf_nod.predecessors),
-            [self.nexthop_str(nexthop) for nexthop in sorted(spf_nod.direct_nexthops)]
+            utils.system_id_str(vertex.destination),
+            vertex.cost,
+            sorted(vertex.predecessors),
+            [self.nexthop_str(nexthop) for nexthop in sorted(vertex.direct_nexthops)]
         ]
 
     def trigger_spf(self, reason):
@@ -1612,11 +1611,11 @@ class Node:
         # i.e. for which the best path has definitely been determined.
         visited = set()
 
-        # spf_nodes contains all SPF-related information for each candidate and each visited
-        # node. After the SPF run is complete, we maintain the spf_nodes for debugging purposes;
+        # spf_vertices contains all SPF-related information for each candidate and each visited
+        # node. After the SPF run is complete, we maintain the spf_vertices for debugging purposes;
         # you can use the "show spf" command to see the results of the most recent SPF run.
-        self._spf_nodes = {}
-        self._spf_nodes[self.system_id] = spf_node.SPFNode(destination=self.system_id, cost=0)
+        self._spf_vertices = {}
+        self._spf_vertices[self.system_id] = spf_vertex.make_node_vertex(self.system_id, 0)
 
         # Which neighbors of the currently visited node are we considering?
         # TODO: When do we consider EAST-WEST as well?
@@ -1670,7 +1669,7 @@ class Node:
                 new_nbr_cost = visit_cost + nbr_tie_element.cost
 
                 # Did we already have some path to the neighbor?
-                if nbr_system_id not in self._spf_nodes:
+                if nbr_system_id not in self._spf_vertices:
 
                     # TODO: Direct next-hop interface names and addresses for first hop
 
@@ -1686,13 +1685,13 @@ class Node:
 
                     # We already had a previous path to the neighbor. How does the new path compare
                     # to the existing path in terms of cost?
-                    nbr_spf_node = self._spf_nodes[nbr_system_id]
-                    if new_nbr_cost > nbr_spf_node.cost:
+                    nbr_spf_vertex = self._spf_vertices[nbr_system_id]
+                    if new_nbr_cost > nbr_spf_vertex.cost:
 
                         # The new path is strictly worse than the existing path. Do nothing.
                         pass
 
-                    elif new_nbr_cost < nbr_spf_node.cost:
+                    elif new_nbr_cost < nbr_spf_vertex.cost:
 
                         # The new path is strictly better than the existing path. Replace the
                         # existing path with the new path.
@@ -1706,8 +1705,8 @@ class Node:
 
                         # The new path is equal cost to the existing path. Add an ECMP path to the
                         # existing path.
-                        assert new_nbr_cost == nbr_spf_node.cost
-                        self.add_spf_predecessor(nbr_spf_node, visit_system_id)
+                        assert new_nbr_cost == nbr_spf_vertex.cost
+                        self.add_spf_predecessor(nbr_spf_vertex, visit_system_id)
 
     def interface_id_to_nexthop(self, interface_id):
         if interface_id in self._interfaces_by_id:
@@ -1721,20 +1720,20 @@ class Node:
             return (None, None)
 
     def set_spf_predecessor(self, nbr_system_id, nbr_tie_element, visit_system_id, cost):
-        spf_nod = spf_node.SPFNode(nbr_system_id, cost)
-        spf_nod.add_predecessor(visit_system_id)
+        vertex = spf_vertex.make_node_vertex(nbr_system_id, cost)
+        vertex.add_predecessor(visit_system_id)
         if visit_system_id == self.system_id:
             for link_id_pair in nbr_tie_element.link_ids:
                 nexthop = self.interface_id_to_nexthop(link_id_pair.local_id)
                 (nexthop_intf_name, nexthop_addr) = nexthop
-                spf_nod.add_direct_nexthop(nexthop_intf_name, nexthop_addr)
+                vertex.add_direct_nexthop(nexthop_intf_name, nexthop_addr)
         else:
-            spf_nod.inherit_direct_nexthops(self._spf_nodes[visit_system_id])
-        self._spf_nodes[nbr_system_id] = spf_nod
+            vertex.inherit_direct_nexthops(self._spf_vertices[visit_system_id])
+        self._spf_vertices[nbr_system_id] = vertex
 
-    def add_spf_predecessor(self, destination_spf_node, predecessor_system_id):
-        destination_spf_node.add_predecessor(predecessor_system_id)
-        destination_spf_node.inherit_direct_nexthops(self._spf_nodes[predecessor_system_id])
+    def add_spf_predecessor(self, destination_spf_vertex, predecessor_system_id):
+        destination_spf_vertex.add_predecessor(predecessor_system_id)
+        destination_spf_vertex.inherit_direct_nexthops(self._spf_vertices[predecessor_system_id])
 
     def is_neighbor_bidirectional(self, visit_system_id, nbr_system_id, nbr_tie_element,
                                   spf_direction):
