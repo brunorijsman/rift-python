@@ -73,6 +73,7 @@ def compare_tie_header_age(header1, header2):
     # If we get this far, we have a tie (same age)
     return 0
 
+# TODO: Rename to router
 class Node:
 
     _next_node_nr = 1
@@ -614,6 +615,12 @@ class Node:
             ["Receive TIE Port", self.rx_tie_port]
         ]
 
+    def cli_statistics_attributes(self):
+        return [
+            ["SPF Runs", self._spf_runs_count],
+            ["SPF Deferrals", self._spf_triggers_deferred_count]
+        ]
+
     def allocate_interface_id(self):
         # We assume an i32 is never going to wrap (i.e. no more than ~2M interfaces)
         interface_id = self._next_interface_id
@@ -953,7 +960,11 @@ class Node:
         contents.append("  TIE Nr: " + str(tie_id.tie_nr))
 
     def command_show_spf(self, cli_session):
-        tab = self.spf_table()
+        cli_session.print("SPF Statistics:")
+        tab = self.spf_statistics_table()
+        cli_session.print(tab.to_string())
+        cli_session.print("SPF Tree:")
+        tab = self.spf_tree_table()
         cli_session.print(tab.to_string())
 
     def command_show_tie_db(self, cli_session):
@@ -1436,7 +1447,12 @@ class Node:
                           "{} (perspective neighbor to us)".format(tie_header, reason1, reason2))
         return tide_packet
 
-    def spf_table(self):
+    def spf_statistics_table(self):
+        tab = table.Table()
+        tab.add_rows(self.cli_statistics_attributes())
+        return tab
+
+    def spf_tree_table(self):
         tab = table.Table()
         tab.add_row(self.cli_spf_summary_headers())
         sorted_spf_nodes = sortedcontainers.SortedDict(self._spf_nodes)
