@@ -1502,9 +1502,9 @@ class Node:
     @staticmethod
     def cli_spf_summary_headers():
         return [
-            "Destination",
+            ["Node", "System ID"],
             "Cost",
-            "Predecessors",
+            ["Predecessor", "System IDs"],
             "Nexthops"]
 
     def nexthop_str(self, nexthop):
@@ -1518,7 +1518,7 @@ class Node:
 
     def cli_spf_summary_attributes(self, vertex):
         return [
-            utils.system_id_str(vertex.destination),
+            utils.system_id_str(vertex.system_id),
             vertex.cost,
             sorted(vertex.predecessors),
             [self.nexthop_str(nexthop) for nexthop in sorted(vertex.direct_nexthops)]
