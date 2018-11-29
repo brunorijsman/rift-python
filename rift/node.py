@@ -1505,7 +1505,7 @@ class Node:
             ["Node", "System ID"],
             "Cost",
             ["Predecessor", "System IDs"],
-            "Nexthops"]
+            ["Direct", "Nexthops"]]
 
     def nexthop_str(self, nexthop):
         (nexthop_intf_name, nexthop_addr) = nexthop
@@ -1592,6 +1592,7 @@ class Node:
 
     def run_direction_spf(self, spf_direction):
         # pylint:disable=too-many-locals
+        # TODO: Break this huge function down into smaller functions
         # pylint:disable=too-many-statements
 
         # Candidates is a priority queue that contains the system_ids of candidate nodes with the

@@ -321,7 +321,7 @@ def check_non_empty_history(session):
     session.send("pf")
     session.expect("pf")
     session.send("\n")
-    session.expect("Predecessors")
+    session.expect("Predecessor")
     session.wait_prompt()
 
 def test_telnet_history():
@@ -394,7 +394,7 @@ def check_end_of_line_cr(session):
     session.send("\r")
     time.sleep(0.1)
     session.send("\n")
-    session.expect("Predecessors")
+    session.expect("Predecessor")
     session.wait_prompt()
 
 def check_end_of_line_lf(session):
