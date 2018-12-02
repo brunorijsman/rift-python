@@ -22,7 +22,24 @@ class ActiveNodes(enum.Enum):
     ONLY_PASSIVE_NODES = 2
     ALL_NODES_EXCEPT_PASSIVE_NODES = 3
 
-class FloodingScope(enum.Enum):
-    NORTH = 1
-    SOUTH = 2
-    EAST_WEST = 3
+DIR_SOUTH = common.ttypes.TieDirectionType.South
+DIR_NORTH = common.ttypes.TieDirectionType.North
+DIR_EAST_WEST = common.ttypes.TieDirectionType.DirectionMaxValue   # Only used internally
+
+def reverse_dir(direction):
+    if direction == DIR_SOUTH:
+        return DIR_NORTH
+    elif direction == DIR_NORTH:
+        return DIR_SOUTH
+    else:
+        assert direction == DIR_EAST_WEST
+        return DIR_EAST_WEST
+
+def direction_str(direction):
+    if direction == DIR_SOUTH:
+        return "South"
+    elif direction == DIR_NORTH:
+        return "North"
+    else:
+        assert direction == DIR_EAST_WEST
+        return "East-West"

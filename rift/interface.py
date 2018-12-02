@@ -750,11 +750,11 @@ class Interface:
             return None
         my_level = self._node.level_value()
         if self.neighbor.level > my_level:
-            return neighbor.Neighbor.Direction.NORTH
+            return constants.DIR_NORTH
         elif self.neighbor.level < my_level:
-            return neighbor.Neighbor.Direction.SOUTH
+            return constants.DIR_SOUTH
         else:
-            return neighbor.Neighbor.Direction.EAST_WEST
+            return constants.DIR_EAST_WEST
 
     def is_flood_reduced(self, _tie_header):
         # TODO: Implement this
@@ -769,23 +769,23 @@ class Interface:
     #
     def is_request_allowed_complex(self, tie_header, i_am_top_of_fabric):
         neighbor_direction = self.neighbor_direction()
-        if neighbor_direction == neighbor.Neighbor.Direction.SOUTH:
+        if neighbor_direction == constants.DIR_SOUTH:
             dir_str = "S"
-        elif neighbor_direction == neighbor.Neighbor.Direction.NORTH:
+        elif neighbor_direction == constants.DIR_NORTH:
             dir_str = "N"
-        elif neighbor_direction == neighbor.Neighbor.Direction.EAST_WEST:
+        elif neighbor_direction == constants.DIR_EAST_WEST:
             dir_str = "EW"
         else:
             dir_str = "?"
-        if neighbor_direction == neighbor.Neighbor.Direction.EAST_WEST:
+        if neighbor_direction == constants.DIR_EAST_WEST:
             # If this node is top of fabric, then apply north scope rules, otherwise apply south
             # scope rules
             if i_am_top_of_fabric:
-                neighbor_direction = neighbor.Neighbor.Direction.NORTH
+                neighbor_direction = constants.DIR_NORTH
             else:
-                neighbor_direction = neighbor.Neighbor.Direction.SOUTH
+                neighbor_direction = constants.DIR_SOUTH
             # Fall-through to next if block is intentional
-        if neighbor_direction == neighbor.Neighbor.Direction.SOUTH:
+        if neighbor_direction == constants.DIR_SOUTH:
             # Request all N-TIEs ...
             if tie_header.tieid.direction == common.ttypes.TieDirectionType.North:
                 return (True, "to {}: include all N-TIEs".format(dir_str))
@@ -798,7 +798,7 @@ class Interface:
                 return (True, "to {}: include node S-TIE".format(dir_str))
             # Exclude everything else
             return (False, "to {}: exclude".format(dir_str))
-        if neighbor_direction == neighbor.Neighbor.Direction.NORTH:
+        if neighbor_direction == constants.DIR_NORTH:
             # Request all S-TIEs
             if tie_header.tieid.direction == common.ttypes.TieDirectionType.South:
                 return (True, "to {}: include all S-TIEs".format(dir_str))

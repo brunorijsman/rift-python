@@ -16,10 +16,9 @@ import constants
 import encoding.ttypes
 import fsm
 import interface
-import neighbor
 import offer
 import packet_common
-import spf_vertex
+import spf_dest
 import table
 import timer
 import utils
@@ -27,13 +26,6 @@ import utils
 MY_TIE_NR = 1
 
 FLUSH_LIFETIME = 60
-
-TIE_SOUTH = common.ttypes.TieDirectionType.South
-TIE_NORTH = common.ttypes.TieDirectionType.North
-
-NEIGHBOR_NORTH = neighbor.Neighbor.Direction.NORTH
-NEIGHBOR_SOUTH = neighbor.Neighbor.Direction.SOUTH
-NEIGHBOR_EAST_WEST = neighbor.Neighbor.Direction.EAST_WEST
 
 # TODO: We currently only store the decoded TIE messages.
 # Also store the encoded TIE messages for the following reasons:
@@ -86,14 +78,14 @@ class Node:
     # but value 1 (direction South) or value 2 (tietype TieTypeNode). Juniper RIFT doesn't accept
     # illegal values.
     MIN_TIE_ID = encoding.ttypes.TIEID(
-        direction=TIE_SOUTH,
+        direction=constants.DIR_SOUTH,
         originator=0,
         tietype=common.ttypes.TIETypeType.NodeTIEType,
         tie_nr=0)
     # For the same reason don't use DirectionMaxValue or TIETypeMaxValue but North and
     # KeyValueTIEType instead
     MAX_TIE_ID = encoding.ttypes.TIEID(
-        direction=TIE_NORTH,
+        direction=constants.DIR_NORTH,
         originator=packet_common.MAX_U64,
         tietype=common.ttypes.TIETypeType.KeyValueTIEType,
         tie_nr=packet_common.MAX_U32)
@@ -430,7 +422,7 @@ class Node:
         self.my_node_tie_seq_nrs[common.ttypes.TieDirectionType.North] = 0
         self.my_node_ties = {}                   # Indexed by neighbor direction
         self.other_node_ties_at_my_level = {}    # Indexed by tie_id
-        self._my_north_prefix_tie = None
+        self._my_north__tie = None
         self._originating_default = False
         self._my_south_prefix_tie = None
         self.ties = sortedcontainers.SortedDict()  # TIEPacket objects indexed by TIEID
@@ -441,7 +433,7 @@ class Node:
         self._spf_deferred_trigger_pending = False
         self._spf_runs_count = 0
         self._spf_trigger_history = collections.deque([], self.SPF_TRIGGER_HISTORY_LENGTH)
-        self._spf_vertices = {}
+        self._spf_destinations = {}
         if "skip-self-orginated-ties" not in self._config:
             self.regenerate_my_node_ties()
             self.regenerate_my_north_prefix_tie()
@@ -721,8 +713,8 @@ class Node:
         for intf in self._interfaces_by_name.values():
             if ((intf.fsm.state == interface.Interface.State.THREE_WAY) and
                     (intf != interface_going_down)):
-                if intf.neighbor_direction() in [neighbor.Neighbor.Direction.SOUTH,
-                                                 neighbor.Neighbor.Direction.EAST_WEST]:
+                if intf.neighbor_direction() in [constants.DIR_SOUTH,
+                                                 constants.DIR_EAST_WEST]:
                     return True
         return False
 
@@ -1268,17 +1260,17 @@ class Node:
         # better understood (correctness first, performance later).
         # See https://www.dropbox.com/s/b07dnhbxawaizpi/zoom_0.mp4?dl=0 for a video recording of a
         # discussion where these complications were discussed in detail.
-        if tie_header.tieid.direction == TIE_SOUTH:
+        if tie_header.tieid.direction == constants.DIR_SOUTH:
             # S-TIE
             if tie_header.tieid.tietype == common.ttypes.TIETypeType.NodeTIEType:
                 # Node S-TIE
-                if to_node_direction == NEIGHBOR_SOUTH:
+                if to_node_direction == constants.DIR_SOUTH:
                     # Node S-TIE to S: Flood if level of originator is same as level of this node
                     if self.tie_originator_level(tie_header) == from_node_level:
                         return (True, "Node S-TIE to S: originator level is same as from-node")
                     else:
                         return (False, "Node S-TIE to S: originator level is not same as from-node")
-                elif to_node_direction == NEIGHBOR_NORTH:
+                elif to_node_direction == constants.DIR_NORTH:
                     # Node S-TIE to N: flood if level of originator is higher than level of this
                     # node
                     originator_level = self.tie_originator_level(tie_header)
@@ -1289,7 +1281,7 @@ class Node:
                     else:
                         return (False,
                                 "Node S-TIE to N: originator level is not higher than from-node")
-                elif to_node_direction == NEIGHBOR_EAST_WEST:
+                elif to_node_direction == constants.DIR_EAST_WEST:
                     # Node S-TIE to EW: Flood only if this node is not top of fabric
                     if from_node_is_top_of_fabric:
                         return (False, "Node S-TIE to EW: from-node is top of fabric")
@@ -1301,20 +1293,20 @@ class Node:
                     return (False, "Node S-TIE to ?: never flood")
             else:
                 # Non-Node S-TIE
-                if to_node_direction == NEIGHBOR_SOUTH:
+                if to_node_direction == constants.DIR_SOUTH:
                     # Non-Node S-TIE to S: Flood self-originated only
                     if self.tie_is_originated_by_node(tie_header, from_node_system_id):
                         return (True, "Non-node S-TIE to S: self-originated")
                     else:
                         return (False, "Non-node S-TIE to S: not self-originated")
-                elif to_node_direction == NEIGHBOR_NORTH:
+                elif to_node_direction == constants.DIR_NORTH:
                     # [*] Non-Node S-TIE to N: Flood only if the neighbor is the originator of
                     # the TIE
                     if to_node_system_id == tie_header.tieid.originator:
                         return (True, "Non-node S-TIE to N: to-node is originator of TIE")
                     else:
                         return (False, "Non-node S-TIE to N: to-node is not originator of TIE")
-                elif to_node_direction == NEIGHBOR_EAST_WEST:
+                elif to_node_direction == constants.DIR_EAST_WEST:
                     # Non-Node S-TIE to EW: Flood only if if self-originated and this node is not
                     # ToF
                     if from_node_is_top_of_fabric:
@@ -1329,14 +1321,14 @@ class Node:
                     return (False, "None-node S-TIE to ?: never flood")
         else:
             # S-TIE
-            assert tie_header.tieid.direction == TIE_NORTH
-            if to_node_direction == NEIGHBOR_SOUTH:
+            assert tie_header.tieid.direction == constants.DIR_NORTH
+            if to_node_direction == constants.DIR_SOUTH:
                 # S-TIE to S: Never flood
                 return (False, "N-TIE to S: never flood")
-            elif to_node_direction == NEIGHBOR_NORTH:
+            elif to_node_direction == constants.DIR_NORTH:
                 # S-TIE to N: Always flood
                 return (True, "N-TIE to N: always flood")
-            elif to_node_direction == NEIGHBOR_EAST_WEST:
+            elif to_node_direction == constants.DIR_EAST_WEST:
                 # S-TIE to EW: Flood only if this node is top of fabric
                 if from_node_is_top_of_fabric:
                     return (True, "N-TIE to EW: top of fabric")
@@ -1369,10 +1361,10 @@ class Node:
                                        neighbor_level,
                                        neighbor_is_top_of_fabric,
                                        node_system_id):
-        if neighbor_direction == NEIGHBOR_SOUTH:
-            neighbor_reverse_direction = NEIGHBOR_NORTH
-        elif neighbor_direction == NEIGHBOR_NORTH:
-            neighbor_reverse_direction = NEIGHBOR_SOUTH
+        if neighbor_direction == constants.DIR_SOUTH:
+            neighbor_reverse_direction = constants.DIR_NORTH
+        elif neighbor_direction == constants.DIR_NORTH:
+            neighbor_reverse_direction = constants.DIR_SOUTH
         else:
             neighbor_reverse_direction = neighbor_direction
         return self.is_flood_allowed(
@@ -1451,12 +1443,20 @@ class Node:
         tab.add_rows(self.cli_statistics_attributes())
         return tab
 
+    @staticmethod
+    def compare_spf_dest_key(dest_key):
+        if isinstance(dest_key, int):
+            return (0, dest_key)
+        else:
+            return (1, dest_key)
+
     def spf_tree_table(self):
         tab = table.Table()
-        tab.add_row(self.cli_spf_summary_headers())
-        sorted_spf_vertices = sortedcontainers.SortedDict(self._spf_vertices)
-        for vertex in sorted_spf_vertices.values():
-            tab.add_row(self.cli_spf_summary_attributes(vertex))
+        tab.add_row(spf_dest.SPFDest.cli_summary_headers())
+        ###@@@ TODO: Sort them
+        # sorted_spf_destinations = sorted(self._spf_destinations, key=self.compare_spf_dest_key)
+        for destination in self._spf_destinations.values():
+            tab.add_row(destination.cli_summary_attributes(destination))
         return tab
 
     def tie_db_table(self):
@@ -1499,31 +1499,6 @@ class Node:
             packet_common.element_str(tie_id.tietype, tie_packet.element)
         ]
 
-    @staticmethod
-    def cli_spf_summary_headers():
-        return [
-            ["Node", "System ID"],
-            "Cost",
-            ["Predecessor", "System IDs"],
-            ["Direct", "Nexthops"]]
-
-    def nexthop_str(self, nexthop):
-        (nexthop_intf_name, nexthop_addr) = nexthop
-        result_str = ""
-        if nexthop_intf_name is not None:
-            result_str += nexthop_intf_name + " "
-        if nexthop_addr is not None:
-            result_str += str(nexthop_addr)
-        return result_str
-
-    def cli_spf_summary_attributes(self, vertex):
-        return [
-            utils.system_id_str(vertex.system_id),
-            vertex.cost,
-            sorted(vertex.predecessors),
-            [self.nexthop_str(nexthop) for nexthop in sorted(vertex.direct_nexthops)]
-        ]
-
     def trigger_spf(self, reason):
         self._spf_triggers_count += 1
         self._spf_trigger_history.appendleft(reason)
@@ -1531,7 +1506,7 @@ class Node:
             self.start_defer_spf_timer()
             self._spf_deferred_trigger_pending = False
             self.spf_debug("Trigger and run SPF: {}".format(reason))
-            self.run_spf()
+            self.spf_run()
         else:
             self._spf_deferred_trigger_pending = True
             self._spf_triggers_deferred_count += 1
@@ -1550,20 +1525,28 @@ class Node:
             self.start_defer_spf_timer()
             self._spf_deferred_trigger_pending = False
             self.spf_debug("Run deferred SPF")
-            self.run_spf()
+            self.spf_run()
 
-    def node_ties(self, direction, system_id):
-        # Return an ordered list of all node TIEs from the given node and in the given direction
+    def ties_of_type(self, direction, system_id, prefix_type):
+        # Return an ordered list of TIEs from the given node and in the given direction and of the
+        # given type
         node_ties = []
-        start_tie_id = packet_common.make_tie_id(
-            direction, system_id, common.ttypes.TIETypeType.NodeTIEType, 0)
-        end_tie_id = packet_common.make_tie_id(
-            direction, system_id, common.ttypes.TIETypeType.NodeTIEType, packet_common.MAX_U32)
+        start_tie_id = packet_common.make_tie_id(direction, system_id, prefix_type, 0)
+        end_tie_id = packet_common.make_tie_id(direction, system_id, prefix_type,
+                                               packet_common.MAX_U32)
         node_tie_ids = self.ties.irange(start_tie_id, end_tie_id, (True, True))
         for node_tie_id in node_tie_ids:
             node_tie = self.ties[node_tie_id]
             node_ties.append(node_tie)
         return node_ties
+
+    def node_ties(self, direction, system_id):
+        # Return an ordered list of all node TIEs from the given node and in the given direction
+        return self.ties_of_type(direction, system_id, common.ttypes.TIETypeType.NodeTIEType)
+
+    def prefix_ties(self, direction, system_id):
+        # Return an ordered list of all prefix TIEs from the given node and in the given direction
+        return self.ties_of_type(direction, system_id, common.ttypes.TIETypeType.PrefixTIEType)
 
     def node_neighbors(self, node_ties, neighbor_direction):
         # A generator that yields (nbr_system_id, nbr_tie_element) tuples for all neighbors in the
@@ -1572,155 +1555,140 @@ class Node:
             node_level = node_tie.element.node.level
             for nbr_system_id, nbr_tie_element in node_tie.element.node.neighbors.items():
                 nbr_level = nbr_tie_element.level
-                if neighbor_direction == NEIGHBOR_SOUTH:
+                if neighbor_direction == constants.DIR_SOUTH:
                     correct_direction = (nbr_level < node_level)
-                elif neighbor_direction == NEIGHBOR_NORTH:
+                elif neighbor_direction == constants.DIR_NORTH:
                     correct_direction = (nbr_level > node_level)
-                elif neighbor_direction == NEIGHBOR_EAST_WEST:
+                elif neighbor_direction == constants.DIR_EAST_WEST:
                     correct_direction = (nbr_level == node_level)
                 else:
                     assert False
                 if correct_direction:
                     yield (nbr_system_id, nbr_tie_element)
 
-    def run_spf(self):
+    def spf_run(self):
         self._spf_runs_count += 1
         # TODO: Currently we simply always run both North-SPF and South-SPF, but maybe we can be
         # more intelligent about selectively triggering North-SPF and South-SPF separately.
-        self.run_direction_spf(TIE_SOUTH)
-        ###@@@ self.run_direction_spf(TIE_NORTH)
+        self.spf_run_direction(constants.DIR_SOUTH)
+        ###@@@ self.run_direction_spf(constants.DIR_NORTH)
 
-    def run_direction_spf(self, spf_direction):
-        # pylint:disable=too-many-locals
-
-        # Candidates is a priority queue that contains the system_ids of candidate nodes with the
-        # best known cost thus far as the priority. A node is a candidate if we know some path to
-        # the node, but we have not yet established whether or not that path is the best path.
+    def spf_run_direction(self, spf_direction):
+        # Shortest Path First (SPF) uses the Dijkstra algorithm to compute the shortest path to
+        # each destination that is reachable from this node.
+        # Each destination is represented by an SPFDest object, which represents either a node or
+        # a prefix.
+        ###@@@ fix doc below
+        ###@@@ Document candidates: indexed by destination key, which is system-id or prefix
+        # The variable "candidates" contains the set of destinations (nodes and prefixes) for which
+        # we have already determines some feasible path (which may be an ECMP path) but for which
+        # we have not yet established that the known path is indeed the best path.
+        # For efficiency, candidates is implemented as a priority queue that contains the
+        # destinations with the best known path cost thus far as the priority. Node destinations are
+        # represented by their system-id, and prefix destinations are represented by their prefix.
         # We use module heapdict (as opposed to the more widely used heapq module) because we need
         # an efficient way to decrease the priority of an element which is already on the priority
         # queue. Heapq only allows you to do this by calling the internal method _siftdown (see
         # http://bit.ly/siftdown)
         candidates = heapdict.heapdict()
-
-        # Initially, there is one node in the candidates heap, namely the starting node (i.e. this
-        # node) with cost zero.
+        # Initially, there is one destination in the candidates heap, namely the starting node (i.e.
+        # this node) with cost zero.
         candidates[self.system_id] = 0
-
-        # Visited is a set that contains the system_ids of the nodes that have already been visited,
-        # i.e. for which the best path has definitely been determined.
-        visited = set()
-
-        # spf_vertices contains all SPF-related information for each candidate and each visited
-        # node. After the SPF run is complete, we maintain the spf_vertices for debugging purposes;
-        # you can use the "show spf" command to see the results of the most recent SPF run.
-        self._spf_vertices = {}
-        self._spf_vertices[self.system_id] = spf_vertex.make_node_vertex(self.system_id, 0)
-
-        # Which neighbors of the currently visited node are we considering?
-        # TODO: When do we consider EAST-WEST as well?
-        if spf_direction == TIE_SOUTH:
-            nbr_direction = NEIGHBOR_SOUTH
-            reverse_spf_direction = TIE_NORTH
-        elif spf_direction == TIE_NORTH:
-            nbr_direction = NEIGHBOR_NORTH
-            reverse_spf_direction = TIE_SOUTH
-        else:
-            assert False
-
+        # The attribute _spf_destinations is a direct contains all destinations, both candidate
+        # destinations and best destinations. It is indexed they key of the destination, which is
+        # the system-id for node destination, and the prefix for prefix destinations.
+        # There is a show command to view the contents of _spf_destination for the most recent SPF
+        # run for debugging purposes.
+        self._spf_destinations = {}
+        self_destination = spf_dest.make_node_destination(self.system_id, 0)
+        self._spf_destinations[self.system_id] = self_destination
         # Keep going until we have no more candidates
         while candidates:
-
-            # Remove the candidate node with the lowest cost from the candidate priority queue.
-            candidate_entry = candidates.popitem()
-            (candidate_system_id, _candidate_cost) = candidate_entry
-
-            # If we have already visited the node (i.e. if we already definitely know the best path)
-            # skip the candidate.
-            if candidate_system_id in visited:
+            # Remove the destination with the lowest cost from the candidate priority queue.
+            (dest_key, dest_cost) = candidates.popitem()
+            # If already have a best path to the destination move on to the next candidate.
+            destination = self._spf_destinations[dest_key]
+            if destination.best:
                 continue
+            # Mark that we now have the best path to the destination.
+            destination.best = True
+            # If the destination is a node, potentially add its neighbors and prefixes as new
+            # candidates
+            if isinstance(dest_key, int):
+                self.spf_add_candidates_from_node(dest_key, dest_cost, candidates, spf_direction)
 
-            # Locate the RevDir-Node-TIE(s) of the visited node, where RevDir is the reverse
-            # direction of the SPF.
-            ###@@@: TODO: The spec clearly says that for the top node we need to use tie_direction
-            # instead of reverse_tie_direction, but that doesn't work for the deeper nodes (about
-            # which the spec is vaguer)
-            candidate_node_ties = self.node_ties(reverse_spf_direction, candidate_system_id)
+    def spf_add_candidates_from_node(self, node_system_id, node_cost, candidates, spf_direction):
+        node_ties = self.node_ties(constants.reverse_dir(spf_direction), node_system_id)
+        if node_ties == []:
+            return
+        self.spf_add_neighbor_candidates(node_system_id, node_cost, node_ties, candidates,
+                                         spf_direction)
+        self.spf_add_prefix_candidates(node_system_id, node_cost, node_ties, candidates,
+                                       spf_direction)
 
-            # If we cannot find any RevDir-Node-TIE(s), move on to the next candidate without adding
-            # the node to the visited list.
-            if candidate_node_ties == []:
-                continue
-
-            # The node becomes the "visited node"; add it to the visited nodes list.
-            visit_entry = candidate_entry
-            (visit_system_id, visit_cost) = visit_entry
-            visit_node_ties = candidate_node_ties
-            visited.add(visit_system_id)
-
-            # Look at each neighbor node of the visited node, and either add it to or update it in
-            # the set of candidate nodes.
-            self.spf_consider_neighbor_nodes(
-                visit_system_id,
-                visit_cost,
-                visit_node_ties,
-                candidates,
-                spf_direction,
-                nbr_direction)
-
-    def spf_consider_neighbor_nodes(self, visit_system_id, visit_cost, visit_node_ties, candidates,
-                                    spf_direction, nbr_direction):
-
-        # Consider each neighbor of the visited node in the right direction.
-        for nbr in self.node_neighbors(visit_node_ties, nbr_direction):
+    def spf_add_neighbor_candidates(self, node_system_id, node_cost, node_ties, candidates,
+                                    spf_direction):
+        # Consider each neighbor of the visited node in the opposite direction of the SPF
+        for nbr in self.node_neighbors(node_ties, spf_direction):
             (nbr_system_id, nbr_tie_element) = nbr
+            # Only consider bi-directional adjacencies.
+            if self.is_neighbor_bidirectional(node_system_id, nbr_system_id, nbr_tie_element,
+                                              spf_direction):
+                # We have found a feasible path to the neighbor node; is the best path?
+                cost = node_cost + nbr_tie_element.cost
+                destination = spf_dest.make_node_destination(nbr_system_id, cost)
+                self.spf_consider_candidate_dest(destination, nbr_tie_element, node_system_id,
+                                                 candidates)
 
-            # Is the adjacency bi-directional? If not, skip neighbor.
-            if not self.is_neighbor_bidirectional(visit_system_id, nbr_system_id,
-                                                  nbr_tie_element, spf_direction):
-                continue
+    ###@@@ TODO: Remove _ arguments
+    def spf_add_prefix_candidates(self, node_system_id, node_cost, _node_ties, candidates,
+                                  spf_direction):
+        # Consider each prefix of the visited node in the opposite direction of the SPF
+        prefix_ties = self.prefix_ties(constants.reverse_dir(spf_direction), node_system_id)
+        for prefix_tie in prefix_ties:
+            prefixes = prefix_tie.element.prefixes.prefixes
+            for prefix, attributes in prefixes.items():
+                # We have found a feasible path to the prefix; is the best path?
+                cost = node_cost + attributes.metric
+                destination = spf_dest.make_prefix_destintation(prefix, cost)
+                self.spf_consider_candidate_dest(destination, None, node_system_id, candidates)
 
-            # We have found a feasible path to the neighbor. What is the cost of this path?
-            new_nbr_cost = visit_cost + nbr_tie_element.cost
+    def spf_consider_candidate_dest(self, destination, nbr_tie_element, predecessor_system_id,
+                                    candidates):
+        dest_key = destination.key()
+        if dest_key not in self._spf_destinations:
+            # We did not have any previous path to the destination. Add it.
+            self.set_spf_predecessor(destination, nbr_tie_element, predecessor_system_id)
+            self._spf_destinations[dest_key] = destination
+            candidates[dest_key] = destination.cost
+        else:
+            # We already had a previous path to the destination. How does the new path compare to
+            # the existing path in terms of cost?
+            old_destination = self._spf_destinations[dest_key]
+            if destination.cost < old_destination.cost:
+                # The new path is strictly better than the existing path. Replace the existing path
+                # with the new path.
+                self.set_spf_predecessor(destination, nbr_tie_element, predecessor_system_id)
+                self._spf_destinations[dest_key] = destination
+                candidates[dest_key] = destination.cost
+            elif destination.cost == old_destination.cost:
+                # The new path is equal cost to the existing path. Add an ECMP path to the existing
+                # path.
+                self.add_spf_predecessor(old_destination, predecessor_system_id)
 
-            # Did we already have some path to the neighbor?
-            if nbr_system_id not in self._spf_vertices:
+    def set_spf_predecessor(self, destination, nbr_tie_element, predecessor_system_id):
+        destination.add_predecessor(predecessor_system_id)
+        if (nbr_tie_element is not None) and (predecessor_system_id == self.system_id):
+            for link_id_pair in nbr_tie_element.link_ids:
+                nexthop = self.interface_id_to_nexthop(link_id_pair.local_id)
+                (nexthop_intf_name, nexthop_addr) = nexthop
+                destination.add_direct_nexthop(nexthop_intf_name, nexthop_addr)
+        else:
+            destination.inherit_direct_nexthops(self._spf_destinations[predecessor_system_id])
 
-                # TODO: Direct next-hop interface names and addresses for first hop
-
-                # We did not have any previous path to the neighbor. The new path to the
-                # neighbor is the best path.
-                self.set_spf_predecessor(nbr_system_id, nbr_tie_element, visit_system_id,
-                                         new_nbr_cost)
-
-                # Store the neighbor as a candidate
-                candidates[nbr_system_id] = new_nbr_cost
-
-            else:
-
-                # We already had a previous path to the neighbor. How does the new path compare
-                # to the existing path in terms of cost?
-                nbr_spf_vertex = self._spf_vertices[nbr_system_id]
-                if new_nbr_cost > nbr_spf_vertex.cost:
-
-                    # The new path is strictly worse than the existing path. Do nothing.
-                    pass
-
-                elif new_nbr_cost < nbr_spf_vertex.cost:
-
-                    # The new path is strictly better than the existing path. Replace the
-                    # existing path with the new path.
-                    self.set_spf_predecessor(nbr_system_id, nbr_tie_element, visit_system_id,
-                                             new_nbr_cost)
-
-                    # Update (lower) the cost of the candidate in the priority queue
-                    candidates[nbr_system_id] = new_nbr_cost
-
-                else:
-
-                    # The new path is equal cost to the existing path. Add an ECMP path to the
-                    # existing path.
-                    assert new_nbr_cost == nbr_spf_vertex.cost
-                    self.add_spf_predecessor(nbr_spf_vertex, visit_system_id)
+    def add_spf_predecessor(self, destination_spf_dest, predecessor_system_id):
+        destination_spf_dest.add_predecessor(predecessor_system_id)
+        destination_spf_dest.inherit_direct_nexthops(self._spf_destinations[predecessor_system_id])
 
     def interface_id_to_nexthop(self, interface_id):
         if interface_id in self._interfaces_by_id:
@@ -1733,42 +1701,18 @@ class Node:
         else:
             return (None, None)
 
-    def set_spf_predecessor(self, nbr_system_id, nbr_tie_element, visit_system_id, cost):
-        vertex = spf_vertex.make_node_vertex(nbr_system_id, cost)
-        vertex.add_predecessor(visit_system_id)
-        if visit_system_id == self.system_id:
-            for link_id_pair in nbr_tie_element.link_ids:
-                nexthop = self.interface_id_to_nexthop(link_id_pair.local_id)
-                (nexthop_intf_name, nexthop_addr) = nexthop
-                vertex.add_direct_nexthop(nexthop_intf_name, nexthop_addr)
-        else:
-            vertex.inherit_direct_nexthops(self._spf_vertices[visit_system_id])
-        self._spf_vertices[nbr_system_id] = vertex
-
-    def add_spf_predecessor(self, destination_spf_vertex, predecessor_system_id):
-        destination_spf_vertex.add_predecessor(predecessor_system_id)
-        destination_spf_vertex.inherit_direct_nexthops(self._spf_vertices[predecessor_system_id])
-
     def is_neighbor_bidirectional(self, visit_system_id, nbr_system_id, nbr_tie_element,
                                   spf_direction):
-        # Determine reverse directions
-        if spf_direction == TIE_SOUTH:
-            reverse_nbr_direction = NEIGHBOR_NORTH
-            reverse_spf_direction = TIE_NORTH
-        elif spf_direction == TIE_NORTH:
-            reverse_nbr_direction = NEIGHBOR_SOUTH
-            reverse_spf_direction = TIE_SOUTH
-        else:
-            assert False
+        reverse_direction = constants.reverse_dir(spf_direction)
         # Locate the Node-TIE(s) of the neighbor node in the opposite direction. If we can't find
         # the neighbor's Node-TIE(s), we declare the adjacency to be not bi-directional.
-        nbr_node_ties = self.node_ties(reverse_spf_direction, nbr_system_id)
+        nbr_node_ties = self.node_ties(reverse_direction, nbr_system_id)
         if nbr_node_ties == []:
             return False
         # Check for bi-directional connectivity: the neighbor must report the visited node
         # as an adjacency with the same link-id pair (in reverse).
         bidirectional = False
-        for nbr_nbr in self.node_neighbors(nbr_node_ties, reverse_nbr_direction):
+        for nbr_nbr in self.node_neighbors(nbr_node_ties, reverse_direction):
             (nbr_nbr_system_id, nbr_nbr_tie_element) = nbr_nbr
             # Does the neighbor report the visited node as its neighbor?
             if nbr_nbr_system_id != visit_system_id:

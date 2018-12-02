@@ -33,11 +33,11 @@
             "args": ["topology/2n_l0_l1.yaml"] 
         },
         {
-            "name": "RIFT two",
+            "name": "RIFT two_by_two_by_two",
             "type": "python",
             "request": "launch",
             "program": "${workspaceFolder}/rift/__main__.py",
-            "args": ["topology/two.yaml"] 
+            "args": ["topology/two_by_two_by_two.yaml"] 
         },
         {
             "name": "Python: Current File",
