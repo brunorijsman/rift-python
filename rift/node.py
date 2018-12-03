@@ -954,7 +954,7 @@ class Node:
         cli_session.print("SPF Statistics:")
         tab = self.spf_statistics_table()
         cli_session.print(tab.to_string())
-        cli_session.print("SPF Tree:")
+        cli_session.print("SPF Destinations:")
         tab = self.spf_tree_table()
         cli_session.print(tab.to_string())
 
@@ -1453,9 +1453,8 @@ class Node:
     def spf_tree_table(self):
         tab = table.Table()
         tab.add_row(spf_dest.SPFDest.cli_summary_headers())
-        ###@@@ TODO: Sort them
-        # sorted_spf_destinations = sorted(self._spf_destinations, key=self.compare_spf_dest_key)
-        for destination in self._spf_destinations.values():
+        sorted_spf_destinations = sorted(self._spf_destinations.values())
+        for destination in sorted_spf_destinations:
             tab.add_row(destination.cli_summary_attributes(destination))
         return tab
 

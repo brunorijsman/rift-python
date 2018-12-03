@@ -42,6 +42,12 @@ class SPFDest:
             assert self.dest_type == DEST_TYPE_PREFIX
             return self.prefix
 
+    def __eq__(self, other):
+        return (self.dest_type, self.key()) == (other.dest_type, other.key())
+
+    def __lt__(self, other):
+        return (self.dest_type, self.key()) < (other.dest_type, other.key())
+
     def is_node(self):
         return self.dest_type == DEST_TYPE_NODE
 
