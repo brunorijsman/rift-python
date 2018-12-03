@@ -48,6 +48,14 @@ SCHEMA = {
                                         'address': {'required': True, 'type': 'ipv4address'},
                                         'mask': {'required': True, 'type': 'ipv4mask'},
                                         'metric': {'type': 'integer', 'min': 1, 'default': 1},
+                                        'tags': {
+                                            'type': 'list',
+                                            'schema': {
+                                                'type': 'integer',
+                                                'min': 0,
+                                                'max': 0xffffffffffffffff
+                                            }
+                                        }
                                     }
                                 }
                             },
@@ -59,6 +67,14 @@ SCHEMA = {
                                         'address': {'required': True, 'type': 'ipv6address'},
                                         'mask': {'required': True, 'type': 'ipv6mask'},
                                         'metric': {'type': 'integer', 'min': 1, 'default': 1},
+                                        'tags': {
+                                            'type': 'list',
+                                            'schema': {
+                                                'type': 'integer',
+                                                'min': 0,
+                                                'max': 0xffffffffffffffff
+                                            }
+                                        }
                                     }
                                 }
                             },

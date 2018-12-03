@@ -5,10 +5,10 @@ DEST_TYPE_NODE = 1
 DEST_TYPE_PREFIX = 2
 
 def make_node_destination(system_id, name, cost):
-    return SPFDest(DEST_TYPE_NODE, system_id, name, None, cost)
+    return SPFDest(DEST_TYPE_NODE, system_id, name, None, set(), cost)
 
-def make_prefix_destintation(prefix, cost):
-    return SPFDest(DEST_TYPE_PREFIX, None, None, prefix, cost)
+def make_prefix_destintation(prefix, tags, cost):
+    return SPFDest(DEST_TYPE_PREFIX, None, None, prefix, tags, cost)
 
 class SPFDest:
 
@@ -17,7 +17,7 @@ class SPFDest:
 
     # TODO: Add support for Non-Equal Cost Multi-Path (NECMP)
 
-    def __init__(self, dest_type, system_id, name, prefix, cost):
+    def __init__(self, dest_type, system_id, name, prefix, tags, cost):
         # Type of the SPFDest: DEST_TYPE_NODE or DEST_TYPE_PREFIX
         self.dest_type = dest_type
         # System-id of the node for TYPE_NODE, None for TYPE_PREFIX
@@ -26,6 +26,8 @@ class SPFDest:
         self.name = name
         # Destination prefix for TYPE_PREFIX, None for TYPE_NODE
         self.prefix = prefix
+        # Prefix  tags for TYPE_PREFIX, None for TYPE_NODE
+        self.tags = tags
         # Cost of best-known path to this destination (is always a single cost, even in the case of
         # ECMP)
         self.cost = cost
@@ -61,10 +63,13 @@ class SPFDest:
         if direct_nexthop not in self.direct_nexthops:
             self.direct_nexthops.append(direct_nexthop)
 
-    def inherit_direct_nexthops(self, other_spf_destination):
+    def inherit_direct_nexthop(self, other_spf_destination):
         for direct_nexthop in other_spf_destination.direct_nexthops:
             if direct_nexthop not in self.direct_nexthops:
                 self.direct_nexthops.append(direct_nexthop)
+
+    def inherit_tags(self, other_spf_destination):
+        self.tags = self.tags.union(other_spf_destination.tags)
 
     @staticmethod
     def cli_summary_headers():
@@ -72,6 +77,7 @@ class SPFDest:
             ["Destination"],
             "Cost",
             ["Predecessor", "System IDs"],
+            ["Tags"],
             ["Direct", "Nexthops"]]
 
     def cli_summary_attributes(self, destination):
@@ -81,10 +87,15 @@ class SPFDest:
                 destination_str += " (" + self.name + ")"
         else:
             destination_str = packet_common.ip_prefix_str(self.prefix)
+        if self.tags:
+            tags_str = list(self.tags)
+        else:
+            tags_str = ""
         return [
             destination_str,
             destination.cost,
             sorted(destination.predecessors),
+            tags_str,
             [self.nexthop_str(nexthop) for nexthop in sorted(destination.direct_nexthops)]
         ]
 

@@ -655,9 +655,9 @@ class Node:
                 # than one LinkIDPair in link_ids set)
                 node_neighbor = encoding.ttypes.NodeNeighborsTIEElement(
                     level=intf.neighbor.level,
-                    cost=1,         ###@@@ TODO: Take this from config file
+                    cost=1,         # TODO: Take this from config file
                     link_ids=set([encoding.ttypes.LinkIDPair(local_id, remote_id)]),
-                    bandwidth=100)  ###@@@ TODO: Take this from config file or interface
+                    bandwidth=100)  # TODO: Take this from config file or interface
                 node_tie_packet.element.node.neighbors[intf.neighbor.system_id] = node_neighbor
         self.my_node_ties[direction] = node_tie_packet
         self.store_tie_in_db(node_tie_packet)
@@ -684,14 +684,16 @@ class Node:
             for v4prefix in config['v4prefixes']:
                 prefix_str = v4prefix['address'] + "/" + str(v4prefix['mask'])
                 metric = v4prefix['metric']
+                tags = set(v4prefix.get('tags', []))
                 packet_common.add_ipv4_prefix_to_prefix_tie(self._my_north_prefix_tie, prefix_str,
-                                                            metric)
+                                                            metric, tags)
         if 'v6prefixes' in config:
             for v6prefix in config['v6prefixes']:
                 prefix_str = v6prefix['address'] + "/" + str(v6prefix['mask'])
                 metric = v6prefix['metric']
+                tags = set(v6prefix.get('tags', []))
                 packet_common.add_ipv6_prefix_to_prefix_tie(self._my_north_prefix_tie, prefix_str,
-                                                            metric)
+                                                            metric, tags)
         if self._my_north_prefix_tie is None:
             tie_id = packet_common.make_tie_id(
                 direction=common.ttypes.TieDirectionType.North,
@@ -1570,7 +1572,7 @@ class Node:
         # TODO: Currently we simply always run both North-SPF and South-SPF, but maybe we can be
         # more intelligent about selectively triggering North-SPF and South-SPF separately.
         self.spf_run_direction(constants.DIR_SOUTH)
-        ###@@@ self.run_direction_spf(constants.DIR_NORTH)
+        # TODO: self.run_direction_spf(constants.DIR_NORTH)
 
     def spf_run_direction(self, spf_direction):
         # Shortest Path First (SPF) uses the Dijkstra algorithm to compute the shortest path to
@@ -1657,8 +1659,9 @@ class Node:
             prefixes = prefix_tie.element.prefixes.prefixes
             for prefix, attributes in prefixes.items():
                 # We have found a feasible path to the prefix; is the best path?
+                tags = attributes.tags
                 cost = node_cost + attributes.metric
-                destination = spf_dest.make_prefix_destintation(prefix, cost)
+                destination = spf_dest.make_prefix_destintation(prefix, tags, cost)
                 self.spf_consider_candidate_dest(destination, None, node_system_id, candidates)
 
     def spf_consider_candidate_dest(self, destination, nbr_tie_element, predecessor_system_id,
@@ -1683,6 +1686,7 @@ class Node:
                 # The new path is equal cost to the existing path. Add an ECMP path to the existing
                 # path.
                 self.add_spf_predecessor(old_destination, predecessor_system_id)
+                old_destination.inherit_tags(destination)
 
     def set_spf_predecessor(self, destination, nbr_tie_element, predecessor_system_id):
         destination.add_predecessor(predecessor_system_id)
@@ -1692,11 +1696,11 @@ class Node:
                 (nexthop_intf_name, nexthop_addr) = nexthop
                 destination.add_direct_nexthop(nexthop_intf_name, nexthop_addr)
         else:
-            destination.inherit_direct_nexthops(self._spf_destinations[predecessor_system_id])
+            destination.inherit_direct_nexthop(self._spf_destinations[predecessor_system_id])
 
-    def add_spf_predecessor(self, destination_spf_dest, predecessor_system_id):
-        destination_spf_dest.add_predecessor(predecessor_system_id)
-        destination_spf_dest.inherit_direct_nexthops(self._spf_destinations[predecessor_system_id])
+    def add_spf_predecessor(self, destination, predecessor_system_id):
+        destination.add_predecessor(predecessor_system_id)
+        destination.inherit_direct_nexthop(self._spf_destinations[predecessor_system_id])
 
     def interface_id_to_nexthop(self, interface_id):
         if interface_id in self._interfaces_by_id:
