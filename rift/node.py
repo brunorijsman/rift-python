@@ -434,6 +434,8 @@ class Node:
         self._spf_runs_count = 0
         self._spf_trigger_history = collections.deque([], self.SPF_TRIGGER_HISTORY_LENGTH)
         self._spf_destinations = {}
+        self._spf_destinations[constants.DIR_SOUTH] = {}
+        self._spf_destinations[constants.DIR_NORTH] = {}
         if "skip-self-orginated-ties" not in self._config:
             self.regenerate_my_node_ties()
             self.regenerate_my_north_prefix_tie()
@@ -956,8 +958,12 @@ class Node:
         cli_session.print("SPF Statistics:")
         tab = self.spf_statistics_table()
         cli_session.print(tab.to_string())
-        cli_session.print("SPF Destinations:")
-        tab = self.spf_tree_table()
+        self.command_show_spf_destinations(cli_session, constants.DIR_SOUTH)
+        self.command_show_spf_destinations(cli_session, constants.DIR_NORTH)
+
+    def command_show_spf_destinations(self, cli_session, direction):
+        cli_session.print(constants.direction_str(direction) + " SPF Destinations:")
+        tab = self.spf_tree_table(direction)
         cli_session.print(tab.to_string())
 
     def command_show_tie_db(self, cli_session):
@@ -1452,10 +1458,10 @@ class Node:
         else:
             return (1, dest_key)
 
-    def spf_tree_table(self):
+    def spf_tree_table(self, direction):
         tab = table.Table()
         tab.add_row(spf_dest.SPFDest.cli_summary_headers())
-        sorted_spf_destinations = sorted(self._spf_destinations.values())
+        sorted_spf_destinations = sorted(self._spf_destinations[direction].values())
         for destination in sorted_spf_destinations:
             tab.add_row(destination.cli_summary_attributes(destination))
         return tab
@@ -1474,7 +1480,7 @@ class Node:
             if db_tie.header.remaining_lifetime <= 0:
                 expired_key_ids.append(tie_id)
         for key_id in expired_key_ids:
-            ##@@ log a message
+            # TODO: log a message
             self.remove_tie(key_id)
 
     @staticmethod
@@ -1572,7 +1578,7 @@ class Node:
         # TODO: Currently we simply always run both North-SPF and South-SPF, but maybe we can be
         # more intelligent about selectively triggering North-SPF and South-SPF separately.
         self.spf_run_direction(constants.DIR_SOUTH)
-        # TODO: self.run_direction_spf(constants.DIR_NORTH)
+        self.spf_run_direction(constants.DIR_NORTH)
 
     def spf_run_direction(self, spf_direction):
         # Shortest Path First (SPF) uses the Dijkstra algorithm to compute the shortest path to
@@ -1582,17 +1588,20 @@ class Node:
         # run SPF, such the best-known path cost thus far, the predecessor nodes, etc. See module
         # spf_dest for details. Each SPFDest object also has a key which unique identifies it. For
         # node destinations this is the system-id, and for prefix destinations it is the IP prefix.
-        # The attribute _spf_destinations is a direct contains ALL known destinations. It is a
-        # dictionary of SPFDest objects indexed by their key. It contains both destinations for
-        # which the best path has not yet definitely been determined (so-called candidates) and also
-        # destinations for which the best path has already been definitely been determined. In the
-        # latter case the best attribute of the SPFDest object is set to True. This dictionary is
-        # kept around after the SPF run is completed, and there is a "show spf" CLI command to view
-        # it for debugging purposes.
-        self._spf_destinations = {}
+        # The attribute _spf_destinations contains ALL known destinations. It is a dictionary
+        # indexed by direction (south and north). Each value in the dictionary (i.e.
+        # _spf_destinations[direction]) is itself a dictionary again: the values are SPFDest
+        # SPFDest objects and the index is the key of the SPFDest object (a system-id or prefix).
+        # It contains both destinations for which the best path has not yet definitely been
+        # determined (so-called candidates) and also destinations for which the best path has
+        # already been definitely been determined. In the latter case the best attribute of the
+        # SPFDest object is set to True. This dictionary is kept around after the SPF run is
+        # completed, and there is a "show spf" CLI command to view it for debugging purposes.
+        self._spf_destinations[spf_direction] = {}
+        dest_table = self._spf_destinations[spf_direction]
         # Initially, there is only one known destination, namely this node.
         self_destination = spf_dest.make_node_destination(self.system_id, self.name, 0)
-        self._spf_destinations[self.system_id] = self_destination
+        dest_table[self.system_id] = self_destination
         # The variable "candidates" contains the set of destinations (nodes and prefixes) for which
         # we have already determined some feasible path (which may be an ECMP path) but for which
         # we have not yet established that the known path is indeed the best path.
@@ -1612,7 +1621,7 @@ class Node:
             (dest_key, dest_cost) = candidates.popitem()
             # If already have a best path to the destination move on to the next candidate. In this
             # case the best path should have a strictly lower cost than the candidate's cost.
-            destination = self._spf_destinations[dest_key]
+            destination = dest_table[dest_key]
             if destination.best:
                 assert dest_cost > destination.cost
                 continue
@@ -1622,23 +1631,26 @@ class Node:
             # prefix), potentially add its neighbor nodes and its prefixes as a new candidate or
             # as a new ECMP path for an existing candidate.
             if isinstance(dest_key, int):
-                self.spf_add_candidates_from_node(dest_key, dest_cost, candidates, spf_direction)
+                self.spf_add_candidates_from_node(dest_key, dest_cost, candidates, dest_table,
+                                                  spf_direction)
 
-    def spf_add_candidates_from_node(self, node_system_id, node_cost, candidates, spf_direction):
+    def spf_add_candidates_from_node(self, node_system_id, node_cost, candidates, dest_table,
+                                     spf_direction):
         # Find the RevDir-Node-TIEs where RevDir is the opposite direction of the SPF run.
         node_ties = self.node_ties(constants.reverse_dir(spf_direction), node_system_id)
         if node_ties == []:
             return
         # Update the name of the node (we take it from the first node TIE)
-        self._spf_destinations[node_system_id].name = node_ties[0].element.node.name
+        dest_table[node_system_id].name = node_ties[0].element.node.name
         # Add the neighbors of this node as candidates
         self.spf_add_neighbor_candidates(node_system_id, node_cost, node_ties, candidates,
-                                         spf_direction)
+                                         dest_table, spf_direction)
         # Add the prefixes of this node as candidates
-        self.spf_add_prefix_candidates(node_system_id, node_cost, candidates, spf_direction)
+        self.spf_add_prefix_candidates(node_system_id, node_cost, candidates, dest_table,
+                                       spf_direction)
 
     def spf_add_neighbor_candidates(self, node_system_id, node_cost, node_ties, candidates,
-                                    spf_direction):
+                                    dest_table, spf_direction):
         # Consider each neighbor of the visited node in the direction of the SPF
         for nbr in self.node_neighbors(node_ties, spf_direction):
             (nbr_system_id, nbr_tie_element) = nbr
@@ -1649,9 +1661,10 @@ class Node:
                 cost = node_cost + nbr_tie_element.cost
                 destination = spf_dest.make_node_destination(nbr_system_id, None, cost)
                 self.spf_consider_candidate_dest(destination, nbr_tie_element, node_system_id,
-                                                 candidates)
+                                                 candidates, dest_table)
 
-    def spf_add_prefix_candidates(self, node_system_id, node_cost, candidates, spf_direction):
+    def spf_add_prefix_candidates(self, node_system_id, node_cost, candidates, dest_table,
+                                  spf_direction):
         # Consider each prefix of the visited node that is advertised in a RevDir-Prefix-TIE where
         # RevDir is the opposite direction of the SPF run.
         prefix_ties = self.prefix_ties(constants.reverse_dir(spf_direction), node_system_id)
@@ -1662,33 +1675,36 @@ class Node:
                 tags = attributes.tags
                 cost = node_cost + attributes.metric
                 destination = spf_dest.make_prefix_destintation(prefix, tags, cost)
-                self.spf_consider_candidate_dest(destination, None, node_system_id, candidates)
+                self.spf_consider_candidate_dest(destination, None, node_system_id, candidates,
+                                                 dest_table)
 
     def spf_consider_candidate_dest(self, destination, nbr_tie_element, predecessor_system_id,
-                                    candidates):
+                                    candidates, dest_table):
         dest_key = destination.key()
-        if dest_key not in self._spf_destinations:
+        if dest_key not in dest_table:
             # We did not have any previous path to the destination. Add it.
-            self.set_spf_predecessor(destination, nbr_tie_element, predecessor_system_id)
-            self._spf_destinations[dest_key] = destination
+            self.set_spf_predecessor(destination, nbr_tie_element, predecessor_system_id,
+                                     dest_table)
+            dest_table[dest_key] = destination
             candidates[dest_key] = destination.cost
         else:
             # We already had a previous path to the destination. How does the new path compare to
             # the existing path in terms of cost?
-            old_destination = self._spf_destinations[dest_key]
+            old_destination = dest_table[dest_key]
             if destination.cost < old_destination.cost:
                 # The new path is strictly better than the existing path. Replace the existing path
                 # with the new path.
-                self.set_spf_predecessor(destination, nbr_tie_element, predecessor_system_id)
-                self._spf_destinations[dest_key] = destination
+                self.set_spf_predecessor(destination, nbr_tie_element, predecessor_system_id,
+                                         dest_table)
+                dest_table[dest_key] = destination
                 candidates[dest_key] = destination.cost
             elif destination.cost == old_destination.cost:
                 # The new path is equal cost to the existing path. Add an ECMP path to the existing
                 # path.
-                self.add_spf_predecessor(old_destination, predecessor_system_id)
+                self.add_spf_predecessor(old_destination, predecessor_system_id, dest_table)
                 old_destination.inherit_tags(destination)
 
-    def set_spf_predecessor(self, destination, nbr_tie_element, predecessor_system_id):
+    def set_spf_predecessor(self, destination, nbr_tie_element, predecessor_system_id, dest_table):
         destination.add_predecessor(predecessor_system_id)
         if (nbr_tie_element is not None) and (predecessor_system_id == self.system_id):
             for link_id_pair in nbr_tie_element.link_ids:
@@ -1696,11 +1712,11 @@ class Node:
                 (nexthop_intf_name, nexthop_addr) = nexthop
                 destination.add_direct_nexthop(nexthop_intf_name, nexthop_addr)
         else:
-            destination.inherit_direct_nexthop(self._spf_destinations[predecessor_system_id])
+            destination.inherit_direct_nexthop(dest_table[predecessor_system_id])
 
-    def add_spf_predecessor(self, destination, predecessor_system_id):
+    def add_spf_predecessor(self, destination, predecessor_system_id, dest_table):
         destination.add_predecessor(predecessor_system_id)
-        destination.inherit_direct_nexthop(self._spf_destinations[predecessor_system_id])
+        destination.inherit_direct_nexthop(dest_table[predecessor_system_id])
 
     def interface_id_to_nexthop(self, interface_id):
         if interface_id in self._interfaces_by_id:

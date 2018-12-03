@@ -69,6 +69,10 @@ class SPFDest:
                 self.direct_nexthops.append(direct_nexthop)
 
     def inherit_tags(self, other_spf_destination):
+        if (self.tags is None) and (other_spf_destination.tags is None):
+            return
+        if self.tags is None:
+            self.tags = set()
         self.tags = self.tags.union(other_spf_destination.tags)
 
     @staticmethod
