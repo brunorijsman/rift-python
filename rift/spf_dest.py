@@ -35,7 +35,6 @@ class SPFDest:
         # (if_name, addr) of direct next-hop from source node towards this destination (*)
         self.direct_nexthops = []
 
-    ###@@@ use this
     def key(self):
         if self.dest_type == DEST_TYPE_NODE:
             return self.system_id

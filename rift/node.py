@@ -1576,16 +1576,27 @@ class Node:
     def spf_run_direction(self, spf_direction):
         # Shortest Path First (SPF) uses the Dijkstra algorithm to compute the shortest path to
         # each destination that is reachable from this node.
-        # Each destination is represented by an SPFDest object, which represents either a node or
-        # a prefix.
-        ###@@@ fix doc below
-        ###@@@ Document candidates: indexed by destination key, which is system-id or prefix
+        # Each destination is represented by an SPFDest object, which represents either a node or a
+        # prefix. The attributes of the SPFDest object contain all the information that is needed to
+        # run SPF, such the best-known path cost thus far, the predecessor nodes, etc. See module
+        # spf_dest for details. Each SPFDest object also has a key which unique identifies it. For
+        # node destinations this is the system-id, and for prefix destinations it is the IP prefix.
+        # The attribute _spf_destinations is a direct contains ALL known destinations. It is a
+        # dictionary of SPFDest objects indexed by their key. It contains both destinations for
+        # which the best path has not yet definitely been determined (so-called candidates) and also
+        # destinations for which the best path has already been definitely been determined. In the
+        # latter case the best attribute of the SPFDest object is set to True. This dictionary is
+        # kept around after the SPF run is completed, and there is a "show spf" CLI command to view
+        # it for debugging purposes.
+        self._spf_destinations = {}
+        # Initially, there is only one known destination, namely this node.
+        self_destination = spf_dest.make_node_destination(self.system_id, 0)
+        self._spf_destinations[self.system_id] = self_destination
         # The variable "candidates" contains the set of destinations (nodes and prefixes) for which
-        # we have already determines some feasible path (which may be an ECMP path) but for which
+        # we have already determined some feasible path (which may be an ECMP path) but for which
         # we have not yet established that the known path is indeed the best path.
         # For efficiency, candidates is implemented as a priority queue that contains the
-        # destinations with the best known path cost thus far as the priority. Node destinations are
-        # represented by their system-id, and prefix destinations are represented by their prefix.
+        # destination keys with the best known path cost thus far as the priority.
         # We use module heapdict (as opposed to the more widely used heapq module) because we need
         # an efficient way to decrease the priority of an element which is already on the priority
         # queue. Heapq only allows you to do this by calling the internal method _siftdown (see
@@ -1594,41 +1605,36 @@ class Node:
         # Initially, there is one destination in the candidates heap, namely the starting node (i.e.
         # this node) with cost zero.
         candidates[self.system_id] = 0
-        # The attribute _spf_destinations is a direct contains all destinations, both candidate
-        # destinations and best destinations. It is indexed they key of the destination, which is
-        # the system-id for node destination, and the prefix for prefix destinations.
-        # There is a show command to view the contents of _spf_destination for the most recent SPF
-        # run for debugging purposes.
-        self._spf_destinations = {}
-        self_destination = spf_dest.make_node_destination(self.system_id, 0)
-        self._spf_destinations[self.system_id] = self_destination
         # Keep going until we have no more candidates
         while candidates:
             # Remove the destination with the lowest cost from the candidate priority queue.
             (dest_key, dest_cost) = candidates.popitem()
-            # If already have a best path to the destination move on to the next candidate.
+            # If already have a best path to the destination move on to the next candidate. In this
+            # case the best path should have a strictly lower cost than the candidate's cost.
             destination = self._spf_destinations[dest_key]
             if destination.best:
+                assert dest_cost > destination.cost
                 continue
             # Mark that we now have the best path to the destination.
             destination.best = True
-            # If the destination is a node, potentially add its neighbors and prefixes as new
-            # candidates
+            # If the destination is a node (i.e. its key is a system-id number rather than an IP
+            # prefix), potentially add its neighbor nodes and its prefixes as a new candidate or
+            # as a new ECMP path for an existing candidate.
             if isinstance(dest_key, int):
                 self.spf_add_candidates_from_node(dest_key, dest_cost, candidates, spf_direction)
 
     def spf_add_candidates_from_node(self, node_system_id, node_cost, candidates, spf_direction):
+        # Find the RevDir-Node-TIEs where RevDir is the opposite direction of the SPF run.
         node_ties = self.node_ties(constants.reverse_dir(spf_direction), node_system_id)
         if node_ties == []:
             return
         self.spf_add_neighbor_candidates(node_system_id, node_cost, node_ties, candidates,
                                          spf_direction)
-        self.spf_add_prefix_candidates(node_system_id, node_cost, node_ties, candidates,
-                                       spf_direction)
+        self.spf_add_prefix_candidates(node_system_id, node_cost, candidates, spf_direction)
 
     def spf_add_neighbor_candidates(self, node_system_id, node_cost, node_ties, candidates,
                                     spf_direction):
-        # Consider each neighbor of the visited node in the opposite direction of the SPF
+        # Consider each neighbor of the visited node in the direction of the SPF
         for nbr in self.node_neighbors(node_ties, spf_direction):
             (nbr_system_id, nbr_tie_element) = nbr
             # Only consider bi-directional adjacencies.
@@ -1640,10 +1646,9 @@ class Node:
                 self.spf_consider_candidate_dest(destination, nbr_tie_element, node_system_id,
                                                  candidates)
 
-    ###@@@ TODO: Remove _ arguments
-    def spf_add_prefix_candidates(self, node_system_id, node_cost, _node_ties, candidates,
-                                  spf_direction):
-        # Consider each prefix of the visited node in the opposite direction of the SPF
+    def spf_add_prefix_candidates(self, node_system_id, node_cost, candidates, spf_direction):
+        # Consider each prefix of the visited node that is advertised in a RevDir-Prefix-TIE where
+        # RevDir is the opposite direction of the SPF run.
         prefix_ties = self.prefix_ties(constants.reverse_dir(spf_direction), node_system_id)
         for prefix_tie in prefix_ties:
             prefixes = prefix_tie.element.prefixes.prefixes
