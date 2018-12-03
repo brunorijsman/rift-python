@@ -1631,26 +1631,24 @@ class Node:
             # prefix), potentially add its neighbor nodes and its prefixes as a new candidate or
             # as a new ECMP path for an existing candidate.
             if isinstance(dest_key, int):
-                self.spf_add_candidates_from_node(dest_key, dest_cost, candidates, dest_table,
-                                                  spf_direction)
+                self.spf_add_candidates_from_node(dest_key, dest_cost, candidates, spf_direction)
 
-    def spf_add_candidates_from_node(self, node_system_id, node_cost, candidates, dest_table,
-                                     spf_direction):
-        # Find the RevDir-Node-TIEs where RevDir is the opposite direction of the SPF run.
-        node_ties = self.node_ties(constants.reverse_dir(spf_direction), node_system_id)
+    def spf_add_candidates_from_node(self, node_system_id, node_cost, candidates, spf_direction):
+        node_ties = self.node_ties(self.spf_use_tie_direction(node_system_id, spf_direction),
+                                   node_system_id)
         if node_ties == []:
             return
         # Update the name of the node (we take it from the first node TIE)
+        dest_table = self._spf_destinations[spf_direction]
         dest_table[node_system_id].name = node_ties[0].element.node.name
         # Add the neighbors of this node as candidates
         self.spf_add_neighbor_candidates(node_system_id, node_cost, node_ties, candidates,
-                                         dest_table, spf_direction)
+                                         spf_direction)
         # Add the prefixes of this node as candidates
-        self.spf_add_prefix_candidates(node_system_id, node_cost, candidates, dest_table,
-                                       spf_direction)
+        self.spf_add_prefix_candidates(node_system_id, node_cost, candidates, spf_direction)
 
     def spf_add_neighbor_candidates(self, node_system_id, node_cost, node_ties, candidates,
-                                    dest_table, spf_direction):
+                                    spf_direction):
         # Consider each neighbor of the visited node in the direction of the SPF
         for nbr in self.node_neighbors(node_ties, spf_direction):
             (nbr_system_id, nbr_tie_element) = nbr
@@ -1661,13 +1659,11 @@ class Node:
                 cost = node_cost + nbr_tie_element.cost
                 destination = spf_dest.make_node_destination(nbr_system_id, None, cost)
                 self.spf_consider_candidate_dest(destination, nbr_tie_element, node_system_id,
-                                                 candidates, dest_table)
+                                                 candidates, spf_direction)
 
-    def spf_add_prefix_candidates(self, node_system_id, node_cost, candidates, dest_table,
-                                  spf_direction):
-        # Consider each prefix of the visited node that is advertised in a RevDir-Prefix-TIE where
-        # RevDir is the opposite direction of the SPF run.
-        prefix_ties = self.prefix_ties(constants.reverse_dir(spf_direction), node_system_id)
+    def spf_add_prefix_candidates(self, node_system_id, node_cost, candidates, spf_direction):
+        prefix_ties = self.prefix_ties(self.spf_use_tie_direction(node_system_id, spf_direction),
+                                       node_system_id)
         for prefix_tie in prefix_ties:
             prefixes = prefix_tie.element.prefixes.prefixes
             for prefix, attributes in prefixes.items():
@@ -1676,15 +1672,16 @@ class Node:
                 cost = node_cost + attributes.metric
                 destination = spf_dest.make_prefix_destintation(prefix, tags, cost)
                 self.spf_consider_candidate_dest(destination, None, node_system_id, candidates,
-                                                 dest_table)
+                                                 spf_direction)
 
     def spf_consider_candidate_dest(self, destination, nbr_tie_element, predecessor_system_id,
-                                    candidates, dest_table):
+                                    candidates, spf_direction):
         dest_key = destination.key()
+        dest_table = self._spf_destinations[spf_direction]
         if dest_key not in dest_table:
             # We did not have any previous path to the destination. Add it.
             self.set_spf_predecessor(destination, nbr_tie_element, predecessor_system_id,
-                                     dest_table)
+                                     spf_direction)
             dest_table[dest_key] = destination
             candidates[dest_key] = destination.cost
         else:
@@ -1695,16 +1692,17 @@ class Node:
                 # The new path is strictly better than the existing path. Replace the existing path
                 # with the new path.
                 self.set_spf_predecessor(destination, nbr_tie_element, predecessor_system_id,
-                                         dest_table)
+                                         spf_direction)
                 dest_table[dest_key] = destination
                 candidates[dest_key] = destination.cost
             elif destination.cost == old_destination.cost:
                 # The new path is equal cost to the existing path. Add an ECMP path to the existing
                 # path.
-                self.add_spf_predecessor(old_destination, predecessor_system_id, dest_table)
+                self.add_spf_predecessor(old_destination, predecessor_system_id, spf_direction)
                 old_destination.inherit_tags(destination)
 
-    def set_spf_predecessor(self, destination, nbr_tie_element, predecessor_system_id, dest_table):
+    def set_spf_predecessor(self, destination, nbr_tie_element, predecessor_system_id,
+                            spf_direction):
         destination.add_predecessor(predecessor_system_id)
         if (nbr_tie_element is not None) and (predecessor_system_id == self.system_id):
             for link_id_pair in nbr_tie_element.link_ids:
@@ -1712,10 +1710,12 @@ class Node:
                 (nexthop_intf_name, nexthop_addr) = nexthop
                 destination.add_direct_nexthop(nexthop_intf_name, nexthop_addr)
         else:
+            dest_table = self._spf_destinations[spf_direction]
             destination.inherit_direct_nexthop(dest_table[predecessor_system_id])
 
-    def add_spf_predecessor(self, destination, predecessor_system_id, dest_table):
+    def add_spf_predecessor(self, destination, predecessor_system_id, spf_direction):
         destination.add_predecessor(predecessor_system_id)
+        dest_table = self._spf_destinations[spf_direction]
         destination.inherit_direct_nexthop(dest_table[predecessor_system_id])
 
     def interface_id_to_nexthop(self, interface_id):
@@ -1729,11 +1729,28 @@ class Node:
         else:
             return (None, None)
 
+    def spf_use_tie_direction(self, visit_system_id, spf_direction):
+        if spf_direction == constants.DIR_SOUTH:
+            # , we always want to use the North-Node-TIEs to look for
+            # neighbors and North-Prefix-TIEs to look for prefixes.
+            return constants.DIR_NORTH
+        elif visit_system_id != self.system_id:
+            # When running a North SPF, we normally want to use the South-Node-TIEs to look for
+            # neighbors and South-Prefix-TIEs to look for prefixes...
+            return constants.DIR_SOUTH
+        else:
+            # ... except that for self-originated TIEs, we always want to use
+            # (a) The self-originated North-Node-TIE because leafs may not originate a
+            #     South-Node-TIE and
+            # (b) The self-origianted North-Prefix-TIE (if any) because we want SPF to not
+            #     prefer the self-originated default route over the received default route route.
+            return constants.DIR_NORTH
+
     def is_neighbor_bidirectional(self, visit_system_id, nbr_system_id, nbr_tie_element,
                                   spf_direction):
-        reverse_direction = constants.reverse_dir(spf_direction)
-        # Locate the Node-TIE(s) of the neighbor node in the opposite direction. If we can't find
+        # Locate the Node-TIE(s) of the neighbor node in the desired direction. If we can't find
         # the neighbor's Node-TIE(s), we declare the adjacency to be not bi-directional.
+        reverse_direction = constants.reverse_dir(spf_direction)
         nbr_node_ties = self.node_ties(reverse_direction, nbr_system_id)
         if nbr_node_ties == []:
             return False
