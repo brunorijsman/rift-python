@@ -1589,7 +1589,7 @@ class Node:
         # it for debugging purposes.
         self._spf_destinations = {}
         # Initially, there is only one known destination, namely this node.
-        self_destination = spf_dest.make_node_destination(self.system_id, 0)
+        self_destination = spf_dest.make_node_destination(self.system_id, self.name, 0)
         self._spf_destinations[self.system_id] = self_destination
         # The variable "candidates" contains the set of destinations (nodes and prefixes) for which
         # we have already determined some feasible path (which may be an ECMP path) but for which
@@ -1627,8 +1627,12 @@ class Node:
         node_ties = self.node_ties(constants.reverse_dir(spf_direction), node_system_id)
         if node_ties == []:
             return
+        # Update the name of the node (we take it from the first node TIE)
+        self._spf_destinations[node_system_id].name = node_ties[0].element.node.name
+        # Add the neighbors of this node as candidates
         self.spf_add_neighbor_candidates(node_system_id, node_cost, node_ties, candidates,
                                          spf_direction)
+        # Add the prefixes of this node as candidates
         self.spf_add_prefix_candidates(node_system_id, node_cost, candidates, spf_direction)
 
     def spf_add_neighbor_candidates(self, node_system_id, node_cost, node_ties, candidates,
@@ -1641,7 +1645,7 @@ class Node:
                                               spf_direction):
                 # We have found a feasible path to the neighbor node; is the best path?
                 cost = node_cost + nbr_tie_element.cost
-                destination = spf_dest.make_node_destination(nbr_system_id, cost)
+                destination = spf_dest.make_node_destination(nbr_system_id, None, cost)
                 self.spf_consider_candidate_dest(destination, nbr_tie_element, node_system_id,
                                                  candidates)
 
