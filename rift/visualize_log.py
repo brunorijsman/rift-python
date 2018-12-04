@@ -177,7 +177,9 @@ def normalize_tie_ids(msg_str):
     return new_msg_str
 
 def pretty_format_rift_msg(msg_str, newline='\n'):
-    space = "\u00A0"
+    # Space used to be Unicode "\u00A0" but that does not render properly on Safari
+    # A regular space " " works neither on Chrome nor on Safari - multiple spaces get merged
+    space = "."    
     one_line_types = ["TIEID", "PacketHeader", "NodeNeighborsTIEElement"]
     new_msg_str = remove_none_fields(msg_str)
     pretty_str = ""
