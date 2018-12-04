@@ -362,7 +362,7 @@ class Visualizer:
 
     def record_sent_message(self, sent_msg_record):
         xpos = sent_msg_record.target.xpos
-        ypos = tick_y_mid(sent_msg_record.tick)   
+        ypos = tick_y_mid(sent_msg_record.tick)
         if sent_msg_record.nonce is not None:
             self.sent_messages[sent_msg_record.nonce] = SentMessage(xpos, ypos)
         elif sent_msg_record.packet is not None:
@@ -370,7 +370,11 @@ class Visualizer:
             # identify a message. Just store the message string itself. This is less than optimal
             # because the sequence of fields can vary, and the same message is often sent multiple
             # times.
-            self.sent_messages[sent_msg_record.packet] = SentMessage(xpos, ypos)
+            # To add insult to injury, we cannot use the message string as the index, we have to
+            # used the decoded binary message. This is because the conversion from an object to a
+            # string is not deterministic: the order of members of a dict (which includes attributes
+            # in an object) is not deterministic.
+            self.sent_messages[sent_msg_record.decoded_packet] = SentMessage(xpos, ypos)
 
     def show_send(self, record):
         xpos = record.target.xpos
@@ -385,16 +389,12 @@ class Visualizer:
         self.svg_text(xpos, ypos, text, color, the_class)
 
     def find_sent_message(self, received_msg_record):
-        ##@@
-        if ((received_msg_record.nonce is not None) and
-                (received_msg_record.nonce not in self.sent_messages)):
-                print("nonce", received_msg_record, "not found")
-        if ((received_msg_record.nonce is not None) and
-                (received_msg_record.nonce in self.sent_messages)):
-            return self.sent_messages[received_msg_record.nonce]
-        if ((received_msg_record.packet is not None) and
-                (received_msg_record.packet in self.sent_messages)):
-            return self.sent_messages[received_msg_record.packet]
+        if received_msg_record.nonce is not None:
+            if received_msg_record.nonce in self.sent_messages:
+                return self.sent_messages[received_msg_record.nonce]
+        if received_msg_record.decoded_packet is not None:
+            if received_msg_record.decoded_packet in self.sent_messages:
+                return self.sent_messages[received_msg_record.decoded_packet]
         return None
 
     def show_receive(self, record):

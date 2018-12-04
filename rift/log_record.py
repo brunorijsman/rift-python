@@ -1,5 +1,64 @@
 import re
 
+# pylint: disable=W0401
+# pylint: disable=W0614
+from common.ttypes import *
+from encoding.ttypes import *
+import packet_common
+
+packet_common.add_missing_methods_to_thrift()
+
+# TODO: Remove this horrible hack.
+# This is a horrible hack to work around the following problem. I am having huge problems getting
+# my visualization tool to properly correlate sent message to received messages (i.e. to properly
+# draw the lines from the sender to the receiver). As Tony has pointed out several times, Thrift
+# encoding is not canonical. On top of that, even for the exact same binary message, two different
+# Python processes may create different internal binary structures because Python dictionaries use
+# non-deterministic hashes (this is by design - it is a security feature). The following code works
+# around the problem: it converts a ProtocolPacket object into another object (nested tuples) which
+# consistently hash to the same value, regardless of the order in which iterators visit member of
+# dictionary or set. It does this by sorting non-deterministic containers and converting them to
+# tuples. I have proposed adding a correlator field the transport header to solve the problem more
+# fundamentally; if and when that happens we can remove this hack, and the need for packet decoding,
+# and we can move the visualization tool back to the tools directory.
+#
+def make_deterministic_hashable(obj, top=True):
+    # This function produces the same has for objects that contain dictionaries and that only differ
+    # in the order in which the dict iterators visit the members of the dict.
+    if not top:
+        try:
+            hash(obj)
+        except TypeError:
+            pass
+        else:
+            return obj
+    if ("__module__" in obj.__dir__()) and (obj.__module__ in ["encoding.ttypes", "common.ttypes"]):
+        tup = None
+        for attr_name in sorted(obj.__dir__()):
+            if str(attr_name).startswith("__"):
+                continue
+            if attr_name == "thrift_spec":
+                continue
+            attr_value = getattr(obj, attr_name)
+            if callable(attr_value):
+                continue
+            attr_tup = (attr_name, make_deterministic_hashable(attr_value, False))
+            if tup is None:
+                tup = attr_tup
+            else:
+                tup = tup, attr_tup
+        return tup
+    if isinstance(obj, dict):
+        tup = tuple((k, make_deterministic_hashable(v, False)) for (k, v) in sorted(obj.items()))
+        return tup
+    if hasattr(obj, '__iter__'):
+        tup = tuple(make_deterministic_hashable(o, False) for o in obj)
+        return tup
+    assert False
+    return None
+
+ProtocolPacket.__hash__ = lambda self: hash(make_deterministic_hashable(self))
+
 class LogRecord:
 
     _record_regex = re.compile(r"(....-..-.. ..:..:..[^:]*):([^:]*):([^:]*):\[(.*?)\] (.*)$")
@@ -56,12 +115,14 @@ class LogRecord:
             self.type = "send"
             self.packet = match_result.group(1)
             self.parse_packet_type()
+            self.decode_packet()
             return
         match_result = LogRecord._receive_regex.match(self.msg)
         if match_result:
             self.type = "receive"
             self.packet = match_result.group(1)
             self.parse_packet_type()
+            self.decode_packet()
             return
         match_result = LogRecord._cli_command_regex.match(self.msg)
         if match_result:
@@ -89,3 +150,9 @@ class LogRecord:
             self.packet_type = "TIRE"
             return
         self.packet_type = "UNKNOWN"
+
+    def decode_packet(self):
+        decodable_packet = self.packet
+        decodable_packet.replace("\\", "\\\\")
+        # pylint: disable=W0123
+        self.decoded_packet = eval(decodable_packet)

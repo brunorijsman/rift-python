@@ -23,7 +23,7 @@ fi
 # Lint tests directory
 if ! pylint tests ; then
     echo "*** DO NOT COMMIT ***"
-    echo "Fix lint errors for tests directory (score must be perfect 10.0)"
+    echo "Fix lint errors for tools directory (score must be perfect 10.0)"
     exit 1
 fi
 
