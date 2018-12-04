@@ -129,6 +129,9 @@ class LogRecord:
             self.type = "cli"
             self.cli_command = match_result.group(1)
             return
+        if self.severity in ["WARNING", "ERROR", "CRITICAL"]:
+            self.type = "log"
+            return
         self.type = "other"
 
     def parse_packet_type(self):

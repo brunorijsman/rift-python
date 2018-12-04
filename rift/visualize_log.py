@@ -18,6 +18,7 @@ IF_FSM_COLOR = "red"
 NODE_FSM_COLOR = "coral"
 MSG_COLOR = "blue"
 CLI_COLOR = "green"
+LOG_COLOR = "orange"
 DEFAULT_COLOR = "black"
 END_OF_SVG = """
 <g id="tooltip" visibility="hidden" >
@@ -112,6 +113,8 @@ def log_record_color(record):
         return MSG_COLOR
     elif record.type == "cli":
         return CLI_COLOR
+    elif record.type == "log":
+        return LOG_COLOR
     return DEFAULT_COLOR
 
 def log_record_class(record):
@@ -122,6 +125,8 @@ def log_record_class(record):
             return "node_fsm"
     if record.type == "cli":
         return "cli"
+    if record.type == "log":
+        return "log"
     if record.packet_type == "LIE":
         return "lie_msg"
     if record.packet_type == "TIE":
@@ -229,11 +234,11 @@ class Target:
     nodes = {}
     next_node_index = 0
 
-    def __init__(self, target_id):
+    def __init__(self, subsystem, target_id):
         self.target_id = target_id
-        if '-' in target_id:
+        if subsystem.startswith("node.if"):
             self.type = 'if'
-            split_target_id = target_id.split('-', 1)
+            split_target_id = target_id.rsplit('-', 1)
             self.node_id = split_target_id[0]
             self.if_id = split_target_id[1]
             node = Target.nodes[self.node_id]
@@ -286,7 +291,7 @@ class Visualizer:
     def target_for_record(self, record):
         if record.target_id in self.targets:
             return self.targets[record.target_id]
-        target = Target(record.target_id)
+        target = Target(record.subsystem, record.target_id)
         self.targets[record.target_id] = target
         self.show_target_id(target)
         return target
@@ -305,6 +310,8 @@ class Visualizer:
             self.show_receive(record)
         elif record.type == 'cli':
             self.show_cli(record)
+        elif record.type == 'log':
+            self.show_log(record)
 
     def show_timestamp(self, tick, timestamp):
         xpos = TIMESTAMP_X
@@ -425,6 +432,16 @@ class Visualizer:
         text = record.cli_command
         self.svg_text(xpos, ypos, text, color, the_class)
 
+    def show_log(self, record):
+        xpos = record.target.xpos
+        ypos = tick_y_mid(record.tick)
+        color = log_record_color(record)
+        the_class = log_record_class(record)
+        self.svg_dot(xpos, ypos, DOT_RADIUS, color, the_class)
+        xpos += 2 * DOT_RADIUS
+        text = record.msg
+        self.svg_text(xpos, ypos, text, color, the_class)
+
     def html_start(self):
         self.svgfile.write('<script '
                            'src="https://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js">'
@@ -432,6 +449,7 @@ class Visualizer:
         buttons = [("Interface FSM", "if_fsm"),
                    ("Node FSM", "node_fsm"),
                    ("CLI", "cli"),
+                   ("Log >= WARNING", "log"),
                    ("LIE Messages", "lie_msg"),
                    ("TIE Messages", "tie_msg"),
                    ("TIDE Messages", "tide_msg"),
