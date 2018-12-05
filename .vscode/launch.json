@@ -5,11 +5,11 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Pytest packet_common",
+            "name": "Pytest rib",
             "type": "python",
             "request": "launch",
             "program": "/Users/brunorijsman/rift-python/env/bin/pytest",
-            "args": ["-s", "-vvv", "tests/test_packet_common.py"] 
+            "args": ["-s", "-vvv", "tests/test_rib.py"] 
         },
         {
             "name": "Interop",

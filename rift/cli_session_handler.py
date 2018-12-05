@@ -299,7 +299,7 @@ class CliSessionHandler:
                 self._input_bytes_buffer = bytes([byte]) + self._input_bytes_buffer
 
     def process_line_feed(self):
-        return self.parse_end_of_line()
+        return self.process_end_of_line()
 
     def process_carriage_return(self):
         if not self._input_bytes_buffer:
@@ -308,9 +308,9 @@ class CliSessionHandler:
         line_feed = self._input_bytes_buffer[0]
         if line_feed == LINE_FEED:
             self._input_bytes_buffer = self._input_bytes_buffer[1:]
-        return self.parse_end_of_line()
+        return self.process_end_of_line()
 
-    def parse_end_of_line(self):
+    def process_end_of_line(self):
         self.echo_bytes([CARRIAGE_RETURN, LINE_FEED])
         try:
             command = self._command_buffer.decode("utf-8", "ignore")
