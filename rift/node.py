@@ -437,8 +437,8 @@ class Node:
         self._spf_destinations = {}
         self._spf_destinations[constants.DIR_SOUTH] = {}
         self._spf_destinations[constants.DIR_NORTH] = {}
-        self._ipv4_rib = rib.Table(rib.ADDRESS_FAMILY_IPV4)
-        self._ipv6_rib = rib.Table(rib.ADDRESS_FAMILY_IPV6)
+        self._ipv4_rib = rib.RouteTable(rib.ADDRESS_FAMILY_IPV4)
+        self._ipv6_rib = rib.RouteTable(rib.ADDRESS_FAMILY_IPV6)
         if "skip-self-orginated-ties" not in self._config:
             self.regenerate_my_node_ties()
             self.regenerate_my_north_prefix_tie()

@@ -22,6 +22,15 @@ def address_family_str(address_family):
 OWNER_S_SPF = 2
 OWNER_N_SPF = 1
 
+def owner_str(owner):
+    if owner == OWNER_S_SPF:
+        return "South SPF"
+    elif owner == OWNER_N_SPF:
+        return "North SPF"
+    else:
+        assert False
+
+
 def assert_prefix_address_family(prefix, address_family):
     assert isinstance(prefix, common.ttypes.IPPrefixType)
     if address_family == ADDRESS_FAMILY_IPV4:
@@ -39,6 +48,7 @@ class Route:
         assert isinstance(prefix, common.ttypes.IPPrefixType)
         self.prefix = prefix
         self.owner = owner
+        self.stale = False
 
     @staticmethod
     def cli_summary_headers():
@@ -49,9 +59,9 @@ class Route:
     def cli_summary_attributes(self):
         return [
             packet_common.ip_prefix_str(self.prefix),
-            self.owner]  ###@@@
+            owner_str(self.owner)]
 
-class Table:
+class RouteTable:
 
     def __init__(self, address_family):
         self.address_family = address_family
@@ -67,6 +77,7 @@ class Table:
 
     def put_route(self, route):
         assert_prefix_address_family(route.prefix, self.address_family)
+        route.stale = False
         prefix = route.prefix
         if route.prefix in self.destinations:
             destination = self.destinations[prefix]
@@ -79,17 +90,50 @@ class Table:
         # Returns True if the route was present in the table and False if not.
         assert_prefix_address_family(prefix, self.address_family)
         if prefix in self.destinations:
-            return self.destinations[prefix].del_route(owner)
+            destination = self.destinations[prefix]
+            deleted = destination.del_route(owner)
+            if destination.routes == []:
+                del self.destinations[prefix]
+            return deleted
         else:
             return False
+
+    def all_routes(self):
+        for destination in self.destinations.values():
+            for route in destination.routes:
+                yield route
 
     def cli_table(self):
         tab = table.Table()
         tab.add_row(Route.cli_summary_headers())
-        for destination in self.destinations.values():
-            for route in destination.routes:
-                tab.add_row(route.cli_summary_attributes())
+        for route in self.all_routes():
+            tab.add_row(route.cli_summary_attributes())
         return tab
+
+    def mark_owner_routes_stale(self, owner):
+        # Mark all routes of a given owner as stale. Returns number of routes marked.
+        # A possible more efficient implementation is to have a list of routes for each owner.
+        # For now, this is good enough.
+        count = 0
+        for route in self.all_routes():
+            if route.owner == owner:
+                route.stale = True
+                count += 1
+        return count
+
+    def del_stale_routes(self):
+        # Delete all routes still marked as stale. Returns number of deleted routes.
+        # Cannot delete routes while iterating over routes, so prepare a delete list
+        routes_to_delete = []
+        for route in self.all_routes():
+            if route.stale:
+                routes_to_delete.append((route.prefix, route.owner))
+        # Now delete the routes in the prepared list
+        count = 0
+        for (prefix, owner) in routes_to_delete:
+            self.del_route(prefix, owner)
+            count += 1
+        return count
 
 class _Destination:
 
