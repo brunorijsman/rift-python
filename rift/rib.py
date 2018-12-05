@@ -1,9 +1,20 @@
 import sortedcontainers
 
 import common.ttypes
+import packet_common
+import table
 
 ADDRESS_FAMILY_IPV4 = 1
 ADDRESS_FAMILY_IPV6 = 2
+
+# pylint:disable=inconsistent-return-statements
+def address_family_str(address_family):
+    if address_family == ADDRESS_FAMILY_IPV4:
+        return "IPv4"
+    elif address_family == ADDRESS_FAMILY_IPV6:
+        return "IPv6"
+    else:
+        assert False
 
 # For each prefix, there can be up to one route per owner. This is also the order of preference
 # for the routes from different owners to the same destination (higher numerical value is more
@@ -28,6 +39,17 @@ class Route:
         assert isinstance(prefix, common.ttypes.IPPrefixType)
         self.prefix = prefix
         self.owner = owner
+
+    @staticmethod
+    def cli_summary_headers():
+        return [
+            "Prefix",
+            "Owner"]
+
+    def cli_summary_attributes(self):
+        return [
+            packet_common.ip_prefix_str(self.prefix),
+            self.owner]  ###@@@
 
 class Table:
 
@@ -60,6 +82,14 @@ class Table:
             return self.destinations[prefix].del_route(owner)
         else:
             return False
+
+    def cli_table(self):
+        tab = table.Table()
+        tab.add_row(Route.cli_summary_headers())
+        for destination in self.destinations.values():
+            for route in destination.routes:
+                tab.add_row(route.cli_summary_attributes())
+        return tab
 
 class _Destination:
 

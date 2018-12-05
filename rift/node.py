@@ -18,6 +18,7 @@ import fsm
 import interface
 import offer
 import packet_common
+import rib
 import spf_dest
 import table
 import timer
@@ -436,6 +437,8 @@ class Node:
         self._spf_destinations = {}
         self._spf_destinations[constants.DIR_SOUTH] = {}
         self._spf_destinations[constants.DIR_NORTH] = {}
+        self._ipv4_rib = rib.Table(rib.ADDRESS_FAMILY_IPV4)
+        self._ipv6_rib = rib.Table(rib.ADDRESS_FAMILY_IPV6)
         if "skip-self-orginated-ties" not in self._config:
             self.regenerate_my_node_ties()
             self.regenerate_my_north_prefix_tie()
@@ -953,6 +956,15 @@ class Node:
         contents.append("  Originator: " + utils.system_id_str(tie_id.originator))
         contents.append("  TIE Type: " + packet_common.tietype_str(tie_id.tietype))
         contents.append("  TIE Nr: " + str(tie_id.tie_nr))
+
+    def command_show_routes(self, cli_session):
+        self.command_show_routes_af(cli_session, rib.ADDRESS_FAMILY_IPV4)
+        self.command_show_routes_af(cli_session, rib.ADDRESS_FAMILY_IPV6)
+
+    def command_show_routes_af(self, cli_session, address_family):
+        cli_session.print(rib.address_family_str(address_family) + " Routes:")
+        tab = self._ipv4_rib.cli_table()
+        cli_session.print(tab.to_string())
 
     def command_show_spf(self, cli_session):
         cli_session.print("SPF Statistics:")

@@ -17,6 +17,12 @@ def mkp(prefix_str):
 def mkr(prefix_str, owner):
     return rib.Route(mkp(prefix_str), owner)
 
+def test_address_family_str():
+    assert rib.address_family_str(rib.ADDRESS_FAMILY_IPV4) == "IPv4"
+    assert rib.address_family_str(rib.ADDRESS_FAMILY_IPV6) == "IPv6"
+    with pytest.raises(Exception):
+        rib.address_family_str(999)
+
 def test_ipv4_table_put_route():
     packet_common.add_missing_methods_to_thrift()
     table = rib.Table(rib.ADDRESS_FAMILY_IPV4)

@@ -125,6 +125,9 @@ class Engine:
             tab.add_row(nod.cli_level_attributes())
         cli_session.print(tab.to_string())
 
+    def command_show_routes(self, cli_session):
+        cli_session.current_node.command_show_routes(cli_session)
+
     def command_show_spf(self, cli_session):
         cli_session.current_node.command_show_spf(cli_session)
 
@@ -192,6 +195,7 @@ class Engine:
                 "": command_show_nodes,
                 "level": command_show_nodes_level,
             },
+            "routes": command_show_routes,
             "spf": command_show_spf,
             "tie-db": command_show_tie_db,
         },
