@@ -11,10 +11,20 @@ ADDRESS_FAMILY_IPV6 = 2
 OWNER_S_SPF = 2
 OWNER_N_SPF = 1
 
+def assert_prefix_address_family(prefix, address_family):
+    assert isinstance(prefix, common.ttypes.IPPrefixType)
+    if address_family == ADDRESS_FAMILY_IPV4:
+        assert prefix.ipv4prefix is not None
+        assert prefix.ipv6prefix is None
+    elif address_family == ADDRESS_FAMILY_IPV6:
+        assert prefix.ipv4prefix is None
+        assert prefix.ipv6prefix is not None
+    else:
+        assert False
+
 class Route:
 
     def __init__(self, prefix, owner):
-        # Avoid common mistake of passing prefix string instead of prefix object
         assert isinstance(prefix, common.ttypes.IPPrefixType)
         self.prefix = prefix
         self.owner = owner
@@ -27,13 +37,14 @@ class Table:
         self.destinations = sortedcontainers.SortedDict()
 
     def get_route(self, prefix, owner):
-        assert isinstance(prefix, common.ttypes.IPPrefixType)
+        assert_prefix_address_family(prefix, self.address_family)
         if prefix in self.destinations:
             return self.destinations[prefix].get_route(owner)
         else:
             return None
 
     def put_route(self, route):
+        assert_prefix_address_family(route.prefix, self.address_family)
         prefix = route.prefix
         if route.prefix in self.destinations:
             destination = self.destinations[prefix]
@@ -41,6 +52,14 @@ class Table:
             destination = _Destination(prefix)
             self.destinations[prefix] = destination
         destination.put_route(route)
+
+    def del_route(self, prefix, owner):
+        # Returns True if the route was present in the table and False if not.
+        assert_prefix_address_family(prefix, self.address_family)
+        if prefix in self.destinations:
+            return self.destinations[prefix].del_route(owner)
+        else:
+            return False
 
 class _Destination:
 
@@ -72,5 +91,6 @@ class _Destination:
         for route in self.routes:
             if route.owner == owner:
                 del self.routes[index]
-                return
+                return True
             index += 1
+        return False
