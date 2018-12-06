@@ -14,8 +14,10 @@ def mkp(prefix_str):
     else:
         return packet_common.make_ipv4_prefix(prefix_str)
 
-def mkr(prefix_str, owner):
-    return rib.Route(mkp(prefix_str), owner)
+def mkr(prefix_str, owner, nexthops=None):
+    if nexthops is None:
+        nexthops = []
+    return rib.Route(mkp(prefix_str), owner, nexthops)
 
 def test_address_family_str():
     assert rib.address_family_str(rib.ADDRESS_FAMILY_IPV4) == "IPv4"
@@ -214,7 +216,7 @@ def test_asserts():
         rib.assert_prefix_address_family(mkp("1.2.3.0/24"), 999)
     # Passing the wrong prefix type to the Route constructor asserts
     with pytest.raises(Exception):
-        _route = rib.Route("1.2.3.0/24", N)
+        _route = rib.Route("1.2.3.0/24", N, [])
     # Passing the wrong prefix type to get_route asserts
     with pytest.raises(Exception):
         _route = route_table.get_route("1.2.3.0/24", N)

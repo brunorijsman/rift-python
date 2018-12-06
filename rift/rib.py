@@ -30,6 +30,14 @@ def owner_str(owner):
     else:
         assert False
 
+def nexthop_str(nexthop):
+    (nexthop_intf_name, nexthop_addr) = nexthop
+    result_str = ""
+    if nexthop_intf_name is not None:
+        result_str += nexthop_intf_name + " "
+    if nexthop_addr is not None:
+        result_str += str(nexthop_addr)
+    return result_str
 
 def assert_prefix_address_family(prefix, address_family):
     assert isinstance(prefix, common.ttypes.IPPrefixType)
@@ -44,22 +52,25 @@ def assert_prefix_address_family(prefix, address_family):
 
 class Route:
 
-    def __init__(self, prefix, owner):
+    def __init__(self, prefix, owner, nexthops):
         assert isinstance(prefix, common.ttypes.IPPrefixType)
         self.prefix = prefix
         self.owner = owner
+        self.nexthops = nexthops
         self.stale = False
 
     @staticmethod
     def cli_summary_headers():
         return [
             "Prefix",
-            "Owner"]
+            "Owner",
+            "Nexthops"]
 
     def cli_summary_attributes(self):
         return [
             packet_common.ip_prefix_str(self.prefix),
-            owner_str(self.owner)]
+            owner_str(self.owner),
+            [nexthop_str(nexthop) for nexthop in sorted(self.nexthops)]]
 
 class RouteTable:
 

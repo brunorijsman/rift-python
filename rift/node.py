@@ -963,7 +963,11 @@ class Node:
 
     def command_show_routes_af(self, cli_session, address_family):
         cli_session.print(rib.address_family_str(address_family) + " Routes:")
-        tab = self._ipv4_rib.cli_table()
+        if address_family == rib.ADDRESS_FAMILY_IPV4:
+            tab = self._ipv4_rib.cli_table()
+        else:
+            assert address_family == rib.ADDRESS_FAMILY_IPV6
+            tab = self._ipv6_rib.cli_table()
         cli_session.print(tab.to_string())
 
     def command_show_spf(self, cli_session):
@@ -1644,6 +1648,8 @@ class Node:
             # as a new ECMP path for an existing candidate.
             if isinstance(dest_key, int):
                 self.spf_add_candidates_from_node(dest_key, dest_cost, candidates, spf_direction)
+        # SPF run is done. Install the computed routes into the route table (RIB)
+        self.spf_install_routes_in_rib(spf_direction)
 
     def spf_add_candidates_from_node(self, node_system_id, node_cost, candidates, spf_direction):
         node_ties = self.node_ties(self.spf_use_tie_direction(node_system_id, spf_direction),
@@ -1790,3 +1796,30 @@ class Node:
                 if (id1.local_id == id2.remote_id) and (id1.remote_id == id2.local_id):
                     return True
         return False
+
+    def spf_install_routes_in_rib(self, spf_direction):
+        if spf_direction == constants.DIR_NORTH:
+            owner = rib.OWNER_N_SPF
+        else:
+            owner = rib.OWNER_S_SPF
+        self._ipv4_rib.mark_owner_routes_stale(owner)
+        self._ipv6_rib.mark_owner_routes_stale(owner)
+        dest_table = self._spf_destinations[spf_direction]
+        for dest_key, dest in dest_table.items():
+            if isinstance(dest_key, int):
+                # Destination is a node, do nothing
+                pass
+            elif dest.predecessors == []:
+                # Local destination, don't install in RIB as result of SPF
+                pass
+            else:
+                prefix = dest_key
+                route = rib.Route(prefix, owner, dest.direct_nexthops)
+                if prefix.ipv4prefix is not None:
+                    route_table = self._ipv4_rib
+                else:
+                    assert prefix.ipv6prefix is not None
+                    route_table = self._ipv6_rib
+                route_table.put_route(route)
+        self._ipv4_rib.del_stale_routes()
+        self._ipv6_rib.del_stale_routes()
