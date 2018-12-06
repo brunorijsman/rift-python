@@ -67,6 +67,12 @@ optional arguments:
                         Log level (debug, info, warning, error, critical)
   -i, --interactive     Start Command Line Interface (CLI) on stdin/stdout
                         instead of port
+  --multicast-loopback-enable
+                        Enable IP_MULTICAST_LOOP option on multicast send
+                        sockets
+  --multicast-loopback-disable
+                        Disable IP_MULTICAST_LOOP option on multicast send
+                        sockets                        
 </pre>
 
 ## Configuration file
@@ -127,8 +133,6 @@ instead the RIFT engine itself provides the CLI on stdin and stdout:
 agg_101> 
 </pre>
 
-
-
 ## Passive and non-passive nodes
 
 The command-line option "<b>-p</b>" or "<b>--passive</b>" runs only those RIFT nodes in the
@@ -181,7 +185,6 @@ You can use the following command-line options to disable the auto-detection mec
 The command-line option "--multicast-loopback-enable" forces IP\_MULTICAST\_LOOP = enabled.
 
 The command-line option "--multicast-loopback-disable" forces IP\_MULTICAST\_LOOP = disabled.
-
 
 ## Logging
 

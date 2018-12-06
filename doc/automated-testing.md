@@ -65,7 +65,7 @@ TOTAL                             2609    354    86%
 All good; you can commit.
 </pre>
 
-This currently takes about 2 minutes to complete, but that time will grow as the number of system tests increases.
+This currently takes about 4 minutes to complete, but that time will grow as the number of system tests increases.
 
 ## Pylint
 
@@ -152,7 +152,21 @@ tests/test_table.py ....                                                        
 ==================================================== 13 passed in 98.54 seconds ====================================================
 </pre>
 
-Note: the reported percentages are the code coverage percentages. However, it is much easier to look at code coverage using [codecov](https://codecov.io/gh/brunorijsman/rift-python) after the code has been committed to github.
+Use the following command to run a single test (test_rib in this example), 
+to measure the code coverage using during the test,
+and to report the code coverage results in graphical manner using the web browser.
+
+<pre>
+tools/cleanup && pytest -vvv -s tests/test_rib.py --cov --cov-report=html && open htmlcov/index.html
+</pre>
+
+Note: The "open" command is used on Apple Mac computers to use an .hmtl file using the default web browser.
+
+Once the report is generated, click on the module under test (rib.py in this example) to see which
+lines are covered and which not.
+
+Note: [Codecov](https://codecov.io/gh/brunorijsman/rift-python) (which is part of Continuous Integration
+process triggered by github commits) produces even nicer-looking graphical reports.
 
 ## Diagnosing Unit Test Failures
 

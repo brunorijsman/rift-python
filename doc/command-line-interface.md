@@ -7,17 +7,21 @@
   * [set interface <i>interface</i> failure <i>failure</i>](#set-interface-interface-failure-failure)
   * [set level <i>level</i>](#set-level-level)
   * [set node <i>node</i>](#set-node-node)
+  * [show fsm <i>fsm</i>](#show-fsm-fsm)
   * [show interface <i>interface</i>](#show-interface-interface)
   * [show interface <i>interface</i> fsm history](#show-interface-interface-fsm-history)
   * [show interface <i>interface</i> fsm verbose-history](#show-interface-interface-fsm-verbose-history)
-  * [show interfaces](#show-interfaces)
-  * [show fsm <i>fsm</i>](#show-fsm-fsm)
+  * [show interface <i>interface</i> fsm queues](#show-interface-interface-queues)
   * [show interfaces](#show-interfaces)
   * [show node](#show-node)
   * [show node fsm history](#show-node-fsm-history)
   * [show node fsm verbose-history](#show-node-fsm-verbose-history)
   * [show nodes](#show-nodes)
   * [show nodes level](#show-nodes-level)
+  * [show routes](#show-routes)
+  * [show spf](#show-spf)
+  * [show tie-db](#show-tie-db)
+  * [stop](#stop)
 
 ## Connect to the CLI
 
@@ -44,10 +48,9 @@ Command Line Interface (CLI) available on port 61375
 Optionally you may pass a topology YAML file as a command-line argument:
 
 <pre>
-(env) $ <b>python rift topology/two_by_two_by_two_ztp.yaml</b>
+(env) $ <b>python rift topology/two_by_two_by_two.yaml</b>
 Command Line Interface (CLI) available on port 61377
 </pre>
-
 
 When you start the Python RIFT protocol engine, it reports a port number that you can use to connect one or more CLI 
 sessions.
@@ -56,7 +59,7 @@ You can connect to the Command Line Interface (CLI) using a Telnet client. Assum
 device as where the RIFT engine is running, the hostname is localhost. 
 
 <pre>
-$ <b>telnet localhost 61375 </b>
+$ <b>telnet localhost 61377 </b>
 Trying 127.0.0.1...
 Connected to localhost.
 Escape character is '^]'.
@@ -72,28 +75,32 @@ You can enter CLI commands at the CLI prompt. For example, try entering the <b>h
 
 <pre>
 agg_101> <b>help</b>
+exit 
+set interface &lt;interface&gt; failure &lt;failure&gt; 
 set level &lt;level&gt; 
 set node &lt;node&gt; 
+show fsm lie 
+show fsm ztp 
 show interface &lt;interface&gt; 
 show interface &lt;interface&gt; fsm history 
 show interface &lt;interface&gt; fsm verbose-history 
-show fsm lie 
-show fsm ztp 
+show interface &lt;interface&gt; queues 
 show interfaces 
 show node 
 show node fsm history 
 show node fsm verbose-history 
 show nodes 
 show nodes level 
+show routes 
+show spf 
+show tie-db 
+stop 
 </pre>
 
 Unfortunately, the CLI does not yet support any of the following features:
 
 * Command completion: you must manually enter the complete command; you cannot enter partial commands or use
 tab to complete commands.
-
-* Interactive command history: you cannot use cursor-up or cursor-down or ctrl-p or ctrl-n to go the 
-the previous or next command in the command history. 
 
 * Interactive context-senstive help: you can enter "help" or "?" and press enter at the end of a partial command
 line to get context-senstive help. But after reading the help text, you must manually re-enter the command line. 
@@ -193,6 +200,76 @@ Example:
 <pre>
 agg_101> <b>set node core_1</b>
 core_1> 
+</pre>
+
+### show fsm <i>fsm</i>
+
+The "<b>show fsm</b> <i>fsm</i>" command shows the definition of the specified Finite State Machine (FSM).
+
+Parameter <i>fsm</i> specifies the name of the FSM and can be one of the following values:
+
+* <b>lie</b>: Show the Link Information Element (LIE) FSM.
+* <b>ztp</b>: Show the Zero Touch Provisioning (ZTP) FSM.
+
+Example:
+
+<pre>
+agg_101> <b>show fsm lie</b>
+States:
++-----------+
+| State     |
++-----------+
+| ONE_WAY   |
++-----------+
+| TWO_WAY   |
++-----------+
+| THREE_WAY |
++-----------+
+
+Events:
++-------------------------------+---------+
+| Event                         | Verbose |
++-------------------------------+---------+
+| TIMER_TICK                    | True    |
++-------------------------------+---------+
+| LEVEL_CHANGED                 | False   |
++-------------------------------+---------+
+| HAL_CHANGED                   | False   |
++-------------------------------+---------+
+.                               .         .
+.                               .         .
+.                               .         .
++-------------------------------+---------+
+| LIE_CORRUPT                   | False   |
++-------------------------------+---------+
+| SEND_LIE                      | True    |
++-------------------------------+---------+
+
+Transitions:
++------------+-----------------------------+-----------+-------------------------+-------------+
+| From state | Event                       | To state  | Actions                 | Push events |
++------------+-----------------------------+-----------+-------------------------+-------------+
+| ONE_WAY    | TIMER_TICK                  | -         | -                       | SEND_LIE    |
++------------+-----------------------------+-----------+-------------------------+-------------+
+| ONE_WAY    | LEVEL_CHANGED               | ONE_WAY   | update_level            | SEND_LIE    |
++------------+-----------------------------+-----------+-------------------------+-------------+
+| ONE_WAY    | HAL_CHANGED                 | -         | store_hal               | -           |
++------------+-----------------------------+-----------+-------------------------+-------------+
+.            .                             .           .                         .             .
+.            .                             .           .                         .             .
+.            .                             .           .                         .             .
++------------+-----------------------------+-----------+-------------------------+-------------+
+| THREE_WAY  | LIE_CORRUPT                 | ONE_WAY   | -                       | -           |
++------------+-----------------------------+-----------+-------------------------+-------------+
+| THREE_WAY  | SEND_LIE                    | -         | send_lie                | -           |
++------------+-----------------------------+-----------+-------------------------+-------------+
+
+State entry actions:
++---------+---------+
+| State   | Actions |
++---------+---------+
+| ONE_WAY | cleanup |
++---------+---------+
 </pre>
 
 ### show interface <i>interface</i>
@@ -339,74 +416,47 @@ agg_101> <b>show interface if_101_1001 fsm verbose-history</b>
 +----------+----------+---------+-----------+--------------+-------------------------+-------+----------+
 </pre>
 
-### show fsm <i>fsm</i>
+### show interface <i>interface</i> queues
 
-The "<b>show fsm</b> <i>fsm</i>" command shows the definition of the specified Finite State Machine (FSM).
+The "<b>show interface</b> <i>interface</i> <b>queues</b>" command shows flooding queues:
 
-Parameter <i>fsm</i> specifies the name of the FSM and can be one of the following values:
+| Queue name | Messages in queue |
+| --- | --- |
+| Transmit queue | The TIE headers that need to be transmitted in a TIE message over this interface |
+| Retransmit queue | The TIE headers that need to be re-transmitted in a TIE message over this interface |
+| Request queue | The TIE headers that need to be requested in a TIRE message over this interface |
+| Acknowledge queue | The TIE headers that need to be acknowledged in a TIRE message over this interface |
 
-* <b>lie</b>: Show the Link Information Element (LIE) FSM.
-* <b>ztp</b>: Show the Zero Touch Provisioning (ZTP) FSM.
+When the flooding has converged, all queues are expected to be empty.
+A queue that is persistently non-empty indicates a problem in flooding convergence.
 
 Example:
 
 <pre>
-agg_101> <b>show fsm lie</b>
-States:
-+-----------+
-| State     |
-+-----------+
-| ONE_WAY   |
-+-----------+
-| TWO_WAY   |
-+-----------+
-| THREE_WAY |
-+-----------+
+agg_101> <b>show interface if_101_1 queues</b>
+Transmit queue:
++-----------+------------+------+--------+--------+-----------+-------------+
+| Direction | Originator | Type | TIE Nr | Seq Nr | Remaining | Origination |
+|           |            |      |        |        | Lifetime  | Time        |
++-----------+------------+------+--------+--------+-----------+-------------+
 
-Events:
-+-------------------------------+---------+
-| Event                         | Verbose |
-+-------------------------------+---------+
-| TIMER_TICK                    | True    |
-+-------------------------------+---------+
-| LEVEL_CHANGED                 | False   |
-+-------------------------------+---------+
-| HAL_CHANGED                   | False   |
-+-------------------------------+---------+
-.                               .         .
-.                               .         .
-.                               .         .
-+-------------------------------+---------+
-| LIE_CORRUPT                   | False   |
-+-------------------------------+---------+
-| SEND_LIE                      | True    |
-+-------------------------------+---------+
+Retransmit queue:
++-----------+------------+------+--------+--------+-----------+-------------+
+| Direction | Originator | Type | TIE Nr | Seq Nr | Remaining | Origination |
+|           |            |      |        |        | Lifetime  | Time        |
++-----------+------------+------+--------+--------+-----------+-------------+
 
-Transitions:
-+------------+-----------------------------+-----------+-------------------------+-------------+
-| From state | Event                       | To state  | Actions                 | Push events |
-+------------+-----------------------------+-----------+-------------------------+-------------+
-| ONE_WAY    | TIMER_TICK                  | -         | -                       | SEND_LIE    |
-+------------+-----------------------------+-----------+-------------------------+-------------+
-| ONE_WAY    | LEVEL_CHANGED               | ONE_WAY   | update_level            | SEND_LIE    |
-+------------+-----------------------------+-----------+-------------------------+-------------+
-| ONE_WAY    | HAL_CHANGED                 | -         | store_hal               | -           |
-+------------+-----------------------------+-----------+-------------------------+-------------+
-.            .                             .           .                         .             .
-.            .                             .           .                         .             .
-.            .                             .           .                         .             .
-+------------+-----------------------------+-----------+-------------------------+-------------+
-| THREE_WAY  | LIE_CORRUPT                 | ONE_WAY   | -                       | -           |
-+------------+-----------------------------+-----------+-------------------------+-------------+
-| THREE_WAY  | SEND_LIE                    | -         | send_lie                | -           |
-+------------+-----------------------------+-----------+-------------------------+-------------+
+Request queue:
++-----------+------------+------+--------+--------+-----------+-------------+
+| Direction | Originator | Type | TIE Nr | Seq Nr | Remaining | Origination |
+|           |            |      |        |        | Lifetime  | Time        |
++-----------+------------+------+--------+--------+-----------+-------------+
 
-State entry actions:
-+---------+---------+
-| State   | Actions |
-+---------+---------+
-| ONE_WAY | cleanup |
-+---------+---------+
+Acknowledge queue:
++-----------+------------+------+--------+--------+-----------+-------------+
+| Direction | Originator | Type | TIE Nr | Seq Nr | Remaining | Origination |
+|           |            |      |        |        | Lifetime  | Time        |
++-----------+------------+------+--------+--------+-----------+-------------+
 </pre>
 
 ### show interfaces
@@ -613,6 +663,8 @@ agg_101> <b>show nodes</b>
 The "<b>show nodes level</b>" command shows information on automatic level derivation procedures
 for all RIFT nodes in the RIFT topology:
 
+Example:
+
 <pre>
 agg_101> <b>show nodes level</b>
 +-----------+--------+---------+------------+-------+
@@ -641,3 +693,196 @@ agg_101> <b>show nodes level</b>
 +-----------+--------+---------+------------+-------+
 </pre>
 
+### show routes
+
+The "<b>show routes</b>" command shows the routes in the Routing Information Base (RIB) of the
+current node.
+
+Example:
+
+<pre>
+agg_101> <b>show routes</b>
+IPv4 Routes:
++---------------+-----------+-----------------------+
+| Prefix        | Owner     | Nexthops              |
++---------------+-----------+-----------------------+
+| 0.0.0.0/0     | North SPF | if_101_1 127.0.0.1    |
+|               |           | if_101_2 127.0.0.1    |
++---------------+-----------+-----------------------+
+| 1.1.1.0/24    | South SPF | if_101_1001 127.0.0.1 |
++---------------+-----------+-----------------------+
+| 1.1.2.0/24    | South SPF | if_101_1001 127.0.0.1 |
++---------------+-----------+-----------------------+
+| 1.1.3.0/24    | South SPF | if_101_1001 127.0.0.1 |
++---------------+-----------+-----------------------+
+| 1.1.4.0/24    | South SPF | if_101_1001 127.0.0.1 |
++---------------+-----------+-----------------------+
+| 1.2.1.0/24    | South SPF | if_101_1002 127.0.0.1 |
++---------------+-----------+-----------------------+
+| 1.2.2.0/24    | South SPF | if_101_1002 127.0.0.1 |
++---------------+-----------+-----------------------+
+| 1.2.3.0/24    | South SPF | if_101_1002 127.0.0.1 |
++---------------+-----------+-----------------------+
+| 1.2.4.0/24    | South SPF | if_101_1002 127.0.0.1 |
++---------------+-----------+-----------------------+
+| 99.99.99.0/24 | South SPF | if_101_1001 127.0.0.1 |
+|               |           | if_101_1002 127.0.0.1 |
++---------------+-----------+-----------------------+
+
+IPv6 Routes:
++--------+-----------+--------------------+
+| Prefix | Owner     | Nexthops           |
++--------+-----------+--------------------+
+| ::/0   | North SPF | if_101_1 127.0.0.1 |
+|        |           | if_101_2 127.0.0.1 |
++--------+-----------+--------------------+
+</pre>
+
+### show spf
+
+The "<b>show spf</b>" command shows the results of the most recent Shortest Path First (SPF) execution for the current node.
+
+Note: the SPF algorithm is known as the Dijkstra algorithm.
+
+Example:
+
+<pre>
+agg_101> <b>show spf</b>
+SPF Statistics:
++---------------+----+
+| SPF Runs      | 4  |
++---------------+----+
+| SPF Deferrals | 19 |
++---------------+----+
+
+South SPF Destinations:
++------------------+------+-------------+------+-----------------------+
+| Destination      | Cost | Predecessor | Tags | Direct                |
+|                  |      | System IDs  |      | Nexthops              |
++------------------+------+-------------+------+-----------------------+
+| 101 (agg_101)    | 0    |             |      |                       |
++------------------+------+-------------+------+-----------------------+
+| 1001 (edge_1001) | 1    | 101         |      | if_101_1001 127.0.0.1 |
++------------------+------+-------------+------+-----------------------+
+| 1002 (edge_1002) | 1    | 101         |      | if_101_1002 127.0.0.1 |
++------------------+------+-------------+------+-----------------------+
+| 1.1.1.0/24       | 2    | 1001        |      | if_101_1001 127.0.0.1 |
++------------------+------+-------------+------+-----------------------+
+| 1.1.2.0/24       | 2    | 1001        |      | if_101_1001 127.0.0.1 |
++------------------+------+-------------+------+-----------------------+
+| 1.1.3.0/24       | 2    | 1001        |      | if_101_1001 127.0.0.1 |
++------------------+------+-------------+------+-----------------------+
+| 1.1.4.0/24       | 2    | 1001        |      | if_101_1001 127.0.0.1 |
++------------------+------+-------------+------+-----------------------+
+| 1.2.1.0/24       | 2    | 1002        |      | if_101_1002 127.0.0.1 |
++------------------+------+-------------+------+-----------------------+
+| 1.2.2.0/24       | 2    | 1002        |      | if_101_1002 127.0.0.1 |
++------------------+------+-------------+------+-----------------------+
+| 1.2.3.0/24       | 2    | 1002        |      | if_101_1002 127.0.0.1 |
++------------------+------+-------------+------+-----------------------+
+| 1.2.4.0/24       | 2    | 1002        |      | if_101_1002 127.0.0.1 |
++------------------+------+-------------+------+-----------------------+
+| 99.99.99.0/24    | 2    | 1001        | 9992 | if_101_1001 127.0.0.1 |
+|                  |      | 1002        | 9991 | if_101_1002 127.0.0.1 |
++------------------+------+-------------+------+-----------------------+
+
+North SPF Destinations:
++---------------+------+-------------+------+--------------------+
+| Destination   | Cost | Predecessor | Tags | Direct             |
+|               |      | System IDs  |      | Nexthops           |
++---------------+------+-------------+------+--------------------+
+| 1 (core_1)    | 1    | 101         |      | if_101_1 127.0.0.1 |
++---------------+------+-------------+------+--------------------+
+| 2 (core_2)    | 1    | 101         |      | if_101_2 127.0.0.1 |
++---------------+------+-------------+------+--------------------+
+| 101 (agg_101) | 0    |             |      |                    |
++---------------+------+-------------+------+--------------------+
+| 0.0.0.0/0     | 2    | 1           |      | if_101_1 127.0.0.1 |
+|               |      | 2           |      | if_101_2 127.0.0.1 |
++---------------+------+-------------+------+--------------------+
+| ::/0          | 2    | 1           |      | if_101_1 127.0.0.1 |
+|               |      | 2           |      | if_101_2 127.0.0.1 |
++---------------+------+-------------+------+--------------------+
+</pre>
+
+### show spf
+
+The "<b>show tie-db</b>" command shows the contents of the Topology Information Element Database (TIE-DB) for the current node.
+
+Note: the TIE-DB is also known as the Link-State Database (LSDB)
+
+Example:
+
+<pre>
+agg_101> show tie-db
++-----------+------------+--------+--------+--------+----------+-----------------------+
+| Direction | Originator | Type   | TIE Nr | Seq Nr | Lifetime | Contents              |
++-----------+------------+--------+--------+--------+----------+-----------------------+
+| South     | 1          | Node   | 1      | 5      | 603378   | Name: core_1          |
+|           |            |        |        |        |          | Level: 2              |
+|           |            |        |        |        |          | Neighbor: 101         |
+|           |            |        |        |        |          |   Level: 1            |
+|           |            |        |        |        |          |   Cost: 1             |
+|           |            |        |        |        |          |   Bandwidth: 100 Mbps |
+|           |            |        |        |        |          |   Link: 1-1           |
+|           |            |        |        |        |          | Neighbor: 102         |
+|           |            |        |        |        |          |   Level: 1            |
+|           |            |        |        |        |          |   Cost: 1             |
+|           |            |        |        |        |          |   Bandwidth: 100 Mbps |
+|           |            |        |        |        |          |   Link: 2-1           |
+|           |            |        |        |        |          | Neighbor: 201         |
+|           |            |        |        |        |          |   Level: 1            |
+|           |            |        |        |        |          |   Cost: 1             |
+|           |            |        |        |        |          |   Bandwidth: 100 Mbps |
+|           |            |        |        |        |          |   Link: 3-1           |
+|           |            |        |        |        |          | Neighbor: 202         |
+|           |            |        |        |        |          |   Level: 1            |
+|           |            |        |        |        |          |   Cost: 1             |
+|           |            |        |        |        |          |   Bandwidth: 100 Mbps |
+|           |            |        |        |        |          |   Link: 4-1           |
++-----------+------------+--------+--------+--------+----------+-----------------------+
+| South     | 1          | Prefix | 1      | 1      | 603378   | Prefix: 0.0.0.0/0     |
+|           |            |        |        |        |          |   Metric: 1           |
+|           |            |        |        |        |          | Prefix: ::/0          |
+|           |            |        |        |        |          |   Metric: 1           |
++-----------+------------+--------+--------+--------+----------+-----------------------+
+.           .            .        .        .        .          .                       .
+.           .            .        .        .        .          .                       .
+.           .            .        .        .        .          .                       .
++-----------+------------+--------+--------+--------+----------+-----------------------+
+| North     | 1002       | Prefix | 1      | 1      | 603378   | Prefix: 1.2.1.0/24    |
+|           |            |        |        |        |          |   Metric: 1           |
+|           |            |        |        |        |          | Prefix: 1.2.2.0/24    |
+|           |            |        |        |        |          |   Metric: 1           |
+|           |            |        |        |        |          | Prefix: 1.2.3.0/24    |
+|           |            |        |        |        |          |   Metric: 1           |
+|           |            |        |        |        |          | Prefix: 1.2.4.0/24    |
+|           |            |        |        |        |          |   Metric: 1           |
+|           |            |        |        |        |          | Prefix: 99.99.99.0/24 |
+|           |            |        |        |        |          |   Metric: 1           |
+|           |            |        |        |        |          |   Tag: 9992           |
++-----------+------------+--------+--------+--------+----------+-----------------------+
+</pre>
+
+### stop
+
+The "<b>stop</b> command closes the CLI session and terminates the RIFT engine.
+
+Note: The <b>stop</b> command is similar to the <b>exit</b> command, except that the <b>exit</b>
+command leaves the RIFT engine running when executed from a Telnet session.
+
+Example:
+
+<pre>
+(env) $ python rift topology/two_by_two_by_two.yaml
+Command Line Interface (CLI) available on port 50102
+</pre>
+
+<pre>
+$ telnet localhost 50102
+Trying 127.0.0.1...
+Connected to localhost.
+Escape character is '^]'.
+agg_101> <b>stop</b>
+$ 
+</pre>

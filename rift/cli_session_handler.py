@@ -1,6 +1,5 @@
 import os
 import sys
-import sortedcontainers
 
 import scheduler
 
@@ -108,14 +107,21 @@ class CliSessionHandler:
     def print_help(self, parse_subtree):
         self.print_help_recursion("", parse_subtree)
 
+    @staticmethod
+    def token_key(item):
+        token = item[0]
+        if (len(token) > 1) and (token[0] == "$"):
+            return token[1:]
+        else:
+            return token
+
     # TODO: Mention parameter name for "show interface help"
     # TODO: Handle "show interfaces help" in a better way
     def print_help_recursion(self, command_str, parse_subtree):
         if callable(parse_subtree):
             self.print(command_str)
         else:
-            sorted_parse_subtree = sortedcontainers.SortedDict(parse_subtree)
-            for match_str, new_parse_subtree in sorted_parse_subtree.items():
+            for match_str, new_parse_subtree in sorted(parse_subtree.items(), key=self.token_key):
                 if match_str == '':
                     new_command_str = command_str
                 elif match_str[0] == '$':

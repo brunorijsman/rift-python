@@ -50,28 +50,34 @@
 | Apply flooding scope rules when sending TIE packets | Yes |
 | Apply flooding scope rules when sending TIDE packets | Yes |
 | Apply flooding scope rules when sending TIRE packets | Yes |
-| Southbound Default Route Origination  | No |
+| Southbound Default Route Origination  | Yes |
 | Northbound TIE Flooding Reduction  | No |
 | Ingress Filtering  | No |
 | Applying Policy  | No |
 | Store Policy-Guided Prefix for Route Computation and Regeneration  | No |
-| Re-origination | No |
+| Re-origination | Yes |
 | Overlap with Disaggregated Prefixes  | No |
 
 ## Route Calculation
 
 | Feature | Supported |
 | --- | --- |
-| Reachability Computation  | No |
-| Northbound SPF  | No |
-| Southbound SPF  | No |
+| Reachability Computation  | Yes |
+| Northbound SPF  | Yes |
+| Southbound SPF  | Yes |
 | East-West Forwarding Within a Level  | No |
+| Equal-Cost Multi-Path (ECMP) | Yes |
+| Non-Equal-Cost Multi-Path (NECMP) | No |
+| Use non-best paths (Eppstein k-shortest) | No |
+| Routing Information Base (RIB) | Yes |
+| Forwarding Information Base (FIB) abstraction | No |
+| Forwarding Information Base (FIB) integration with Kernel | No |
 
 ## Additional Features
 
 | Feature | Supported |
 | --- | --- |
-| Attaching Prefixes  | No |
+| Attaching Prefixes  | Yes |
 | Attaching Policy-Guided Prefixes  | No |
 | Automatic Disaggregation on Link & Node Failures  | No |
 | Stability Considerations  | No |
@@ -84,8 +90,6 @@
 | Anycast vs Unicast  | No |
 | Overlays and Signaling  | No |
 | Key/Value Store  | No |
-| Southbound  | No |
-| Northbound  | No |
 | Interactions with BFD  | No |
 | Fabric Bandwidth Balancing  | No |
 | Northbound Direction  | No |
@@ -103,16 +107,16 @@
 | Adaptations to Other Proposed Data Center Topologies  | No |
 | Originating Non-Default Route Southbound  | No |
 | Flood IPv4 Prefixes | Yes |
-| Flood IPv6 Prefixes | No |
+| Flood IPv6 Prefixes | Yes |
 
 ## Management
 
 | Feature | Supported |
 | --- | --- |
-| Telnet client for operational commands | Partial |
+| Telnet client for operational commands | Yes |
 | SSH client for operational commands | No |
 | Command Line Interface (CLI) for Operational Commands | Yes |
-| CLI Command History (^P and ^N) | Partial |
+| CLI Command History | Yes |
 | CLI Tab Completion | No |
 | CLI Context-Sensitive Help | Partial |
 | Logging | Yes |
