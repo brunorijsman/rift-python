@@ -106,6 +106,10 @@ class TelnetSession:
                 values += [cli_session_handler.CONTROL_A]
             elif token == "ctrl-e":
                 values += [cli_session_handler.CONTROL_E]
+            elif token == "ctrl-n":
+                values += [cli_session_handler.CONTROL_N]
+            elif token == "ctrl-p":
+                values += [cli_session_handler.CONTROL_P]
             elif token == "erase-to-eol":
                 values += [cli_session_handler.ESCAPE,
                            cli_session_handler.VT100_LEFT_SQUARE_BRACKET,
@@ -266,7 +270,7 @@ def check_non_empty_history(session):
     session.expect_special("erase-to-eol")
     session.expect("show interfaces")
     # Previous command (allowed) while cursor is at end of line
-    session.send_special("up")
+    session.send_special("ctrl-p")
     session.expect_special("left-15 erase-to-eol")
     session.expect("nonsense")
     # Previous command (allowed) while cursor is at end of line
@@ -301,7 +305,7 @@ def check_non_empty_history(session):
     session.send_special("down")
     session.expect_special("left-15 erase-to-eol")
     # Next command (not allowed, have reached end of history)
-    session.send_special("down")
+    session.send_special("ctrl-n")
     session.expect_special("bell")
     # Enter and execute a new command
     session.send("show tie-db\n")

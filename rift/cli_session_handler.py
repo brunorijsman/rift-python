@@ -14,6 +14,8 @@ MAX_HISTORY = 100
 
 CONTROL_A = 1
 CONTROL_E = 5
+CONTROL_N = 14
+CONTROL_P = 16
 BELL = 7
 LINE_FEED = 10
 CARRIAGE_RETURN = 13
@@ -292,6 +294,10 @@ class CliSessionHandler:
                 need_more_input = self.process_cursor_to_start_of_line()
             elif byte == CONTROL_E:
                 need_more_input = self.process_cursor_to_end_of_line()
+            elif byte == CONTROL_N:
+                self.process_next_history()
+            elif byte == CONTROL_P:
+                self.process_prev_history()
             elif byte == TELNET_INTERPRET_AS_COMMAND:
                 need_more_input = self.process_telnet_command()
             elif byte == DELETE:

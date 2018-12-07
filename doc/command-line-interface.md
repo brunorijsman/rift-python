@@ -97,13 +97,28 @@ show tie-db
 stop 
 </pre>
 
-Unfortunately, the CLI does not yet support any of the following features:
+If you are connected to the CLI using Telnet, you can use the following keys for editing:
+
+* Cursor-Left: Move cursor on character left.
+
+* Cursor-Right: Move cursor on character right
+
+* Cursor-Up or Control-P: Go to the previous command in command history.
+
+* Cursor-Down or Control-N: Go to the next command in command history.
+
+* Control-A: Move cursor to the start of the line.
+
+* Control-E: Move cursor to the end of the line.
+
+
+The CLI does not yet support any of the following features:
 
 * Command completion: you must manually enter the complete command; you cannot enter partial commands or use
 tab to complete commands.
 
-* Interactive context-senstive help: you can enter "help" or "?" and press enter at the end of a partial command
-line to get context-senstive help. But after reading the help text, you must manually re-enter the command line. 
+* Interactive context-sensitive help: you can enter "help" or "?" and press enter at the end of a partial command
+line to get context-sensitive help. But after reading the help text, you must manually re-enter the command line. 
 
 ## Command Line Interface Commands
 
@@ -166,7 +181,7 @@ The "<b>set level</b> <i>level</i>" command changes the level of the currently a
 The valid values for the <i>level</i> parameter are <b>undefined</b>, <b>leaf</b>, <b>leaf-to-leaf</b>, 
 <b>superspine</b>, or an integer non-negative number.
 
-These <i>level</i> values are mapped to the paramaters in the protocol specification as follows:
+These <i>level</i> values are mapped to the parameters in the protocol specification as follows:
 
 | <i>level</i> value | LEAF_ONLY | LEAF_2_LEAF | TOP_OF_FABRIC_FLAG | CONFIGURED_LEVEL |
 | --- | --- | --- | --- | --- |
