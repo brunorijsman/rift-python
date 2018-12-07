@@ -666,8 +666,8 @@ class Node:
                 node_tie_packet.element.node.neighbors[intf.neighbor.system_id] = node_neighbor
         self.my_node_ties[direction] = node_tie_packet
         self.store_tie_in_db(node_tie_packet)
-        self.log.info("[%s] Regenerated node TIE for direction %s: %s", self.log_id,
-                      packet_common.direction_str(direction), node_tie_packet)
+        self.info("Regenerated node TIE for direction {}: {}"
+                  .format(packet_common.direction_str(direction), node_tie_packet))
 
     def regenerate_my_node_ties(self, interface_going_down=None):
         for direction in [common.ttypes.TieDirectionType.South,
@@ -708,8 +708,7 @@ class Node:
             self.remove_tie_from_db(tie_id)
         else:
             self.store_tie_in_db(self._my_north_prefix_tie)
-            self.log.info("[%s] Regenerated north prefix TIE: %s", self.log_id,
-                          self._my_north_prefix_tie)
+            self.info("Regenerated north prefix TIE: {}".format(self._my_north_prefix_tie))
 
     def is_overloaded(self):
         # Is this node overloaded?
@@ -770,8 +769,8 @@ class Node:
         # we don't create a prefix TIE at all. But if we have ever originated one in the past, then
         # we have to flush it by originating an empty prefix TIE.
         if (not must_originate_default) and (self._my_south_prefix_tie is None):
-            self.log.info("[%s] Don't originate south prefix TIE because %s: %s", self.log_id,
-                          reason, self._my_south_prefix_tie)
+            self.info("Don't originate south prefix TIE because {}: {}"
+                      .format(reason, self._my_south_prefix_tie))
             return
         if ((must_originate_default != self._originating_default) or
                 (self._my_south_prefix_tie is None)):
@@ -796,8 +795,8 @@ class Node:
                 packet_common.add_ipv6_prefix_to_prefix_tie(self._my_south_prefix_tie,
                                                             "::0/0", metric)
             self.store_tie_in_db(self._my_south_prefix_tie)
-            self.log.info("[%s] Regenerated south prefix TIE because %s: %s", self.log_id,
-                          reason, self._my_south_prefix_tie)
+            self.info("Regenerated south prefix TIE because {}: {}"
+                      .format(reason, self._my_south_prefix_tie))
 
     def clear_all_generated_node_ties(self):
         for direction in [common.ttypes.TieDirectionType.South,
@@ -825,8 +824,8 @@ class Node:
             neighbor_is_top_of_fabric=intf.neighbor.top_of_fabric(),
             my_level=self.level_value(),
             i_am_top_of_fabric=self.top_of_fabric())
-        self.log.debug("[%s] Regenerated TIDE for neighbor %s: %s", self.log_id,
-                       intf.neighbor.system_id, tide_packet)
+        self.debug("Regenerated TIDE for neighbor {}: {}"
+                   .format(intf.neighbor.system_id, tide_packet))
         packet_content = encoding.ttypes.PacketContent(tide=tide_packet)
         packet_header = encoding.ttypes.PacketHeader(
             sender=self.system_id,
@@ -1000,6 +999,12 @@ class Node:
         tx_fail = failure in ["failed", "tx-failed"]
         rx_fail = failure in ["failed", "rx-failed"]
         self._interfaces_by_name[interface_name].set_failure(tx_fail, rx_fail)
+
+    def debug(self, msg):
+        self.log.debug("[%s] %s", self.log_id, msg)
+
+    def info(self, msg):
+        self.log.info("[%s] %s", self.log_id, msg)
 
     def db_debug(self, msg):
         if self._tie_db_log is not None:
