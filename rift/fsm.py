@@ -205,20 +205,16 @@ class Fsm:
 
     _chained_event_queue = collections.deque()
 
-    def info(self, msg):
+    def info(self, msg, *args):
         if self._log:
-            self._log.info("[{}] {}".format(self._log_id, msg))
+            self._log.info("[%s] %s" % (self._log_id, msg), *args)
 
-    def info_or_debug(self, debug, msg):
+    def info_or_debug(self, debug, msg, *args):
         if self._log:
             if debug:
-                self._log.debug("[{}] {}".format(self._log_id, msg))
+                self._log.debug("[%s] %s" % (self._log_id, msg), *args)
             else:
-                self._log.info("[{}] {}".format(self._log_id, msg))
-
-    def warning(self, msg):
-        if self._log:
-            self._log.warning("[{}] {}".format(self._log_id, msg))
+                self._log.info("[%s] %s" % (self._log_id, msg), *args)
 
     def __init__(self, definition, action_handler, log, log_id):
         self._definition = definition
@@ -239,7 +235,7 @@ class Fsm:
 
     def start(self):
         self._state = self._definition.initial_state
-        self.info("Start FSM, state={}".format(self._state.name))
+        self.info("Start FSM, state=%s", self._state.name)
         # Record start state and start state entry actions as from-state=None, and event=None
         self._current_record = FsmRecord(self, None, None, False)
         self._current_record.to_state = self._state
@@ -260,7 +256,7 @@ class Fsm:
             # Normal (external) event
             self._event_queue.append(event_tuple)
             verbose = (event in self._verbose_events)
-            self.info_or_debug(verbose, "FSM push event, event={}".format(event.name))
+            self.info_or_debug(verbose, "FSM push event, event=%s", event.name)
 
     @staticmethod
     def process_queued_events():

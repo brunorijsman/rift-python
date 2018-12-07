@@ -102,8 +102,8 @@ class Interface:
         # Start sending TIE, TIRE, and TIDE packets to this neighbor
         rx_flood_port = self._rx_tie_port
         tx_flood_port = self.neighbor.flood_port
-        self.info(self._rx_log, ("Start flooding: receive on port {}, send on port {}"
-                                 .format(rx_flood_port, tx_flood_port)))
+        self.rx_info("Start flooding: receive on port %d, send on port %d", rx_flood_port,
+                     tx_flood_port)
         # TODO: the local addresses below should be the interface address, not the engine addresses
         self._flood_receive_handler = udp_receive_handler.UdpReceiveHandler(
             remote_address=self.neighbor.address,
@@ -129,7 +129,7 @@ class Interface:
 
     def action_stop_flooding(self):
         # Stop sending TIE, TIRE, and TIDE packets to this neighbor
-        self.info(self._rx_log, "Stop flooding")
+        self.rx_info("Stop flooding")
         self._service_queues_timer.stop()
         self.clear_all_queues()
         self._flood_receive_handler.close()
@@ -153,16 +153,14 @@ class Interface:
         # TODO: Don't do this expensive to_str if logging is not at level debug
         encoded_protocol_packet = packet_common.encode_protocol_packet(protocol_packet)
         if self._tx_fail:
-            self.debug(self._tx_log, "Simulated send failure {} to {}"
-                       .format(protocol_packet_str, to_str))
+            self.tx_debug("Simulated send failure %s to %s", protocol_packet_str, to_str)
         else:
             try:
                 handler.send_message(encoded_protocol_packet)
             except socket.error as error:
-                self.error(self._tx_log, "Error \"{}\" sending {} to {}"
-                           .format(error, protocol_packet_str, to_str))
+                self.tx_error("Error \"%s\" sending %s to %s", error, protocol_packet_str, to_str)
                 return
-            self.debug(self._tx_log, "Send {} to {}".format(protocol_packet_str, to_str))
+            self.tx_debug("Send %s to %s", protocol_packet_str, to_str)
 
     def action_send_lie(self):
         packet_header = encoding.ttypes.PacketHeader(
@@ -209,13 +207,13 @@ class Interface:
     def check_reflection(self):
         # Does the received LIE packet (which is now stored in _neighbor) report us as the neighbor?
         if self.neighbor.neighbor_system_id != self._node.system_id:
-            self.info(self._log,
-                      "Neighbor does not report us as neighbor (system-id {:16x} instead of {:16x}"
-                      .format(self.neighbor.neighbor_system_id, self._node.system_id))
+            self.info("Neighbor does not report us as neighbor (system-id %s instead of %s",
+                      utils.system_id_str(self.neighbor.neighbor_system_id),
+                      utils.system_id_str(self._node.system_id))
             return False
         if self.neighbor.neighbor_link_id != self.local_id:
-            self.info(self._log, "Neighbor does not report us as neighbor (link-id {} instead of {}"
-                      .format(self.neighbor.neighbor_link_id, self.local_id))
+            self.info("Neighbor does not report us as neighbor (link-id %s instead of %s",
+                      self.neighbor.neighbor_link_id, self.local_id)
             return False
         return True
 
@@ -262,7 +260,7 @@ class Interface:
                    .format(self.neighbor.local_id, new_neighbor.local_id))
             minor_change = True
         if minor_change:
-            self.info(self._log, msg)
+            self.info(msg)
         return minor_change
 
     def send_offer_to_ztp_fsm(self, offering_neighbor):
@@ -346,7 +344,7 @@ class Interface:
             # Section B.1.4.1 (1st OR clause) / section 4.2.2.2
             problem = ("Different major protocol version (local version {}, remote version {})"
                        .format(constants.RIFT_MAJOR_VERSION, header.major_version))
-            self.error(self._rx_log, problem)
+            self.rx_error(problem)
             return (False, problem, False, True)
         if not self.is_valid_received_system_id(header.sender):
             # Section B.1.4.1 (3rd OR clause) / section 4.2.2.2
@@ -397,9 +395,9 @@ class Interface:
             self._lie_accept_or_reject = "Rejected"
             self._lie_accept_or_reject_rule = rule
             if warning:
-                self.warning(self._rx_log, "Received LIE packet rejected: {}".format(rule))
+                self.rx_warning("Received LIE packet rejected: %s", rule)
             else:
-                self.info(self._rx_log, "Received LIE packet rejected: {}".format(rule))
+                self.rx_info("Received LIE packet rejected: %s", rule)
             self.action_cleanup()
             if offer_to_ztp:
                 self.send_offer_to_ztp_fsm(new_neighbor)
@@ -412,29 +410,29 @@ class Interface:
         # UPDATE_ZTP_OFFER event (see deviation DEV-2 in doc/deviations)
         self.send_offer_to_ztp_fsm(new_neighbor)
         if not self.neighbor:
-            self.info(self._log, "New neighbor detected with system-id {}"
-                      .format(utils.system_id_str(protocol_packet.header.sender)))
+            self.info("New neighbor detected with system-id %s",
+                      utils.system_id_str(protocol_packet.header.sender))
             self.neighbor = new_neighbor
             self.fsm.push_event(self.Event.NEW_NEIGHBOR)
             self.check_three_way()
             return
         # Section B.1.4.3.1
         if new_neighbor.system_id != self.neighbor.system_id:
-            self.info(self._log, "Neighbor system-id changed from {} to {}"
-                      .format(utils.system_id_str(self.neighbor.system_id),
-                              utils.system_id_str(new_neighbor.system_id)))
+            self.info("Neighbor system-id changed from %s to %s",
+                      utils.system_id_str(self.neighbor.system_id),
+                      utils.system_id_str(new_neighbor.system_id))
             self.fsm.push_event(self.Event.MULTIPLE_NEIGHBORS)
             return
         # Section B.1.4.3.2
         if new_neighbor.level != self.neighbor.level:
-            self.info(self._log, "Neighbor level changed from {} to {}"
-                      .format(self.neighbor.level, new_neighbor.level))
+            self.info("Neighbor level changed from %s to %s", self.neighbor.level,
+                      new_neighbor.level)
             self.fsm.push_event(self.Event.NEIGHBOR_CHANGED_LEVEL)
             return
         # Section B.1.4.3.3
         if new_neighbor.address != self.neighbor.address:
-            self.info(self._log, "Neighbor address changed from {} to {}"
-                      .format(self.neighbor.address, new_neighbor.address))
+            self.info("Neighbor address changed from %s to %s", self.neighbor.address,
+                      new_neighbor.address)
             self.fsm.push_event(self.Event.NEIGHBOR_CHANGED_ADDRESS)
             return
         # Section B.1.4.3.4
@@ -529,20 +527,28 @@ class Interface:
         state_actions=_state_actions,
         verbose_events=verbose_events)
 
-    # TODO: Use % formating for log messages
-    # See https://stackoverflow.com/questions/34619790/pylint-message-logging-format-interpolation
+    def info(self, msg, *args):
+        self._log.info("[%s] %s" % (self._log_id, msg), *args)
 
-    def debug(self, logger, msg):
-        logger.debug("[{}] {}".format(self._log_id, msg))
+    def rx_debug(self, msg, *args):
+        self._rx_log.debug("[%s] %s" % (self._log_id, msg), *args)
 
-    def info(self, logger, msg):
-        logger.info("[{}] {}".format(self._log_id, msg))
+    def rx_info(self, msg, *args):
+        self._rx_log.info("[%s] %s" % (self._log_id, msg), *args)
 
-    def warning(self, logger, msg):
-        logger.warning("[{}] {}".format(self._log_id, msg))
+    def rx_warning(self, msg, *args):
+        self._rx_log.warning("[%s] %s" % (self._log_id, msg), *args)
 
-    def error(self, logger, msg):
-        logger.error("[{}] {}".format(self._log_id, msg))
+    def rx_error(self, msg, *args):
+        self._rx_log.error("[%s] %s" % (self._log_id, msg), *args)
+
+    def tx_debug(self, msg, *args):
+        self._tx_log.debug("[%s] %s" % (self._log_id, msg), *args)
+
+    def tx_error(self, msg, *args):
+        self._tx_log.error("[%s] %s" % (self._log_id, msg), *args)
+
+    ###@@@
 
     def __init__(self, node, config):
         # TODO: process bandwidth field in config
@@ -572,7 +578,7 @@ class Interface:
         self._rx_fail = False
         self._tx_fail = False
         self._log = node.log.getChild("if")
-        self.info(self._log, "Create interface")
+        self.info("Create interface")
         self._rx_log = self._log.getChild("rx")
         self._tx_log = self._log.getChild("tx")
         self._fsm_log = self._log.getChild("fsm")
@@ -646,29 +652,22 @@ class Interface:
         from_str = "{}:{}".format(address, port)
         protocol_packet = packet_common.decode_protocol_packet(message)
         if protocol_packet is None:
-            self.error(self._rx_log,
-                       "Could not decode message received from {}".format(from_str))
+            self.rx_error("Could not decode message received from %s", from_str)
             return None
         if self._rx_fail:
-            self.debug(self._rx_log, ("Simulated receive failure {} from {}"
-                                      .format(protocol_packet, from_str)))
+            self.rx_debug("Simulated receive failure %s from %s", protocol_packet, from_str)
             return None
         if protocol_packet.header.sender == self._node.system_id:
-            self.debug(self._rx_log, ("Looped receive {} from {}"
-                                      .format(protocol_packet, from_str)))
+            self.rx_debug("Looped receive %s from %s", protocol_packet, from_str)
             return None
-        self.debug(self._rx_log, ("Receive {} from {}"
-                                  .format(protocol_packet, from_str)))
+        self.rx_debug("Receive %s from %s", protocol_packet, from_str)
         if not protocol_packet.content:
-            self.warning(self._rx_log, ("Received packet without content from {}"
-                                        .format(from_str)))
+            self.rx_warning("Received packet without content from %s", from_str)
             return None
         if protocol_packet.header.major_version != constants.RIFT_MAJOR_VERSION:
-            self.error(self._rx_log, ("Received different major protocol version from {} "
-                                      "(local version {}, remote version {})"
-                                      .format(from_str,
-                                              constants.RIFT_MAJOR_VERSION,
-                                              protocol_packet.header.major_version)))
+            self.rx_error("Received different major protocol version from %s (local version %d, "
+                          "remote version %d)", from_str, constants.RIFT_MAJOR_VERSION,
+                          protocol_packet.header.major_version)
             return None
         return protocol_packet
 
@@ -680,11 +679,11 @@ class Interface:
             event_data = (protocol_packet, from_address_and_port)
             self.fsm.push_event(self.Event.LIE_RECEIVED, event_data)
         if protocol_packet.content.tie:
-            self.warning(self._rx_log, "Received TIE packet on LIE port (ignored)")
+            self.rx_warning("Received TIE packet on LIE port (ignored)")
         if protocol_packet.content.tide:
-            self.warning(self._rx_log, "Received TIDE packet on LIE port (ignored)")
+            self.rx_warning("Received TIDE packet on LIE port (ignored)")
         if protocol_packet.content.tire:
-            self.warning(self._rx_log, "Received TIRE packet on LIE port (ignored)")
+            self.rx_warning("Received TIRE packet on LIE port (ignored)")
 
     def receive_flood_message(self, message, from_address_and_port):
         protocol_packet = self.receive_message_common(message, from_address_and_port)
@@ -697,7 +696,7 @@ class Interface:
         if protocol_packet.content.tire:
             self.process_received_tire_packet(protocol_packet.content.tire)
         if protocol_packet.content.lie:
-            self.warning(self._rx_log, "Received LIE packet on flood port (ignored)")
+            self.rx_warning("Received LIE packet on flood port (ignored)")
 
     def set_failure(self, tx_fail, rx_fail):
         self._tx_fail = tx_fail
@@ -716,7 +715,7 @@ class Interface:
                 return "ok"
 
     def process_received_tie_packet(self, tie_packet):
-        self.debug(self._rx_log, "Receive TIE packet {}".format(tie_packet))
+        self.rx_debug("Receive TIE packet %s", tie_packet)
         result = self._node.process_received_tie_packet(tie_packet)
         (start_sending_tie_header, ack_tie_header) = result
         if start_sending_tie_header is not None:
@@ -735,7 +734,7 @@ class Interface:
             self.remove_from_all_queues(tie_header)
 
     def process_received_tire_packet(self, tire_packet):
-        self.debug(self._rx_log, "Receive TIRE packet {}".format(tire_packet))
+        self.rx_debug("Receive TIRE packet %s", tire_packet)
         result = self._node.process_received_tire_packet(tire_packet)
         (request_tie_headers, start_sending_tie_headers, acked_tie_headers) = result
         for tie_header in start_sending_tie_headers:
@@ -872,8 +871,7 @@ class Interface:
     def try_to_transmit_tie(self, tie_header):
         (filtered, reason) = self.is_flood_filtered(tie_header)
         outcome = "filtered" if filtered else "allowed"
-        self.debug(self._tx_log, ("Transmit TIE {} is {} because {}"
-                                  .format(tie_header, outcome, reason)))
+        self.tx_debug("Transmit TIE %s is %s because %s", tie_header, outcome, reason)
         if not filtered:
             self.remove_from_ties_rtx(tie_header)
             if tie_header.tieid in self._ties_ack:
@@ -935,8 +933,7 @@ class Interface:
     def request_tie(self, tie_header):
         (filtered, reason) = self.is_request_filtered(tie_header)
         outcome = "excluded" if filtered else "included"
-        self.debug(self._tx_log, ("Request TIE {} is {} in TIRE because {}"
-                                  .format(tie_header, outcome, reason)))
+        self.tx_debug("Request TIE %s is %s in TIRE because %s", tie_header, outcome, reason)
         if not filtered:
             self.remove_from_all_queues(tie_header)
             self._ties_req[tie_header.tieid] = tie_header

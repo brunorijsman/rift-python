@@ -72,8 +72,8 @@ class CliSessionHandler:
         else:
             return "local"
 
-    def info(self, msg):
-        self._log.info("[%s] %s: %s", self.current_node_name(), self.peername(), msg)
+    def info(self, msg, *args):
+        self._log.info("[%s] %s: %s" % (self.current_node_name(), self.peername(), msg), *args)
 
     def close(self):
         self.info("Close CLI session")
@@ -323,7 +323,7 @@ class CliSessionHandler:
         except UnicodeDecodeError:
             self.print("UTF-8 decode of command failed")
         else:
-            self.info("Execute CLI command \"{}\"".format(command))
+            self.info("Execute CLI command \"%s\"", command)
             self.parse_command(command)
             self.print_prompt()
         if self._command_buffer:

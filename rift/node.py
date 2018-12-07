@@ -666,8 +666,8 @@ class Node:
                 node_tie_packet.element.node.neighbors[intf.neighbor.system_id] = node_neighbor
         self.my_node_ties[direction] = node_tie_packet
         self.store_tie_in_db(node_tie_packet)
-        self.info("Regenerated node TIE for direction {}: {}"
-                  .format(packet_common.direction_str(direction), node_tie_packet))
+        self.info("Regenerated node TIE for direction %s: %s",
+                  packet_common.direction_str(direction), node_tie_packet)
 
     def regenerate_my_node_ties(self, interface_going_down=None):
         for direction in [common.ttypes.TieDirectionType.South,
@@ -708,7 +708,7 @@ class Node:
             self.remove_tie_from_db(tie_id)
         else:
             self.store_tie_in_db(self._my_north_prefix_tie)
-            self.info("Regenerated north prefix TIE: {}".format(self._my_north_prefix_tie))
+            self.info("Regenerated north prefix TIE: %s", self._my_north_prefix_tie)
 
     def is_overloaded(self):
         # Is this node overloaded?
@@ -769,8 +769,8 @@ class Node:
         # we don't create a prefix TIE at all. But if we have ever originated one in the past, then
         # we have to flush it by originating an empty prefix TIE.
         if (not must_originate_default) and (self._my_south_prefix_tie is None):
-            self.info("Don't originate south prefix TIE because {}: {}"
-                      .format(reason, self._my_south_prefix_tie))
+            self.info("Don't originate south prefix TIE because %s: %s", reason,
+                      self._my_south_prefix_tie)
             return
         if ((must_originate_default != self._originating_default) or
                 (self._my_south_prefix_tie is None)):
@@ -795,8 +795,8 @@ class Node:
                 packet_common.add_ipv6_prefix_to_prefix_tie(self._my_south_prefix_tie,
                                                             "::0/0", metric)
             self.store_tie_in_db(self._my_south_prefix_tie)
-            self.info("Regenerated south prefix TIE because {}: {}"
-                      .format(reason, self._my_south_prefix_tie))
+            self.info("Regenerated south prefix TIE because %s: %s", reason,
+                      self._my_south_prefix_tie)
 
     def clear_all_generated_node_ties(self):
         for direction in [common.ttypes.TieDirectionType.South,
@@ -824,8 +824,7 @@ class Node:
             neighbor_is_top_of_fabric=intf.neighbor.top_of_fabric(),
             my_level=self.level_value(),
             i_am_top_of_fabric=self.top_of_fabric())
-        self.debug("Regenerated TIDE for neighbor {}: {}"
-                   .format(intf.neighbor.system_id, tide_packet))
+        self.debug("Regenerated TIDE for neighbor %s: %s", intf.neighbor.system_id, tide_packet)
         packet_content = encoding.ttypes.PacketContent(tide=tide_packet)
         packet_header = encoding.ttypes.PacketHeader(
             sender=self.system_id,
@@ -1000,19 +999,19 @@ class Node:
         rx_fail = failure in ["failed", "rx-failed"]
         self._interfaces_by_name[interface_name].set_failure(tx_fail, rx_fail)
 
-    def debug(self, msg):
-        self.log.debug("[%s] %s", self.log_id, msg)
+    def debug(self, msg, *args):
+        self.log.debug("[%s] %s" % (self.log_id, msg), *args)
 
-    def info(self, msg):
-        self.log.info("[%s] %s", self.log_id, msg)
+    def info(self, msg, *args):
+        self.log.info("[%s] %s" % (self.log_id, msg), *args)
 
-    def db_debug(self, msg):
+    def db_debug(self, msg, *args):
         if self._tie_db_log is not None:
-            self._tie_db_log.debug("[%s] %s", self.name, msg)
+            self._tie_db_log.debug("[%s] %s" % (self.log_id, msg), *args)
 
-    def spf_debug(self, msg):
+    def spf_debug(self, msg, *args):
         if self._spf_log is not None:
-            self._spf_log.debug("[%s] %s", self.name, msg)
+            self._spf_log.debug("[%s] %s" % (self.log_id, msg), *args)
 
     def ties_differ_enough_for_spf(self, old_tie, new_tie):
         # Only TIEs with the same TIEID should be compared
@@ -1438,8 +1437,8 @@ class Node:
                 my_level,
                 i_am_top_of_fabric)
             if allowed:
-                self.db_debug("Include TIE {} in TIDE because {} (perspective us to neighbor)"
-                              .format(tie_header, reason1))
+                self.db_debug("Include TIE %s in TIDE because %s (perspective us to neighbor)",
+                              tie_header, reason1)
                 packet_common.add_tie_header_to_tide(tide_packet, tie_header)
                 continue
             # The second possible reason for including a TIE header in the TIDE is because the
@@ -1453,13 +1452,13 @@ class Node:
                 neighbor_is_top_of_fabric,
                 self.system_id)
             if allowed:
-                self.db_debug("Include TIE {} in TIDE because {} (perspective neighbor to us)"
-                              .format(tie_header, reason2))
+                self.db_debug("Include TIE %s in TIDE because %s (perspective neighbor to us)",
+                              tie_header, reason2)
                 packet_common.add_tie_header_to_tide(tide_packet, tie_header)
                 continue
             # If we get here, we decided not to include the TIE header in the TIDE
-            self.db_debug("Exclude TIE {} in TIDE because {} (perspective us to neighbor) and "
-                          "{} (perspective neighbor to us)".format(tie_header, reason1, reason2))
+            self.db_debug("Exclude TIE %s from TIDE because %s (perspective us to neighbor) and "
+                          "%s (perspective neighbor to us)", tie_header, reason1, reason2)
         return tide_packet
 
     def spf_statistics_table(self):
@@ -1528,12 +1527,12 @@ class Node:
         if self._defer_spf_timer is None:
             self.start_defer_spf_timer()
             self._spf_deferred_trigger_pending = False
-            self.spf_debug("Trigger and run SPF: {}".format(reason))
+            self.spf_debug("Trigger and run SPF: %s", reason)
             self.spf_run()
         else:
             self._spf_deferred_trigger_pending = True
             self._spf_triggers_deferred_count += 1
-            self.spf_debug("Trigger and defer SPF: {}".format(reason))
+            self.spf_debug("Trigger and defer SPF: %s", reason)
 
     def start_defer_spf_timer(self):
         self._defer_spf_timer = timer.Timer(
