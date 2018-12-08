@@ -20,6 +20,15 @@ def mkr(prefix_str, owner, nexthops=None):
         nexthops = []
     return rib.Route(mkp(prefix_str), owner, nexthops)
 
+def mknh(interface_str, address_str):
+    if address_str is None:
+        address = None
+    elif ":" in address_str:
+        address = ipaddress.IPv6Address(address_str)
+    else:
+        address = ipaddress.IPv4Address(address_str)
+    return (interface_str, address)
+
 def test_address_family_str():
     assert rib.address_family_str(rib.ADDRESS_FAMILY_IPV4) == "IPv4"
     assert rib.address_family_str(rib.ADDRESS_FAMILY_IPV6) == "IPv6"
@@ -33,7 +42,7 @@ def test_owner_str():
         rib.owner_str(999)
 
 def test_nexthop_str():
-    nexthop = ("if1", ipaddress.IPv4Address("1.2.3.4"))
+    nexthop = mknh("if1", "1.2.3.4")
     assert rib.nexthop_str(nexthop) == "if1 1.2.3.4"
     nexthop = ("if2", None)
     assert rib.nexthop_str(nexthop) == "if2"
@@ -41,20 +50,25 @@ def test_nexthop_str():
 def test_ipv4_table_put_route():
     packet_common.add_missing_methods_to_thrift()
     route_table = rib.RouteTable(rib.ADDRESS_FAMILY_IPV4)
+    nh1 = mknh("if1", "1.1.1.1")
+    nh2 = mknh("if2", "2.2.2.2")
     assert route_table.nr_destinations() == 0
     assert route_table.nr_routes() == 0
     # Add a route
+    # No nexthop
     route_table.put_route(mkr("1.1.1.0/24", N))
     assert route_table.nr_destinations() == 1
     assert route_table.nr_routes() == 1
     # Add two routes with same prefix but with different owners (most preferred added first)
-    route_table.put_route(mkr("2.2.2.2/32", S))
-    route_table.put_route(mkr("2.2.2.2/32", N))
+    # One nexthops each
+    route_table.put_route(mkr("2.2.2.2/32", S, [nh1]))
+    route_table.put_route(mkr("2.2.2.2/32", N, [nh2]))
     assert route_table.nr_destinations() == 2
     assert route_table.nr_routes() == 3
     # Add two routes with same prefix but with different owners (most preferred added last)
-    route_table.put_route(mkr("3.3.3.0/24", N))
-    route_table.put_route(mkr("3.3.3.0/24", S))
+    # Two nexthops each
+    route_table.put_route(mkr("3.3.3.0/24", N, [nh1, nh2]))
+    route_table.put_route(mkr("3.3.3.0/24", S, [nh1, nh2]))
     assert route_table.nr_destinations() == 3
     assert route_table.nr_routes() == 5
     # Replace route which is already in the table (only one route to prefix)
@@ -156,20 +170,25 @@ def test_ipv4_table_del_route():
 def test_ipv6_table_put_route():
     packet_common.add_missing_methods_to_thrift()
     route_table = rib.RouteTable(rib.ADDRESS_FAMILY_IPV6)
+    nh1 = mknh("if1", "::1.1.1.1")
+    nh2 = mknh("if2", "::2.2.2.2")
     assert route_table.nr_destinations() == 0
     assert route_table.nr_routes() == 0
     # Add a route
+    # No nexthop
     route_table.put_route(mkr("1111:1111:1111:1111:0000:0000:0000:0000/64", N))
     assert route_table.nr_destinations() == 1
     assert route_table.nr_routes() == 1
     # Add two routes with same prefix but with different owners (most preferred added first)
-    route_table.put_route(mkr("2222:2222:2222:2222:2222:2222:2222:2222/128", S))
-    route_table.put_route(mkr("2222:2222:2222:2222:2222:2222:2222:2222/128", N))
+    # One nexthop each
+    route_table.put_route(mkr("2222:2222:2222:2222:2222:2222:2222:2222/128", S, [nh1]))
+    route_table.put_route(mkr("2222:2222:2222:2222:2222:2222:2222:2222/128", N, [nh2]))
     assert route_table.nr_destinations() == 2
     assert route_table.nr_routes() == 3
     # Add two routes with same prefix but with different owners (most preferred added last)
-    route_table.put_route(mkr("3333:3333:3333:3333:3333:0000:0000:0000/80", N))
-    route_table.put_route(mkr("3333:3333:3333:3333:3333:0000:0000:0000/80", S))
+    # Two nexthops each
+    route_table.put_route(mkr("3333:3333:3333:3333:3333:0000:0000:0000/80", N, [nh1, nh2]))
+    route_table.put_route(mkr("3333:3333:3333:3333:3333:0000:0000:0000/80", S, [nh1, nh2]))
     assert route_table.nr_destinations() == 3
     assert route_table.nr_routes() == 5
     # Replace route which is already in the table (only one route to prefix)
@@ -330,25 +349,29 @@ def test_all_routes():
 def test_cli_table():
     packet_common.add_missing_methods_to_thrift()
     route_table = rib.RouteTable(rib.ADDRESS_FAMILY_IPV4)
+    nh1 = mknh("if1", "1.1.1.1")
+    nh2 = mknh("if2", "2.2.2.2")
+    nh3 = mknh("if3", None)
     route_table.put_route(mkr("2.2.2.0/24", N))
-    route_table.put_route(mkr("1.1.1.0/24", S))
-    route_table.put_route(mkr("0.0.0.0/0", S))
-    route_table.put_route(mkr("2.2.0.0/16", S))
+    route_table.put_route(mkr("1.1.1.0/24", S, [nh1]))
+    route_table.put_route(mkr("0.0.0.0/0", S, [nh1, nh2]))
+    route_table.put_route(mkr("2.2.0.0/16", S, [nh3]))
     route_table.put_route(mkr("1.1.1.0/24", N))
     tab_str = route_table.cli_table().to_string()
-    assert (tab_str == "+------------+-----------+----------+\n"
-                       "| Prefix     | Owner     | Nexthops |\n"
-                       "+------------+-----------+----------+\n"
-                       "| 0.0.0.0/0  | South SPF |          |\n"
-                       "+------------+-----------+----------+\n"
-                       "| 1.1.1.0/24 | South SPF |          |\n"
-                       "+------------+-----------+----------+\n"
-                       "| 1.1.1.0/24 | North SPF |          |\n"
-                       "+------------+-----------+----------+\n"
-                       "| 2.2.0.0/16 | South SPF |          |\n"
-                       "+------------+-----------+----------+\n"
-                       "| 2.2.2.0/24 | North SPF |          |\n"
-                       "+------------+-----------+----------+\n")
+    assert (tab_str == "+------------+-----------+-------------+\n"
+                       "| Prefix     | Owner     | Nexthops    |\n"
+                       "+------------+-----------+-------------+\n"
+                       "| 0.0.0.0/0  | South SPF | if1 1.1.1.1 |\n"
+                       "|            |           | if2 2.2.2.2 |\n"
+                       "+------------+-----------+-------------+\n"
+                       "| 1.1.1.0/24 | South SPF | if1 1.1.1.1 |\n"
+                       "+------------+-----------+-------------+\n"
+                       "| 1.1.1.0/24 | North SPF |             |\n"
+                       "+------------+-----------+-------------+\n"
+                       "| 2.2.0.0/16 | South SPF | if3         |\n"
+                       "+------------+-----------+-------------+\n"
+                       "| 2.2.2.0/24 | North SPF |             |\n"
+                       "+------------+-----------+-------------+\n")
 
 def test_mark_and_del_stale():
     packet_common.add_missing_methods_to_thrift()
