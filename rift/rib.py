@@ -34,8 +34,10 @@ def nexthop_str(nexthop):
     (nexthop_intf_name, nexthop_addr) = nexthop
     result_str = ""
     if nexthop_intf_name is not None:
-        result_str += nexthop_intf_name + " "
+        result_str += nexthop_intf_name
     if nexthop_addr is not None:
+        if nexthop_intf_name is not None:
+            result_str += " "
         result_str += str(nexthop_addr)
     return result_str
 
@@ -144,6 +146,15 @@ class RouteTable:
         for (prefix, owner) in routes_to_delete:
             self.del_route(prefix, owner)
             count += 1
+        return count
+
+    def nr_destinations(self):
+        return len(self.destinations)
+
+    def nr_routes(self):
+        count = 0
+        for destination in self.destinations.values():
+            count += len(destination.routes)
         return count
 
 class _Destination:

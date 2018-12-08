@@ -1,3 +1,4 @@
+import ipaddress
 import pytest
 
 import packet_common
@@ -31,24 +32,42 @@ def test_owner_str():
     with pytest.raises(Exception):
         rib.owner_str(999)
 
+def test_nexthop_str():
+    nexthop = ("if1", ipaddress.IPv4Address("1.2.3.4"))
+    assert rib.nexthop_str(nexthop) == "if1 1.2.3.4"
+    nexthop = ("if2", None)
+    assert rib.nexthop_str(nexthop) == "if2"
+
 def test_ipv4_table_put_route():
     packet_common.add_missing_methods_to_thrift()
     route_table = rib.RouteTable(rib.ADDRESS_FAMILY_IPV4)
+    assert route_table.nr_destinations() == 0
+    assert route_table.nr_routes() == 0
     # Add a route
     route_table.put_route(mkr("1.1.1.0/24", N))
+    assert route_table.nr_destinations() == 1
+    assert route_table.nr_routes() == 1
     # Add two routes with same prefix but with different owners (most preferred added first)
     route_table.put_route(mkr("2.2.2.2/32", S))
     route_table.put_route(mkr("2.2.2.2/32", N))
+    assert route_table.nr_destinations() == 2
+    assert route_table.nr_routes() == 3
     # Add two routes with same prefix but with different owners (most preferred added last)
     route_table.put_route(mkr("3.3.3.0/24", N))
     route_table.put_route(mkr("3.3.3.0/24", S))
+    assert route_table.nr_destinations() == 3
+    assert route_table.nr_routes() == 5
     # Replace route which is already in the table (only one route to prefix)
     route_table.put_route(mkr("4.4.4.0/30", N))
     route_table.put_route(mkr("4.4.4.0/30", N))
+    assert route_table.nr_destinations() == 4
+    assert route_table.nr_routes() == 6
     # Replace route which is already in the table (multiple routes to prefix)
     route_table.put_route(mkr("0.0.0.0/0", S))
     route_table.put_route(mkr("0.0.0.0/0", N))
     route_table.put_route(mkr("0.0.0.0/0", N))
+    assert route_table.nr_destinations() == 5
+    assert route_table.nr_routes() == 8
 
 def test_ipv4_table_get_route():
     packet_common.add_missing_methods_to_thrift()
@@ -86,54 +105,84 @@ def test_ipv4_table_get_route():
 def test_ipv4_table_del_route():
     packet_common.add_missing_methods_to_thrift()
     route_table = rib.RouteTable(rib.ADDRESS_FAMILY_IPV4)
+    assert route_table.nr_destinations() == 0
+    assert route_table.nr_routes() == 0
     # Try to delete a route that is not present in the table (empty table)
     assert not route_table.del_route(mkp("1.1.1.0/24"), S)
+    assert route_table.nr_destinations() == 0
+    assert route_table.nr_routes() == 0
     # Try to delete a route that is not present in the table (prefix is not present)
     route_table.put_route(mkr("2.2.2.0/32", S))
     assert not route_table.del_route(mkp("3.3.3.0/24"), S)
+    assert route_table.nr_destinations() == 1
+    assert route_table.nr_routes() == 1
     # Try to delete a route that is not present in the table (prefix length is wrong)
     assert not route_table.del_route(mkp("2.2.2.0/24"), S)
+    assert route_table.nr_destinations() == 1
+    assert route_table.nr_routes() == 1
     # Try to delete a route that is not present in the table (owner is not present)
     assert not route_table.del_route(mkp("2.2.2.0/32"), N)
+    assert route_table.nr_destinations() == 1
+    assert route_table.nr_routes() == 1
     # Delete a route that is present in the table (only route for prefix)
     assert route_table.get_route(mkp("2.2.2.0/32"), S) is not None
     assert route_table.del_route(mkp("2.2.2.0/32"), S)
     assert route_table.get_route(mkp("2.2.2.0/32"), S) is None
+    assert route_table.nr_destinations() == 0
+    assert route_table.nr_routes() == 0
     # Put the deleted route back and add other routes to the table
     route_table.put_route(mkr("1.1.0.0/16", N))
     route_table.put_route(mkr("2.2.2.0/32", S))
     route_table.put_route(mkr("2.2.2.0/32", N))
     route_table.put_route(mkr("2.2.2.0/24", N))
     route_table.put_route(mkr("3.0.0.0/8", S))
+    assert route_table.nr_destinations() == 4
+    assert route_table.nr_routes() == 5
     # Delete a route that is present in the table (multiple routes for prefix, get most preferred)
     assert route_table.get_route(mkp("2.2.2.0/32"), S) is not None
     assert route_table.del_route(mkp("2.2.2.0/32"), S)
     assert route_table.get_route(mkp("2.2.2.0/32"), S) is None
+    assert route_table.nr_destinations() == 4
+    assert route_table.nr_routes() == 4
     route_table.put_route(mkr("2.2.2.0/32", S))
     # Delete a route that is present in the table (multiple routes for prefix, get least preferred)
     assert route_table.get_route(mkp("2.2.2.0/32"), N) is not None
     assert route_table.del_route(mkp("2.2.2.0/32"), N)
     assert route_table.get_route(mkp("2.2.2.0/32"), N) is None
+    assert route_table.nr_destinations() == 4
+    assert route_table.nr_routes() == 4
     route_table.put_route(mkr("2.2.2.0/32", N))
 
 def test_ipv6_table_put_route():
     packet_common.add_missing_methods_to_thrift()
     route_table = rib.RouteTable(rib.ADDRESS_FAMILY_IPV6)
+    assert route_table.nr_destinations() == 0
+    assert route_table.nr_routes() == 0
     # Add a route
     route_table.put_route(mkr("1111:1111:1111:1111:0000:0000:0000:0000/64", N))
+    assert route_table.nr_destinations() == 1
+    assert route_table.nr_routes() == 1
     # Add two routes with same prefix but with different owners (most preferred added first)
     route_table.put_route(mkr("2222:2222:2222:2222:2222:2222:2222:2222/128", S))
     route_table.put_route(mkr("2222:2222:2222:2222:2222:2222:2222:2222/128", N))
+    assert route_table.nr_destinations() == 2
+    assert route_table.nr_routes() == 3
     # Add two routes with same prefix but with different owners (most preferred added last)
     route_table.put_route(mkr("3333:3333:3333:3333:3333:0000:0000:0000/80", N))
     route_table.put_route(mkr("3333:3333:3333:3333:3333:0000:0000:0000/80", S))
+    assert route_table.nr_destinations() == 3
+    assert route_table.nr_routes() == 5
     # Replace route which is already in the table (only one route to prefix)
     route_table.put_route(mkr("4444::/16", N))
     route_table.put_route(mkr("4444::/16", N))
+    assert route_table.nr_destinations() == 4
+    assert route_table.nr_routes() == 6
     # Replace route which is already in the table (multiple routes to prefix)
     route_table.put_route(mkr("::0.0.0.0/0", S))
     route_table.put_route(mkr("::0.0.0.0/0", N))
     route_table.put_route(mkr("::0.0.0.0/0", N))
+    assert route_table.nr_destinations() == 5
+    assert route_table.nr_routes() == 8
 
 def test_ipv6_table_get_route():
     packet_common.add_missing_methods_to_thrift()
@@ -171,19 +220,31 @@ def test_ipv6_table_get_route():
 def test_ipv6_table_del_route():
     packet_common.add_missing_methods_to_thrift()
     route_table = rib.RouteTable(rib.ADDRESS_FAMILY_IPV6)
+    assert route_table.nr_destinations() == 0
+    assert route_table.nr_routes() == 0
     # Try to delete a route that is not present in the table (empty table)
     assert not route_table.del_route(mkp("1111:1111:1111::/48"), S)
+    assert route_table.nr_destinations() == 0
+    assert route_table.nr_routes() == 0
     # Try to delete a route that is not present in the table (prefix is not present)
     route_table.put_route(mkr("2222::/16", S))
     assert not route_table.del_route(mkp("3333:3333:3333:3333:3333:0000:0000:0000/80"), S)
+    assert route_table.nr_destinations() == 1
+    assert route_table.nr_routes() == 1
     # Try to delete a route that is not present in the table (prefix length is wrong)
     assert not route_table.del_route(mkp("2222:2222::/32"), S)
+    assert route_table.nr_destinations() == 1
+    assert route_table.nr_routes() == 1
     # Try to delete a route that is not present in the table (owner is not present)
     assert not route_table.del_route(mkp("2222::/16"), N)
+    assert route_table.nr_destinations() == 1
+    assert route_table.nr_routes() == 1
     # Delete a route that is present in the table (only route for prefix)
     assert route_table.get_route(mkp("2222::/16"), S) is not None
     assert route_table.del_route(mkp("2222::/16"), S)
     assert route_table.get_route(mkp("2222::/16"), S) is None
+    assert route_table.nr_destinations() == 0
+    assert route_table.nr_routes() == 0
     # Put the deleted route back and add other routes to the table
     route_table.put_route(mkr("::/0", N))
     route_table.put_route(mkr("2222::/16", N))
@@ -191,15 +252,21 @@ def test_ipv6_table_del_route():
     route_table.put_route(mkr("2222:2222::/32", N))
     route_table.put_route(mkr("3333:3333:3333:3333:3333:0000:0000:0000/80", S))
     route_table.put_route(mkr("3333:3333:3333:3333:3333:3333:3333:3333/128", S))
+    assert route_table.nr_destinations() == 5
+    assert route_table.nr_routes() == 6
     # Delete a route that is present in the table (multiple routes for prefix, get most preferred)
     assert route_table.get_route(mkp("2222::/16"), S) is not None
     assert route_table.del_route(mkp("2222::/16"), S)
     assert route_table.get_route(mkp("2222::/16"), S) is None
+    assert route_table.nr_destinations() == 5
+    assert route_table.nr_routes() == 5
     route_table.put_route(mkr("2222::/16", S))
     # Delete a route that is present in the table (multiple routes for prefix, get least preferred)
     assert route_table.get_route(mkp("2222::/16"), N) is not None
     assert route_table.del_route(mkp("2222::/16"), N)
     assert route_table.get_route(mkp("2222::/16"), N) is None
+    assert route_table.nr_destinations() == 5
+    assert route_table.nr_routes() == 5
     route_table.put_route(mkr("2222::/16", N))
 
 def test_asserts():
