@@ -151,7 +151,7 @@ def check_rift_node2_intf_up(res):
         r"| 0.0.0.0/0   | 2 | 1 |  | if1",
         r"| 2.2.1.0/24  | 1 | 2 |  |  |",
         r"| 2.2.2.2/32  | 2 | 2 |  |  |",
-        r"| ::.0        | 2 | 1 |  | if1",
+        r"| ::/0        | 2 | 1 |  | if1",
     ]
     res.check_spf("node2", expect_south_spf, expect_north_spf)
 

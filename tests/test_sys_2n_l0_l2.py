@@ -13,25 +13,6 @@
 #  | node2     |
 #  | (level 0) |
 #  +-----------+
-#
-# - 2 nodes: node1 and node2
-# - Both nodes have hard-configured levels:
-#   - node1 is level 2
-#   - node2 is level 0 (leaf)
-# - One link:
-#   - node1:if1 - node2:if1
-# - The difference in hard-configured levels is more than 1
-# - It is an adjacency between a leaf and a non-leaf
-# - The adjacency should come up to state 3-way anyway
-#
-# Test scenario:
-# - Bring the topology up
-#   - Both nodes report adjacency to other node up as in state 3-way
-#   - Check explicitly for acceptance of the LIE message because of leaf-to-non-leaf link
-#   - Check offers and levels on each node
-# - Fail interface if1 on node1 (bi-directional failure)
-#   - Both nodes report adjacency to other node as down in state 1-way
-#   - Check offers and levels on each node
 
 # Allow long test names
 # pylint: disable=invalid-name
@@ -72,6 +53,14 @@ def check_rift_node1_intf_up(res):
         node="node1",
         interface="if1",
         reason="This node is not leaf and neighbor is leaf")
+    expect_south_spf = [
+        r"| 1 \(node1\) | 0 |   |  |  |",
+        r"| 2 \(node2\) | 1 | 1 |  | if1",
+    ]
+    expect_north_spf = [
+        r"| 1 \(node1\) | 0 |   |  |",
+    ]
+    res.check_spf("node1", expect_south_spf, expect_north_spf)
 
 def check_rift_node1_intf_down(res):
     res.check_adjacency_1way(
@@ -101,6 +90,15 @@ def check_rift_node1_intf_down(res):
         hal="None",
         hat="None",
         level_value=2)
+    expect_south_spf = [
+        r"| 1 \(node1\) | 0 |   |  |  |",
+    ]
+    expect_north_spf = [
+        r"| 1 \(node1\) | 0 |   |  |",
+    ]
+    res.check_spf("node1", expect_south_spf, expect_north_spf)
+    res.check_spf_absent("node1", "south", "2")
+
 
 def check_rift_node2_intf_up(res):
     res.check_adjacency_3way(
@@ -134,6 +132,16 @@ def check_rift_node2_intf_up(res):
         node="node2",
         interface="if1",
         reason="This node is leaf and HAT not greater than remote level")
+    expect_south_spf = [
+        r"| 2 \(node2\) | 0 |   |  |  |",
+    ]
+    expect_north_spf = [
+        r"| 1 \(node1\) | 1 | 2 |  | if1",
+        r"| 2 \(node2\) | 0 |   |  |  |",
+        r"| 0.0.0.0/0   | 2 | 1 |  | if1",
+        r"| ::/0        | 2 | 1 |  | if1",
+    ]
+    res.check_spf("node2", expect_south_spf, expect_north_spf)
 
 def check_rift_node2_intf_down(res):
     res.check_adjacency_1way(
@@ -163,6 +171,16 @@ def check_rift_node2_intf_down(res):
         hal=None,
         hat=None,
         level_value=0)
+    expect_south_spf = [
+        r"| 2 \(node2\) | 0 |   |  |  |",
+    ]
+    expect_north_spf = [
+        r"| 2 \(node2\) | 0 |   |  |  |",
+    ]
+    res.check_spf("node2", expect_south_spf, expect_north_spf)
+    res.check_spf_absent("node2", "north", "1")
+    res.check_spf_absent("node2", "north", "0.0.0.0/0")
+    res.check_spf_absent("node2", "north", "::/0")
 
 def check_log_node1_intf_up(les):
     les.check_lie_fsm_3way("node1", "if1")
