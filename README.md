@@ -31,7 +31,9 @@ The code is currently still a work in progress (see Feature List below for the s
 
 * [Continuous Integration](doc/continuous-integration.md)
 
-# IETF 102 (Montreal) RIFT Hackathon Interoperability Testing
+# Presentations and Reports
+
+## IETF 102 (Montreal) RIFT Hackathon Interoperability Testing
 
 A version of this code (tag ietf-102-rift-hackathon) was used to conduct interoperability testing in the hackathon at the Internet Engineering Task Force (IETF) meeting number 102 in Montreal (July 2018).
 
@@ -39,7 +41,12 @@ A version of this code (tag ietf-102-rift-hackathon) was used to conduct interop
 
 * [IETF 102 RIFT Hackathon: Report](ietf-102/ietf-102-rift-hackathon-detailed-report.md)
 
-# Zero Touch Provisioning (ZTP) Interoperability Testing
+## Zero Touch Provisioning (ZTP) Interoperability Testing
 
 * [Zero Touch Provisioning (ZTP) Preliminary Interoperability Testing Report](doc/ztp-interop-testing-report.md)
 
+## IETF 103 (Bangkok) RIFT Hackathon Interoperability Testing
+
+* [IETF 103 Presentation: Open Source Update (PDF)](ietf-103/ietf-103---rift-wg---open-source-update.pdf)
+
+* [IETF 103 Backgroung Information: Flooding Oscillation (PDF)](ietf-103/ietf-103---flooding-oscillations.pdf)
