@@ -61,6 +61,8 @@ def check_rift_node1(res):
     ]
     res.check_spf("node1", expect_south_spf, expect_north_spf)
     res.check_spf_absent("node1", "south", "2")
+    res.check_rib_absent("node1", "0.0.0.0/0", "north-spf")
+    res.check_rib_absent("node1", "::/0", "north-spf")
 
 def check_rift_node2(res):
     res.check_adjacency_1way(
@@ -104,6 +106,8 @@ def check_rift_node2(res):
     res.check_spf_absent("node2", "north", "1")
     res.check_spf_absent("node2", "north", "0.0.0.0/0")
     res.check_spf_absent("node2", "north", "::/0")
+    res.check_rib_absent("node2", "0.0.0.0/0", "north-spf")
+    res.check_rib_absent("node2", "::/0", "north-spf")
 
 def check_log_node1(les):
     les.check_lie_fsm_1way_unacc_hdr("node1", "if1")
