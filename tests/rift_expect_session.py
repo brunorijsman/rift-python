@@ -224,3 +224,14 @@ class RiftExpectSession:
         self.sendline("set node {}".format(node))
         self.sendline("show spf direction {} destination {}".format(direction, destination))
         self.table_expect("not present")
+
+    def check_rib(self, node, expect_rib):
+        self.sendline("set node {}".format(node))
+        self.sendline("show routes")
+        for expected_row in expect_rib:
+            self.table_expect(expected_row)
+
+    def check_rib_absent(self, node, prefix, owner):
+        self.sendline("set node {}".format(node))
+        self.sendline("show route prefix {} owner {}".format(prefix, owner))
+        self.table_expect("not present")
