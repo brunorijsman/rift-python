@@ -68,15 +68,6 @@ def check_rift_node1_intf_up(res):
         r"| 1.1.2.2.32  | 2 | 1 |  |",
     ]
     res.check_spf("node1", expect_south_spf, expect_north_spf)
-    expect_rib = [
-        r"| 1.1.1.0/24 | South SPF | |",
-        r"| 1.1.1.0/24 | North SPF | |",
-        r"| 1.1.2.2/32 | South SPF | |",
-        r"| 1.1.2.2/32 | North SPF | |",
-        r"| 2.2.1.0/24 | South SPF | if1",
-        r"| 2.2.2.2/32 | South SPF | if1",
-    ]
-    res.check_rib("node1", expect_rib)
     res.check_rib_absent("node1", "0.0.0.0/0", "north-spf")
     res.check_rib_absent("node1", "::/0", "north-spf")
 
