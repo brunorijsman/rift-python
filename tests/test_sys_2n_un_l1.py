@@ -173,7 +173,6 @@ def check_rift_node2_intf_down(res):
     res.check_spf_absent("node2", "north", "0.0.0.0/0")
     res.check_spf_absent("node2", "north", "::/0")
 
-
 def check_log_node1_intf_up(les):
     les.check_lie_fsm_3way_with_ztp("node1", "if1")
 
