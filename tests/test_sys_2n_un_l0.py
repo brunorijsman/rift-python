@@ -1,18 +1,4 @@
 # System test: test_sys_2n_un_l0
-#
-# Topology: 2n_un_l0
-#
-#  +-------------------+
-#  | node1             |
-#  | (level 0)         |
-#  +-------------------+
-#            | if1
-#            |
-#            | if1
-#  +-------------------+
-#  | node2             |
-#  | (level undefined) |
-#  +-------------------+
 
 # Allow long test names
 # pylint: disable=invalid-name

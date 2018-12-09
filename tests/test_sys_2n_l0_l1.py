@@ -1,22 +1,4 @@
 # System test: test_sys_2n_l0_l1
-#
-# Topology: 2n_l0_l1
-#
-#  +------------+
-#  | node1      |
-#  | (level 1)  |
-#  | 1.1.1.0/24 |
-#  | 1.1.2.2/32 |
-#  +------------+
-#        | if1
-#        |
-#        | if1
-#  +------------+
-#  | node2      |
-#  | (level 0)  |
-#  | 2.2.1.0/24 |
-#  | 2.2.2.2/32 |
-#  +------------+
 
 # Allow long test names
 # pylint: disable=invalid-name
