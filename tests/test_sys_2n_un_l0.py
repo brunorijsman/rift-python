@@ -13,17 +13,6 @@
 #  | node2             |
 #  | (level undefined) |
 #  +-------------------+
-#
-# - 2 nodes: node1 and node2
-# - node1 is hard-configured as level 0
-# - node2 is level undefined, i.e. it uses ZTP to auto-discover its level
-# - One link: node1:if1 - node2:if1
-#
-# Test scenario:
-# - Bring the topology up
-# - Both nodes report adjacency to other node up as in state 3-way
-# - Node1 is hard-configured level 0
-# - The adjacency stays in ONE_WAY
 
 # Allow long test names
 # pylint: disable=invalid-name
@@ -60,6 +49,14 @@ def check_rift_node1_intf_up(res):
         hal="None",
         hat="None",
         level_value=0)
+    expect_south_spf = [
+        r"| 1 \(node1\) | 0 |   |  |  |",
+    ]
+    expect_north_spf = [
+        r"| 1 \(node1\) | 0 |   |  |",
+    ]
+    res.check_spf("node1", expect_south_spf, expect_north_spf)
+    res.check_spf_absent("node1", "south", "2")
 
 def check_rift_node2_intf_up(res):
     res.check_adjacency_1way(
@@ -89,6 +86,16 @@ def check_rift_node2_intf_up(res):
         hal=None,
         hat=None,
         level_value="undefined")
+    expect_south_spf = [
+        r"| 2 \(node2\) | 0 |   |  |  |",
+    ]
+    expect_north_spf = [
+        r"| 2 \(node2\) | 0 |   |  |  |",
+    ]
+    res.check_spf("node2", expect_south_spf, expect_north_spf)
+    res.check_spf_absent("node2", "north", "1")
+    res.check_spf_absent("node2", "north", "0.0.0.0/0")
+    res.check_spf_absent("node2", "north", "::/0")
 
 def check_log_node1_intf_up(les):
     les.check_lie_fsm_1way_unacc_hdr("node1", "if1")
