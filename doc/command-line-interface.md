@@ -18,6 +18,7 @@
   * [show node fsm verbose-history](#show-node-fsm-verbose-history)
   * [show nodes](#show-nodes)
   * [show nodes level](#show-nodes-level)
+  * [show route prefix <i>prefix</i>](#show-route-prefix-prefix)
   * [show routes](#show-routes)
   * [show spf](#show-spf)
   * [show spf direction <i>direction</i>](#show-spf-direction-direction)
@@ -93,6 +94,7 @@ show node fsm history
 show node fsm verbose-history 
 show nodes 
 show nodes level 
+show route prefix &lt;prefix&gt;
 show routes 
 show spf 
 show spf direction &lt;direction&gt;
@@ -712,10 +714,29 @@ agg_101> <b>show nodes level</b>
 +-----------+--------+---------+------------+-------+
 </pre>
 
+### show route prefix <i>prefix</i>
+
+The "<b>show route prefix</b> <i>prefix</i>" command shows the routes for a given prefix in the
+Routing Information Base (RIB) of the current node.
+
+Parameter <i>prefix</i> must be an IPv4 prefix or an IPv6 prefix
+
+Example:
+
+<pre>
+agg_101> <b>show route prefix ::/0</b>
++--------+-----------+--------------------+
+| Prefix | Owner     | Nexthops           |
++--------+-----------+--------------------+
+| ::/0   | North SPF | if_101_1 127.0.0.1 |
+|        |           | if_101_2 127.0.0.1 |
++--------+-----------+--------------------+
+</pre>
+
 ### show routes
 
-The "<b>show routes</b>" command shows the routes in the Routing Information Base (RIB) of the
-current node.
+The "<b>show routes</b>" command shows all routes in the Routing Information Base (RIB) of the
+current node. It shows both the IPv4 RIB and the IPv6 RIB.
 
 Example:
 

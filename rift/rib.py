@@ -116,6 +116,15 @@ class RouteTable:
             for route in destination.routes:
                 yield route
 
+    def all_prefix_routes(self, prefix):
+        assert_prefix_address_family(prefix, self.address_family)
+        if prefix in self.destinations:
+            destination = self.destinations[prefix]
+            for route in destination.routes:
+                yield route
+        else:
+            return None
+
     def cli_table(self):
         tab = table.Table()
         tab.add_row(Route.cli_summary_headers())

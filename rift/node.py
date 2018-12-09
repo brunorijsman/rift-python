@@ -956,6 +956,25 @@ class Node:
         contents.append("  TIE Type: " + packet_common.tietype_str(tie_id.tietype))
         contents.append("  TIE Nr: " + str(tie_id.tie_nr))
 
+    def command_show_route_prefix(self, cli_session, parameters):
+        prefix = self.get_prefix_param(cli_session, parameters)
+        if prefix is None:
+            return
+        if prefix.ipv4prefix is not None:
+            af_rib = self._ipv4_rib
+        else:
+            af_rib = self._ipv6_rib
+        at_least_one = False
+        tab = table.Table()
+        tab.add_row(rib.Route.cli_summary_headers())
+        for route in af_rib.all_prefix_routes(prefix):
+            at_least_one = True
+            tab.add_row(route.cli_summary_attributes())
+        if at_least_one:
+            cli_session.print(tab.to_string())
+        else:
+            cli_session.print("Prefix {} not present".format(prefix))
+
     def command_show_routes(self, cli_session):
         self.command_show_routes_af(cli_session, rib.ADDRESS_FAMILY_IPV4)
         self.command_show_routes_af(cli_session, rib.ADDRESS_FAMILY_IPV6)
@@ -983,7 +1002,7 @@ class Node:
             return constants.DIR_SOUTH
         if direction_str.lower() == "north":
             return constants.DIR_NORTH
-        cli_session.print("Unknown direction {} (valid values: south, north)".format(direction_str))
+        cli_session.print("Invalid direction {} (valid values: south, north)".format(direction_str))
         return None
 
     def get_destination_param(self, cli_session, parameters):
@@ -1011,8 +1030,30 @@ class Node:
         else:
             return destination
         # None of the above
-        cli_session.print("Unknown destination {} (valid values: system-id, ipv4-prefix, "
+        cli_session.print("Invalid destination {} (valid values: system-id, ipv4-prefix, "
                           "ipv6-prefix)".format(destination_str))
+        return None
+
+    def get_prefix_param(self, cli_session, parameters):
+        assert "prefix" in parameters
+        prefix_str = parameters["prefix"]
+        # Is it an IPv4 prefix?
+        try:
+            prefix = packet_common.make_ipv4_prefix(prefix_str)
+        except ValueError:
+            pass
+        else:
+            return prefix
+        # Is it an IPv6 prefix?
+        try:
+            prefix = packet_common.make_ipv6_prefix(prefix_str)
+        except ValueError:
+            pass
+        else:
+            return prefix
+        # None of the above
+        cli_session.print("Invalid prefix {} (valid values: ipv4-prefix, ipv6-prefix)"
+                          .format(prefix_str))
         return None
 
     def command_show_spf_dir(self, cli_session, parameters):

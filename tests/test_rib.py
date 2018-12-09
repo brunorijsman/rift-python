@@ -346,6 +346,41 @@ def test_all_routes():
     with pytest.raises(Exception):
         next(generator)
 
+def test_all_prefix_routes():
+    packet_common.add_missing_methods_to_thrift()
+    route_table = rib.RouteTable(rib.ADDRESS_FAMILY_IPV4)
+    # Use all_routes generator to walk empty table
+    generator = route_table.all_prefix_routes(mkp("1.2.3.4/32"))
+    with pytest.raises(Exception):
+        next(generator)
+    # Add some routes to the table (purposely in the wrong order)
+    route_table.put_route(mkr("2.2.2.0/24", N))
+    route_table.put_route(mkr("1.1.1.0/24", N))
+    route_table.put_route(mkr("0.0.0.0/0", S))
+    route_table.put_route(mkr("1.1.1.0/24", S))
+    route_table.put_route(mkr("2.2.0.0/16", S))
+    # Use the generator to visit all routes for prefix 3.3.0.0/16 (there are none)
+    generator = route_table.all_prefix_routes(mkp("3.3.0.0/16"))
+    with pytest.raises(Exception):
+        next(generator)
+    # Use the generator to visit all routes for prefix 2.2.0.0/16 (there is one)
+    generator = route_table.all_prefix_routes(mkp("2.2.0.0/16"))
+    route = next(generator)
+    assert route.prefix == mkp("2.2.0.0/16")
+    assert route.owner == S
+    with pytest.raises(Exception):
+        next(generator)
+    # Use the generator to visit all routes for prefix 1.1.1.0/24 (there are two)
+    generator = route_table.all_prefix_routes(mkp("1.1.1.0/24"))
+    route = next(generator)
+    assert route.prefix == mkp("1.1.1.0/24")
+    assert route.owner == S
+    route = next(generator)
+    assert route.prefix == mkp("1.1.1.0/24")
+    assert route.owner == N
+    with pytest.raises(Exception):
+        next(generator)
+
 def test_cli_table():
     packet_common.add_missing_methods_to_thrift()
     route_table = rib.RouteTable(rib.ADDRESS_FAMILY_IPV4)

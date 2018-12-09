@@ -125,6 +125,9 @@ class Engine:
             tab.add_row(nod.cli_level_attributes())
         cli_session.print(tab.to_string())
 
+    def command_show_route_prefix(self, cli_session, parameters):
+        cli_session.current_node.command_show_route_prefix(cli_session, parameters)
+
     def command_show_routes(self, cli_session):
         cli_session.current_node.command_show_routes(cli_session)
 
@@ -200,6 +203,9 @@ class Engine:
             "nodes": {
                 "": command_show_nodes,
                 "level": command_show_nodes_level,
+            },
+            "route": {
+                "$prefix": command_show_route_prefix
             },
             "routes": command_show_routes,
             "spf": {
