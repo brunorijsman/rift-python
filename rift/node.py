@@ -976,6 +976,67 @@ class Node:
         self.command_show_spf_destinations(cli_session, constants.DIR_SOUTH)
         self.command_show_spf_destinations(cli_session, constants.DIR_NORTH)
 
+    def get_direction_param(self, cli_session, parameters):
+        assert "direction" in parameters
+        direction_str = parameters["direction"]
+        if direction_str.lower() == "south":
+            return constants.DIR_SOUTH
+        if direction_str.lower() == "north":
+            return constants.DIR_NORTH
+        cli_session.print("Unknown direction {} (valid values: south, north)".format(direction_str))
+        return None
+
+    def get_destination_param(self, cli_session, parameters):
+        assert "destination" in parameters
+        destination_str = parameters["destination"]
+        # Is it a system-id (integer)?
+        try:
+            destination = int(destination_str)
+        except ValueError:
+            pass
+        else:
+            return destination
+        # Is it an IPv4 prefix?
+        try:
+            destination = packet_common.make_ipv4_prefix(destination_str)
+        except ValueError:
+            pass
+        else:
+            return destination
+        # Is it an IPv6 prefix?
+        try:
+            destination = packet_common.make_ipv6_prefix(destination_str)
+        except ValueError:
+            pass
+        else:
+            return destination
+        # None of the above
+        cli_session.print("Unknown destination {} (valid values: system-id, ipv4-prefix, "
+                          "ipv6-prefix)".format(destination_str))
+        return None
+
+    def command_show_spf_dir(self, cli_session, parameters):
+        direction = self.get_direction_param(cli_session, parameters)
+        if direction is None:
+            return
+        self.command_show_spf_destinations(cli_session, direction)
+
+    def command_show_spf_dir_dest(self, cli_session, parameters):
+        direction = self.get_direction_param(cli_session, parameters)
+        if direction is None:
+            return
+        destination = self.get_destination_param(cli_session, parameters)
+        if destination is None:
+            return
+        dest_table = self._spf_destinations[direction]
+        if destination in dest_table:
+            tab = table.Table()
+            tab.add_row(spf_dest.SPFDest.cli_summary_headers())
+            tab.add_row(dest_table[destination].cli_summary_attributes())
+            cli_session.print(tab.to_string())
+        else:
+            cli_session.print("Destination {} not present".format(destination))
+
     def command_show_spf_destinations(self, cli_session, direction):
         cli_session.print(constants.direction_str(direction) + " SPF Destinations:")
         tab = self.spf_tree_table(direction)
@@ -1478,7 +1539,7 @@ class Node:
         tab.add_row(spf_dest.SPFDest.cli_summary_headers())
         sorted_spf_destinations = sorted(self._spf_destinations[direction].values())
         for destination in sorted_spf_destinations:
-            tab.add_row(destination.cli_summary_attributes(destination))
+            tab.add_row(destination.cli_summary_attributes())
         return tab
 
     def tie_db_table(self):

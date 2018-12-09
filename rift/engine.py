@@ -131,6 +131,12 @@ class Engine:
     def command_show_spf(self, cli_session):
         cli_session.current_node.command_show_spf(cli_session)
 
+    def command_show_spf_dir(self, cli_session, parameters):
+        cli_session.current_node.command_show_spf_dir(cli_session, parameters)
+
+    def command_show_spf_dir_dest(self, cli_session, parameters):
+        cli_session.current_node.command_show_spf_dir_dest(cli_session, parameters)
+
     def command_show_tie_db(self, cli_session):
         cli_session.current_node.command_show_tie_db(cli_session)
 
@@ -196,7 +202,13 @@ class Engine:
                 "level": command_show_nodes_level,
             },
             "routes": command_show_routes,
-            "spf": command_show_spf,
+            "spf": {
+                "": command_show_spf,
+                "$direction" : {
+                    "": command_show_spf_dir,
+                    "$destination": command_show_spf_dir_dest
+                },
+            },
             "tie-db": command_show_tie_db,
         },
         "stop": command_stop,

@@ -50,6 +50,7 @@ def add_missing_methods_to_thrift():
         lambda self: hash(ip_prefix_tup(self)))
     common.ttypes.IPPrefixType.__eq__ = (
         lambda self, other: ip_prefix_tup(self) == ip_prefix_tup(other))
+    common.ttypes.IPPrefixType.__str__ = ip_prefix_str
     common.ttypes.IPPrefixType.__lt__ = (
         lambda self, other: ip_prefix_tup(self) < ip_prefix_tup(other))
     common.ttypes.IEEE802_1ASTimeStampType.__hash__ = (

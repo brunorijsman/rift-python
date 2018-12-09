@@ -74,7 +74,8 @@ class RiftExpectSession:
         pattern = pattern.replace(" |", " +|")
         # The | character is a literal end-of-cell, not a regexp OR
         pattern = pattern.replace("|", "[|]")
-        pattern = pattern.replace("/", "|")
+        # Since we confiscated | to mean end-of-cell, we use /// for regexp OR
+        pattern = pattern.replace("///", "|")
         return self.expect(pattern, timeout)
 
     def wait_prompt(self, node_name=None):
@@ -208,3 +209,18 @@ class RiftExpectSession:
         self.wait_prompt()
         # Let reconverge
         time.sleep(self.reconverge_secs)
+
+    def check_spf(self, node, expect_south_spf, expect_north_spf):
+        self.sendline("set node {}".format(node))
+        self.sendline("show spf")
+        self.table_expect("South SPF Destinations:")
+        for expected_row in expect_south_spf:
+            self.table_expect(expected_row)
+        self.table_expect("North SPF Destinations:")
+        for expected_row in expect_north_spf:
+            self.table_expect(expected_row)
+
+    def check_spf_absent(self, node, direction, destination):
+        self.sendline("set node {}".format(node))
+        self.sendline("show spf direction {} destination {}".format(direction, destination))
+        self.table_expect("not present")

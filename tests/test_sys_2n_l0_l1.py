@@ -2,32 +2,21 @@
 #
 # Topology: 2n_l0_l1
 #
-#  +-----------+
-#  | node1     |
-#  | (level 1) |
-#  +-----------+
+#  +------------+
+#  | node1      |
+#  | (level 1)  |
+#  | 1.1.1.0/24 |
+#  | 1.1.2.2/32 |
+#  +------------+
 #        | if1
 #        |
 #        | if1
-#  +-----------+
-#  | node2     |
-#  | (level 0) |
-#  +-----------+
-#
-# - 2 nodes: node1 and node2
-# - Both nodes have hard-configured levels:
-#   - node1 is level 1
-#   - node2 is level 0 (leaf)
-# - One link:
-#   - node1:if1 - node2:if1
-#
-# Test scenario:
-# - Bring the topology up
-#   - Both nodes report adjacency to other node up as in state 3-way
-#   - Check offers and levels on each node
-# - Fail interface if1 on node1 (bi-directional failure)
-#   - Both nodes report adjacency to other node as down in state 1-way
-#   - Check offers and levels on each node
+#  +------------+
+#  | node2      |
+#  | (level 0)  |
+#  | 2.2.1.0/24 |
+#  | 2.2.2.2/32 |
+#  +------------+
 
 # Allow long test names
 # pylint: disable=invalid-name
@@ -46,12 +35,12 @@ def check_rift_node1_intf_up(res):
         interface="if1",
         system_id="2",
         level=0,
-        not_a_ztp_offer="(False/True)", # Juniper lenient
+        not_a_ztp_offer="(False///True)", # Juniper lenient
         state="THREE_WAY",
         best=False,
         best_3way=False,
         removed=True,
-        removed_reason="(Level is leaf/Not a ZTP offer flag set)")  # Juniper lenient
+        removed_reason="(Level is leaf///Not a ZTP offer flag set)")  # Juniper lenient
     res.check_tx_offer(
         node="node1",
         interface="if1",
@@ -65,6 +54,20 @@ def check_rift_node1_intf_up(res):
         hal="None",
         hat="None",
         level_value=1)
+    expect_south_spf = [
+        r"| 1 \(node1\) | 0 |   |  |  |",
+        r"| 2 \(node2\) | 1 | 1 |  | if1",
+        r"| 1.1.1.0/24  | 1 | 1 |  |  |",
+        r"| 1.1.2.2.32  | 2 | 1 |  |  |",
+        r"| 2.2.1.0/24  | 2 | 2 |  | if1",
+        r"| 2.2.2.2/32  | 3 | 2 |  | if1",
+    ]
+    expect_north_spf = [
+        r"| 1 \(node1\) | 0 |   |  |",
+        r"| 1.1.1.0.24  | 1 | 1 |  |",
+        r"| 1.1.2.2.32  | 2 | 1 |  |",
+    ]
+    res.check_spf("node1", expect_south_spf, expect_north_spf)
 
 def check_rift_node1_intf_down(res):
     res.check_adjacency_1way(
@@ -75,7 +78,7 @@ def check_rift_node1_intf_down(res):
         interface="if1",
         system_id="2",
         level=0,
-        not_a_ztp_offer="(False/True)", # Juniper lenient
+        not_a_ztp_offer="(False///True)", # Juniper lenient
         state="THREE_WAY",
         best=False,
         best_3way=False,
@@ -94,6 +97,20 @@ def check_rift_node1_intf_down(res):
         hal="None",
         hat="None",
         level_value=1)
+    expect_south_spf = [
+        r"| 1 \(node1\) | 0 |   |  |  |",
+        r"| 1.1.1.0/24  | 1 | 1 |  |  |",
+        r"| 1.1.2.2.32  | 2 | 1 |  |  |",
+    ]
+    expect_north_spf = [
+        r"| 1 \(node1\) | 0 |   |  |",
+        r"| 1.1.1.0.24  | 1 | 1 |  |",
+        r"| 1.1.2.2.32  | 2 | 1 |  |",
+    ]
+    res.check_spf("node1", expect_south_spf, expect_north_spf)
+    res.check_spf_absent("node1", "south", "2")
+    res.check_spf_absent("node1", "south", "2.2.1.0/24")
+    res.check_spf_absent("node1", "south", "2.2.2.2/32")
 
 def check_rift_node2_intf_up(res):
     res.check_adjacency_3way(
@@ -123,6 +140,20 @@ def check_rift_node2_intf_up(res):
         hal=1,
         hat=1,
         level_value=0)
+    expect_south_spf = [
+        r"| 2 \(node2\) | 0 |   |  |  |",
+        r"| 2.2.1.0/24  | 1 | 2 |  |  |",
+        r"| 2.2.2.2/32  | 2 | 2 |  |  |",
+    ]
+    expect_north_spf = [
+        r"| 1 \(node1\) | 1 | 2 |  | if1",
+        r"| 2 \(node2\) | 0 |   |  |  |",
+        r"| 0.0.0.0/0   | 2 | 1 |  | if1",
+        r"| 2.2.1.0/24  | 1 | 2 |  |  |",
+        r"| 2.2.2.2/32  | 2 | 2 |  |  |",
+        r"| ::.0        | 2 | 1 |  | if1",
+    ]
+    res.check_spf("node2", expect_south_spf, expect_north_spf)
 
 def check_rift_node2_intf_down(res):
     res.check_adjacency_1way(
@@ -152,6 +183,20 @@ def check_rift_node2_intf_down(res):
         hal=None,
         hat=None,
         level_value=0)
+    expect_south_spf = [
+        r"| 2 \(node2\) | 0 |   |  |  |",
+        r"| 2.2.1.0/24  | 1 | 2 |  |  |",
+        r"| 2.2.2.2/32  | 2 | 2 |  |  |",
+    ]
+    expect_north_spf = [
+        r"| 2 \(node2\) | 0 |   |  |  |",
+        r"| 2.2.1.0/24  | 1 | 2 |  |  |",
+        r"| 2.2.2.2/32  | 2 | 2 |  |  |",
+    ]
+    res.check_spf("node2", expect_south_spf, expect_north_spf)
+    res.check_spf_absent("node2", "north", "1")
+    res.check_spf_absent("node2", "north", "0.0.0.0/0")
+    res.check_spf_absent("node2", "north", "::/0")
 
 def check_log_node1_intf_up(les):
     les.check_lie_fsm_3way("node1", "if1")

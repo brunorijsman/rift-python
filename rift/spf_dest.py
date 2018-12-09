@@ -84,9 +84,9 @@ class SPFDest:
             ["Tags"],
             ["Direct", "Nexthops"]]
 
-    def cli_summary_attributes(self, destination):
+    def cli_summary_attributes(self):
         if self.dest_type == DEST_TYPE_NODE:
-            destination_str = utils.system_id_str(destination.system_id)
+            destination_str = utils.system_id_str(self.system_id)
             if self.name:
                 destination_str += " (" + self.name + ")"
         else:
@@ -97,10 +97,10 @@ class SPFDest:
             tags_str = ""
         return [
             destination_str,
-            destination.cost,
-            sorted(destination.predecessors),
+            self.cost,
+            sorted(self.predecessors),
             tags_str,
-            [self.nexthop_str(nexthop) for nexthop in sorted(destination.direct_nexthops)]
+            [self.nexthop_str(nexthop) for nexthop in sorted(self.direct_nexthops)]
         ]
 
     @staticmethod
