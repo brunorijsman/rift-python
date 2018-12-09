@@ -1,5 +1,7 @@
 # System test: test_sys_2n_l0_l2
 
+# 2n_l0_l2 = 2 nodes: level 0 and level 2
+
 # Allow long test names
 # pylint: disable=invalid-name
 
@@ -190,7 +192,7 @@ def check_log_node1_intf_down(les):
 def check_log_node2_intf_down(les):
     les.check_lie_fsm_timeout_to_1way("node2", "if1", "set interface if1 failure failed")
 
-def test_2_2n_l0_l2():
+def test_2n_l0_l2():
     passive_nodes = os.getenv("RIFT_PASSIVE_NODES", "").split(",")
     # Bring topology up
     les = LogExpectSession()

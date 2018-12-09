@@ -1,5 +1,7 @@
 # System test: test_sys_2n_un_l1
 
+# 2n_un_l1 = 2 nodes: level undefined and level 1
+
 # Allow long test names
 # pylint: disable=invalid-name
 
