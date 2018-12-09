@@ -57,6 +57,8 @@ def check_rift_node1_intf_up(res):
         r"| 1 \(node1\) | 0 |   |  |",
     ]
     res.check_spf("node1", expect_south_spf, expect_north_spf)
+    res.check_rib_absent("node1", "0.0.0.0/0", "north-spf")
+    res.check_rib_absent("node1", "::/0", "north-spf")
 
 def check_rift_node1_intf_down(res):
     res.check_adjacency_1way(
@@ -94,6 +96,8 @@ def check_rift_node1_intf_down(res):
     ]
     res.check_spf("node1", expect_south_spf, expect_north_spf)
     res.check_spf_absent("node1", "south", "2")
+    res.check_rib_absent("node1", "0.0.0.0/0", "north-spf")
+    res.check_rib_absent("node1", "::/0", "north-spf")
 
 def check_rift_node2_intf_up(res):
     res.check_adjacency_3way(
@@ -133,6 +137,11 @@ def check_rift_node2_intf_up(res):
         r"| ::/0        | 2 | 1 |  | if1",
     ]
     res.check_spf("node2", expect_south_spf, expect_north_spf)
+    expect_rib = [
+        r"| 0.0.0.0/0 | North SPF | if1",
+        r"| ::/0 | North SPF | if1",
+    ]
+    res.check_rib("node2", expect_rib)
 
 def check_rift_node2_intf_down(res):
     res.check_adjacency_1way(
@@ -172,6 +181,8 @@ def check_rift_node2_intf_down(res):
     res.check_spf_absent("node2", "north", "1")
     res.check_spf_absent("node2", "north", "0.0.0.0/0")
     res.check_spf_absent("node2", "north", "::/0")
+    res.check_rib_absent("node1", "0.0.0.0/0", "north-spf")
+    res.check_rib_absent("node1", "::/0", "north-spf")
 
 def check_log_node1_intf_up(les):
     les.check_lie_fsm_3way_with_ztp("node1", "if1")
