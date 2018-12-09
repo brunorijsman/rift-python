@@ -20,6 +20,8 @@
   * [show nodes level](#show-nodes-level)
   * [show routes](#show-routes)
   * [show spf](#show-spf)
+  * [show spf direction <i>direction</i>](#show-spf-direction-direction)
+  * [show spf direction <i>direction</i> destination <i>destination</i>](#show-spf-direction-direction-destination-destination)
   * [show tie-db](#show-tie-db)
   * [stop](#stop)
 
@@ -93,6 +95,8 @@ show nodes
 show nodes level 
 show routes 
 show spf 
+show spf direction &lt;direction&gt;
+show spf direction &lt;direction&gt; destination &lt;destination&gt;
 show tie-db 
 stop 
 </pre>
@@ -820,7 +824,69 @@ North SPF Destinations:
 +---------------+------+-------------+------+--------------------+
 </pre>
 
-### show spf
+### show spf direction <i>direction</i>
+
+The "<b>show spf direction</b> <i>direction</i>" command shows the results of the most recent Shortest Path First (SPF) execution for the current node in the specified direction.
+
+Parameter <i>direction</i> must be <b>south</b> or <b>north</b>
+
+Example:
+
+<pre>
+agg_101> <b>show spf direction north</b>
+North SPF Destinations:
++---------------+------+-------------+------+--------------------+
+| Destination   | Cost | Predecessor | Tags | Direct             |
+|               |      | System IDs  |      | Nexthops           |
++---------------+------+-------------+------+--------------------+
+| 1 (core_1)    | 1    | 101         |      | if_101_1 127.0.0.1 |
++---------------+------+-------------+------+--------------------+
+| 2 (core_2)    | 1    | 101         |      | if_101_2 127.0.0.1 |
++---------------+------+-------------+------+--------------------+
+| 101 (agg_101) | 0    |             |      |                    |
++---------------+------+-------------+------+--------------------+
+| 0.0.0.0/0     | 2    | 1           |      | if_101_1 127.0.0.1 |
+|               |      | 2           |      | if_101_2 127.0.0.1 |
++---------------+------+-------------+------+--------------------+
+| ::/0          | 2    | 1           |      | if_101_1 127.0.0.1 |
+|               |      | 2           |      | if_101_2 127.0.0.1 |
++---------------+------+-------------+------+--------------------+
+</pre>
+
+### show spf direction <i>direction</i> destination <i>destination</i>
+
+The "<b>show spf direction</b> <i>direction</i> <b>destination</b> <i>destination</i>" command shows
+the results of the most recent Shortest Path First (SPF) execution for the specified destination on
+the current node in the specified direction.
+
+Parameter <i>direction</i> must be <b>south</b> or <b>north</b>
+
+Parameter <i>destination</i> must be one of the following:
+ * The system-id of a node (an integer)
+ * An IPv4 prefix
+ * An IPv6 prefix
+
+Example:
+
+<pre>
+agg_101> <b>show spf direction north destination ::/0</b>
++-------------+------+-------------+------+--------------------+
+| Destination | Cost | Predecessor | Tags | Direct             |
+|             |      | System IDs  |      | Nexthops           |
++-------------+------+-------------+------+--------------------+
+| ::/0        | 2    | 1           |      | if_101_1 127.0.0.1 |
+|             |      | 2           |      | if_101_2 127.0.0.1 |
++-------------+------+-------------+------+--------------------+
+</pre>
+
+Example:
+
+<pre>
+agg_101> <b>show spf direction north destination 5</b>
+Destination 5 not present
+</pre>
+
+### show tie-db
 
 The "<b>show tie-db</b>" command shows the contents of the Topology Information Element Database (TIE-DB) for the current node.
 

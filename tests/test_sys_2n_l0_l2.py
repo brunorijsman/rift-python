@@ -99,7 +99,6 @@ def check_rift_node1_intf_down(res):
     res.check_spf("node1", expect_south_spf, expect_north_spf)
     res.check_spf_absent("node1", "south", "2")
 
-
 def check_rift_node2_intf_up(res):
     res.check_adjacency_3way(
         node="node2",
