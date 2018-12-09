@@ -19,6 +19,7 @@
   * [show nodes](#show-nodes)
   * [show nodes level](#show-nodes-level)
   * [show route prefix <i>prefix</i>](#show-route-prefix-prefix)
+  * [show route prefix <i>prefix</i> owner <i>owner</i>](#show-route-prefix-prefix-owner-owner)
   * [show routes](#show-routes)
   * [show spf](#show-spf)
   * [show spf direction <i>direction</i>](#show-spf-direction-direction)
@@ -95,6 +96,7 @@ show node fsm verbose-history
 show nodes 
 show nodes level 
 show route prefix &lt;prefix&gt;
+show route prefix &lt;prefix&gt; owner &lt;owner&gt;
 show routes 
 show spf 
 show spf direction &lt;direction&gt;
@@ -733,6 +735,27 @@ agg_101> <b>show route prefix ::/0</b>
 +--------+-----------+--------------------+
 </pre>
 
+### show route prefix <i>prefix</i> owner <i>owner</i>
+
+The "<b>show route prefix</b> <i>prefix</i> <b>owner</b> <i>owner</i>" command shows the routes for
+a given prefix and a given owner in the Routing Information Base (RIB) of the current node.
+
+Parameter <i>prefix</i> must be an IPv4 prefix or an IPv6 prefix.
+
+Parameter <i>owner</i> must be <b>south-spf</b> or <b>north-spf</b>.
+
+Example:
+
+<pre>
+agg_101> <b>show route prefix ::/0 owner north-spf</b>
++--------+-----------+--------------------+
+| Prefix | Owner     | Nexthops           |
++--------+-----------+--------------------+
+| ::/0   | North SPF | if_101_1 127.0.0.1 |
+|        |           | if_101_2 127.0.0.1 |
++--------+-----------+--------------------+
+</pre>
+
 ### show routes
 
 The "<b>show routes</b>" command shows all routes in the Routing Information Base (RIB) of the
@@ -782,7 +805,7 @@ IPv6 Routes:
 
 The "<b>show spf</b>" command shows the results of the most recent Shortest Path First (SPF) execution for the current node.
 
-Note: the SPF algorithm is known as the Dijkstra algorithm.
+Note: the SPF algorithm is also known as the Dijkstra algorithm.
 
 Example:
 

@@ -128,6 +128,9 @@ class Engine:
     def command_show_route_prefix(self, cli_session, parameters):
         cli_session.current_node.command_show_route_prefix(cli_session, parameters)
 
+    def command_show_route_prefix_owner(self, cli_session, parameters):
+        cli_session.current_node.command_show_route_prefix_owner(cli_session, parameters)
+
     def command_show_routes(self, cli_session):
         cli_session.current_node.command_show_routes(cli_session)
 
@@ -205,7 +208,10 @@ class Engine:
                 "level": command_show_nodes_level,
             },
             "route": {
-                "$prefix": command_show_route_prefix
+                "$prefix": {
+                    "": command_show_route_prefix,
+                    "$owner": command_show_route_prefix_owner,
+                },
             },
             "routes": command_show_routes,
             "spf": {

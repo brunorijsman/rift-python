@@ -975,6 +975,26 @@ class Node:
         else:
             cli_session.print("Prefix {} not present".format(prefix))
 
+    def command_show_route_prefix_owner(self, cli_session, parameters):
+        prefix = self.get_prefix_param(cli_session, parameters)
+        if prefix is None:
+            return
+        owner = self.get_owner_param(cli_session, parameters)
+        if owner is None:
+            return
+        if prefix.ipv4prefix is not None:
+            af_rib = self._ipv4_rib
+        else:
+            af_rib = self._ipv6_rib
+        route = af_rib.get_route(prefix, owner)
+        if route is None:
+            cli_session.print("Prefix {} owner {} not present".format(prefix, rib.owner_str(owner)))
+        else:
+            tab = table.Table()
+            tab.add_row(rib.Route.cli_summary_headers())
+            tab.add_row(route.cli_summary_attributes())
+            cli_session.print(tab.to_string())
+
     def command_show_routes(self, cli_session):
         self.command_show_routes_af(cli_session, rib.ADDRESS_FAMILY_IPV4)
         self.command_show_routes_af(cli_session, rib.ADDRESS_FAMILY_IPV6)
@@ -1002,7 +1022,8 @@ class Node:
             return constants.DIR_SOUTH
         if direction_str.lower() == "north":
             return constants.DIR_NORTH
-        cli_session.print("Invalid direction {} (valid values: south, north)".format(direction_str))
+        cli_session.print("Invalid direction {} (valid values: \"south\", \"north\")"
+                          .format(direction_str))
         return None
 
     def get_destination_param(self, cli_session, parameters):
@@ -1054,6 +1075,17 @@ class Node:
         # None of the above
         cli_session.print("Invalid prefix {} (valid values: ipv4-prefix, ipv6-prefix)"
                           .format(prefix_str))
+        return None
+
+    def get_owner_param(self, cli_session, parameters):
+        assert "owner" in parameters
+        direction_str = parameters["owner"]
+        if direction_str.lower() == "south-spf":
+            return rib.OWNER_S_SPF
+        if direction_str.lower() == "north-spf":
+            return rib.OWNER_N_SPF
+        cli_session.print("Invalid owner {} (valid values: \"south-spf\", \"north-spf\")"
+                          .format(direction_str))
         return None
 
     def command_show_spf_dir(self, cli_session, parameters):
