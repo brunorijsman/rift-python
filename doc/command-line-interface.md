@@ -820,8 +820,8 @@ SPF Statistics:
 
 South SPF Destinations:
 +------------------+------+-------------+------+-----------------------+
-| Destination      | Cost | Predecessor | Tags | Direct                |
-|                  |      | System IDs  |      | Next-hops             |
+| Destination      | Cost | Predecessor | Tags | Next-hops             |
+|                  |      | System IDs  |      |                       |
 +------------------+------+-------------+------+-----------------------+
 | 101 (agg_101)    | 0    |             |      |                       |
 +------------------+------+-------------+------+-----------------------+
@@ -851,8 +851,8 @@ South SPF Destinations:
 
 North SPF Destinations:
 +---------------+------+-------------+------+--------------------+
-| Destination   | Cost | Predecessor | Tags | Direct             |
-|               |      | System IDs  |      | Next-hops          |
+| Destination   | Cost | Predecessor | Tags | Next-hops          |
+|               |      | System IDs  |      |                    |
 +---------------+------+-------------+------+--------------------+
 | 1 (core_1)    | 1    | 101         |      | if_101_1 127.0.0.1 |
 +---------------+------+-------------+------+--------------------+
@@ -880,8 +880,8 @@ Example:
 agg_101> <b>show spf direction north</b>
 North SPF Destinations:
 +---------------+------+-------------+------+--------------------+
-| Destination   | Cost | Predecessor | Tags | Direct             |
-|               |      | System IDs  |      | Next-hops          |
+| Destination   | Cost | Predecessor | Tags | Next-hops          |
+|               |      | System IDs  |      |                    |
 +---------------+------+-------------+------+--------------------+
 | 1 (core_1)    | 1    | 101         |      | if_101_1 127.0.0.1 |
 +---------------+------+-------------+------+--------------------+
@@ -915,8 +915,8 @@ Example:
 <pre>
 agg_101> <b>show spf direction north destination ::/0</b>
 +-------------+------+-------------+------+--------------------+
-| Destination | Cost | Predecessor | Tags | Direct             |
-|             |      | System IDs  |      | Next-hops          |
+| Destination | Cost | Predecessor | Tags | Next-hops          |
+|             |      | System IDs  |      |                    |
 +-------------+------+-------------+------+--------------------+
 | ::/0        | 2    | 1           |      | if_101_1 127.0.0.1 |
 |             |      | 2           |      | if_101_2 127.0.0.1 |

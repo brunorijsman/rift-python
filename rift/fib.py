@@ -5,28 +5,6 @@
 # import packet_common
 # import table
 
-# def nexthop_str(nexthop):
-#     (nexthop_intf_name, nexthop_addr) = nexthop
-#     result_str = ""
-#     if nexthop_intf_name is not None:
-#         result_str += nexthop_intf_name
-#     if nexthop_addr is not None:
-#         if nexthop_intf_name is not None:
-#             result_str += " "
-#         result_str += str(nexthop_addr)
-#     return result_str
-
-# def assert_prefix_address_family(prefix, address_family):
-#     assert isinstance(prefix, common.ttypes.IPPrefixType)
-#     if address_family == constants.ADDRESS_FAMILY_IPV4:
-#         assert prefix.ipv4prefix is not None
-#         assert prefix.ipv6prefix is None
-#     elif address_family == constants.ADDRESS_FAMILY_IPV6:
-#         assert prefix.ipv4prefix is None
-#         assert prefix.ipv6prefix is not None
-#     else:
-#         assert False
-
 # class Route:
 
 #     def __init__(self, prefix, owner, nexthops):

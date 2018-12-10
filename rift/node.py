@@ -1858,16 +1858,16 @@ class Node:
         destination.add_predecessor(predecessor_system_id)
         if (nbr_tie_element is not None) and (predecessor_system_id == self.system_id):
             for link_id_pair in nbr_tie_element.link_ids:
-                nhop = self.interface_id_to_next_hop(link_id_pair.local_id)  ###@@@
-                destination.add_direct_next_hop(nhop)
+                nhop = self.interface_id_to_next_hop(link_id_pair.local_id)
+                destination.add_next_hop(nhop)
         else:
             dest_table = self._spf_destinations[spf_direction]
-            destination.inherit_direct_next_hop(dest_table[predecessor_system_id])
+            destination.inherit_next_hop(dest_table[predecessor_system_id])
 
     def add_spf_predecessor(self, destination, predecessor_system_id, spf_direction):
         destination.add_predecessor(predecessor_system_id)
         dest_table = self._spf_destinations[spf_direction]
-        destination.inherit_direct_next_hop(dest_table[predecessor_system_id])
+        destination.inherit_next_hop(dest_table[predecessor_system_id])
 
     def interface_id_to_next_hop(self, interface_id):
         if interface_id in self._interfaces_by_id:
@@ -1949,7 +1949,7 @@ class Node:
                 pass
             else:
                 prefix = dest_key
-                route = rib.Route(prefix, owner, dest.direct_next_hops)
+                route = rib.Route(prefix, owner, dest.next_hops)
                 if prefix.ipv4prefix is not None:
                     route_table = self._ipv4_rib
                 else:
