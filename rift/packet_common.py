@@ -363,6 +363,24 @@ def make_prefix_tie_packet(direction, originator, tie_nr, seq_nr, lifetime):
     tie_packet = encoding.ttypes.TIEPacket(header=tie_header, element=tie_element)
     return tie_packet
 
+def make_ip_address(address_str):
+    if ":" in address_str:
+        return make_ipv6_address(address_str)
+    else:
+        return make_ipv4_address(address_str)
+
+def make_ipv4_address(address_str):
+    return ipaddress.IPv4Address(address_str)
+
+def make_ipv6_address(address_str):
+    return ipaddress.IPv6Address(address_str)
+
+def make_ip_prefix(prefix_str):
+    if ":" in prefix_str:
+        return make_ipv6_prefix(prefix_str)
+    else:
+        return make_ipv4_prefix(prefix_str)
+
 def make_ipv4_prefix(prefix_str):
     ipv4_network = ipaddress.IPv4Network(prefix_str)
     address = int(ipv4_network.network_address)
@@ -371,12 +389,6 @@ def make_ipv4_prefix(prefix_str):
     prefix = common.ttypes.IPPrefixType(ipv4prefix=ipv4_prefix)
     return prefix
 
-def add_ipv4_prefix_to_prefix_tie(prefix_tie_packet, ipv4_prefix_string, metric, tags=None,
-                                  monotonic_clock=None):
-    prefix = make_ipv4_prefix(ipv4_prefix_string)
-    attributes = encoding.ttypes.PrefixAttributes(metric, tags, monotonic_clock)
-    prefix_tie_packet.element.prefixes.prefixes[prefix] = attributes
-
 def make_ipv6_prefix(prefix_str):
     ipv6_network = ipaddress.IPv6Network(prefix_str)
     address = ipv6_network.network_address.packed
@@ -384,6 +396,12 @@ def make_ipv6_prefix(prefix_str):
     ipv6_prefix = common.ttypes.IPv6PrefixType(address, prefixlen)
     prefix = common.ttypes.IPPrefixType(ipv6prefix=ipv6_prefix)
     return prefix
+
+def add_ipv4_prefix_to_prefix_tie(prefix_tie_packet, ipv4_prefix_string, metric, tags=None,
+                                  monotonic_clock=None):
+    prefix = make_ipv4_prefix(ipv4_prefix_string)
+    attributes = encoding.ttypes.PrefixAttributes(metric, tags, monotonic_clock)
+    prefix_tie_packet.element.prefixes.prefixes[prefix] = attributes
 
 def add_ipv6_prefix_to_prefix_tie(prefix_tie_packet, ipv6_prefix_string, metric, tags=None,
                                   monotonic_clock=None):

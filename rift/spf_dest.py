@@ -37,7 +37,7 @@ class SPFDest:
         # (*) here and below means: contains more than one element in the case of ECMP
         self.predecessors = []
         # (if_name, addr) of direct next-hop from source node towards this destination (*)
-        self.direct_nexthops = []
+        self.direct_next_hops = []
 
     def key(self):
         if self.dest_type == DEST_TYPE_NODE:
@@ -58,15 +58,14 @@ class SPFDest:
     def add_predecessor(self, predecessor_system_id):
         self.predecessors.append(predecessor_system_id)
 
-    def add_direct_nexthop(self, direct_nexthop_if_name, direct_nexthop_addr):
-        direct_nexthop = (direct_nexthop_if_name, direct_nexthop_addr)
-        if direct_nexthop not in self.direct_nexthops:
-            self.direct_nexthops.append(direct_nexthop)
+    def add_direct_next_hop(self, direct_next_hop):
+        if direct_next_hop not in self.direct_next_hops:
+            self.direct_next_hops.append(direct_next_hop)
 
-    def inherit_direct_nexthop(self, other_spf_destination):
-        for direct_nexthop in other_spf_destination.direct_nexthops:
-            if direct_nexthop not in self.direct_nexthops:
-                self.direct_nexthops.append(direct_nexthop)
+    def inherit_direct_next_hop(self, other_spf_destination):
+        for direct_next_hop in other_spf_destination.direct_next_hops:
+            if direct_next_hop not in self.direct_next_hops:
+                self.direct_next_hops.append(direct_next_hop)
 
     def inherit_tags(self, other_spf_destination):
         if (self.tags is None) and (other_spf_destination.tags is None):
@@ -82,7 +81,7 @@ class SPFDest:
             "Cost",
             ["Predecessor", "System IDs"],
             ["Tags"],
-            ["Direct", "Nexthops"]]
+            ["Direct", "Next-hops"]]
 
     def cli_summary_attributes(self):
         if self.dest_type == DEST_TYPE_NODE:
@@ -100,15 +99,5 @@ class SPFDest:
             self.cost,
             sorted(self.predecessors),
             tags_str,
-            [self.nexthop_str(nexthop) for nexthop in sorted(self.direct_nexthops)]
+            [str(next_hop) for next_hop in sorted(self.direct_next_hops)]
         ]
-
-    @staticmethod
-    def nexthop_str(nexthop):
-        (nexthop_intf_name, nexthop_addr) = nexthop
-        result_str = ""
-        if nexthop_intf_name is not None:
-            result_str += nexthop_intf_name + " "
-        if nexthop_addr is not None:
-            result_str += str(nexthop_addr)
-        return result_str

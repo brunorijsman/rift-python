@@ -1,6 +1,7 @@
-import ipaddress
 import pytest
 
+import constants
+import next_hop
 import packet_common
 import rib
 
@@ -10,30 +11,19 @@ N = rib.OWNER_N_SPF
 S = rib.OWNER_S_SPF
 
 def mkp(prefix_str):
-    if ":" in prefix_str:
-        return packet_common.make_ipv6_prefix(prefix_str)
-    else:
-        return packet_common.make_ipv4_prefix(prefix_str)
+    return packet_common.make_ip_prefix(prefix_str)
 
-def mkr(prefix_str, owner, nexthops=None):
-    if nexthops is None:
-        nexthops = []
-    return rib.Route(mkp(prefix_str), owner, nexthops)
+def mkr(prefix_str, owner, next_hops=None):
+    if next_hops is None:
+        next_hops = []
+    return rib.Route(mkp(prefix_str), owner, next_hops)
 
 def mknh(interface_str, address_str):
     if address_str is None:
         address = None
-    elif ":" in address_str:
-        address = ipaddress.IPv6Address(address_str)
     else:
-        address = ipaddress.IPv4Address(address_str)
-    return (interface_str, address)
-
-def test_address_family_str():
-    assert rib.address_family_str(rib.ADDRESS_FAMILY_IPV4) == "IPv4"
-    assert rib.address_family_str(rib.ADDRESS_FAMILY_IPV6) == "IPv6"
-    with pytest.raises(Exception):
-        rib.address_family_str(999)
+        address = packet_common.make_ip_address(address_str)
+    return next_hop.NextHop(interface_str, address)
 
 def test_owner_str():
     assert rib.owner_str(rib.OWNER_S_SPF) == "South SPF"
@@ -41,32 +31,26 @@ def test_owner_str():
     with pytest.raises(Exception):
         rib.owner_str(999)
 
-def test_nexthop_str():
-    nexthop = mknh("if1", "1.2.3.4")
-    assert rib.nexthop_str(nexthop) == "if1 1.2.3.4"
-    nexthop = ("if2", None)
-    assert rib.nexthop_str(nexthop) == "if2"
-
 def test_ipv4_table_put_route():
     packet_common.add_missing_methods_to_thrift()
-    route_table = rib.RouteTable(rib.ADDRESS_FAMILY_IPV4)
+    route_table = rib.RouteTable(constants.ADDRESS_FAMILY_IPV4)
     nh1 = mknh("if1", "1.1.1.1")
     nh2 = mknh("if2", "2.2.2.2")
     assert route_table.nr_destinations() == 0
     assert route_table.nr_routes() == 0
     # Add a route
-    # No nexthop
+    # No next_hop
     route_table.put_route(mkr("1.1.1.0/24", N))
     assert route_table.nr_destinations() == 1
     assert route_table.nr_routes() == 1
     # Add two routes with same prefix but with different owners (most preferred added first)
-    # One nexthops each
+    # One next_hops each
     route_table.put_route(mkr("2.2.2.2/32", S, [nh1]))
     route_table.put_route(mkr("2.2.2.2/32", N, [nh2]))
     assert route_table.nr_destinations() == 2
     assert route_table.nr_routes() == 3
     # Add two routes with same prefix but with different owners (most preferred added last)
-    # Two nexthops each
+    # Two next_hops each
     route_table.put_route(mkr("3.3.3.0/24", N, [nh1, nh2]))
     route_table.put_route(mkr("3.3.3.0/24", S, [nh1, nh2]))
     assert route_table.nr_destinations() == 3
@@ -85,7 +69,7 @@ def test_ipv4_table_put_route():
 
 def test_ipv4_table_get_route():
     packet_common.add_missing_methods_to_thrift()
-    route_table = rib.RouteTable(rib.ADDRESS_FAMILY_IPV4)
+    route_table = rib.RouteTable(constants.ADDRESS_FAMILY_IPV4)
     # Try to get a route that is not present in the table (empty table)
     assert route_table.get_route(mkp("1.1.1.0/24"), S) is None
     # Try to get a route that is not present in the table (prefix is not present)
@@ -118,7 +102,7 @@ def test_ipv4_table_get_route():
 
 def test_ipv4_table_del_route():
     packet_common.add_missing_methods_to_thrift()
-    route_table = rib.RouteTable(rib.ADDRESS_FAMILY_IPV4)
+    route_table = rib.RouteTable(constants.ADDRESS_FAMILY_IPV4)
     assert route_table.nr_destinations() == 0
     assert route_table.nr_routes() == 0
     # Try to delete a route that is not present in the table (empty table)
@@ -169,24 +153,24 @@ def test_ipv4_table_del_route():
 
 def test_ipv6_table_put_route():
     packet_common.add_missing_methods_to_thrift()
-    route_table = rib.RouteTable(rib.ADDRESS_FAMILY_IPV6)
+    route_table = rib.RouteTable(constants.ADDRESS_FAMILY_IPV6)
     nh1 = mknh("if1", "::1.1.1.1")
     nh2 = mknh("if2", "::2.2.2.2")
     assert route_table.nr_destinations() == 0
     assert route_table.nr_routes() == 0
     # Add a route
-    # No nexthop
+    # No next_hop
     route_table.put_route(mkr("1111:1111:1111:1111:0000:0000:0000:0000/64", N))
     assert route_table.nr_destinations() == 1
     assert route_table.nr_routes() == 1
     # Add two routes with same prefix but with different owners (most preferred added first)
-    # One nexthop each
+    # One next_hop each
     route_table.put_route(mkr("2222:2222:2222:2222:2222:2222:2222:2222/128", S, [nh1]))
     route_table.put_route(mkr("2222:2222:2222:2222:2222:2222:2222:2222/128", N, [nh2]))
     assert route_table.nr_destinations() == 2
     assert route_table.nr_routes() == 3
     # Add two routes with same prefix but with different owners (most preferred added last)
-    # Two nexthops each
+    # Two next_hops each
     route_table.put_route(mkr("3333:3333:3333:3333:3333:0000:0000:0000/80", N, [nh1, nh2]))
     route_table.put_route(mkr("3333:3333:3333:3333:3333:0000:0000:0000/80", S, [nh1, nh2]))
     assert route_table.nr_destinations() == 3
@@ -205,7 +189,7 @@ def test_ipv6_table_put_route():
 
 def test_ipv6_table_get_route():
     packet_common.add_missing_methods_to_thrift()
-    route_table = rib.RouteTable(rib.ADDRESS_FAMILY_IPV6)
+    route_table = rib.RouteTable(constants.ADDRESS_FAMILY_IPV6)
     # Try to get a route that is not present in the table (empty table)
     assert route_table.get_route(mkp("1111:1111:1111:1111:0000:0000:0000:0000/64"), S) is None
     # Try to get a route that is not present in the table (prefix is not present)
@@ -238,7 +222,7 @@ def test_ipv6_table_get_route():
 
 def test_ipv6_table_del_route():
     packet_common.add_missing_methods_to_thrift()
-    route_table = rib.RouteTable(rib.ADDRESS_FAMILY_IPV6)
+    route_table = rib.RouteTable(constants.ADDRESS_FAMILY_IPV6)
     assert route_table.nr_destinations() == 0
     assert route_table.nr_routes() == 0
     # Try to delete a route that is not present in the table (empty table)
@@ -290,14 +274,14 @@ def test_ipv6_table_del_route():
 
 def test_asserts():
     packet_common.add_missing_methods_to_thrift()
-    route_table = rib.RouteTable(rib.ADDRESS_FAMILY_IPV4)
+    route_table = rib.RouteTable(constants.ADDRESS_FAMILY_IPV4)
     # Passing the wrong prefix type to assert_prefix_address_family asserts
     with pytest.raises(Exception):
-        rib.assert_prefix_address_family("1.2.3.0/24", rib.ADDRESS_FAMILY_IPV4)
+        rib.assert_prefix_address_family("1.2.3.0/24", constants.ADDRESS_FAMILY_IPV4)
     with pytest.raises(Exception):
-        rib.assert_prefix_address_family(mkp("1.2.3.0/24"), rib.ADDRESS_FAMILY_IPV6)
+        rib.assert_prefix_address_family(mkp("1.2.3.0/24"), constants.ADDRESS_FAMILY_IPV6)
     with pytest.raises(Exception):
-        rib.assert_prefix_address_family(mkp("::1.2.3.0/24"), rib.ADDRESS_FAMILY_IPV4)
+        rib.assert_prefix_address_family(mkp("::1.2.3.0/24"), constants.ADDRESS_FAMILY_IPV4)
     with pytest.raises(Exception):
         rib.assert_prefix_address_family(mkp("1.2.3.0/24"), 999)
     # Passing the wrong prefix type to the Route constructor asserts
@@ -315,7 +299,7 @@ def test_asserts():
 
 def test_all_routes():
     packet_common.add_missing_methods_to_thrift()
-    route_table = rib.RouteTable(rib.ADDRESS_FAMILY_IPV4)
+    route_table = rib.RouteTable(constants.ADDRESS_FAMILY_IPV4)
     # Use all_routes generator to walk empty table
     generator = route_table.all_routes()
     with pytest.raises(Exception):
@@ -348,7 +332,7 @@ def test_all_routes():
 
 def test_all_prefix_routes():
     packet_common.add_missing_methods_to_thrift()
-    route_table = rib.RouteTable(rib.ADDRESS_FAMILY_IPV4)
+    route_table = rib.RouteTable(constants.ADDRESS_FAMILY_IPV4)
     # Use all_routes generator to walk empty table
     generator = route_table.all_prefix_routes(mkp("1.2.3.4/32"))
     with pytest.raises(Exception):
@@ -383,7 +367,7 @@ def test_all_prefix_routes():
 
 def test_cli_table():
     packet_common.add_missing_methods_to_thrift()
-    route_table = rib.RouteTable(rib.ADDRESS_FAMILY_IPV4)
+    route_table = rib.RouteTable(constants.ADDRESS_FAMILY_IPV4)
     nh1 = mknh("if1", "1.1.1.1")
     nh2 = mknh("if2", "2.2.2.2")
     nh3 = mknh("if3", None)
@@ -394,7 +378,7 @@ def test_cli_table():
     route_table.put_route(mkr("1.1.1.0/24", N))
     tab_str = route_table.cli_table().to_string()
     assert (tab_str == "+------------+-----------+-------------+\n"
-                       "| Prefix     | Owner     | Nexthops    |\n"
+                       "| Prefix     | Owner     | Next-hops   |\n"
                        "+------------+-----------+-------------+\n"
                        "| 0.0.0.0/0  | South SPF | if1 1.1.1.1 |\n"
                        "|            |           | if2 2.2.2.2 |\n"
@@ -410,7 +394,7 @@ def test_cli_table():
 
 def test_mark_and_del_stale():
     packet_common.add_missing_methods_to_thrift()
-    route_table = rib.RouteTable(rib.ADDRESS_FAMILY_IPV4)
+    route_table = rib.RouteTable(constants.ADDRESS_FAMILY_IPV4)
     # Mark all S routes stale on an empty table
     assert route_table.mark_owner_routes_stale(S) == 0
     # Delete all remaining stale routes (which there are none)

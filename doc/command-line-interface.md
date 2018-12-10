@@ -728,7 +728,7 @@ Example:
 <pre>
 agg_101> <b>show route prefix ::/0</b>
 +--------+-----------+--------------------+
-| Prefix | Owner     | Nexthops           |
+| Prefix | Owner     | Next-hops          |
 +--------+-----------+--------------------+
 | ::/0   | North SPF | if_101_1 127.0.0.1 |
 |        |           | if_101_2 127.0.0.1 |
@@ -749,7 +749,7 @@ Example:
 <pre>
 agg_101> <b>show route prefix ::/0 owner north-spf</b>
 +--------+-----------+--------------------+
-| Prefix | Owner     | Nexthops           |
+| Prefix | Owner     | Next-hops          |
 +--------+-----------+--------------------+
 | ::/0   | North SPF | if_101_1 127.0.0.1 |
 |        |           | if_101_2 127.0.0.1 |
@@ -767,7 +767,7 @@ Example:
 agg_101> <b>show routes</b>
 IPv4 Routes:
 +---------------+-----------+-----------------------+
-| Prefix        | Owner     | Nexthops              |
+| Prefix        | Owner     | Next-hops             |
 +---------------+-----------+-----------------------+
 | 0.0.0.0/0     | North SPF | if_101_1 127.0.0.1    |
 |               |           | if_101_2 127.0.0.1    |
@@ -794,7 +794,7 @@ IPv4 Routes:
 
 IPv6 Routes:
 +--------+-----------+--------------------+
-| Prefix | Owner     | Nexthops           |
+| Prefix | Owner     | Next-hops          |
 +--------+-----------+--------------------+
 | ::/0   | North SPF | if_101_1 127.0.0.1 |
 |        |           | if_101_2 127.0.0.1 |
@@ -821,7 +821,7 @@ SPF Statistics:
 South SPF Destinations:
 +------------------+------+-------------+------+-----------------------+
 | Destination      | Cost | Predecessor | Tags | Direct                |
-|                  |      | System IDs  |      | Nexthops              |
+|                  |      | System IDs  |      | Next-hops             |
 +------------------+------+-------------+------+-----------------------+
 | 101 (agg_101)    | 0    |             |      |                       |
 +------------------+------+-------------+------+-----------------------+
@@ -852,7 +852,7 @@ South SPF Destinations:
 North SPF Destinations:
 +---------------+------+-------------+------+--------------------+
 | Destination   | Cost | Predecessor | Tags | Direct             |
-|               |      | System IDs  |      | Nexthops           |
+|               |      | System IDs  |      | Next-hops          |
 +---------------+------+-------------+------+--------------------+
 | 1 (core_1)    | 1    | 101         |      | if_101_1 127.0.0.1 |
 +---------------+------+-------------+------+--------------------+
@@ -881,7 +881,7 @@ agg_101> <b>show spf direction north</b>
 North SPF Destinations:
 +---------------+------+-------------+------+--------------------+
 | Destination   | Cost | Predecessor | Tags | Direct             |
-|               |      | System IDs  |      | Nexthops           |
+|               |      | System IDs  |      | Next-hops          |
 +---------------+------+-------------+------+--------------------+
 | 1 (core_1)    | 1    | 101         |      | if_101_1 127.0.0.1 |
 +---------------+------+-------------+------+--------------------+
@@ -916,7 +916,7 @@ Example:
 agg_101> <b>show spf direction north destination ::/0</b>
 +-------------+------+-------------+------+--------------------+
 | Destination | Cost | Predecessor | Tags | Direct             |
-|             |      | System IDs  |      | Nexthops           |
+|             |      | System IDs  |      | Next-hops          |
 +-------------+------+-------------+------+--------------------+
 | ::/0        | 2    | 1           |      | if_101_1 127.0.0.1 |
 |             |      | 2           |      | if_101_2 127.0.0.1 |

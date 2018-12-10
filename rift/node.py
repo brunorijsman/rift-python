@@ -16,6 +16,7 @@ import constants
 import encoding.ttypes
 import fsm
 import interface
+import next_hop
 import offer
 import packet_common
 import rib
@@ -437,8 +438,8 @@ class Node:
         self._spf_destinations = {}
         self._spf_destinations[constants.DIR_SOUTH] = {}
         self._spf_destinations[constants.DIR_NORTH] = {}
-        self._ipv4_rib = rib.RouteTable(rib.ADDRESS_FAMILY_IPV4)
-        self._ipv6_rib = rib.RouteTable(rib.ADDRESS_FAMILY_IPV6)
+        self._ipv4_rib = rib.RouteTable(constants.ADDRESS_FAMILY_IPV4)
+        self._ipv6_rib = rib.RouteTable(constants.ADDRESS_FAMILY_IPV6)
         if "skip-self-orginated-ties" not in self._config:
             self.regenerate_my_node_ties()
             self.regenerate_my_north_prefix_tie()
@@ -996,15 +997,15 @@ class Node:
             cli_session.print(tab.to_string())
 
     def command_show_routes(self, cli_session):
-        self.command_show_routes_af(cli_session, rib.ADDRESS_FAMILY_IPV4)
-        self.command_show_routes_af(cli_session, rib.ADDRESS_FAMILY_IPV6)
+        self.command_show_routes_af(cli_session, constants.ADDRESS_FAMILY_IPV4)
+        self.command_show_routes_af(cli_session, constants.ADDRESS_FAMILY_IPV6)
 
     def command_show_routes_af(self, cli_session, address_family):
-        cli_session.print(rib.address_family_str(address_family) + " Routes:")
-        if address_family == rib.ADDRESS_FAMILY_IPV4:
+        cli_session.print(constants.address_family_str(address_family) + " Routes:")
+        if address_family == constants.ADDRESS_FAMILY_IPV4:
             tab = self._ipv4_rib.cli_table()
         else:
-            assert address_family == rib.ADDRESS_FAMILY_IPV6
+            assert address_family == constants.ADDRESS_FAMILY_IPV6
             tab = self._ipv6_rib.cli_table()
         cli_session.print(tab.to_string())
 
@@ -1857,28 +1858,29 @@ class Node:
         destination.add_predecessor(predecessor_system_id)
         if (nbr_tie_element is not None) and (predecessor_system_id == self.system_id):
             for link_id_pair in nbr_tie_element.link_ids:
-                nexthop = self.interface_id_to_nexthop(link_id_pair.local_id)
-                (nexthop_intf_name, nexthop_addr) = nexthop
-                destination.add_direct_nexthop(nexthop_intf_name, nexthop_addr)
+                nhop = self.interface_id_to_next_hop(link_id_pair.local_id)  ###@@@
+                destination.add_direct_next_hop(nhop)
         else:
             dest_table = self._spf_destinations[spf_direction]
-            destination.inherit_direct_nexthop(dest_table[predecessor_system_id])
+            destination.inherit_direct_next_hop(dest_table[predecessor_system_id])
 
     def add_spf_predecessor(self, destination, predecessor_system_id, spf_direction):
         destination.add_predecessor(predecessor_system_id)
         dest_table = self._spf_destinations[spf_direction]
-        destination.inherit_direct_nexthop(dest_table[predecessor_system_id])
+        destination.inherit_direct_next_hop(dest_table[predecessor_system_id])
 
-    def interface_id_to_nexthop(self, interface_id):
+    def interface_id_to_next_hop(self, interface_id):
         if interface_id in self._interfaces_by_id:
             intf = self._interfaces_by_id[interface_id]
             if intf.neighbor is not None:
-                remote_address = intf.neighbor.address
+                remote_address = packet_common.make_ip_address(intf.neighbor.address)
             else:
                 remote_address = None
-            return (intf.name, remote_address)
+            print(remote_address)
+            print(type(remote_address))
+            return next_hop.NextHop(intf.name, remote_address)
         else:
-            return (None, None)
+            return next_hop.NextHop(None, None)
 
     def spf_use_tie_direction(self, visit_system_id, spf_direction):
         if spf_direction == constants.DIR_SOUTH:
@@ -1947,7 +1949,7 @@ class Node:
                 pass
             else:
                 prefix = dest_key
-                route = rib.Route(prefix, owner, dest.direct_nexthops)
+                route = rib.Route(prefix, owner, dest.direct_next_hops)
                 if prefix.ipv4prefix is not None:
                     route_table = self._ipv4_rib
                 else:

@@ -43,3 +43,13 @@ def direction_str(direction):
     else:
         assert direction == DIR_EAST_WEST
         return "East-West"
+
+ADDRESS_FAMILY_IPV4 = 1
+ADDRESS_FAMILY_IPV6 = 2
+
+def address_family_str(address_family):
+    if address_family == ADDRESS_FAMILY_IPV4:
+        return "IPv4"
+    else:
+        assert address_family == ADDRESS_FAMILY_IPV6
+        return "IPv6"

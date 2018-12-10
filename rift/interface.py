@@ -548,8 +548,6 @@ class Interface:
     def tx_error(self, msg, *args):
         self._tx_log.error("[%s] %s" % (self._log_id, msg), *args)
 
-    ###@@@
-
     def __init__(self, node, config):
         # TODO: process bandwidth field in config
         self._node = node

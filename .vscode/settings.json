@@ -26,6 +26,7 @@
         "intf",
         "lans",
         "multicast",
+        "nhop",
         "pexpect",
         "pluggy",
         "popen",

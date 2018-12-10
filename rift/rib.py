@@ -1,20 +1,9 @@
 import sortedcontainers
 
 import common.ttypes
+import constants
 import packet_common
 import table
-
-ADDRESS_FAMILY_IPV4 = 1
-ADDRESS_FAMILY_IPV6 = 2
-
-# pylint:disable=inconsistent-return-statements
-def address_family_str(address_family):
-    if address_family == ADDRESS_FAMILY_IPV4:
-        return "IPv4"
-    elif address_family == ADDRESS_FAMILY_IPV6:
-        return "IPv6"
-    else:
-        assert False
 
 # For each prefix, there can be up to one route per owner. This is also the order of preference
 # for the routes from different owners to the same destination (higher numerical value is more
@@ -25,28 +14,16 @@ OWNER_N_SPF = 1
 def owner_str(owner):
     if owner == OWNER_S_SPF:
         return "South SPF"
-    elif owner == OWNER_N_SPF:
-        return "North SPF"
     else:
-        assert False
-
-def nexthop_str(nexthop):
-    (nexthop_intf_name, nexthop_addr) = nexthop
-    result_str = ""
-    if nexthop_intf_name is not None:
-        result_str += nexthop_intf_name
-    if nexthop_addr is not None:
-        if nexthop_intf_name is not None:
-            result_str += " "
-        result_str += str(nexthop_addr)
-    return result_str
+        assert owner == OWNER_N_SPF
+        return "North SPF"
 
 def assert_prefix_address_family(prefix, address_family):
     assert isinstance(prefix, common.ttypes.IPPrefixType)
-    if address_family == ADDRESS_FAMILY_IPV4:
+    if address_family == constants.ADDRESS_FAMILY_IPV4:
         assert prefix.ipv4prefix is not None
         assert prefix.ipv6prefix is None
-    elif address_family == ADDRESS_FAMILY_IPV6:
+    elif address_family == constants.ADDRESS_FAMILY_IPV6:
         assert prefix.ipv4prefix is None
         assert prefix.ipv6prefix is not None
     else:
@@ -54,11 +31,11 @@ def assert_prefix_address_family(prefix, address_family):
 
 class Route:
 
-    def __init__(self, prefix, owner, nexthops):
+    def __init__(self, prefix, owner, next_hops):
         assert isinstance(prefix, common.ttypes.IPPrefixType)
         self.prefix = prefix
         self.owner = owner
-        self.nexthops = nexthops
+        self.next_hops = next_hops
         self.stale = False
 
     @staticmethod
@@ -66,13 +43,13 @@ class Route:
         return [
             "Prefix",
             "Owner",
-            "Nexthops"]
+            "Next-hops"]
 
     def cli_summary_attributes(self):
         return [
             packet_common.ip_prefix_str(self.prefix),
             owner_str(self.owner),
-            [nexthop_str(nexthop) for nexthop in sorted(self.nexthops)]]
+            [str(next_hop) for next_hop in sorted(self.next_hops)]]
 
 class RouteTable:
 
@@ -122,8 +99,6 @@ class RouteTable:
             destination = self.destinations[prefix]
             for route in destination.routes:
                 yield route
-        else:
-            return None
 
     def cli_table(self):
         tab = table.Table()
