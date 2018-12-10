@@ -1,55 +1,8 @@
 import sortedcontainers
 
-import common.ttypes
-import constants
 import packet_common
+import route
 import table
-
-# For each prefix, there can be up to one route per owner. This is also the order of preference
-# for the routes from different owners to the same destination (higher numerical value is more
-# preferred)
-OWNER_S_SPF = 2
-OWNER_N_SPF = 1
-
-def owner_str(owner):
-    if owner == OWNER_S_SPF:
-        return "South SPF"
-    else:
-        assert owner == OWNER_N_SPF
-        return "North SPF"
-
-def assert_prefix_address_family(prefix, address_family):
-    assert isinstance(prefix, common.ttypes.IPPrefixType)
-    if address_family == constants.ADDRESS_FAMILY_IPV4:
-        assert prefix.ipv4prefix is not None
-        assert prefix.ipv6prefix is None
-    elif address_family == constants.ADDRESS_FAMILY_IPV6:
-        assert prefix.ipv4prefix is None
-        assert prefix.ipv6prefix is not None
-    else:
-        assert False
-
-class Route:
-
-    def __init__(self, prefix, owner, next_hops):
-        assert isinstance(prefix, common.ttypes.IPPrefixType)
-        self.prefix = prefix
-        self.owner = owner
-        self.next_hops = next_hops
-        self.stale = False
-
-    @staticmethod
-    def cli_summary_headers():
-        return [
-            "Prefix",
-            "Owner",
-            "Next-hops"]
-
-    def cli_summary_attributes(self):
-        return [
-            packet_common.ip_prefix_str(self.prefix),
-            owner_str(self.owner),
-            [str(next_hop) for next_hop in sorted(self.next_hops)]]
 
 class RouteTable:
 
@@ -59,26 +12,26 @@ class RouteTable:
         self.destinations = sortedcontainers.SortedDict()
 
     def get_route(self, prefix, owner):
-        assert_prefix_address_family(prefix, self.address_family)
+        packet_common.assert_prefix_address_family(prefix, self.address_family)
         if prefix in self.destinations:
             return self.destinations[prefix].get_route(owner)
         else:
             return None
 
-    def put_route(self, route):
-        assert_prefix_address_family(route.prefix, self.address_family)
-        route.stale = False
-        prefix = route.prefix
-        if route.prefix in self.destinations:
+    def put_route(self, rte):
+        packet_common.assert_prefix_address_family(rte.prefix, self.address_family)
+        rte.stale = False
+        prefix = rte.prefix
+        if rte.prefix in self.destinations:
             destination = self.destinations[prefix]
         else:
             destination = _Destination(prefix)
             self.destinations[prefix] = destination
-        destination.put_route(route)
+        destination.put_route(rte)
 
     def del_route(self, prefix, owner):
         # Returns True if the route was present in the table and False if not.
-        assert_prefix_address_family(prefix, self.address_family)
+        packet_common.assert_prefix_address_family(prefix, self.address_family)
         if prefix in self.destinations:
             destination = self.destinations[prefix]
             deleted = destination.del_route(owner)
@@ -90,21 +43,21 @@ class RouteTable:
 
     def all_routes(self):
         for destination in self.destinations.values():
-            for route in destination.routes:
-                yield route
+            for rte in destination.routes:
+                yield rte
 
     def all_prefix_routes(self, prefix):
-        assert_prefix_address_family(prefix, self.address_family)
+        packet_common.assert_prefix_address_family(prefix, self.address_family)
         if prefix in self.destinations:
             destination = self.destinations[prefix]
-            for route in destination.routes:
-                yield route
+            for rte in destination.routes:
+                yield rte
 
     def cli_table(self):
         tab = table.Table()
-        tab.add_row(Route.cli_summary_headers())
-        for route in self.all_routes():
-            tab.add_row(route.cli_summary_attributes())
+        tab.add_row(route.Route.cli_summary_headers())
+        for rte in self.all_routes():
+            tab.add_row(rte.cli_summary_attributes())
         return tab
 
     def mark_owner_routes_stale(self, owner):
@@ -112,9 +65,9 @@ class RouteTable:
         # A possible more efficient implementation is to have a list of routes for each owner.
         # For now, this is good enough.
         count = 0
-        for route in self.all_routes():
-            if route.owner == owner:
-                route.stale = True
+        for rte in self.all_routes():
+            if rte.owner == owner:
+                rte.stale = True
                 count += 1
         return count
 
@@ -122,9 +75,9 @@ class RouteTable:
         # Delete all routes still marked as stale. Returns number of deleted routes.
         # Cannot delete routes while iterating over routes, so prepare a delete list
         routes_to_delete = []
-        for route in self.all_routes():
-            if route.stale:
-                routes_to_delete.append((route.prefix, route.owner))
+        for rte in self.all_routes():
+            if rte.stale:
+                routes_to_delete.append((rte.prefix, rte.owner))
         # Now delete the routes in the prepared list
         count = 0
         for (prefix, owner) in routes_to_delete:
@@ -143,6 +96,10 @@ class RouteTable:
 
 class _Destination:
 
+    # For each prefix, there can be up to one route per owner. This is also the order of preference
+    # for the routes from different owners to the same destination (higher numerical value is more
+    # preferred)
+
     def __init__(self, prefix):
         self.prefix = prefix
         # List of Route objects, in decreasing order or owner (= in decreasing order of preference)
@@ -150,9 +107,9 @@ class _Destination:
         self.routes = []
 
     def get_route(self, owner):
-        for route in self.routes:
-            if route.owner == owner:
-                return route
+        for rte in self.routes:
+            if rte.owner == owner:
+                return rte
         return None
 
     def put_route(self, new_route):
@@ -168,8 +125,8 @@ class _Destination:
 
     def del_route(self, owner):
         index = 0
-        for route in self.routes:
-            if route.owner == owner:
+        for rte in self.routes:
+            if rte.owner == owner:
                 del self.routes[index]
                 return True
             index += 1

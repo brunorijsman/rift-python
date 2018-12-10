@@ -53,3 +53,13 @@ def address_family_str(address_family):
     else:
         assert address_family == ADDRESS_FAMILY_IPV6
         return "IPv6"
+
+OWNER_S_SPF = 2
+OWNER_N_SPF = 1
+
+def owner_str(owner):
+    if owner == OWNER_S_SPF:
+        return "South SPF"
+    else:
+        assert owner == OWNER_N_SPF
+        return "North SPF"

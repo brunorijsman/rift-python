@@ -6,6 +6,7 @@ import thrift.protocol.TBinaryProtocol
 import thrift.transport.TTransport
 
 import common.ttypes
+import constants
 import encoding.ttypes
 import encoding.constants
 import utils
@@ -590,3 +591,14 @@ def element_str(tietype, element):
         return key_value_element_str(element.keyvalues)
     else:
         return unknown_element_str(element)
+
+def assert_prefix_address_family(prefix, address_family):
+    assert isinstance(prefix, common.ttypes.IPPrefixType)
+    if address_family == constants.ADDRESS_FAMILY_IPV4:
+        assert prefix.ipv4prefix is not None
+        assert prefix.ipv6prefix is None
+    elif address_family == constants.ADDRESS_FAMILY_IPV6:
+        assert prefix.ipv4prefix is None
+        assert prefix.ipv6prefix is not None
+    else:
+        assert False

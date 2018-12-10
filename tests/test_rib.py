@@ -4,11 +4,12 @@ import constants
 import next_hop
 import packet_common
 import rib
+import route
 
 # A bunch of helper constants and functions to make the test code more compact and easier to read
 
-N = rib.OWNER_N_SPF
-S = rib.OWNER_S_SPF
+N = constants.OWNER_N_SPF
+S = constants.OWNER_S_SPF
 
 def mkp(prefix_str):
     return packet_common.make_ip_prefix(prefix_str)
@@ -16,7 +17,7 @@ def mkp(prefix_str):
 def mkr(prefix_str, owner, next_hops=None):
     if next_hops is None:
         next_hops = []
-    return rib.Route(mkp(prefix_str), owner, next_hops)
+    return route.Route(mkp(prefix_str), owner, next_hops)
 
 def mknh(interface_str, address_str):
     if address_str is None:
@@ -24,12 +25,6 @@ def mknh(interface_str, address_str):
     else:
         address = packet_common.make_ip_address(address_str)
     return next_hop.NextHop(interface_str, address)
-
-def test_owner_str():
-    assert rib.owner_str(rib.OWNER_S_SPF) == "South SPF"
-    assert rib.owner_str(rib.OWNER_N_SPF) == "North SPF"
-    with pytest.raises(Exception):
-        rib.owner_str(999)
 
 def test_ipv4_table_put_route():
     packet_common.add_missing_methods_to_thrift()
@@ -80,25 +75,25 @@ def test_ipv4_table_get_route():
     # Try to get a route that is not present in the table (owner is not present)
     assert route_table.get_route(mkp("2.2.2.0/32"), N) is None
     # Get a route that is present in the table (only route for prefix)
-    route = route_table.get_route(mkp("2.2.2.0/32"), S)
-    assert route is not None
-    assert route.prefix == mkp("2.2.2.0/32")
-    assert route.owner == S
+    rte = route_table.get_route(mkp("2.2.2.0/32"), S)
+    assert rte is not None
+    assert rte.prefix == mkp("2.2.2.0/32")
+    assert rte.owner == S
     # Add other routes to the table
     route_table.put_route(mkr("1.1.0.0/16", N))
     route_table.put_route(mkr("2.2.2.0/32", N))
     route_table.put_route(mkr("2.2.2.0/24", N))
     route_table.put_route(mkr("3.0.0.0/8", S))
     # Get a route that is present in the table (multiple routes for prefix, get most preferred)
-    route = route_table.get_route(mkp("2.2.2.0/32"), S)
-    assert route is not None
-    assert route.prefix == mkp("2.2.2.0/32")
-    assert route.owner == S
+    rte = route_table.get_route(mkp("2.2.2.0/32"), S)
+    assert rte is not None
+    assert rte.prefix == mkp("2.2.2.0/32")
+    assert rte.owner == S
     # Get a route that is present in the table (multiple routes for prefix, get least preferred)
-    route = route_table.get_route(mkp("2.2.2.0/32"), N)
-    assert route is not None
-    assert route.prefix == mkp("2.2.2.0/32")
-    assert route.owner == N
+    rte = route_table.get_route(mkp("2.2.2.0/32"), N)
+    assert rte is not None
+    assert rte.prefix == mkp("2.2.2.0/32")
+    assert rte.owner == N
 
 def test_ipv4_table_del_route():
     packet_common.add_missing_methods_to_thrift()
@@ -200,25 +195,25 @@ def test_ipv6_table_get_route():
     # Try to get a route that is not present in the table (owner is not present)
     assert route_table.get_route(mkp("2222:2222:2222:2222:2222:2222:2222:2222/128"), N) is None
     # Get a route that is present in the table (only route for prefix)
-    route = route_table.get_route(mkp("2222:2222:2222:2222:2222:2222:2222:2222/128"), S)
-    assert route is not None
-    assert route.prefix == mkp("2222:2222:2222:2222:2222:2222:2222:2222/128")
-    assert route.owner == S
+    rte = route_table.get_route(mkp("2222:2222:2222:2222:2222:2222:2222:2222/128"), S)
+    assert rte is not None
+    assert rte.prefix == mkp("2222:2222:2222:2222:2222:2222:2222:2222/128")
+    assert rte.owner == S
     # Add other routes to the table
     route_table.put_route(mkr("1111:1111::/32", N))
     route_table.put_route(mkr("2222:2222:2222:2222:2222:2222:2222:2222/128", N))
     route_table.put_route(mkr("2222:2222:2222::/48", N))
     route_table.put_route(mkr("3333::/16", S))
     # Get a route that is present in the table (multiple routes for prefix, get most preferred)
-    route = route_table.get_route(mkp("2222:2222:2222:2222:2222:2222:2222:2222/128"), S)
-    assert route is not None
-    assert route.prefix == mkp("2222:2222:2222:2222:2222:2222:2222:2222/128")
-    assert route.owner == S
+    rte = route_table.get_route(mkp("2222:2222:2222:2222:2222:2222:2222:2222/128"), S)
+    assert rte is not None
+    assert rte.prefix == mkp("2222:2222:2222:2222:2222:2222:2222:2222/128")
+    assert rte.owner == S
     # Get a route that is present in the table (multiple routes for prefix, get least preferred)
-    route = route_table.get_route(mkp("2222:2222:2222:2222:2222:2222:2222:2222/128"), N)
-    assert route is not None
-    assert route.prefix == mkp("2222:2222:2222:2222:2222:2222:2222:2222/128")
-    assert route.owner == N
+    rte = route_table.get_route(mkp("2222:2222:2222:2222:2222:2222:2222:2222/128"), N)
+    assert rte is not None
+    assert rte.prefix == mkp("2222:2222:2222:2222:2222:2222:2222:2222/128")
+    assert rte.owner == N
 
 def test_ipv6_table_del_route():
     packet_common.add_missing_methods_to_thrift()
@@ -277,22 +272,23 @@ def test_asserts():
     route_table = rib.RouteTable(constants.ADDRESS_FAMILY_IPV4)
     # Passing the wrong prefix type to assert_prefix_address_family asserts
     with pytest.raises(Exception):
-        rib.assert_prefix_address_family("1.2.3.0/24", constants.ADDRESS_FAMILY_IPV4)
+        packet_common.assert_prefix_address_family("1.2.3.0/24", constants.ADDRESS_FAMILY_IPV4)
     with pytest.raises(Exception):
-        rib.assert_prefix_address_family(mkp("1.2.3.0/24"), constants.ADDRESS_FAMILY_IPV6)
+        packet_common.assert_prefix_address_family(mkp("1.2.3.0/24"), constants.ADDRESS_FAMILY_IPV6)
     with pytest.raises(Exception):
-        rib.assert_prefix_address_family(mkp("::1.2.3.0/24"), constants.ADDRESS_FAMILY_IPV4)
+        packet_common.assert_prefix_address_family(mkp("::1.2.3.0/24"),
+                                                   constants.ADDRESS_FAMILY_IPV4)
     with pytest.raises(Exception):
-        rib.assert_prefix_address_family(mkp("1.2.3.0/24"), 999)
+        packet_common.assert_prefix_address_family(mkp("1.2.3.0/24"), 999)
     # Passing the wrong prefix type to the Route constructor asserts
     with pytest.raises(Exception):
-        _route = rib.Route("1.2.3.0/24", N, [])
+        _rte = route.Route("1.2.3.0/24", N, [])
     # Passing the wrong prefix type to get_route asserts
     with pytest.raises(Exception):
-        _route = route_table.get_route("1.2.3.0/24", N)
+        _rte = route_table.get_route("1.2.3.0/24", N)
     # Passing the wrong prefix type to del_route asserts
     with pytest.raises(Exception):
-        _route = route_table.del_route("1.2.3.0/24", N)
+        _rte = route_table.del_route("1.2.3.0/24", N)
     # The address family of the route must match the address family of the table
     with pytest.raises(Exception):
         route_table.put_route(mkr("1111:1111:1111:1111:0000:0000:0000:0000/64", N))
@@ -312,21 +308,21 @@ def test_all_routes():
     route_table.put_route(mkr("2.2.0.0/16", S))
     # Use the generator to visit all routes
     generator = route_table.all_routes()
-    route = next(generator)
-    assert route.prefix == mkp("0.0.0.0/0")
-    assert route.owner == S
-    route = next(generator)
-    assert route.prefix == mkp("1.1.1.0/24")
-    assert route.owner == S
-    route = next(generator)
-    assert route.prefix == mkp("1.1.1.0/24")
-    assert route.owner == N
-    route = next(generator)
-    assert route.prefix == mkp("2.2.0.0/16")
-    assert route.owner == S
-    route = next(generator)
-    assert route.prefix == mkp("2.2.2.0/24")
-    assert route.owner == N
+    rte = next(generator)
+    assert rte.prefix == mkp("0.0.0.0/0")
+    assert rte.owner == S
+    rte = next(generator)
+    assert rte.prefix == mkp("1.1.1.0/24")
+    assert rte.owner == S
+    rte = next(generator)
+    assert rte.prefix == mkp("1.1.1.0/24")
+    assert rte.owner == N
+    rte = next(generator)
+    assert rte.prefix == mkp("2.2.0.0/16")
+    assert rte.owner == S
+    rte = next(generator)
+    assert rte.prefix == mkp("2.2.2.0/24")
+    assert rte.owner == N
     with pytest.raises(Exception):
         next(generator)
 
@@ -349,19 +345,19 @@ def test_all_prefix_routes():
         next(generator)
     # Use the generator to visit all routes for prefix 2.2.0.0/16 (there is one)
     generator = route_table.all_prefix_routes(mkp("2.2.0.0/16"))
-    route = next(generator)
-    assert route.prefix == mkp("2.2.0.0/16")
-    assert route.owner == S
+    rte = next(generator)
+    assert rte.prefix == mkp("2.2.0.0/16")
+    assert rte.owner == S
     with pytest.raises(Exception):
         next(generator)
     # Use the generator to visit all routes for prefix 1.1.1.0/24 (there are two)
     generator = route_table.all_prefix_routes(mkp("1.1.1.0/24"))
-    route = next(generator)
-    assert route.prefix == mkp("1.1.1.0/24")
-    assert route.owner == S
-    route = next(generator)
-    assert route.prefix == mkp("1.1.1.0/24")
-    assert route.owner == N
+    rte = next(generator)
+    assert rte.prefix == mkp("1.1.1.0/24")
+    assert rte.owner == S
+    rte = next(generator)
+    assert rte.prefix == mkp("1.1.1.0/24")
+    assert rte.owner == N
     with pytest.raises(Exception):
         next(generator)
 

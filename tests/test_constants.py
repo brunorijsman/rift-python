@@ -21,3 +21,9 @@ def test_address_family_str():
     assert constants.address_family_str(constants.ADDRESS_FAMILY_IPV6) == "IPv6"
     with pytest.raises(Exception):
         constants.address_family_str(999)
+
+def test_owner_str():
+    assert constants.owner_str(constants.OWNER_S_SPF) == "South SPF"
+    assert constants.owner_str(constants.OWNER_N_SPF) == "North SPF"
+    with pytest.raises(Exception):
+        constants.owner_str(999)

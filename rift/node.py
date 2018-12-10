@@ -20,6 +20,7 @@ import next_hop
 import offer
 import packet_common
 import rib
+import route
 import spf_dest
 import table
 import timer
@@ -967,10 +968,10 @@ class Node:
             af_rib = self._ipv6_rib
         at_least_one = False
         tab = table.Table()
-        tab.add_row(rib.Route.cli_summary_headers())
-        for route in af_rib.all_prefix_routes(prefix):
+        tab.add_row(route.Route.cli_summary_headers())
+        for rte in af_rib.all_prefix_routes(prefix):
             at_least_one = True
-            tab.add_row(route.cli_summary_attributes())
+            tab.add_row(rte.cli_summary_attributes())
         if at_least_one:
             cli_session.print(tab.to_string())
         else:
@@ -987,13 +988,14 @@ class Node:
             af_rib = self._ipv4_rib
         else:
             af_rib = self._ipv6_rib
-        route = af_rib.get_route(prefix, owner)
-        if route is None:
-            cli_session.print("Prefix {} owner {} not present".format(prefix, rib.owner_str(owner)))
+        rte = af_rib.get_route(prefix, owner)
+        if rte is None:
+            cli_session.print("Prefix {} owner {} not present".
+                              format(prefix, constants.owner_str(owner)))
         else:
             tab = table.Table()
-            tab.add_row(rib.Route.cli_summary_headers())
-            tab.add_row(route.cli_summary_attributes())
+            tab.add_row(rte.Route.cli_summary_headers())
+            tab.add_row(rte.cli_summary_attributes())
             cli_session.print(tab.to_string())
 
     def command_show_routes(self, cli_session):
@@ -1082,9 +1084,9 @@ class Node:
         assert "owner" in parameters
         direction_str = parameters["owner"]
         if direction_str.lower() == "south-spf":
-            return rib.OWNER_S_SPF
+            return constants.OWNER_S_SPF
         if direction_str.lower() == "north-spf":
-            return rib.OWNER_N_SPF
+            return constants.OWNER_N_SPF
         cli_session.print("Invalid owner {} (valid values: \"south-spf\", \"north-spf\")"
                           .format(direction_str))
         return None
@@ -1876,8 +1878,6 @@ class Node:
                 remote_address = packet_common.make_ip_address(intf.neighbor.address)
             else:
                 remote_address = None
-            print(remote_address)
-            print(type(remote_address))
             return next_hop.NextHop(intf.name, remote_address)
         else:
             return next_hop.NextHop(None, None)
@@ -1934,9 +1934,9 @@ class Node:
 
     def spf_install_routes_in_rib(self, spf_direction):
         if spf_direction == constants.DIR_NORTH:
-            owner = rib.OWNER_N_SPF
+            owner = constants.OWNER_N_SPF
         else:
-            owner = rib.OWNER_S_SPF
+            owner = constants.OWNER_S_SPF
         self._ipv4_rib.mark_owner_routes_stale(owner)
         self._ipv6_rib.mark_owner_routes_stale(owner)
         dest_table = self._spf_destinations[spf_direction]
@@ -1949,12 +1949,12 @@ class Node:
                 pass
             else:
                 prefix = dest_key
-                route = rib.Route(prefix, owner, dest.next_hops)
+                rte = route.Route(prefix, owner, dest.next_hops)
                 if prefix.ipv4prefix is not None:
                     route_table = self._ipv4_rib
                 else:
                     assert prefix.ipv6prefix is not None
                     route_table = self._ipv6_rib
-                route_table.put_route(route)
+                route_table.put_route(rte)
         self._ipv4_rib.del_stale_routes()
         self._ipv6_rib.del_stale_routes()
