@@ -70,7 +70,7 @@
 | Non-Equal-Cost Multi-Path (NECMP) | No |
 | Use non-best paths (Eppstein k-shortest) | No |
 | Routing Information Base (RIB) | Yes |
-| Forwarding Information Base (FIB) abstraction | No |
+| Forwarding Information Base (FIB) abstraction | Yes |
 | Forwarding Information Base (FIB) integration with Kernel | No |
 
 ## Additional Features
