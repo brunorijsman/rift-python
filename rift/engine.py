@@ -134,6 +134,12 @@ class Engine:
     def command_show_routes(self, cli_session):
         cli_session.current_node.command_show_routes(cli_session)
 
+    def command_show_forwarding(self, cli_session):
+        cli_session.current_node.command_show_forwarding(cli_session)
+
+    def command_show_forwarding_prefix(self, cli_session, parameters):
+        cli_session.current_node.command_show_forwarding_prefix(cli_session, parameters)
+
     def command_show_spf(self, cli_session):
         cli_session.current_node.command_show_spf(cli_session)
 
@@ -183,6 +189,10 @@ class Engine:
             "$level": command_set_level,
         },
         "show": {
+            "forwarding": {
+                "": command_show_forwarding,
+                "$prefix": command_show_forwarding_prefix,
+            },
             "fsm": {
                 "lie": command_show_lie_fsm,
                 "ztp": command_show_ztp_fsm,

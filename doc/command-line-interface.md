@@ -7,6 +7,8 @@
   * [set interface <i>interface</i> failure <i>failure</i>](#set-interface-interface-failure-failure)
   * [set level <i>level</i>](#set-level-level)
   * [set node <i>node</i>](#set-node-node)
+  * [show forwarding prefix <i>prefix</i>](#show-forwarding-prefix-prefix)
+  * [show forwarding](#show-forwarding)
   * [show fsm <i>fsm</i>](#show-fsm-fsm)
   * [show interface <i>interface</i>](#show-interface-interface)
   * [show interface <i>interface</i> fsm history](#show-interface-interface-fsm-history)
@@ -83,6 +85,8 @@ exit
 set interface &lt;interface&gt; failure &lt;failure&gt; 
 set level &lt;level&gt; 
 set node &lt;node&gt; 
+show forwarding prefix &lt;prefix&gt;
+show forwarding 
 show fsm lie 
 show fsm ztp 
 show interface &lt;interface&gt; 
@@ -223,6 +227,70 @@ Example:
 <pre>
 agg_101> <b>set node core_1</b>
 core_1> 
+</pre>
+
+### show forwarding
+
+The "<b>show forwarding</b>" command shows all routes in the Forwarding Information Base (FIB) of 
+the current node. It shows both the IPv4 FIB and the IPv6 FIB.
+
+Example:
+
+<pre>
+agg_101> <b>show forwarding</b>
+IPv4 Routes:
++---------------+-----------+-----------------------+
+| Prefix        | Owner     | Next-hops             |
++---------------+-----------+-----------------------+
+| 0.0.0.0/0     | North SPF | if_101_1 127.0.0.1    |
+|               |           | if_101_2 127.0.0.1    |
++---------------+-----------+-----------------------+
+| 1.1.1.0/24    | South SPF | if_101_1001 127.0.0.1 |
++---------------+-----------+-----------------------+
+| 1.1.2.0/24    | South SPF | if_101_1001 127.0.0.1 |
++---------------+-----------+-----------------------+
+| 1.1.3.0/24    | South SPF | if_101_1001 127.0.0.1 |
++---------------+-----------+-----------------------+
+| 1.1.4.0/24    | South SPF | if_101_1001 127.0.0.1 |
++---------------+-----------+-----------------------+
+| 1.2.1.0/24    | South SPF | if_101_1002 127.0.0.1 |
++---------------+-----------+-----------------------+
+| 1.2.2.0/24    | South SPF | if_101_1002 127.0.0.1 |
++---------------+-----------+-----------------------+
+| 1.2.3.0/24    | South SPF | if_101_1002 127.0.0.1 |
++---------------+-----------+-----------------------+
+| 1.2.4.0/24    | South SPF | if_101_1002 127.0.0.1 |
++---------------+-----------+-----------------------+
+| 99.99.99.0/24 | South SPF | if_101_1001 127.0.0.1 |
+|               |           | if_101_1002 127.0.0.1 |
++---------------+-----------+-----------------------+
+
+IPv6 Routes:
++--------+-----------+--------------------+
+| Prefix | Owner     | Next-hops          |
++--------+-----------+--------------------+
+| ::/0   | North SPF | if_101_1 127.0.0.1 |
+|        |           | if_101_2 127.0.0.1 |
++--------+-----------+--------------------+
+</pre>
+
+### show route prefix <i>prefix</i>
+
+The "<b>show route prefix</b> <i>prefix</i>" command shows the route for a given prefix in the
+Forwarding Information Base (FIB) of the current node.
+
+Parameter <i>prefix</i> must be an IPv4 prefix or an IPv6 prefix
+
+Example:
+
+<pre>
+agg_101> <b>show forwarding prefix ::/0</b>
++--------+-----------+--------------------+
+| Prefix | Owner     | Next-hops          |
++--------+-----------+--------------------+
+| ::/0   | North SPF | if_101_1 127.0.0.1 |
+|        |           | if_101_2 127.0.0.1 |
++--------+-----------+--------------------+
 </pre>
 
 ### show fsm <i>fsm</i>

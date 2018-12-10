@@ -14,6 +14,7 @@ import sortedcontainers
 import common.constants
 import constants
 import encoding.ttypes
+import fib
 import fsm
 import interface
 import next_hop
@@ -439,8 +440,10 @@ class Node:
         self._spf_destinations = {}
         self._spf_destinations[constants.DIR_SOUTH] = {}
         self._spf_destinations[constants.DIR_NORTH] = {}
-        self._ipv4_rib = rib.RouteTable(constants.ADDRESS_FAMILY_IPV4)
-        self._ipv6_rib = rib.RouteTable(constants.ADDRESS_FAMILY_IPV6)
+        self._ipv4_fib = fib.ForwardingTable(constants.ADDRESS_FAMILY_IPV4)
+        self._ipv6_fib = fib.ForwardingTable(constants.ADDRESS_FAMILY_IPV6)
+        self._ipv4_rib = rib.RouteTable(constants.ADDRESS_FAMILY_IPV4, self._ipv4_fib)
+        self._ipv6_rib = rib.RouteTable(constants.ADDRESS_FAMILY_IPV6, self._ipv6_fib)
         if "skip-self-orginated-ties" not in self._config:
             self.regenerate_my_node_ties()
             self.regenerate_my_north_prefix_tie()
@@ -1009,6 +1012,36 @@ class Node:
         else:
             assert address_family == constants.ADDRESS_FAMILY_IPV6
             tab = self._ipv6_rib.cli_table()
+        cli_session.print(tab.to_string())
+
+    def command_show_forwarding_prefix(self, cli_session, parameters):
+        prefix = self.get_prefix_param(cli_session, parameters)
+        if prefix is None:
+            return
+        if prefix.ipv4prefix is not None:
+            af_fib = self._ipv4_fib
+        else:
+            af_fib = self._ipv6_fib
+        rte = af_fib.get_route(prefix)
+        if rte is None:
+            cli_session.print("Prefix {} not present".format(prefix))
+            return
+        tab = table.Table()
+        tab.add_row(route.Route.cli_summary_headers())
+        tab.add_row(rte.cli_summary_attributes())
+        cli_session.print(tab.to_string())
+
+    def command_show_forwarding(self, cli_session):
+        self.command_show_forwarding_af(cli_session, constants.ADDRESS_FAMILY_IPV4)
+        self.command_show_forwarding_af(cli_session, constants.ADDRESS_FAMILY_IPV6)
+
+    def command_show_forwarding_af(self, cli_session, address_family):
+        cli_session.print(constants.address_family_str(address_family) + " Routes:")
+        if address_family == constants.ADDRESS_FAMILY_IPV4:
+            tab = self._ipv4_fib.cli_table()
+        else:
+            assert address_family == constants.ADDRESS_FAMILY_IPV6
+            tab = self._ipv6_fib.cli_table()
         cli_session.print(tab.to_string())
 
     def command_show_spf(self, cli_session):

@@ -1,15 +1,20 @@
 import pytest
 
 import constants
+import fib
 import next_hop
 import packet_common
 import rib
 import route
 
-# A bunch of helper constants and functions to make the test code more compact and easier to read
-
+# Some helper constants and functions to make the test code more compact and easier to read
 N = constants.OWNER_N_SPF
 S = constants.OWNER_S_SPF
+
+def mkrt(address_family):
+    forwarding_table = fib.ForwardingTable(address_family)
+    route_table = rib.RouteTable(address_family, forwarding_table)
+    return route_table
 
 def mkp(prefix_str):
     return packet_common.make_ip_prefix(prefix_str)
@@ -28,7 +33,7 @@ def mknh(interface_str, address_str):
 
 def test_ipv4_table_put_route():
     packet_common.add_missing_methods_to_thrift()
-    route_table = rib.RouteTable(constants.ADDRESS_FAMILY_IPV4)
+    route_table = mkrt(constants.ADDRESS_FAMILY_IPV4)
     nh1 = mknh("if1", "1.1.1.1")
     nh2 = mknh("if2", "2.2.2.2")
     assert route_table.nr_destinations() == 0
@@ -64,7 +69,7 @@ def test_ipv4_table_put_route():
 
 def test_ipv4_table_get_route():
     packet_common.add_missing_methods_to_thrift()
-    route_table = rib.RouteTable(constants.ADDRESS_FAMILY_IPV4)
+    route_table = mkrt(constants.ADDRESS_FAMILY_IPV4)
     # Try to get a route that is not present in the table (empty table)
     assert route_table.get_route(mkp("1.1.1.0/24"), S) is None
     # Try to get a route that is not present in the table (prefix is not present)
@@ -97,7 +102,7 @@ def test_ipv4_table_get_route():
 
 def test_ipv4_table_del_route():
     packet_common.add_missing_methods_to_thrift()
-    route_table = rib.RouteTable(constants.ADDRESS_FAMILY_IPV4)
+    route_table = mkrt(constants.ADDRESS_FAMILY_IPV4)
     assert route_table.nr_destinations() == 0
     assert route_table.nr_routes() == 0
     # Try to delete a route that is not present in the table (empty table)
@@ -148,7 +153,7 @@ def test_ipv4_table_del_route():
 
 def test_ipv6_table_put_route():
     packet_common.add_missing_methods_to_thrift()
-    route_table = rib.RouteTable(constants.ADDRESS_FAMILY_IPV6)
+    route_table = mkrt(constants.ADDRESS_FAMILY_IPV6)
     nh1 = mknh("if1", "::1.1.1.1")
     nh2 = mknh("if2", "::2.2.2.2")
     assert route_table.nr_destinations() == 0
@@ -184,7 +189,7 @@ def test_ipv6_table_put_route():
 
 def test_ipv6_table_get_route():
     packet_common.add_missing_methods_to_thrift()
-    route_table = rib.RouteTable(constants.ADDRESS_FAMILY_IPV6)
+    route_table = mkrt(constants.ADDRESS_FAMILY_IPV6)
     # Try to get a route that is not present in the table (empty table)
     assert route_table.get_route(mkp("1111:1111:1111:1111:0000:0000:0000:0000/64"), S) is None
     # Try to get a route that is not present in the table (prefix is not present)
@@ -217,7 +222,7 @@ def test_ipv6_table_get_route():
 
 def test_ipv6_table_del_route():
     packet_common.add_missing_methods_to_thrift()
-    route_table = rib.RouteTable(constants.ADDRESS_FAMILY_IPV6)
+    route_table = mkrt(constants.ADDRESS_FAMILY_IPV6)
     assert route_table.nr_destinations() == 0
     assert route_table.nr_routes() == 0
     # Try to delete a route that is not present in the table (empty table)
@@ -269,7 +274,7 @@ def test_ipv6_table_del_route():
 
 def test_asserts():
     packet_common.add_missing_methods_to_thrift()
-    route_table = rib.RouteTable(constants.ADDRESS_FAMILY_IPV4)
+    route_table = mkrt(constants.ADDRESS_FAMILY_IPV4)
     # Passing the wrong prefix type to assert_prefix_address_family asserts
     with pytest.raises(Exception):
         packet_common.assert_prefix_address_family("1.2.3.0/24", constants.ADDRESS_FAMILY_IPV4)
@@ -295,7 +300,7 @@ def test_asserts():
 
 def test_all_routes():
     packet_common.add_missing_methods_to_thrift()
-    route_table = rib.RouteTable(constants.ADDRESS_FAMILY_IPV4)
+    route_table = mkrt(constants.ADDRESS_FAMILY_IPV4)
     # Use all_routes generator to walk empty table
     generator = route_table.all_routes()
     with pytest.raises(Exception):
@@ -328,7 +333,7 @@ def test_all_routes():
 
 def test_all_prefix_routes():
     packet_common.add_missing_methods_to_thrift()
-    route_table = rib.RouteTable(constants.ADDRESS_FAMILY_IPV4)
+    route_table = mkrt(constants.ADDRESS_FAMILY_IPV4)
     # Use all_routes generator to walk empty table
     generator = route_table.all_prefix_routes(mkp("1.2.3.4/32"))
     with pytest.raises(Exception):
@@ -363,7 +368,7 @@ def test_all_prefix_routes():
 
 def test_cli_table():
     packet_common.add_missing_methods_to_thrift()
-    route_table = rib.RouteTable(constants.ADDRESS_FAMILY_IPV4)
+    route_table = mkrt(constants.ADDRESS_FAMILY_IPV4)
     nh1 = mknh("if1", "1.1.1.1")
     nh2 = mknh("if2", "2.2.2.2")
     nh3 = mknh("if3", None)
@@ -390,7 +395,7 @@ def test_cli_table():
 
 def test_mark_and_del_stale():
     packet_common.add_missing_methods_to_thrift()
-    route_table = rib.RouteTable(constants.ADDRESS_FAMILY_IPV4)
+    route_table = mkrt(constants.ADDRESS_FAMILY_IPV4)
     # Mark all S routes stale on an empty table
     assert route_table.mark_owner_routes_stale(S) == 0
     # Delete all remaining stale routes (which there are none)

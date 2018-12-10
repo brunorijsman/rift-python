@@ -6,10 +6,12 @@ import table
 
 class RouteTable:
 
-    def __init__(self, address_family):
+    def __init__(self, address_family, fib):
+        assert fib.address_family == address_family
         self.address_family = address_family
         # Sorted dict of _Destination objects indexed by prefix
         self.destinations = sortedcontainers.SortedDict()
+        self.fib = fib
 
     def get_route(self, prefix, owner):
         packet_common.assert_prefix_address_family(prefix, self.address_family)
@@ -27,14 +29,14 @@ class RouteTable:
         else:
             destination = _Destination(prefix)
             self.destinations[prefix] = destination
-        destination.put_route(rte)
+        destination.put_route(rte, self.fib)
 
     def del_route(self, prefix, owner):
         # Returns True if the route was present in the table and False if not.
         packet_common.assert_prefix_address_family(prefix, self.address_family)
         if prefix in self.destinations:
             destination = self.destinations[prefix]
-            deleted = destination.del_route(owner)
+            deleted = destination.del_route(owner, self.fib)
             if destination.routes == []:
                 del self.destinations[prefix]
             return deleted
@@ -112,22 +114,34 @@ class _Destination:
                 return rte
         return None
 
-    def put_route(self, new_route):
-        self.del_route(new_route.owner)
+    def update_fib(self, fib):
+        if self.routes == []:
+            fib.del_route(self.prefix)
+        else:
+            best_route = self.routes[0]
+            fib.put_route(best_route)
+
+    def put_route(self, new_route, fib):
+        self.del_route(new_route.owner, fib)
         index = 0
+        inserted = False
         for existing_route in self.routes:
             assert new_route.owner != existing_route.owner
             if existing_route.owner < new_route.owner:
                 self.routes.insert(index, new_route)
-                return
+                inserted = True
+                break
             index += 1
-        self.routes.append(new_route)
+        if not inserted:
+            self.routes.append(new_route)
+        self.update_fib(fib)
 
-    def del_route(self, owner):
+    def del_route(self, owner, fib):
         index = 0
         for rte in self.routes:
             if rte.owner == owner:
                 del self.routes[index]
+                self.update_fib(fib)
                 return True
             index += 1
         return False

@@ -35,7 +35,7 @@ class ForwardingTable:
             return False
 
     def all_routes(self):
-        for rte in self.routes:
+        for _prefix, rte in self.routes.items():
             yield rte
 
     def cli_table(self):
