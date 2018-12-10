@@ -25,6 +25,7 @@
         "interop",
         "intf",
         "lans",
+        "mkrt",
         "multicast",
         "nhop",
         "pexpect",
