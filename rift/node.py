@@ -17,6 +17,7 @@ import encoding.ttypes
 import fib
 import fsm
 import interface
+import kernel
 import next_hop
 import offer
 import packet_common
@@ -374,6 +375,7 @@ class Node:
         # pylint:disable=too-many-statements
         # pylint: disable=too-many-statements
         self.engine = engine
+        self.kernel = kernel.Kernel()
         self._config = config
         self._node_nr = Node._next_node_nr
         Node._next_node_nr += 1
@@ -929,6 +931,18 @@ class Node:
         for intf in self._interfaces_by_name.values():
             tab.add_row(intf.cli_summary_attributes())
         cli_session.print(tab.to_string())
+
+    def command_show_kernel_addresses(self, cli_session):
+        self.kernel.command_show_addresses(cli_session)
+
+    def command_show_kernel_links(self, cli_session):
+        self.kernel.command_show_links(cli_session)
+
+    def command_show_kernel_attribs(self, cli_session):
+        self.kernel.command_show_attribs(cli_session)
+
+    def command_show_kernel_routes(self, cli_session):
+        self.kernel.command_show_routes(cli_session)
 
     def command_show_node(self, cli_session):
         cli_session.print("Node:")

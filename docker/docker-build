@@ -1,0 +1,17 @@
+# Build a container for testing RIFT-Python.
+#
+# Note that this container does not actually include the RIFT-Python code; instead it is intended
+# to be run with a volume that allows it to access the RIFT-Python code on the host development
+# computer.
+
+if [ -z "${VIRTUAL_ENV}" ] ; then
+    echo "Must run from Python virtual environment"
+    exit 1
+fi
+RIFT_PATH="${VIRTUAL_ENV}/.."
+
+cd ${RIFT_PATH}/docker
+
+cp ../requirements.txt .
+
+docker build . --tag rift-python

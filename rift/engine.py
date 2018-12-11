@@ -99,6 +99,18 @@ class Engine:
     def command_show_interfaces(self, cli_session):
         cli_session.current_node.command_show_interfaces(cli_session)
 
+    def command_show_kernel_addresses(self, cli_session):
+        cli_session.current_node.command_show_kernel_addresses(cli_session)
+
+    def command_show_kernel_links(self, cli_session):
+        cli_session.current_node.command_show_kernel_links(cli_session)
+
+    def command_show_kernel_attribs(self, cli_session):
+        cli_session.current_node.command_show_kernel_attribs(cli_session)
+
+    def command_show_kernel_routes(self, cli_session):
+        cli_session.current_node.command_show_kernel_routes(cli_session)
+
     def command_show_lie_fsm(self, cli_session):
         interface.Interface.fsm_definition.command_show_fsm(cli_session)
 
@@ -206,6 +218,12 @@ class Engine:
                 "queues": command_show_intf_queues
             },
             "interfaces": command_show_interfaces,
+            "kernel": {
+                "addresses": command_show_kernel_addresses,
+                "links": command_show_kernel_links,
+                "netlink-attributes": command_show_kernel_attribs,
+                "routes": command_show_kernel_routes,
+            },
             "node": {
                 "": command_show_node,
                 "fsm": {
