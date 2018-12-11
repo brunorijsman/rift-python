@@ -5,6 +5,8 @@ import pyroute2
 import packet_common
 import table
 
+RTPROT_RIFT = 99
+
 class Kernel:
 
     def __init__(self):
@@ -112,8 +114,38 @@ class Kernel:
             return "Main"
         elif table_nr == 253:
             return "Default"
+        elif table_nr == 0:
+            return "Unspecified"
         else:
             return str(table_nr)
+
+    @staticmethod
+    def first_letter_uppercase(string):
+        if string == "":
+            return string
+        first_letter = string[0]
+        rest = string[1:]
+        return first_letter.upper() + rest
+
+    @staticmethod
+    def route_type_str(route_type):
+        if route_type in pyroute2.netlink.rtnl.rt_type:
+            route_type_str = pyroute2.netlink.rtnl.rt_type[route_type]
+            route_type_str = Kernel.first_letter_uppercase(route_type_str)
+        else:
+            route_type_str = str(route_type)
+        return route_type_str
+
+    @staticmethod
+    def proto_str(proto):
+        if proto in pyroute2.netlink.rtnl.rt_proto:
+            proto_str = pyroute2.netlink.rtnl.rt_proto[proto]
+            proto_str = Kernel.first_letter_uppercase(proto_str)
+        elif proto == RTPROT_RIFT:
+            proto_str = "RIFT"
+        else:
+            proto_str = str(proto)
+        return proto_str
 
     @staticmethod
     def af_str(address_family):
@@ -148,6 +180,8 @@ class Kernel:
                 route.get_attr('RTA_TABLE'),
                 self.af_str(family),
                 dst,
+                self.route_type_str(route["type"]),
+                self.proto_str(route["proto"]),
                 route.get_attr('RTA_OIF'),
                 self.to_str(route.get_attr('RTA_GATEWAY')),
                 self.to_str(route.get_attr('RTA_PRIORITY')),
@@ -163,6 +197,8 @@ class Kernel:
             "Table",
             ["Address", "Family"],
             "Destination",
+            "Type",
+            "Protocol",
             ["Outgoing", "Interface"],
             "Gateway",
             "Priority",
