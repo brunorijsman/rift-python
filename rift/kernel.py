@@ -98,6 +98,13 @@ class Kernel:
         return (table_nr, family_str, prefix)
 
     @staticmethod
+    def to_str(value):
+        if value is None:
+            return ""
+        else:
+            return str(value)
+
+    @staticmethod
     def table_str(table_nr):
         if table_nr == 255:
             return "Local"
@@ -142,9 +149,10 @@ class Kernel:
                 self.af_str(family),
                 dst,
                 route.get_attr('RTA_OIF'),
-                route.get_attr('RTA_GATEWAY'),
-                route.get_attr('RTA_PREF'),
-                route.get_attr('RTA_PREFSRC'),
+                self.to_str(route.get_attr('RTA_GATEWAY')),
+                self.to_str(route.get_attr('RTA_PRIORITY')),
+                self.to_str(route.get_attr('RTA_PREF')),
+                self.to_str(route.get_attr('RTA_PREFSRC')),
             ])
         rows.sort(key=self.route_row_key)
         # Now that the output is sorted, replace number numbers with symbolic names
@@ -157,6 +165,7 @@ class Kernel:
             "Destination",
             ["Outgoing", "Interface"],
             "Gateway",
+            "Priority",
             "Preference",
             ["Preferred", "Source", "Address"]
         ])
@@ -180,7 +189,6 @@ class Kernel:
         for obj in objects:
             for (key, _) in obj["attrs"]:
                 if key not in attributes:
-
                     attributes.append(key)
         tab = table.Table()
         for attribute in sorted(attributes):
