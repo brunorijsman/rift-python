@@ -1,5 +1,8 @@
+import socket
+
 import pyroute2
 
+import packet_common
 import table
 
 class Kernel:
@@ -50,7 +53,7 @@ class Kernel:
         tab = table.Table()
         tab.add_row([
             ["Interface", "Name"],
-            "Index",
+            ["Interface", "Index"],
             ["Hardware", "Address"],
             ["Hardware", "Broadcast", "Address"],
             "Link Type",
@@ -86,36 +89,78 @@ class Kernel:
             flags >>= 1
         return str_list
 
+    @staticmethod
+    def route_row_key(row):
+        table_nr = int(row[0])
+        family_str = row[1]
+        prefix_str = row[2]
+        prefix = packet_common.make_ip_prefix(prefix_str)
+        return (table_nr, family_str, prefix)
+
+    @staticmethod
+    def table_str(table_nr):
+        if table_nr == 255:
+            return "Local"
+        elif table_nr == 254:
+            return "Main"
+        elif table_nr == 253:
+            return "Default"
+        else:
+            return str(table_nr)
+
+    @staticmethod
+    def af_str(address_family):
+        if address_family == socket.AF_INET:
+            return "IPv4"
+        elif address_family == socket.AF_INET6:
+            return "IPv6"
+        else:
+            return str(address_family)
+
     def command_show_routes(self, cli_session):
         if self.unsupported_platform_error(cli_session):
             return
         # TODO: Report fields (similar to index and flags in links):
-        # family, src_len, tos, table, proto, scope, type, flags
-        tab = table.Table()
-        tab.add_row([
-            "Destination",
-            ["Outgoing", "Interface"],
-            "Gateway",
-            "Table",
-            "Preference",
-            ["Preferred", "Source", "Address"]
-        ])
+        # src_len, tos, table, proto, scope, type, flags
+        rows = []
         for route in self.ipr.get_routes():
+            family = route["family"]
             dst = route.get_attr('RTA_DST')
             if dst is None:
-                dst = "Default"
+                if family == socket.AF_INET:
+                    dst = "0.0.0.0/0"
+                elif family == socket.AF_INET6:
+                    dst = "::/0"
+                else:
+                    dst = "Default"
             else:
                 dst_len = route["dst_len"]
                 if dst_len is not None:
                     dst += "/" + str(dst_len)
-            tab.add_row([
+            rows.append([
+                route.get_attr('RTA_TABLE'),
+                self.af_str(family),
                 dst,
                 route.get_attr('RTA_OIF'),
                 route.get_attr('RTA_GATEWAY'),
-                route.get_attr('RTA_TABLE'),
                 route.get_attr('RTA_PREF'),
                 route.get_attr('RTA_PREFSRC'),
             ])
+        rows.sort(key=self.route_row_key)
+        # Now that the output is sorted, replace number numbers with symbolic names
+        for row in rows:
+            row[0] = self.table_str(row[0])
+        tab = table.Table()
+        tab.add_row([
+            "Table",
+            ["Address", "Family"],
+            "Destination",
+            ["Outgoing", "Interface"],
+            "Gateway",
+            "Preference",
+            ["Preferred", "Source", "Address"]
+        ])
+        tab.add_rows(rows)
         cli_session.print("Kernel Routes:")
         cli_session.print(tab.to_string())
 
