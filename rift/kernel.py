@@ -107,7 +107,7 @@ class Kernel:
             return str(value)
 
     @staticmethod
-    def table_str(table_nr):
+    def table_nr_to_name(table_nr):
         if table_nr == 255:
             return "Local"
         elif table_nr == 254:
@@ -118,6 +118,23 @@ class Kernel:
             return "Unspecified"
         else:
             return str(table_nr)
+
+    @staticmethod
+    def table_name_to_nr(table_name):
+        if table_name.lower() == "local":
+            return 255
+        elif table_name.lower() == "main":
+            return 254
+        elif table_name.lower() == "default":
+            return 253
+        elif table_name.lower() == "unspecified":
+            return 0
+        else:
+            try:
+                return int(table_name)
+            except ValueError:
+                # None means: not a valid table name
+                return None
 
     @staticmethod
     def first_letter_uppercase(string):
@@ -162,9 +179,17 @@ class Kernel:
                 return link.get_attr('IFLA_IFNAME')
         return str(interface_index)
 
-    def command_show_routes(self, cli_session):
+    def command_show_routes(self, cli_session, table_name):
         if self.unsupported_platform_error(cli_session):
             return
+        # Convert table name to table number. None means "all tables"
+        if table_name is None:
+            table_nr = None
+        else:
+            table_nr = self.table_name_to_nr(table_name)
+            if table_nr is None:
+                cli_session.print("Invalid table {}".format(table_name))
+                return
         # TODO: Report fields (similar to index and flags in links):
         # src_len, tos, scope, flags
         # TODO: Show command for a single prefix to see details that don't fit on a row
@@ -185,6 +210,8 @@ class Kernel:
                 if dst_len is not None:
                     dst += "/" + str(dst_len)
             outgoing_interface_name = self.interface_index_to_name(route.get_attr('RTA_OIF'), links)
+            if (table_nr is not None) and (table_nr != route.get_attr('RTA_TABLE')):
+                continue
             rows.append([
                 route.get_attr('RTA_TABLE'),
                 self.af_str(family),
@@ -200,7 +227,7 @@ class Kernel:
         rows.sort(key=self.route_row_key)
         # Now that the output is sorted, replace number numbers with symbolic names
         for row in rows:
-            row[0] = self.table_str(row[0])
+            row[0] = self.table_nr_to_name(row[0])
         tab = table.Table()
         tab.add_row([
             "Table",

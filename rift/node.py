@@ -942,7 +942,11 @@ class Node:
         self.kernel.command_show_attribs(cli_session)
 
     def command_show_kernel_routes(self, cli_session):
-        self.kernel.command_show_routes(cli_session)
+        self.kernel.command_show_routes(cli_session, None)
+
+    def command_show_kernel_routes_tab(self, cli_session, parameters):
+        table_name = parameters['table']
+        self.kernel.command_show_routes(cli_session, table_name)
 
     def command_show_node(self, cli_session):
         cli_session.print("Node:")

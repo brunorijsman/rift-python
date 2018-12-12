@@ -111,6 +111,9 @@ class Engine:
     def command_show_kernel_routes(self, cli_session):
         cli_session.current_node.command_show_kernel_routes(cli_session)
 
+    def command_show_kernel_routes_tab(self, cli_session, parameters):
+        cli_session.current_node.command_show_kernel_routes_tab(cli_session, parameters)
+
     def command_show_lie_fsm(self, cli_session):
         interface.Interface.fsm_definition.command_show_fsm(cli_session)
 
@@ -222,7 +225,10 @@ class Engine:
                 "addresses": command_show_kernel_addresses,
                 "links": command_show_kernel_links,
                 "netlink-attributes": command_show_kernel_attribs,
-                "routes": command_show_kernel_routes,
+                "routes": {
+                    "": command_show_kernel_routes,
+                    "$table": command_show_kernel_routes_tab,
+                },
             },
             "node": {
                 "": command_show_node,
