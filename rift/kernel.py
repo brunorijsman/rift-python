@@ -240,7 +240,6 @@ class Kernel:
             next_hops = []
         return next_hops
 
-
     def command_show_routes(self, cli_session, table_nr):
         # pylint:disable=too-many-locals
         if self.unsupported_platform_error(cli_session):
