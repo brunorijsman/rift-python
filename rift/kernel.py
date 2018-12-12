@@ -120,23 +120,6 @@ class Kernel:
             return str(table_nr)
 
     @staticmethod
-    def table_name_to_nr(table_name):
-        if table_name.lower() == "local":
-            return 255
-        elif table_name.lower() == "main":
-            return 254
-        elif table_name.lower() == "default":
-            return 253
-        elif table_name.lower() == "unspecified":
-            return 0
-        else:
-            try:
-                return int(table_name)
-            except ValueError:
-                # None means: not a valid table name
-                return None
-
-    @staticmethod
     def first_letter_uppercase(string):
         if string == "":
             return string
@@ -173,56 +156,51 @@ class Kernel:
         else:
             return str(address_family)
 
-    def interface_index_to_name(self, interface_index, links):
+    @staticmethod
+    def interface_index_to_name(interface_index, links):
         for link in links:
             if link["index"] == interface_index:
                 return link.get_attr('IFLA_IFNAME')
         return str(interface_index)
 
-    def command_show_routes(self, cli_session, table_name):
+    @staticmethod
+    def kernel_route_dst_prefix_str(route):
+        dst = route.get_attr('RTA_DST')
+        if dst is None:
+            family = route["family"]
+            if family == socket.AF_INET:
+                prefix_str = "0.0.0.0/0"
+            elif family == socket.AF_INET6:
+                prefix_str = "::/0"
+            else:
+                prefix_str = "Default"
+        else:
+            prefix_str = dst
+            dst_len = route["dst_len"]
+            if dst_len is not None:
+                prefix_str += "/" + str(dst_len)
+        return prefix_str
+
+    def command_show_routes(self, cli_session, table_nr):
         if self.unsupported_platform_error(cli_session):
             return
-        # Convert table name to table number. None means "all tables"
-        if table_name is None:
-            table_nr = None
-        else:
-            table_nr = self.table_name_to_nr(table_name)
-            if table_nr is None:
-                cli_session.print("Invalid table {}".format(table_name))
-                return
-        # TODO: Report fields (similar to index and flags in links):
-        # src_len, tos, scope, flags
-        # TODO: Show command for a single prefix to see details that don't fit on a row
         links = self.ipr.get_links()
         rows = []
         for route in self.ipr.get_routes():
             family = route["family"]
-            dst = route.get_attr('RTA_DST')
-            if dst is None:
-                if family == socket.AF_INET:
-                    dst = "0.0.0.0/0"
-                elif family == socket.AF_INET6:
-                    dst = "::/0"
-                else:
-                    dst = "Default"
-            else:
-                dst_len = route["dst_len"]
-                if dst_len is not None:
-                    dst += "/" + str(dst_len)
+            dst_prefix_str = self.kernel_route_dst_prefix_str(route)
             outgoing_interface_name = self.interface_index_to_name(route.get_attr('RTA_OIF'), links)
-            if (table_nr is not None) and (table_nr != route.get_attr('RTA_TABLE')):
+            route_table_nr = route.get_attr('RTA_TABLE')
+            if (table_nr is not None) and (table_nr != route_table_nr):
                 continue
             rows.append([
-                route.get_attr('RTA_TABLE'),
+                route_table_nr,
                 self.af_str(family),
-                dst,
+                dst_prefix_str,
                 self.route_type_str(route["type"]),
                 self.proto_str(route["proto"]),
                 outgoing_interface_name,
-                self.to_str(route.get_attr('RTA_GATEWAY')),
-                self.to_str(route.get_attr('RTA_PRIORITY')),
-                self.to_str(route.get_attr('RTA_PREF')),
-                self.to_str(route.get_attr('RTA_PREFSRC')),
+                self.to_str(route.get_attr('RTA_GATEWAY'))
             ])
         rows.sort(key=self.route_row_key)
         # Now that the output is sorted, replace number numbers with symbolic names
@@ -236,13 +214,41 @@ class Kernel:
             "Type",
             "Protocol",
             ["Outgoing", "Interface"],
-            "Gateway",
-            "Priority",
-            "Preference",
-            ["Preferred", "Source", "Address"]
+            "Gateway"
         ])
         tab.add_rows(rows)
         cli_session.print("Kernel Routes:")
+        cli_session.print(tab.to_string())
+
+    def command_show_route_prefix(self, cli_session, table_nr, prefix):
+        # TODO: Report fields (similar to index and flags in links):
+        # src_len, tos, scope, flags
+        if self.unsupported_platform_error(cli_session):
+            return
+        route = None
+        for rte in self.ipr.get_routes():
+            route_table_nr = rte.get_attr('RTA_TABLE')
+            dst_prefix_str = self.kernel_route_dst_prefix_str(rte)
+            if (table_nr == route_table_nr) and (dst_prefix_str == str(prefix)):
+                route = rte
+                break
+        if route is None:
+            cli_session.print('Prefix "{}" in table "{}" not present in kernel route table'
+                              .format(prefix, self.table_nr_to_name(table_nr)))
+            return
+        links = self.ipr.get_links()
+        outgoing_interface_name = self.interface_index_to_name(route.get_attr('RTA_OIF'), links)
+        tab = table.Table(separators=False)
+        tab.add_row(["Table", self.table_nr_to_name(table_nr)])
+        tab.add_row(["Address Family", self.af_str(self.af_str(route["family"]))])
+        tab.add_row(["Destination", str(prefix)])
+        tab.add_row(["Type", self.route_type_str(route["type"])])
+        tab.add_row(["Protocol", self.proto_str(route["proto"])])
+        tab.add_row(["Outgoing Interface", outgoing_interface_name])
+        tab.add_row(["Gateway", self.to_str(route.get_attr('RTA_GATEWAY'))])
+        tab.add_row(["Priority", self.to_str(route.get_attr('RTA_PRIORITY'))])
+        tab.add_row(["Preference", self.to_str(route.get_attr('RTA_PREF'))])
+        tab.add_row(["Preferred Source Address", self.to_str(route.get_attr('RTA_PREFSRC'))])
         cli_session.print(tab.to_string())
 
     def command_show_attribs(self, cli_session):

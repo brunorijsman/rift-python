@@ -945,8 +945,17 @@ class Node:
         self.kernel.command_show_routes(cli_session, None)
 
     def command_show_kernel_routes_tab(self, cli_session, parameters):
-        table_name = parameters['table']
-        self.kernel.command_show_routes(cli_session, table_name)
+        table_nr = self.get_table_param(cli_session, parameters)
+        if table_nr is None:
+            return
+        self.kernel.command_show_routes(cli_session, table_nr)
+
+    def command_show_kernel_route_pref(self, cli_session, parameters):
+        table_nr = self.get_table_param(cli_session, parameters)
+        prefix = self.get_prefix_param(cli_session, parameters)
+        if (table_nr is None) or (prefix is None):
+            return
+        self.kernel.command_show_route_prefix(cli_session, table_nr, prefix)
 
     def command_show_node(self, cli_session):
         cli_session.print("Node:")
@@ -1069,18 +1078,20 @@ class Node:
         self.command_show_spf_destinations(cli_session, constants.DIR_SOUTH)
         self.command_show_spf_destinations(cli_session, constants.DIR_NORTH)
 
-    def get_direction_param(self, cli_session, parameters):
+    @staticmethod
+    def get_direction_param(cli_session, parameters):
         assert "direction" in parameters
         direction_str = parameters["direction"]
         if direction_str.lower() == "south":
             return constants.DIR_SOUTH
         if direction_str.lower() == "north":
             return constants.DIR_NORTH
-        cli_session.print("Invalid direction {} (valid values: \"south\", \"north\")"
+        cli_session.print('Invalid direction "{}" (valid values: "south", "north")'
                           .format(direction_str))
         return None
 
-    def get_destination_param(self, cli_session, parameters):
+    @staticmethod
+    def get_destination_param(cli_session, parameters):
         assert "destination" in parameters
         destination_str = parameters["destination"]
         # Is it a system-id (integer)?
@@ -1105,11 +1116,12 @@ class Node:
         else:
             return destination
         # None of the above
-        cli_session.print("Invalid destination {} (valid values: system-id, ipv4-prefix, "
-                          "ipv6-prefix)".format(destination_str))
+        cli_session.print('Invalid destination "{}" (valid values: system-id, ipv4-prefix, '
+                          'ipv6-prefix)'.format(destination_str))
         return None
 
-    def get_prefix_param(self, cli_session, parameters):
+    @staticmethod
+    def get_prefix_param(cli_session, parameters):
         assert "prefix" in parameters
         prefix_str = parameters["prefix"]
         # Is it an IPv4 prefix?
@@ -1127,20 +1139,42 @@ class Node:
         else:
             return prefix
         # None of the above
-        cli_session.print("Invalid prefix {} (valid values: ipv4-prefix, ipv6-prefix)"
+        cli_session.print('Invalid prefix "{}" (valid values: ipv4-prefix, ipv6-prefix)'
                           .format(prefix_str))
         return None
 
-    def get_owner_param(self, cli_session, parameters):
+    @staticmethod
+    def get_owner_param(cli_session, parameters):
         assert "owner" in parameters
         direction_str = parameters["owner"]
         if direction_str.lower() == "south-spf":
             return constants.OWNER_S_SPF
         if direction_str.lower() == "north-spf":
             return constants.OWNER_N_SPF
-        cli_session.print("Invalid owner {} (valid values: \"south-spf\", \"north-spf\")"
+        cli_session.print('Invalid owner "{}" (valid values: "south-spf", "north-spf")'
                           .format(direction_str))
         return None
+
+    @staticmethod
+    def get_table_param(cli_session, parameters):
+        # No matter how the table is specified (name or number), this always returns a table number
+        assert "table" in parameters
+        table_str = parameters["table"].lower()
+        if table_str == "local":
+            return 255
+        elif table_str == "main":
+            return 254
+        elif table_str == "default":
+            return 253
+        elif table_str == "unspecified":
+            return 0
+        else:
+            try:
+                return int(table_str)
+            except ValueError:
+                cli_session.print('Invalid table "{}" (valid values: "local", "main", '
+                                  '"default", "unspecified", or number)'.format(table_str))
+                return None
 
     def command_show_spf_dir(self, cli_session, parameters):
         direction = self.get_direction_param(cli_session, parameters)
