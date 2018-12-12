@@ -181,6 +181,18 @@ class Kernel:
                 prefix_str += "/" + str(dst_len)
         return prefix_str
 
+    @staticmethod
+    def kernel_route_src_prefix_str(route):
+        src = route.get_attr('RTA_SRC')
+        if src is None:
+            return ""
+        else:
+            prefix_str = src
+            src_len = route["src_len"]
+            if src_len is not None:
+                prefix_str += "/" + str(src_len)
+        return prefix_str
+
     def command_show_routes(self, cli_session, table_nr):
         if self.unsupported_platform_error(cli_session):
             return
@@ -249,6 +261,7 @@ class Kernel:
         tab.add_row(["Priority", self.to_str(route.get_attr('RTA_PRIORITY'))])
         tab.add_row(["Preference", self.to_str(route.get_attr('RTA_PREF'))])
         tab.add_row(["Preferred Source Address", self.to_str(route.get_attr('RTA_PREFSRC'))])
+        tab.add_row(["Source", self.kernel_route_src_prefix_str(route)])
         cli_session.print(tab.to_string())
 
     def command_show_attribs(self, cli_session):
