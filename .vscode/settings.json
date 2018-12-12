@@ -37,6 +37,7 @@
         "popen",
         "pptx",
         "prefsrc",
+        "proto",
         "pylint",
         "pyroute",
         "pytest",

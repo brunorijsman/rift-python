@@ -156,11 +156,19 @@ class Kernel:
         else:
             return str(address_family)
 
+    def interface_index_to_name(self, interface_index, links):
+        for link in links:
+            if link["index"] == interface_index:
+                return link.get_attr('IFLA_IFNAME')
+        return str(interface_index)
+
     def command_show_routes(self, cli_session):
         if self.unsupported_platform_error(cli_session):
             return
         # TODO: Report fields (similar to index and flags in links):
-        # src_len, tos, table, proto, scope, type, flags
+        # src_len, tos, scope, flags
+        # TODO: Show command for a single prefix to see details that don't fit on a row
+        links = self.ipr.get_links()
         rows = []
         for route in self.ipr.get_routes():
             family = route["family"]
@@ -176,13 +184,14 @@ class Kernel:
                 dst_len = route["dst_len"]
                 if dst_len is not None:
                     dst += "/" + str(dst_len)
+            outgoing_interface_name = self.interface_index_to_name(route.get_attr('RTA_OIF'), links)
             rows.append([
                 route.get_attr('RTA_TABLE'),
                 self.af_str(family),
                 dst,
                 self.route_type_str(route["type"]),
                 self.proto_str(route["proto"]),
-                route.get_attr('RTA_OIF'),
+                outgoing_interface_name,
                 self.to_str(route.get_attr('RTA_GATEWAY')),
                 self.to_str(route.get_attr('RTA_PRIORITY')),
                 self.to_str(route.get_attr('RTA_PREF')),
