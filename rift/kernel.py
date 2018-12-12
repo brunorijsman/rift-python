@@ -49,9 +49,7 @@ class Kernel:
         cli_session.print("Kernel Addresses:")
         cli_session.print(tab.to_string())
 
-    def command_show_links(self, cli_session):
-        if self.unsupported_platform_error(cli_session):
-            return
+    def cli_links_table(self):
         tab = table.Table()
         tab.add_row([
             ["Interface", "Name"],
@@ -72,6 +70,12 @@ class Kernel:
                 self.to_str(link.get_attr('IFLA_MTU')),
                 self.link_flags_to_str(link["flags"]),
             ])
+        return tab
+
+    def command_show_links(self, cli_session):
+        if self.unsupported_platform_error(cli_session):
+            return
+        tab = self.cli_links_table()
         cli_session.print("Kernel Links:")
         cli_session.print(tab.to_string())
 
