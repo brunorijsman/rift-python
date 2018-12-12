@@ -1,4 +1,4 @@
-import platform
+#import platform
 import subprocess
 
 def test_ls():
