@@ -1,21 +1,9 @@
-#import platform
+import platform
 import subprocess
 
-def test_ls():
-    assert subprocess.call(["ls"]) == 0
-
-def test_ip_route():
-    #assert platform.system() == "Linux"
+def test_real_topology():
+    # Skip this test if we are not running on Linux
+    if platform.system() != "Linux":
+        return
+    # If we are running on Linux, we insist that the "ip" command is available
     assert subprocess.call(["ip", "route"]) == 0
-
-def test_brctl():
-    #assert platform.system() == "Linux"
-    assert subprocess.call(["brctl"]) == 0
-
-def test_brctl_show():
-    #assert platform.system() == "Linux"
-    assert subprocess.call(["brctl", "show"]) == 0
-
-def test_brctl_add():
-    #assert platform.system() == "Linux"
-    assert subprocess.call(["brctl", "addbr", "foo"]) == 0
