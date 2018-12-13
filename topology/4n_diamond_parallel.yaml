@@ -151,7 +151,7 @@ shards:
             mask: 128
             metric: 1
       - name: leaf
-        level: 1
+        level: 0
         systemid: 4
         rx_lie_mcast_address: 224.0.1.4
         interfaces:
