@@ -72,6 +72,10 @@ def add_missing_methods_to_thrift():
         lambda self: hash(link_id_pair_tup(self)))
     encoding.ttypes.LinkIDPair.__eq__ = (
         lambda self, other: link_id_pair_tup(self) == link_id_pair_tup(other))
+    encoding.ttypes.LinkIDPair.__hash__ = (
+        lambda self: hash(link_id_pair_tup(self)))
+    encoding.ttypes.LinkIDPair.__lt__ = (
+        lambda self, other: link_id_pair_tup(self) < link_id_pair_tup(other))
 
 def encode_protocol_packet(protocol_packet):
     # Since Thrift does not support unsigned integer, we need to "fix" unsigned integers to be
