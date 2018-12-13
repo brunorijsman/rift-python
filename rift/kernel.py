@@ -36,12 +36,14 @@ class Kernel:
         elif len(rte.next_hops) == 1:
             nh_args = {}
             next_hop = rte.next_hops[0]
-            oif = self.ipr.link_lookup(ifname=next_hop.interface)[0]
-            if next_hop.address is None:
-                nh_args = {"oif": oif}
-            else:
-                gateway = str(next_hop.address)
-                nh_args = {"oif": oif, "gateway": gateway}
+            link = self.ipr.link_lookup(ifname=next_hop.interface)
+            if 0 in link:
+                oif = link[0]
+                if next_hop.address is None:
+                    nh_args = {"oif": oif}
+                else:
+                    gateway = str(next_hop.address)
+                    nh_args = {"oif": oif, "gateway": gateway}
         else:
             # TODO: Support ECMP next-hops
             nh_args = {}
@@ -64,7 +66,7 @@ class Kernel:
         dst = str(prefix)
         # TODO: log something
         try:
-            self.ipr.route('del', dst=dst)
+            self.ipr.route('del', dst=dst, proto=RTPROT_RIFT)
         except pyroute2.netlink.exceptions.NetlinkError as _err:
             # TODO: Log error message
             pass
