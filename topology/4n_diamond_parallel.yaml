@@ -1,0 +1,189 @@
+# Topology: 
+#
+#                      +-----------------+
+#                      | superspine      |
+#                      | system-id 1     |
+#                      | (level 2)       |
+#                      | 1.1.1.1/32      |
+#                      | 1111:1111::/128 |
+#                      +-----------------+
+#                    if1| 2| 3|  4| 5| 6|
+#                       |  |  |   |  |  |
+#        +--------------+  |  |   |  |  +--------------+
+#        |  +--------------+  |   |  +--------------+  |
+#        |  |  +--------------+   +--------------+  |  |
+#        |  |  |                                 |  |  |
+#     if1| 2| 3|                              if1| 2| 3|
+#  +-----------------+                     +-----------------+
+#  | spine1          |                     | spine2          |
+#  | system-id 2     |                     | system-id 3     | 
+#  | (level 1)       |                     | (level 1)       |
+#  | 2.2.2.2/32      |                     | 3.3.3.3/32      |
+#  | 2222:2222::/128 |                     | 3333:3333::/128 |
+#  +-----------------+                     +-----------------+
+#     if4| 5| 6|                              if4| 5| 6|
+#        |  |  |                                 |  |  |
+#        |  |  +--------------+   +--------------+  |  |
+#        |  +--------------+  |   |  +--------------+  |
+#        +--------------+  |  |   |  |  +--------------+
+#                       |  |  |   |  |  |
+#                    if1| 2| 3|  4| 5| 6|
+#                      +-----------------+
+#                      | leaf            |
+#                      | system-id 4     |
+#                      | (level 0)       |
+#                      | 4.4.4.4/32      |
+#                      | 4444:4444::/128 |
+#                      +-----------------+
+
+shards:
+  - id: 0
+    nodes:
+      - name: superspine
+        level: 2
+        systemid: 1
+        rx_lie_mcast_address: 224.0.1.1
+        interfaces:
+          - name: if1             # Connected to spine1-if1
+            tx_lie_port: 21121    # 2-11-21: 11 (port 1 on node 1) to 21 (port 1 on node 2)
+            rx_lie_port: 22111
+            rx_tie_port: 12111
+          - name: if2             # Connected to spine1-if2
+            tx_lie_port: 21222    
+            rx_lie_port: 22212
+            rx_tie_port: 12212
+          - name: if3             # Connected to spine1-if3
+            tx_lie_port: 21323    
+            rx_lie_port: 22313
+            rx_tie_port: 12313
+          - name: if4             # Connected to spine2-if1
+            tx_lie_port: 21431    
+            rx_lie_port: 23114
+            rx_tie_port: 13114
+          - name: if5             # Connected to spine2-if2
+            tx_lie_port: 21532    
+            rx_lie_port: 23215
+            rx_tie_port: 13215
+          - name: if6             # Connected to spine2-if3
+            tx_lie_port: 21633    
+            rx_lie_port: 23316
+            rx_tie_port: 13316
+        v4prefixes:
+          - address: 1.1.1.1
+            mask: 32
+            metric: 1
+        v6prefixes:
+          - address: "1111:1111::"
+            mask: 128
+            metric: 1
+      - name: spine1
+        level: 1
+        systemid: 2
+        rx_lie_mcast_address: 224.0.1.2
+        interfaces:
+          - name: if1 # Connected to superspine-if1
+            tx_lie_port: 22111
+            rx_lie_port: 21121
+            rx_tie_port: 11121
+          - name: if2 # Connected to superspine-if2
+            tx_lie_port: 22212
+            rx_lie_port: 21222
+            rx_tie_port: 11222
+          - name: if3 # Connected to superspine-if3
+            tx_lie_port: 22313
+            rx_lie_port: 21323
+            rx_tie_port: 11323
+          - name: if4 # Connected to leaf-if1
+            tx_lie_port: 22441
+            rx_lie_port: 24124
+            rx_tie_port: 14124
+          - name: if5 # Connected to leaf-if2
+            tx_lie_port: 22542
+            rx_lie_port: 24225
+            rx_tie_port: 14225
+          - name: if6 # Connected to leaf-if3
+            tx_lie_port: 22643
+            rx_lie_port: 24326
+            rx_tie_port: 14326
+        v4prefixes:
+          - address: 2.2.2.2
+            mask: 32
+            metric: 1
+        v6prefixes:
+          - address: "2222:2222::"
+            mask: 128
+            metric: 1
+      - name: spine2
+        level: 1
+        systemid: 3
+        rx_lie_mcast_address: 224.0.1.3
+        interfaces:
+          - name: if1 # Connected to superspine-if4
+            tx_lie_port: 23114
+            rx_lie_port: 21431
+            rx_tie_port: 11431
+          - name: if2 # Connected to superspine-if5
+            tx_lie_port: 23215
+            rx_lie_port: 21532
+            rx_tie_port: 11532
+          - name: if3 # Connected to superspine-if6
+            tx_lie_port: 23316
+            rx_lie_port: 21633
+            rx_tie_port: 11633
+          - name: if4 # Connected to leaf-if4
+            tx_lie_port: 23444
+            rx_lie_port: 24434
+            rx_tie_port: 14434
+          - name: if5 # Connected to leaf-if5
+            tx_lie_port: 23545
+            rx_lie_port: 24535
+            rx_tie_port: 14535
+          - name: if6 # Connected to leaf-if6
+            tx_lie_port: 23646
+            rx_lie_port: 24636
+            rx_tie_port: 14636
+        v4prefixes:
+          - address: 3.3.3.3
+            mask: 32
+            metric: 1
+        v6prefixes:
+          - address: "3333:3333::"
+            mask: 128
+            metric: 1
+      - name: leaf
+        level: 1
+        systemid: 4
+        rx_lie_mcast_address: 224.0.1.4
+        interfaces:
+          - name: if1 # Connected to spine1-if4
+            tx_lie_port: 24124
+            rx_lie_port: 22441
+            rx_tie_port: 12441
+          - name: if2 # Connected to spine1-if5
+            tx_lie_port: 24225
+            rx_lie_port: 22542
+            rx_tie_port: 12542
+          - name: if3 # Connected to spine1-if6
+            tx_lie_port: 24326
+            rx_lie_port: 22643
+            rx_tie_port: 12643
+          - name: if4 # Connected to spine2-if4
+            tx_lie_port: 24434
+            rx_lie_port: 23444
+            rx_tie_port: 13444
+          - name: if5 # Connected to spine2-if5
+            tx_lie_port: 24535
+            rx_lie_port: 23545
+            rx_tie_port: 13545
+          - name: if6 # Connected to spine2-if6
+            tx_lie_port: 24636
+            rx_lie_port: 23646
+            rx_tie_port: 13646
+        v4prefixes:
+          - address: 4.4.4.4
+            mask: 32
+            metric: 1
+        v6prefixes:
+          - address: "4444:4444::"
+            mask: 128
+            metric: 1
