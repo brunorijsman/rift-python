@@ -646,6 +646,12 @@ class Node:
             del self.other_node_ties_at_my_level[tie_id]
             self.regenerate_my_south_prefix_tie()
 
+    def up_interfaces(self, interface_going_down):
+        for intf in self._interfaces_by_name.values():
+            if ((intf.fsm.state == interface.Interface.State.THREE_WAY) and
+                    (intf != interface_going_down)):
+                yield intf
+
     def regenerate_node_tie(self, direction, interface_going_down=None):
         tie_nr = MY_TIE_NR
         self.my_node_tie_seq_nrs[direction] += 1
@@ -658,19 +664,26 @@ class Node:
             tie_nr=tie_nr,
             seq_nr=seq_nr,
             lifetime=common.constants.default_lifetime)
-        for intf in self._interfaces_by_name.values():
-            if ((intf.fsm.state == interface.Interface.State.THREE_WAY) and
-                    (intf != interface_going_down)):
-                local_id = intf.local_id
-                remote_id = intf.neighbor.local_id
-                # TODO: Add support for reporting multiple parallel links to neighbor (i.e. more
-                # than one LinkIDPair in link_ids set)
-                node_neighbor = encoding.ttypes.NodeNeighborsTIEElement(
-                    level=intf.neighbor.level,
-                    cost=1,         # TODO: Take this from config file
-                    link_ids=set([encoding.ttypes.LinkIDPair(local_id, remote_id)]),
-                    bandwidth=100)  # TODO: Take this from config file or interface
-                node_tie_packet.element.node.neighbors[intf.neighbor.system_id] = node_neighbor
+        for intf in self.up_interfaces(interface_going_down):
+            # Did we already report the neighbor on the other end of this interface? This
+            # happens if we have multiple parallel interfaces to the same neighbor.
+            if intf.neighbor.system_id in node_tie_packet.element.node.neighbors:
+                continue
+            # Gather all interfaces (link id pairs) from this node to the same neighbor. Once
+            # again, this happens if we have multiple parallel interfaces to the same neighbor.
+            link_ids = set()
+            for intf2 in self.up_interfaces(interface_going_down):
+                if intf.neighbor.system_id == intf2.neighbor.system_id:
+                    local_id = intf2.local_id
+                    remote_id = intf2.neighbor.local_id
+                    link_id_pair = encoding.ttypes.LinkIDPair(local_id, remote_id)
+                    link_ids.add(link_id_pair)
+            node_neighbor = encoding.ttypes.NodeNeighborsTIEElement(
+                level=intf.neighbor.level,
+                cost=1,         # TODO: Take this from config file
+                link_ids=link_ids,
+                bandwidth=100)  # TODO: Take this from config file or interface
+            node_tie_packet.element.node.neighbors[intf.neighbor.system_id] = node_neighbor
         self.my_node_ties[direction] = node_tie_packet
         self.store_tie_in_db(node_tie_packet)
         self.info("Regenerated node TIE for direction %s: %s",
