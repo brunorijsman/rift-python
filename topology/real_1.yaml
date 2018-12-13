@@ -1,0 +1,19 @@
+shards:
+  - id: 0
+    nodes:
+      - name: real1
+        level: 1
+        systemid: 1
+        interfaces:
+          - name: veth-a1
+            rx_lie_port: 20011
+            tx_lie_port: 20021
+            rx_tie_port: 21011
+          - name: veth-b1
+            rx_lie_port: 20012
+            tx_lie_port: 20022
+            rx_tie_port: 21012
+        v4prefixes:
+          - address: 88.88.1.1
+            mask: 32
+            metric: 1

@@ -26,6 +26,49 @@ class Kernel:
             cli_session.print("Kernel networking not supported on this platform")
             return True
 
+    def put_route(self, rte):
+        if not self.platform_supported:
+            return
+        dst = str(rte.prefix)
+        oif = 1
+        if rte.next_hops == []:
+            nh_args = {}
+        elif len(rte.next_hops) == 1:
+            nh_args = {}
+            next_hop = rte.next_hops[0]
+            oif = self.ipr.link_lookup(ifname=next_hop.interface)[0]
+            if next_hop.address is None:
+                nh_args = {"oif": oif}
+            else:
+                gateway = str(next_hop.address)
+                nh_args = {"oif": oif, "gateway": gateway}
+        else:
+            # TODO: Support ECMP next-hops
+            nh_args = {}
+        # TODO: log something
+        try:
+            self.ipr.route('add',
+                           dst=dst,
+                           proto=RTPROT_RIFT,
+                           **nh_args)
+        except pyroute2.netlink.exceptions.NetlinkError as _err:
+            # TODO: Log error message
+            pass
+        except OSError as _err:
+            # TODO: Log error message
+            pass
+
+    def del_route(self, prefix):
+        if not self.platform_supported:
+            return
+        dst = str(prefix)
+        # TODO: log something
+        try:
+            self.ipr.route('del', dst=dst)
+        except pyroute2.netlink.exceptions.NetlinkError as _err:
+            # TODO: Log error message
+            pass
+
     def command_show_addresses(self, cli_session):
         if self.unsupported_platform_error(cli_session):
             return

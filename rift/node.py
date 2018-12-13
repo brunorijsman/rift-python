@@ -442,8 +442,8 @@ class Node:
         self._spf_destinations = {}
         self._spf_destinations[constants.DIR_SOUTH] = {}
         self._spf_destinations[constants.DIR_NORTH] = {}
-        self._ipv4_fib = fib.ForwardingTable(constants.ADDRESS_FAMILY_IPV4)
-        self._ipv6_fib = fib.ForwardingTable(constants.ADDRESS_FAMILY_IPV6)
+        self._ipv4_fib = fib.ForwardingTable(constants.ADDRESS_FAMILY_IPV4, self.kernel)
+        self._ipv6_fib = fib.ForwardingTable(constants.ADDRESS_FAMILY_IPV6, self.kernel)
         self._ipv4_rib = rib.RouteTable(constants.ADDRESS_FAMILY_IPV4, self._ipv4_fib)
         self._ipv6_rib = rib.RouteTable(constants.ADDRESS_FAMILY_IPV6, self._ipv6_fib)
         if "skip-self-orginated-ties" not in self._config:

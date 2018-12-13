@@ -7,6 +7,7 @@ RIFT_PATH="${VIRTUAL_ENV}/.."
 docker run \
     --volume ${RIFT_PATH}:/host \
     --cap-add=NET_ADMIN \
+    --cap-add=SYS_ADMIN \
     --interactive \
     --tty \
     rift-python \

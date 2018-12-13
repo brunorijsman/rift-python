@@ -104,18 +104,16 @@ class Interface:
         tx_flood_port = self.neighbor.flood_port
         self.rx_info("Start flooding: receive on port %d, send on port %d", rx_flood_port,
                      tx_flood_port)
-        # TODO: the local addresses below should be the interface address, not the engine addresses
         self._flood_receive_handler = udp_receive_handler.UdpReceiveHandler(
-            remote_address=self.neighbor.address,
+            remote_address="0.0.0.0",   # TODO: permissive, can we use self.neighbor.address?
             port=rx_flood_port,
             receive_function=self.receive_flood_message,
-            local_address=self._node.engine.tx_src_address)
+            local_address=self._ipv4_address)
         self._flood_send_handler = udp_send_handler.UdpSendHandler(
             interface_name=self.name,
             remote_address=self.neighbor.address,
             port=tx_flood_port,
-            local_address=self._node.engine.tx_src_address)
-            # TODO: This can't be the interface address since it is per engine
+            local_address=self._ipv4_address)
         # Periodically start sending TIE packets and TIRE packets
         self._service_queues_timer.start()
         # Update the node TIEs originated by this node to include this neighbor
@@ -613,7 +611,7 @@ class Interface:
             interface_name=self.name,
             remote_address=self._tx_lie_ipv4_mcast_address,
             port=self._tx_lie_port,
-            local_address=self._node.engine.tx_src_address,
+            local_address=self._ipv4_address,
             multicast_loopback=self._node.engine.multicast_loopback)
         # TODO: Use source address
         (_, source_port) = self._lie_send_handler.source_address_and_port()
@@ -622,7 +620,7 @@ class Interface:
             remote_address=self._rx_lie_ipv4_mcast_address,
             port=self._rx_lie_port,
             receive_function=self.receive_lie_message,
-            local_address=self._node.engine.tx_src_address)
+            local_address=self._ipv4_address)
         self._flood_receive_handler = None
         self._flood_send_handler = None
         self._one_second_timer = timer.Timer(
