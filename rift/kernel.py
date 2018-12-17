@@ -58,16 +58,16 @@ class Kernel:
                 if nhop_args:
                     kernel_args["multipath"].append(nhop_args)
         try:
-            self.ipr.route('add',
+            self.ipr.route('replace',
                            dst=dst,
                            proto=RTPROT_RIFT,
                            **kernel_args)
         except pyroute2.netlink.exceptions.NetlinkError as err:
-            self.error("Netlink error %s adding route to %s: %s", err, dst, kernel_args)
+            self.error("Netlink error %s replacing route to %s: %s", err, dst, kernel_args)
         except OSError as err:
-            self.error("OS error \"%s\" adding route to %s: %s", err, dst, kernel_args)
+            self.error("OS error \"%s\" replacing route to %s: %s", err, dst, kernel_args)
         else:
-            self.debug("Add route to \"%s\": %s", dst, kernel_args)
+            self.debug("Replace route to \"%s\": %s", dst, kernel_args)
 
     def del_route(self, prefix):
         if not self.platform_supported:
