@@ -71,7 +71,7 @@
 | Use non-best paths (Eppstein k-shortest) | No |
 | Routing Information Base (RIB) | Yes |
 | Forwarding Information Base (FIB) abstraction | Yes |
-| Forwarding Information Base (FIB) integration with Kernel | No |
+| Store FIB routes into kernel route table (on Linux only) | Yes |
 
 ## Additional Features
 
@@ -113,9 +113,9 @@
 
 | Feature | Supported |
 | --- | --- |
-| Telnet client for operational commands | Yes |
-| SSH client for operational commands | No |
-| Command Line Interface (CLI) for Operational Commands | Yes |
+| Telnet client | Yes |
+| SSH client | No |
+| Command Line Interface (CLI) | Yes |
 | CLI Command History | Yes |
 | CLI Tab Completion | No |
 | CLI Context-Sensitive Help | Partial |
