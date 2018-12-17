@@ -1338,7 +1338,7 @@ class Node:
             if db_tie is None:
                 if header_in_tide.tieid.originator == self.system_id:
                     # Self-originate an empty TIE with a higher sequence number.
-                    bumped_own_tie_header = self.bump_own_tie(db_tie, header_in_tide.tieid)
+                    bumped_own_tie_header = self.bump_own_tie(db_tie, header_in_tide)
                     start_sending_tie_headers.append(bumped_own_tie_header)
                 else:
                     # We don't have the TIE, request it
@@ -1355,7 +1355,7 @@ class Node:
                 if comparison < 0:
                     if header_in_tide.tieid.originator == self.system_id:
                         # Re-originate DB TIE with higher sequence number than the one in TIDE
-                        bumped_own_tie_header = self.bump_own_tie(db_tie, header_in_tide.tieid)
+                        bumped_own_tie_header = self.bump_own_tie(db_tie, header_in_tide)
                         start_sending_tie_headers.append(bumped_own_tie_header)
                     else:
                         # We have an older version of the TIE, request the newer version
@@ -1391,27 +1391,27 @@ class Node:
                     acked_tie_headers.append(db_tie.header)
         return (request_tie_headers, start_sending_tie_headers, acked_tie_headers)
 
-    def find_according_real_node_tie(self, rx_tie):
+    def find_according_real_node_tie(self, rx_tie_header):
         # We have to originate an empty node TIE for the purpose of flushing it. Use the same
         # contents as the real node TIE that we actually originated, except don't report any
         # neighbors.
-        real_node_tie_id = copy.deepcopy(rx_tie.header.tieid)
+        real_node_tie_id = copy.deepcopy(rx_tie_header.tieid)
         real_node_tie_id.tie_nr = MY_TIE_NR
         real_node_tie = self.find_tie(real_node_tie_id)
         assert real_node_tie is not None
         return real_node_tie
 
-    def make_according_empty_tie(self, rx_tie):
+    def make_according_empty_tie(self, rx_tie_header):
         new_tie_header = packet_common.make_tie_header(
-            rx_tie.header.tieid.direction,
-            rx_tie.header.tieid.originator,
-            rx_tie.header.tieid.tietype,
-            rx_tie.header.tieid.tie_nr,
-            rx_tie.header.seq_nr + 1,           # Higher sequence number
+            rx_tie_header.tieid.direction,
+            rx_tie_header.tieid.originator,
+            rx_tie_header.tieid.tietype,
+            rx_tie_header.tieid.tie_nr,
+            rx_tie_header.seq_nr + 1,           # Higher sequence number
             FLUSH_LIFETIME)                     # Short remaining life time
-        tietype = rx_tie.header.tieid.tietype
+        tietype = rx_tie_header.tieid.tietype
         if tietype == common.ttypes.TIETypeType.NodeTIEType:
-            real_node_tie_packet = self.find_according_real_node_tie(rx_tie)
+            real_node_tie_packet = self.find_according_real_node_tie(rx_tie_header)
             new_element = copy.deepcopy(real_node_tie_packet.element)
             new_element.node.neighbors = {}
         elif tietype == common.ttypes.TIETypeType.PrefixTIEType:
@@ -1437,18 +1437,18 @@ class Node:
             element=new_element)
         return according_empty_tie
 
-    def bump_own_tie(self, db_tie, rx_tie):
+    def bump_own_tie(self, db_tie, rx_tie_header):
         if db_tie is None:
             # We received a TIE (rx_tie) which appears to be self-originated, but we don't have that
             # TIE in our database. Re-originate the "according" (same TIE ID) TIE, but then empty
             # (i.e. no neighbor, no prefixes, no key-values, etc.), with a higher sequence number,
             # and a short remaining life time
-            according_empty_tie_packet = self.make_according_empty_tie(rx_tie)
+            according_empty_tie_packet = self.make_according_empty_tie(rx_tie_header)
             self.store_tie(according_empty_tie_packet)
             return according_empty_tie_packet.header
         else:
             # Re-originate DB TIE with higher sequence number than the one in RX TIE
-            db_tie.header.seq_nr = rx_tie.header.seq_nr + 1
+            db_tie.header.seq_nr = rx_tie_header.seq_nr + 1
             return db_tie.header
 
     def process_received_tie_packet(self, rx_tie):
@@ -1460,7 +1460,7 @@ class Node:
         if db_tie is None:
             if rx_tie_id.originator == self.system_id:
                 # Self-originate an empty TIE with a higher sequence number.
-                start_sending_tie_header = self.bump_own_tie(db_tie, rx_tie)
+                start_sending_tie_header = self.bump_own_tie(db_tie, rx_tie.header)
             else:
                 # We don't have this TIE in the database, store and ack it
                 self.store_tie(rx_tie)
@@ -1471,7 +1471,7 @@ class Node:
                 # We have an older version of the TIE, ...
                 if rx_tie_id.originator == self.system_id:
                     # Re-originate DB TIE with higher sequence number than the one in RX TIE
-                    start_sending_tie_header = self.bump_own_tie(db_tie, rx_tie)
+                    start_sending_tie_header = self.bump_own_tie(db_tie, rx_tie.header)
                 else:
                     # We did not originate the TIE, store the newer version and ack it
                     self.store_tie(rx_tie)
