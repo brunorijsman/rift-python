@@ -40,6 +40,7 @@ SCHEMA = {
                             'rx_tie_port': {'type': 'port'},
                             'state_thrift_services_port': {'type': 'port'},
                             'config_thrift_services_port': {'type': 'port'},
+                            'kernel_route_table': {'type': 'kernel_route_table'},
                             'v4prefixes': {
                                 'type': 'list',
                                 'schema': {
@@ -177,6 +178,17 @@ class RiftValidator(cerberus.Validator):
             return False
         else:
             return 0 <= level <= 3
+
+    def _validate_type_kernel_route_table(self, value):
+        if isinstance(value, str) and value.lower() in ['local', 'main', 'default', 'unspecified',
+                                                        'none']:
+            return True
+        try:
+            table_nr = int(value)
+        except ValueError:
+            return False
+        else:
+            return 0 <= table_nr <= 255
 
 def apply_inheritance(config):
     if 'shards' in config:

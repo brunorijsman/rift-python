@@ -62,20 +62,26 @@ class Engine:
 
     def create_configuration(self, passive_nodes):
         if 'shards' in self._config:
+            total_nr_nodes = 0
             for shard_config in self._config['shards']:
-                self.create_shard(shard_config, passive_nodes)
+                if 'nodes' in shard_config:
+                    for _node_config in shard_config['nodes']:
+                        total_nr_nodes += 1
+            stand_alone = (total_nr_nodes <= 1)
+            for shard_config in self._config['shards']:
+                self.create_shard(shard_config, passive_nodes, stand_alone)
 
-    def create_shard(self, shard_config, passive_nodes):
+    def create_shard(self, shard_config, passive_nodes, stand_alone):
         if 'nodes' in shard_config:
             for node_config in shard_config['nodes']:
                 if 'name' in node_config:
                     force_passive = node_config['name'] in passive_nodes
                 else:
                     force_passive = False
-                self.create_node(node_config, force_passive)
+                self.create_node(node_config, force_passive, stand_alone)
 
-    def create_node(self, node_config, force_passive):
-        new_node = node.Node(node_config, self, force_passive)
+    def create_node(self, node_config, force_passive, stand_alone):
+        new_node = node.Node(node_config, self, force_passive, stand_alone)
         self._nodes[new_node.name] = new_node
 
     def run(self):

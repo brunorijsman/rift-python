@@ -9,11 +9,15 @@ RTPROT_RIFT = 99
 
 class Kernel:
 
-    def __init__(self, log, log_id):
-        # This will throw an exception on platforms where NETLINK is not supported such as macOS
-        # (any platform other than Linux)
+    def __init__(self, table_name, log, log_id):
+        self._table_name = table_name
+        if isinstance(table_name, int):
+            self._table_nr = table_name
+        else:
+            self._table_nr = self.table_name_to_nr(table_name)
         self._log = log
         self._log_id = log_id
+        self.debug("Create kernel using route table %s" % table_name)
         try:
             self.ipr = pyroute2.IPRoute()
             self.platform_supported = True
@@ -45,6 +49,8 @@ class Kernel:
     def put_route(self, rte):
         if not self.platform_supported:
             return
+        if self._table_nr == -1:
+            return
         dst = str(rte.prefix)
         if rte.next_hops == []:
             kernel_args = {}
@@ -59,6 +65,7 @@ class Kernel:
                     kernel_args["multipath"].append(nhop_args)
         try:
             self.ipr.route('replace',
+                           table=self._table_nr,
                            dst=dst,
                            proto=RTPROT_RIFT,
                            **kernel_args)
@@ -72,9 +79,11 @@ class Kernel:
     def del_route(self, prefix):
         if not self.platform_supported:
             return
+        if self._table_nr == -1:
+            return
         dst = str(prefix)
         try:
-            self.ipr.route('del', dst=dst, proto=RTPROT_RIFT)
+            self.ipr.route('del', table=self._table_nr, dst=dst, proto=RTPROT_RIFT)
         except pyroute2.netlink.exceptions.NetlinkError as err:
             self.error("Netlink error \"%s\" deleting route to %s", err, dst)
         except OSError as err:
@@ -188,8 +197,26 @@ class Kernel:
             return "Default"
         elif table_nr == 0:
             return "Unspecified"
+        elif table_nr == -1:
+            return "None"
         else:
             return str(table_nr)
+
+    @staticmethod
+    def table_name_to_nr(table_name):
+        lower_name = table_name.lower()
+        if lower_name == "local":
+            return 255
+        elif lower_name == "main":
+            return 254
+        elif lower_name == "default":
+            return 253
+        elif lower_name == "unspecified":
+            return 0
+        elif lower_name == "none":
+            return -1
+        else:
+            return int(table_name)
 
     @staticmethod
     def first_letter_uppercase(string):

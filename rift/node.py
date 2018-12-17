@@ -371,7 +371,8 @@ class Node:
         verbose_events=verbose_events)
 
     # TODO: Get rid of engine argument
-    def __init__(self, config, engine=None, force_passive=False):
+    ###@@@ Implement stand_alone
+    def __init__(self, config, engine=None, force_passive=False, stand_alone=False):
         # pylint:disable=too-many-statements
         # pylint: disable=too-many-statements
         self.engine = engine
@@ -388,7 +389,18 @@ class Node:
         self._tie_db_log = self.log.getChild("tie_db")
         self._spf_log = self.log.getChild("spf")
         self._kernel_log = self.log.getChild("kernel")
-        self.kernel = kernel.Kernel(self._kernel_log, self.log_id)
+        self._kernel_route_table = self.get_config_attribute("kernel_route_table", None)
+        if self._kernel_route_table is None:
+            if stand_alone:
+                self._kernel_route_table = "main"
+            elif self._node_nr <= 250:
+                self._kernel_route_table = self._node_nr
+            else:
+                self._kernel_route_table = "none"
+        self.kernel = kernel.Kernel(
+            self._kernel_route_table,
+            self._kernel_log,
+            self.log_id)
         self.log.info("[%s] Create node", self.log_id)
         self._configured_level_symbol = self.get_config_attribute('level', 'undefined')
         parse_result = self.parse_level_symbol(self._configured_level_symbol)
@@ -615,7 +627,8 @@ class Node:
             ["Receive LIE Port", self._rx_lie_port],
             ["Transmit LIE Port", self.tx_lie_port],
             ["LIE Send Interval", "{} secs".format(self.lie_send_interval_secs)],
-            ["Receive TIE Port", self.rx_tie_port]
+            ["Receive TIE Port", self.rx_tie_port],
+            ["Kernel Route Table", self._kernel_route_table],
         ]
 
     def cli_statistics_attributes(self):
