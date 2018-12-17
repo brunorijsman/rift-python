@@ -423,8 +423,8 @@ def make_node_tie_packet(name, level, direction, originator, tie_nr, seq_nr, lif
     node_tie_element = encoding.ttypes.NodeTIEElement(
         level=level,
         neighbors={},
-        capabilities=None,  ##@@ TODO: Implement this
-        flags=None,         ##@@ TODO: Implement this
+        capabilities=None,  # TODO: Implement this
+        flags=None,         # TODO: Implement this
         name=name)
     tie_element = encoding.ttypes.TIEElement(node=node_tie_element)
     tie_packet = encoding.ttypes.TIEPacket(header=tie_header, element=tie_element)
