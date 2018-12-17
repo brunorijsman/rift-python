@@ -19,6 +19,13 @@ class NextHop:
             result_str += str(self.address)
         return result_str
 
+    def __eq__(self, other):
+        if self.interface != other.interface:
+            return False
+        if self.address != other.address:
+            return False
+        return True
+
     def __lt__(self, other):
         # String is not comparable with None
         if (self.interface is None) and (other.interface is not None):

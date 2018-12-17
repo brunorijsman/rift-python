@@ -122,19 +122,25 @@ class _Destination:
             fib.put_route(best_route)
 
     def put_route(self, new_route, fib):
-        self.del_route(new_route.owner, fib)
         index = 0
         inserted = False
         for existing_route in self.routes:
-            assert new_route.owner != existing_route.owner
-            if existing_route.owner < new_route.owner:
+            if existing_route.owner == new_route.owner:
+                self.routes[index] = new_route
+                inserted = True
+                different = self.routes_significantly_different(existing_route, new_route)
+                break
+            elif existing_route.owner < new_route.owner:
                 self.routes.insert(index, new_route)
                 inserted = True
+                different = True
                 break
             index += 1
         if not inserted:
             self.routes.append(new_route)
-        self.update_fib(fib)
+            different = True
+        if different:
+            self.update_fib(fib)
 
     def del_route(self, owner, fib):
         index = 0
@@ -144,4 +150,13 @@ class _Destination:
                 self.update_fib(fib)
                 return True
             index += 1
+        return False
+
+    @staticmethod
+    def routes_significantly_different(route1, route2):
+        assert route1.prefix == route2.prefix
+        if route1.owner != route2.owner:
+            return True
+        if route1.next_hops != route2.next_hops:
+            return True
         return False
