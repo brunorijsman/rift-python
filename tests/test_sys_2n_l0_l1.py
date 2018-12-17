@@ -97,14 +97,11 @@ def check_rift_node1_intf_down(res):
     res.check_spf_absent("node1", "south", "2")
     res.check_spf_absent("node1", "south", "2.2.1.0/24")
     res.check_spf_absent("node1", "south", "2.2.2.2/32")
-    expect_rib = [
-        r"| 1.1.1.0/24 | South SPF | |",
-        r"| 1.1.1.0/24 | North SPF | |",
-        r"| 1.1.2.2/32 | South SPF | |",
-        r"| 1.1.2.2/32 | North SPF | |",
-    ]
-    res.check_rib("node1", expect_rib)
     res.check_rib_absent("node1", "0.0.0.0/0", "north-spf")
+    res.check_rib_absent("node1", "1.1.1.0/24", "south-spf")
+    res.check_rib_absent("node1", "1.1.1.0/24", "north-spf")
+    res.check_rib_absent("node1", "1.1.2.2/32", "south-spf")
+    res.check_rib_absent("node1", "1.1.2.2/32", "north-spf")
     res.check_rib_absent("node1", "2.2.1.0/24", "south-spf")
     res.check_rib_absent("node1", "2.2.2.2/32", "south-spf")
     res.check_rib_absent("node1", "::/0", "north-spf")
@@ -152,16 +149,16 @@ def check_rift_node2_intf_up(res):
     ]
     res.check_spf("node2", expect_south_spf, expect_north_spf)
     expect_rib = [
-        r"| 0.0.0.0/0  | North SPF | if1",
-        r"| 2.2.1.0/24 | South SPF |  |",
-        r"| 2.2.1.0/24 | North SPF |  |",
-        r"| 2.2.2.2/32 | South SPF |  |",
-        r"| 2.2.2.2/32 | North SPF |  |",
+        r"| 0.0.0.0/0 | North SPF | if1",
         r"| ::/0 | North SPF | if1",
     ]
     res.check_rib("node2", expect_rib)
     res.check_rib_absent("node2", "1.1.1.0/24", "north-spf")
     res.check_rib_absent("node2", "1.1.2.2/32", "north-spf")
+    res.check_rib_absent("node2", "2.2.1.0/24", "south-spf")
+    res.check_rib_absent("node2", "2.2.1.0/24", "north-spf")
+    res.check_rib_absent("node2", "2.2.2.2/32", "south-spf")
+    res.check_rib_absent("node2", "2.2.2.2/32", "north-spf")
 
 def check_rift_node2_intf_down(res):
     res.check_adjacency_1way(
@@ -205,16 +202,13 @@ def check_rift_node2_intf_down(res):
     res.check_spf_absent("node2", "north", "1")
     res.check_spf_absent("node2", "north", "0.0.0.0/0")
     res.check_spf_absent("node2", "north", "::/0")
-    expect_rib = [
-        r"| 2.2.1.0/24 | South SPF |  |",
-        r"| 2.2.1.0/24 | North SPF |  |",
-        r"| 2.2.2.2/32 | South SPF |  |",
-        r"| 2.2.2.2/32 | North SPF |  |",
-    ]
-    res.check_rib("node2", expect_rib)
     res.check_rib_absent("node2", "0.0.0.0/0", "north-spf")
     res.check_rib_absent("node2", "1.1.1.0/24", "north-spf")
     res.check_rib_absent("node2", "1.1.2.2/32", "north-spf")
+    res.check_rib_absent("node2", "2.2.1.0/24", "south-spf")
+    res.check_rib_absent("node2", "2.2.1.0/24", "north-spf")
+    res.check_rib_absent("node2", "2.2.2.2/32", "south-spf")
+    res.check_rib_absent("node2", "2.2.2.2/32", "north-spf")
     res.check_rib_absent("node2", "::/0", "north-spf")
 
 def check_log_node1_intf_up(les):

@@ -2043,7 +2043,10 @@ class Node:
                 # Destination is a node, do nothing
                 pass
             elif dest.predecessors == []:
-                # Local destination, don't install in RIB as result of SPF
+                # Local node destination, don't install in RIB as result of SPF
+                pass
+            elif dest.predecessors == [self.system_id]:
+                # Local prefix destination, don't install in RIB as result of SPF
                 pass
             else:
                 prefix = dest_key
