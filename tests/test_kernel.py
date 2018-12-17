@@ -6,7 +6,7 @@ import kernel
 # pylint: disable=bad-continuation
 
 def test_show_kernel_links():
-    kern = kernel.Kernel()
+    kern = kernel.Kernel(log=None, log_id="")
     if not kern.platform_supported:
         return
     # We assume the loopback interface (lo) is always there, and we look for something like this:

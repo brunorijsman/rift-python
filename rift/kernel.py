@@ -9,15 +9,31 @@ RTPROT_RIFT = 99
 
 class Kernel:
 
-    def __init__(self):
+    def __init__(self, log, log_id):
         # This will throw an exception on platforms where NETLINK is not supported such as macOS
         # (any platform other than Linux)
+        self._log = log
+        self._log_id = log_id
         try:
             self.ipr = pyroute2.IPRoute()
             self.platform_supported = True
+            self.debug("Kernel networking is supported on this platform")
         except OSError:
             self.ipr = None
             self.platform_supported = False
+            self.warning("Kernel networking is not supported on this platform")
+
+    def debug(self, msg, *args):
+        if self._log:
+            self._log.debug("[%s] %s" % (self._log_id, msg), *args)
+
+    def warning(self, msg, *args):
+        if self._log:
+            self._log.warning("[%s] %s" % (self._log_id, msg), *args)
+
+    def error(self, msg, *args):
+        if self._log:
+            self._log.error("[%s] %s" % (self._log_id, msg), *args)
 
     def unsupported_platform_error(self, cli_session):
         if self.platform_supported:
@@ -46,12 +62,25 @@ class Kernel:
                            dst=dst,
                            proto=RTPROT_RIFT,
                            **kernel_args)
-        except pyroute2.netlink.exceptions.NetlinkError as _err:
-            # TODO: Log error message
-            pass
-        except OSError as _err:
-            # TODO: Log error message
-            pass
+        except pyroute2.netlink.exceptions.NetlinkError as err:
+            self.error("Netlink error %s adding route to %s: %s", err, dst, kernel_args)
+        except OSError as err:
+            self.error("OS error \"%s\" adding route to %s: %s", err, dst, kernel_args)
+        else:
+            self.debug("Add route to \"%s\": %s", dst, kernel_args)
+
+    def del_route(self, prefix):
+        if not self.platform_supported:
+            return
+        dst = str(prefix)
+        try:
+            self.ipr.route('del', dst=dst, proto=RTPROT_RIFT)
+        except pyroute2.netlink.exceptions.NetlinkError as err:
+            self.error("Netlink error \"%s\" deleting route to %s", err, dst)
+        except OSError as err:
+            self.error("OS error \"%s\" deleting route to %s", err, dst)
+        else:
+            self.debug("Delete route to %s", prefix)
 
     def nhop_to_kernel_args(self, nhop):
         link = self.ipr.link_lookup(ifname=nhop.interface)
@@ -64,17 +93,6 @@ class Kernel:
             gateway = str(nhop.address)
             kernel_args = {"oif": oif, "gateway": gateway, "hops": 1}
         return kernel_args
-
-    def del_route(self, prefix):
-        if not self.platform_supported:
-            return
-        dst = str(prefix)
-        # TODO: log something
-        try:
-            self.ipr.route('del', dst=dst, proto=RTPROT_RIFT)
-        except pyroute2.netlink.exceptions.NetlinkError as _err:
-            # TODO: Log error message
-            pass
 
     def command_show_addresses(self, cli_session):
         if self.unsupported_platform_error(cli_session):

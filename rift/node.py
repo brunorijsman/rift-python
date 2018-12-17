@@ -375,7 +375,6 @@ class Node:
         # pylint:disable=too-many-statements
         # pylint: disable=too-many-statements
         self.engine = engine
-        self.kernel = kernel.Kernel()
         self._config = config
         self._node_nr = Node._next_node_nr
         Node._next_node_nr += 1
@@ -385,7 +384,11 @@ class Node:
         self.system_id = self.get_config_attribute("systemid", self.generate_system_id())
         self.log_id = self.name
         self.log = logging.getLogger('node')
-        # TODO: Make sure formating of log message is deferred everywhere, not just direct calls
+        self._fsm_log = self.log.getChild("fsm")
+        self._tie_db_log = self.log.getChild("tie_db")
+        self._spf_log = self.log.getChild("spf")
+        self._kernel_log = self.log.getChild("kernel")
+        self.kernel = kernel.Kernel(self._kernel_log, self.log_id)
         self.log.info("[%s] Create node", self.log_id)
         self._configured_level_symbol = self.get_config_attribute('level', 'undefined')
         parse_result = self.parse_level_symbol(self._configured_level_symbol)
@@ -415,9 +418,6 @@ class Node:
         self._tx_offers = {}     # Indexed by interface name
         self._highest_available_level = None
         self.highest_adjacency_three_way = None
-        self._fsm_log = self.log.getChild("fsm")
-        self._tie_db_log = self.log.getChild("tie_db")
-        self._spf_log = self.log.getChild("spf")
         self._holdtime = 1
         self._next_interface_id = 1
         if 'interfaces' in config:
