@@ -1,3 +1,4 @@
+import errno
 import socket
 
 import pyroute2
@@ -56,13 +57,19 @@ class Kernel:
             kernel_args = {}
         elif len(rte.next_hops) == 1:
             nhop = rte.next_hops[0]
-            kernel_args = self.nhop_to_kernel_args(nhop)
+            kernel_args = self.nhop_to_kernel_args(nhop, dst)
+            if kernel_args == {}:
+                self.del_route(rte.prefix)
+                return
         else:
             kernel_args = {"multipath": []}
             for nhop in rte.next_hops:
-                nhop_args = self.nhop_to_kernel_args(nhop)
+                nhop_args = self.nhop_to_kernel_args(nhop, dst)
                 if nhop_args:
                     kernel_args["multipath"].append(nhop_args)
+            if kernel_args["multipath"] == []:
+                self.del_route(rte.prefix)
+                return
         try:
             self.ipr.route('replace',
                            table=self._table_nr,
@@ -85,15 +92,17 @@ class Kernel:
         try:
             self.ipr.route('del', table=self._table_nr, dst=dst, proto=RTPROT_RIFT)
         except pyroute2.netlink.exceptions.NetlinkError as err:
-            self.error("Netlink error \"%s\" deleting route to %s", err, dst)
+            if err.code != errno.ESRCH:  # It is not an error to delete a non-existing route
+                self.error("Netlink error \"%s\" deleting route to %s", err, dst)
         except OSError as err:
             self.error("OS error \"%s\" deleting route to %s", err, dst)
         else:
             self.debug("Delete route to %s", prefix)
 
-    def nhop_to_kernel_args(self, nhop):
+    def nhop_to_kernel_args(self, nhop, dst):
         link = self.ipr.link_lookup(ifname=nhop.interface)
         if link == []:
+            self.error("Unknown interface \"%s\" replacing route to %s", nhop.interface, dst)
             return {}
         oif = link[0]
         if nhop.address is None:

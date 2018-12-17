@@ -21,6 +21,8 @@
         "deque",
         "disaggregated",
         "encap",
+        "errno",
+        "esrch",
         "getenv",
         "hackathon",
         "ifinfmsg",
