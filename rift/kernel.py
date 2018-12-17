@@ -30,35 +30,40 @@ class Kernel:
         if not self.platform_supported:
             return
         dst = str(rte.prefix)
-        oif = 1
         if rte.next_hops == []:
-            nh_args = {}
+            kernel_args = {}
         elif len(rte.next_hops) == 1:
-            nh_args = {}
-            next_hop = rte.next_hops[0]
-            link = self.ipr.link_lookup(ifname=next_hop.interface)
-            if 0 in link:
-                oif = link[0]
-                if next_hop.address is None:
-                    nh_args = {"oif": oif}
-                else:
-                    gateway = str(next_hop.address)
-                    nh_args = {"oif": oif, "gateway": gateway}
+            nhop = rte.next_hops[0]
+            kernel_args = self.nhop_to_kernel_args(nhop)
         else:
-            # TODO: Support ECMP next-hops
-            nh_args = {}
-        # TODO: log something
+            kernel_args = {"multipath": []}
+            for nhop in rte.next_hops:
+                nhop_args = self.nhop_to_kernel_args(nhop)
+                if nhop_args:
+                    kernel_args["multipath"].append(nhop_args)
         try:
             self.ipr.route('add',
                            dst=dst,
                            proto=RTPROT_RIFT,
-                           **nh_args)
+                           **kernel_args)
         except pyroute2.netlink.exceptions.NetlinkError as _err:
             # TODO: Log error message
             pass
         except OSError as _err:
             # TODO: Log error message
             pass
+
+    def nhop_to_kernel_args(self, nhop):
+        link = self.ipr.link_lookup(ifname=nhop.interface)
+        if link == []:
+            return {}
+        oif = link[0]
+        if nhop.address is None:
+            kernel_args = {"oif": oif, "hops": 1}
+        else:
+            gateway = str(nhop.address)
+            kernel_args = {"oif": oif, "gateway": gateway, "hops": 1}
+        return kernel_args
 
     def del_route(self, prefix):
         if not self.platform_supported:
@@ -269,8 +274,8 @@ class Kernel:
                 weight_str = path["hops"]
             else:
                 weight_str = ""
-            next_hop = (oif_str, gateway_str, weight_str)
-            next_hops_list.append(next_hop)
+            nhop = (oif_str, gateway_str, weight_str)
+            next_hops_list.append(nhop)
         return next_hops_list
 
     @staticmethod
@@ -305,10 +310,10 @@ class Kernel:
             oif_cell = []
             gateway_cell = []
             weight_cell = []
-            for next_hop in next_hops:
-                oif_cell.append(next_hop[0])
-                gateway_cell.append(next_hop[1])
-                weight_cell.append(next_hop[2])
+            for nhop in next_hops:
+                oif_cell.append(nhop[0])
+                gateway_cell.append(nhop[1])
+                weight_cell.append(nhop[2])
             rows.append([route_table_nr,
                          self.af_str(family),
                          dst_prefix_str,
@@ -360,8 +365,8 @@ class Kernel:
         tab = table.Table(separators=False)
         next_hops = self.kernel_route_nhops(route, links)
         next_hops_cell = []
-        for next_hop in next_hops:
-            next_hop_str = str(next_hop[0]) + " " + str(next_hop[1]) + " " + str(next_hop[2])
+        for nhop in next_hops:
+            next_hop_str = str(nhop[0]) + " " + str(nhop[1]) + " " + str(nhop[2])
             next_hops_cell.append(next_hop_str)
         tab.add_row(["Table", self.table_nr_to_name(table_nr)])
         tab.add_row(["Address Family", self.af_str(self.af_str(route["family"]))])
