@@ -118,7 +118,7 @@ def test_put_del_route():
     # Put route with one next-hop (with interface and address)
     prefix = packet_common.make_ip_prefix("99.99.99.99/32")
     address = packet_common.make_ip_address("127.0.0.1")
-    nhops = [next_hop.NextHop("lo", address)]
+    nhops = [next_hop.NextHop("eth0", address)]
     rte = route.Route(prefix, constants.OWNER_S_SPF, nhops)
     assert kern.put_route(rte)
     # Delete route just added
