@@ -109,16 +109,16 @@ def test_put_del_route():
     if not kern.platform_supported:
         return
     # Put route with one next-hop (with interface but no address)
-    # prefix = packet_common.make_ip_prefix("99.99.99.99/32")
-    # nhops = [next_hop.NextHop("lo", None)]
-    # rte = route.Route(prefix, constants.OWNER_S_SPF, nhops)
-    # assert kern.put_route(rte)
-    # # Delete route just added
-    # assert kern.del_route(prefix)
+    prefix = packet_common.make_ip_prefix("99.99.99.99/32")
+    nhops = [next_hop.NextHop("lo", None)]
+    rte = route.Route(prefix, constants.OWNER_S_SPF, nhops)
+    assert kern.put_route(rte)
+    # Delete route just added
+    assert kern.del_route(prefix)
     # Put route with one next-hop (with interface and address)
     prefix = packet_common.make_ip_prefix("99.99.99.99/32")
     address = packet_common.make_ip_address("127.0.0.1")
-    nhops = [next_hop.NextHop("eth0", address)]
+    nhops = [next_hop.NextHop("lo", address)]
     rte = route.Route(prefix, constants.OWNER_S_SPF, nhops)
     assert kern.put_route(rte)
     # Delete route just added

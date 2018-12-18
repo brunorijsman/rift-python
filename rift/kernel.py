@@ -37,6 +37,7 @@ class Kernel:
             self._log.warning("[%s] %s" % (self._log_id, msg), *args)
 
     def error(self, msg, *args):
+        print("[%s] %s" % (self._log_id, msg), *args)
         if self._log:
             self._log.error("[%s] %s" % (self._log_id, msg), *args)
 
