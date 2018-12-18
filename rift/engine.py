@@ -111,9 +111,6 @@ class Engine:
     def command_show_kernel_links(self, cli_session):
         cli_session.current_node.command_show_kernel_links(cli_session)
 
-    def command_show_kernel_attribs(self, cli_session):
-        cli_session.current_node.command_show_kernel_attribs(cli_session)
-
     def command_show_kernel_routes(self, cli_session):
         cli_session.current_node.command_show_kernel_routes(cli_session)
 
@@ -233,7 +230,6 @@ class Engine:
             "kernel": {
                 "addresses": command_show_kernel_addresses,
                 "links": command_show_kernel_links,
-                "netlink-attributes": command_show_kernel_attribs,
                 "routes": {
                     "": command_show_kernel_routes,
                     "$table": {

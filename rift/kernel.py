@@ -49,9 +49,9 @@ class Kernel:
 
     def put_route(self, rte):
         if not self.platform_supported:
-            return
+            return False
         if self._table_nr == -1:
-            return
+            return False
         dst = str(rte.prefix)
         if rte.next_hops == []:
             kernel_args = {}
@@ -60,7 +60,7 @@ class Kernel:
             kernel_args = self.nhop_to_kernel_args(nhop, dst)
             if kernel_args == {}:
                 self.del_route(rte.prefix)
-                return
+                return False
         else:
             kernel_args = {"multipath": []}
             for nhop in rte.next_hops:
@@ -69,7 +69,7 @@ class Kernel:
                     kernel_args["multipath"].append(nhop_args)
             if kernel_args["multipath"] == []:
                 self.del_route(rte.prefix)
-                return
+                return False
         try:
             self.ipr.route('replace',
                            table=self._table_nr,
@@ -78,26 +78,32 @@ class Kernel:
                            **kernel_args)
         except pyroute2.netlink.exceptions.NetlinkError as err:
             self.error("Netlink error %s replacing route to %s: %s", err, dst, kernel_args)
+            return False
         except OSError as err:
             self.error("OS error \"%s\" replacing route to %s: %s", err, dst, kernel_args)
+            return False
         else:
             self.debug("Replace route to \"%s\": %s", dst, kernel_args)
+            return True
 
     def del_route(self, prefix):
         if not self.platform_supported:
-            return
+            return False
         if self._table_nr == -1:
-            return
+            return False
         dst = str(prefix)
         try:
             self.ipr.route('del', table=self._table_nr, dst=dst, proto=RTPROT_RIFT)
         except pyroute2.netlink.exceptions.NetlinkError as err:
             if err.code != errno.ESRCH:  # It is not an error to delete a non-existing route
                 self.error("Netlink error \"%s\" deleting route to %s", err, dst)
+            return False
         except OSError as err:
             self.error("OS error \"%s\" deleting route to %s", err, dst)
+            return False
         else:
             self.debug("Delete route to %s", prefix)
+            return True
 
     def nhop_to_kernel_args(self, nhop, dst):
         link = self.ipr.link_lookup(ifname=nhop.interface)
@@ -112,9 +118,7 @@ class Kernel:
             kernel_args = {"oif": oif, "gateway": gateway, "hops": 1}
         return kernel_args
 
-    def command_show_addresses(self, cli_session):
-        if self.unsupported_platform_error(cli_session):
-            return
+    def cli_addresses_table(self):
         tab = table.Table()
         tab.add_row([
             ["Interface", "Name"],
@@ -131,6 +135,12 @@ class Kernel:
                 self.to_str(addr.get_attr('IFA_BROADCAST')),
                 self.to_str(addr.get_attr('IFA_ANYCAST')),
             ])
+        return tab
+
+    def command_show_addresses(self, cli_session):
+        if self.unsupported_platform_error(cli_session):
+            return
+        tab = self.cli_addresses_table()
         cli_session.print("Kernel Addresses:")
         cli_session.print(tab.to_string())
 
@@ -355,10 +365,8 @@ class Kernel:
             next_hops = []
         return next_hops
 
-    def command_show_routes(self, cli_session, table_nr):
+    def cli_routes_table(self, table_nr):
         # pylint:disable=too-many-locals
-        if self.unsupported_platform_error(cli_session):
-            return
         links = self.ipr.get_links()
         rows = []
         for route in self.ipr.get_routes():
@@ -397,12 +405,16 @@ class Kernel:
                      "Gateway",
                      "Weight"])
         tab.add_rows(rows)
+        return tab
+
+    def command_show_routes(self, cli_session, table_nr):
+        if self.unsupported_platform_error(cli_session):
+            return
+        tab = self.cli_routes_table(table_nr)
         cli_session.print("Kernel Routes:")
         cli_session.print(tab.to_string())
 
-    def command_show_route_prefix(self, cli_session, table_nr, prefix):
-        if self.unsupported_platform_error(cli_session):
-            return
+    def cli_route_prefix_table(self, table_nr, prefix):
         route = None
         for rte in self.ipr.get_routes():
             route_table_nr = rte.get_attr('RTA_TABLE')
@@ -411,9 +423,7 @@ class Kernel:
                 route = rte
                 break
         if route is None:
-            cli_session.print('Prefix "{}" in table "{}" not present in kernel route table'
-                              .format(prefix, self.table_nr_to_name(table_nr)))
-            return
+            return None
         links = self.ipr.get_links()
         tab = table.Table(separators=False)
         next_hops = self.kernel_route_nhops(route, links)
@@ -438,26 +448,14 @@ class Kernel:
         tab.add_row(["Metrics", self.to_str(route.get_attr('RTA_METRICS'))])
         tab.add_row(["Type of Service", route["tos"]])
         tab.add_row(["Flags", route["flags"]])
-        cli_session.print(tab.to_string())
+        return tab
 
-    def command_show_attribs(self, cli_session):
+    def command_show_route_prefix(self, cli_session, table_nr, prefix):
         if self.unsupported_platform_error(cli_session):
             return
-        print("Link attributes:")
-        self.show_object_attribs(self.ipr.get_links(), cli_session)
-        print("Address attributes:")
-        self.show_object_attribs(self.ipr.get_addr(), cli_session)
-        print("Route attributes:")
-        self.show_object_attribs(self.ipr.get_routes(), cli_session)
-
-    @staticmethod
-    def show_object_attribs(objects, cli_session):
-        attributes = []
-        for obj in objects:
-            for (key, _) in obj["attrs"]:
-                if key not in attributes:
-                    attributes.append(key)
-        tab = table.Table()
-        for attribute in sorted(attributes):
-            tab.add_row([attribute])
-        cli_session.print(tab.to_string())
+        tab = self.cli_route_prefix_table(table_nr, prefix)
+        if tab is None:
+            cli_session.print('Prefix "{}" in table "{}" not present in kernel route table'
+                              .format(prefix, self.table_nr_to_name(table_nr)))
+        else:
+            cli_session.print(tab.to_string())

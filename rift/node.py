@@ -982,9 +982,6 @@ class Node:
     def command_show_kernel_links(self, cli_session):
         self.kernel.command_show_links(cli_session)
 
-    def command_show_kernel_attribs(self, cli_session):
-        self.kernel.command_show_attribs(cli_session)
-
     def command_show_kernel_routes(self, cli_session):
         self.kernel.command_show_routes(cli_session, None)
 
