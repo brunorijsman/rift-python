@@ -12,7 +12,7 @@ install:
 script:
   # We are strict; if the pylint score is not perfect, we fail the build
   # Needs "sudo" for adding routes to the kernel route table (test_kernel)
-  - sudo pytest --cov=rift tests && pylint rift && pylint tests
+  - sudo env/bin/pytest --cov=rift tests && pylint rift && pylint tests
   
 after_success:
   - codecov
