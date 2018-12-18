@@ -388,6 +388,8 @@ class Node:
         self._fsm_log = self.log.getChild("fsm")
         self._tie_db_log = self.log.getChild("tie_db")
         self._spf_log = self.log.getChild("spf")
+        self._rib_log = self.log.getChild("rib")
+        self._fib_log = self.log.getChild("fib")
         self._kernel_log = self.log.getChild("kernel")
         self._kernel_route_table = self.get_config_attribute("kernel_route_table", None)
         if self._kernel_route_table is None:
@@ -454,10 +456,26 @@ class Node:
         self._spf_destinations = {}
         self._spf_destinations[constants.DIR_SOUTH] = {}
         self._spf_destinations[constants.DIR_NORTH] = {}
-        self._ipv4_fib = fib.ForwardingTable(constants.ADDRESS_FAMILY_IPV4, self.kernel)
-        self._ipv6_fib = fib.ForwardingTable(constants.ADDRESS_FAMILY_IPV6, self.kernel)
-        self._ipv4_rib = rib.RouteTable(constants.ADDRESS_FAMILY_IPV4, self._ipv4_fib)
-        self._ipv6_rib = rib.RouteTable(constants.ADDRESS_FAMILY_IPV6, self._ipv6_fib)
+        self._ipv4_fib = fib.ForwardingTable(
+            constants.ADDRESS_FAMILY_IPV4,
+            self.kernel,
+            self._fib_log,
+            self.log_id)
+        self._ipv6_fib = fib.ForwardingTable(
+            constants.ADDRESS_FAMILY_IPV6,
+            self.kernel,
+            self._fib_log,
+            self.log_id)
+        self._ipv4_rib = rib.RouteTable(
+            constants.ADDRESS_FAMILY_IPV4,
+            self._ipv4_fib,
+            self._rib_log,
+            self.log_id)
+        self._ipv6_rib = rib.RouteTable(
+            constants.ADDRESS_FAMILY_IPV6,
+            self._ipv6_fib,
+            self._rib_log,
+            self.log_id)
         if "skip-self-orginated-ties" not in self._config:
             self.regenerate_my_node_ties()
             self.regenerate_my_north_prefix_tie()

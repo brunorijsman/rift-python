@@ -12,8 +12,8 @@ N = constants.OWNER_N_SPF
 S = constants.OWNER_S_SPF
 
 def mkrt(address_family):
-    forwarding_table = fib.ForwardingTable(address_family)
-    route_table = rib.RouteTable(address_family, forwarding_table)
+    forwarding_table = fib.ForwardingTable(address_family, kernel=None, log=None, log_id="")
+    route_table = rib.RouteTable(address_family, forwarding_table, log=None, log_id="")
     return route_table
 
 def mkp(prefix_str):
@@ -293,7 +293,7 @@ def test_asserts():
         _rte = route_table.get_route("1.2.3.0/24", N)
     # Passing the wrong prefix type to del_route asserts
     with pytest.raises(Exception):
-        _rte = route_table.del_route("1.2.3.0/24", N)
+        _deleted = route_table.del_route("1.2.3.0/24", N)
     # The address family of the route must match the address family of the table
     with pytest.raises(Exception):
         route_table.put_route(mkr("1111:1111:1111:1111:0000:0000:0000:0000/64", N))

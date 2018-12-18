@@ -6,12 +6,18 @@ import table
 
 class RouteTable:
 
-    def __init__(self, address_family, fib):
+    def __init__(self, address_family, fib, log, log_id):
         assert fib.address_family == address_family
         self.address_family = address_family
         # Sorted dict of _Destination objects indexed by prefix
         self.destinations = sortedcontainers.SortedDict()
         self.fib = fib
+        self._log = log
+        self._log_id = log_id
+
+    def debug(self, msg, *args):
+        if self._log:
+            self._log.debug("[%s] %s" % (self._log_id, msg), *args)
 
     def get_route(self, prefix, owner):
         packet_common.assert_prefix_address_family(prefix, self.address_family)
@@ -24,6 +30,7 @@ class RouteTable:
         packet_common.assert_prefix_address_family(rte.prefix, self.address_family)
         rte.stale = False
         prefix = rte.prefix
+        self.debug("Put %s", rte)
         if rte.prefix in self.destinations:
             destination = self.destinations[prefix]
         else:
@@ -39,9 +46,13 @@ class RouteTable:
             deleted = destination.del_route(owner, self.fib)
             if destination.routes == []:
                 del self.destinations[prefix]
-            return deleted
         else:
-            return False
+            deleted = False
+        if deleted:
+            self.debug("Delete %s", prefix)
+        else:
+            self.debug("Attempted delete %s (not present)", prefix)
+        return deleted
 
     def all_routes(self):
         for destination in self.destinations.values():
@@ -81,10 +92,11 @@ class RouteTable:
             if rte.stale:
                 routes_to_delete.append((rte.prefix, rte.owner))
         # Now delete the routes in the prepared list
-        count = 0
+        count = len(routes_to_delete)
+        if count > 0:
+            self.debug("Delete %d remaining stale routes", count)
         for (prefix, owner) in routes_to_delete:
             self.del_route(prefix, owner)
-            count += 1
         return count
 
     def nr_destinations(self):

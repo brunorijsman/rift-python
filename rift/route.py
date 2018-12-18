@@ -11,6 +11,11 @@ class Route:
         self.next_hops = next_hops
         self.stale = False
 
+    def __str__(self):
+        return ("route to " + packet_common.ip_prefix_str(self.prefix) +
+                " via " + ", ".join(str(nhop) for nhop in self.next_hops) +
+                " owned by " + constants.owner_str(self.owner))
+
     @staticmethod
     def cli_summary_headers():
         return [
