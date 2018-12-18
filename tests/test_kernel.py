@@ -105,7 +105,7 @@ def test_cli_route_prefix_table():
     assert re.search(pattern, tab_str) is not None
 
 def test_put_del_route():
-    kern = kernel.Kernel(log=None, log_id="", table_name="main")
+    kern = kernel.Kernel(log=None, log_id="", table_name="5")
     if not kern.platform_supported:
         return
     # Put route with one next-hop (with interface but no address)
@@ -131,8 +131,8 @@ def test_put_del_route():
     rte = route.Route(prefix, constants.OWNER_S_SPF, nhops)
     assert kern.put_route(rte)
     # Do we display the ECMP route properly?
-    tab_str = kern.cli_route_prefix_table(254, prefix).to_string()
-    pattern = (r"[|] Table +[|] Main +[|]\n"
+    tab_str = kern.cli_route_prefix_table(5, prefix).to_string()
+    pattern = (r"[|] Table +[|] 5 +[|]\n"
                r"[|] Address Family +[|] IPv4 +[|]\n"
                r"[|] Destination +[|] 99\.99\.99\.99/32 +[|]\n"
                r"[|] Type +[|] Unicast +[|]\n"
