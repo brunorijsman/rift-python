@@ -11,10 +11,12 @@ install:
   - pip install -r requirements.txt
   - pip install pylint
   - pip install codecov
+  # Python3 needs root and setuid to allow test_kernel to add routes to the kernel
+  - sudo chmown root env/bin/python3
+  - sudo chmod u+s env/bin/python3
 script:
   # We are strict; if the pylint score is not perfect, we fail the build
-  # Needs "sudo" for adding routes to the kernel route table (test_kernel)
-  - sudo env/bin/pytest --cov=rift tests && pylint rift && pylint tests
+  - pytest --cov=rift tests && pylint rift && pylint tests
   
 after_success:
   - codecov
