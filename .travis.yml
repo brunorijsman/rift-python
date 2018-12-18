@@ -11,7 +11,8 @@ install:
   - pip install codecov
 script:
   # We are strict; if the pylint score is not perfect, we fail the build
-  - pytest --cov=rift tests && pylint rift && pylint tests
+  # Needs "sudo" for adding routes to the kernel route table (test_kernel)
+  - sudo pytest --cov=rift tests && pylint rift && pylint tests
   
 after_success:
   - codecov
