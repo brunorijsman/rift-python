@@ -12,7 +12,7 @@ install:
   - pip install pylint
   - pip install codecov
   # Python3 needs root and setuid to allow test_kernel to add routes to the kernel
-  - sudo chmown root env/bin/python3
+  - sudo chown root env/bin/python3
   - sudo chmod u+s env/bin/python3
 script:
   # We are strict; if the pylint score is not perfect, we fail the build
