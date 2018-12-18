@@ -115,7 +115,6 @@ class Kernel:
     def command_show_addresses(self, cli_session):
         if self.unsupported_platform_error(cli_session):
             return
-        # TODO: Report fields (similar to index and flags in links)
         tab = table.Table()
         tab.add_row([
             ["Interface", "Name"],
@@ -265,6 +264,15 @@ class Kernel:
             return str(address_family)
 
     @staticmethod
+    def scope_str(scope):
+        if scope in pyroute2.netlink.rtnl.rt_scope:
+            scope_str = pyroute2.netlink.rtnl.rt_scope[scope]
+            scope_str = Kernel.first_letter_uppercase(scope_str)
+        else:
+            scope_str = str(scope)
+        return scope_str
+
+    @staticmethod
     def interface_index_to_name(interface_index, links):
         for link in links:
             if link["index"] == interface_index:
@@ -309,7 +317,6 @@ class Kernel:
             return []
         next_hops_list = []
         for path in multipath_list:
-            # TODO: Add support for path["flags"].
             if "oif" in path:
                 oif_index = path["oif"]
                 oif_str = Kernel.interface_index_to_name(oif_index, links)
@@ -394,14 +401,6 @@ class Kernel:
         cli_session.print(tab.to_string())
 
     def command_show_route_prefix(self, cli_session, table_nr, prefix):
-        # TODO: Add support for:
-        # - Attribute RTA_FLOW
-        # - Attribute RTA_ENCAP_TYPE
-        # - Attribute RTA_ENCAP
-        # - Attribute RTA_METRICS
-        # - Field tos
-        # - Field flags
-        # - Field scope
         if self.unsupported_platform_error(cli_session):
             return
         route = None
@@ -427,11 +426,18 @@ class Kernel:
         tab.add_row(["Destination", str(prefix)])
         tab.add_row(["Type", self.route_type_str(route["type"])])
         tab.add_row(["Protocol", self.proto_str(route["proto"])])
+        tab.add_row(["Scope", self.scope_str(route["scope"])])
         tab.add_row(["Next-hops", next_hops_cell])
         tab.add_row(["Priority", self.to_str(route.get_attr('RTA_PRIORITY'))])
         tab.add_row(["Preference", self.to_str(route.get_attr('RTA_PREF'))])
         tab.add_row(["Preferred Source Address", self.to_str(route.get_attr('RTA_PREFSRC'))])
         tab.add_row(["Source", self.kernel_route_src_prefix_str(route)])
+        tab.add_row(["Flow", self.to_str(route.get_attr('RTA_FLOW'))])
+        tab.add_row(["Encapsulation Type", self.to_str(route.get_attr('RTA_ENCAP_TYPE'))])
+        tab.add_row(["Encapsulation", self.to_str(route.get_attr('RTA_ENCAP'))])
+        tab.add_row(["Metrics", self.to_str(route.get_attr('RTA_METRICS'))])
+        tab.add_row(["Type of Service", route["tos"]])
+        tab.add_row(["Flags", route["flags"]])
         cli_session.print(tab.to_string())
 
     def command_show_attribs(self, cli_session):
