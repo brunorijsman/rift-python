@@ -710,7 +710,91 @@ code coverage reports than the ones described above.
 
 ## Code Profiling
 
-@@@ TODO
+Use the following steps to profile the RIFT-Python code, i.e. to measure how much time RIFT-Python spends in each function.
+
+Start a test topology (in this example topology `4n_diamond_parallel`) as follows:
+
+<pre>
+$ <b>cd rift</b>
+$ <b>python -m cProfile -o output  __main__.py -i ../topology/4n_diamond_parallel.yaml</b>
+</pre>
+
+The `-m cProfile` option enables profiling.
+
+The `-o output` option causes the raw profile data to be written to the file `output`.
+
+Note that we start RIFT-Python a bit different than ususal. Instead of using `python rift` to start
+the RIFT module, we go into the `rift` directory and start `python __main__.py`. This is needed
+because cProfile has some issues starting a module.
+
+Once the topology-under-test is running, you can execute whatever scenario you want to profile.
+In this case, we just let the topology converge for a few seconds, and then stop the RIFT engine:
+
+<pre>
+leaf> stop
+(env) $ 
+</pre>
+
+At this point, the file `output` contains the raw profile data.
+
+We can view a textual summary of the profile data by running the following Python script:
+
+<pre>
+import pstats
+from pstats import SortKey
+p = pstats.Stats('output')
+p.sort_stats(SortKey.TIME).print_stats(10)
+</pre>
+
+This example reports the top 10 functions, sorted by total time spend in the function itself:
+
+<pre>
+Wed Dec 19 14:44:20 2018    output
+
+         1515197 function calls (1414768 primitive calls) in 6.856 seconds
+
+   Ordered by: internal time
+   List reduced from 2672 to 10 due to restriction <10>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+       57    3.114    0.055    3.114    0.055 {built-in method select.select}
+        2    2.011    1.005    2.011    1.005 {built-in method time.sleep}
+      256    0.121    0.000    0.121    0.000 {method 'read' of '_io.FileIO' objects}
+39855/366    0.082    0.000    0.193    0.001 /Users/brunorijsman/rift-python/env/lib/python3.7/copy.py:132(deepcopy)
+      256    0.079    0.000    0.200    0.001 <frozen importlib._bootstrap_external>:914(get_data)
+       28    0.074    0.003    0.074    0.003 {built-in method _imp.create_dynamic}
+      256    0.045    0.000    0.045    0.000 {built-in method marshal.loads}
+   141087    0.034    0.000    0.046    0.000 {built-in method builtins.isinstance}
+    32430    0.034    0.000    0.060    0.000 /Users/brunorijsman/rift-python/env/lib/python3.7/site-packages/thrift/transport/TTransport.py:56(readAll)
+     1323    0.033    0.000    0.033    0.000 {built-in method posix.stat}
+
+<pstats.Stats object at 0x10d3549b0>
+</pre>
+
+To produce a graphical representation of the profile (which is much easier to understand and much
+more comprehensive than the above text output) use the following steps.
+
+First install the `gprof2dot` Python module:
+
+<pre>
+(env) $ <b>pip install gprof2dot</b>
+Collecting gprof2dot
+Installing collected packages: gprof2dot
+Successfully installed gprof2dot-2017.9.19
+(env) $ 
+</pre>
+
+Then, use the following shell command to first convert the raw profile data into a "dot" graph,
+then convert the dot graph into a .png graphics file, and finally open the .png graphics file 
+in a web browser (the `open` command assumes you are running on macOS):
+
+<pre>
+(env) $ <b>python -m gprof2dot -f pstats output | dot -Tpng -o output.png && open output.png</b>
+</pre>
+
+This produces a diagram similar to the following one:
+
+![RIFT-Python Profile Report Example](http://bit.ly/example-rift-python-code-profile)
 
 ## Log Visualization Tool
 
