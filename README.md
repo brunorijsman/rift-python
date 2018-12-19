@@ -31,6 +31,8 @@ The code is currently still a work in progress (see Feature List below for the s
 
 * [Continuous Integration](doc/continuous-integration.md)
 
+* [Docker](doc/docker.md)
+
 # Presentations and Reports
 
 ## IETF 102 (Montreal) RIFT Hackathon Interoperability Testing
