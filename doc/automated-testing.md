@@ -547,47 +547,6 @@ File "tests/log_expect_session.py", line 35, in expect_failure
     for line in traceback.format_stack():
 </pre>
 
-## Interoperability Tests
-
-The interoperability tests build upon the system tests. The interoperability tests run the exact same topologies and test cases as in the system tests, except that one or more RIFT-Python nodes are replaced by RIFT-Juniper nodes.
-
-To run the interoperability tests, first make sure that the RIFT-Python executable (rift-environ) is in your search path (PATH). Then run the `test/interop.py' script:
-
-<pre>
-@@@
-</pre>
-
-This currently takes about 3 minutes to complete (but it will take longer when I introduce more test cases).
-
-Each line of output reports whether or not a particular interop test case passed or failed.
-
-The naming convention for interop test cases is the topology plus a list of nodes that are running as RIFT-Juniper nodes. For example, test case `2n_l0_l1-node2` is topology `2n_l0_l1` with node2 running as a RIFT-Juniper node. As another example, test case `3n_l0_l1_l2-node1-node2` is topology `3n_l0_l1_l2` where node1 and node2 are running as RIFT-Juniper nodes.
-
-At the beginning of the tile `tests/interop.py` you can see a list of test cases that are executed during the interop testing:
-
-<pre>
-TEST_CASES = [("test_sys_2n_l0_l1.py", "2n_l0_l1.yaml", ["node1"]),
-              ("test_sys_2n_l0_l1.py", "2n_l0_l1.yaml", ["node2"]),
-              ("test_sys_2n_l0_l2.py", "2n_l0_l2.yaml", ["node1"]),
-              ("test_sys_2n_l0_l2.py", "2n_l0_l2.yaml", ["node2"]),
-              ("test_sys_2n_l1_l3.py", "2n_l1_l3.yaml", ["node1"]),
-              ("test_sys_2n_l1_l3.py", "2n_l1_l3.yaml", ["node2"]),
-              ("test_sys_3n_l0_l1_l2.py", "3n_l0_l1_l2.yaml", ["node1"]),
-              ("test_sys_3n_l0_l1_l2.py", "3n_l0_l1_l2.yaml", ["node2"]),
-              ("test_sys_3n_l0_l1_l2.py", "3n_l0_l1_l2.yaml", ["node3"]),
-              ("test_sys_3n_l0_l1_l2.py", "3n_l0_l1_l2.yaml", ["node1", "node2"]),
-              ("test_sys_3n_l0_l1_l2.py", "3n_l0_l1_l2.yaml", ["node2", "node3"]),
-              ("test_sys_3n_l0_l1_l2.py", "3n_l0_l1_l2.yaml", ["node1", "node3"]),
-              ("test_sys_2n_un_l1.py", "2n_un_l1.yaml", ["node1"]),
-              ("test_sys_2n_un_l1.py", "2n_un_l1.yaml", ["node2"])]
-</pre>
-
-Each line contains a 3-tuple (topology, sys\_test, juniper\_nodes) that describes a single integration test cases:
-
-* topology is the name of the topology file.
-* sys\_test is the name of the system test script.
-* juniper\_nodes is a list of node names that run RIFT-Juniper instead of RIFT-Python
-
 ## Diagnosing Interoperability Test Failures
 
 Running an interop test suite, creates a directory whose name is `interop-results` followed by a timestamp, for example `interop-results-2018-08-16-13:26:24.651390`. This directory contains one subdirectory for each interop test case in the suite, for example:
@@ -618,6 +577,140 @@ juniper-rift.log
 pytest.log
 rift_expect.log
 </pre>
+
+## Interoperability Tests
+
+The interoperability tests build upon the system tests. The interoperability tests run the exact same topologies and test cases as in the system tests, except that one or more RIFT-Python nodes are replaced by RIFT-Juniper nodes.
+
+To run the interoperability tests, first make sure that the RIFT-Python executable (rift-environ) is in your search path (PATH). Then run the `test/interop.py' script:
+
+<pre>
+(env) $ <b>tests/interop.py</b>
+2n_l0_l1-node1... Pass
+2n_l0_l1-node2... Pass
+2n_l0_l2-node1... Pass
+2n_l0_l2-node2... Pass
+2n_l1_l3-node1... Pass
+2n_l1_l3-node2... Pass
+3n_l0_l1_l2-node1... Pass
+3n_l0_l1_l2-node2... Pass
+3n_l0_l1_l2-node3... Pass
+3n_l0_l1_l2-node1-node2... Pass
+3n_l0_l1_l2-node2-node3... Pass
+3n_l0_l1_l2-node1-node3... Pass
+2n_un_l1-node1... Pass
+2n_un_l1-node2... Pass
+2n_un_l2-node1... Pass
+2n_un_l2-node2... Pass
+2n_un_l0-node1... Pass
+2n_un_l0-node2... Pass
+(env) $ 
+</pre>
+
+This currently takes about 6 minutes to complete (but it will take longer when I introduce more test cases).
+
+Each line of output reports whether or not a particular interop test case passed or failed.
+
+The naming convention for interop test cases is the topology plus a list of nodes that are running as RIFT-Juniper nodes. For example, test case `2n_l0_l1-node2` is topology `2n_l0_l1` with node2 running as a RIFT-Juniper node. As another example, test case `3n_l0_l1_l2-node1-node2` is topology `3n_l0_l1_l2` where node1 and node2 are running as RIFT-Juniper nodes.
+
+At the beginning of the tile `tests/interop.py` you can see a list of test cases that are executed during the interop testing:
+
+<pre>
+TEST_CASES = [("test_sys_2n_l0_l1.py", "2n_l0_l1.yaml", ["node1"]),
+              ("test_sys_2n_l0_l1.py", "2n_l0_l1.yaml", ["node2"]),
+              ("test_sys_2n_l0_l2.py", "2n_l0_l2.yaml", ["node1"]),
+              ("test_sys_2n_l0_l2.py", "2n_l0_l2.yaml", ["node2"]),
+              ("test_sys_2n_l1_l3.py", "2n_l1_l3.yaml", ["node1"]),
+              ("test_sys_2n_l1_l3.py", "2n_l1_l3.yaml", ["node2"]),
+              ("test_sys_3n_l0_l1_l2.py", "3n_l0_l1_l2.yaml", ["node1"]),
+              ("test_sys_3n_l0_l1_l2.py", "3n_l0_l1_l2.yaml", ["node2"]),
+              ("test_sys_3n_l0_l1_l2.py", "3n_l0_l1_l2.yaml", ["node3"]),
+              ("test_sys_3n_l0_l1_l2.py", "3n_l0_l1_l2.yaml", ["node1", "node2"]),
+              ("test_sys_3n_l0_l1_l2.py", "3n_l0_l1_l2.yaml", ["node2", "node3"]),
+              ("test_sys_3n_l0_l1_l2.py", "3n_l0_l1_l2.yaml", ["node1", "node3"]),
+              ("test_sys_2n_un_l1.py", "2n_un_l1.yaml", ["node1"]),
+              ("test_sys_2n_un_l1.py", "2n_un_l1.yaml", ["node2"])]
+</pre>
+
+Each line contains a 3-tuple (topology, sys\_test, juniper\_nodes) that describes a single integration test cases:
+
+* topology is the name of the topology file.
+* sys\_test is the name of the system test script.
+* juniper\_nodes is a list of node names that run RIFT-Juniper instead of RIFT-Python
+
+## Code Coverage
+
+To measure how much code-under-test is actually covered by a test script, use the following steps
+to measure code coverage.
+
+First run the `cleanup` script. This removes all temporary files, including the code coverage
+data from previous runs. 
+
+<pre>
+(env) $ <b>tools/cleanup</b>
+(env) $ 
+</pre>
+
+If you run multiple test scripts without doing a `cleanup` in between,
+then the code coverage report will cover the cumulative coverage across the multiple tests.
+
+Then, use `pytest` with a specific set of options including the `--cov` option to run one or more test cases:
+
+<pre>
+(env) $ <b>pytest -vvv -s tests/test_table.py --cov --cov-report=html </b>
+======================================================= test session starts ========================================================
+platform darwin -- Python 3.7.1, pytest-3.6.4, py-1.5.4, pluggy-0.7.1 -- /Users/brunorijsman/rift-python/env/bin/python3.7
+cachedir: .pytest_cache
+rootdir: /Users/brunorijsman/rift-python, inifile:
+plugins: profiling-1.3.0, cov-2.5.1
+collected 4 items                                                                                                                  
+
+tests/test_table.py::test_simple_table PASSED
+tests/test_table.py::test_multi_line_cells PASSED
+tests/test_table.py::test_format_extend PASSED
+tests/test_table.py::test_no_separators PASSED
+
+---------- coverage: platform darwin, python 3.7.1-final-0 -----------
+Coverage HTML written to dir htmlcov
+
+
+===================================================== 4 passed in 0.13 seconds =====================================================
+(env) $ 
+</pre>
+
+Finally, open the generated HTML files to view the coverage results. The following example
+assumes you are running on macOS and opens the default web browser to view the results.
+
+<pre>
+(env) $ <b>open htmlcov/index.html </b>
+(env) $ 
+</pre>
+
+The browser will display a directory containing all files whose coverage was measured, similar
+to this one:
+
+![RIFT-Python Coverage Report Example: Directory](http://bit.ly/rift-python-coverage-report-example-directory-png)
+
+If you click on one of the files, a detailed report is displayed showing which lines are (green) or
+are not (red) covered. Black lines mean that the line does not contain executable code. In this
+example the file `table.py` contains the module-under-test:
+
+![RIFT-Python Coverage Report Example: One File](http://bit.ly/rift-python-coverage-report-example-one-file-png)
+
+You can combine all steps into a single command line command for a very quick turn-around development
+cycle when you are developing your test script to cover as much of the code-under-test as possible:
+
+<pre>
+(env) $ <b>tools/cleanup && pytest -vvv -s tests/test_table.py --cov --cov-report=html && open htmlcov/index</b>
+</pre>
+
+Note: the [Continuous Integration](continuous-integration.md) process uses
+[codecov](https://codecov.io/gh/brunorijsman/rift-python) which produces some nicer 
+code coverage reports than the ones described above.
+
+## Code Profiling
+
+@@@ TODO
 
 ## Log Visualization Tool
 
