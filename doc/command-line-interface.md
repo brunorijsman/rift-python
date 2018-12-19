@@ -17,7 +17,7 @@
   * [show interfaces](#show-interfaces)
   * [show kernel addresses](#show-kernel-addresses)
   * [show kernel links](#show-kernel-links)
-  * [show kernel route table <i>table</i>> prefix <i>prefix</i>](#show-kernel-route-table-table-prefix-prefix)
+  * [show kernel route table <i>table</i> prefix <i>prefix</i>](#show-kernel-route-table-table-prefix-prefix)
   * [show kernel routes](#show-kernel-routes)
   * [show kernel routes table <i>table</i>](#show-kernel-routes-table-table)
   * [show node](#show-node)
