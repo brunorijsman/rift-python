@@ -52,3 +52,5 @@ A version of this code (tag ietf-102-rift-hackathon) was used to conduct interop
 * [IETF 103 Presentation: Open Source Update (PDF)](ietf-103/ietf-103---rift-wg---open-source-update.pdf)
 
 * [IETF 103 Background Information: Flooding Oscillation (PDF)](ietf-103/ietf-103---flooding-oscillations.pdf)
+
+* [Video of IETF 103 Presentation "RIFT Open Source Implementation: Status Update, Lessons Learned, and Interop Testing"](https://youtu.be/YbBlhd-ePWs?t=1897)
