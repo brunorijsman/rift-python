@@ -7,14 +7,19 @@
   * [set interface <i>interface</i> failure <i>failure</i>](#set-interface-interface-failure-failure)
   * [set level <i>level</i>](#set-level-level)
   * [set node <i>node</i>](#set-node-node)
-  * [show forwarding prefix <i>prefix</i>](#show-forwarding-prefix-prefix)
   * [show forwarding](#show-forwarding)
+  * [show forwarding prefix <i>prefix</i>](#show-forwarding-prefix-prefix)
   * [show fsm <i>fsm</i>](#show-fsm-fsm)
   * [show interface <i>interface</i>](#show-interface-interface)
   * [show interface <i>interface</i> fsm history](#show-interface-interface-fsm-history)
   * [show interface <i>interface</i> fsm verbose-history](#show-interface-interface-fsm-verbose-history)
-  * [show interface <i>interface</i> fsm queues](#show-interface-interface-queues)
+  * [show interface <i>interface</i> queues](#show-interface-interface-queues)
   * [show interfaces](#show-interfaces)
+  * [show kernel addresses] (#show-kernel-addresses)
+  * [show kernel links]  (#show-kernel-links)
+  * [show kernel route table <i>table</i>> prefix <i>prefix</i>] (#show-kernel-route-table-table-prefix-prefix)
+  * [show kernel routes] (#show-kernel-routes)
+  * [show kernel routes table <i>table</i>] (#show-kernel-routes-table-table)
   * [show node](#show-node)
   * [show node fsm history](#show-node-fsm-history)
   * [show node fsm verbose-history](#show-node-fsm-verbose-history)
@@ -82,18 +87,23 @@ You can enter CLI commands at the CLI prompt. For example, try entering the <b>h
 <pre>
 agg_101> <b>help</b>
 exit 
-set interface &lt;interface&gt; failure &lt;failure&gt; 
-set level &lt;level&gt; 
-set node &lt;node&gt; 
+set interface &lt;interface&gt; failure &lt;failure&gt;
+set level &lt;level&gt;
+set node &lt;node&gt;
 show forwarding prefix &lt;prefix&gt;
-show forwarding 
-show fsm lie 
-show fsm ztp 
-show interface &lt;interface&gt; 
-show interface &lt;interface&gt; fsm history 
-show interface &lt;interface&gt; fsm verbose-history 
-show interface &lt;interface&gt; queues 
-show interfaces 
+show forwarding
+show fsm lie
+show fsm ztp
+show interface &lt;interface&gt;
+show interface &lt;interface&gt; fsm history
+show interface &lt;interface&gt; fsm verbose-history
+show interface &lt;interface&gt; queues
+show interfaces
+show kernel addresses
+show kernel links
+show kernel route table &lt;table> prefix &lt;prefix&gt;
+show kernel routes
+show kernel routes table &lt;table&gt;
 show node 
 show node fsm history 
 show node fsm verbose-history 
@@ -571,6 +581,207 @@ agg_101> <b>show interfaces</b>
 +-------------+-----------------------+-----------+-----------+
 | if_101_2    | core_2-if_2_101       | 2         | THREE_WAY |
 +-------------+-----------------------+-----------+-----------+
+</pre>
+
+### show kernel addresses
+
+The "<b>show kernel addresses</b>" command reports a summary of all addresses in the Linux kernel
+on which the RIFT engine is running.
+
+<pre>
+real2> show kernel addresses
+Kernel Addresses:
++-----------+---------------------------+-----------+-----------+---------+
+| Interface | Address                   | Local     | Broadcast | Anycast |
+| Name      |                           |           |           |         |
++-----------+---------------------------+-----------+-----------+---------+
+| lo        | 127.0.0.1                 | 127.0.0.1 |           |         |
++-----------+---------------------------+-----------+-----------+---------+
+| lo        | 88.88.2.1                 | 88.88.2.1 |           |         |
++-----------+---------------------------+-----------+-----------+---------+
+| veth-a2   | 99.99.1.2                 | 99.99.1.2 |           |         |
++-----------+---------------------------+-----------+-----------+---------+
+| veth-b2   | 99.99.2.2                 | 99.99.2.2 |           |         |
++-----------+---------------------------+-----------+-----------+---------+
+</pre>
+
+If this command is executed on a platform that does not support the Netlink interface to the
+kernel routing table (i.e. any non-Linux platform including BSD and macOS) the following error
+message is reported:
+
+<pre>
+agg_101> <b>show kernel addresses</b>
+Kernel networking not supported on this platform
+</pre>
+
+### show kernel links
+
+The "<b>show kernel links</b>" command reports a summary of all links in the Linux kernel
+on which the RIFT engine is running.
+
+<pre>
+real2> <b>show kernel links</b>
+Kernel Links:
++-----------+-----------+-------------------+-------------------+-----------+-------+-----------+
+| Interface | Interface | Hardware          | Hardware          | Link Type | MTU   | Flags     |
+| Name      | Index     | Address           | Broadcast         |           |       |           |
+|           |           |                   | Address           |           |       |           |
++-----------+-----------+-------------------+-------------------+-----------+-------+-----------+
+| lo        | 1         | 00:00:00:00:00:00 | 00:00:00:00:00:00 |           | 65536 | UP        |
+|           |           |                   |                   |           |       | LOOPBACK  |
+|           |           |                   |                   |           |       | RUNNING   |
+|           |           |                   |                   |           |       | LOWER_UP  |
++-----------+-----------+-------------------+-------------------+-----------+-------+-----------+
+| tunl0     | 2         | 00:00:00:00:08:00 | 00:00:00:00:c4:00 | 0         | 1480  | NOARP     |
++-----------+-----------+-------------------+-------------------+-----------+-------+-----------+
+| ip6tnl0   | 3         | 00:00:00:00:00:00 | 00:00:00:00:00:00 | 0         | 1452  | NOARP     |
++-----------+-----------+-------------------+-------------------+-----------+-------+-----------+
+| veth-a2   | 4         | b2:cd:9f:06:78:ab | ff:ff:ff:ff:ff:ff | 5         | 1500  | UP        |
+|           |           |                   |                   |           |       | BROADCAST |
+|           |           |                   |                   |           |       | RUNNING   |
+|           |           |                   |                   |           |       | MULTICAST |
+|           |           |                   |                   |           |       | LOWER_UP  |
++-----------+-----------+-------------------+-------------------+-----------+-------+-----------+
+| veth-b2   | 6         | 0a:6b:39:ab:a9:e9 | ff:ff:ff:ff:ff:ff | 7         | 1500  | UP        |
+|           |           |                   |                   |           |       | BROADCAST |
+|           |           |                   |                   |           |       | RUNNING   |
+|           |           |                   |                   |           |       | MULTICAST |
+|           |           |                   |                   |           |       | LOWER_UP  |
++-----------+-----------+-------------------+-------------------+-----------+-------+-----------+
+</pre>
+
+If this command is executed on a platform that does not support the Netlink interface to the
+kernel routing table (i.e. any non-Linux platform including BSD and macOS) the following error
+message is reported:
+
+<pre>
+agg_101> <b>show kernel links</b>
+Kernel networking not supported on this platform
+</pre>
+
+### show kernel route table <i>table</i> prefix <i>prefix</i>
+
+The "<b>show kernel route table</b> <i>table</i> <b>prefix</b> <i>prefix</i>" command reports the
+details of a single route in the route table in the Linux kernel on which the RIFT engine is running.
+
+Parameter <i>table</i> must be <b>local</b>, <b>main</b>, <b>default</b>, <b>unspecified</b>, or
+a number in the range 0-255.
+
+Parameter <i>prefix</i> must be an IPv4 prefix or an IPv6 prefix
+
+<pre>
+real2> show kernel route table main prefix 99.99.1.0/24
++--------------------------+--------------+
+| Table                    | Main         |
+| Address Family           | IPv4         |
+| Destination              | 99.99.1.0/24 |
+| Type                     | Unicast      |
+| Protocol                 | Kernel       |
+| Scope                    | Link         |
+| Next-hops                | veth-a2      |
+| Priority                 |              |
+| Preference               |              |
+| Preferred Source Address | 99.99.1.2    |
+| Source                   |              |
+| Flow                     |              |
+| Encapsulation Type       |              |
+| Encapsulation            |              |
+| Metrics                  |              |
+| Type of Service          | 0            |
+| Flags                    | 0            |
++--------------------------+--------------+
+</pre>
+
+If this command is executed on a platform that does not support the Netlink interface to the
+kernel routing table (i.e. any non-Linux platform including BSD and macOS) the following error
+message is reported:
+
+<pre>
+agg_101> <b>show kernel route table main prefix 0.0.0.0/0</b>
+Kernel networking not supported on this platform
+</pre>
+
+### show kernel routes
+
+The "<b>show kernel routes</b>" command reports a summary of
+all routes in the Linux kernel on which the RIFT engine is running.
+
+<pre>
+real2> <b>show kernel routes</b>
+Kernel Routes:
++-------------+---------+-------------------------------+-------------+----------+-----------+-----------+--------+
+| Table       | Address | Destination                   | Type        | Protocol | Outgoing  | Gateway   | Weight |
+|             | Family  |                               |             |          | Interface |           |        |
++-------------+---------+-------------------------------+-------------+----------+-----------+-----------+--------+
+| Unspecified | IPv6    | ::/0                          | Unreachable | Kernel   | lo        |           |        |
++-------------+---------+-------------------------------+-------------+----------+-----------+-----------+--------+
+| Unspecified | IPv6    | ::/0                          | Unreachable | Kernel   | lo        |           |        |
++-------------+---------+-------------------------------+-------------+----------+-----------+-----------+--------+
+| Main        | IPv4    | 0.0.0.0/0                     | Unicast     | RIFT     | veth-a2   | 99.99.1.1 | 1      |
+|             |         |                               |             |          | veth-b2   | 99.99.2.1 | 1      |
++-------------+---------+-------------------------------+-------------+----------+-----------+-----------+--------+
+| Main        | IPv4    | 99.99.1.0/24                  | Unicast     | Kernel   | veth-a2   |           |        |
++-------------+---------+-------------------------------+-------------+----------+-----------+-----------+--------+
+| Main        | IPv4    | 99.99.2.0/24                  | Unicast     | Kernel   | veth-b2   |           |        |
++-------------+---------+-------------------------------+-------------+----------+-----------+-----------+--------+
+| Main        | IPv6    | fe80::/64                     | Unicast     | Kernel   | veth-a2   |           |        |
++-------------+---------+-------------------------------+-------------+----------+-----------+-----------+--------+
+| Main        | IPv6    | fe80::/64                     | Unicast     | Kernel   | veth-b2   |           |        |
++-------------+---------+-------------------------------+-------------+----------+-----------+-----------+--------+
+| Local       | IPv4    | 88.88.2.1/32                  | Local       | Kernel   | lo        |           |        |
++-------------+---------+-------------------------------+-------------+----------+-----------+-----------+--------+
+.             .         .                               .             .          .           .           .        .
+.             .         .                               .             .          .           .           .        .
+.             .         .                               .             .          .           .           .        .
++-------------+---------+-------------------------------+-------------+----------+-----------+-----------+--------+
+| Local       | IPv6    | ff00::/8                      | Unicast     | Boot     | veth-b2   |           |        |
++-------------+---------+-------------------------------+-------------+----------+-----------+-----------+--------+
+</pre>
+
+If this command is executed on a platform that does not support the Netlink interface to the
+kernel routing table (i.e. any non-Linux platform including BSD and macOS) the following error
+message is reported:
+
+<pre>
+agg_101> <b>show kernel routes</b>
+Kernel networking not supported on this platform
+</pre>
+
+### show kernel routes table <i>table</i>
+
+The "<b>show kernel routes table</b> <i>table</i>" command reports a summary of
+all routes in a specific route table in the Linux kernel on which the RIFT engine is running.
+
+Parameter <i>table</i> must be <b>local</b>, <b>main</b>, <b>default</b>, <b>unspecified</b>, or
+a number in the range 0-255.
+
+<pre>
+real2> <b>show kernel routes table main</b>
+Kernel Routes:
++-------+---------+--------------+---------+----------+-----------+-----------+--------+
+| Table | Address | Destination  | Type    | Protocol | Outgoing  | Gateway   | Weight |
+|       | Family  |              |         |          | Interface |           |        |
++-------+---------+--------------+---------+----------+-----------+-----------+--------+
+| Main  | IPv4    | 0.0.0.0/0    | Unicast | RIFT     | veth-a2   | 99.99.1.1 | 1      |
+|       |         |              |         |          | veth-b2   | 99.99.2.1 | 1      |
++-------+---------+--------------+---------+----------+-----------+-----------+--------+
+| Main  | IPv4    | 99.99.1.0/24 | Unicast | Kernel   | veth-a2   |           |        |
++-------+---------+--------------+---------+----------+-----------+-----------+--------+
+| Main  | IPv4    | 99.99.2.0/24 | Unicast | Kernel   | veth-b2   |           |        |
++-------+---------+--------------+---------+----------+-----------+-----------+--------+
+| Main  | IPv6    | fe80::/64    | Unicast | Kernel   | veth-a2   |           |        |
++-------+---------+--------------+---------+----------+-----------+-----------+--------+
+| Main  | IPv6    | fe80::/64    | Unicast | Kernel   | veth-b2   |           |        |
++-------+---------+--------------+---------+----------+-----------+-----------+--------+
+</pre>
+
+If this command is executed on a platform that does not support the Netlink interface to the
+kernel routing table (i.e. any non-Linux platform including BSD and macOS) the following error
+message is reported:
+
+<pre>
+agg_101> <b>show kernel routes table main</b>
+Kernel networking not supported on this platform
 </pre>
 
 ### show node
