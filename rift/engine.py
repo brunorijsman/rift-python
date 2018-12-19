@@ -234,7 +234,6 @@ class Engine:
                     "": command_show_kernel_routes,
                     "$table": {
                         "": command_show_kernel_routes_tab,
-                        "$prefix": command_show_kernel_route_pref,
                     },
                 },
                 "route": {
