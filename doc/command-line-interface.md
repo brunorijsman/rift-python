@@ -90,8 +90,8 @@ exit
 set interface &lt;interface&gt; failure &lt;failure&gt;
 set level &lt;level&gt;
 set node &lt;node&gt;
-show forwarding prefix &lt;prefix&gt;
 show forwarding
+show forwarding prefix &lt;prefix&gt;
 show fsm lie
 show fsm ztp
 show interface &lt;interface&gt;
@@ -284,9 +284,9 @@ IPv6 Routes:
 +--------+-----------+--------------------+
 </pre>
 
-### show route prefix <i>prefix</i>
+### show forwarding prefix <i>prefix</i>
 
-The "<b>show route prefix</b> <i>prefix</i>" command shows the route for a given prefix in the
+The "<b>show forwarding prefix</b> <i>prefix</i>" command shows the route for a given prefix in the
 Forwarding Information Base (FIB) of the current node.
 
 Parameter <i>prefix</i> must be an IPv4 prefix or an IPv6 prefix
