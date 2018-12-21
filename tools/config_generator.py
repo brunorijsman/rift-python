@@ -11,6 +11,22 @@ NEXT_INTERFACE_NR = 1
 NODES = {}
 INTERFACES = {}
 
+DEFAULT_NR_IPV4_LOOPBACKS = 1
+
+NODE_SCHEMA = {
+    'type': 'dict',
+    'schema': {
+        'nr-ipv4-loopbacks': {'type': 'integer', 'min': 0, 'default': DEFAULT_NR_IPV4_LOOPBACKS}
+    }
+}
+
+SCHEMA = {
+    'nr-leaf-nodes': {'required': True, 'type': 'integer', 'min': 0},
+    'nr-spine-nodes': {'required': True, 'type': 'integer', 'min': 0},
+    'leafs': NODE_SCHEMA,
+    'spines': NODE_SCHEMA
+}
+
 class Node:
 
     def __init__(self, name, system_id, level):
@@ -19,6 +35,16 @@ class Node:
         self.level = level
         self.rx_lie_mcast_address = generate_ipv4_address_str(224, 0, 1, 0, system_id)
         self.interfaces = []
+        self.ipv4_prefixes = []
+
+    def add_ipv4_loopbacks(self, count):
+        for index in range(1, count+1):
+            offset = self.system_id * 256 + index
+            address = generate_ipv4_address_str(1, 0, 0, 0, offset)
+            mask = "32"
+            metric = "0"
+            prefix = (address, mask, metric)
+            self.ipv4_prefixes.append(prefix)
 
     def create_interface(self, local_if_nr, remote_if_nr):
         # pylint:disable=global-statement
@@ -64,7 +90,7 @@ def create_link_between_nodes(node1, node2):
     node1.create_interface(if_1_nr, if_2_nr)
     node2.create_interface(if_2_nr, if_1_nr)
 
-def write_nodes_configuration():
+def write_configuration():
     # pylint:disable=global-statement
     global NODES
     global INTERFACES
@@ -85,23 +111,24 @@ def write_nodes_configuration():
             print("            rx_lie_port: " + str(interface.rx_lie_port))
             print("            tx_lie_port: " + str(interface.tx_lie_port))
             print("            rx_tie_port: " + str(interface.rx_tie_port))
+        print("        v4prefixes:")
+        for prefix in node.ipv4_prefixes:
+            (address, mask, metric) = prefix
+            print("          - address: " + address)
+            print("            mask: " + mask)
+            print("            metric: " + metric)
 
 def generate_ipv4_address_str(byte1, byte2, byte3, byte4, offset):
     assert offset <= 65535
     byte4 += offset
-    byte3 += offset // 256
+    byte3 += byte4 // 256
     byte4 %= 256
-    byte2 += offset // 256
+    byte2 += byte3 // 256
     byte3 %= 256
-    byte1 += offset // 256
+    byte1 += byte2 // 256
     byte2 %= 256
     ip_address_str = "{}.{}.{}.{}".format(byte1, byte2, byte3, byte4)
     return ip_address_str
-
-SCHEMA = {
-    'nr-leaf-nodes': {'required': True, 'type': 'integer', 'min': 0},
-    'nr-spine-nodes': {'required': True, 'type': 'integer', 'min': 0},
-}
 
 def parse_meta_configuration(filename):
     with open(filename, 'r') as stream:
@@ -124,22 +151,36 @@ def parse_command_line_arguments():
     return args
 
 def generate_configuration(meta_config):
+    # Generate leaf nodes
     nr_leaf_nodes = meta_config['nr-leaf-nodes']
-    nr_spine_nodes = meta_config['nr-spine-nodes']
+    if 'leafs' in meta_config:
+        nr_ipv4_loopbacks = meta_config['leafs']['nr-ipv4-loopbacks']
+    else:
+        nr_ipv4_loopbacks = DEFAULT_NR_IPV4_LOOPBACKS
     leaf_nodes = []
     for index in range(1, nr_leaf_nodes+1):
         name = "leaf" + str(index)
         leaf_node = create_node(name, level=0)
+        leaf_node.add_ipv4_loopbacks(nr_ipv4_loopbacks)
         leaf_nodes.append(leaf_node)
+    # Generate spine nodes
+    nr_spine_nodes = meta_config['nr-spine-nodes']
+    if 'spines' in meta_config:
+        nr_ipv4_loopbacks = meta_config['spines']['nr-ipv4-loopbacks']
+    else:
+        nr_ipv4_loopbacks = DEFAULT_NR_IPV4_LOOPBACKS
     spine_nodes = []
     for index in range(1, nr_spine_nodes+1):
         name = "spine" + str(index)
         spine_node = create_node(name, level=1)
+        spine_node.add_ipv4_loopbacks(nr_ipv4_loopbacks)
         spine_nodes.append(spine_node)
+    # Connect leaf nodes to spine nodes
     for leaf_node in leaf_nodes:
         for spine_node in spine_nodes:
             create_link_between_nodes(leaf_node, spine_node)
-    write_nodes_configuration()
+    # Write the resulting generated configuration (topology) file
+    write_configuration()
 
 def main():
     args = parse_command_line_arguments()
