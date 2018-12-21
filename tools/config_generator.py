@@ -42,7 +42,7 @@ class Node:
             offset = self.system_id * 256 + index
             address = generate_ipv4_address_str(1, 0, 0, 0, offset)
             mask = "32"
-            metric = "0"
+            metric = "1"
             prefix = (address, mask, metric)
             self.ipv4_prefixes.append(prefix)
 
