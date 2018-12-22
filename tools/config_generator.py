@@ -6,8 +6,8 @@ import pprint
 import cerberus
 import yaml
 
-NEXT_SYSTEM_ID = 1
-NEXT_INTERFACE_NR = 1
+NEXT_NODE_ID = 1
+NEXT_INTERFACE_ID = 1
 NODES = {}
 INTERFACES = {}
 
@@ -29,66 +29,67 @@ SCHEMA = {
 
 class Node:
 
-    def __init__(self, name, system_id, level):
+    def __init__(self, name, node_id, level):
         self.name = name
-        self.system_id = system_id
+        self.node_id = node_id
         self.level = level
-        self.rx_lie_mcast_address = generate_ipv4_address_str(224, 0, 1, 0, system_id)
+        self.rx_lie_mcast_address = generate_ipv4_address_str(224, 0, 1, 0, node_id)
         self.interfaces = []
         self.ipv4_prefixes = []
 
     def add_ipv4_loopbacks(self, count):
         for index in range(1, count+1):
-            offset = self.system_id * 256 + index
+            offset = self.node_id * 256 + index
             address = generate_ipv4_address_str(1, 0, 0, 0, offset)
             mask = "32"
             metric = "1"
             prefix = (address, mask, metric)
             self.ipv4_prefixes.append(prefix)
 
-    def create_interface(self, local_if_nr, remote_if_nr):
+    def create_interface(self, intf_id, peer_intf_id):
         # pylint:disable=global-statement
         global INTERFACES
-        rx_lie_port = 20000 + local_if_nr
-        tx_lie_port = 20000 + remote_if_nr
-        rx_tie_port = 10000 + local_if_nr
-        node_if_nr = len(self.interfaces) + 1
-        if_name = "if" + str(node_if_nr)
-        full_if_name = self.name + ":" + if_name
-        interface = Interface(if_name, full_if_name, remote_if_nr, rx_lie_port, tx_lie_port,
-                              rx_tie_port)
+        intf_index = len(self.interfaces) + 1
+        interface = Interface(intf_id, intf_index, self.node_id, peer_intf_id)
         self.interfaces.append(interface)
-        INTERFACES[local_if_nr] = interface
+        INTERFACES[intf_id] = interface
 
 class Interface:
 
-    def __init__(self, name, full_name, remote_if_nr, rx_lie_port, tx_lie_port, rx_tie_port):
-        self.name = name
-        self.full_name = full_name
-        self.remote_if_nr = remote_if_nr
-        self.rx_lie_port = rx_lie_port
-        self.tx_lie_port = tx_lie_port
-        self.rx_tie_port = rx_tie_port
+    def __init__(self, intf_id, intf_index, node_id, peer_intf_id):
+        self.intf_id = intf_id          # Globally unique identifier for interface
+        self.intf_index = intf_index    # Index for interface, locally unique within scope of node
+        self.node_id = node_id
+        self.peer_intf_id = peer_intf_id
+        self.rx_lie_port = 20000 + intf_id
+        self.tx_lie_port = 20000 + peer_intf_id
+        self.rx_tie_port = 10000 + intf_id
+
+    def name(self):
+        return "if" + str(self.intf_index)
+
+    def fq_name(self):
+        return NODES[self.node_id].name + ":" + self.name()
 
 def create_node(name, level):
     # pylint:disable=global-statement
-    global NEXT_SYSTEM_ID
+    global NEXT_NODE_ID
     global NODES
-    node = Node(name, NEXT_SYSTEM_ID, level)
-    NEXT_SYSTEM_ID += 1
-    NODES[node.system_id] = node
+    node = Node(name, NEXT_NODE_ID, level)
+    NEXT_NODE_ID += 1
+    NODES[node.node_id] = node
     return node
 
 def create_link_between_nodes(node1, node2):
     # pylint:disable=global-statement
-    global NEXT_INTERFACE_NR
+    global NEXT_INTERFACE_ID
     global INTERFACES
-    if_1_nr = NEXT_INTERFACE_NR
-    NEXT_INTERFACE_NR += 1
-    if_2_nr = NEXT_INTERFACE_NR
-    NEXT_INTERFACE_NR += 1
-    node1.create_interface(if_1_nr, if_2_nr)
-    node2.create_interface(if_2_nr, if_1_nr)
+    intf_1_id = NEXT_INTERFACE_ID
+    NEXT_INTERFACE_ID += 1
+    intf_2_id = NEXT_INTERFACE_ID
+    NEXT_INTERFACE_ID += 1
+    node1.create_interface(intf_1_id, intf_2_id)
+    node2.create_interface(intf_2_id, intf_1_id)
 
 def write_configuration():
     # pylint:disable=global-statement
@@ -100,13 +101,13 @@ def write_configuration():
     for node in NODES.values():
         print("      - name: " + node.name)
         print("        level: " + str(node.level))
-        print("        systemid: " + str(node.system_id))
+        print("        systemid: " + str(node.node_id))
         print("        rx_lie_mcast_address: " + node.rx_lie_mcast_address)
         print("        interfaces:")
         for interface in node.interfaces:
-            remote_interface = INTERFACES[interface.remote_if_nr]
-            description = "{} -> {}".format(interface.full_name, remote_interface.full_name)
-            print("          - name: " + interface.name)
+            remote_interface = INTERFACES[interface.peer_intf_id]
+            description = "{} -> {}".format(interface.fq_name(), remote_interface.fq_name())
+            print("          - name: " + interface.name())
             print("            # " + description)
             print("            rx_lie_port: " + str(interface.rx_lie_port))
             print("            tx_lie_port: " + str(interface.tx_lie_port))
