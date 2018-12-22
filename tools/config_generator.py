@@ -3,6 +3,7 @@
 import argparse
 import pprint
 
+import sys
 import cerberus
 import yaml
 
@@ -91,33 +92,43 @@ def create_link_between_nodes(node1, node2):
     node1.create_interface(intf_1_id, intf_2_id)
     node2.create_interface(intf_2_id, intf_1_id)
 
-def write_configuration():
+def write_configuration(file_name):
+    if file_name is None:
+        write_configuration_to_file(sys.stdout)
+    else:
+        try:
+            with open(file_name, 'w') as file:
+                write_configuration_to_file(file)
+        except IOError:
+            fatal_error('Could not open output configuration file "{}"'.format(file_name))
+
+def write_configuration_to_file(file):
     # pylint:disable=global-statement
     global NODES
     global INTERFACES
-    print("shards:")
-    print("  - id: 0")
-    print("    nodes:")
+    print("shards:", file=file)
+    print("  - id: 0", file=file)
+    print("    nodes:", file=file)
     for node in NODES.values():
-        print("      - name: " + node.name)
-        print("        level: " + str(node.level))
-        print("        systemid: " + str(node.node_id))
-        print("        rx_lie_mcast_address: " + node.rx_lie_mcast_address)
-        print("        interfaces:")
+        print("      - name: " + node.name, file=file)
+        print("        level: " + str(node.level), file=file)
+        print("        systemid: " + str(node.node_id), file=file)
+        print("        rx_lie_mcast_address: " + node.rx_lie_mcast_address, file=file)
+        print("        interfaces:", file=file)
         for interface in node.interfaces:
             remote_interface = INTERFACES[interface.peer_intf_id]
             description = "{} -> {}".format(interface.fq_name(), remote_interface.fq_name())
-            print("          - name: " + interface.name())
-            print("            # " + description)
-            print("            rx_lie_port: " + str(interface.rx_lie_port))
-            print("            tx_lie_port: " + str(interface.tx_lie_port))
-            print("            rx_tie_port: " + str(interface.rx_tie_port))
-        print("        v4prefixes:")
+            print("          - name: " + interface.name(), file=file)
+            print("            # " + description, file=file)
+            print("            rx_lie_port: " + str(interface.rx_lie_port), file=file)
+            print("            tx_lie_port: " + str(interface.tx_lie_port), file=file)
+            print("            rx_tie_port: " + str(interface.rx_tie_port), file=file)
+        print("        v4prefixes:", file=file)
         for prefix in node.ipv4_prefixes:
             (address, mask, metric) = prefix
-            print("          - address: " + address)
-            print("            mask: " + mask)
-            print("            metric: " + metric)
+            print("          - address: " + address, file=file)
+            print("            mask: " + mask, file=file)
+            print("            metric: " + metric, file=file)
 
 def generate_ipv4_address_str(byte1, byte2, byte3, byte4, offset):
     assert offset <= 65535
@@ -131,12 +142,15 @@ def generate_ipv4_address_str(byte1, byte2, byte3, byte4, offset):
     ip_address_str = "{}.{}.{}.{}".format(byte1, byte2, byte3, byte4)
     return ip_address_str
 
-def parse_meta_configuration(filename):
-    with open(filename, 'r') as stream:
-        try:
-            config = yaml.load(stream)
-        except yaml.YAMLError as exception:
-            raise exception
+def parse_meta_configuration(file_name):
+    try:
+        with open(file_name, 'r') as stream:
+            try:
+                config = yaml.load(stream)
+            except yaml.YAMLError as exception:
+                raise exception
+    except IOError:
+        fatal_error('Could not open input meta-configuration file "{}"'.format(file_name))
     validator = cerberus.Validator()
     if not validator.validate(config, SCHEMA):
         pretty_printer = pprint.PrettyPrinter()
@@ -147,7 +161,13 @@ def parse_meta_configuration(filename):
 
 def parse_command_line_arguments():
     parser = argparse.ArgumentParser(description='RIFT configuration generator')
-    parser.add_argument('configfile', help='Meta-configuration filename')
+    parser.add_argument(
+        'input-meta-config-file',
+        help='Input meta-configuration file name')
+    parser.add_argument(
+        'output-file-or-dir',
+        nargs='?',
+        help='Output file or directory name')
     args = parser.parse_args()
     return args
 
@@ -193,13 +213,18 @@ def generate_clos_leaf_spine_links(leaf_nodes, spine_nodes):
     for leaf_node in leaf_nodes:
         for spine_node in spine_nodes:
             create_link_between_nodes(leaf_node, spine_node)
-    # Write the resulting generated configuration (topology) file
-    write_configuration()
+
+def fatal_error(error_msg):
+    print(error_msg, file=sys.stderr)
+    sys.exit(1)
 
 def main():
     args = parse_command_line_arguments()
-    meta_config = parse_meta_configuration(args.configfile)
+    input_file_name = getattr(args, 'input-meta-config-file')
+    output_file_or_dir_name = getattr(args, 'output-file-or-dir')
+    meta_config = parse_meta_configuration(input_file_name)
     generate_configuration(meta_config)
+    write_configuration(output_file_or_dir_name)
 
 if __name__ == "__main__":
     main()
