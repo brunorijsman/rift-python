@@ -15,8 +15,8 @@ import table
 
 class Engine:
 
-    def __init__(self, passive_nodes, run_which_nodes, interactive, multicast_loopback, log_level,
-                 config):
+    def __init__(self, passive_nodes, run_which_nodes, interactive, telnet_port_file,
+                 multicast_loopback, log_level, config):
         log_file_name = "rift.log"
         if "RIFT_TEST_RESULTS_DIR" in os.environ:
             log_file_name = os.environ["RIFT_TEST_RESULTS_DIR"] + "/" + log_file_name
@@ -26,6 +26,7 @@ class Engine:
             level=log_level)
         self._run_which_nodes = run_which_nodes
         self._interactive = interactive
+        self._telnet_port_file = telnet_port_file
         self._multicast_loopback = multicast_loopback
         self._config = config
         self._tx_src_address = self.read_global_configuration(config, 'tx_src_address', '')
@@ -53,6 +54,15 @@ class Engine:
                 log=cli_log,
                 default_node=first_node)
             self._interactive_cli_session_handler = None
+            if self._telnet_port_file is None:
+                print("Command Line Interface (CLI) available on port {}"
+                      .format(self._cli_listen_handler.port))
+            else:
+                try:
+                    with open(self._telnet_port_file, 'w') as file:
+                        print(self._cli_listen_handler.port, file=file)
+                except IOError:
+                    pass # TODO: Log an error
 
     def read_global_configuration(self, config, attribute, default):
         if ('const' in config) and (config['const'] is not None) and (attribute in config['const']):

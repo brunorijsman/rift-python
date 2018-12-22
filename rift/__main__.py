@@ -26,21 +26,45 @@ def log_level(string):
 
 def parse_command_line_arguments():
     parser = argparse.ArgumentParser(description='Routing In Fat Trees (RIFT) protocol engine')
-    parser.add_argument('configfile', nargs='?', default='', help='Configuration filename')
+    parser.add_argument(
+        'configfile',
+        nargs='?',
+        default='',
+        help='Configuration filename')
     passive_group = parser.add_mutually_exclusive_group()
-    passive_group.add_argument('-p', '--passive', action="store_true",
-                               help='Run only the nodes marked as passive')
-    passive_group.add_argument('-n', '--non-passive', action="store_true",
-                               help='Run all nodes except those marked as passive')
-    parser.add_argument('-l', '--log-level', type=log_level, default='info',
-                        help='Log level (debug, info, warning, error, critical)')
-    parser.add_argument('-i', '--interactive', action="store_true",
-                        help='Start Command Line Interface (CLI) on stdin/stdout instead of port')
+    passive_group.add_argument(
+        '-p',
+        '--passive',
+        action="store_true",
+        help='Run only the nodes marked as passive')
+    passive_group.add_argument(
+        '-n',
+        '--non-passive',
+        action="store_true",
+        help='Run all nodes except those marked as passive')
+    parser.add_argument(
+        '-l',
+        '--log-level',
+        type=log_level,
+        default='info',
+        help='Log level (debug, info, warning, error, critical)')
+    telnet_group = parser.add_mutually_exclusive_group()
+    telnet_group.add_argument(
+        '-i',
+        '--interactive',
+        action="store_true",
+        help='Start Command Line Interface (CLI) on stdin/stdout instead of port')
+    telnet_group.add_argument(
+        '--telnet-port-file',
+        help='Write telnet port to the specified file')
     loopback_group = parser.add_mutually_exclusive_group()
-    loopback_group.add_argument('--multicast-loopback-enable', action="store_true",
-                                help='Enable IP_MULTICAST_LOOP option on multicast send sockets')
-    loopback_group.add_argument('--multicast-loopback-disable', action="store_true",
-                                help='Disable IP_MULTICAST_LOOP option on multicast send sockets')
+    loopback_group.add_argument(
+        '--multicast-loopback-enable',
+        action="store_true",
+        help='Enable IP_MULTICAST_LOOP option on multicast send sockets')
+    loopback_group.add_argument(
+        '--multicast-loopback-disable', action="store_true",
+        help='Disable IP_MULTICAST_LOOP option on multicast send sockets')
     args = parser.parse_args()
     return args
 
@@ -71,6 +95,7 @@ def main():
     eng = engine.Engine(run_which_nodes=run_which_nodes(args),
                         passive_nodes=args.passive_nodes,
                         interactive=args.interactive,
+                        telnet_port_file=args.telnet_port_file,
                         multicast_loopback=multicast_loopback(args),
                         log_level=args.log_level,
                         config=parsed_config)

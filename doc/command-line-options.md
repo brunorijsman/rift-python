@@ -52,7 +52,10 @@ Example:
 
 <pre>
 (env) $ <b>python rift --help</b>
-usage: rift [-h] [-p | -n] [-l LOG_LEVEL] [-i] [configfile]
+usage: rift [-h] [-p | -n] [-l LOG_LEVEL]
+            [-i | --telnet-port-file TELNET_PORT_FILE]
+            [--multicast-loopback-enable | --multicast-loopback-disable]
+            [configfile]
 
 Routing In Fat Trees (RIFT) protocol engine
 
@@ -67,12 +70,14 @@ optional arguments:
                         Log level (debug, info, warning, error, critical)
   -i, --interactive     Start Command Line Interface (CLI) on stdin/stdout
                         instead of port
+  --telnet-port-file TELNET_PORT_FILE
+                        Write telnet port to the specified file
   --multicast-loopback-enable
                         Enable IP_MULTICAST_LOOP option on multicast send
                         sockets
   --multicast-loopback-disable
                         Disable IP_MULTICAST_LOOP option on multicast send
-                        sockets                        
+                        sockets               
 </pre>
 
 ## Configuration file
@@ -130,6 +135,41 @@ instead the RIFT engine itself provides the CLI on stdin and stdout:
 
 <pre>
 (env) $ <b>python rift --interactive topology/two_by_two_by_two.yaml</b>
+agg_101> 
+</pre>
+
+## Telnet port file
+
+As mentioned above, by default, when you start the RIFT engine, it reports a port number on which
+it is listening for incoming Command Line Interface (CLI) sessions:
+
+<pre>
+(env) $ <b>python rift topology/two_by_two_by_two.yaml</b>
+Command Line Interface (CLI) available on port 49697
+</pre>
+
+You can use the <b>--telnet-port-file</b> <i>filename</i> option to write this port number to a
+file instead of reporting it on stdout. 
+This is useful when using a script to connect to the RIFT engine.
+
+For example, you can start the RIFT engine in the background:
+
+<pre>
+(env) $ <b>python rift --telnet-port-file /tmp/rift-telnet-port topology/two_by_two_by_two.yaml < /dev/null & </b>
+[1] 20717
+(env) $ 
+</pre>
+
+You can then connect to the RIFT engine as follows:
+
+<pre>
+(env) $ <b>telnet localhost $(cat /tmp/rift-telnet-port)</b>
+Trying ::1...
+telnet: connect to address ::1: Connection refused
+Trying 127.0.0.1...
+Connected to localhost.
+Escape character is '^]'.
+agg_101> 
 agg_101> 
 </pre>
 
