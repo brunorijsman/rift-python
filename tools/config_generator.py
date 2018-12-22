@@ -152,7 +152,15 @@ def parse_command_line_arguments():
     return args
 
 def generate_configuration(meta_config):
-    # Generate leaf nodes
+    # Currently, Clos is the only supported topology
+    generate_clos_configuration(meta_config)
+
+def generate_clos_configuration(meta_config):
+    leaf_nodes = generate_clos_leafs(meta_config)
+    spine_nodes = generate_clos_spines(meta_config)
+    generate_clos_leaf_spine_links(leaf_nodes, spine_nodes)
+
+def generate_clos_leafs(meta_config):
     nr_leaf_nodes = meta_config['nr-leaf-nodes']
     if 'leafs' in meta_config:
         nr_ipv4_loopbacks = meta_config['leafs']['nr-ipv4-loopbacks']
@@ -164,7 +172,9 @@ def generate_configuration(meta_config):
         leaf_node = create_node(name, level=0)
         leaf_node.add_ipv4_loopbacks(nr_ipv4_loopbacks)
         leaf_nodes.append(leaf_node)
-    # Generate spine nodes
+    return leaf_nodes
+
+def generate_clos_spines(meta_config):
     nr_spine_nodes = meta_config['nr-spine-nodes']
     if 'spines' in meta_config:
         nr_ipv4_loopbacks = meta_config['spines']['nr-ipv4-loopbacks']
@@ -176,6 +186,9 @@ def generate_configuration(meta_config):
         spine_node = create_node(name, level=1)
         spine_node.add_ipv4_loopbacks(nr_ipv4_loopbacks)
         spine_nodes.append(spine_node)
+    return spine_nodes
+
+def generate_clos_leaf_spine_links(leaf_nodes, spine_nodes):
     # Connect leaf nodes to spine nodes
     for leaf_node in leaf_nodes:
         for spine_node in spine_nodes:
