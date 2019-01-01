@@ -25,6 +25,8 @@ The code is currently still a work in progress (see Feature List below for the s
 
 * [Configuration File](doc/configuration-file.md) (Also known as the Topology File)
 
+* [Configuration File Generator](doc/configuration-file-generator.md) (Also known as the Meta-Topology File)
+
 * [Implementation Deviations from Specification](doc/deviations.md)
 
 * [Automated Testing](doc/automated-testing.md)
