@@ -175,21 +175,33 @@ def write_netns_start(args):
     except IOError:
         fatal_error('Could name make "{}" executable'.format(file_name))
 
+def write_progress_msg(file, step, total_steps, message):
+    percent = step * 100 // total_steps
+    percent_str = "[{:03d}]".format(percent)
+    print('echo "{} {}"'.format(percent_str, message), file=file)
+
 def write_netns_start_to_file(file):
     # pylint:disable=global-statement
     global NODES
     global INTERFACES
     already_created = []
+    total_steps = len(INTERFACES) + len(NODES)
+    step = 0
     for intf in INTERFACES.values():
         peer_intf = INTERFACES[intf.peer_intf_id]
         intf_veth = intf.veth_name()
         peer_veth = peer_intf.veth_name()
+        step += 1
         if intf_veth not in already_created:
+            write_progress_msg(file, step, total_steps,
+                               "Create veth pair {} - {}".format(intf_veth, peer_veth))
             print("ip link add dev {} type veth peer name {}".format(intf_veth, peer_veth),
                   file=file)
             already_created.append(peer_veth)
     for node in NODES.values():
         ns_name = "netns-" + str(node.node_id)
+        step += 1
+        write_progress_msg(file, step, total_steps, "Create netns {}".format(ns_name))
         print("ip netns add {}".format(ns_name), file=file)
         addr = node.lo_addr
         print("ip netns exec {} ip link set dev lo up".format(ns_name), file=file)
