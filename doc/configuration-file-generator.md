@@ -363,6 +363,37 @@ spine3> <b>show interfaces</b>
 spine3> 
 </pre>
 
-## Meta-Topology File Syntax
+## Meta-Configuration File Syntax
 
-TODO
+Just like the configuration file, the meta-configuration file is a YAML file.
+
+Currently the only supported topology type is a 2-level (= 3-stage) Clos topology, but
+support for additional topology types will be added in the future.
+
+### nr-leaf-nodes
+
+`nr-leaf-nodes` at the top level is an integer that specifies the number of leaf nodes in the Clos
+topology.
+
+If `nr-leaf-nodes` is present, then `nr-spine-nodes` must also be present.
+
+Example:
+
+<pre>
+<b>nr-leaf-nodes: 8</b>
+nr-spine-nodes: 8
+</pre>
+
+### nr-spine-nodes
+
+`nr-spine-nodes` at the top level is an integer that specifies the number of spine nodes in the Clos
+topology.
+
+If `nr-spine-nodes` is present, then `nr-leaf-nodes` must also be present.
+
+Example:
+
+<pre>
+nr-leaf-nodes: 8
+<b>nr-spine-nodes: 8</b>
+</pre>
