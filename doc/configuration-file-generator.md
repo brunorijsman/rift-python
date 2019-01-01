@@ -320,8 +320,8 @@ docker container and run both `config_generate.py` and `start.sh` in there:
 <pre>
 (env) $ <b>cd docker</b>
 (env) $ <b>./docker-shell</b>
-root@d22f9e82f9b0:/# <b>tools/config_generator.py --netns-per-node meta_topology/2c_8x8.yaml generated_2c_8x8_dir/</b>
-root@d22f9e82f9b0:/# <b>./generated_2c_8x8_dir/start.sh </b>
+root@d22f9e82f9b0:/# <b>cd /host</b>
+root@d22f9e82f9b0:/host# <b>./generated_2c_8x8_dir/start.sh </b>
 [000] Create veth pair veth-1-2 - veth-2-1
 [002] Create veth pair veth-3-4 - veth-4-3
 [...]
