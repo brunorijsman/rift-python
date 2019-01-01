@@ -12,9 +12,9 @@ The configuration file specifies, in excruciating detail:
 * which prefixes the RIFT nodes advertise,
 * and some other configuration options for each node.
 
-If the configuration file contains more than a single RIFT node (i.e. if we are simulating a
+If the configuration file contains more than a single RIFT node (i.e. when simulating a
 multi-node topology), then the multiple links in the topology are simulated over a single
-physical link by using different multi-cast addresses and port numbers
+physical link by using different multicast addresses and port numbers
 (see the [Configuration File](configuration-file.md) chapter for details).
 
 ### Simplifying the generation of configuration files
@@ -54,9 +54,8 @@ command-line option to operate in a different mode, called the "network namespac
 Instead of generating a single topology file that simulates all nodes in a single RIFT-Python 
 instance, the "network namespace per node" mode does the following:
 
-* Each node in the topology runs in a separate RIFT-Python instance (i.e. in a separate process)
-
-* Each node (i.e. each RIFT-Python) runs in a separate Linux network namespace.
+* Each node in the topology runs in a separate RIFT-Python instance (i.e. in a separate process) and
+in a separate Linux network namespace.
 
 * The links between nodes are simulated using virtual Ethernet (veth) interfaces, where each
 endpoint of a veth pair resides in a different network namespace, corresponding to the nodes to
@@ -66,7 +65,7 @@ which it is connected.
 
     * A separate configuration file for each node.
 
-    * A shell script which creates all the network namespaces, creates all the veth interface pairs assigns IP addresses the the veth interfaces, and puts the veth interfaces into the right namespace.
+    * A shell script which creates all the network namespaces, creates all the veth interface pairs, assigns IP addresses to the veth interfaces, and puts the veth interfaces into the right namespace.
 
     * Shell scripts to Telnet into each of nodes.
 
