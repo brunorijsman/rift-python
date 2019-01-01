@@ -25,7 +25,6 @@ SCHEMA = {
     'spines': NODE_SCHEMA
 }
 
-###@@@@
 SOUTH = 1
 NORTH = 2
 
@@ -36,6 +35,8 @@ NODE_Y_INTERVAL = 100
 NODE_LINE_COLOR = "black"
 NODE_FILL_COLOR = "lightgray"
 LINK_COLOR = "black"
+INTF_RADIUS = 3
+INTF_COLOR = "black"
 
 def generate_ipv4_address_str(byte1, byte2, byte3, byte4, offset):
     assert offset <= 65535
@@ -434,6 +435,19 @@ class Generator:
                    'style="stroke:{};">'
                    '</line>\n'
                    .format(xpos1, ypos1, xpos2, ypos2, LINK_COLOR))
+        self.svg_intf(file, link.intf1)
+        self.svg_intf(file, link.intf2)
+
+    def svg_intf(self, file, intf):
+        xpos = self.svg_intf_x(intf)
+        ypos = self.svg_intf_y(intf)
+        file.write('<circle '
+                   'cx="{}" '
+                   'cy="{}" '
+                   'r="{}" '
+                   'style="stroke:{};fill:{}">'
+                   '</circle>\n'
+                   .format(xpos, ypos, INTF_RADIUS, INTF_COLOR, INTF_COLOR))
 
 def parse_meta_configuration(file_name):
     try:
