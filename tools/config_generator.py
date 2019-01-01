@@ -25,6 +25,18 @@ SCHEMA = {
     'spines': NODE_SCHEMA
 }
 
+###@@@@
+SOUTH = 1
+NORTH = 2
+
+NODE_X_SIZE = 100
+NODE_Y_SIZE = 50
+NODE_X_INTERVAL = 20
+NODE_Y_INTERVAL = 100
+NODE_LINE_COLOR = "black"
+NODE_FILL_COLOR = "lightgray"
+LINK_COLOR = "black"
+
 def generate_ipv4_address_str(byte1, byte2, byte3, byte4, offset):
     assert offset <= 65535
     byte4 += offset
@@ -39,10 +51,11 @@ def generate_ipv4_address_str(byte1, byte2, byte3, byte4, offset):
 
 class Node:
 
-    def __init__(self, name, node_id, level):
+    def __init__(self, name, node_id, level, index_in_level):
         self.name = name
         self.node_id = node_id
         self.level = level
+        self.index_in_level = index_in_level
         self.rx_lie_mcast_addr = generate_ipv4_address_str(224, 0, 1, 0, node_id)
         self.interfaces = []
         self.ipv4_prefixes = []
@@ -62,10 +75,15 @@ class Node:
 
 class Interface:
 
-    def __init__(self, intf_id, intf_index, node_id, peer_intf_id):
+    def __init__(self, node, intf_id, intf_index, peer_node, peer_intf_id):
+        self.node = node
         self.intf_id = intf_id          # Globally unique identifier for interface
         self.intf_index = intf_index    # Index for interface, locally unique within scope of node
-        self.node_id = node_id
+        self.peer_node = peer_node
+        if peer_node.level < node.level:
+            self.direction = SOUTH
+        else:
+            self.direction = NORTH
         self.peer_intf_id = peer_intf_id
         self.rx_lie_port = 20000 + intf_id
         self.tx_lie_port = 20000 + peer_intf_id
@@ -80,6 +98,12 @@ class Interface:
     def veth_name(self):
         return "veth" + "-" + str(self.intf_id) + "-" + str(self.peer_intf_id)
 
+class Link:
+
+    def __init__(self, intf1, intf2):
+        self.intf1 = intf1
+        self.intf2 = intf2
+
 class Generator:
 
     def __init__(self, args, meta_config):
@@ -89,29 +113,82 @@ class Generator:
         self.next_interface_id = 1
         self.nodes = {}
         self.interfaces = {}
+        self.links = []
 
-    def create_node(self, name, level):
-        node = Node(name, self.next_node_id, level)
+    def produce_configuration(self):
+        self.generate_configuration()
+        self.write_configuration()
+        if self.args.graphics_file is not None:
+            self.write_graphics()
+
+    def generate_configuration(self):
+        # Currently, Clos is the only supported topology
+        self.generate_clos_configuration()
+
+    def generate_clos_configuration(self):
+        leaf_nodes = self.generate_clos_leafs()
+        spine_nodes = self.generate_clos_spines()
+        self.generate_clos_leaf_spine_links(leaf_nodes, spine_nodes)
+
+    def generate_clos_leafs(self):
+        nr_leaf_nodes = self.meta_config['nr-leaf-nodes']
+        if 'leafs' in self.meta_config:
+            nr_ipv4_loopbacks = self.meta_config['leafs']['nr-ipv4-loopbacks']
+        else:
+            nr_ipv4_loopbacks = DEFAULT_NR_IPV4_LOOPBACKS
+        leaf_nodes = []
+        for index in range(0, nr_leaf_nodes):
+            name = "leaf" + str(index+1)
+            leaf_node = self.create_node(name, level=0, index_in_level=index)
+            leaf_node.add_ipv4_loopbacks(nr_ipv4_loopbacks)
+            leaf_nodes.append(leaf_node)
+        return leaf_nodes
+
+    def generate_clos_spines(self):
+        nr_spine_nodes = self.meta_config['nr-spine-nodes']
+        if 'spines' in self.meta_config:
+            nr_ipv4_loopbacks = self.meta_config['spines']['nr-ipv4-loopbacks']
+        else:
+            nr_ipv4_loopbacks = DEFAULT_NR_IPV4_LOOPBACKS
+        spine_nodes = []
+        for index in range(0, nr_spine_nodes):
+            name = "spine" + str(index+1)
+            spine_node = self.create_node(name, level=1, index_in_level=index)
+            spine_node.add_ipv4_loopbacks(nr_ipv4_loopbacks)
+            spine_nodes.append(spine_node)
+        return spine_nodes
+
+    def generate_clos_leaf_spine_links(self, leaf_nodes, spine_nodes):
+        # Connect leaf nodes to spine nodes
+        for leaf_node in leaf_nodes:
+            for spine_node in spine_nodes:
+                self.create_link_between_nodes(leaf_node, spine_node)
+
+    def create_node(self, name, level, index_in_level):
+        node = Node(name, self.next_node_id, level, index_in_level)
         self.next_node_id += 1
         self.nodes[node.node_id] = node
         return node
 
-    def create_interface(self, node, intf_id, peer_intf_id):
-        intf_index = len(self.interfaces) + 1
-        interface = Interface(intf_id, intf_index, node.node_id, peer_intf_id)
+    def create_interface(self, node, intf_id, peer_node, peer_intf_id):
+        intf_index = len(node.interfaces) + 1
+        interface = Interface(node, intf_id, intf_index, peer_node, peer_intf_id)
         node.add_interface(interface)
         self.interfaces[intf_id] = interface
+        return interface
 
     def fq_intf_name(self, intf):
-        return self.nodes[intf.node_id].name + ":" + intf.name()
+        return self.nodes[intf.node.node_id].name + ":" + intf.name()
 
     def create_link_between_nodes(self, node1, node2):
-        intf_1_id = self.next_interface_id
+        intf1_id = self.next_interface_id
         self.next_interface_id += 1
-        intf_2_id = self.next_interface_id
+        intf2_id = self.next_interface_id
         self.next_interface_id += 1
-        self.create_interface(node1, intf_1_id, intf_2_id)
-        self.create_interface(node2, intf_2_id, intf_1_id)
+        intf1 = self.create_interface(node1, intf1_id, node2, intf2_id)
+        intf2 = self.create_interface(node2, intf2_id, node1, intf1_id)
+        link = Link(intf1, intf2)
+        self.links.append(link)
 
     def write_configuration(self):
         if self.args.netns_per_node:
@@ -269,48 +346,94 @@ class Generator:
             print("            mask: " + mask, file=file)
             print("            metric: " + metric, file=file)
 
-    def generate_configuration(self):
-        # Currently, Clos is the only supported topology
-        self.generate_clos_configuration()
+    def write_graphics(self):
+        file_name = self.args.graphics_file
+        assert file_name is not None
+        try:
+            with open(file_name, 'w') as file:
+                self.write_graphics_to_file(file)
+        except IOError:
+            fatal_error('Could not open start graphics file "{}"'.format(file_name))
 
-    def generate_clos_configuration(self):
-        leaf_nodes = self.generate_clos_leafs()
-        spine_nodes = self.generate_clos_spines()
-        self.generate_clos_leaf_spine_links(leaf_nodes, spine_nodes)
+    def write_graphics_to_file(self, file):
+        self.svg_start(file)
+        for node in self.nodes.values():
+            self.svg_node(file, node)
+        for link in self.links:
+            self.svg_link(file, link)
+        self.svg_end(file)
 
-    def generate_clos_leafs(self):
-        nr_leaf_nodes = self.meta_config['nr-leaf-nodes']
-        if 'leafs' in self.meta_config:
-            nr_ipv4_loopbacks = self.meta_config['leafs']['nr-ipv4-loopbacks']
+    def svg_start(self, file):
+        file.write('<svg '
+                   'xmlns="http://www.w3.org/2000/svg '
+                   'xmlns:xlink="http://www.w3.org/1999/xlink" '
+                   'width=1000000 '
+                   'height=1000000 '
+                   'id="tooltip-svg">\n')
+
+    def svg_end(self, file):
+        file.write('</svg>\n')
+
+    def svg_node_x(self, node):
+        return node.index_in_level * (NODE_X_SIZE + NODE_X_INTERVAL)
+
+    def svg_node_y(self, node):
+        nr_levels = 2
+        return (nr_levels - node.level - 1) * (NODE_Y_SIZE + NODE_Y_INTERVAL)
+
+    def svg_intf_x(self, intf):
+        node_intf_dir_count = 0    # Number of interfaces on node in same direction
+        for check_intf in intf.node.interfaces:
+            if check_intf.direction == intf.direction:
+                node_intf_dir_count += 1
+                if check_intf == intf:
+                    intf_dir_index = node_intf_dir_count
+        intf_x_dist = NODE_X_SIZE / (node_intf_dir_count + 1)
+        return self.svg_node_x(intf.node) + intf_x_dist * intf_dir_index
+
+    def svg_intf_y(self, intf):
+        if intf.direction == NORTH:
+            return self.svg_node_y(intf.node)
         else:
-            nr_ipv4_loopbacks = DEFAULT_NR_IPV4_LOOPBACKS
-        leaf_nodes = []
-        for index in range(1, nr_leaf_nodes+1):
-            name = "leaf" + str(index)
-            leaf_node = self.create_node(name, level=0)
-            leaf_node.add_ipv4_loopbacks(nr_ipv4_loopbacks)
-            leaf_nodes.append(leaf_node)
-        return leaf_nodes
+            return self.svg_node_y(intf.node) + NODE_Y_SIZE
 
-    def generate_clos_spines(self):
-        nr_spine_nodes = self.meta_config['nr-spine-nodes']
-        if 'spines' in self.meta_config:
-            nr_ipv4_loopbacks = self.meta_config['spines']['nr-ipv4-loopbacks']
-        else:
-            nr_ipv4_loopbacks = DEFAULT_NR_IPV4_LOOPBACKS
-        spine_nodes = []
-        for index in range(1, nr_spine_nodes+1):
-            name = "spine" + str(index)
-            spine_node = self.create_node(name, level=1)
-            spine_node.add_ipv4_loopbacks(nr_ipv4_loopbacks)
-            spine_nodes.append(spine_node)
-        return spine_nodes
+    def svg_node(self, file, node):
+        xpos = self.svg_node_x(node)
+        ypos = self.svg_node_y(node)
+        file.write('<g>\n')
+        file.write('<rect '
+                   'x="{}" '
+                   'y="{}" '
+                   'width="{}" '
+                   'height="{}" '
+                   'fill="{}" '
+                   'style="stroke:{};" '
+                   '></rect>'
+                   .format(xpos, ypos, NODE_X_SIZE, NODE_Y_SIZE, NODE_FILL_COLOR, NODE_LINE_COLOR))
+        ypos += NODE_Y_SIZE // 2
+        xpos += NODE_X_SIZE // 10
+        file.write('<text '
+                   'x="{}" '
+                   'y="{}" '
+                   'style="font-family:monospace; dominant-baseline:central; stroke:{}">'
+                   '{}'
+                   '</text>\n'
+                   .format(xpos, ypos, NODE_LINE_COLOR, node.name))
+        file.write('</g>\n')
 
-    def generate_clos_leaf_spine_links(self, leaf_nodes, spine_nodes):
-        # Connect leaf nodes to spine nodes
-        for leaf_node in leaf_nodes:
-            for spine_node in spine_nodes:
-                self.create_link_between_nodes(leaf_node, spine_node)
+    def svg_link(self, file, link):
+        xpos1 = self.svg_intf_x(link.intf1)
+        ypos1 = self.svg_intf_y(link.intf1)
+        xpos2 = self.svg_intf_x(link.intf2)
+        ypos2 = self.svg_intf_y(link.intf2)
+        file.write('<line '
+                   'x1="{}" '
+                   'y1="{}" '
+                   'x2="{}" '
+                   'y2="{}" '
+                   'style="stroke:{};">'
+                   '</line>\n'
+                   .format(xpos1, ypos1, xpos2, ypos2, LINK_COLOR))
 
 def parse_meta_configuration(file_name):
     try:
@@ -342,6 +465,9 @@ def parse_command_line_arguments():
         '-n', '--netns-per-node',
         action="store_true",
         help='Use network namespace per node')
+    parser.add_argument(
+        '-g', '--graphics-file',
+        help='Output file name for graphical representation')
     args = parser.parse_args()
     return args
 
@@ -354,8 +480,7 @@ def main():
     input_file_name = getattr(args, 'input-meta-config-file')
     meta_config = parse_meta_configuration(input_file_name)
     generator = Generator(args, meta_config)
-    generator.generate_configuration()
-    generator.write_configuration()
+    generator.produce_configuration()
 
 if __name__ == "__main__":
     main()
