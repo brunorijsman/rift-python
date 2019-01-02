@@ -152,12 +152,40 @@ class Node:
             prefix = (address, mask, metric)
             self.ipv4_prefixes.append(prefix)
 
-
     def create_interface(self):
         intf_index = len(self.interfaces) + 1
         interface = Interface(self, intf_index)
         self.interfaces.append(interface)
         return interface
+
+    def interface_dir_index(self, interface):
+        # Of all the interfaces on the node in the same direction as the given interface, what
+        # is the index of the interface? Is it the 0th, the 1st, the 2nd, etc. interface in that
+        # particular direction? Note that the index is zero-based.
+        index = 0
+        for check_interface in self.interfaces:
+            if check_interface == interface:
+                return index
+            if check_interface.direction == interface.direction:
+                index += 1
+        return None
+
+    def interface_dir_count(self, direction):
+        # How many interfaces in the given direction does this node have?
+        count = 0
+        for interface in self.interfaces:
+            if interface.direction == direction:
+                count += 1
+        return count
+
+    def xpos(self):
+        # X position of top-left corner of rectangle representing the node
+        return GLOBAL_X_OFFSET + self.index_in_level * (NODE_X_SIZE + NODE_X_INTERVAL)
+
+    def ypos(self):
+        # Y position of top-left corner of rectangle representing the node
+        nr_levels = 2
+        return GLOBAL_Y_OFFSET + (nr_levels - self.level - 1) * (NODE_Y_SIZE + NODE_Y_INTERVAL)
 
 class Interface:
 
@@ -195,6 +223,20 @@ class Interface:
 
     def veth_name(self):
         return "veth" + "-" + str(self.intf_id) + "-" + str(self.peer_intf_id)
+
+    def xpos(self):
+        # X position of center of circle representing interface
+        node_intf_dir_count = self.node.interface_dir_count(self.direction)
+        intf_dir_index = self.node.interface_dir_index(self)
+        intf_x_dist = NODE_X_SIZE / (node_intf_dir_count + 1)
+        return self.node.xpos() + intf_x_dist * (intf_dir_index + 1)
+
+    def ypos(self):
+        # Y position of center of circle representing interface
+        if self.direction == NORTH:
+            return self.node.ypos()
+        else:
+            return self.node.ypos() + NODE_Y_SIZE
 
 class Link:
 
@@ -466,32 +508,9 @@ class Generator:
     def svg_end(self, file):
         file.write(END_OF_SVG)
 
-    def svg_node_x(self, node):
-        return GLOBAL_X_OFFSET + node.index_in_level * (NODE_X_SIZE + NODE_X_INTERVAL)
-
-    def svg_node_y(self, node):
-        nr_levels = 2
-        return GLOBAL_Y_OFFSET + (nr_levels - node.level - 1) * (NODE_Y_SIZE + NODE_Y_INTERVAL)
-
-    def svg_intf_x(self, intf):
-        node_intf_dir_count = 0    # Number of interfaces on node in same direction
-        for check_intf in intf.node.interfaces:
-            if check_intf.direction == intf.direction:
-                node_intf_dir_count += 1
-                if check_intf == intf:
-                    intf_dir_index = node_intf_dir_count
-        intf_x_dist = NODE_X_SIZE / (node_intf_dir_count + 1)
-        return self.svg_node_x(intf.node) + intf_x_dist * intf_dir_index
-
-    def svg_intf_y(self, intf):
-        if intf.direction == NORTH:
-            return self.svg_node_y(intf.node)
-        else:
-            return self.svg_node_y(intf.node) + NODE_Y_SIZE
-
     def svg_node(self, file, node):
-        xpos = self.svg_node_x(node)
-        ypos = self.svg_node_y(node)
+        xpos = node.xpos()
+        ypos = node.ypos()
         file.write('<g class="node">\n')
         file.write('<rect '
                    'x="{}" '
@@ -515,10 +534,10 @@ class Generator:
         file.write('</g>\n')
 
     def svg_link(self, file, link):
-        xpos1 = self.svg_intf_x(link.intf1)
-        ypos1 = self.svg_intf_y(link.intf1)
-        xpos2 = self.svg_intf_x(link.intf2)
-        ypos2 = self.svg_intf_y(link.intf2)
+        xpos1 = link.intf1.xpos()
+        ypos1 = link.intf1.ypos()
+        xpos2 = link.intf2.xpos()
+        ypos2 = link.intf2.ypos()
         file.write('<g class="link">\n')
         file.write('<line '
                    'x1="{}" '
@@ -533,9 +552,9 @@ class Generator:
         self.svg_intf(file, link.intf2)
         file.write('</g>\n')
 
-    def svg_intf(self, file, intf):
-        xpos = self.svg_intf_x(intf)
-        ypos = self.svg_intf_y(intf)
+    def svg_intf(self, file, interface):
+        xpos = interface.xpos()
+        ypos = interface.ypos()
         file.write('<circle '
                    'cx="{}" '
                    'cy="{}" '
