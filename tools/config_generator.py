@@ -64,6 +64,39 @@ for (var i = 0; i < nodes.length; i++) {
     node.addEventListener('mouseout', CreateNodeNormalFunc(node));
 }
 
+function CreateLinkHighlightFunc(link) {
+    return function() {
+        line = link.getElementsByClassName('link-line')[0]
+        line.setAttribute("style", "stroke:red;stroke-width:3")
+        for (var i = 0; i < 2; i++) {
+            intf = link.getElementsByClassName('intf')[i]
+            intf.setAttribute("style", "stroke:red")
+            intf.setAttribute("fill", "red")
+            intf.setAttribute("r", "5")
+        }
+    }
+}
+
+function CreateLinkNormalFunc(link) {
+    return function() {
+        line = link.getElementsByClassName('link-line')[0]
+        line.setAttribute("style", "stroke:black;stroke-width:1")
+        for (var i = 0; i < 2; i++) {
+            intf = link.getElementsByClassName('intf')[i]
+            intf.setAttribute("style", "stroke:black")
+            intf.setAttribute("fill", "black")
+            intf.setAttribute("r", "3")
+        }
+    }
+}
+
+var links = document.getElementsByClassName('link');
+for (var i = 0; i < links.length; i++) {
+    link = links[i]
+    link.addEventListener('mouseover', CreateLinkHighlightFunc(link));
+    link.addEventListener('mouseout', CreateLinkNormalFunc(link));
+}
+
 ]]></script>
 
 </svg>
@@ -459,16 +492,19 @@ class Generator:
         ypos1 = self.svg_intf_y(link.intf1)
         xpos2 = self.svg_intf_x(link.intf2)
         ypos2 = self.svg_intf_y(link.intf2)
+        file.write('<g class="link">\n')
         file.write('<line '
                    'x1="{}" '
                    'y1="{}" '
                    'x2="{}" '
                    'y2="{}" '
-                   'style="stroke:{};">'
+                   'style="stroke:{};" '
+                   'class="link-line">'
                    '</line>\n'
                    .format(xpos1, ypos1, xpos2, ypos2, LINK_COLOR))
         self.svg_intf(file, link.intf1)
         self.svg_intf(file, link.intf2)
+        file.write('</g>\n')
 
     def svg_intf(self, file, intf):
         xpos = self.svg_intf_x(intf)
@@ -477,7 +513,8 @@ class Generator:
                    'cx="{}" '
                    'cy="{}" '
                    'r="{}" '
-                   'style="stroke:{};fill:{}">'
+                   'style="stroke:{};fill:{}" '
+                   'class="intf">'
                    '</circle>\n'
                    .format(xpos, ypos, INTF_RADIUS, INTF_COLOR, INTF_COLOR))
 
