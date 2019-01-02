@@ -5,11 +5,11 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Pytest rib",
+            "name": "config_generator",
             "type": "python",
             "request": "launch",
-            "program": "/Users/brunorijsman/rift-python/env/bin/pytest",
-            "args": ["-s", "-vvv", "tests/test_rib.py"] 
+            "program": "tools/config_generator.py",
+            "args": ["-g", "foo.html", "meta_topology/2c_3x2.yaml", "foo"] 
         },
         {
             "name": "Interop",
