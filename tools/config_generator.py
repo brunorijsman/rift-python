@@ -28,6 +28,8 @@ SCHEMA = {
 SOUTH = 1
 NORTH = 2
 
+GLOBAL_X_OFFSET = 10
+GLOBAL_Y_OFFSET = 10
 NODE_X_SIZE = 100
 NODE_Y_SIZE = 50
 NODE_X_INTERVAL = 20
@@ -37,6 +39,34 @@ NODE_FILL_COLOR = "lightgray"
 LINK_COLOR = "black"
 INTF_RADIUS = 3
 INTF_COLOR = "black"
+
+END_OF_SVG = """
+<script type="text/javascript"><![CDATA[
+
+function CreateNodeHighlightFunc(node) {
+    return function() {
+        node.setAttribute("fill", "red")
+    }
+}
+
+function CreateNodeNormalFunc(node) {
+    return function() {
+        node.setAttribute("fill", "lightgray")
+    }
+}
+
+var nodes = document.getElementsByClassName('node');
+for (var i = 0; i < nodes.length; i++) {
+    node = nodes[i]
+    parent = node.parentElement
+    parent.addEventListener('mouseover', CreateNodeHighlightFunc(node), false);
+    parent.addEventListener('mouseout', CreateNodeNormalFunc(node), false);
+}
+
+]]></script>
+
+</svg>
+"""
 
 def generate_ipv4_address_str(byte1, byte2, byte3, byte4, offset):
     assert offset <= 65535
@@ -373,14 +403,14 @@ class Generator:
                    'id="tooltip-svg">\n')
 
     def svg_end(self, file):
-        file.write('</svg>\n')
+        file.write(END_OF_SVG)
 
     def svg_node_x(self, node):
-        return node.index_in_level * (NODE_X_SIZE + NODE_X_INTERVAL)
+        return GLOBAL_X_OFFSET + node.index_in_level * (NODE_X_SIZE + NODE_X_INTERVAL)
 
     def svg_node_y(self, node):
         nr_levels = 2
-        return (nr_levels - node.level - 1) * (NODE_Y_SIZE + NODE_Y_INTERVAL)
+        return GLOBAL_Y_OFFSET + (nr_levels - node.level - 1) * (NODE_Y_SIZE + NODE_Y_INTERVAL)
 
     def svg_intf_x(self, intf):
         node_intf_dir_count = 0    # Number of interfaces on node in same direction
@@ -408,7 +438,8 @@ class Generator:
                    'width="{}" '
                    'height="{}" '
                    'fill="{}" '
-                   'style="stroke:{};" '
+                   'style="stroke:{}" '
+                   'class="node" '
                    '></rect>'
                    .format(xpos, ypos, NODE_X_SIZE, NODE_Y_SIZE, NODE_FILL_COLOR, NODE_LINE_COLOR))
         ypos += NODE_Y_SIZE // 2
