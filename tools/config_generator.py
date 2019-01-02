@@ -45,22 +45,23 @@ END_OF_SVG = """
 
 function CreateNodeHighlightFunc(node) {
     return function() {
-        node.setAttribute("fill", "red")
+        rect = node.getElementsByClassName('node-rect')[0]
+        rect.setAttribute("fill", "red")
     }
 }
 
 function CreateNodeNormalFunc(node) {
     return function() {
-        node.setAttribute("fill", "lightgray")
+        rect = node.getElementsByClassName('node-rect')[0]
+        rect.setAttribute("fill", "lightgray")
     }
 }
 
 var nodes = document.getElementsByClassName('node');
 for (var i = 0; i < nodes.length; i++) {
     node = nodes[i]
-    parent = node.parentElement
-    parent.addEventListener('mouseover', CreateNodeHighlightFunc(node), false);
-    parent.addEventListener('mouseout', CreateNodeNormalFunc(node), false);
+    node.addEventListener('mouseover', CreateNodeHighlightFunc(node));
+    node.addEventListener('mouseout', CreateNodeNormalFunc(node));
 }
 
 ]]></script>
@@ -431,7 +432,7 @@ class Generator:
     def svg_node(self, file, node):
         xpos = self.svg_node_x(node)
         ypos = self.svg_node_y(node)
-        file.write('<g>\n')
+        file.write('<g class="node">\n')
         file.write('<rect '
                    'x="{}" '
                    'y="{}" '
@@ -439,7 +440,7 @@ class Generator:
                    'height="{}" '
                    'fill="{}" '
                    'style="stroke:{}" '
-                   'class="node" '
+                   'class="node-rect" '
                    '></rect>'
                    .format(xpos, ypos, NODE_X_SIZE, NODE_Y_SIZE, NODE_FILL_COLOR, NODE_LINE_COLOR))
         ypos += NODE_Y_SIZE // 2
