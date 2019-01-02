@@ -37,8 +37,12 @@ NODE_Y_INTERVAL = 100
 NODE_LINE_COLOR = "black"
 NODE_FILL_COLOR = "lightgray"
 LINK_COLOR = "black"
-INTF_RADIUS = 3
+LINK_WIDTH = "1"
+LINK_HIGHLIGHT_WIDTH = "3"
 INTF_COLOR = "black"
+INTF_RADIUS = "3"
+INTF_HIGHLIGHT_RADIUS = "5"
+HIGHLIGHT_COLOR = "red"
 
 END_OF_SVG = """
 <script type="text/javascript"><![CDATA[
@@ -46,14 +50,14 @@ END_OF_SVG = """
 function CreateNodeHighlightFunc(node) {
     return function() {
         rect = node.getElementsByClassName('node-rect')[0]
-        rect.setAttribute("fill", "red")
+        rect.setAttribute("fill", "HIGHLIGHT_COLOR")
     }
 }
 
 function CreateNodeNormalFunc(node) {
     return function() {
         rect = node.getElementsByClassName('node-rect')[0]
-        rect.setAttribute("fill", "lightgray")
+        rect.setAttribute("fill", "NODE_FILL_COLOR")
     }
 }
 
@@ -67,12 +71,12 @@ for (var i = 0; i < nodes.length; i++) {
 function CreateLinkHighlightFunc(link) {
     return function() {
         line = link.getElementsByClassName('link-line')[0]
-        line.setAttribute("style", "stroke:red;stroke-width:3")
+        line.setAttribute("style", "stroke:HIGHLIGHT_COLOR;stroke-width:LINK_HIGHLIGHT_WIDTH")
         for (var i = 0; i < 2; i++) {
             intf = link.getElementsByClassName('intf')[i]
-            intf.setAttribute("style", "stroke:red")
-            intf.setAttribute("fill", "red")
-            intf.setAttribute("r", "5")
+            intf.setAttribute("style", "stroke:HIGHLIGHT_COLOR")
+            intf.setAttribute("fill", "HIGHLIGHT_COLOR")
+            intf.setAttribute("r", "INTF_HIGHLIGHT_RADIUS")
         }
     }
 }
@@ -80,12 +84,12 @@ function CreateLinkHighlightFunc(link) {
 function CreateLinkNormalFunc(link) {
     return function() {
         line = link.getElementsByClassName('link-line')[0]
-        line.setAttribute("style", "stroke:black;stroke-width:1")
+        line.setAttribute("style", "stroke:LINK_COLOR;stroke-width:LINK_WIDTH")
         for (var i = 0; i < 2; i++) {
             intf = link.getElementsByClassName('intf')[i]
-            intf.setAttribute("style", "stroke:black")
-            intf.setAttribute("fill", "black")
-            intf.setAttribute("r", "3")
+            intf.setAttribute("style", "stroke:INTF_COLOR")
+            intf.setAttribute("fill", "INTF_COLOR")
+            intf.setAttribute("r", "INTF_RADIUS")
         }
     }
 }
@@ -101,6 +105,16 @@ for (var i = 0; i < links.length; i++) {
 
 </svg>
 """
+
+END_OF_SVG = END_OF_SVG.replace("NODE_LINE_COLOR", NODE_LINE_COLOR)
+END_OF_SVG = END_OF_SVG.replace("NODE_FILL_COLOR", NODE_FILL_COLOR)
+END_OF_SVG = END_OF_SVG.replace("LINK_COLOR", LINK_COLOR)
+END_OF_SVG = END_OF_SVG.replace("LINK_WIDTH", LINK_WIDTH)
+END_OF_SVG = END_OF_SVG.replace("LINK_HIGHLIGHT_WIDTH", LINK_HIGHLIGHT_WIDTH)
+END_OF_SVG = END_OF_SVG.replace("INTF_COLOR", INTF_COLOR)
+END_OF_SVG = END_OF_SVG.replace("INTF_RADIUS", INTF_RADIUS)
+END_OF_SVG = END_OF_SVG.replace("INTF_HIGHLIGHT_RADIUS", INTF_HIGHLIGHT_RADIUS)
+END_OF_SVG = END_OF_SVG.replace("HIGHLIGHT_COLOR", HIGHLIGHT_COLOR)
 
 def generate_ipv4_address_str(byte1, byte2, byte3, byte4, offset):
     assert offset <= 65535
