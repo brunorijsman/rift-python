@@ -130,12 +130,15 @@ def generate_ipv4_address_str(byte1, byte2, byte3, byte4, offset):
 
 class Node:
 
-    def __init__(self, name, node_id, level, index_in_level):
+    next_node_id = 1
+
+    def __init__(self, name, level, index_in_level):
         self.name = name
-        self.node_id = node_id
+        self.node_id = Node.next_node_id
+        Node.next_node_id += 1
         self.level = level
         self.index_in_level = index_in_level
-        self.rx_lie_mcast_addr = generate_ipv4_address_str(224, 0, 1, 0, node_id)
+        self.rx_lie_mcast_addr = generate_ipv4_address_str(224, 0, 1, 0, self.node_id)
         self.interfaces = []
         self.ipv4_prefixes = []
         self.lo_addr = generate_ipv4_address_str(88, 0, 0, 0, 1) + "/32"
@@ -149,27 +152,43 @@ class Node:
             prefix = (address, mask, metric)
             self.ipv4_prefixes.append(prefix)
 
-    def add_interface(self, interface):
+
+    def create_interface(self):
+        intf_index = len(self.interfaces) + 1
+        interface = Interface(self, intf_index)
         self.interfaces.append(interface)
+        return interface
 
 class Interface:
 
-    def __init__(self, node, intf_id, intf_index, peer_node, peer_intf_id):
+    next_interface_id = 1
+
+    def __init__(self, node, intf_index):
         self.node = node
-        self.intf_id = intf_id          # Globally unique identifier for interface
-        self.intf_index = intf_index    # Index for interface, locally unique within scope of node
-        self.peer_node = peer_node
-        if peer_node.level < node.level:
+        self.intf_id = Interface.next_interface_id  # Globally unique identifier for interface
+        Interface.next_interface_id += 1
+        self.intf_index = intf_index  # Local index for interface, unique within scope of node
+        self.peer_intf_id = None
+        self.peer_node = None
+        self.direction = None
+        self.rx_lie_port = None
+        self.tx_lie_port = None
+        self.rx_tie_port = None
+        self.addr = None
+
+    def set_peer_intf(self, peer_intf):
+        self.peer_intf_id = peer_intf.intf_id
+        self.peer_node = peer_intf.node
+        if self.peer_node.level < self.node.level:
             self.direction = SOUTH
         else:
             self.direction = NORTH
-        self.peer_intf_id = peer_intf_id
-        self.rx_lie_port = 20000 + intf_id
-        self.tx_lie_port = 20000 + peer_intf_id
-        self.rx_tie_port = 10000 + intf_id
-        lower = min(intf_id, peer_intf_id)
-        upper = max(intf_id, peer_intf_id)
-        self.addr = "99.{}.{}.{}/24".format(lower, upper, intf_id)
+        self.rx_lie_port = 20000 + self.intf_id
+        self.tx_lie_port = 20000 + self.peer_intf_id
+        self.rx_tie_port = 10000 + self.intf_id
+        lower = min(self.intf_id, self.peer_intf_id)
+        upper = max(self.intf_id, self.peer_intf_id)
+        self.addr = "99.{}.{}.{}/24".format(lower, upper, self.intf_id)
 
     def name(self):
         return "if" + str(self.intf_index)
@@ -188,7 +207,6 @@ class Generator:
     def __init__(self, args, meta_config):
         self.args = args
         self.meta_config = meta_config
-        self.next_node_id = 1
         self.next_interface_id = 1
         self.nodes = {}
         self.interfaces = {}
@@ -244,29 +262,24 @@ class Generator:
                 self.create_link_between_nodes(leaf_node, spine_node)
 
     def create_node(self, name, level, index_in_level):
-        node = Node(name, self.next_node_id, level, index_in_level)
-        self.next_node_id += 1
+        node = Node(name, level, index_in_level)
         self.nodes[node.node_id] = node
         return node
 
-    def create_interface(self, node, intf_id, peer_node, peer_intf_id):
-        intf_index = len(node.interfaces) + 1
-        interface = Interface(node, intf_id, intf_index, peer_node, peer_intf_id)
-        node.add_interface(interface)
-        self.interfaces[intf_id] = interface
+    def create_interface(self, node):
+        interface = node.create_interface()
+        self.interfaces[interface.intf_id] = interface
         return interface
 
     def fq_intf_name(self, intf):
         return self.nodes[intf.node.node_id].name + ":" + intf.name()
 
     def create_link_between_nodes(self, node1, node2):
-        intf1_id = self.next_interface_id
-        self.next_interface_id += 1
-        intf2_id = self.next_interface_id
-        self.next_interface_id += 1
-        intf1 = self.create_interface(node1, intf1_id, node2, intf2_id)
-        intf2 = self.create_interface(node2, intf2_id, node1, intf1_id)
-        link = Link(intf1, intf2)
+        interface1 = self.create_interface(node1)
+        interface2 = self.create_interface(node2)
+        interface1.set_peer_intf(interface2)
+        interface2.set_peer_intf(interface1)
+        link = Link(interface1, interface2)
         self.links.append(link)
 
     def write_configuration(self):
