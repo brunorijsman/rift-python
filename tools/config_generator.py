@@ -33,12 +33,17 @@ NORTH = 2
 
 GLOBAL_X_OFFSET = 10
 GLOBAL_Y_OFFSET = 10
+POD_X_INTERVAL = 30
+POD_X_SPACER = 20
+POD_Y_SPACER = 20
+POD_LINE_COLOR = "black"
+POD_FILL_COLOR = "#F0F0F0"
 NODE_X_SIZE = 100
 NODE_Y_SIZE = 50
 NODE_X_INTERVAL = 20
 NODE_Y_INTERVAL = 100
 NODE_LINE_COLOR = "black"
-NODE_FILL_COLOR = "lightgray"
+NODE_FILL_COLOR = "silver"
 LINK_COLOR = "black"
 LINK_WIDTH = "1"
 LINK_HIGHLIGHT_WIDTH = "3"
@@ -159,7 +164,7 @@ class Pod:
     def create_leaf_nodes(self):
         for index in range(0, self.nr_leaf_nodes):
             node_name = "leaf" + str(index + 1)
-            node = Node(node_name, level=0, index_in_level=index)
+            node = Node(self, node_name, level=0, index_in_level=index)
             node.add_ipv4_loopbacks(self.leaf_nr_ipv4_loopbacks)
             self.nodes[node.node_id] = node
             self.leaf_nodes.append(node)
@@ -167,7 +172,7 @@ class Pod:
     def create_spine_nodes(self):
         for index in range(0, self.nr_spine_nodes):
             node_name = "spine" + str(index + 1)
-            node = Node(node_name, level=1, index_in_level=index)
+            node = Node(self, node_name, level=1, index_in_level=index)
             node.add_ipv4_loopbacks(self.spine_nr_ipv4_loopbacks)
             self.nodes[node.node_id] = node
             self.spine_nodes.append(node)
@@ -195,16 +200,61 @@ class Pod:
             node.write_netns_start_scr_to_file_2(file)
 
     def write_graphics_to_file(self, file):
+
+        x_pos = self.x_pos()
+        y_pos = self.y_pos()
+        x_size = self.x_size()
+        y_size = self.y_size()
+        file.write('<rect '
+                   'x="{}" '
+                   'y="{}" '
+                   'width="{}" '
+                   'height="{}" '
+                   'fill="{}" '
+                   'style="stroke:{}" '
+                   '></rect>'
+                   .format(x_pos, y_pos, x_size, y_size, POD_FILL_COLOR, POD_LINE_COLOR))
         for node in self.nodes.values():
             node.write_graphics_to_file(file)
         for link in self.leaf_spine_links:
             link.write_graphics_to_file(file)
 
+    def x_pos(self):
+        # X position of top-left corner of rectangle representing the pod
+        return GLOBAL_X_OFFSET + (self.pod_id - 1) * (self.x_size() + POD_X_INTERVAL)
+
+    def x_size(self):
+        width_nodes = max(self.nr_leaf_nodes, self.nr_spine_nodes)
+        width = width_nodes * NODE_X_SIZE
+        width += (width_nodes - 1) * NODE_X_INTERVAL
+        width += 2 * POD_X_SPACER
+        return width
+
+    def y_pos(self):
+        # Y position of top-left corner of rectangle representing the pod
+        return GLOBAL_Y_OFFSET
+
+    def y_size(self):
+        height = 2 * NODE_Y_SIZE
+        height += NODE_Y_INTERVAL
+        height += 2 * POD_Y_SPACER
+        return height
+
+    def first_node_x_pos(self, level):
+        width_nodes = max(self.nr_leaf_nodes, self.nr_spine_nodes)
+        if level == 0:
+            missing_nodes = width_nodes - self.nr_leaf_nodes
+        else:
+            missing_nodes = width_nodes - self.nr_spine_nodes
+        padding_width = missing_nodes * (NODE_X_SIZE + NODE_X_INTERVAL) // 2
+        return self.x_pos() + padding_width + POD_X_SPACER
+
 class Node:
 
     next_node_id = 1
 
-    def __init__(self, name, level, index_in_level):
+    def __init__(self, pod, name, level, index_in_level):
+        self.pod = pod
         self.name = name
         self.node_id = Node.next_node_id
         Node.next_node_id += 1
@@ -335,8 +385,8 @@ class Node:
               .format(ns_name, port_file, self.config_file_name), file=file)
 
     def write_graphics_to_file(self, file):
-        xpos = self.xpos()
-        ypos = self.ypos()
+        x_pos = self.x_pos()
+        y_pos = self.y_pos()
         file.write('<g class="node">\n')
         file.write('<rect '
                    'x="{}" '
@@ -347,26 +397,29 @@ class Node:
                    'style="stroke:{}" '
                    'class="node-rect" '
                    '></rect>'
-                   .format(xpos, ypos, NODE_X_SIZE, NODE_Y_SIZE, NODE_FILL_COLOR, NODE_LINE_COLOR))
-        ypos += NODE_Y_SIZE // 2
-        xpos += NODE_X_SIZE // 10
+                   .format(x_pos, y_pos, NODE_X_SIZE, NODE_Y_SIZE, NODE_FILL_COLOR,
+                           NODE_LINE_COLOR))
+        y_pos += NODE_Y_SIZE // 2
+        x_pos += NODE_X_SIZE // 10
         file.write('<text '
                    'x="{}" '
                    'y="{}" '
                    'style="font-family:monospace; dominant-baseline:central; stroke:{}">'
                    '{}'
                    '</text>\n'
-                   .format(xpos, ypos, NODE_LINE_COLOR, self.name))
+                   .format(x_pos, y_pos, NODE_LINE_COLOR, self.name))
         file.write('</g>\n')
 
-    def xpos(self):
+    def x_pos(self):
         # X position of top-left corner of rectangle representing the node
-        return GLOBAL_X_OFFSET + self.index_in_level * (NODE_X_SIZE + NODE_X_INTERVAL)
+        x_delta = self.index_in_level * (NODE_X_SIZE + NODE_X_INTERVAL)
+        return self.pod.first_node_x_pos(self.level) + x_delta
 
-    def ypos(self):
+    def y_pos(self):
         # Y position of top-left corner of rectangle representing the node
         nr_levels = 2
-        return GLOBAL_Y_OFFSET + (nr_levels - self.level - 1) * (NODE_Y_SIZE + NODE_Y_INTERVAL)
+        y_delta = (nr_levels - self.level - 1) * (NODE_Y_SIZE + NODE_Y_INTERVAL)
+        return self.pod.y_pos() + POD_Y_SPACER + y_delta
 
 class Interface:
 
@@ -408,8 +461,8 @@ class Interface:
         return "veth" + "-" + str(self.intf_id) + "-" + str(self.peer_intf.intf_id)
 
     def write_graphics_to_file(self, file):
-        xpos = self.xpos()
-        ypos = self.ypos()
+        x_pos = self.x_pos()
+        y_pos = self.y_pos()
         file.write('<circle '
                    'cx="{}" '
                    'cy="{}" '
@@ -417,21 +470,21 @@ class Interface:
                    'style="stroke:{};fill:{}" '
                    'class="intf">'
                    '</circle>\n'
-                   .format(xpos, ypos, INTF_RADIUS, INTF_COLOR, INTF_COLOR))
+                   .format(x_pos, y_pos, INTF_RADIUS, INTF_COLOR, INTF_COLOR))
 
-    def xpos(self):
+    def x_pos(self):
         # X position of center of circle representing interface
         node_intf_dir_count = self.node.interface_dir_count(self.direction)
         intf_dir_index = self.node.interface_dir_index(self)
         intf_x_dist = NODE_X_SIZE / (node_intf_dir_count + 1)
-        return self.node.xpos() + intf_x_dist * (intf_dir_index + 1)
+        return self.node.x_pos() + intf_x_dist * (intf_dir_index + 1)
 
-    def ypos(self):
+    def y_pos(self):
         # Y position of center of circle representing interface
         if self.direction == NORTH:
-            return self.node.ypos()
+            return self.node.y_pos()
         else:
-            return self.node.ypos() + NODE_Y_SIZE
+            return self.node.y_pos() + NODE_Y_SIZE
 
 class Link:
 
@@ -450,10 +503,10 @@ class Link:
         print("ip link add dev {} type veth peer name {}".format(veth1_name, veth2_name), file=file)
 
     def write_graphics_to_file(self, file):
-        xpos1 = self.intf1.xpos()
-        ypos1 = self.intf1.ypos()
-        xpos2 = self.intf2.xpos()
-        ypos2 = self.intf2.ypos()
+        x_pos1 = self.intf1.x_pos()
+        y_pos1 = self.intf1.y_pos()
+        x_pos2 = self.intf2.x_pos()
+        y_pos2 = self.intf2.y_pos()
         file.write('<g class="link">\n')
         file.write('<line '
                    'x1="{}" '
@@ -463,7 +516,7 @@ class Link:
                    'style="stroke:{};" '
                    'class="link-line">'
                    '</line>\n'
-                   .format(xpos1, ypos1, xpos2, ypos2, LINK_COLOR))
+                   .format(x_pos1, y_pos1, x_pos2, y_pos2, LINK_COLOR))
         self.intf1.write_graphics_to_file(file)
         self.intf2.write_graphics_to_file(file)
         file.write('</g>\n')
