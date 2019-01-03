@@ -141,8 +141,9 @@ class Pod:
 
     next_pod_id = 1
 
-    def __init__(self, name):
+    def __init__(self, name, only_pod):
         self.name = name
+        self.only_pod = only_pod
         self.pod_id = Pod.next_pod_id
         Pod.next_pod_id += 1
         self.nr_leaf_nodes = META_CONFIG['nr-leaf-nodes-per-pod']
@@ -163,9 +164,15 @@ class Pod:
         self.create_spine_nodes()
         self.create_leaf_spine_links()
 
+    def node_name(self, base_name, node_index_in_level):
+        if self.only_pod:
+            return base_name + "-" + str(node_index_in_level + 1)
+        else:
+            return base_name + "-" + str(self.pod_id) + "-" + str(node_index_in_level + 1)
+
     def create_leaf_nodes(self):
         for index in range(0, self.nr_leaf_nodes):
-            node_name = "leaf" + str(index + 1)
+            node_name = self.node_name("leaf", index)
             node = Node(self, node_name, level=0, index_in_level=index)
             node.add_ipv4_loopbacks(self.leaf_nr_ipv4_loopbacks)
             self.nodes[node.node_id] = node
@@ -173,7 +180,7 @@ class Pod:
 
     def create_spine_nodes(self):
         for index in range(0, self.nr_spine_nodes):
-            node_name = "spine" + str(index + 1)
+            node_name = self.node_name("spine", index)
             node = Node(self, node_name, level=1, index_in_level=index)
             node.add_ipv4_loopbacks(self.spine_nr_ipv4_loopbacks)
             self.nodes[node.node_id] = node
@@ -539,9 +546,10 @@ class Generator:
             self.write_graphics()
 
     def generate_representation(self):
+        only_pod = (self.nr_pods == 1)
         for index in range(0, self.nr_pods):
             pod_name = "pod" + str(index + 1)
-            pod = Pod(pod_name)
+            pod = Pod(pod_name, only_pod)
             self.pods.append(pod)
 
     def write_config(self):
@@ -637,8 +645,7 @@ def parse_meta_configuration(file_name):
         pretty_printer = pprint.PrettyPrinter()
         pretty_printer.pprint(validator.errors)
         exit(1)
-
-    return config
+    return validator.normalized(config)
 
 def parse_command_line_arguments():
     parser = argparse.ArgumentParser(description='RIFT configuration generator')
