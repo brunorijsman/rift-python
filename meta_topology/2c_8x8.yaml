@@ -1,2 +1,2 @@
-nr-leaf-nodes: 8
-nr-spine-nodes: 8
+nr-leaf-nodes-per-pod: 8
+nr-spine-nodes-per-pod: 8

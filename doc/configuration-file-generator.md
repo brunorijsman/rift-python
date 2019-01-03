@@ -367,33 +367,58 @@ spine3>
 
 Just like the configuration file, the meta-configuration file is a YAML file.
 
-Currently the only supported topology type is a 2-level (= 3-stage) Clos topology, but
-support for additional topology types will be added in the future.
+The meta-configuration file can contain the following elements:
 
-### nr-leaf-nodes
+  * [nr-leaf-nodes-per-pod](#nr-leaf-nodes-per-pod)
+  * [nr-pods](#nr-pods)
+  * [nr-spine-nodes-per-pod](#nr-spine-nodes-per-pod)
+  
+### nr-leaf-nodes-per-pod
 
-`nr-leaf-nodes` at the top level is an integer that specifies the number of leaf nodes in the Clos
-topology.
-
-If `nr-leaf-nodes` is present, then `nr-spine-nodes` must also be present.
-
-Example:
-
-<pre>
-<b>nr-leaf-nodes: 8</b>
-nr-spine-nodes: 8
-</pre>
-
-### nr-spine-nodes
-
-`nr-spine-nodes` at the top level is an integer that specifies the number of spine nodes in the Clos
-topology.
-
-If `nr-spine-nodes` is present, then `nr-leaf-nodes` must also be present.
+| Element | `nr-leaf-nodes-per-pod` |
+| --- | --- |
+| Value | Integer, minimum value 1 |
+| Level | Top-level |
+| Presence | Mandatory |
+| Meaning | The number of leaf nodes per POD |
 
 Example:
 
 <pre>
-nr-leaf-nodes: 8
-<b>nr-spine-nodes: 8</b>
+<b>nr-leaf-nodes-per-pod: 8</b>
+nr-spine-nodes-per-pod: 8
 </pre>
+
+### nr-pods
+
+| Element | `nr-pods` |
+| --- | --- |
+| Value | Integer, minimum value 1 |
+| Level | Top-level |
+| Presence | Optional, default value 1 |
+| Meaning | The number of PODs |
+
+Example:
+
+<pre>
+nr-pods: 2
+nr-leaf-nodes-per-pod: 8
+nr-spine-nodes-per-pod: 8
+</pre>
+
+### nr-spine-nodes-per-pod
+
+| Element | `nr-spine-nodes-per-pod` |
+| --- | --- |
+| Value | Integer, minimum value 1 |
+| Level | Top-level |
+| Presence | Mandatory |
+| Meaning | The number of spine nodes per POD |
+
+Example:
+
+<pre>
+nr-leaf-nodes-per-pod: 8
+<b>nr-spine-nodes-per-pod: 8</b>
+</pre>
+

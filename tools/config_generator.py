@@ -22,8 +22,9 @@ NODE_SCHEMA = {
 }
 
 SCHEMA = {
-    'nr-leaf-nodes': {'required': True, 'type': 'integer', 'min': 0},
-    'nr-spine-nodes': {'required': True, 'type': 'integer', 'min': 0},
+    'nr-leaf-nodes-per-pod': {'required': True, 'type': 'integer', 'min': 1},
+    'nr-pods': {'required': False, 'type': 'integer', 'min': 1, 'default': 1},
+    'nr-spine-nodes-per-pod': {'required': True, 'type': 'integer', 'min': 1},
     'leafs': NODE_SCHEMA,
     'spines': NODE_SCHEMA
 }
@@ -140,15 +141,16 @@ class Pod:
 
     next_pod_id = 1
 
-    def __init__(self):
+    def __init__(self, name):
+        self.name = name
         self.pod_id = Pod.next_pod_id
         Pod.next_pod_id += 1
-        self.nr_leaf_nodes = META_CONFIG['nr-leaf-nodes']
+        self.nr_leaf_nodes = META_CONFIG['nr-leaf-nodes-per-pod']
         if 'leafs' in META_CONFIG:
             self.leaf_nr_ipv4_loopbacks = META_CONFIG['leafs']['nr-ipv4-loopbacks']
         else:
             self.leaf_nr_ipv4_loopbacks = DEFAULT_NR_IPV4_LOOPBACKS
-        self.nr_spine_nodes = META_CONFIG['nr-spine-nodes']
+        self.nr_spine_nodes = META_CONFIG['nr-spine-nodes-per-pod']
         if 'spines' in META_CONFIG:
             self.spine_nr_ipv4_loopbacks = META_CONFIG['spines']['nr-ipv4-loopbacks']
         else:
@@ -524,6 +526,7 @@ class Link:
 class Generator:
 
     def __init__(self):
+        self.nr_pods = META_CONFIG['nr-pods']
         self.pods = []
 
     def run(self):
@@ -536,12 +539,10 @@ class Generator:
             self.write_graphics()
 
     def generate_representation(self):
-        # Currently, Clos is the only supported topology
-        self.generate_clos_representation()
-
-    def generate_clos_representation(self):
-        pod = Pod()
-        self.pods.append(pod)
+        for index in range(0, self.nr_pods):
+            pod_name = "pod" + str(index + 1)
+            pod = Pod(pod_name)
+            self.pods.append(pod)
 
     def write_config(self):
         file_name = getattr(ARGS, 'output-file-or-dir')
