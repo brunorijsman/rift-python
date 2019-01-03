@@ -9,7 +9,7 @@
             "type": "python",
             "request": "launch",
             "program": "tools/config_generator.py",
-            "args": ["-g", "foo.html", "meta_topology/2c_3x2.yaml", "foo"] 
+            "args": ["-g", "diagram.html", "meta_topology/clos_3pod_3leaf_3spine_3super.yaml", "configuration"] 
         },
         {
             "name": "Interop",
