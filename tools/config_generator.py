@@ -35,8 +35,10 @@ NORTH = 2
 GLOBAL_X_OFFSET = 10
 GLOBAL_Y_OFFSET = 10
 POD_X_INTERVAL = 30
-POD_X_SPACER = 20
-POD_Y_SPACER = 20
+POD_X_SPACER = 24
+POD_Y_SPACER = 24
+POD_X_TEXT_OFFSET = 8
+POD_Y_TEXT_OFFSET = 16
 POD_LINE_COLOR = "black"
 POD_FILL_COLOR = "#F0F0F0"
 NODE_X_SIZE = 100
@@ -223,6 +225,16 @@ class Pod:
                    'style="stroke:{}" '
                    '></rect>'
                    .format(x_pos, y_pos, x_size, y_size, POD_FILL_COLOR, POD_LINE_COLOR))
+        if not self.only_pod:
+            x_pos += POD_X_TEXT_OFFSET
+            y_pos += POD_Y_TEXT_OFFSET
+            file.write('<text '
+                       'x="{}" '
+                       'y="{}" '
+                       'style="font-family:monospace;stroke:{}">'
+                       '{}'
+                       '</text>\n'
+                       .format(x_pos, y_pos, POD_LINE_COLOR, self.name))
         for node in self.nodes.values():
             node.write_graphics_to_file(file)
         for link in self.leaf_spine_links:
@@ -548,7 +560,7 @@ class Generator:
     def generate_representation(self):
         only_pod = (self.nr_pods == 1)
         for index in range(0, self.nr_pods):
-            pod_name = "pod" + str(index + 1)
+            pod_name = "pod-" + str(index + 1)
             pod = Pod(pod_name, only_pod)
             self.pods.append(pod)
 
