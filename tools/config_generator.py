@@ -177,7 +177,7 @@ class Group:
         if self.only_instance:
             return base_name + "-" + str(node_index_in_level + 1)
         else:
-            return base_name + "-" + str(self.group_index) + "-" + str(node_index_in_level + 1)
+            return base_name + "-" + str(self.group_index + 1) + "-" + str(node_index_in_level + 1)
 
     def write_config_to_file(self, file, netns):
         for node in self.nodes:
