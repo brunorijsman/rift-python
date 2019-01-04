@@ -785,7 +785,7 @@ def validate_meta_configuration():
         fatal_error("nr-superspine-nodes must not be configured if there is only one POD")
 
 def parse_command_line_arguments():
-    parser = argparse.ArgumentParser(description='RIFT configuration fabric')
+    parser = argparse.ArgumentParser(description='RIFT configuration generator')
     parser.add_argument(
         'input-meta-config-file',
         help='Input meta-configuration file name')
