@@ -659,6 +659,8 @@ class Fabric:
         print("    nodes:", file=file)
         for pod in self.pods:
             pod.write_config_to_file(file, netns)
+        for plane in self.planes:
+            plane.write_config_to_file(file, netns)
 
     def write_netns_configs_and_scripts(self):
         dir_name = getattr(ARGS, 'output-file-or-dir')
