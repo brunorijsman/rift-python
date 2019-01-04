@@ -187,12 +187,15 @@ class Group:
         for node in self.nodes:
             node.write_netns_configs_and_scripts()
 
-    # TODO: Split this in phase1 and phase2 at a higher level
-    def write_netns_start_scr_to_file(self, file):
+    def write_netns_start_scr_to_file_1(self, file):
+        # Phase 1: Crate all namespaces and interfaces
         for link in self.links:
             link.write_netns_start_scr_to_file(file)
         for node in self.nodes:
             node.write_netns_start_scr_to_file_1(file)
+
+    def write_netns_start_scr_to_file_2(self, file):
+        # Phase 2: Start all nodes
         for node in self.nodes:
             node.write_netns_start_scr_to_file_2(file)
 
@@ -674,6 +677,8 @@ class Fabric:
             fatal_error("Could not create output directory '{}'".format(dir_name))
         for pod in self.pods:
             pod.write_netns_configs_and_scripts()
+        for plane in self.planes:
+            plane.write_netns_configs_and_scripts()
         self.write_netns_start_script()
 
     def write_netns_start_script(self):
@@ -694,8 +699,16 @@ class Fabric:
         print('echo "{}"'.format(message), file=file)
 
     def write_netns_start_scr_to_file(self, file):
+        # Note: Plane has to go first, because superspine to spine links are owned by the space
+        # group, not the pod group.
+        for plane in self.planes:
+            plane.write_netns_start_scr_to_file_1(file)
         for pod in self.pods:
-            pod.write_netns_start_scr_to_file(file)
+            pod.write_netns_start_scr_to_file_1(file)
+        for plane in self.planes:
+            plane.write_netns_start_scr_to_file_2(file)
+        for pod in self.pods:
+            pod.write_netns_start_scr_to_file_2(file)
 
     def write_graphics(self):
         file_name = ARGS.graphics_file
