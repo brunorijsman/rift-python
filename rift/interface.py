@@ -13,7 +13,7 @@ import packet_common
 import socket_utils
 import table
 import timer
-import udp_receive_handler
+import udp_rx_handler
 import utils
 
 import common.constants
@@ -100,11 +100,11 @@ class Interface:
 
     def action_start_flooding(self):
         # Start sending TIE, TIRE, and TIDE packets to this neighbor
-        rx_flood_port = self._rx_tie_port
+        rx_flood_port = self._rx_flood_port
         tx_flood_port = self.neighbor.flood_port
         self.rx_info("Start flooding: receive on port %d, send on port %d", rx_flood_port,
                      tx_flood_port)
-        self._flood_receive_handler = udp_receive_handler.UdpReceiveHandler(
+        self._flood_rx_handler = udp_rx_handler.UdpRxHandler(
             remote_address="0.0.0.0",   # TODO: permissive, can we use self.neighbor.address?
             port=rx_flood_port,
             receive_function=self.receive_flood_message,
@@ -128,8 +128,8 @@ class Interface:
         self.rx_info("Stop flooding")
         self._service_queues_timer.stop()
         self.clear_all_queues()
-        self._flood_receive_handler.close()
-        self._flood_receive_handler = None
+        self._flood_rx_handler.close()
+        self._flood_rx_handler = None
         self._flood_tx_socket.close()
         self._flood_tx_socket = None
         # Update the node TIEs originated by this node to exclude this neighbor. We have to pass
@@ -177,7 +177,7 @@ class Interface:
         lie_packet = encoding.ttypes.LIEPacket(
             name=self._advertised_name,
             local_id=self.local_id,
-            flood_port=self._rx_tie_port,
+            flood_port=self._rx_flood_port,
             link_mtu_size=self._mtu,
             neighbor=lie_neighbor,
             pod=self._pod,
@@ -568,8 +568,8 @@ class Interface:
                                                       constants.DEFAULT_LIE_PORT)
         self._tx_lie_port = self.get_config_attribute(config, 'tx_lie_port',
                                                       constants.DEFAULT_LIE_PORT)
-        self._rx_tie_port = self.get_config_attribute(config, 'rx_tie_port',
-                                                      constants.DEFAULT_TIE_PORT)
+        self._rx_flood_port = self.get_config_attribute(config, 'rx_tie_port',
+                                                        constants.DEFAULT_TIE_PORT)
         self._rx_fail = False
         self._tx_fail = False
         self._log = node.log.getChild("if")
@@ -584,8 +584,8 @@ class Interface:
         self._time_ticks_since_lie_received = None
         self._lie_accept_or_reject = "No LIE Received"
         self._lie_accept_or_reject_rule = "-"
-        self._lie_receive_handler = None
-        self._flood_receive_handler = None
+        self._lie_rx_handler = None
+        self._flood_rx_handler = None
         self._flood_tx_socket = None
         # The following queues (ties_tx, ties_rtx, ties_req, are ties_ack) are ordered dictionaries.
         # The value is the header of the TIE. The index is the TIE-ID want to have two headers with
@@ -611,12 +611,12 @@ class Interface:
             multicast_address=self._tx_lie_ipv4_mcast_address,
             port=self._tx_lie_port,
             multicast_loopback=self._node.engine.multicast_loopback)
-        self._lie_receive_handler = udp_receive_handler.UdpReceiveHandler(
+        self._lie_rx_handler = udp_rx_handler.UdpRxHandler(
             remote_address=self._rx_lie_ipv4_mcast_address,
             port=self._rx_lie_port,
             receive_function=self.receive_lie_message,
             local_address=self._ipv4_address)
-        self._flood_receive_handler = None
+        self._flood_rx_handler = None
         self._flood_tx_socket = None
         self._one_second_timer = timer.Timer(
             1.0,
@@ -1056,7 +1056,7 @@ class Interface:
             ["LIE Transmit IPv4 Multicast Address", self._tx_lie_ipv4_mcast_address],
             ["LIE Transmit IPv6 Multicast Address", self._tx_lie_ipv6_mcast_address],
             ["LIE Transmit Port", self._tx_lie_port],
-            ["TIE Receive Port", self._rx_tie_port],
+            ["Flooding Receive Port", self._rx_flood_port],
             ["System ID", utils.system_id_str(self._node.system_id)],
             ["Local ID", self.local_id],
             ["MTU", self._mtu],
@@ -1073,6 +1073,49 @@ class Interface:
             return self.neighbor.cli_detailed_attributes()
         else:
             return None
+
+    @staticmethod
+    def add_socket_to_table(tab, traffic, direction, family, sock):
+        (local_address, local_port) = sock.getsockname()
+        try:
+            (remote_address, remote_port) = sock.getpeername()
+        except OSError:
+            # Receive UDP sockets trow an OSError if they are not connected
+            remote_address = "Any"
+            remote_port = "Any"
+        tab.add_row([traffic,
+                     direction,
+                     family,
+                     str(local_address),
+                     local_port,
+                     str(remote_address),
+                     remote_port])
+        return tab
+
+    def sockets_table(self):
+        tab = table.Table()
+        tab.add_row([
+            "Traffic",
+            "Direction",
+            "Family",
+            "Local Address",
+            "Local Port",
+            "Remote Address",
+            "Remote Port"])
+        if self._lie_rx_handler and self._lie_rx_handler.sock:
+            self.add_socket_to_table(tab, "LIEs", "Receive", "IPv4", self._lie_rx_handler.sock)
+        ###@@@ TODO: LIE Receive IPv6 Socket
+        if self._lie_tx_socket:
+            self.add_socket_to_table(tab, "LIEs", "Send", "IPv4", self._lie_tx_socket)
+        ###@@@ TODO: LIE Transmit IPv6 Socket
+        if self._flood_rx_handler and self._flood_rx_handler.sock:
+            self.add_socket_to_table(tab, "Flooding", "Receive", "IPv4",
+                                     self._flood_rx_handler.sock)
+        ###@@@ TODO: Flooding Receive IPv6 Socket
+        if self._flood_tx_socket:
+            self.add_socket_to_table(tab, "Flooding", "Send", "IPv4", self._flood_tx_socket)
+        ###@@@ TODO: Flooding Transmit IPv6 Socket
+        return tab
 
     def tie_headers_table_common(self, tie_headers):
         tab = table.Table()

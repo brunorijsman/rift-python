@@ -56,7 +56,7 @@ def mark_non_juniper_nodes_passive(config, juniper_nodes):
 
 def fixup_config_for_juniper(config):
     next_rx_lie_port = 21000
-    next_rx_tie_port = 22000
+    next_rx_flood_port = 22000
     for shard in config['shards']:
         for node in shard['nodes']:
             if 'rx_lie_port' in node:
@@ -73,8 +73,8 @@ def fixup_config_for_juniper(config):
                     intf['rx_lie_port'] = node_rx_lie_port
                 if 'rx_tie_port' not in intf:
                     # If the interface does not have a rx_tie_port, generate one.
-                    intf['rx_tie_port'] = next_rx_tie_port
-                    next_rx_tie_port += 1
+                    intf['rx_tie_port'] = next_rx_flood_port
+                    next_rx_flood_port += 1
 
 def write_juniper_config(config_file_name, juniper_nodes, results_dir):
     config = read_config(config_file_name)

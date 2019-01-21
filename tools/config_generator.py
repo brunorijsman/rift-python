@@ -515,7 +515,7 @@ class Interface:
         self.direction = None
         self.rx_lie_port = None
         self.tx_lie_port = None
-        self.rx_tie_port = None
+        self.rx_flood_port = None
         self.addr = None
 
     def set_peer_intf(self, peer_intf):
@@ -527,7 +527,7 @@ class Interface:
             self.direction = NORTH
         self.rx_lie_port = 20000 + self.intf_id
         self.tx_lie_port = 20000 + self.peer_intf.intf_id
-        self.rx_tie_port = 10000 + self.intf_id
+        self.rx_flood_port = 10000 + self.intf_id
         lower = min(self.intf_id, self.peer_intf.intf_id)
         upper = max(self.intf_id, self.peer_intf.intf_id)
         self.addr = "99.{}.{}.{}/24".format(lower, upper, self.intf_id)

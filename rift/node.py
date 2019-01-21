@@ -426,7 +426,7 @@ class Node:
         self.tx_lie_port = self.get_config_attribute('tx_lie_port', constants.DEFAULT_LIE_PORT)
         # TODO: make lie-send-interval configurable
         self.lie_send_interval_secs = constants.DEFAULT_LIE_SEND_INTERVAL_SECS
-        self.rx_tie_port = self.get_config_attribute('rx_tie_port', constants.DEFAULT_TIE_PORT)
+        self.rx_flood_port = self.get_config_attribute('rx_tie_port', constants.DEFAULT_TIE_PORT)
         self._derived_level = None
         self._rx_offers = {}     # Indexed by interface name
         self._tx_offers = {}     # Indexed by interface name
@@ -645,7 +645,7 @@ class Node:
             ["Receive LIE Port", self._rx_lie_port],
             ["Transmit LIE Port", self.tx_lie_port],
             ["LIE Send Interval", "{} secs".format(self.lie_send_interval_secs)],
-            ["Receive TIE Port", self.rx_tie_port],
+            ["Receive TIE Port", self.rx_flood_port],
             ["Kernel Route Table", self._kernel_route_table],
         ]
 
@@ -949,6 +949,15 @@ class Node:
         cli_session.print(tab.to_string())
         tab = intf.ties_ack_table()
         cli_session.print("Acknowledge queue:")
+        cli_session.print(tab.to_string())
+
+    def command_show_intf_sockets(self, cli_session, parameters):
+        interface_name = parameters['interface']
+        if not interface_name in self._interfaces_by_name:
+            cli_session.print("Error: interface {} not present".format(interface_name))
+            return
+        intf = self._interfaces_by_name[interface_name]
+        tab = intf.sockets_table()
         cli_session.print(tab.to_string())
 
     def command_show_interface(self, cli_session, parameters):
