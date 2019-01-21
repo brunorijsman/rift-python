@@ -3,13 +3,6 @@ import socket
 import struct
 import scheduler
 
-# TODO: We currently bind the UDP socket to a particular interface by binding the socket to the
-#       IPv4 address of the interface.
-#       - Also need to support IPv6
-#       - What about unnumbered interfaces? Can we support those (using the address of the loopback,
-#         as the source address, but only receiving packets on the specified interface)? I would
-#         like to use SO_BINDTODEVICE but that is not portable (available on Linux but not MacOS X)
-
 class UdpReceiveHandler:
 
     MAXIMUM_MESSAGE_SIZE = 65535

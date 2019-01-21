@@ -10,10 +10,10 @@ import fsm
 import neighbor
 import offer
 import packet_common
+import socket_utils
 import table
 import timer
 import udp_receive_handler
-import udp_send_handler
 import utils
 
 import common.constants
@@ -109,11 +109,9 @@ class Interface:
             port=rx_flood_port,
             receive_function=self.receive_flood_message,
             local_address=self._ipv4_address)
-        self._flood_send_handler = udp_send_handler.UdpSendHandler(
-            interface_name=self.name,
+        self._flood_tx_socket = socket_utils.create_socket_ipv4_tx_ucast(
             remote_address=self.neighbor.address,
-            port=tx_flood_port,
-            local_address=self._ipv4_address)
+            remote_port=tx_flood_port)
         # Periodically start sending TIE packets and TIRE packets
         self._service_queues_timer.start()
         # Update the node TIEs originated by this node to include this neighbor
@@ -132,8 +130,8 @@ class Interface:
         self.clear_all_queues()
         self._flood_receive_handler.close()
         self._flood_receive_handler = None
-        self._flood_send_handler.close()
-        self._flood_send_handler = None
+        self._flood_tx_socket.close()
+        self._flood_tx_socket = None
         # Update the node TIEs originated by this node to exclude this neighbor. We have to pass
         # interface_going_down to regenerate_my_node_ties because the state of this interface is
         # still THREE_WAY at this point.
@@ -143,18 +141,19 @@ class Interface:
 
     def send_protocol_packet(self, protocol_packet, flood):
         if flood:
-            handler = self._flood_send_handler
+            sock = self._flood_tx_socket
         else:
-            handler = self._lie_send_handler
-        to_str = "{}:{}".format(handler.remote_address, handler.port)
+            sock = self._lie_tx_socket
+        # TODO: Only do the following two expensive conversions to string if the log is actually
+        # going to log a message
+        to_str = str(sock.getpeername())
         protocol_packet_str = str(protocol_packet)
-        # TODO: Don't do this expensive to_str if logging is not at level debug
         encoded_protocol_packet = packet_common.encode_protocol_packet(protocol_packet)
         if self._tx_fail:
             self.tx_debug("Simulated send failure %s to %s", protocol_packet_str, to_str)
         else:
             try:
-                handler.send_message(encoded_protocol_packet)
+                sock.send(encoded_protocol_packet)
             except socket.error as error:
                 self.tx_error("Error \"%s\" sending %s to %s", error, protocol_packet_str, to_str)
                 return
@@ -587,7 +586,7 @@ class Interface:
         self._lie_accept_or_reject_rule = "-"
         self._lie_receive_handler = None
         self._flood_receive_handler = None
-        self._flood_send_handler = None
+        self._flood_tx_socket = None
         # The following queues (ties_tx, ties_rtx, ties_req, are ties_ack) are ordered dictionaries.
         # The value is the header of the TIE. The index is the TIE-ID want to have two headers with
         # same TIE-ID in the queue. The ordering is needed because we want to service the entries
@@ -607,22 +606,18 @@ class Interface:
             self.fsm.start()
 
     def run(self):
-        self._lie_send_handler = udp_send_handler.UdpSendHandler(
+        self._lie_tx_socket = socket_utils.create_socket_ipv4_tx_mcast(
             interface_name=self.name,
-            remote_address=self._tx_lie_ipv4_mcast_address,
+            multicast_address=self._tx_lie_ipv4_mcast_address,
             port=self._tx_lie_port,
-            local_address=self._ipv4_address,
             multicast_loopback=self._node.engine.multicast_loopback)
-        # TODO: Use source address
-        (_, source_port) = self._lie_send_handler.source_address_and_port()
-        self._lie_udp_source_port = source_port
         self._lie_receive_handler = udp_receive_handler.UdpReceiveHandler(
             remote_address=self._rx_lie_ipv4_mcast_address,
             port=self._rx_lie_port,
             receive_function=self.receive_lie_message,
             local_address=self._ipv4_address)
         self._flood_receive_handler = None
-        self._flood_send_handler = None
+        self._flood_tx_socket = None
         self._one_second_timer = timer.Timer(
             1.0,
             lambda: self.fsm.push_event(self.Event.TIMER_TICK))
