@@ -104,12 +104,12 @@ class Interface:
         tx_flood_port = self.neighbor.flood_port
         self.rx_info("Start flooding: receive on port %d, send on port %d", rx_flood_port,
                      tx_flood_port)
-        self._flood_rx_handler = udp_rx_handler.UdpRxHandler(
+        self._flood_rx_ipv4_handler = udp_rx_handler.UdpRxHandler(
             remote_address="0.0.0.0",   # TODO: permissive, can we use self.neighbor.address?
             port=rx_flood_port,
             receive_function=self.receive_flood_message,
             local_address=self._ipv4_address)
-        self._flood_tx_socket = socket_utils.create_socket_ipv4_tx_ucast(
+        self._flood_tx_ipv4_socket = socket_utils.create_socket_ipv4_tx_ucast(
             remote_address=self.neighbor.address,
             remote_port=tx_flood_port)
         # Periodically start sending TIE packets and TIRE packets
@@ -128,10 +128,10 @@ class Interface:
         self.rx_info("Stop flooding")
         self._service_queues_timer.stop()
         self.clear_all_queues()
-        self._flood_rx_handler.close()
-        self._flood_rx_handler = None
-        self._flood_tx_socket.close()
-        self._flood_tx_socket = None
+        self._flood_rx_ipv4_handler.close()
+        self._flood_rx_ipv4_handler = None
+        self._flood_tx_ipv4_socket.close()
+        self._flood_tx_ipv4_socket = None
         # Update the node TIEs originated by this node to exclude this neighbor. We have to pass
         # interface_going_down to regenerate_my_node_ties because the state of this interface is
         # still THREE_WAY at this point.
@@ -141,9 +141,9 @@ class Interface:
 
     def send_protocol_packet(self, protocol_packet, flood):
         if flood:
-            sock = self._flood_tx_socket
+            sock = self._flood_tx_ipv4_socket
         else:
-            sock = self._lie_tx_socket
+            sock = self._lie_tx_ipv4_socket
         # TODO: Only do the following two expensive conversions to string if the log is actually
         # going to log a message
         to_str = str(sock.getpeername())
@@ -584,9 +584,9 @@ class Interface:
         self._time_ticks_since_lie_received = None
         self._lie_accept_or_reject = "No LIE Received"
         self._lie_accept_or_reject_rule = "-"
-        self._lie_rx_handler = None
-        self._flood_rx_handler = None
-        self._flood_tx_socket = None
+        self._lie_rx_ipv4_handler = None
+        self._flood_rx_ipv4_handler = None
+        self._flood_tx_ipv4_socket = None
         # The following queues (ties_tx, ties_rtx, ties_req, are ties_ack) are ordered dictionaries.
         # The value is the header of the TIE. The index is the TIE-ID want to have two headers with
         # same TIE-ID in the queue. The ordering is needed because we want to service the entries
@@ -606,18 +606,18 @@ class Interface:
             self.fsm.start()
 
     def run(self):
-        self._lie_tx_socket = socket_utils.create_socket_ipv4_tx_mcast(
+        self._lie_tx_ipv4_socket = socket_utils.create_socket_ipv4_tx_mcast(
             interface_name=self.name,
             multicast_address=self._tx_lie_ipv4_mcast_address,
             port=self._tx_lie_port,
             multicast_loopback=self._node.engine.multicast_loopback)
-        self._lie_rx_handler = udp_rx_handler.UdpRxHandler(
+        self._lie_rx_ipv4_handler = udp_rx_handler.UdpRxHandler(
             remote_address=self._rx_lie_ipv4_mcast_address,
             port=self._rx_lie_port,
             receive_function=self.receive_lie_message,
             local_address=self._ipv4_address)
-        self._flood_rx_handler = None
-        self._flood_tx_socket = None
+        self._flood_rx_ipv4_handler = None
+        self._flood_tx_ipv4_socket = None
         self._one_second_timer = timer.Timer(
             1.0,
             lambda: self.fsm.push_event(self.Event.TIMER_TICK))
@@ -1102,18 +1102,18 @@ class Interface:
             "Local Port",
             "Remote Address",
             "Remote Port"])
-        if self._lie_rx_handler and self._lie_rx_handler.sock:
-            self.add_socket_to_table(tab, "LIEs", "Receive", "IPv4", self._lie_rx_handler.sock)
+        if self._lie_rx_ipv4_handler and self._lie_rx_ipv4_handler.sock:
+            self.add_socket_to_table(tab, "LIEs", "Receive", "IPv4", self._lie_rx_ipv4_handler.sock)
         ###@@@ TODO: LIE Receive IPv6 Socket
-        if self._lie_tx_socket:
-            self.add_socket_to_table(tab, "LIEs", "Send", "IPv4", self._lie_tx_socket)
+        if self._lie_tx_ipv4_socket:
+            self.add_socket_to_table(tab, "LIEs", "Send", "IPv4", self._lie_tx_ipv4_socket)
         ###@@@ TODO: LIE Transmit IPv6 Socket
-        if self._flood_rx_handler and self._flood_rx_handler.sock:
+        if self._flood_rx_ipv4_handler and self._flood_rx_ipv4_handler.sock:
             self.add_socket_to_table(tab, "Flooding", "Receive", "IPv4",
-                                     self._flood_rx_handler.sock)
+                                     self._flood_rx_ipv4_handler.sock)
         ###@@@ TODO: Flooding Receive IPv6 Socket
-        if self._flood_tx_socket:
-            self.add_socket_to_table(tab, "Flooding", "Send", "IPv4", self._flood_tx_socket)
+        if self._flood_tx_ipv4_socket:
+            self.add_socket_to_table(tab, "Flooding", "Send", "IPv4", self._flood_tx_ipv4_socket)
         ###@@@ TODO: Flooding Transmit IPv6 Socket
         return tab
 
