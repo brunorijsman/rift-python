@@ -370,8 +370,6 @@ class Node:
         state_actions=_state_actions,
         verbose_events=verbose_events)
 
-    # TODO: Get rid of engine argument
-    ###@@@ Implement stand_alone
     def __init__(self, config, engine=None, force_passive=False, stand_alone=False):
         # pylint:disable=too-many-statements
         # pylint: disable=too-many-statements

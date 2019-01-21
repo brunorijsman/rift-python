@@ -28,6 +28,8 @@ class Engine:
         self._interactive = interactive
         self._telnet_port_file = telnet_port_file
         self._multicast_loopback = multicast_loopback
+        self.simulated_interfaces = True
+        self.base_interface_name = "en0"
         self._config = config
         self._tx_src_address = self.read_global_configuration(config, 'tx_src_address', '')
         self._nodes = sortedcontainers.SortedDict()
@@ -303,3 +305,22 @@ class Engine:
     @property
     def multicast_loopback(self):
         return self._multicast_loopback
+
+    # On simulated interfaces:
+    #
+    # When simulated interfaces are disabled, the interface names on nodes correspond to real
+    # interfaces on the host platform.
+    #
+    # When simulated interface are enabled, the interface names on nodes are "fake" i.e. they do not
+    # correspond to real interfaces on the host platform. All these simulated interfaces actually
+    # run on a single real interface, referred to as the base interface. Traffic to and from
+    # different simulated interfaces are distinguished by using different multicast addresses and
+    # port numbers for each simulated interface.
+
+    def enable_simulated_interfaces(self, base_interface_name):
+        self.simulated_interfaces = True
+        self.base_interface_name = base_interface_name
+
+    def disable_simulated_interfaces(self):
+        self.simulated_interfaces = False
+        self.base_interface_name = None
