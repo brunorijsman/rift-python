@@ -17,7 +17,7 @@ class Engine:
 
     def __init__(self, passive_nodes, run_which_nodes, interactive, telnet_port_file,
                  multicast_loopback, log_level, config):
-        log_file_name = "rift.log"
+        log_file_name = "rift.log"  # TODO: Make this configurable
         if "RIFT_TEST_RESULTS_DIR" in os.environ:
             log_file_name = os.environ["RIFT_TEST_RESULTS_DIR"] + "/" + log_file_name
         logging.basicConfig(
@@ -28,9 +28,13 @@ class Engine:
         self._interactive = interactive
         self._telnet_port_file = telnet_port_file
         self._multicast_loopback = multicast_loopback
-        self.simulated_interfaces = True
-        self.base_interface_name = "en0"
         self._config = config
+        if self.nr_nodes() > 1:
+            self.simulated_interfaces = True
+            self.base_interface_name = "en0"  # TODO: Don't hard-code this
+        else:
+            self.simulated_interfaces = False
+            self.base_interface_name = None
         self._tx_src_address = self.read_global_configuration(config, 'tx_src_address', '')
         self._nodes = sortedcontainers.SortedDict()
         self.create_configuration(passive_nodes)
@@ -66,6 +70,15 @@ class Engine:
                 except IOError:
                     pass # TODO: Log an error
 
+    def nr_nodes(self):
+        total_nr_nodes = 0
+        if 'shards' in self._config:
+            for shard_config in self._config['shards']:
+                if 'nodes' in shard_config:
+                    for _node_config in shard_config['nodes']:
+                        total_nr_nodes += 1
+        return total_nr_nodes
+
     def read_global_configuration(self, config, attribute, default):
         if ('const' in config) and (config['const'] is not None) and (attribute in config['const']):
             return config['const'][attribute]
@@ -73,15 +86,9 @@ class Engine:
             return default
 
     def create_configuration(self, passive_nodes):
-        if 'shards' in self._config:
-            total_nr_nodes = 0
-            for shard_config in self._config['shards']:
-                if 'nodes' in shard_config:
-                    for _node_config in shard_config['nodes']:
-                        total_nr_nodes += 1
-            stand_alone = (total_nr_nodes <= 1)
-            for shard_config in self._config['shards']:
-                self.create_shard(shard_config, passive_nodes, stand_alone)
+        stand_alone = (self.nr_nodes() <= 1)
+        for shard_config in self._config['shards']:
+            self.create_shard(shard_config, passive_nodes, stand_alone)
 
     def create_shard(self, shard_config, passive_nodes, stand_alone):
         if 'nodes' in shard_config:

@@ -1136,9 +1136,13 @@ class Interface:
 
     @staticmethod
     def add_socket_to_table(tab, traffic, direction, family, sock):
-        (local_address, local_port) = sock.getsockname()
+        local_name = sock.getsockname()
+        local_address = local_name[0]
+        local_port = local_name[1]
         try:
-            (remote_address, remote_port) = sock.getpeername()
+            remote_name = sock.getpeername()
+            remote_address = remote_name[0]
+            remote_port = remote_name[1]
         except OSError:
             # Receive UDP sockets trow an OSError if they are not connected
             remote_address = "Any"
