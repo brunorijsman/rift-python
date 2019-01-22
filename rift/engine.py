@@ -106,6 +106,17 @@ class Engine:
     def run(self):
         scheduler.SCHEDULER.run()
 
+    def command_show_engine(self, cli_session):
+        tab = table.Table(separators=False)
+        tab.add_row(["Interactive", self._interactive])
+        tab.add_row(["Telnet Port File", self._telnet_port_file])
+        tab.add_row(["Multicast Loopback", self._multicast_loopback])
+        tab.add_row(["Number of Nodes", self.nr_nodes()])
+        tab.add_row(["Simulated Interfaces", self.simulated_interfaces])
+        tab.add_row(["Base Interface", self.base_interface_name])
+        tab.add_row(["Transmit Source Address", self._tx_src_address])
+        cli_session.print(tab.to_string())
+
     def command_show_intf_fsm_nvhis(self, cli_session, parameters):
         cli_session.current_node.command_show_intf_fsm_hist(cli_session, parameters, False)
 
@@ -232,6 +243,7 @@ class Engine:
             "$level": command_set_level,
         },
         "show": {
+            "engine":command_show_engine,
             "forwarding": {
                 "": command_show_forwarding,
                 "$prefix": command_show_forwarding_prefix,
