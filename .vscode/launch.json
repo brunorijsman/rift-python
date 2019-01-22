@@ -4,12 +4,13 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
+
         {
             "name": "config_generator",
             "type": "python",
             "request": "launch",
             "program": "tools/config_generator.py",
-            "args": ["-g", "diagram.html", "meta_topology/clos_3pod_3leaf_3spine_3super.yaml", "configuration"] 
+            "args": ["-g", "diagram.html", "meta_topology/2c_1x1.yaml", "2c_1x1.yaml"] 
         },
         {
             "name": "Interop",
