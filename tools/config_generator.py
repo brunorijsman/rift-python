@@ -195,6 +195,8 @@ class Group:
             node.write_netns_start_scr_to_file_1(file)
 
     def write_netns_start_scr_to_file_2(self, file):
+        # Allow interfaces to come up (particularly IPv6 interfaces take a bit of time)
+        print("sleep 1", file=file)
         # Phase 2: Start all nodes
         for node in self.nodes:
             node.write_netns_start_scr_to_file_2(file)
