@@ -406,7 +406,7 @@ class Node:
             if not netns:
                 print("            rx_lie_port: " + str(intf.rx_lie_port), file=file)
                 print("            tx_lie_port: " + str(intf.tx_lie_port), file=file)
-                print("            rx_tie_port: " + str(intf.rx_tie_port), file=file)
+                print("            rx_tie_port: " + str(intf.rx_flood_port), file=file)
         print("        v4prefixes:", file=file)
         for prefix in self.ipv4_prefixes:
             (address, mask, metric) = prefix
