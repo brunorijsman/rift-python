@@ -145,6 +145,9 @@ def generate_ipv4_address_str(byte1, byte2, byte3, byte4, offset):
     ip_address_str = "{}.{}.{}.{}".format(byte1, byte2, byte3, byte4)
     return ip_address_str
 
+def generate_ipv6_address_str(prefix, offset):
+    return "{}::{}".format(prefix, offset)
+
 class Group:
 
     def __init__(self, fabric, name, group_index, only_instance, y_pos, y_size):
@@ -344,7 +347,8 @@ class Node:
         self.level = level
         self.index_in_level = index_in_level
         self.given_y_pos = y_pos
-        self.rx_lie_mcast_addr = generate_ipv4_address_str(224, 0, 1, 0, self.node_id)
+        self.rx_lie_ipv4_mcast_addr = generate_ipv4_address_str(224, 0, 1, 0, self.node_id)
+        self.rx_lie_ipv6_mcast_addr = generate_ipv6_address_str("ff02", self.node_id)
         self.interfaces = []
         self.ipv4_prefixes = []
         self.lo_addr = generate_ipv4_address_str(88, 0, 0, 0, 1) + "/32"
@@ -394,7 +398,8 @@ class Node:
         print("        level: " + str(self.level), file=file)
         print("        systemid: " + str(self.node_id), file=file)
         if not netns:
-            print("        rx_lie_mcast_address: " + self.rx_lie_mcast_addr, file=file)
+            print("        rx_lie_mcast_address: " + self.rx_lie_ipv4_mcast_addr, file=file)
+            print("        rx_lie_v6_mcast_address: " + self.rx_lie_ipv6_mcast_addr, file=file)
         print("        interfaces:", file=file)
         for intf in self.interfaces:
             description = "{} -> {}".format(intf.fq_name(), intf.peer_intf.fq_name())

@@ -205,8 +205,8 @@ def node_apply_inheritance(node_config):
 def interface_apply_inheritance(interface_config, node_config):
     intf_inherit_attr_from_node(interface_config, 'rx_lie_mcast_address', node_config)
     intf_inherit_attr_from_node(interface_config, 'tx_lie_mcast_address', node_config)
-    intf_inherit_attr_from_node(interface_config, 'rx_lie_ipv6_mcast_address', node_config)
-    intf_inherit_attr_from_node(interface_config, 'tx_lie_ipv6_mcast_address', node_config)
+    intf_inherit_attr_from_node(interface_config, 'rx_lie_v6_mcast_address', node_config)
+    intf_inherit_attr_from_node(interface_config, 'tx_lie_v6_mcast_address', node_config)
     intf_inherit_attr_from_node(interface_config, 'rx_lie_port', node_config)
     intf_inherit_attr_from_node(interface_config, 'tx_lie_port', node_config)
 
