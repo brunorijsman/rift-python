@@ -7,6 +7,7 @@ import sortedcontainers
 import cli_listen_handler
 import cli_session_handler
 import interface
+import netifaces
 import node
 import scheduler
 import table
@@ -31,7 +32,7 @@ class Engine:
         self._config = config
         if self.nr_nodes() > 1:
             self.simulated_interfaces = True
-            self.base_interface_name = "en0"  # TODO: Don't hard-code this
+            self.base_interface_name = self.default_base_interface()
         else:
             self.simulated_interfaces = False
             self.base_interface_name = None
@@ -69,6 +70,25 @@ class Engine:
                         print(self._cli_listen_handler.port, file=file)
                 except IOError:
                     pass # TODO: Log an error
+
+    def default_base_interface(self):
+        # When simulated interfaces are disabled, the interface names on nodes correspond to real
+        # interfaces on the host platform.
+        # When simulated interface are enabled, the interface names on nodes are "fake" i.e. they do
+        # not correspond to real interfaces on the host platform. All these simulated interfaces
+        # actually run on a single real interface, referred to as the base interface. Traffic to and
+        # from different simulated interfaces are distinguished by using different multicast
+        # addresses and port numbers for each simulated interface.
+        # Pick the first interface with a broadcast IPv4 address (if any) as the default.
+        for intf_name in netifaces.interfaces():
+            addresses = netifaces.ifaddresses(intf_name)
+            if netifaces.AF_INET in addresses:
+                ipv4_addresses = addresses[netifaces.AF_INET]
+                for ipv4_address in ipv4_addresses:
+                    if 'broadcast' in ipv4_address:
+                        return intf_name
+        print("Cannot pick default base interface: no broadcast interface found")
+        sys.exit(1)
 
     def nr_nodes(self):
         total_nr_nodes = 0
@@ -324,22 +344,3 @@ class Engine:
     @property
     def multicast_loopback(self):
         return self._multicast_loopback
-
-    # On simulated interfaces:
-    #
-    # When simulated interfaces are disabled, the interface names on nodes correspond to real
-    # interfaces on the host platform.
-    #
-    # When simulated interface are enabled, the interface names on nodes are "fake" i.e. they do not
-    # correspond to real interfaces on the host platform. All these simulated interfaces actually
-    # run on a single real interface, referred to as the base interface. Traffic to and from
-    # different simulated interfaces are distinguished by using different multicast addresses and
-    # port numbers for each simulated interface.
-
-    def enable_simulated_interfaces(self, base_interface_name):
-        self.simulated_interfaces = True
-        self.base_interface_name = base_interface_name
-
-    def disable_simulated_interfaces(self):
-        self.simulated_interfaces = False
-        self.base_interface_name = None
