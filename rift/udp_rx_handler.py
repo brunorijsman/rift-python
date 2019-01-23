@@ -86,16 +86,31 @@ class UdpRxHandler:
         self._log = log
         self._log_id = log_id
         self._local_ipv4_address = utils.interface_ipv4_address(interface_name)
+        self._local_ipv6_address = utils.interface_ipv6_address(interface_name)
         try:
             self._interface_index = socket.if_nametoindex(interface_name)
         except IOError as err:
             self.warning("Could determine index of interface %s: %s", interface_name, err)
             self._interface_index = None
-        if ipaddress.IPv4Address(remote_address).is_multicast:
-            self.sock = self.create_socket_ipv4_rx_mcast()
+        if self.is_ipv6_address(remote_address):
+            if ipaddress.IPv6Address(remote_address).is_multicast:
+                self.sock = self.create_socket_ipv6_rx_mcast()
+            else:
+                self.sock = self.create_socket_ipv6_rx_ucast()
         else:
-            self.sock = self.create_socket_ipv4_rx_ucast()
+            if ipaddress.IPv4Address(remote_address).is_multicast:
+                self.sock = self.create_socket_ipv4_rx_mcast()
+            else:
+                self.sock = self.create_socket_ipv4_rx_ucast()
         scheduler.SCHEDULER.register_handler(self, True, False)
+
+    @staticmethod
+    def is_ipv6_address(address):
+        try:
+            socket.inet_pton(socket.AF_INET6, address)
+        except socket.error:
+            return False
+        return True
 
     def warning(self, msg, *args):
         self._log.warning("[%s] %s" % (self._log_id, msg), *args)
@@ -179,4 +194,41 @@ class UdpRxHandler:
         except IOError as err:
             # Warn, but keep going; this socket option is not supported on macOS
             self.warning("Could not set IP_PKTINFO socket option: %s", err)
+        return sock
+
+    def create_socket_ipv6_rx_common(self):
+        try:
+            sock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+        except IOError as err:
+            self.warning("Could not create IPv6 UDP socket: %s", err)
+            return None
+        self.enable_addr_and_port_reuse(sock)
+        try:
+            sock.bind((self._remote_address, self._local_port))
+        except IOError as err:
+            self.warning("Could not bind UDP socket to address %s port %d: %s",
+                         self._remote_address, self._local_port, err)
+            return None
+        return sock
+
+    def create_socket_ipv6_rx_ucast(self):
+        return self.create_socket_ipv6_rx_common()
+
+    def create_socket_ipv6_rx_mcast(self):
+        sock = self.create_socket_ipv6_rx_common()
+        req = struct.pack("=16si", socket.inet_pton(socket.AF_INET6, self._remote_address),
+                          self._interface_index)
+        try:
+            # pylint:disable=no-member
+            sock.setsockopt(socket.IPPROTO_IP6, socket.IPV6_ADD_MEMBERSHIP, req)
+        except IOError as err:
+            self.warning("Could not join group %s for interface index %s: %s",
+                         self._remote_address, self._interface_index, err)
+            return None
+        try:
+            # pylint:disable=no-member
+            sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_RECVPKTINFO, 1)
+        except IOError as err:
+            # Warn, but keep going; this socket option is not supported on macOS
+            self.warning("Could not set IPV6_RECVPKTINFO socket option: %s", err)
         return sock
