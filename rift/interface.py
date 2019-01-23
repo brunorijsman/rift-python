@@ -1,7 +1,6 @@
 # pylint:disable=too-many-lines
 
 import collections
-import ctypes
 import enum
 import random
 import socket
@@ -31,58 +30,6 @@ USE_SIMPLE_REQUEST_FILTERING = True
 # TODO: Have a mechanism to detect that an interface comes into / goes out of existence
 
 # TODO: Have a mechanism to detect IPv4 or IPv6 address changes on an interface
-
-# The following sections of this code, namely those dealing with IP_PKTINFO and in_pktinfo are based
-# on github project https://github.com/etingof/pysnmp, which is subject to the BSD 2-Clause
-# "Simplified" License, which allows us to re-use the code, under the condition that the following
-# copyright notice included:
-# Copyright (c) 2005-2019, Ilya Etingof <etingof@gmail.com> All rights reserved.
-# See https://github.com/etingof/pysnmp/blob/master/LICENSE.rst for the license of the copied code.
-
-SYMBOLS = {
-    'IP_PKTINFO': 8,
-    'IP_TRANSPARENT': 19,
-    'SOL_IPV6': 41,
-    'IPV6_ADD_MEMBERSHIP': 20,
-    'IPV6_RECVPKTINFO': 49,
-}
-
-# pylint:disable=invalid-name
-uint32_t = ctypes.c_uint32
-
-in_addr_t = uint32_t
-
-class in_addr(ctypes.Structure):
-    _fields_ = [('s_addr', in_addr_t)]
-
-class in6_addr_U(ctypes.Union):
-    _fields_ = [
-        ('__u6_addr8', ctypes.c_uint8 * 16),
-        ('__u6_addr16', ctypes.c_uint16 * 8),
-        ('__u6_addr32', ctypes.c_uint32 * 4),
-    ]
-
-class in6_addr(ctypes.Structure):
-    _fields_ = [
-        ('__in6_u', in6_addr_U),
-    ]
-
-class in_pktinfo(ctypes.Structure):
-    _fields_ = [
-        ('ipi_ifindex', ctypes.c_int),
-        ('ipi_spec_dst', in_addr),
-        ('ipi_addr', in_addr),
-    ]
-
-class in6_pktinfo(ctypes.Structure):
-    _fields_ = [
-        ('ipi6_addr', in6_addr),
-        ('ipi6_ifindex', ctypes.c_int),
-    ]
-
-for symbol in SYMBOLS:
-    if not hasattr(socket, symbol):
-        setattr(socket, symbol, SYMBOLS[symbol])
 
 class Interface:
 
@@ -1120,6 +1067,7 @@ class Interface:
             ["Physical Interface Name", self.physical_interface_name],
             ["Advertised Name", self._advertised_name],
             ["Interface IPv4 Address", self._ipv4_address],
+            ["Interface Index", self._interface_index],
             ["Metric", self._metric],
             ["LIE Recieve IPv4 Multicast Address", self._rx_lie_ipv4_mcast_address],
             ["LIE Receive IPv6 Multicast Address", self._rx_lie_ipv6_mcast_address],
@@ -1225,22 +1173,6 @@ class Interface:
 
     def ties_ack_table(self):
         return self.tie_headers_table_common(self._ties_ack)
-
-    # On having multiple sockets for the same multicast group and the same port on different
-    # interfaces:
-    #
-    # We join the multicast group on a particular local interface, identified by local_address.
-    # That means multicast packets received on that interface will be accepted. Note, however,
-    # that if there are multiple sockets S1, S2, S3, ... that have joined the same multicast group
-    # (same multicast address and same port) on different interfaces I1, I2, I3, ... then if we
-    # receive a multicast packet on ANY of the interfaces I1, I2, I3... then ALL the sockets S1,
-    # S2, S3, ... will be notified that a packet has been received. We use the IP_PKTINFO socket
-    # option to determine on which interface I the packet was *really* received and ignore the
-    # packet on all other sockets.
-    #
-    # We use the IP_PKTINFO ancillary data to determine on which interface the packet was
-    # *really* received, and we ignore the packet if this socket is not associated with that
-    # particular interface. See comment in create_rx_socket for additional details.
 
     # On multicast loopback:
     #
