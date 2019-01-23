@@ -21,6 +21,10 @@ import encoding.ttypes
 
 USE_SIMPLE_REQUEST_FILTERING = True
 
+FAM_IPV4 = 1
+FAM_IPV6 = 2
+FAM_IPV4_AND_IPV6 = 3
+
 # TODO: LIEs arriving with a TTL larger than 1 MUST be ignored.
 
 # TODO: Implement configuration of POD numbers
@@ -138,25 +142,38 @@ class Interface:
         # Update the south prefix TIE: we may have to start or stop originating a default route
         self._node.regenerate_my_south_prefix_tie(interface_going_down=self)
 
-    def send_protocol_packet(self, protocol_packet, flood):
+    def send_protocol_packet(self, protocol_packet, flood, families):
         if flood:
-            sock = self._flood_tx_ipv4_socket
+            if families == FAM_IPV4:
+                socks = [self._flood_tx_ipv4_socket]
+            elif families == FAM_IPV6:
+                socks = [self._flood_tx_ipv6_socket]
+            else:
+                assert families == FAM_IPV4_AND_IPV6
+                socks = [self._flood_tx_ipv4_socket, self._flood_tx_ipv6_socket]
         else:
-            sock = self._lie_tx_ipv4_socket
+            if families == FAM_IPV4:
+                socks = [self._lie_tx_ipv4_socket]
+            elif families == FAM_IPV6:
+                socks = [self._lie_tx_ipv6_socket]
+            else:
+                assert families == FAM_IPV4_AND_IPV6
+                socks = [self._lie_tx_ipv4_socket, self._lie_tx_ipv6_socket]
         # TODO: Only do the following two expensive conversions to string if the log is actually
         # going to log a message
-        to_str = str(sock.getpeername())
-        protocol_packet_str = str(protocol_packet)
+        packet_str = str(protocol_packet)
         encoded_protocol_packet = packet_common.encode_protocol_packet(protocol_packet)
-        if self._tx_fail:
-            self.tx_debug("Simulated send failure %s to %s", protocol_packet_str, to_str)
-        else:
-            try:
-                sock.send(encoded_protocol_packet)
-            except socket.error as error:
-                self.tx_error("Error \"%s\" sending %s to %s", error, protocol_packet_str, to_str)
-                return
-            self.tx_debug("Send %s to %s", protocol_packet_str, to_str)
+        for sock in socks:
+            if sock is not None:
+                to_str = str(sock.getpeername())
+                if self._tx_fail:
+                    self.tx_debug("Simulated send failure %s to %s", packet_str, to_str)
+                else:
+                    try:
+                        sock.send(encoded_protocol_packet)
+                        self.tx_debug("Send %s to %s", packet_str, to_str)
+                    except socket.error as error:
+                        self.tx_error("Error \"%s\" sending %s to %s", error, packet_str, to_str)
 
     def action_send_lie(self):
         packet_header = encoding.ttypes.PacketHeader(
@@ -188,7 +205,7 @@ class Interface:
             label=None)
         packet_content = encoding.ttypes.PacketContent(lie=lie_packet)
         protocol_packet = encoding.ttypes.ProtocolPacket(packet_header, packet_content)
-        self.send_protocol_packet(protocol_packet, flood=False)
+        self.send_protocol_packet(protocol_packet, flood=False, families=FAM_IPV4_AND_IPV6)
         tx_offer = offer.TxOffer(
             self.name,
             self._node.system_id,
@@ -548,6 +565,7 @@ class Interface:
         self._tx_log.error("[%s] %s" % (self._log_id, msg), *args)
 
     def __init__(self, node, config):
+        # pylint:disable=too-many-statements
         # TODO: process bandwidth field in config
         self._node = node
         self._engine = node.engine
@@ -600,6 +618,7 @@ class Interface:
         self._lie_rx_ipv4_handler = None
         self._flood_rx_ipv4_handler = None
         self._flood_tx_ipv4_socket = None
+        self._flood_tx_ipv6_socket = None
         # The following queues (ties_tx, ties_rtx, ties_req, are ties_ack) are ordered dictionaries.
         # The value is the header of the TIE. The index is the TIE-ID want to have two headers with
         # same TIE-ID in the queue. The ordering is needed because we want to service the entries
@@ -875,7 +894,7 @@ class Interface:
                     header=packet_header,
                     content=packet_content)
                 protocol_packet.content.tie = db_tie
-                self.send_protocol_packet(protocol_packet, flood=True)
+                self.send_protocol_packet(protocol_packet, flood=True, families=FAM_IPV4)
 
     def try_to_transmit_tie(self, tie_header):
         (filtered, reason) = self.is_flood_filtered(tie_header)
@@ -981,7 +1000,7 @@ class Interface:
         protocol_packet = encoding.ttypes.ProtocolPacket(
             header=packet_header,
             content=packet_content)
-        self.send_protocol_packet(protocol_packet, flood=True)
+        self.send_protocol_packet(protocol_packet, flood=True, families=FAM_IPV4)
 
     def service_ties_req(self):
         tire_packet = packet_common.make_tire_packet()
@@ -1009,7 +1028,7 @@ class Interface:
         protocol_packet = encoding.ttypes.ProtocolPacket(
             header=packet_header,
             content=packet_content)
-        self.send_protocol_packet(protocol_packet, flood=True)
+        self.send_protocol_packet(protocol_packet, flood=True, families=FAM_IPV4)
 
     def service_ties_queue(self, queue):
         # Note: we only look at the TIE-ID in the queue and not at the header. If we have a more
@@ -1025,7 +1044,7 @@ class Interface:
             db_tie = self._node.find_tie(tie_id)
             if db_tie is not None:
                 protocol_packet.content.tie = db_tie
-                self.send_protocol_packet(protocol_packet, flood=True)
+                self.send_protocol_packet(protocol_packet, flood=True, families=FAM_IPV4)
 
     def service_ties_tx(self):
         self.service_ties_queue(self._ties_tx)

@@ -881,7 +881,7 @@ class Node:
         protocol_packet = encoding.ttypes.ProtocolPacket(
             header=packet_header,
             content=packet_content)
-        intf.send_protocol_packet(protocol_packet, flood=True)
+        intf.send_protocol_packet(protocol_packet, flood=True, families=interface.FAM_IPV4)
 
     @staticmethod
     def cli_summary_headers():
