@@ -165,15 +165,21 @@ class Interface:
         encoded_protocol_packet = packet_common.encode_protocol_packet(protocol_packet)
         for sock in socks:
             if sock is not None:
+                if sock.family == socket.AF_INET:
+                    fam_str = "IPv4"
+                else:
+                    assert sock.family == socket.AF_INET6
+                    fam_str = "IPv6"
                 to_str = str(sock.getpeername())
                 if self._tx_fail:
-                    self.tx_debug("Simulated send failure %s to %s", packet_str, to_str)
+                    self.tx_debug("Simulated %s send failure %s to %s", fam_str, packet_str, to_str)
                 else:
                     try:
                         sock.send(encoded_protocol_packet)
-                        self.tx_debug("Send %s to %s", packet_str, to_str)
+                        self.tx_debug("Send %s %s to %s", fam_str, packet_str, to_str)
                     except socket.error as error:
-                        self.tx_error("Error \"%s\" sending %s to %s", error, packet_str, to_str)
+                        self.tx_error("Error \"%s\" sending %s %s to %s", error, fam_str,
+                                      packet_str, to_str)
 
     def action_send_lie(self):
         packet_header = encoding.ttypes.PacketHeader(
