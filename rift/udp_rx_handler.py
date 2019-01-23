@@ -1,32 +1,30 @@
 import ipaddress
 import socket
 import struct
+
 import scheduler
+import utils
 
 class UdpRxHandler:
 
     MAXIMUM_MESSAGE_SIZE = 65535
 
-    # TODO: Reorder parameters
-    def __init__(self, remote_address, port, receive_function, local_address):
-        self._local_address = local_address
+    def __init__(self, interface_name, local_port, remote_address, receive_function, log, log_id):
+        self._interface_name = interface_name
+        self._local_port = local_port
         self._remote_address = remote_address
-        self._port = port
         self._receive_function = receive_function
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        # TODO: SO_REUSEPORT is not portable
-        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-        self.sock.bind((remote_address, port))
-        # If remote address is multicast, join the group
+        self._log = log
+        self._log_id = log_id
+        self._local_ipv4_address = utils.interface_ipv4_address(interface_name)
         if ipaddress.IPv4Address(remote_address).is_multicast:
-            if self._local_address:
-                req = struct.pack("=4s4s", socket.inet_aton(remote_address),
-                                  socket.inet_aton(self._local_address))
-            else:
-                req = struct.pack("=4sl", socket.inet_aton(remote_address), socket.INADDR_ANY)
-            self.sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, req)
+            self.sock = self.create_socket_ipv4_rx_mcast()
+        else:
+            self.sock = self.create_socket_ipv4_rx_ucast()
         scheduler.SCHEDULER.register_handler(self, True, False)
+
+    def warning(self, msg, *args):
+        self._log.warning("[%s] %s" % (self._log_id, msg), *args)
 
     def close(self):
         scheduler.SCHEDULER.unregister_handler(self)
@@ -39,56 +37,48 @@ class UdpRxHandler:
         message, from_address_and_port = self.sock.recvfrom(self.MAXIMUM_MESSAGE_SIZE)
         self._receive_function(message, from_address_and_port)
 
-    # TODO: Finish this
-    #
-    # def create_ipv4_mcast_rx_socket(self, interface_name):
-    #     # pylint:disable=no-member
-    #     local_address = self.interface_ipv4_address(interface_name)
-    #     if local_address is None:
-    #         return None
-    #     sock = socket.socket(netifaces.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-    #     self.enable_addr_and_port_reuse(sock)
-    #     sock.setsockopt(socket.IPPROTO_IP, socket.IP_PKTINFO, 1)
-    #     sock.bind((IPV4_MULTICAST_ADDR, MULTICAST_PORT))
-    #     req = struct.pack("=4s4s", socket.inet_aton(IPV4_MULTICAST_ADDR),
-    #                     socket.inet_aton(local_address))
-    #     sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, req)
-    #     return sock
+    @staticmethod
+    def enable_addr_and_port_reuse(sock):
+        # Ignore exceptions because not all operating systems support these. If not setting the
+        # REUSE... option causes trouble, that will be caught later on.
+        try:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        except AttributeError:
+            pass
+        try:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+        except AttributeError:
+            pass
 
-    # TODO: Finish this
-    #
-    # def create_ipv6_mcast_rx_socket(self, interface_name):
-    #     # pylint:disable=no-member
-    #     sock = socket.socket(netifaces.AF_INET6, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-    #     self.enable_addr_and_port_reuse(sock)
-    #     sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_RECVPKTINFO, 1)
-    #     sock.bind(("::", MULTICAST_PORT))
-    #     index = self.interface_index(interface_name)
-    #     req = struct.pack("=16si", socket.inet_pton(netifaces.AF_INET6, IPV6_MULTICAST_ADDR),
-    #                       index)
-    #     sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_ADD_MEMBERSHIP, req)
-    #     return sock
+    def create_socket_ipv4_rx_common(self):
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+        except IOError as err:
+            self.warning("Could not create IPv4 UDP socket: %s", err)
+            return None
+        self.enable_addr_and_port_reuse(sock)
+        try:
+            sock.bind((self._remote_address, self._local_port))
+        except IOError as err:
+            self.warning("Could not bind UDP socket to address %s port %d: %s",
+                         self._remote_address, self._local_port, err)
+            return None
+        return sock
 
-    # def receive(sock_info):
-    #     # pylint:disable=too-many-locals
-    #     (sock, interface_name, interface_index) = sock_info
-    #     ancillary_size = socket.CMSG_LEN(MAX_SIZE)
-    #     try:
-    #         message, ancillary_messages, _msg_flags, source = sock.recvmsg(MAX_SIZE,
-    #                         ancillary_size)
-    #         message_str = message.decode()
-    #     except Exception as exception:
-    #         report("exception {} while receiving on {}".format(exception, interface_name))
-    #     else:
-    #         rx_interface_index = None
-    #         for anc in ancillary_messages:
-    #             # pylint:disable=no-member
-    #             if anc[0] == socket.SOL_IP and anc[1] == socket.IP_PKTINFO:
-    #                 packet_info = in_pktinfo.from_buffer_copy(anc[2])
-    #                 rx_interface_index = packet_info.ipi_ifindex
-    #             elif anc[0] == socket.SOL_IPV6 and anc[1] == socket.IPV6_PKTINFO:
-    #                 packet_info = in6_pktinfo.from_buffer_copy(anc[2])
-    #                 rx_interface_index = packet_info.ipi6_ifindex
-    #         if rx_interface_index and (rx_interface_index != interface_index):
-    #             return
-    #         report("received {} on {} from {}".format(message_str, interface_name, source))
+    def create_socket_ipv4_rx_ucast(self):
+        return self.create_socket_ipv4_rx_common()
+
+    def create_socket_ipv4_rx_mcast(self):
+        sock = self.create_socket_ipv4_rx_common()
+        if self._local_ipv4_address:
+            req = struct.pack("=4s4s", socket.inet_aton(self._remote_address),
+                              socket.inet_aton(self._local_ipv4_address))
+        else:
+            req = struct.pack("=4sl", socket.inet_aton(self._remote_address), socket.INADDR_ANY)
+        try:
+            sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, req)
+        except IOError as err:
+            self.warning("Could not join group %s for local address %s: %s",
+                         self._remote_address, self._local_ipv4_address, err)
+            return None
+        return sock

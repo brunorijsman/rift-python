@@ -9,7 +9,6 @@ import socket
 import constants
 import fsm
 import neighbor
-import netifaces
 import offer
 import packet_common
 import table
@@ -97,7 +96,7 @@ class Interface:
     def get_mtu(self):
         # TODO: Find a portable (or even non-portable) way to get the interface MTU
         # TODO: Find a way to be informed whenever the interface MTU changes
-        #!!! mtu = 1500
+        # TODO: Check the hard-coded MTU value: 1400 or 1500
         mtu = 1400
         return mtu
 
@@ -156,10 +155,12 @@ class Interface:
         self.rx_info("Start flooding: receive on port %d, send on port %d", rx_flood_port,
                      tx_flood_port)
         self._flood_rx_ipv4_handler = udp_rx_handler.UdpRxHandler(
-            remote_address="0.0.0.0",   # TODO: permissive, can we use self.neighbor.address?
-            port=rx_flood_port,
+            interface_name=self.physical_interface_name,
+            local_port=rx_flood_port,
+            remote_address="0.0.0.0",      # TODO: permissive, can we use self.neighbor.address?
             receive_function=self.receive_flood_message,
-            local_address=self._ipv4_address)
+            log=self._rx_log,
+            log_id=self._log_id)
         self._flood_tx_ipv4_socket = self.create_socket_ipv4_tx_ucast(
             remote_address=self.neighbor.address,
             port=tx_flood_port)
@@ -604,13 +605,23 @@ class Interface:
         self._node = node
         self._engine = node.engine
         self.name = config['name']
+        self._log_id = node.log_id + "-{}".format(self.name)
+        self._log = node.log.getChild("if")
+        if self._engine.simulated_interfaces and self._engine.base_interface_name:
+            self.physical_interface_name = self._engine.base_interface_name
+        else:
+            self.physical_interface_name = self.name
         # TODO: Make the default metric/bandwidth depend on the speed of the interface
         self._metric = self.get_config_attribute(config, 'metric',
                                                  common.constants.default_bandwidth)
         self._advertised_name = self.generate_advertised_name()
-        self._log_id = node.log_id + "-{}".format(self.name)
-        self._ipv4_address = utils.interface_ipv4_address(self.name,
-                                                          self._node.engine.tx_src_address)
+        self._ipv4_address = utils.interface_ipv4_address(self.physical_interface_name)
+        try:
+            self._interface_index = socket.if_nametoindex(self.physical_interface_name)
+        except IOError as err:
+            self.warning("Could determine index of interface %s: %s",
+                         self.physical_interface_name, err)
+            self._interface_index = None
         self._rx_lie_ipv4_mcast_address = self.get_config_attribute(
             config, 'rx_lie_mcast_address', constants.DEFAULT_LIE_IPV4_MCAST_ADDRESS)
         self._tx_lie_ipv4_mcast_address = self.get_config_attribute(
@@ -627,7 +638,6 @@ class Interface:
                                                         constants.DEFAULT_TIE_PORT)
         self._rx_fail = False
         self._tx_fail = False
-        self._log = node.log.getChild("if")
         self.info("Create interface")
         self._rx_log = self._log.getChild("rx")
         self._tx_log = self._log.getChild("tx")
@@ -662,20 +672,20 @@ class Interface:
 
     def run(self):
         self._lie_tx_ipv4_socket = self.create_socket_ipv4_tx_mcast(
-            interface_name=self.name,
             multicast_address=self._tx_lie_ipv4_mcast_address,
             port=self._tx_lie_port,
             loopback=self._node.engine.multicast_loopback)
         self._lie_tx_ipv6_socket = self.create_socket_ipv6_tx_mcast(
-            interface_name=self.name,
             multicast_address=self._tx_lie_ipv6_mcast_address,
             port=self._tx_lie_port,
             loopback=self._node.engine.multicast_loopback)
         self._lie_rx_ipv4_handler = udp_rx_handler.UdpRxHandler(
+            interface_name=self.physical_interface_name,
+            local_port=self._rx_lie_port,
             remote_address=self._rx_lie_ipv4_mcast_address,
-            port=self._rx_lie_port,
             receive_function=self.receive_lie_message,
-            local_address=self._ipv4_address)
+            log=self._rx_log,
+            log_id=self._log_id)
         self._flood_rx_ipv4_handler = None
         self._flood_tx_ipv4_socket = None
         self._one_second_timer = timer.Timer(
@@ -1107,6 +1117,7 @@ class Interface:
     def cli_detailed_attributes(self):
         return [
             ["Interface Name", self.name],
+            ["Physical Interface Name", self.physical_interface_name],
             ["Advertised Name", self._advertised_name],
             ["Interface IPv4 Address", self._ipv4_address],
             ["Metric", self._metric],
@@ -1251,30 +1262,6 @@ class Interface:
 
     # TODO: Set TOS and Priority
 
-    ###@@@ TODO: Don't need to pass in interface name
-    ###@@@ TODO: Store real interface name
-    def interface_ipv4_address(self, interface_name):
-        if self._engine.simulated_interfaces:
-            interface_name = self._engine.base_interface_name
-        interface_addresses = netifaces.interfaces()
-        if not interface_name in netifaces.interfaces():
-            return None
-        interface_addresses = netifaces.ifaddresses(interface_name)
-        if not netifaces.AF_INET in interface_addresses:
-            return None
-        address_str = interface_addresses[netifaces.AF_INET][0]['addr']
-        return address_str
-
-    def interface_index(self, interface_name):
-        if self._engine.simulated_interfaces:
-            interface_name = self._engine.base_interface_name
-        try:
-            index = socket.if_nametoindex(interface_name)
-        except IOError as err:
-            self.warning("Could determine index of interface %s: %s", interface_name, err)
-            index = None
-        return index
-
     @staticmethod
     def enable_addr_and_port_reuse(sock):
         # Ignore exceptions because not all operating systems support these. If not setting the
@@ -1297,17 +1284,16 @@ class Interface:
                          address, port, err)
         return False
 
-    def create_socket_ipv4_tx_mcast(self, interface_name, multicast_address, port, loopback):
+    def create_socket_ipv4_tx_mcast(self, multicast_address, port, loopback):
         try:
-            sock = socket.socket(netifaces.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
         except IOError as err:
             self.warning("Could not create IPv4 UDP socket: %s", err)
             return None
         self.enable_addr_and_port_reuse(sock)
-        local_address = self.interface_ipv4_address(interface_name)
-        if local_address is not None:
+        if self._ipv4_address is not None:
             sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_IF,
-                            socket.inet_aton(local_address))
+                            socket.inet_aton(self._ipv4_address))
         loop_value = 1 if loopback else 0
         sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, loop_value)
         if not self.socket_connect(sock, multicast_address, port):
@@ -1316,7 +1302,7 @@ class Interface:
 
     def create_socket_ipv4_tx_ucast(self, remote_address, port):
         try:
-            sock = socket.socket(netifaces.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
         except IOError as err:
             self.warning("Could not create IPv4 UDP socket: %s", err)
             return None
@@ -1325,20 +1311,21 @@ class Interface:
             return None
         return sock
 
-    def create_socket_ipv6_tx_mcast(self, interface_name, multicast_address, port, loopback):
+    def create_socket_ipv6_tx_mcast(self, multicast_address, port, loopback):
+        if self._interface_index is None:
+            self.warning("Could not create IPv6 multicast TX socket: unknown interface index")
+            return None
         try:
-            sock = socket.socket(netifaces.AF_INET6, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+            sock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
         except IOError as err:
             self.warning("Could not create IPv6 UDP socket: %s", err)
             return None
         self.enable_addr_and_port_reuse(sock)
-        index = self.interface_index(interface_name)
-        if index is None:
-            return None
         try:
-            sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_MULTICAST_IF, index)
+            sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_MULTICAST_IF, self._interface_index)
         except IOError as err:
-            self.warning("Could not set IPv6 multicast interface index %d: %s", index, err)
+            self.warning("Could not set IPv6 multicast interface index %d: %s",
+                         self._interface_index, err)
             return None
         try:
             loop_value = 1 if loopback else 0

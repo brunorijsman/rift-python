@@ -1,12 +1,12 @@
 import netifaces
 
-def interface_ipv4_address(interface_name, default_ip_if_none_found):
+def interface_ipv4_address(interface_name):
     interface_addresses = netifaces.interfaces()
     if not interface_name in netifaces.interfaces():
-        return default_ip_if_none_found
+        return None
     interface_addresses = netifaces.ifaddresses(interface_name)
     if not netifaces.AF_INET in interface_addresses:
-        return default_ip_if_none_found
+        return None
     return interface_addresses[netifaces.AF_INET][0]['addr']
 
 def system_id_str(system_id):
