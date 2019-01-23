@@ -92,25 +92,18 @@ class UdpRxHandler:
         except IOError as err:
             self.warning("Could determine index of interface %s: %s", interface_name, err)
             self._interface_index = None
-        if self.is_ipv6_address(remote_address):
-            if ipaddress.IPv6Address(remote_address).is_multicast:
-                self.sock = self.create_socket_ipv6_rx_mcast()
-            else:
-                self.sock = self.create_socket_ipv6_rx_ucast()
-        else:
+        if utils.is_valid_ipv4_address(remote_address):
             if ipaddress.IPv4Address(remote_address).is_multicast:
                 self.sock = self.create_socket_ipv4_rx_mcast()
             else:
                 self.sock = self.create_socket_ipv4_rx_ucast()
-        scheduler.SCHEDULER.register_handler(self, True, False)
-
-    @staticmethod
-    def is_ipv6_address(address):
-        try:
-            socket.inet_pton(socket.AF_INET6, address)
-        except socket.error:
-            return False
-        return True
+        else:
+            if ipaddress.IPv6Address(remote_address).is_multicast:
+                self.sock = self.create_socket_ipv6_rx_mcast()
+            else:
+                self.sock = self.create_socket_ipv6_rx_ucast()
+        if self.sock:
+            scheduler.SCHEDULER.register_handler(self, True, False)
 
     def warning(self, msg, *args):
         self._log.warning("[%s] %s" % (self._log_id, msg), *args)
@@ -120,7 +113,10 @@ class UdpRxHandler:
         self.sock.close()
 
     def rx_fd(self):
-        return self.sock.fileno()
+        if self.sock:
+            return self.sock.fileno()
+        else:
+            return None
 
     def ready_to_read(self):
         ancillary_size = socket.CMSG_LEN(self.MAX_SIZE)
@@ -165,6 +161,7 @@ class UdpRxHandler:
             return None
         self.enable_addr_and_port_reuse(sock)
         try:
+            # TODO: Is the _remote_address the right address to bind to?
             sock.bind((self._remote_address, self._local_port))
         except IOError as err:
             self.warning("Could not bind UDP socket to address %s port %d: %s",
@@ -204,7 +201,7 @@ class UdpRxHandler:
             return None
         self.enable_addr_and_port_reuse(sock)
         try:
-            sock.bind((self._remote_address, self._local_port))
+            sock.bind(("::0", self._local_port))
         except IOError as err:
             self.warning("Could not bind UDP socket to address %s port %d: %s",
                          self._remote_address, self._local_port, err)
@@ -215,12 +212,15 @@ class UdpRxHandler:
         return self.create_socket_ipv6_rx_common()
 
     def create_socket_ipv6_rx_mcast(self):
+        if self._interface_index is None:
+            self.warning("Could create IPv6 multicast receive socket: unknown interface index")
+            return None
         sock = self.create_socket_ipv6_rx_common()
         req = struct.pack("=16si", socket.inet_pton(socket.AF_INET6, self._remote_address),
                           self._interface_index)
         try:
             # pylint:disable=no-member
-            sock.setsockopt(socket.IPPROTO_IP6, socket.IPV6_ADD_MEMBERSHIP, req)
+            sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_ADD_MEMBERSHIP, req)
         except IOError as err:
             self.warning("Could not join group %s for interface index %s: %s",
                          self._remote_address, self._interface_index, err)

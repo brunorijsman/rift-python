@@ -2008,7 +2008,8 @@ class Node:
         if interface_id in self._interfaces_by_id:
             intf = self._interfaces_by_id[interface_id]
             if intf.neighbor is not None:
-                remote_address = packet_common.make_ip_address(intf.neighbor.address)
+                ###@@@@ TODO: Handle IPv6
+                remote_address = packet_common.make_ip_address(intf.neighbor.ipv4_address)
             else:
                 remote_address = None
             return next_hop.NextHop(intf.name, remote_address)

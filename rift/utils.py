@@ -1,3 +1,5 @@
+import socket
+
 import netifaces
 
 def interface_ipv4_address(interface_name):
@@ -17,6 +19,13 @@ def interface_ipv6_address(interface_name):
     if not netifaces.AF_INET6 in interface_addresses:
         return None
     return interface_addresses[netifaces.AF_INET6][0]['addr']
+
+def is_valid_ipv4_address(address):
+    try:
+        socket.inet_pton(socket.AF_INET, address)
+    except socket.error:
+        return False
+    return True
 
 def system_id_str(system_id):
     # Heuristic: if the system_id < 1000000 then it is probably configured, otherwise it is probably

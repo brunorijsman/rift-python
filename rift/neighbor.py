@@ -8,7 +8,12 @@ class Neighbor:
     def __init__(self, lie_protocol_packet, neighbor_address, neighbor_port):
         self.system_id = lie_protocol_packet.header.sender
         self.level = lie_protocol_packet.header.level
-        self.address = neighbor_address
+        if utils.is_valid_ipv4_address(neighbor_address):
+            self.ipv4_address = neighbor_address
+            self.ipv6_address = None
+        else:
+            self.ipv4_address = None
+            self.ipv6_address = neighbor_address
         self.port = neighbor_port
         lie = lie_protocol_packet.content.lie
         self.name = lie.name
@@ -28,6 +33,29 @@ class Neighbor:
         self.you_are_flood_repeater = lie.you_are_flood_repeater
         self.label = lie.label
 
+    def inherit_address_from_old_nbr(self, old_neighbor):
+        # Returns False if there was no change of address
+        # Returns (old_address, new_address) if there was a change of address
+        # Self is a neighbor constructed from a IPv4 LIE *or* an IPv6 LIE
+        assert (self.ipv4_address is None) or (self.ipv6_address is None)
+        assert (self.ipv4_address is not None) or (self.ipv6_address is not None)
+        if self.ipv4_address:
+            # We received an IPv4 LIE
+            # Inherit IPv6 address
+            self.ipv6_address = old_neighbor.ipv6_address
+            # Look for change in IPv4 address
+            if old_neighbor.ipv4_address and old_neighbor.ipv4_address != self.ipv4_address:
+                return (old_neighbor.ipv4_address, self.ipv4_address)
+        if self.ipv6_address:
+            # We received an IPv6 LIE
+            # Inherit IPv4 address
+            self.ipv4_address = old_neighbor.ipv4_address
+            # Look for change in IPv6 address
+            if old_neighbor.ipv6_address and old_neighbor.ipv6_address != self.ipv6_address:
+                return (old_neighbor.ipv6_address, self.ipv6_address)
+        # All good. No change of address was detected.
+        return False
+
     def top_of_fabric(self):
         # TODO: Is this right? Should we look at capabilities.hierarchy_indications?
         return self.level == common.constants.top_of_fabric_level
@@ -46,7 +74,8 @@ class Neighbor:
         attributes = [
             ["Name", self.name],
             ["System ID", utils.system_id_str(self.system_id)],
-            ["IPv4 Address", self.address],
+            ["IPv4 Address", self.ipv4_address],
+            ["IPv6 Address", self.ipv6_address],
             ["LIE UDP Source Port", self.port],
             ["Link ID", self.local_id],
             ["Level", self.level],

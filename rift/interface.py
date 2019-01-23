@@ -113,7 +113,7 @@ class Interface:
             log=self._rx_log,
             log_id=self._log_id)
         self._flood_tx_ipv4_socket = self.create_socket_ipv4_tx_ucast(
-            remote_address=self.neighbor.address,
+            remote_address=self.neighbor.ipv4_address,
             port=tx_flood_port)
         # Periodically start sending TIE packets and TIRE packets
         self._service_queues_timer.start()
@@ -404,7 +404,9 @@ class Interface:
         return (False, "Level mismatch", True, True)
 
     def action_process_lie(self, event_data):
-        (protocol_packet, (from_address, from_port)) = event_data
+        (protocol_packet, from_info) = event_data
+        from_address = from_info[0]
+        from_port = from_info[1]
         # TODO: This is a simplistic way of implementing the hold timer. Use a real timer instead.
         self._time_ticks_since_lie_received = 0
         # Sections B.1.4.1 and B.1.4.2
@@ -449,15 +451,16 @@ class Interface:
             self.fsm.push_event(self.Event.NEIGHBOR_CHANGED_LEVEL)
             return
         # Section B.1.4.3.3
-        if new_neighbor.address != self.neighbor.address:
-            self.info("Neighbor address changed from %s to %s", self.neighbor.address,
-                      new_neighbor.address)
+        changed = new_neighbor.inherit_address_from_old_nbr(self.neighbor)
+        if changed:
+            (old_addr, new_addr) = changed
+            self.info("Neighbor address changed from %s to %s", old_addr, new_addr)
             self.fsm.push_event(self.Event.NEIGHBOR_CHANGED_ADDRESS)
             return
         # Section B.1.4.3.4
         if self.check_minor_change(new_neighbor):
             self.fsm.push_event(self.Event.NEIGHBOR_CHANGED_MINOR_FIELDS)
-        self.neighbor = new_neighbor      # TODO: The draft does not specify this, but it is needed
+        self.neighbor = new_neighbor
         # Section B.1.4.3.5
         self.check_three_way()
 
@@ -656,7 +659,14 @@ class Interface:
             interface_name=self.physical_interface_name,
             local_port=self._rx_lie_port,
             remote_address=self._rx_lie_ipv4_mcast_address,
-            receive_function=self.receive_lie_message,
+            receive_function=self.receive_ipv4_lie_message,
+            log=self._rx_log,
+            log_id=self._log_id)
+        self._lie_rx_ipv6_handler = udp_rx_handler.UdpRxHandler(
+            interface_name=self.physical_interface_name,
+            local_port=self._rx_lie_port,
+            remote_address=self._rx_lie_ipv6_mcast_address,
+            receive_function=self.receive_ipv6_lie_message,
             log=self._rx_log,
             log_id=self._log_id)
         self._flood_rx_ipv4_handler = None
@@ -681,20 +691,22 @@ class Interface:
             return False
         return True
 
-    def receive_message_common(self, message, from_address_and_port):
-        (address, port) = from_address_and_port
+    def receive_message_common(self, fam_str, message, from_address_and_port):
+        address = from_address_and_port[0]
+        port = from_address_and_port[1]
         from_str = "{}:{}".format(address, port)
         protocol_packet = packet_common.decode_protocol_packet(message)
         if protocol_packet is None:
-            self.rx_error("Could not decode message received from %s", from_str)
+            self.rx_error("Could not decode %s message received from %s", fam_str, from_str)
             return None
         if self._rx_fail:
-            self.rx_debug("Simulated receive failure %s from %s", protocol_packet, from_str)
+            self.rx_debug("Simulated receive failure %s %s from %s", fam_str, protocol_packet,
+                          from_str)
             return None
         if protocol_packet.header.sender == self._node.system_id:
-            self.rx_debug("Looped receive %s from %s", protocol_packet, from_str)
+            self.rx_debug("Looped receive %s from %s %s", fam_str, protocol_packet, from_str)
             return None
-        self.rx_debug("Receive %s from %s", protocol_packet, from_str)
+        self.rx_debug("Receive %s %s from %s", fam_str, protocol_packet, from_str)
         if not protocol_packet.content:
             self.rx_warning("Received packet without content from %s", from_str)
             return None
@@ -705,8 +717,14 @@ class Interface:
             return None
         return protocol_packet
 
-    def receive_lie_message(self, message, from_address_and_port):
-        protocol_packet = self.receive_message_common(message, from_address_and_port)
+    def receive_ipv4_lie_message(self, message, from_address_and_port):
+        self.receive_lie_message("IPv4", message, from_address_and_port)
+
+    def receive_ipv6_lie_message(self, message, from_address_and_port):
+        self.receive_lie_message("IPv6", message, from_address_and_port)
+
+    def receive_lie_message(self, fam_str, message, from_address_and_port):
+        protocol_packet = self.receive_message_common(fam_str, message, from_address_and_port)
         if protocol_packet is None:
             return
         if protocol_packet.content.lie:
@@ -720,7 +738,7 @@ class Interface:
             self.rx_warning("Received TIRE packet on LIE port (ignored)")
 
     def receive_flood_message(self, message, from_address_and_port):
-        protocol_packet = self.receive_message_common(message, from_address_and_port)
+        protocol_packet = self.receive_message_common("IPv4", message, from_address_and_port)
         if protocol_packet is None:
             return
         if protocol_packet.content.tie is not None:
