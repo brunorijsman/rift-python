@@ -1275,26 +1275,6 @@ class Interface:
             index = None
         return index
 
-    # TODO: Do we use this for anything?
-    #
-    # def interface_ipv6_address(interface_name, exclude_scope=False):
-    #     # pylint:disable=global-statement
-    #     global SIMULATED_INTERFACES
-    #     global BASE_INTERFACE_NAME
-    #     if SIMULATED_INTERFACES:
-    #         interface_name = BASE_INTERFACE_NAME
-    #     interface_addresses = netifaces.interfaces()
-    #     if not interface_name in netifaces.interfaces():
-    #         return None
-    #     interface_addresses = netifaces.ifaddresses(interface_name)
-    #     if not netifaces.AF_INET6 in interface_addresses:
-    #         return None
-    #     address_str = interface_addresses[netifaces.AF_INET6][0]['addr']
-    #     if exclude_scope:
-    #         if "%" in address_str:
-    #             address_str = address_str.split("%")[0]
-    #     return address_str
-
     @staticmethod
     def enable_addr_and_port_reuse(sock):
         # Ignore exceptions because not all operating systems support these. If not setting the
@@ -1308,22 +1288,6 @@ class Interface:
         except AttributeError:
             pass
 
-    @staticmethod
-    def address_family_str(family):
-        assert family in [netifaces.AF_INET, netifaces.AF_INET6]
-        if family == netifaces.AF_INET:
-            return "IPv4"
-        else:
-            return "IPv6"
-
-    def create_udp_socket(self, family):
-        try:
-            sock = socket.socket(family, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-        except IOError as err:
-            self.warning("Could not create %s UDP socket: %s", self.address_family_str(family), err)
-            sock = None
-        return sock
-
     def socket_connect(self, sock, address, port):
         try:
             sock.connect((address, port))
@@ -1333,39 +1297,11 @@ class Interface:
                          address, port, err)
         return False
 
-    # TODO: Finish this
-    #
-    # def create_ipv4_mcast_rx_socket(self, interface_name):
-    #     # pylint:disable=no-member
-    #     local_address = self.interface_ipv4_address(interface_name)
-    #     if local_address is None:
-    #         return None
-    #     sock = socket.socket(netifaces.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-    #     self.enable_addr_and_port_reuse(sock)
-    #     sock.setsockopt(socket.IPPROTO_IP, socket.IP_PKTINFO, 1)
-    #     sock.bind((IPV4_MULTICAST_ADDR, MULTICAST_PORT))
-    #     req = struct.pack("=4s4s", socket.inet_aton(IPV4_MULTICAST_ADDR),
-    #                     socket.inet_aton(local_address))
-    #     sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, req)
-    #     return sock
-
-    # TODO: Finish this
-    #
-    # def create_ipv6_mcast_rx_socket(self, interface_name):
-    #     # pylint:disable=no-member
-    #     sock = socket.socket(netifaces.AF_INET6, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-    #     self.enable_addr_and_port_reuse(sock)
-    #     sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_RECVPKTINFO, 1)
-    #     sock.bind(("::", MULTICAST_PORT))
-    #     index = self.interface_index(interface_name)
-    #     req = struct.pack("=16si", socket.inet_pton(netifaces.AF_INET6, IPV6_MULTICAST_ADDR),
-    #                       index)
-    #     sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_ADD_MEMBERSHIP, req)
-    #     return sock
-
     def create_socket_ipv4_tx_mcast(self, interface_name, multicast_address, port, loopback):
-        sock = self.create_udp_socket(netifaces.AF_INET)
-        if sock is None:
+        try:
+            sock = socket.socket(netifaces.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+        except IOError as err:
+            self.warning("Could not create IPv4 UDP socket: %s", err)
             return None
         self.enable_addr_and_port_reuse(sock)
         local_address = self.interface_ipv4_address(interface_name)
@@ -1379,8 +1315,10 @@ class Interface:
         return sock
 
     def create_socket_ipv4_tx_ucast(self, remote_address, port):
-        sock = self.create_udp_socket(netifaces.AF_INET)
-        if sock is None:
+        try:
+            sock = socket.socket(netifaces.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+        except IOError as err:
+            self.warning("Could not create IPv4 UDP socket: %s", err)
             return None
         self.enable_addr_and_port_reuse(sock)
         if not self.socket_connect(sock, remote_address, port):
@@ -1388,8 +1326,10 @@ class Interface:
         return sock
 
     def create_socket_ipv6_tx_mcast(self, interface_name, multicast_address, port, loopback):
-        sock = self.create_udp_socket(netifaces.AF_INET6)
-        if sock is None:
+        try:
+            sock = socket.socket(netifaces.AF_INET6, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+        except IOError as err:
+            self.warning("Could not create IPv6 UDP socket: %s", err)
             return None
         self.enable_addr_and_port_reuse(sock)
         index = self.interface_index(interface_name)
@@ -1409,40 +1349,3 @@ class Interface:
         if not self.socket_connect(sock, multicast_address, port):
             return None
         return sock
-
-    ###@@@ TODO: Uncomment and start using these functions
-
-    # def receive(sock_info):
-    #     # pylint:disable=too-many-locals
-    #     (sock, interface_name, interface_index) = sock_info
-    #     ancillary_size = socket.CMSG_LEN(MAX_SIZE)
-    #     try:
-    #         message, ancillary_messages, _msg_flags, source = sock.recvmsg(MAX_SIZE,
-    #                         ancillary_size)
-    #         message_str = message.decode()
-    #     except Exception as exception:
-    #         report("exception {} while receiving on {}".format(exception, interface_name))
-    #     else:
-    #         rx_interface_index = None
-    #         for anc in ancillary_messages:
-    #             # pylint:disable=no-member
-    #             if anc[0] == socket.SOL_IP and anc[1] == socket.IP_PKTINFO:
-    #                 packet_info = in_pktinfo.from_buffer_copy(anc[2])
-    #                 rx_interface_index = packet_info.ipi_ifindex
-    #             elif anc[0] == socket.SOL_IPV6 and anc[1] == socket.IPV6_PKTINFO:
-    #                 packet_info = in6_pktinfo.from_buffer_copy(anc[2])
-    #                 rx_interface_index = packet_info.ipi6_ifindex
-    #         if rx_interface_index and (rx_interface_index != interface_index):
-    #             return
-    #         report("received {} on {} from {}".format(message_str, interface_name, source))
-
-    # def send(sock_info, message):
-    #     (sock, interface_name, _interface_index) = sock_info
-    #     try:
-    #         report("send {} on {} from {} to {}".format(message, interface_name,
-    #                                                     sock.getsockname(),
-    #                                                     sock.getpeername()))
-    #         sock.send(message.encode())
-    #     except Exception as exception:
-    #         report("exception {} while sending {} on {}".format(exception, message,
-    #             interface_name))

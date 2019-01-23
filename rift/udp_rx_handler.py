@@ -38,3 +38,57 @@ class UdpRxHandler:
     def ready_to_read(self):
         message, from_address_and_port = self.sock.recvfrom(self.MAXIMUM_MESSAGE_SIZE)
         self._receive_function(message, from_address_and_port)
+
+    # TODO: Finish this
+    #
+    # def create_ipv4_mcast_rx_socket(self, interface_name):
+    #     # pylint:disable=no-member
+    #     local_address = self.interface_ipv4_address(interface_name)
+    #     if local_address is None:
+    #         return None
+    #     sock = socket.socket(netifaces.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+    #     self.enable_addr_and_port_reuse(sock)
+    #     sock.setsockopt(socket.IPPROTO_IP, socket.IP_PKTINFO, 1)
+    #     sock.bind((IPV4_MULTICAST_ADDR, MULTICAST_PORT))
+    #     req = struct.pack("=4s4s", socket.inet_aton(IPV4_MULTICAST_ADDR),
+    #                     socket.inet_aton(local_address))
+    #     sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, req)
+    #     return sock
+
+    # TODO: Finish this
+    #
+    # def create_ipv6_mcast_rx_socket(self, interface_name):
+    #     # pylint:disable=no-member
+    #     sock = socket.socket(netifaces.AF_INET6, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+    #     self.enable_addr_and_port_reuse(sock)
+    #     sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_RECVPKTINFO, 1)
+    #     sock.bind(("::", MULTICAST_PORT))
+    #     index = self.interface_index(interface_name)
+    #     req = struct.pack("=16si", socket.inet_pton(netifaces.AF_INET6, IPV6_MULTICAST_ADDR),
+    #                       index)
+    #     sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_ADD_MEMBERSHIP, req)
+    #     return sock
+
+    # def receive(sock_info):
+    #     # pylint:disable=too-many-locals
+    #     (sock, interface_name, interface_index) = sock_info
+    #     ancillary_size = socket.CMSG_LEN(MAX_SIZE)
+    #     try:
+    #         message, ancillary_messages, _msg_flags, source = sock.recvmsg(MAX_SIZE,
+    #                         ancillary_size)
+    #         message_str = message.decode()
+    #     except Exception as exception:
+    #         report("exception {} while receiving on {}".format(exception, interface_name))
+    #     else:
+    #         rx_interface_index = None
+    #         for anc in ancillary_messages:
+    #             # pylint:disable=no-member
+    #             if anc[0] == socket.SOL_IP and anc[1] == socket.IP_PKTINFO:
+    #                 packet_info = in_pktinfo.from_buffer_copy(anc[2])
+    #                 rx_interface_index = packet_info.ipi_ifindex
+    #             elif anc[0] == socket.SOL_IPV6 and anc[1] == socket.IPV6_PKTINFO:
+    #                 packet_info = in6_pktinfo.from_buffer_copy(anc[2])
+    #                 rx_interface_index = packet_info.ipi6_ifindex
+    #         if rx_interface_index and (rx_interface_index != interface_index):
+    #             return
+    #         report("received {} on {} from {}".format(message_str, interface_name, source))
