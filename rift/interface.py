@@ -563,6 +563,7 @@ class Interface:
                                                  common.constants.default_bandwidth)
         self._advertised_name = self.generate_advertised_name()
         self._ipv4_address = utils.interface_ipv4_address(self.physical_interface_name)
+        self._ipv6_address = utils.interface_ipv6_address(self.physical_interface_name)
         try:
             self._interface_index = socket.if_nametoindex(self.physical_interface_name)
         except IOError as err:
@@ -1067,6 +1068,7 @@ class Interface:
             ["Physical Interface Name", self.physical_interface_name],
             ["Advertised Name", self._advertised_name],
             ["Interface IPv4 Address", self._ipv4_address],
+            ["Interface IPv6 Address", self._ipv6_address],
             ["Interface Index", self._interface_index],
             ["Metric", self._metric],
             ["LIE Recieve IPv4 Multicast Address", self._rx_lie_ipv4_mcast_address],
