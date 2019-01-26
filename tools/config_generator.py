@@ -470,7 +470,9 @@ class Node:
         print('echo "{}"'.format(progress), file=file)
         ns_name = "netns-" + str(self.node_id)
         port_file = "/tmp/rift-python-telnet-port-" + self.name
-        print("ip netns exec {} python3 rift --multicast-loopback-disable "
+        print("ip netns exec {} python3 rift "
+              "--ipv4-multicast-loopback-disable "
+              "--ipv6-multicast-loopback-disable "
               "--telnet-port-file {} {} < /dev/null &"
               .format(ns_name, port_file, self.config_file_name), file=file)
 

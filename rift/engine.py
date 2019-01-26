@@ -17,7 +17,7 @@ import table
 class Engine:
 
     def __init__(self, passive_nodes, run_which_nodes, interactive, telnet_port_file,
-                 multicast_loopback, log_level, config):
+                 ipv4_multicast_loopback, ipv6_multicast_loopback, log_level, config):
         log_file_name = "rift.log"  # TODO: Make this configurable
         if "RIFT_TEST_RESULTS_DIR" in os.environ:
             log_file_name = os.environ["RIFT_TEST_RESULTS_DIR"] + "/" + log_file_name
@@ -28,7 +28,8 @@ class Engine:
         self._run_which_nodes = run_which_nodes
         self._interactive = interactive
         self._telnet_port_file = telnet_port_file
-        self._multicast_loopback = multicast_loopback
+        self.ipv4_multicast_loopback = ipv4_multicast_loopback
+        self.ipv6_multicast_loopback = ipv6_multicast_loopback
         self._config = config
         if self.nr_nodes() > 1:
             self.simulated_interfaces = True
@@ -36,7 +37,7 @@ class Engine:
         else:
             self.simulated_interfaces = False
             self.base_interface_name = None
-        self._tx_src_address = self.read_global_configuration(config, 'tx_src_address', '')
+        self.tx_src_address = self.read_global_configuration(config, 'tx_src_address', '')
         self._nodes = sortedcontainers.SortedDict()
         self.create_configuration(passive_nodes)
         cli_log = logging.getLogger('cli')
@@ -130,11 +131,12 @@ class Engine:
         tab = table.Table(separators=False)
         tab.add_row(["Interactive", self._interactive])
         tab.add_row(["Telnet Port File", self._telnet_port_file])
-        tab.add_row(["Multicast Loopback", self._multicast_loopback])
+        tab.add_row(["IPv4 Multicast Loopback", self.ipv4_multicast_loopback])
+        tab.add_row(["IPv6 Multicast Loopback", self.ipv6_multicast_loopback])
         tab.add_row(["Number of Nodes", self.nr_nodes()])
         tab.add_row(["Simulated Interfaces", self.simulated_interfaces])
         tab.add_row(["Base Interface", self.base_interface_name])
-        tab.add_row(["Transmit Source Address", self._tx_src_address])
+        tab.add_row(["Transmit Source Address", self.tx_src_address])
         cli_session.print(tab.to_string())
 
     def command_show_intf_fsm_nvhis(self, cli_session, parameters):
@@ -336,11 +338,3 @@ class Engine:
     @property
     def active_nodes(self):
         return self._run_which_nodes
-
-    @property
-    def tx_src_address(self):
-        return self._tx_src_address
-
-    @property
-    def multicast_loopback(self):
-        return self._multicast_loopback

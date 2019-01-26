@@ -1,5 +1,6 @@
 import ctypes
 import ipaddress
+import platform
 import socket
 import struct
 
@@ -29,13 +30,17 @@ import utils
 # Copyright (c) 2005-2019, Ilya Etingof <etingof@gmail.com> All rights reserved.
 # See https://github.com/etingof/pysnmp/blob/master/LICENSE.rst for the license of the copied code.
 
+MACOS = platform.system() == "Darwin"
+
 SYMBOLS = {
-    'IP_PKTINFO': 8,
     'IP_TRANSPARENT': 19,
     'SOL_IPV6': 41,
     'IPV6_ADD_MEMBERSHIP': 20,
-    'IPV6_RECVPKTINFO': 49,
 }
+
+if not MACOS:
+    SYMBOLS['IP_PKTINFO'] = 8
+    SYMBOLS['IPV6_RECVPKTINFO'] = 49
 
 # pylint:disable=invalid-name
 uint32_t = ctypes.c_uint32
@@ -126,19 +131,20 @@ class UdpRxHandler:
         except IOError as err:
             self.warning("Socket receive failed: %s", err)
         else:
-            rx_interface_index = None
-            for anc in ancillary_messages:
-                # pylint:disable=no-member
-                if anc[0] == socket.SOL_IP and anc[1] == socket.IP_PKTINFO:
-                    packet_info = in_pktinfo.from_buffer_copy(anc[2])
-                    rx_interface_index = packet_info.ipi_ifindex
-                elif anc[0] == socket.SOL_IPV6 and anc[1] == socket.IPV6_PKTINFO:
-                    packet_info = in6_pktinfo.from_buffer_copy(anc[2])
-                    rx_interface_index = packet_info.ipi6_ifindex
-            if rx_interface_index and (rx_interface_index != self._interface_index):
-                # Message received on "wrong" interface; ignore
-                return
-        self._receive_function(message, from_address_and_port)
+            if not MACOS:
+                rx_interface_index = None
+                for anc in ancillary_messages:
+                    # pylint:disable=no-member
+                    if anc[0] == socket.SOL_IP and anc[1] == socket.IP_PKTINFO:
+                        packet_info = in_pktinfo.from_buffer_copy(anc[2])
+                        rx_interface_index = packet_info.ipi_ifindex
+                    elif anc[0] == socket.SOL_IPV6 and anc[1] == socket.IPV6_PKTINFO:
+                        packet_info = in6_pktinfo.from_buffer_copy(anc[2])
+                        rx_interface_index = packet_info.ipi6_ifindex
+                if rx_interface_index and (rx_interface_index != self._interface_index):
+                    # Message received on "wrong" interface; ignore
+                    return
+            self._receive_function(message, from_address_and_port)
 
     @staticmethod
     def enable_addr_and_port_reuse(sock):
@@ -161,7 +167,6 @@ class UdpRxHandler:
             return None
         self.enable_addr_and_port_reuse(sock)
         try:
-            # TODO: Is the _remote_address the right address to bind to?
             sock.bind((self._remote_address, self._local_port))
         except IOError as err:
             self.warning("Could not bind UDP socket to address %s port %d: %s",
@@ -174,6 +179,8 @@ class UdpRxHandler:
 
     def create_socket_ipv4_rx_mcast(self):
         sock = self.create_socket_ipv4_rx_common()
+        if sock is None:
+            return None
         if self._local_ipv4_address:
             req = struct.pack("=4s4s", socket.inet_aton(self._remote_address),
                               socket.inet_aton(self._local_ipv4_address))
@@ -185,15 +192,16 @@ class UdpRxHandler:
             self.warning("Could not join group %s for local address %s: %s",
                          self._remote_address, self._local_ipv4_address, err)
             return None
-        try:
-            # pylint:disable=no-member
-            sock.setsockopt(socket.IPPROTO_IP, socket.IP_PKTINFO, 1)
-        except IOError as err:
-            # Warn, but keep going; this socket option is not supported on macOS
-            self.warning("Could not set IP_PKTINFO socket option: %s", err)
+        if not MACOS:
+            try:
+                # pylint:disable=no-member
+                sock.setsockopt(socket.IPPROTO_IP, socket.IP_PKTINFO, 1)
+            except IOError as err:
+                # Warn, but keep going; this socket option is not supported on macOS
+                self.warning("Could not set IP_PKTINFO socket option: %s", err)
         return sock
 
-    def create_socket_ipv6_rx_common(self):
+    def create_socket_ipv6_rx_ucast(self):
         try:
             sock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
         except IOError as err:
@@ -201,34 +209,46 @@ class UdpRxHandler:
             return None
         self.enable_addr_and_port_reuse(sock)
         try:
-            sock.bind(("::0", self._local_port))
+            sock.bind((self._remote_address, self._local_port))
         except IOError as err:
             self.warning("Could not bind UDP socket to address %s port %d: %s",
                          self._remote_address, self._local_port, err)
             return None
         return sock
 
-    def create_socket_ipv6_rx_ucast(self):
-        return self.create_socket_ipv6_rx_common()
-
     def create_socket_ipv6_rx_mcast(self):
         if self._interface_index is None:
             self.warning("Could create IPv6 multicast receive socket: unknown interface index")
             return None
-        sock = self.create_socket_ipv6_rx_common()
-        req = struct.pack("=16si", socket.inet_pton(socket.AF_INET6, self._remote_address),
-                          self._interface_index)
+        try:
+            sock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+        except IOError as err:
+            self.warning("Could not create IPv6 UDP socket: %s", err)
+            return None
+        self.enable_addr_and_port_reuse(sock)
+        try:
+            sock.bind(("::", self._local_port))
+        except IOError as err:
+            self.warning("Could not bind UDP socket to address %s port %d: %s",
+                         self._remote_address, self._local_port, err)
+            return None
         try:
             # pylint:disable=no-member
-            sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_ADD_MEMBERSHIP, req)
+            req = struct.pack("=16si", socket.inet_pton(socket.AF_INET6, self._remote_address),
+                              self._interface_index)
+            if MACOS:
+                sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_JOIN_GROUP, req)
+            else:
+                sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_ADD_MEMBERSHIP, req)
         except IOError as err:
             self.warning("Could not join group %s for interface index %s: %s",
                          self._remote_address, self._interface_index, err)
             return None
-        try:
-            # pylint:disable=no-member
-            sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_RECVPKTINFO, 1)
-        except IOError as err:
-            # Warn, but keep going; this socket option is not supported on macOS
-            self.warning("Could not set IPV6_RECVPKTINFO socket option: %s", err)
+        if not MACOS:
+            try:
+                # pylint:disable=no-member
+                sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_RECVPKTINFO, 1)
+            except IOError as err:
+                # Warn, but keep going; this socket option is not supported on macOS
+                self.warning("Could not set IPV6_RECVPKTINFO socket option: %s", err)
         return sock

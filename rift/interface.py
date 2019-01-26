@@ -21,10 +21,6 @@ import encoding.ttypes
 
 USE_SIMPLE_REQUEST_FILTERING = True
 
-FAM_IPV4 = 1
-FAM_IPV6 = 2
-FAM_IPV4_AND_IPV6 = 3
-
 # TODO: LIEs arriving with a TTL larger than 1 MUST be ignored.
 
 # TODO: Implement configuration of POD numbers
@@ -103,18 +99,38 @@ class Interface:
         # Start sending TIE, TIRE, and TIDE packets to this neighbor
         rx_flood_port = self._rx_flood_port
         tx_flood_port = self.neighbor.flood_port
-        self.rx_info("Start flooding: receive on port %d, send on port %d", rx_flood_port,
-                     tx_flood_port)
-        self._flood_rx_ipv4_handler = udp_rx_handler.UdpRxHandler(
-            interface_name=self.physical_interface_name,
-            local_port=rx_flood_port,
-            remote_address="0.0.0.0",      # TODO: permissive, can we use self.neighbor.address?
-            receive_function=self.receive_flood_message,
-            log=self._rx_log,
-            log_id=self._log_id)
-        self._flood_tx_ipv4_socket = self.create_socket_ipv4_tx_ucast(
-            remote_address=self.neighbor.ipv4_address,
-            port=tx_flood_port)
+        # Use whatever IPv4 or IPv6 address we see first for the neighbor, preferring the IPv4
+        # address if we know both.
+        if self.neighbor.ipv4_address is not None:
+            self.rx_info("Start IPv4 flooding: receive on port %d, send to address %s port %d",
+                         rx_flood_port, self.neighbor.ipv4_address, tx_flood_port)
+            self._flood_rx_ipv4_handler = udp_rx_handler.UdpRxHandler(
+                interface_name=self.physical_interface_name,
+                local_port=rx_flood_port,
+                remote_address="0.0.0.0",  # TODO: Permissive... use neighbor address?
+                receive_function=self.receive_flood_message,
+                log=self._rx_log,
+                log_id=self._log_id)
+            self._flood_tx_ipv4_socket = self.create_socket_ipv4_tx_ucast(
+                remote_address=self.neighbor.ipv4_address,
+                port=tx_flood_port)
+        else:
+            assert self.neighbor.ipv6_address is not None
+            scoped_ipv6_address = self.neighbor.ipv6_address
+            if "%" not in self.neighbor.ipv6_address:
+                scoped_ipv6_address += "%" + self.physical_interface_name
+            self.rx_info("Start IPv6 flooding: receive on port %d, send to address %s port %d",
+                         rx_flood_port, scoped_ipv6_address, tx_flood_port)
+            self._flood_rx_ipv6_handler = udp_rx_handler.UdpRxHandler(
+                interface_name=self.physical_interface_name,
+                local_port=rx_flood_port,
+                remote_address="::",  # TODO: Permissive... use neighbor address?
+                receive_function=self.receive_flood_message,
+                log=self._rx_log,
+                log_id=self._log_id)
+            self._flood_tx_ipv6_socket = self.create_socket_ipv6_tx_ucast(
+                remote_address=scoped_ipv6_address,
+                port=tx_flood_port)
         # Periodically start sending TIE packets and TIRE packets
         self._service_queues_timer.start()
         # Update the node TIEs originated by this node to include this neighbor
@@ -142,23 +158,15 @@ class Interface:
         # Update the south prefix TIE: we may have to start or stop originating a default route
         self._node.regenerate_my_south_prefix_tie(interface_going_down=self)
 
-    def send_protocol_packet(self, protocol_packet, flood, families):
+    def send_protocol_packet(self, protocol_packet, flood):
         if flood:
-            if families == FAM_IPV4:
+            if self._flood_tx_ipv4_socket:
                 socks = [self._flood_tx_ipv4_socket]
-            elif families == FAM_IPV6:
+            else:
+                assert self._flood_tx_ipv6_socket
                 socks = [self._flood_tx_ipv6_socket]
-            else:
-                assert families == FAM_IPV4_AND_IPV6
-                socks = [self._flood_tx_ipv4_socket, self._flood_tx_ipv6_socket]
         else:
-            if families == FAM_IPV4:
-                socks = [self._lie_tx_ipv4_socket]
-            elif families == FAM_IPV6:
-                socks = [self._lie_tx_ipv6_socket]
-            else:
-                assert families == FAM_IPV4_AND_IPV6
-                socks = [self._lie_tx_ipv4_socket, self._lie_tx_ipv6_socket]
+            socks = [self._lie_tx_ipv4_socket, self._lie_tx_ipv6_socket]
         # TODO: Only do the following two expensive conversions to string if the log is actually
         # going to log a message
         packet_str = str(protocol_packet)
@@ -211,7 +219,7 @@ class Interface:
             label=None)
         packet_content = encoding.ttypes.PacketContent(lie=lie_packet)
         protocol_packet = encoding.ttypes.ProtocolPacket(packet_header, packet_content)
-        self.send_protocol_packet(protocol_packet, flood=False, families=FAM_IPV4_AND_IPV6)
+        self.send_protocol_packet(protocol_packet, flood=False)
         tx_offer = offer.TxOffer(
             self.name,
             self._node.system_id,
@@ -404,6 +412,7 @@ class Interface:
         return (False, "Level mismatch", True, True)
 
     def action_process_lie(self, event_data):
+        # pylint:disable=too-many-statements
         (protocol_packet, from_info) = event_data
         from_address = from_info[0]
         from_port = from_info[1]
@@ -451,12 +460,33 @@ class Interface:
             self.fsm.push_event(self.Event.NEIGHBOR_CHANGED_LEVEL)
             return
         # Section B.1.4.3.3
-        changed = new_neighbor.inherit_address_from_old_nbr(self.neighbor)
-        if changed:
-            (old_addr, new_addr) = changed
-            self.info("Neighbor address changed from %s to %s", old_addr, new_addr)
-            self.fsm.push_event(self.Event.NEIGHBOR_CHANGED_ADDRESS)
-            return
+        if new_neighbor.ipv4_address is not None:
+            # We received an IPv4 LIE.
+            new_neighbor.ipv6_address = self.neighbor.ipv6_address
+            if self.neighbor.ipv4_address is None:
+                self.neighbor.ipv4_address = new_neighbor.ipv4_address
+                reason = ("Neighbor on interface {} got new IPv4 address {}"
+                          .format(self.name, new_neighbor.ipv4_address))
+                self._node.trigger_spf(reason)
+            elif self.neighbor.ipv4_address != new_neighbor.ipv4_address:
+                self.info("Neighbor IPv4 address changed from %s to %s",
+                          self.neighbor.ipv4_address, new_neighbor.ipv4_address)
+                self.fsm.push_event(self.Event.NEIGHBOR_CHANGED_ADDRESS)
+                return
+        else:
+            # We received an IPv6 LIE.
+            assert new_neighbor.ipv6_address is not None
+            new_neighbor.ipv4_address = self.neighbor.ipv4_address
+            if self.neighbor.ipv6_address is None:
+                self.neighbor.ipv6_address = new_neighbor.ipv6_address
+                reason = ("Neighbor on interface {} got new IPv6 address {}"
+                          .format(self.name, new_neighbor.ipv6_address))
+                self._node.trigger_spf(reason)
+            elif self.neighbor.ipv6_address != new_neighbor.ipv6_address:
+                self.info("Neighbor IPv6 address changed from %s to %s",
+                          self.neighbor.ipv6_address, new_neighbor.ipv6_address)
+                self.fsm.push_event(self.Event.NEIGHBOR_CHANGED_ADDRESS)
+                return
         # Section B.1.4.3.4
         if self.check_minor_change(new_neighbor):
             self.fsm.push_event(self.Event.NEIGHBOR_CHANGED_MINOR_FIELDS)
@@ -624,10 +654,14 @@ class Interface:
         self._time_ticks_since_lie_received = None
         self._lie_accept_or_reject = "No LIE Received"
         self._lie_accept_or_reject_rule = "-"
+        self._lie_tx_ipv4_socket = None
+        self._lie_tx_ipv6_socket = None
         self._lie_rx_ipv4_handler = None
-        self._flood_rx_ipv4_handler = None
+        self._lie_rx_ipv6_handler = None
         self._flood_tx_ipv4_socket = None
         self._flood_tx_ipv6_socket = None
+        self._flood_rx_ipv4_handler = None
+        self._flood_rx_ipv6_handler = None
         # The following queues (ties_tx, ties_rtx, ties_req, are ties_ack) are ordered dictionaries.
         # The value is the header of the TIE. The index is the TIE-ID want to have two headers with
         # same TIE-ID in the queue. The ordering is needed because we want to service the entries
@@ -650,11 +684,11 @@ class Interface:
         self._lie_tx_ipv4_socket = self.create_socket_ipv4_tx_mcast(
             multicast_address=self._tx_lie_ipv4_mcast_address,
             port=self._tx_lie_port,
-            loopback=self._node.engine.multicast_loopback)
+            loopback=self._node.engine.ipv4_multicast_loopback)
         self._lie_tx_ipv6_socket = self.create_socket_ipv6_tx_mcast(
             multicast_address=self._tx_lie_ipv6_mcast_address,
             port=self._tx_lie_port,
-            loopback=self._node.engine.multicast_loopback)
+            loopback=self._node.engine.ipv6_multicast_loopback)
         self._lie_rx_ipv4_handler = udp_rx_handler.UdpRxHandler(
             interface_name=self.physical_interface_name,
             local_port=self._rx_lie_port,
@@ -918,7 +952,7 @@ class Interface:
                     header=packet_header,
                     content=packet_content)
                 protocol_packet.content.tie = db_tie
-                self.send_protocol_packet(protocol_packet, flood=True, families=FAM_IPV4)
+                self.send_protocol_packet(protocol_packet, flood=True)
 
     def try_to_transmit_tie(self, tie_header):
         (filtered, reason) = self.is_flood_filtered(tie_header)
@@ -1024,7 +1058,7 @@ class Interface:
         protocol_packet = encoding.ttypes.ProtocolPacket(
             header=packet_header,
             content=packet_content)
-        self.send_protocol_packet(protocol_packet, flood=True, families=FAM_IPV4)
+        self.send_protocol_packet(protocol_packet, flood=True)
 
     def service_ties_req(self):
         tire_packet = packet_common.make_tire_packet()
@@ -1052,7 +1086,7 @@ class Interface:
         protocol_packet = encoding.ttypes.ProtocolPacket(
             header=packet_header,
             content=packet_content)
-        self.send_protocol_packet(protocol_packet, flood=True, families=FAM_IPV4)
+        self.send_protocol_packet(protocol_packet, flood=True)
 
     def service_ties_queue(self, queue):
         # Note: we only look at the TIE-ID in the queue and not at the header. If we have a more
@@ -1068,7 +1102,7 @@ class Interface:
             db_tie = self._node.find_tie(tie_id)
             if db_tie is not None:
                 protocol_packet.content.tie = db_tie
-                self.send_protocol_packet(protocol_packet, flood=True, families=FAM_IPV4)
+                self.send_protocol_packet(protocol_packet, flood=True)
 
     def service_ties_tx(self):
         self.service_ties_queue(self._ties_tx)
@@ -1172,7 +1206,8 @@ class Interface:
             "Remote Port"])
         if self._lie_rx_ipv4_handler and self._lie_rx_ipv4_handler.sock:
             self.add_socket_to_table(tab, "LIEs", "Receive", "IPv4", self._lie_rx_ipv4_handler.sock)
-        ###@@@ TODO: LIE Receive IPv6 Socket
+        if self._lie_rx_ipv6_handler and self._lie_rx_ipv6_handler.sock:
+            self.add_socket_to_table(tab, "LIEs", "Receive", "IPv6", self._lie_rx_ipv6_handler.sock)
         if self._lie_tx_ipv4_socket:
             self.add_socket_to_table(tab, "LIEs", "Send", "IPv4", self._lie_tx_ipv4_socket)
         if self._lie_tx_ipv6_socket:
@@ -1180,10 +1215,13 @@ class Interface:
         if self._flood_rx_ipv4_handler and self._flood_rx_ipv4_handler.sock:
             self.add_socket_to_table(tab, "Flooding", "Receive", "IPv4",
                                      self._flood_rx_ipv4_handler.sock)
-        ###@@@ TODO: Flooding Receive IPv6 Socket
+        if self._flood_rx_ipv6_handler and self._flood_rx_ipv6_handler.sock:
+            self.add_socket_to_table(tab, "Flooding", "Receive", "IPv6",
+                                     self._flood_rx_ipv6_handler.sock)
         if self._flood_tx_ipv4_socket:
             self.add_socket_to_table(tab, "Flooding", "Send", "IPv4", self._flood_tx_ipv4_socket)
-        ###@@@ TODO: Flooding Transmit IPv6 Socket
+        if self._flood_tx_ipv6_socket:
+            self.add_socket_to_table(tab, "Flooding", "Send", "IPv6", self._flood_tx_ipv6_socket)
         return tab
 
     def tie_headers_table_common(self, tie_headers):
@@ -1218,17 +1256,6 @@ class Interface:
 
     def ties_ack_table(self):
         return self.tie_headers_table_common(self._ties_ack)
-
-    # On multicast loopback:
-    #
-    # TODO: Finish this
-    #
-    # Disable the loopback of sent multicast packets to listening sockets on the same host. We don't
-    # want this to happen because each beacon is listening on the same port and the same multicast
-    # address on potentially multiple interfaces. Each receive socket should only receive packets
-    # that were sent by the host on the other side of the interface, and not packet that were sent
-    # from the same host on a different interface. IP_MULTICAST_IF is enabled by default, so we have
-    # to explicitly disable it)
 
     # TODO: Set TTL as follows:
     # ttl_bin = struct.pack('@i', MYTTL)
@@ -1269,11 +1296,24 @@ class Interface:
             return None
         self.enable_addr_and_port_reuse(sock)
         if self._ipv4_address is not None:
-            sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_IF,
-                            socket.inet_aton(self._ipv4_address))
-        loop_value = 1 if loopback else 0
-        sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, loop_value)
-        if not self.socket_connect(sock, multicast_address, port):
+            try:
+                sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_IF,
+                                socket.inet_aton(self._ipv4_address))
+            except IOError as err:
+                self.warning("Could not set IPv6 multicast interface address %s: %s",
+                             self._ipv4_address, err)
+                return None
+        try:
+            loop_value = 1 if loopback else 0
+            sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, loop_value)
+        except IOError as err:
+            self.warning("Could not set IPv4 multicast loopback value %d: %s", loop_value, err)
+            return None
+        try:
+            sock.connect((multicast_address, port))
+        except IOError as err:
+            self.warning("Could not connect UDP socket to address %s port %d: %s",
+                         multicast_address, port, err)
             return None
         return sock
 
@@ -1284,7 +1324,11 @@ class Interface:
             self.warning("Could not create IPv4 UDP socket: %s", err)
             return None
         self.enable_addr_and_port_reuse(sock)
-        if not self.socket_connect(sock, remote_address, port):
+        try:
+            sock.connect((remote_address, port))
+        except IOError as err:
+            self.warning("Could not connect UDP socket to address %s port %d: %s",
+                         remote_address, port, err)
             return None
         return sock
 
@@ -1310,6 +1354,27 @@ class Interface:
         except IOError as err:
             self.warning("Could not set IPv6 multicast loopback value %d: %s", loop_value, err)
             return None
-        if not self.socket_connect(sock, multicast_address, port):
+        try:
+            sock.connect((multicast_address, port))
+        except IOError as err:
+            self.warning("Could not connect UDP socket to address %s port %d: %s",
+                         multicast_address, port, err)
+            return None
+        return sock
+
+    def create_socket_ipv6_tx_ucast(self, remote_address, port):
+        try:
+            sock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+        except IOError as err:
+            self.warning("Could not create IPv6 UDP socket: %s", err)
+            return None
+        self.enable_addr_and_port_reuse(sock)
+        try:
+            sock_addr = socket.getaddrinfo(remote_address, port, socket.AF_INET6,
+                                           socket.SOCK_DGRAM)[0][4]
+            sock.connect(sock_addr)
+        except IOError as err:
+            self.warning("Could not connect UDP socket to address %s port %d: %s",
+                         remote_address, port, err)
             return None
         return sock

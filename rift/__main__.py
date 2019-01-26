@@ -5,7 +5,6 @@ import os
 import config
 import constants
 import engine
-import multicast_checks
 import packet_common
 
 def log_level(string):
@@ -57,14 +56,12 @@ def parse_command_line_arguments():
     telnet_group.add_argument(
         '--telnet-port-file',
         help='Write telnet port to the specified file')
-    loopback_group = parser.add_mutually_exclusive_group()
-    loopback_group.add_argument(
-        '--multicast-loopback-enable',
-        action="store_true",
-        help='Enable IP_MULTICAST_LOOP option on multicast send sockets')
-    loopback_group.add_argument(
-        '--multicast-loopback-disable', action="store_true",
-        help='Disable IP_MULTICAST_LOOP option on multicast send sockets')
+    parser.add_argument(
+        '--ipv4-multicast-loopback-disable', action="store_true",
+        help='Disable IPv4 loopback on multicast send sockets')
+    parser.add_argument(
+        '--ipv6-multicast-loopback-disable', action="store_true",
+        help='Disable IPv6 loopback on multicast send sockets')
     args = parser.parse_args()
     return args
 
@@ -79,13 +76,17 @@ def run_which_nodes(parsed_args):
     else:
         return constants.ActiveNodes.ALL_NODES
 
-def multicast_loopback(parsed_args):
-    if parsed_args.multicast_loopback_enable:
-        return True
-    elif parsed_args.multicast_loopback_disable:
+def ipv4_multicast_loopback(parsed_args):
+    if parsed_args.ipv4_multicast_loopback_disable:
         return False
     else:
-        return multicast_checks.loopback_needed()
+        return True
+
+def ipv6_multicast_loopback(parsed_args):
+    if parsed_args.ipv6_multicast_loopback_disable:
+        return False
+    else:
+        return True
 
 def main():
     args = parse_command_line_arguments()
@@ -96,7 +97,8 @@ def main():
                         passive_nodes=args.passive_nodes,
                         interactive=args.interactive,
                         telnet_port_file=args.telnet_port_file,
-                        multicast_loopback=multicast_loopback(args),
+                        ipv4_multicast_loopback=ipv4_multicast_loopback(args),
+                        ipv6_multicast_loopback=ipv6_multicast_loopback(args),
                         log_level=args.log_level,
                         config=parsed_config)
     eng.run()

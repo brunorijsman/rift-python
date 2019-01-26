@@ -881,7 +881,7 @@ class Node:
         protocol_packet = encoding.ttypes.ProtocolPacket(
             header=packet_header,
             content=packet_content)
-        intf.send_protocol_packet(protocol_packet, flood=True, families=interface.FAM_IPV4)
+        intf.send_protocol_packet(protocol_packet, flood=True)
 
     @staticmethod
     def cli_summary_headers():
@@ -1993,28 +1993,45 @@ class Node:
         destination.add_predecessor(predecessor_system_id)
         if (nbr_tie_element is not None) and (predecessor_system_id == self.system_id):
             for link_id_pair in nbr_tie_element.link_ids:
-                nhop = self.interface_id_to_next_hop(link_id_pair.local_id)
-                destination.add_next_hop(nhop)
+                nhop = self.interface_id_to_ipv4_next_hop(link_id_pair.local_id)
+                if nhop:
+                    destination.add_ipv4_next_hop(nhop)
+                nhop = self.interface_id_to_ipv6_next_hop(link_id_pair.local_id)
+                if nhop:
+                    destination.add_ipv6_next_hop(nhop)
         else:
             dest_table = self._spf_destinations[spf_direction]
-            destination.inherit_next_hop(dest_table[predecessor_system_id])
+            destination.inherit_next_hops(dest_table[predecessor_system_id])
 
     def add_spf_predecessor(self, destination, predecessor_system_id, spf_direction):
         destination.add_predecessor(predecessor_system_id)
         dest_table = self._spf_destinations[spf_direction]
-        destination.inherit_next_hop(dest_table[predecessor_system_id])
+        destination.inherit_next_hops(dest_table[predecessor_system_id])
 
-    def interface_id_to_next_hop(self, interface_id):
-        if interface_id in self._interfaces_by_id:
-            intf = self._interfaces_by_id[interface_id]
-            if intf.neighbor is not None:
-                ###@@@@ TODO: Handle IPv6
-                remote_address = packet_common.make_ip_address(intf.neighbor.ipv4_address)
-            else:
-                remote_address = None
-            return next_hop.NextHop(intf.name, remote_address)
-        else:
-            return next_hop.NextHop(None, None)
+    def interface_id_to_ipv4_next_hop(self, interface_id):
+        if interface_id not in self._interfaces_by_id:
+            return None
+        intf = self._interfaces_by_id[interface_id]
+        if intf.neighbor is None:
+            return None
+        if intf.neighbor.ipv4_address is None:
+            return None
+        remote_address = packet_common.make_ip_address(intf.neighbor.ipv4_address)
+        return next_hop.NextHop(intf.name, remote_address)
+
+    def interface_id_to_ipv6_next_hop(self, interface_id):
+        if interface_id not in self._interfaces_by_id:
+            return None
+        intf = self._interfaces_by_id[interface_id]
+        if intf.neighbor is None:
+            return None
+        if intf.neighbor.ipv6_address is None:
+            return None
+        remote_address_str = intf.neighbor.ipv6_address
+        if "%" in remote_address_str:
+            remote_address_str = remote_address_str.split("%")[0]
+        remote_address = packet_common.make_ip_address(remote_address_str)
+        return next_hop.NextHop(intf.name, remote_address)
 
     def spf_use_tie_direction(self, visit_system_id, spf_direction):
         if spf_direction == constants.DIR_SOUTH:
@@ -2086,12 +2103,15 @@ class Node:
                 pass
             else:
                 prefix = dest_key
-                rte = route.Route(prefix, owner, dest.next_hops)
                 if prefix.ipv4prefix is not None:
+                    next_hops = dest.ipv4_next_hops
                     route_table = self._ipv4_rib
                 else:
                     assert prefix.ipv6prefix is not None
+                    next_hops = dest.ipv6_next_hops
                     route_table = self._ipv6_rib
-                route_table.put_route(rte)
+                if next_hops:
+                    rte = route.Route(prefix, owner, next_hops)
+                    route_table.put_route(rte)
         self._ipv4_rib.del_stale_routes()
         self._ipv6_rib.del_stale_routes()

@@ -37,7 +37,8 @@ class SPFDest:
         # (*) here and below means: contains more than one element in the case of ECMP
         self.predecessors = []
         # (if_name, addr) of direct next-hop from source node towards this destination (*)
-        self.next_hops = []
+        self.ipv4_next_hops = []
+        self.ipv6_next_hops = []
 
     def key(self):
         if self.dest_type == DEST_TYPE_NODE:
@@ -58,14 +59,21 @@ class SPFDest:
     def add_predecessor(self, predecessor_system_id):
         self.predecessors.append(predecessor_system_id)
 
-    def add_next_hop(self, next_hop):
-        if next_hop not in self.next_hops:
-            self.next_hops.append(next_hop)
+    def add_ipv4_next_hop(self, next_hop):
+        if (next_hop is not None) and (next_hop not in self.ipv4_next_hops):
+            self.ipv4_next_hops.append(next_hop)
 
-    def inherit_next_hop(self, other_spf_destination):
-        for next_hop in other_spf_destination.next_hops:
-            if next_hop not in self.next_hops:
-                self.next_hops.append(next_hop)
+    def add_ipv6_next_hop(self, next_hop):
+        if (next_hop is not None) and (next_hop not in self.ipv6_next_hops):
+            self.ipv6_next_hops.append(next_hop)
+
+    def inherit_next_hops(self, other_spf_destination):
+        for next_hop in other_spf_destination.ipv4_next_hops:
+            if next_hop not in self.ipv4_next_hops:
+                self.ipv4_next_hops.append(next_hop)
+        for next_hop in other_spf_destination.ipv6_next_hops:
+            if next_hop not in self.ipv6_next_hops:
+                self.ipv6_next_hops.append(next_hop)
 
     def inherit_tags(self, other_spf_destination):
         if (self.tags is None) and (other_spf_destination.tags is None):
@@ -81,7 +89,8 @@ class SPFDest:
             "Cost",
             ["Predecessor", "System IDs"],
             ["Tags"],
-            "Next-hops"]
+            "IPv4 Next-hops",
+            "IPv6 Next-hops"]
 
     def cli_summary_attributes(self):
         if self.dest_type == DEST_TYPE_NODE:
@@ -99,5 +108,6 @@ class SPFDest:
             self.cost,
             sorted(self.predecessors),
             tags_str,
-            [str(next_hop) for next_hop in sorted(self.next_hops)]
+            [str(next_hop) for next_hop in sorted(self.ipv4_next_hops)],
+            [str(next_hop) for next_hop in sorted(self.ipv6_next_hops)]
         ]
