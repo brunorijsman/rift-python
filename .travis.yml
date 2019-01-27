@@ -20,3 +20,9 @@ script:
   
 after_success:
   - codecov
+
+after_failure:
+  - cat rift_expect.log
+  - cat rift_telnet_expect.log
+  - cat test_telnet_expect.log
+  - cat rift.log
