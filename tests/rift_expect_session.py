@@ -39,11 +39,12 @@ class RiftExpectSession:
             results_file_name = os.environ["RIFT_TEST_RESULTS_DIR"] + "/" + results_file_name
         self._results_file = open(results_file_name, 'ab')
         self.write_result("\n\n*** Start session: {}\n\n".format(topology_file))
-        self.write_result("TRAVIS        : {}\n".format(TRAVIS))
-        self.write_result("IPV6          : {}\n\n".format(IPV6))
+        self.write_result("TRAVIS : {}\n".format(TRAVIS))
+        self.write_result("IPV6   : {}\n\n".format(IPV6))
         self._expect_session = pexpect.spawn(cmd, logfile=self._results_file)
         time.sleep(converge_secs)
         self.wait_prompt()
+        self.check_engine()
 
     def write_result(self, msg):
         self._results_file.write(msg.encode())
@@ -97,6 +98,11 @@ class RiftExpectSession:
             self.expect(".*> ")
         else:
             self.expect("{}> ".format(node_name))
+
+    def check_engine(self):
+        # Show the output of "show engine", mainly for debugging after a failure
+        self.sendline("show engine")
+        self.table_expect("Interactive")
 
     def check_adjacency_1way(self, node, interface):
         # Go to the node that we want to check
