@@ -300,5 +300,5 @@ class LogExpectSession:
             from_state="THREE_WAY",
             event="HOLD_TIME_EXPIRED",
             to_state="ONE_WAY",
-            skip_events=["TIMER_TICK", "SEND_LIE"])
+            skip_events=["TIMER_TICK", "SEND_LIE", "LIE_RECEIVED"])
         self.close()

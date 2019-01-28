@@ -4,13 +4,17 @@ import subprocess
 import rift_expect_session
 
 def test_visualize_log_file():
-    # Briefly run RIFT to produce a valid log file
-    res = rift_expect_session.RiftExpectSession("2n_l0_l1")
-    res.stop()
+    # Delete the rift.log file from previous runs, if any
+    log_file_name = "rift.log"
+    if os.path.exists(log_file_name):
+        os.remove(log_file_name)
     # If rift.log.html still exists from a previous run, remove it
     html_file_name = "rift.log.html"
     if os.path.exists(html_file_name):
         os.remove(html_file_name)
+    # Briefly run RIFT to produce a valid log file
+    res = rift_expect_session.RiftExpectSession("2n_l0_l1")
+    res.stop()
     # Run the visualization tool, and makes sure it exits without an error
     return_code = subprocess.call("rift/visualize_log.py")
     assert return_code == 0

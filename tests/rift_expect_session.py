@@ -4,6 +4,12 @@ import traceback
 import pexpect
 import pytest
 
+TRAVIS = os.environ.get('TRAVIS') == 'true'
+if TRAVIS:
+    IPV6 = False
+else:
+    IPV6 = True
+
 class RiftExpectSession:
 
     start_converge_secs = 10.0
@@ -24,6 +30,7 @@ class RiftExpectSession:
                     "--interactive "
                     "--non-passive "
                     "--log-level debug")
+        self._topology_file = topology_file
         if topology_file is not None:
             rift_cmd += " topology/{}.yaml".format(topology_file)
         cmd = "coverage run --parallel-mode {}".format(rift_cmd)
@@ -31,9 +38,16 @@ class RiftExpectSession:
         if "RIFT_TEST_RESULTS_DIR" in os.environ:
             results_file_name = os.environ["RIFT_TEST_RESULTS_DIR"] + "/" + results_file_name
         self._results_file = open(results_file_name, 'ab')
+        self.write_result("\n\n*** Start session: {}\n\n".format(topology_file))
+        self.write_result("TRAVIS        : {}\n".format(TRAVIS))
+        self.write_result("IPV6          : {}\n\n".format(IPV6))
         self._expect_session = pexpect.spawn(cmd, logfile=self._results_file)
         time.sleep(converge_secs)
         self.wait_prompt()
+
+    def write_result(self, msg):
+        self._results_file.write(msg.encode())
+        self._results_file.flush()
 
     def stop(self):
         # Attempt graceful exit
@@ -42,22 +56,22 @@ class RiftExpectSession:
         time.sleep(1.0)
         # Terminate it forcefully, in case the graceful exit did not work for some reason
         self._expect_session.terminate(force=True)
+        self.write_result("\n\n*** End session: {}\n\n".format(self._topology_file))
 
     def sendline(self, line):
         self._expect_session.sendline(line)
 
     def log_expect_failure(self):
-        self._results_file.write(b"\n\n*** Did not find expected pattern\n\n")
+        self.write_result("\n\n*** Did not find expected pattern\n\n")
         # Generate a call stack in rift_expect.log for easier debugging
         # But pytest call stacks are very deep, so only show the "interesting" lines
         for line in traceback.format_stack():
             if "tests/" in line:
-                self._results_file.write(line.strip().encode())
-                self._results_file.write(b"\n")
+                self.write_result(line.strip())
+                self.write_result("\n")
 
     def expect(self, pattern, timeout=expect_timeout):
-        msg = "\n\n*** Expect: {}\n\n".format(pattern)
-        self._results_file.write(msg.encode())
+        self.write_result("\n\n*** Expect: {}\n\n".format(pattern))
         try:
             self._expect_session.expect(pattern, timeout)
         except pexpect.TIMEOUT:
@@ -226,6 +240,13 @@ class RiftExpectSession:
         self.table_expect("not present")
 
     def check_rib(self, node, expect_rib):
+        # If IPv6 is not supported on the platform (e.g. Travis-CI), skip IPv6 routes
+        if not IPV6:
+            new_expect_rib = []
+            for expected_row in expect_rib:
+                if "::" not in expected_row:
+                    new_expect_rib.append(expected_row)
+            expect_rib = new_expect_rib
         self.sendline("set node {}".format(node))
         self.sendline("show routes")
         for expected_row in expect_rib:
