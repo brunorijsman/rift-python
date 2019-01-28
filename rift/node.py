@@ -1953,13 +1953,14 @@ class Node:
                                        node_system_id)
         for prefix_tie in prefix_ties:
             prefixes = prefix_tie.element.prefixes.prefixes
-            for prefix, attributes in prefixes.items():
-                # We have found a feasible path to the prefix; is the best path?
-                tags = attributes.tags
-                cost = node_cost + attributes.metric
-                destination = spf_dest.make_prefix_destintation(prefix, tags, cost)
-                self.spf_consider_candidate_dest(destination, None, node_system_id, candidates,
-                                                 spf_direction)
+            if prefixes:
+                for prefix, attributes in prefixes.items():
+                    # We have found a feasible path to the prefix; is the best path?
+                    tags = attributes.tags
+                    cost = node_cost + attributes.metric
+                    destination = spf_dest.make_prefix_destintation(prefix, tags, cost)
+                    self.spf_consider_candidate_dest(destination, None, node_system_id, candidates,
+                                                     spf_direction)
 
     def spf_consider_candidate_dest(self, destination, nbr_tie_element, predecessor_system_id,
                                     candidates, spf_direction):
