@@ -14,6 +14,8 @@ install:
   # Python3 needs root and setuid to allow test_kernel to add routes to the kernel
   - sudo chown root env/bin/python3
   - sudo chmod u+s env/bin/python3
+  # Insert list of interfaces and their addresses in log
+  - ifconfig
 script:
   # We are strict; if the pylint score is not perfect, we fail the build
   - pytest --cov=rift tests && pylint rift && pylint tests
