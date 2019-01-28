@@ -18,7 +18,7 @@ install:
   - ifconfig
 script:
   # We are strict; if the pylint score is not perfect, we fail the build
-  - pytest --cov=rift tests && pylint rift && pylint tests
+  - pytest --cov=rift tests && pylint rift && pylint tests && pylint tools
   
 after_success:
   - codecov
