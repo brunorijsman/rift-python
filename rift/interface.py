@@ -163,14 +163,15 @@ class Interface:
         if not self._tx_log.isEnabledFor(level):
             return
         packet_str = str(protocol_packet)
+        type_str = self.protocol_packet_type(protocol_packet)
         if sock.family == socket.AF_INET:
             fam_str = "IPv4"
         else:
             assert sock.family == socket.AF_INET6
             fam_str = "IPv6"
         to_str = str(sock.getpeername())
-        self._tx_log.log(level, "[%s] %s %s %s to %s" %
-                         (self._log_id, prelude, fam_str, packet_str, to_str))
+        self._tx_log.log(level, "[%s] %s %s %s %s to %s" %
+                         (self._log_id, prelude, fam_str, type_str, packet_str, to_str))
 
     def log_rx_protocol_packet(self, level, from_info, prelude, protocol_packet):
         if not self._rx_log.isEnabledFor(level):
@@ -179,14 +180,31 @@ class Interface:
             packet_str = str(protocol_packet)
         else:
             packet_str = "?"
+        type_str = self.protocol_packet_type(protocol_packet)
         if len(from_info) == 2:
             fam_str = "IPv4"
         else:
             assert len(from_info) == 4
             fam_str = "IPv6"
         from_str = str(from_info)
-        self._rx_log.log(level, "[%s] %s %s %s from %s" %
-                         (self._log_id, prelude, fam_str, packet_str, from_str))
+        self._rx_log.log(level, "[%s] %s %s %s %s from %s" %
+                         (self._log_id, prelude, fam_str, type_str, packet_str, from_str))
+
+    @staticmethod
+    def protocol_packet_type(protocol_packet):
+        types = []
+        if protocol_packet.content.lie:
+            types.append("LIE")
+        if protocol_packet.content.tie:
+            types.append("TIE")
+        if protocol_packet.content.tide:
+            types.append("TIDE")
+        if protocol_packet.content.tire:
+            types.append("TIRE")
+        if types:
+            return "+".join(types)
+        else:
+            return "No-Content"
 
     def send_protocol_packet(self, protocol_packet, flood):
         if flood:
@@ -777,6 +795,8 @@ class Interface:
         if protocol_packet.content.lie:
             event_data = (protocol_packet, from_info)
             self.fsm.push_event(self.Event.LIE_RECEIVED, event_data)
+        else:
+            self.rx_warning("Received packet without LIE content on LIE port (ignored)")
         if protocol_packet.content.tie:
             self.rx_warning("Received TIE packet on LIE port (ignored)")
         if protocol_packet.content.tide:
@@ -788,14 +808,22 @@ class Interface:
         protocol_packet = self.receive_message_common(message, from_info)
         if protocol_packet is None:
             return
+        flood_content = False
         if protocol_packet.content.tie is not None:
             self.process_received_tie_packet(protocol_packet.content.tie)
+            flood_content = True
         if protocol_packet.content.tide:
             self.process_received_tide_packet(protocol_packet.content.tide)
+            flood_content = True
         if protocol_packet.content.tire:
             self.process_received_tire_packet(protocol_packet.content.tire)
+            flood_content = True
         if protocol_packet.content.lie:
             self.rx_warning("Received LIE packet on flood port (ignored)")
+        else:
+            if not flood_content:
+                self.rx_warning("Received packet without TIE/TIDE/TIRE content on flood port "
+                                "(ignored)")
 
     def set_failure(self, tx_fail, rx_fail):
         self._tx_fail = tx_fail
