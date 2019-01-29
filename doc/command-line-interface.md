@@ -252,18 +252,19 @@ Example:
 
 <pre>
 agg_101> <b>show engine</b>
-+-------------------------+-----------+
-| Stand-alone             | False     |
-| Interactive             | True      |
-| Simulated Interfaces    | True      |
-| Physical Interface      | en0       |
-| Telnet Port File        | None      |
-| IPv4 Multicast Loopback | True      |
-| IPv6 Multicast Loopback | True      |
-| Number of Nodes         | 10        |
-| Transmit Source Address | 127.0.0.1 |
-| Flooding Reduction      | True      |
-+-------------------------+-----------+
++----------------------------------+---------------------+
+| Stand-alone                      | False               |
+| Interactive                      | True                |
+| Simulated Interfaces             | True                |
+| Physical Interface               | en0                 |
+| Telnet Port File                 | None                |
+| IPv4 Multicast Loopback          | True                |
+| IPv6 Multicast Loopback          | True                |
+| Number of Nodes                  | 10                  |
+| Transmit Source Address          | 127.0.0.1           |
+| Flooding Reduction               | True                |
+| Flooding Reduction System Random | 4390615406429300161 |
++----------------------------------+---------------------+
 </pre>
 
 ### show forwarding

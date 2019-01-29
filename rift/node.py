@@ -425,7 +425,7 @@ class Node:
         # TODO: make lie-send-interval configurable
         self.lie_send_interval_secs = constants.DEFAULT_LIE_SEND_INTERVAL_SECS
         self.rx_flood_port = self.get_config_attribute('rx_tie_port', constants.DEFAULT_TIE_PORT)
-        self.flooding_reduction = self.get_config_attribute('flooding_reduction', True)
+        self.floodred_enabled = self.get_config_attribute('flooding_reduction', True)
         self._derived_level = None
         self._rx_offers = {}     # Indexed by interface name
         self._tx_offers = {}     # Indexed by interface name
@@ -646,7 +646,7 @@ class Node:
             ["LIE Send Interval", "{} secs".format(self.lie_send_interval_secs)],
             ["Receive TIE Port", self.rx_flood_port],
             ["Kernel Route Table", self._kernel_route_table],
-            ["Flooding Reduction", self.flooding_reduction],
+            ["Flooding Reduction", self.floodred_enabled],
         ]
 
     def cli_statistics_attributes(self):

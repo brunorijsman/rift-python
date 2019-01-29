@@ -1,4 +1,5 @@
 import logging
+import random
 import os
 import sys
 
@@ -40,7 +41,8 @@ class Engine:
             self.simulated_interfaces = False
             self.physical_interface_name = None
         self.tx_src_address = self.read_global_configuration(config, 'tx_src_address', '')
-        self.flooding_reduction = self.read_global_configuration(config, 'flooding_reduction', True)
+        self.floodred_enabled = self.read_global_configuration(config, 'flooding_reduction', True)
+        self.floodred_system_random = random.randint(0, 0xffffffffffffffff)
         self._nodes = sortedcontainers.SortedDict()
         self.create_configuration(passive_nodes)
         cli_log = logging.getLogger('cli')
@@ -140,7 +142,8 @@ class Engine:
         tab.add_row(["IPv6 Multicast Loopback", self.ipv6_multicast_loopback])
         tab.add_row(["Number of Nodes", self.nr_nodes()])
         tab.add_row(["Transmit Source Address", self.tx_src_address])
-        tab.add_row(["Flooding Reduction", self.flooding_reduction])
+        tab.add_row(["Flooding Reduction", self.floodred_enabled])
+        tab.add_row(["Flooding Reduction System Random", self.floodred_system_random])
         cli_session.print(tab.to_string())
 
     def command_show_intf_fsm_nvhis(self, cli_session, parameters):
