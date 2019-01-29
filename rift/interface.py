@@ -159,7 +159,7 @@ class Interface:
         # Update the south prefix TIE: we may have to start or stop originating a default route
         self._node.regenerate_my_south_prefix_tie(interface_going_down=self)
 
-    def log_protocol_packet(self, level, sock, prelude, protocol_packet):
+    def log_tx_protocol_packet(self, level, sock, prelude, protocol_packet):
         if not self._tx_log.isEnabledFor(level):
             return
         packet_str = str(protocol_packet)
@@ -171,6 +171,22 @@ class Interface:
         to_str = str(sock.getpeername())
         self._tx_log.log(level, "[%s] %s %s %s to %s" %
                          (self._log_id, prelude, fam_str, packet_str, to_str))
+
+    def log_rx_protocol_packet(self, level, from_info, prelude, protocol_packet):
+        if not self._rx_log.isEnabledFor(level):
+            return
+        if protocol_packet:
+            packet_str = str(protocol_packet)
+        else:
+            packet_str = "?"
+        if len(from_info) == 2:
+            fam_str = "IPv4"
+        else:
+            assert len(from_info) == 4
+            fam_str = "IPv6"
+        from_str = str(from_info)
+        self._rx_log.log(level, "[%s] %s %s %s from %s" %
+                         (self._log_id, prelude, fam_str, packet_str, from_str))
 
     def send_protocol_packet(self, protocol_packet, flood):
         if flood:
@@ -185,15 +201,15 @@ class Interface:
         for sock in socks:
             if sock is not None:
                 if self._tx_fail:
-                    self.log_protocol_packet(logging.DEBUG, sock, "Simulated failure sending",
-                                             protocol_packet)
+                    self.log_tx_protocol_packet(logging.DEBUG, sock,
+                                                "Simulated failure sending", protocol_packet)
                 else:
                     try:
-                        self.log_protocol_packet(logging.DEBUG, sock, "Send", protocol_packet)
+                        self.log_tx_protocol_packet(logging.DEBUG, sock, "Send", protocol_packet)
                         sock.send(encoded_protocol_packet)
                     except socket.error as error:
                         prelude = "Error {} sending".format(str(error))
-                        self.log_protocol_packet(logging.ERROR, sock, prelude, protocol_packet)
+                        self.log_tx_protocol_packet(logging.ERROR, sock, prelude, protocol_packet)
 
     def action_send_lie(self):
         packet_header = encoding.ttypes.PacketHeader(
@@ -696,14 +712,14 @@ class Interface:
             interface_name=self.physical_interface_name,
             local_port=self._rx_lie_port,
             remote_address=self._rx_lie_ipv4_mcast_address,
-            receive_function=self.receive_ipv4_lie_message,
+            receive_function=self.receive_lie_message,
             log=self._rx_log,
             log_id=self._log_id)
         self._lie_rx_ipv6_handler = udp_rx_handler.UdpRxHandler(
             interface_name=self.physical_interface_name,
             local_port=self._rx_lie_port,
             remote_address=self._rx_lie_ipv6_mcast_address,
-            receive_function=self.receive_ipv6_lie_message,
+            receive_function=self.receive_lie_message,
             log=self._rx_log,
             log_id=self._log_id)
         self._flood_rx_ipv4_handler = None
@@ -728,44 +744,38 @@ class Interface:
             return False
         return True
 
-    def receive_message_common(self, fam_str, message, from_address_and_port):
-        address = from_address_and_port[0]
-        port = from_address_and_port[1]
-        from_str = "{}:{}".format(address, port)
+    def receive_message_common(self, message, from_info):
         protocol_packet = packet_common.decode_protocol_packet(message)
         if protocol_packet is None:
-            self.rx_error("Could not decode %s message received from %s", fam_str, from_str)
+            self.log_rx_protocol_packet(logging.ERROR, from_info,
+                                        "Could not decode", protocol_packet)
             return None
         if self._rx_fail:
-            self.rx_debug("Simulated receive failure %s %s from %s", fam_str, protocol_packet,
-                          from_str)
+            self.log_rx_protocol_packet(logging.DEBUG, from_info,
+                                        "Simulated failure receiving", protocol_packet)
             return None
         if protocol_packet.header.sender == self._node.system_id:
-            self.rx_debug("Looped receive %s from %s %s", fam_str, protocol_packet, from_str)
+            self.log_rx_protocol_packet(logging.DEBUG, from_info,
+                                        "Ignore looped receive", protocol_packet)
             return None
-        self.rx_debug("Receive %s %s from %s", fam_str, protocol_packet, from_str)
+        self.log_rx_protocol_packet(logging.DEBUG, from_info, "Receive", protocol_packet)
         if not protocol_packet.content:
-            self.rx_warning("Received packet without content from %s", from_str)
+            self.log_rx_protocol_packet(logging.WARNING, from_info,
+                                        "Received contentless", protocol_packet)
             return None
         if protocol_packet.header.major_version != constants.RIFT_MAJOR_VERSION:
             self.rx_error("Received different major protocol version from %s (local version %d, "
-                          "remote version %d)", from_str, constants.RIFT_MAJOR_VERSION,
+                          "remote version %d)", from_info, constants.RIFT_MAJOR_VERSION,
                           protocol_packet.header.major_version)
             return None
         return protocol_packet
 
-    def receive_ipv4_lie_message(self, message, from_address_and_port):
-        self.receive_lie_message("IPv4", message, from_address_and_port)
-
-    def receive_ipv6_lie_message(self, message, from_address_and_port):
-        self.receive_lie_message("IPv6", message, from_address_and_port)
-
-    def receive_lie_message(self, fam_str, message, from_address_and_port):
-        protocol_packet = self.receive_message_common(fam_str, message, from_address_and_port)
+    def receive_lie_message(self, message, from_info):
+        protocol_packet = self.receive_message_common(message, from_info)
         if protocol_packet is None:
             return
         if protocol_packet.content.lie:
-            event_data = (protocol_packet, from_address_and_port)
+            event_data = (protocol_packet, from_info)
             self.fsm.push_event(self.Event.LIE_RECEIVED, event_data)
         if protocol_packet.content.tie:
             self.rx_warning("Received TIE packet on LIE port (ignored)")
@@ -774,8 +784,8 @@ class Interface:
         if protocol_packet.content.tire:
             self.rx_warning("Received TIRE packet on LIE port (ignored)")
 
-    def receive_flood_message(self, message, from_address_and_port):
-        protocol_packet = self.receive_message_common("IPv4", message, from_address_and_port)
+    def receive_flood_message(self, message, from_info):
+        protocol_packet = self.receive_message_common(message, from_info)
         if protocol_packet is None:
             return
         if protocol_packet.content.tie is not None:

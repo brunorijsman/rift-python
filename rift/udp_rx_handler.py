@@ -126,7 +126,7 @@ class UdpRxHandler:
     def ready_to_read(self):
         ancillary_size = socket.CMSG_LEN(self.MAX_SIZE)
         try:
-            message, ancillary_messages, _msg_flags, from_address_and_port = \
+            message, ancillary_messages, _msg_flags, from_info = \
                 self.sock.recvmsg(self.MAX_SIZE, ancillary_size)
         except IOError as err:
             self.warning("Socket receive failed: %s", err)
@@ -144,7 +144,7 @@ class UdpRxHandler:
                 if rx_interface_index and (rx_interface_index != self._interface_index):
                     # Message received on "wrong" interface; ignore
                     return
-            self._receive_function(message, from_address_and_port)
+            self._receive_function(message, from_info)
 
     @staticmethod
     def enable_addr_and_port_reuse(sock):
