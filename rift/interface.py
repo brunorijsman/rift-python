@@ -2,6 +2,7 @@
 
 import collections
 import enum
+import logging
 import random
 import socket
 
@@ -158,6 +159,19 @@ class Interface:
         # Update the south prefix TIE: we may have to start or stop originating a default route
         self._node.regenerate_my_south_prefix_tie(interface_going_down=self)
 
+    def log_protocol_packet(self, level, sock, prelude, protocol_packet):
+        if not self._tx_log.isEnabledFor(level):
+            return
+        packet_str = str(protocol_packet)
+        if sock.family == socket.AF_INET:
+            fam_str = "IPv4"
+        else:
+            assert sock.family == socket.AF_INET6
+            fam_str = "IPv6"
+        to_str = str(sock.getpeername())
+        self._tx_log.log(level, "[%s] %s %s %s to %s" %
+                         (self._log_id, prelude, fam_str, packet_str, to_str))
+
     def send_protocol_packet(self, protocol_packet, flood):
         if flood:
             if self._flood_tx_ipv4_socket:
@@ -167,27 +181,19 @@ class Interface:
                 socks = [self._flood_tx_ipv6_socket]
         else:
             socks = [self._lie_tx_ipv4_socket, self._lie_tx_ipv6_socket]
-        # TODO: Only do the following two expensive conversions to string if the log is actually
-        # going to log a message
-        packet_str = str(protocol_packet)
         encoded_protocol_packet = packet_common.encode_protocol_packet(protocol_packet)
         for sock in socks:
             if sock is not None:
-                if sock.family == socket.AF_INET:
-                    fam_str = "IPv4"
-                else:
-                    assert sock.family == socket.AF_INET6
-                    fam_str = "IPv6"
-                to_str = str(sock.getpeername())
                 if self._tx_fail:
-                    self.tx_debug("Simulated %s send failure %s to %s", fam_str, packet_str, to_str)
+                    self.log_protocol_packet(logging.DEBUG, sock, "Simulated failure sending",
+                                             protocol_packet)
                 else:
                     try:
+                        self.log_protocol_packet(logging.DEBUG, sock, "Send", protocol_packet)
                         sock.send(encoded_protocol_packet)
-                        self.tx_debug("Send %s %s to %s", fam_str, packet_str, to_str)
                     except socket.error as error:
-                        self.tx_error("Error \"%s\" sending %s %s to %s", error, fam_str,
-                                      packet_str, to_str)
+                        prelude = "Error {} sending".format(str(error))
+                        self.log_protocol_packet(logging.ERROR, sock, prelude, protocol_packet)
 
     def action_send_lie(self):
         packet_header = encoding.ttypes.PacketHeader(
@@ -599,9 +605,6 @@ class Interface:
 
     def tx_debug(self, msg, *args):
         self._tx_log.debug("[%s] %s" % (self._log_id, msg), *args)
-
-    def tx_error(self, msg, *args):
-        self._tx_log.error("[%s] %s" % (self._log_id, msg), *args)
 
     def __init__(self, node, config):
         # pylint:disable=too-many-statements
