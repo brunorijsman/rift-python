@@ -648,8 +648,8 @@ class Interface:
         self.name = config['name']
         self._log_id = node.log_id + "-{}".format(self.name)
         self._log = node.log.getChild("if")
-        if self._engine.simulated_interfaces and self._engine.base_interface_name:
-            self.physical_interface_name = self._engine.base_interface_name
+        if self._engine.simulated_interfaces and self._engine.physical_interface_name:
+            self.physical_interface_name = self._engine.physical_interface_name
         else:
             self.physical_interface_name = self.name
         # TODO: Make the default metric/bandwidth depend on the speed of the interface

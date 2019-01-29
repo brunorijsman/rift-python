@@ -33,10 +33,10 @@ class Engine:
         self._config = config
         if self.nr_nodes() > 1:
             self.simulated_interfaces = True
-            self.base_interface_name = self.default_base_interface()
+            self.physical_interface_name = self.default_physical_interface()
         else:
             self.simulated_interfaces = False
-            self.base_interface_name = None
+            self.physical_interface_name = None
         self.tx_src_address = self.read_global_configuration(config, 'tx_src_address', '')
         self._nodes = sortedcontainers.SortedDict()
         self.create_configuration(passive_nodes)
@@ -72,13 +72,13 @@ class Engine:
                 except IOError:
                     pass # TODO: Log an error
 
-    def default_base_interface(self):
+    def default_physical_interface(self):
         # When simulated interfaces are disabled, the interface names on nodes correspond to real
         # interfaces on the host platform.
         # When simulated interface are enabled, the interface names on nodes are "fake" i.e. they do
         # not correspond to real interfaces on the host platform. All these simulated interfaces
-        # actually run on a single real interface, referred to as the base interface. Traffic to and
-        # from different simulated interfaces are distinguished by using different multicast
+        # actually run on a single real interface, referred to as the physical interface. Traffic to
+        # and from different simulated interfaces are distinguished by using different multicast
         # addresses and port numbers for each simulated interface.
         # Pick the first interface with a broadcast IPv4 address (if any) as the default.
         for intf_name in netifaces.interfaces():
@@ -88,7 +88,7 @@ class Engine:
                 for ipv4_address in ipv4_addresses:
                     if 'broadcast' in ipv4_address:
                         return intf_name
-        print("Cannot pick default base interface: no broadcast interface found")
+        print("Cannot pick default physical interface: no broadcast interface found")
         sys.exit(1)
 
     def nr_nodes(self):
@@ -135,7 +135,7 @@ class Engine:
         tab.add_row(["IPv6 Multicast Loopback", self.ipv6_multicast_loopback])
         tab.add_row(["Number of Nodes", self.nr_nodes()])
         tab.add_row(["Simulated Interfaces", self.simulated_interfaces])
-        tab.add_row(["Base Interface", self.base_interface_name])
+        tab.add_row(["Physical Interface", self.physical_interface_name])
         tab.add_row(["Transmit Source Address", self.tx_src_address])
         cli_session.print(tab.to_string())
 
