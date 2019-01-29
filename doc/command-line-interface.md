@@ -15,6 +15,7 @@
   * [show interface <i>interface</i> fsm history](#show-interface-interface-fsm-history)
   * [show interface <i>interface</i> fsm verbose-history](#show-interface-interface-fsm-verbose-history)
   * [show interface <i>interface</i> queues](#show-interface-interface-queues)
+  * [show interface <i>interface</i> sockets](#show-interface-interface-sockets)
   * [show interfaces](#show-interfaces)
   * [show kernel addresses](#show-kernel-addresses)
   * [show kernel links](#show-kernel-links)
@@ -100,6 +101,7 @@ show interface &lt;interface&gt;
 show interface &lt;interface&gt; fsm history
 show interface &lt;interface&gt; fsm verbose-history
 show interface &lt;interface&gt; queues
+show interface &lt;interface&gt; sockets
 show interfaces
 show kernel addresses
 show kernel links
@@ -581,6 +583,32 @@ Acknowledge queue:
 | Direction | Originator | Type | TIE Nr | Seq Nr | Remaining | Origination |
 |           |            |      |        |        | Lifetime  | Time        |
 +-----------+------------+------+--------+--------+-----------+-------------+
+</pre>
+
+### show interface <i>interface</i> sockets
+
+The "<b>show interface</b> <i>interface</i> <b>sockets</b>" command shows the sockets that the 
+current node has opened for sending and receiving packets.
+
+Example:
+
+<pre>
+agg_101> <b>show interface if_101_1 sockets</b>
++----------+-----------+--------+---------------------------+------------+----------------+-------------+
+| Traffic  | Direction | Family | Local Address             | Local Port | Remote Address | Remote Port |
++----------+-----------+--------+---------------------------+------------+----------------+-------------+
+| LIEs     | Receive   | IPv4   | 224.0.0.81                | 20001      | Any            | Any         |
++----------+-----------+--------+---------------------------+------------+----------------+-------------+
+| LIEs     | Receive   | IPv6   | ::                        | 20001      | Any            | Any         |
++----------+-----------+--------+---------------------------+------------+----------------+-------------+
+| LIEs     | Send      | IPv4   | 192.168.2.100             | 54091      | 224.0.0.71     | 20002       |
++----------+-----------+--------+---------------------------+------------+----------------+-------------+
+| LIEs     | Send      | IPv6   | fe80::184e:acd5:2cd7:cd3f | 54092      | ff02::78       | 20002       |
++----------+-----------+--------+---------------------------+------------+----------------+-------------+
+| Flooding | Receive   | IPv4   | 0.0.0.0                   | 20004      | Any            | Any         |
++----------+-----------+--------+---------------------------+------------+----------------+-------------+
+| Flooding | Send      | IPv4   | 192.168.2.100             | 53073      | 192.168.2.100  | 20003       |
++----------+-----------+--------+---------------------------+------------+----------------+-------------+
 </pre>
 
 ### show interfaces
