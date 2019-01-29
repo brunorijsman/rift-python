@@ -7,6 +7,7 @@
   * [set interface <i>interface</i> failure <i>failure</i>](#set-interface-interface-failure-failure)
   * [set level <i>level</i>](#set-level-level)
   * [set node <i>node</i>](#set-node-node)
+  * [show engine](#show-engine)
   * [show forwarding](#show-forwarding)
   * [show forwarding prefix <i>prefix</i>](#show-forwarding-prefix-prefix)
   * [show fsm <i>fsm</i>](#show-fsm-fsm)
@@ -90,6 +91,7 @@ exit
 set interface &lt;interface&gt; failure &lt;failure&gt;
 set level &lt;level&gt;
 set node &lt;node&gt;
+show engine
 show forwarding
 show forwarding prefix &lt;prefix&gt;
 show fsm lie
@@ -237,6 +239,27 @@ Example:
 <pre>
 agg_101> <b>set node core_1</b>
 core_1> 
+</pre>
+
+### show engine
+
+The "<b>show engine</b>" command shows the status of the RIFT engine, i.e. global information
+that applies to all nodes running in the RIFT engine.
+
+Example:
+
+<pre>
+agg_101> <b>show engine</b>
++-------------------------+-----------+
+| Interactive             | True      |
+| Telnet Port File        | None      |
+| IPv4 Multicast Loopback | True      |
+| IPv6 Multicast Loopback | True      |
+| Number of Nodes         | 10        |
+| Simulated Interfaces    | True      |
+| Physical Interface      | en0       |
+| Transmit Source Address | 127.0.0.1 |
++-------------------------+-----------+
 </pre>
 
 ### show forwarding
