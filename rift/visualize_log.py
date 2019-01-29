@@ -16,7 +16,8 @@ TIMESTAMP_COLOR = "gray"
 TARGET_COLOR = "black"
 IF_FSM_COLOR = "red"
 NODE_FSM_COLOR = "coral"
-MSG_COLOR = "blue"
+IPV4_MSG_COLOR = "#1F618D"   # Dark blue
+IPV6_MSG_COLOR = "#3498DB"    # Light blue
 CLI_COLOR = "green"
 LOG_COLOR = "orange"
 DEFAULT_COLOR = "black"
@@ -110,7 +111,10 @@ def log_record_color(record):
         elif record.target.type == "node":
             return NODE_FSM_COLOR
     elif record.type in ["send", "receive"]:
-        return MSG_COLOR
+        if record.packet_family == "IPv4":
+            return IPV4_MSG_COLOR
+        else:
+            return IPV6_MSG_COLOR
     elif record.type == "cli":
         return CLI_COLOR
     elif record.type == "log":
