@@ -872,6 +872,7 @@ Node:
 | Receive TIE Port                      | 10001            |
 | Kernel Route Table                    | 3                |
 | Flooding Reduction                    | True             |
+| Flooding Reduction Node Random        | 2897             |
 +---------------------------------------+------------------+
 
 Received Offers:

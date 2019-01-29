@@ -426,6 +426,11 @@ class Node:
         self.lie_send_interval_secs = constants.DEFAULT_LIE_SEND_INTERVAL_SECS
         self.rx_flood_port = self.get_config_attribute('rx_tie_port', constants.DEFAULT_TIE_PORT)
         self.floodred_enabled = self.get_config_attribute('flooding_reduction', True)
+        if engine:
+            system_random = engine.floodred_system_random
+        else:
+            system_random = 0
+        self.floodred_node_random = self.generate_node_random(system_random, self.system_id)
         self._derived_level = None
         self._rx_offers = {}     # Indexed by interface name
         self._tx_offers = {}     # Indexed by interface name
@@ -512,6 +517,33 @@ class Node:
 
     def generatename(self):
         return socket.gethostname().split('.')[0] + str(self._node_nr)
+
+    @staticmethod
+    def generate_node_random(system_random, system_id):
+        assert 0 <= system_random <= 0xffffffffffffffff
+        assert 0 <= system_id <= 0xffffffffffffffff
+        system_random ^= system_id
+        word_1 = system_random & 0xffff
+        word_2 = (system_random >> 16) & 0xffff
+        word_3 = (system_random >> 32) & 0xffff
+        word_4 = (system_random >> 48) & 0xffff
+        word_1 = Node.left_shift_circular_16(word_1, 1)
+        word_2 = Node.left_shift_circular_16(word_1, 2)
+        word_3 = Node.left_shift_circular_16(word_1, 3)
+        word_4 = Node.left_shift_circular_16(word_1, 4)
+        node_random = word_1 ^ word_2 ^ word_3 ^ word_4
+        assert 0 <= node_random <= 0xffff
+        return node_random
+
+    @staticmethod
+    def left_shift_circular_16(number, shift):
+        assert 0 <= number <= 0xffff
+        for _count in range(0, shift):
+            number <<= 1
+            if number & 0x10000:
+                number &= 0xffff
+                number |= 0x0001
+        return number
 
     @staticmethod
     def parse_level_symbol(level_symbol):
@@ -647,6 +679,7 @@ class Node:
             ["Receive TIE Port", self.rx_flood_port],
             ["Kernel Route Table", self._kernel_route_table],
             ["Flooding Reduction", self.floodred_enabled],
+            ["Flooding Reduction Node Random", self.floodred_node_random],
         ]
 
     def cli_statistics_attributes(self):
