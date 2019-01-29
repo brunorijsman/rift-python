@@ -394,7 +394,7 @@ class Visualizer:
         self.svg_dot(xpos, ypos, DOT_RADIUS, color, the_class, pretty_msg)
         self.record_sent_message(record)
         xpos += 2 * DOT_RADIUS
-        text = "TX " + record.packet_type + " " + record.packet
+        text = "TX " + record.packet_family + " " + record.packet_type + " " + record.packet
         self.svg_text(xpos, ypos, text, color, the_class)
 
     def find_sent_message(self, received_msg_record):
@@ -421,7 +421,7 @@ class Visualizer:
             yend = tick_y_mid(record.tick)
             self.svg_line(xstart, ystart, xend, yend, color, the_class)
         xpos += 2 * DOT_RADIUS
-        text = "RX " + record.packet_type + " " + record.packet
+        text = "RX " + record.packet_family + " " + record.packet_type + " " + record.packet
         self.svg_text(xpos, ypos, text, color, the_class)
 
     def show_cli(self, record):

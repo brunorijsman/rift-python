@@ -72,12 +72,8 @@ class LogRecord:
                                    "actions-and-pushed-events=(.*) "
                                    "to-state=(.*) "
                                    "implicit=(.*)")
-    _send_regex = re.compile(r"Send.*(ProtocolPacket.*) to .*$")
-    _receive_regex = re.compile(r"Receive.*(ProtocolPacket.*) from .*$")
-    _lie_packet_regex = re.compile(r".*lie=LIEPacket.*[^_]nonce=([0-9]*)")
-    _tie_packet_regex = re.compile(r".*tie=TIEPacket")
-    _tide_packet_regex = re.compile(r".*tide=TIDEPacket")
-    _tire_packet_regex = re.compile(r".*tire=TIREPacket")
+    _send_regex = re.compile(r"Send ([^ ]*) ([^ ]*) (ProtocolPacket.*) to .*$")
+    _receive_regex = re.compile(r"Receive ([^ ]*) ([^ ]*) (ProtocolPacket.*) from .*$")
     _cli_command_regex = re.compile(r".*Execute CLI command \"(.*)\"")
 
     def __init__(self, tick, logline):
@@ -113,15 +109,17 @@ class LogRecord:
         match_result = LogRecord._send_regex.match(self.msg)
         if match_result:
             self.type = "send"
-            self.packet = match_result.group(1)
-            self.parse_packet_type()
+            self.packet_family = match_result.group(1)
+            self.packet_type = match_result.group(2)
+            self.packet = match_result.group(3)
             self.decode_packet()
             return
         match_result = LogRecord._receive_regex.match(self.msg)
         if match_result:
             self.type = "receive"
-            self.packet = match_result.group(1)
-            self.parse_packet_type()
+            self.packet_family = match_result.group(1)
+            self.packet_type = match_result.group(2)
+            self.packet = match_result.group(3)
             self.decode_packet()
             return
         match_result = LogRecord._cli_command_regex.match(self.msg)
@@ -134,28 +132,9 @@ class LogRecord:
             return
         self.type = "other"
 
-    def parse_packet_type(self):
-        match_result = LogRecord._lie_packet_regex.match(self.packet)
-        if match_result:
-            self.packet_type = "LIE"
-            self.nonce = match_result.group(1)
-            return
-        match_result = LogRecord._tie_packet_regex.match(self.packet)
-        if match_result:
-            self.packet_type = "TIE"
-            return
-        match_result = LogRecord._tide_packet_regex.match(self.packet)
-        if match_result:
-            self.packet_type = "TIDE"
-            return
-        match_result = LogRecord._tire_packet_regex.match(self.packet)
-        if match_result:
-            self.packet_type = "TIRE"
-            return
-        self.packet_type = "UNKNOWN"
-
     def decode_packet(self):
         decodable_packet = self.packet
         decodable_packet.replace("\\", "\\\\")
         # pylint: disable=W0123
-        self.decoded_packet = eval(decodable_packet)
+        # Yeah, yeah, yeah,  don't freak out about eval; this is just a debugging tool.
+        self.decoded_packet = (self.packet_family, eval(decodable_packet))
