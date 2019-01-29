@@ -262,6 +262,7 @@ agg_101> <b>show engine</b>
 | IPv6 Multicast Loopback | True      |
 | Number of Nodes         | 10        |
 | Transmit Source Address | 127.0.0.1 |
+| Flooding Reduction      | True      |
 +-------------------------+-----------+
 </pre>
 
@@ -853,14 +854,13 @@ Node:
 | Configured Level                      | 1                |
 | Leaf Only                             | False            |
 | Leaf 2 Leaf                           | False            |
-| Superspine Flag                       | True             |
+| Top of Fabric Flag                    | True             |
 | Zero Touch Provisioning (ZTP) Enabled | False            |
 | ZTP FSM State                         | UPDATING_CLIENTS |
 | ZTP Hold Down Timer                   | Stopped          |
-| Highest Available Level (HAL)         | None             |
-| Highest Adjacency Three-way (HAT)     | None             |
+| Highest Available Level (HAL)         | 2                |
+| Highest Adjacency Three-way (HAT)     | 2                |
 | Level Value                           | 1                |
-| Multicast Loop                        | True             |
 | Receive LIE IPv4 Multicast Address    | 224.0.0.81       |
 | Transmit LIE IPv4 Multicast Address   | 224.0.0.120      |
 | Receive LIE IPv6 Multicast Address    | FF02::0078       |
@@ -869,32 +869,34 @@ Node:
 | Transmit LIE Port                     | 10000            |
 | LIE Send Interval                     | 1.0 secs         |
 | Receive TIE Port                      | 10001            |
+| Kernel Route Table                    | 3                |
+| Flooding Reduction                    | True             |
 +---------------------------------------+------------------+
 
 Received Offers:
-+-------------+-----------+-------+-----------------+-----------+-------+------------+---------+--------------------------+
-| Interface   | System ID | Level | Not A ZTP Offer | State     | Best  | Best 3-Way | Removed | Removed Reason           |
-+-------------+-----------+-------+-----------------+-----------+-------+------------+---------+--------------------------+
-| if_101_1    | 1         | 24    | True            | ONE_WAY   | False | False      | True    | Not a ZTP offer flag set |
-+-------------+-----------+-------+-----------------+-----------+-------+------------+---------+--------------------------+
-| if_101_1001 | 1001      | 0     | True            | THREE_WAY | False | False      | True    | Not a ZTP offer flag set |
-+-------------+-----------+-------+-----------------+-----------+-------+------------+---------+--------------------------+
-| if_101_1002 | 1002      | 0     | True            | THREE_WAY | False | False      | True    | Not a ZTP offer flag set |
-+-------------+-----------+-------+-----------------+-----------+-------+------------+---------+--------------------------+
-| if_101_2    | 2         | 2     | True            | THREE_WAY | False | False      | True    | Not a ZTP offer flag set |
-+-------------+-----------+-------+-----------------+-----------+-------+------------+---------+--------------------------+
++-------------+-----------+-------+-----------------+-----------+-------+------------+---------+----------------+
+| Interface   | System ID | Level | Not A ZTP Offer | State     | Best  | Best 3-Way | Removed | Removed Reason |
++-------------+-----------+-------+-----------------+-----------+-------+------------+---------+----------------+
+| if_101_1    | 1         | 2     | False           | THREE_WAY | True  | True       | False   |                |
++-------------+-----------+-------+-----------------+-----------+-------+------------+---------+----------------+
+| if_101_1001 | 1001      | 0     | False           | THREE_WAY | False | False      | True    | Level is leaf  |
++-------------+-----------+-------+-----------------+-----------+-------+------------+---------+----------------+
+| if_101_1002 | 1002      | 0     | False           | THREE_WAY | False | False      | True    | Level is leaf  |
++-------------+-----------+-------+-----------------+-----------+-------+------------+---------+----------------+
+| if_101_2    | 2         | 2     | False           | THREE_WAY | False | False      | False   |                |
++-------------+-----------+-------+-----------------+-----------+-------+------------+---------+----------------+
 
 Sent Offers:
 +-------------+-----------+-------+-----------------+-----------+
 | Interface   | System ID | Level | Not A ZTP Offer | State     |
 +-------------+-----------+-------+-----------------+-----------+
-| if_101_1    | None      | 1     | False           | ONE_WAY   |
+| if_101_1    | 101       | 1     | False           | THREE_WAY |
 +-------------+-----------+-------+-----------------+-----------+
-| if_101_1001 | 1001      | 1     | False           | THREE_WAY |
+| if_101_1001 | 101       | 1     | False           | THREE_WAY |
 +-------------+-----------+-------+-----------------+-----------+
-| if_101_1002 | 1002      | 1     | False           | THREE_WAY |
+| if_101_1002 | 101       | 1     | False           | THREE_WAY |
 +-------------+-----------+-------+-----------------+-----------+
-| if_101_2    | 2         | 1     | False           | THREE_WAY |
+| if_101_2    | 101       | 1     | False           | THREE_WAY |
 +-------------+-----------+-------+-----------------+-----------+
 </pre>
 
