@@ -386,6 +386,7 @@ class Node:
         self._fsm_log = self.log.getChild("fsm")
         self._tie_db_log = self.log.getChild("tie_db")
         self._spf_log = self.log.getChild("spf")
+        self._floodred_log = self.log.getChild("floodred")
         self._rib_log = self.log.getChild("rib")
         self._fib_log = self.log.getChild("fib")
         self._kernel_log = self.log.getChild("kernel")
@@ -1018,6 +1019,13 @@ class Node:
             tab.add_row(intf.cli_summary_attributes())
         cli_session.print(tab.to_string())
 
+    def command_show_flooding_reduction(self, cli_session):
+        tab = table.Table()
+        tab.add_row(interface.Interface.cli_floodred_summary_headers())
+        for intf in self._interfaces_by_name.values():
+            tab.add_row(intf.cli_floodred_summary_attributes())
+        cli_session.print(tab.to_string())
+
     def command_show_kernel_addresses(self, cli_session):
         self.kernel.command_show_addresses(cli_session)
 
@@ -1317,6 +1325,10 @@ class Node:
     def spf_debug(self, msg, *args):
         if self._spf_log is not None:
             self._spf_log.debug("[%s] %s" % (self.log_id, msg), *args)
+
+    def floodred_debug(self, msg, *args):
+        if self._floodred_log is not None:
+            self._floodred_log.debug("[%s] %s" % (self.log_id, msg), *args)
 
     def ties_differ_enough_for_spf(self, old_tie, new_tie):
         # Only TIEs with the same TIEID should be compared
@@ -1899,6 +1911,7 @@ class Node:
         # more intelligent about selectively triggering North-SPF and South-SPF separately.
         self.spf_run_direction(constants.DIR_SOUTH)
         self.spf_run_direction(constants.DIR_NORTH)
+        self.reelect_flood_repeaters()
 
     def spf_run_direction(self, spf_direction):
         # Shortest Path First (SPF) uses the Dijkstra algorithm to compute the shortest path to
@@ -2151,3 +2164,9 @@ class Node:
                     route_table.put_route(rte)
         self._ipv4_rib.del_stale_routes()
         self._ipv6_rib.del_stale_routes()
+
+    def reelect_flood_repeaters(self):
+        self.floodred_debug("Re-elect flood repeaters")
+        for intf in self._interfaces_by_name.values():
+            intf.floodred_is_parent = (intf.fsm.state == intf.State.THREE_WAY and
+                                       intf.neighbor_direction() == constants.DIR_NORTH)

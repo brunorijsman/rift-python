@@ -708,6 +708,8 @@ class Interface:
         self._ties_rtx = collections.OrderedDict()
         self._ties_req = collections.OrderedDict()
         self._ties_ack = collections.OrderedDict()
+        # The following floodred_... fields are updated in Node.reelect_flood_repeaters
+        self.floodred_is_parent = False
         self.fsm = fsm.Fsm(
             definition=self.fsm_definition,
             action_handler=self,
@@ -1179,6 +1181,28 @@ class Interface:
                 "",
                 "",
                 self.state_name]
+
+    @staticmethod
+    def cli_floodred_summary_headers():
+        return [
+            ["Interface", "Name"],
+            ["Neighbor", "Name"],
+            ["Is", "Parent"]
+        ]
+
+    def cli_floodred_summary_attributes(self):
+        if self.neighbor:
+            return [
+                self.name,
+                self.neighbor.name,
+                self.floodred_is_parent
+            ]
+        else:
+            return [
+                self.name,
+                "",
+                self.floodred_is_parent
+            ]
 
     def cli_detailed_attributes(self):
         return [

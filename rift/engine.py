@@ -146,6 +146,9 @@ class Engine:
         tab.add_row(["Flooding Reduction System Random", self.floodred_system_random])
         cli_session.print(tab.to_string())
 
+    def command_show_flooding_reduction(self, cli_session):
+        cli_session.current_node.command_show_flooding_reduction(cli_session)
+
     def command_show_intf_fsm_nvhis(self, cli_session, parameters):
         cli_session.current_node.command_show_intf_fsm_hist(cli_session, parameters, False)
 
@@ -273,6 +276,7 @@ class Engine:
         },
         "show": {
             "engine":command_show_engine,
+            "flooding-reduction": command_show_flooding_reduction,
             "forwarding": {
                 "": command_show_forwarding,
                 "$prefix": command_show_forwarding_prefix,
