@@ -54,7 +54,8 @@ Example:
 (env) $ <b>python rift --help</b>
 usage: rift [-h] [-p | -n] [-l LOG_LEVEL]
             [-i | --telnet-port-file TELNET_PORT_FILE]
-            [--multicast-loopback-enable | --multicast-loopback-disable]
+            [--ipv4-multicast-loopback-disable]
+            [--ipv6-multicast-loopback-disable]
             [configfile]
 
 Routing In Fat Trees (RIFT) protocol engine
@@ -72,21 +73,19 @@ optional arguments:
                         instead of port
   --telnet-port-file TELNET_PORT_FILE
                         Write telnet port to the specified file
-  --multicast-loopback-enable
-                        Enable IP_MULTICAST_LOOP option on multicast send
-                        sockets
-  --multicast-loopback-disable
-                        Disable IP_MULTICAST_LOOP option on multicast send
-                        sockets               
+  --ipv4-multicast-loopback-disable
+                        Disable IPv4 loopback on multicast send sockets
+  --ipv6-multicast-loopback-disable
+                        Disable IPv6 loopback on multicast send sockets
 </pre>
 
-## Configuration file
+## Configuration file (also known as topology file)
 
 If you start the RIFT protocol engine without any command-line arguments it starts a single RIFT
 node which runs on Ethernet interface "en0".
 
 Note: en0 is the name of the Ethernet interface on a Macbook. A future version of the code will
-pick the default Ethernet interface in a more portable way.
+automatically detect all Ethernet interfaces on the host platform.
 
 You can provide the name of a configuration file when you start the RIFT protocol engine:
 
@@ -103,7 +102,46 @@ simulated network topologies that can be tested on a single physical computer. I
 the configuration file "two_by_two_by_two.yaml" contains 10 simulated nodes with names core_1, core_2,
 agg_101, agg_102, etc.
 
-## Interactive mode
+## Stand-alone mode versus topology mode
+
+If the RIFT engine is started without a topology file, or if the topology file only contains a
+single node, then the RIFT engine runs in "stand-alone mode". The stand-alone mode is intended for
+running RIFT in production networks.
+
+If the RIFT engine is started with a topology file, and the topology file contains multiple nodes,
+then the RIFT engine runs in "topology mode".  The topology node is intended for testing simulated
+multi-node topologies.
+
+## Simulated interfaces versus real interfaces
+
+When the RIFT engine runs in stand-alone mode, all interfaces names in RIFT correspond to the
+interface names of real Ethernet interfaces on the host platform.
+
+When the RIFT engine runs in topology mode, all interfaces in RIFT are "simulated": the interface
+names in RIFT are fictitious and do not correspond to the interface names of real Ethernet
+interfaces on the host platform.
+
+When the interfaces are simulated, a single real physical Ethernet interface is chosen on the host
+platform, which is referred to as "the physical interface" (as opposed to simulated interfaces).
+
+All RIFT packets that are sent from one simulated interface to another simulated interfaces are
+in actuality sent over the one and only physical interface. Thus, one single physical interface
+is used to simulate all simulated interfaces in the simulated RIFT topology. To separate traffic
+on one simulated interface from traffic of another simulated interface on the same underlying
+physical interface, it is necessary to conifgure separate multicast IP addresses per node, and
+separate UDP ports per interface.
+
+The topology mode allows a multi-node topology to be simulated in a single Python process. However,
+using different multicast addresses and UDP ports makes the simulation somewhat unrealistic (many
+subtle bugs are caused by running the same multicast group on multiple interfaces). Also, simulating
+large topologies can be problematic because the Python RIFT engine is single-threaded. For these
+reasons, we also provide the "topology_generator" tool with the "--netns-per-node" option that
+can simulate multi-node topologies more realistically by running each RIFT node in a separate
+Python process in its own network namespace, and by implementing the node-to-node Ethernet links
+as virtual Ethernet (veth) pairs. See the documentation for the topology_generator tool for more
+details.
+
+## Interactive mode verus non-interactive mode
 
 By default, when you start the RIFT engine, it reports a port number on which it is listening for
 incoming Command Line Interface (CLI) sessions:
@@ -137,6 +175,13 @@ instead the RIFT engine itself provides the CLI on stdin and stdout:
 (env) $ <b>python rift --interactive topology/two_by_two_by_two.yaml</b>
 agg_101> 
 </pre>
+
+In interactive mode, when you exit the CLI running on stdin and stdout using either the "exit" or 
+the "stop" command, the RIFT engine automatically stops. 
+
+In both interactive and non-interactive mode, when you exit a Telnet CLI session using the "exit" 
+command, the RIFT engine continues to run. But when you exit a Telnet CLI session using the "stop"
+command, the RIFT engine stops.
 
 ## Telnet port file
 
@@ -194,37 +239,62 @@ Command Line Interface (CLI) available on port 52482
 
 ## Multicast loopback
 
-If the RIFT engine runs a multi-node topology on a single host, then every multicast packet which is sent by a node on the host needs to be received exactly once by another node running on the same host.
+When RIFT runs in topology mode, a packet that is sent from one simulated interface to another
+simulated interface is actually sent over the underlying physical interface (typically "en0" on
+macOS and "eth0" on Linux). Both the sending socket on the sending simulated interface and the
+receiving socket on the receiving simulated interface are bound to the same underlying physical
+interface.
 
-When a node sends a single multicast packet on a transmit socket, it may be received zero times, one time, or two times on a receive socket on the same host.
+For multicast to work correctly in this scenario, we may or may not need to enable "multicast
+loopback" on the sending socket.
 
-The exact behavior depends on a number of factors:
+ * Usually, we need to enable multicast loopback on the socket. This will cause the kernel in the
+   host platform take the multicast packet that are sent on a send socket and loop them back to
+   receive sockets on the same physical interface.
 
-* Whether or not the IP\_MULTICAST\_LOOP socket option is enabled on the sending socket.
+ * However, sometims (this is not common) when the external router receives a multicast packet from
+   the physical interface on the host, it will deliver it back to the same physical interface on the
+   same host. In this case, we do not want to enable "multicast loopback" on the host (if we do,
+   RIFT-Python will receive two copies of each sent multicast packet).
 
-* The make, model, and configuration of router to which the host is connected.
+Thus, whether or not multicast loopback needs to be enabled depends on the make, model, and
+configuration of router to which the host is connected. In particular, whether or not the router
+correctly implements IGMP for IPv4 and/or MLD for IPv6. Many low-end home routers have buggy 
+multicast implementations.
 
-* Possibly also the operating system running on the host.
+Note that multicast loopback can be enabled or disabled separately for IPv4 and IPv6.
 
-See [this StackOverflow question](http://bit.ly/multicast-duplication) for more details.
+* Enables multicast loopback for both IPv4 and IPv6 in topology mode.
 
-By default, the RIFT code uses an auto-detection mechanism to figure out whether or not it needs to enable the IP\_MULTICAST\_LOOP flag on transmit sockets.
+* Disables multicast loopback for both IPv4 and IPv6 in stand-alone mode.
 
-The auto-detect mechanism uses the following rules:
+You can use the following command-line options to disable multicast loopback:
 
-* First it disables the IP\_MULTICAST\_LOOP flag and sends a single multicast packet. It then checks how many copies of the multicast packet are received. If a single copy is received, it uses IP\_MULTICAST\_LOOP = disabled as the auto-detected value.
+* The command-line option "--ipv4-multicast-loopback-disable" disables IPv4 multicast loopback.
 
-* Otherwise it enables the IP\_MULTICAST\_LOOP flag and sends a single multicast packet. It then checks how many copies of the multicast packet are received. If a single copy is received, it uses IP\_MULTICAST\_LOOP = enabled as the auto-detected value.
+* The command-line option "--ipv6-multicast-loopback-disable" disables IPv6 multicast loopback.
 
-* If any other behavior is observed it generates an assertion failure with a message describing the observed behavior.
+You can use the "multicast_checks" tool to probe your external router and to determine whether or
+not multicast loopback is needed for topology mode:
 
-The auto-detection mechanism takes between 1 and 2 seconds to complete, which causes a noticeable delay during startup.
+<pre>
+(env) $ <b>tools/multicast_checks.py</b>
+Testing on interface: en0
+IPv4 loopback needed: True
+IPv6 loopback needed: True
+</pre>
 
-You can use the following command-line options to disable the auto-detection mechanism (and hence avoid the startup delay).
+ This tool works as follows:
 
-The command-line option "--multicast-loopback-enable" forces IP\_MULTICAST\_LOOP = enabled.
+ * First, the tool disables loopback, sends a single multicast packet, and checks whether it
+   receives one copy of the multicast packet on a different receiver socket on the same physical
+  interface. If so, it means that multicast loopback is not needed (i.e. must be disabled).
 
-The command-line option "--multicast-loopback-disable" forces IP\_MULTICAST\_LOOP = disabled.
+ * Then the tool enables loopback, and again sends a single multcast packet. It verifies that it
+   now receives exactly one copy of the multicast packet on a different receiver socket on the same physical interface.
+
+ * Otherwise, i.e. if zero copies are received or if multiple copies are received in both cases,
+   the tool reports "unexpected behavior".
 
 ## Logging
 
@@ -265,3 +335,24 @@ non-interesting events such timer tick processing, receiving and sending periodi
 The command-line option "<b>-l</b> <i>LOG_LEVEL</i>" or "<b>--log-level</b> <i>LOG_LEVEL</i>" logs 
 messages at the specified <i>LOG_LEVEL</i> or higher. Valid values for <i>LOG_LEVEL</i> are 
 <b>debug</b>, <b>info</b>, <b>warning</b>, <b>error</b>, or <b>critical</b>.
+
+## Reporting options
+
+All the options discussed above (stand-alone mode vs topology-mode, interactive mode vs
+non-interactive mode, etc.) can be viewed on a running RIFT-Python engine using the "show engine"
+command:
+
+<pre>
+agg_101> <b>show engine</b>
++-------------------------+-----------+
+| Stand-alone             | False     |
+| Interactive             | True      |
+| Simulated Interfaces    | True      |
+| Physical Interface      | en0       |
+| Telnet Port File        | None      |
+| IPv4 Multicast Loopback | True      |
+| IPv6 Multicast Loopback | True      |
+| Number of Nodes         | 10        |
+| Transmit Source Address | 127.0.0.1 |
++-------------------------+-----------+
+</pre>

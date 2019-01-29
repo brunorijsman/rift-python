@@ -32,9 +32,11 @@ class Engine:
         self.ipv6_multicast_loopback = ipv6_multicast_loopback
         self._config = config
         if self.nr_nodes() > 1:
+            self._stand_alone = False
             self.simulated_interfaces = True
             self.physical_interface_name = self.default_physical_interface()
         else:
+            self._stand_alone = True
             self.simulated_interfaces = False
             self.physical_interface_name = None
         self.tx_src_address = self.read_global_configuration(config, 'tx_src_address', '')
@@ -107,21 +109,20 @@ class Engine:
             return default
 
     def create_configuration(self, passive_nodes):
-        stand_alone = (self.nr_nodes() <= 1)
         for shard_config in self._config['shards']:
-            self.create_shard(shard_config, passive_nodes, stand_alone)
+            self.create_shard(shard_config, passive_nodes)
 
-    def create_shard(self, shard_config, passive_nodes, stand_alone):
+    def create_shard(self, shard_config, passive_nodes):
         if 'nodes' in shard_config:
             for node_config in shard_config['nodes']:
                 if 'name' in node_config:
                     force_passive = node_config['name'] in passive_nodes
                 else:
                     force_passive = False
-                self.create_node(node_config, force_passive, stand_alone)
+                self.create_node(node_config, force_passive)
 
-    def create_node(self, node_config, force_passive, stand_alone):
-        new_node = node.Node(node_config, self, force_passive, stand_alone)
+    def create_node(self, node_config, force_passive):
+        new_node = node.Node(node_config, self, force_passive, self._stand_alone)
         self._nodes[new_node.name] = new_node
 
     def run(self):
@@ -129,13 +130,14 @@ class Engine:
 
     def command_show_engine(self, cli_session):
         tab = table.Table(separators=False)
+        tab.add_row(["Stand-alone", self._stand_alone])
         tab.add_row(["Interactive", self._interactive])
+        tab.add_row(["Simulated Interfaces", self.simulated_interfaces])
+        tab.add_row(["Physical Interface", self.physical_interface_name])
         tab.add_row(["Telnet Port File", self._telnet_port_file])
         tab.add_row(["IPv4 Multicast Loopback", self.ipv4_multicast_loopback])
         tab.add_row(["IPv6 Multicast Loopback", self.ipv6_multicast_loopback])
         tab.add_row(["Number of Nodes", self.nr_nodes()])
-        tab.add_row(["Simulated Interfaces", self.simulated_interfaces])
-        tab.add_row(["Physical Interface", self.physical_interface_name])
         tab.add_row(["Transmit Source Address", self.tx_src_address])
         cli_session.print(tab.to_string())
 
