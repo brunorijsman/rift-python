@@ -39,6 +39,9 @@ class SPFDest:
         # (if_name, addr) of direct next-hop from source node towards this destination (*)
         self.ipv4_next_hops = []
         self.ipv6_next_hops = []
+        # The number of parents (north-bound neighbors). This is needed for flood repeater election.
+        # (None means "unknown")
+        self.parent_count = None
 
     def key(self):
         if self.dest_type == DEST_TYPE_NODE:
@@ -90,7 +93,9 @@ class SPFDest:
             ["Predecessor", "System IDs"],
             ["Tags"],
             "IPv4 Next-hops",
-            "IPv6 Next-hops"]
+            "IPv6 Next-hops",
+            ["Parent", "Count"]
+        ]
 
     def cli_summary_attributes(self):
         if self.dest_type == DEST_TYPE_NODE:
@@ -103,11 +108,16 @@ class SPFDest:
             tags_str = list(self.tags)
         else:
             tags_str = ""
+        if self.parent_count is None:
+            parent_count_str = ""
+        else:
+            parent_count_str = str(self.parent_count)
         return [
             destination_str,
             self.cost,
             sorted(self.predecessors),
             tags_str,
             [str(next_hop) for next_hop in sorted(self.ipv4_next_hops)],
-            [str(next_hop) for next_hop in sorted(self.ipv6_next_hops)]
+            [str(next_hop) for next_hop in sorted(self.ipv6_next_hops)],
+            parent_count_str
         ]

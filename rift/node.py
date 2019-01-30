@@ -1981,9 +1981,17 @@ class Node:
                                          spf_direction)
         # Add the prefixes of this node as candidates
         self.spf_add_prefix_candidates(node_system_id, node_cost, candidates, spf_direction)
+        # When doing a north-bound SPF, update the parent count of the node (this is needed for
+        # electing flood repeaters)
+        if spf_direction == constants.DIR_NORTH:
+            dest_table[node_system_id].parent_count = self.spf_count_parents(node_ties)
 
     def spf_add_neighbor_candidates(self, node_system_id, node_cost, node_ties, candidates,
                                     spf_direction):
+        # For a given node, it visits each neighbor in the SPF direction, and either adds that
+        # neighbor to the candidate heap for the SPF run, or if the neighbor is already on the
+        # candidate heap, it (potentially) updates the cost and predecessors of the neighbor.
+        #
         # Consider each neighbor of the visited node in the direction of the SPF
         for nbr in self.node_neighbors(node_ties, spf_direction):
             (nbr_system_id, nbr_tie_element) = nbr
@@ -2009,6 +2017,12 @@ class Node:
                     destination = spf_dest.make_prefix_destintation(prefix, tags, cost)
                     self.spf_consider_candidate_dest(destination, None, node_system_id, candidates,
                                                      spf_direction)
+
+    def spf_count_parents(self, node_ties):
+        count = 0
+        for _nbr in self.node_neighbors(node_ties, constants.DIR_NORTH):
+            count += 1
+        return count
 
     def spf_consider_candidate_dest(self, destination, nbr_tie_element, predecessor_system_id,
                                     candidates, spf_direction):
@@ -2168,5 +2182,15 @@ class Node:
     def reelect_flood_repeaters(self):
         self.floodred_debug("Re-elect flood repeaters")
         for intf in self._interfaces_by_name.values():
-            intf.floodred_is_parent = (intf.fsm.state == intf.State.THREE_WAY and
-                                       intf.neighbor_direction() == constants.DIR_NORTH)
+            is_parent = (intf.fsm.state == intf.State.THREE_WAY and
+                         intf.neighbor_direction() == constants.DIR_NORTH)
+            intf.floodred_is_parent = is_parent
+            if is_parent:
+                parent_system_id = intf.neighbor.system_id
+                dest_table = self._spf_destinations[constants.DIR_NORTH]
+                if parent_system_id in dest_table:
+                    intf.floodred_grandparent_count = dest_table[parent_system_id].parent_count
+                else:
+                    intf.floodred_grandparent_count = None
+            else:
+                intf.floodred_grandparent_count = None   # Unknown / doesn't matter
