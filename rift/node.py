@@ -2180,7 +2180,12 @@ class Node:
         self._ipv6_rib.del_stale_routes()
 
     def reelect_flood_repeaters(self):
+        # TODO: Split this up into separate functions that can be unit tested individually
         self.floodred_debug("Re-elect flood repeaters")
+        # Visit each interface, and update the fields floodred_is_parent and
+        # floodred_grantparent_count. While doing so, also construct the parents array, which
+        # contains the system ids of all candidate flood repeaters.
+        parents = []
         for intf in self._interfaces_by_name.values():
             is_parent = (intf.fsm.state == intf.State.THREE_WAY and
                          intf.neighbor_direction() == constants.DIR_NORTH)
@@ -2189,8 +2194,35 @@ class Node:
                 parent_system_id = intf.neighbor.system_id
                 dest_table = self._spf_destinations[constants.DIR_NORTH]
                 if parent_system_id in dest_table:
-                    intf.floodred_grandparent_count = dest_table[parent_system_id].parent_count
+                    grandparent_count = dest_table[parent_system_id].parent_count
+                    intf.floodred_grandparent_count = grandparent_count
+                    if grandparent_count is not None:
+                        parents.append((grandparent_count, parent_system_id))
                 else:
                     intf.floodred_grandparent_count = None
             else:
-                intf.floodred_grandparent_count = None   # Unknown / doesn't matter
+                intf.floodred_grandparent_count = None
+        # Sort the parents array by decreasing number of north-bound adjancencies (i.e. by
+        # decreasing number of grandparents from the point of view of this node). The entries in the
+        # parents list are (grandparent_count, parent_system_id), so a simple reverse sort does the
+        # job.
+        # TODO: The spec doesn't say what do use as a tie-breaker for equal grandparent_count. Here
+        # we use decreasing order of system-id. Does it matter? Probably yes, and it should be
+        # documented.
+        parents.sort(reverse=True)
+        # Partition the parents array into subarrays of equivalent cardinality of north-bound
+        # adjacencies. This is not a very Pythonic way of doing it, but we do it this way anyway
+        # to follow the specification verbatim.
+        similarity_constant = 2    # TODO: Make this configurable
+        nr_parents = len(parents)
+        partitions = {}
+        k = 0
+        i = 0
+        nr_parents = len(parents)
+        while i < nr_parents:
+            partitions[k] = []
+            j = i
+            while i < nr_parents and (parents[j][0] - parents[i][0]) <= similarity_constant:
+                partitions[k].append(parents[i])
+                i += 1
+            k = k + 1
