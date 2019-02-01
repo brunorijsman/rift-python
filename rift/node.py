@@ -2226,3 +2226,13 @@ class Node:
                 partitions[k].append(parents[i])
                 i += 1
             k = k + 1
+        # Shuffle all the subarrays
+        for partition in partitions.values():
+            self.shuffle(partition)
+
+    def shuffle(self, lst):
+        # Use the Durstenfeld modern variation of the Fisher-Yates algorithm to shuffle a list.
+        lst_len = len(lst)
+        for i in range(lst_len-1, 0, -1):
+            j = self.floodred_node_random % i
+            lst[i], lst[j] = lst[j], lst[i]
