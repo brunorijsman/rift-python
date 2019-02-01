@@ -432,6 +432,8 @@ class Node:
         else:
             system_random = 0
         self.floodred_node_random = self.generate_node_random(system_random, self.system_id)
+        self.floodred_parents = []
+        self.floodred_grandparents = {}
         self._derived_level = None
         self._rx_offers = {}     # Indexed by interface name
         self._tx_offers = {}     # Indexed by interface name
@@ -1020,10 +1022,17 @@ class Node:
         cli_session.print(tab.to_string())
 
     def command_show_flooding_reduction(self, cli_session):
+        cli_session.print("Parents:")
         tab = table.Table()
-        tab.add_row(interface.Interface.cli_floodred_summary_headers())
-        for intf in self._interfaces_by_name.values():
-            tab.add_row(intf.cli_floodred_summary_attributes())
+        tab.add_row(FloodRedParent.cli_summary_headers())
+        for parent in self.floodred_parents:
+            tab.add_row(parent.cli_summary_attributes())
+        cli_session.print(tab.to_string())
+        cli_session.print("Grandparents:")
+        tab = table.Table()
+        tab.add_row(FloodRedGrandparent.cli_summary_headers())
+        for grandparent in self.floodred_grandparents.values():
+            tab.add_row(grandparent.cli_summary_attributes())
         cli_session.print(tab.to_string())
 
     def command_show_kernel_addresses(self, cli_session):
@@ -1911,7 +1920,7 @@ class Node:
         # more intelligent about selectively triggering North-SPF and South-SPF separately.
         self.spf_run_direction(constants.DIR_SOUTH)
         self.spf_run_direction(constants.DIR_NORTH)
-        self.reelect_flood_repeaters()
+        self.floodred_elect_repeaters()
 
     def spf_run_direction(self, spf_direction):
         # Shortest Path First (SPF) uses the Dijkstra algorithm to compute the shortest path to
@@ -1981,10 +1990,6 @@ class Node:
                                          spf_direction)
         # Add the prefixes of this node as candidates
         self.spf_add_prefix_candidates(node_system_id, node_cost, candidates, spf_direction)
-        # When doing a north-bound SPF, update the parent count of the node (this is needed for
-        # electing flood repeaters)
-        if spf_direction == constants.DIR_NORTH:
-            dest_table[node_system_id].parent_count = self.spf_count_parents(node_ties)
 
     def spf_add_neighbor_candidates(self, node_system_id, node_cost, node_ties, candidates,
                                     spf_direction):
@@ -2017,12 +2022,6 @@ class Node:
                     destination = spf_dest.make_prefix_destintation(prefix, tags, cost)
                     self.spf_consider_candidate_dest(destination, None, node_system_id, candidates,
                                                      spf_direction)
-
-    def spf_count_parents(self, node_ties):
-        count = 0
-        for _nbr in self.node_neighbors(node_ties, constants.DIR_NORTH):
-            count += 1
-        return count
 
     def spf_consider_candidate_dest(self, destination, nbr_tie_element, predecessor_system_id,
                                     candidates, spf_direction):
@@ -2179,60 +2178,144 @@ class Node:
         self._ipv4_rib.del_stale_routes()
         self._ipv6_rib.del_stale_routes()
 
-    def reelect_flood_repeaters(self):
-        # TODO: Split this up into separate functions that can be unit tested individually
+    def floodred_elect_repeaters(self):
         self.floodred_debug("Re-elect flood repeaters")
-        # Visit each interface, and update the fields floodred_is_parent and
-        # floodred_grantparent_count. While doing so, also construct the parents array, which
-        # contains the system ids of all candidate flood repeaters.
+        # Update parents and grandparents
+        self.floodred_update_ancestry()
+        # Sort and shuffle parents (order by decreasing grandparent count)
+        self.floodred_sort_shuffle_parents()
+
+    def floodred_update_ancestry(self):
+        # Update the following information about parents and grandparents
+        #
+        # floodred_parents: A list of FloodRedParent objects (not sorted at this point)
+        self.floodred_parents = self.floodred_gather_parents()
+        #
+        # floodred_grandparents: A dictionary of FloodRedGrandparent objects, indexed by sysid
+        self.floodred_grandparents = {}
+        for parent in self.floodred_parents:
+            grandparent_sysids = self.floodred_gather_grandparents(parent)
+            for grandparent_sysid in grandparent_sysids:
+                if grandparent_sysid in self.floodred_grandparents:
+                    grandparent = self.floodred_grandparents[grandparent_sysid]
+                else:
+                    grandparent = FloodRedGrandparent(self, grandparent_sysid)
+                    self.floodred_grandparents[grandparent_sysid] = grandparent
+                parent.add_grandparent(grandparent)  # Grandparent of this node, parent of parent
+                grandparent.add_parent(parent)       # Parent of this node, child of grandparent
+
+    def floodred_gather_parents(self):
+        # Gather list of FloodRedParent objects (not sorted at this time)
         parents = []
         for intf in self._interfaces_by_name.values():
-            is_parent = (intf.fsm.state == intf.State.THREE_WAY and
-                         intf.neighbor_direction() == constants.DIR_NORTH)
-            intf.floodred_is_parent = is_parent
-            if is_parent:
-                parent_system_id = intf.neighbor.system_id
-                dest_table = self._spf_destinations[constants.DIR_NORTH]
-                if parent_system_id in dest_table:
-                    grandparent_count = dest_table[parent_system_id].parent_count
-                    intf.floodred_grandparent_count = grandparent_count
-                    if grandparent_count is not None:
-                        parents.append((grandparent_count, parent_system_id))
-                else:
-                    intf.floodred_grandparent_count = None
-            else:
-                intf.floodred_grandparent_count = None
-        # Sort the parents array by decreasing number of north-bound adjancencies (i.e. by
-        # decreasing number of grandparents from the point of view of this node). The entries in the
-        # parents list are (grandparent_count, parent_system_id), so a simple reverse sort does the
-        # job.
-        # TODO: The spec doesn't say what do use as a tie-breaker for equal grandparent_count. Here
-        # we use decreasing order of system-id. Does it matter? Probably yes, and it should be
-        # documented.
-        parents.sort(reverse=True)
-        # Partition the parents array into subarrays of equivalent cardinality of north-bound
-        # adjacencies. This is not a very Pythonic way of doing it, but we do it this way anyway
-        # to follow the specification verbatim.
-        similarity_constant = 2    # TODO: Make this configurable
-        nr_parents = len(parents)
-        partitions = {}
-        k = 0
-        i = 0
-        nr_parents = len(parents)
-        while i < nr_parents:
-            partitions[k] = []
-            j = i
-            while i < nr_parents and (parents[j][0] - parents[i][0]) <= similarity_constant:
-                partitions[k].append(parents[i])
-                i += 1
-            k = k + 1
-        # Shuffle all the subarrays
-        for partition in partitions.values():
-            self.shuffle(partition)
+            if (intf.fsm.state == intf.State.THREE_WAY and
+                    intf.neighbor_direction() == constants.DIR_NORTH):
+                parent = FloodRedParent(self, intf)
+                parents.append(parent)
+        return parents
 
-    def shuffle(self, lst):
-        # Use the Durstenfeld modern variation of the Fisher-Yates algorithm to shuffle a list.
-        lst_len = len(lst)
-        for i in range(lst_len-1, 0, -1):
-            j = self.floodred_node_random % i
+    def floodred_gather_grandparents(self, parent):
+        # Gather list of sysids of parents of parent, i.e. sysids of grandparents of this node
+        grandparent_sysids = []
+        parent_node_ties = self.node_ties(constants.DIR_SOUTH, parent.sysid)
+        for parent_nbr in self.node_neighbors(parent_node_ties, constants.DIR_NORTH):
+            (grandparent_sysid, _grandparent_tie_element) = parent_nbr
+            grandparent_sysids.append(grandparent_sysid)
+        return grandparent_sysids
+
+    def floodred_sort_shuffle_parents(self):
+        # Sort the parents array by decreasing grandparents count
+        self.floodred_parents.sort(reverse=True)
+        # Shuffle parents that have the same grandparent count. Follow the pseudo-code in the draft
+        # verbatim, even though it is not very Pythonic. I do the shuffling in-place, as is hinted
+        # to by the "abstract action, maybe noop" comment in the draft (and hence we don't need k)
+        similarity = 2                             # TODO: Make this configurable
+        parents = self.floodred_parents
+        nr_parents = len(parents)
+        i = 0
+        while i < nr_parents:
+            j = i
+            while True:
+                if i >= nr_parents:
+                    break
+                i_nr_grandparents = len(parents[i].grandparents)
+                j_nr_grandparents = len(parents[j].grandparents)
+                if j_nr_grandparents - i_nr_grandparents > similarity:
+                    break
+                i += 1
+            self.shuffle_parents_slice(j, i)
+
+    def shuffle_parents_slice(self, start_inclusive, end_exclusive):
+        # Shuffle a slice of the parents list, using the modern Durstenfeld variation of the
+        # Fisher-Yates algorithm.
+        lst = self.floodred_parents
+        for i in reversed(range(start_inclusive+1, end_exclusive)):
+            offset = i - start_inclusive
+            j = self.floodred_node_random % offset
             lst[i], lst[j] = lst[j], lst[i]
+
+class FloodRedParent:
+
+    def __init__(self, node, intf):
+        self.node = node
+        self.local_intf = intf
+        self.sysid = intf.neighbor.system_id
+        self.name = intf.neighbor.name
+        self.grandparents = []   # Grandparents of this node, i.e. parent of parent
+
+    def add_grandparent(self, grandparent):
+        # Add grandparent of this node, i.e. parent of parent
+        self.grandparents.append(grandparent)
+
+    def __lt__(self, other):
+        grandparent_count = len(self.grandparents)
+        other_grandparent_count = len(other.grandparents)
+        if grandparent_count < other_grandparent_count:
+            return True
+        if grandparent_count > other_grandparent_count:
+            return False
+        # Need a tie-breaker to make shuffling deterministic (which is needed for unit testing)
+        if self.sysid < other.sysid:
+            return True
+        return False
+
+    @staticmethod
+    def cli_summary_headers():
+        return [
+            ["Interface", "Name"],
+            ["Parent", "System ID"],
+            ["Parent", "Interface", "Name"],
+            ["Grandparent", "Count"]
+        ]
+
+    def cli_summary_attributes(self):
+        return [
+            self.local_intf.name,
+            utils.system_id_str(self.sysid),
+            self.name,
+            len(self.grandparents)
+        ]
+
+class FloodRedGrandparent:
+
+    def __init__(self, node, sysid):
+        self.node = node
+        self.sysid = sysid
+        self.parents = []   # Parents of this node, i.e. children of grandparent
+
+    def add_parent(self, parent):
+        # Add parent of this node, i.e. child of grandparent
+        self.parents.append(parent)
+
+    @staticmethod
+    def cli_summary_headers():
+        return [
+            ["Grandparent", "System ID"],
+            ["Parent", "Count"]
+        ]
+
+    def cli_summary_attributes(self):
+        return [
+            utils.system_id_str(self.sysid),
+            len(self.parents)
+        ]
