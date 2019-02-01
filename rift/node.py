@@ -1339,6 +1339,10 @@ class Node:
         if self._floodred_log is not None:
             self._floodred_log.debug("[%s] %s" % (self.log_id, msg), *args)
 
+    def floodred_warning(self, msg, *args):
+        if self._floodred_log is not None:
+            self._floodred_log.warning("[%s] %s" % (self.log_id, msg), *args)
+
     def ties_differ_enough_for_spf(self, old_tie, new_tie):
         # Only TIEs with the same TIEID should be compared
         assert old_tie.header.tieid == new_tie.header.tieid
@@ -2184,6 +2188,8 @@ class Node:
         self.floodred_update_ancestry()
         # Sort and shuffle parents (order by decreasing grandparent count)
         self.floodred_sort_shuffle_parents()
+        # Pick flood repeaters to get the required coverage of grandparents
+        self.floodred_pick_repeaters()
 
     def floodred_update_ancestry(self):
         # Update the following information about parents and grandparents
@@ -2254,6 +2260,31 @@ class Node:
             j = self.floodred_node_random % offset
             lst[i], lst[j] = lst[j], lst[i]
 
+    def floodred_pick_repeaters(self):
+        redundancy = 2     # TODO: Make this configurable
+        # Visit each parent (in the shuffled order) and decide whether or not it should be a
+        # flood repeater.
+        for parent in self.floodred_parents:
+            # Make the parent a flood repeater if it connect to at least one grandparent that does
+            # not yet have a sufficient number of adjacencies to elected flood repeaters.
+            make_flood_repeater = False
+            for grandparent in parent.grandparents:
+                if grandparent.fr_adjacencies < redundancy:
+                    make_flood_repeater = True
+                    break
+            if make_flood_repeater:
+                parent.flood_repeater = True
+                for grandparent in parent.grandparents:
+                    grandparent.fr_adjacencies += 1
+        # Warn about any grandparents that could not be covered with sufficient redundancy
+        for grandparent in self.floodred_grandparents.values():
+            if grandparent.fr_adjacencies >= redundancy:
+                grandparent.covered = True
+            else:
+                grandparent.covered = False
+                self.floodred_warning("Grandparent system-id %s not covered by flooding repeaters",
+                                      utils.system_id_str(grandparent.sysid))
+
 class FloodRedParent:
 
     def __init__(self, node, intf):
@@ -2262,6 +2293,7 @@ class FloodRedParent:
         self.sysid = intf.neighbor.system_id
         self.name = intf.neighbor.name
         self.grandparents = []   # Grandparents of this node, i.e. parent of parent
+        self.flood_repeater = False
 
     def add_grandparent(self, grandparent):
         # Add grandparent of this node, i.e. parent of parent
@@ -2285,7 +2317,8 @@ class FloodRedParent:
             ["Interface", "Name"],
             ["Parent", "System ID"],
             ["Parent", "Interface", "Name"],
-            ["Grandparent", "Count"]
+            ["Grandparent", "Count"],
+            ["Flood", "Repeater"]
         ]
 
     def cli_summary_attributes(self):
@@ -2293,7 +2326,8 @@ class FloodRedParent:
             self.local_intf.name,
             utils.system_id_str(self.sysid),
             self.name,
-            len(self.grandparents)
+            len(self.grandparents),
+            self.flood_repeater
         ]
 
 class FloodRedGrandparent:
@@ -2301,21 +2335,28 @@ class FloodRedGrandparent:
     def __init__(self, node, sysid):
         self.node = node
         self.sysid = sysid
-        self.parents = []   # Parents of this node, i.e. children of grandparent
+        self.parents = []              # Parents of this node, i.e. children of grandparent
+        self.fr_adjacencies = 0
+        self.covered = False
 
     def add_parent(self, parent):
         # Add parent of this node, i.e. child of grandparent
+        # TODO: Don't need this if my e-mail is correct
         self.parents.append(parent)
 
     @staticmethod
     def cli_summary_headers():
         return [
             ["Grandparent", "System ID"],
-            ["Parent", "Count"]
+            ["Parent", "Count"],
+            ["Flood", "Repeater", "Adjacencies"],
+            ["Redundantly", "Covered"]
         ]
 
     def cli_summary_attributes(self):
         return [
             utils.system_id_str(self.sysid),
-            len(self.parents)
+            len(self.parents),
+            self.fr_adjacencies,
+            self.covered
         ]
