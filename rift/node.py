@@ -434,6 +434,9 @@ class Node:
         self.floodred_node_random = self.generate_node_random(system_random, self.system_id)
         self.floodred_parents = []
         self.floodred_grandparents = {}
+        self.floodred_fr_on_intfs = []
+        self.floodred_pending_fr_on_intfs = []
+        self.floodred_pending_fr_off_intfs = []
         self._derived_level = None
         self._rx_offers = {}     # Indexed by interface name
         self._tx_offers = {}     # Indexed by interface name
@@ -2190,6 +2193,9 @@ class Node:
         self.floodred_sort_shuffle_parents()
         # Pick flood repeaters to get the required coverage of grandparents
         self.floodred_pick_repeaters()
+        # Active newly elected flood repeater interfaces (gracefully, i.e. activating new flood
+        # repeaters before de-activating old flood repeaters)
+        self.floodrep_update_intfs()
 
     def floodred_update_ancestry(self):
         # Update the following information about parents and grandparents
@@ -2285,11 +2291,77 @@ class Node:
                 self.floodred_warning("Grandparent system-id %s not covered by flooding repeaters",
                                       utils.system_id_str(grandparent.sysid))
 
+    def floodrep_update_intfs(self):
+        # Do all activations before any de-activations (so that the de-activations can known whether
+        # they need to way for any pending activations to be completed)
+        for parent in self.floodred_parents:
+            if parent.flood_repeater:
+                self.floodrep_interface_fr_on(parent.intf)
+        for parent in self.floodred_parents:
+            if not parent.flood_repeater:
+                self.floodrep_interface_fr_off(parent.intf)
+
+    def floodrep_interface_fr_on(self, intf):
+        if intf in self.floodred_fr_on_intfs:
+            # Already activated, do nothing
+            return
+        if intf in self.floodred_pending_fr_on_intfs:
+            # Activation already pending, do nothing
+            return
+        # Activate the interface as a flood repeater.
+        self.floodred_debug("Activate interface %s as flood repeater", intf.name)
+        intf.activate_flood_repeater()
+        # Add the interface to the pending activation list. The interface will call back
+        # floodred_intf_activated when activation is complete (i.e. when it sends a LIE with the
+        # FR bit set for the first time)
+        self.floodred_pending_fr_on_intfs.append(intf)
+
+    def floodrep_interface_fr_off(self, intf):
+        if intf in self.floodred_pending_fr_off_intfs:
+            # De-activation already pending, do nothing
+            return
+        if intf in self.floodred_fr_on_intfs:
+            need_to_deactivate = True
+            self.floodred_fr_on_intfs.remove(intf)
+        elif intf in self.floodred_pending_fr_on_intfs:
+            need_to_deactivate = True
+            self.floodred_pending_fr_on_intfs.remove(intf)
+        else:
+            need_to_deactivate = False
+        if need_to_deactivate:
+            if self.floodred_pending_fr_on_intfs == []:
+                # There are no pending activations, de-activate now.
+                self.floodred_debug("Deactivate interface %s as flood repeater (instantly)",
+                                    intf.name)
+                intf.deactivate_flood_repeater()
+            else:
+                # There are pending activations, create a pending de-activation which will be
+                # executed after all pending activations are completed.
+                self.floodred_debug("Pending deactivation interface %s as flood repeater",
+                                    intf.name)
+                self.floodred_pending_fr_off_intfs.append(intf)
+
+    def floodred_intf_activated(self, intf):
+        # An interface which was asked to activate flood repeater has completed the activation, i.e.
+        # it has sent out the first LIE with the FR bit set.
+        # Move the interface from the activation pending list to the activated list
+        assert intf in self.floodred_pending_fr_on_intfs
+        self.floodred_debug("Activation of interface %s as flood repeater is complete", intf.name)
+        self.floodred_pending_fr_on_intfs.remove(intf)
+        self.floodred_fr_on_intfs.append(intf)
+        # If there are no more pending activations, execute all pending de-activations.
+        if self.floodred_pending_fr_on_intfs == []:
+            for deactivate_intf in self.floodred_pending_fr_off_intfs:
+                self.floodred_debug("Deactivate interface %s as flood repeater (delayed)",
+                                    intf.name)
+                deactivate_intf.deactivate_flood_repeater()
+            self.floodred_pending_fr_off_intfs = []
+
 class FloodRedParent:
 
     def __init__(self, node, intf):
         self.node = node
-        self.local_intf = intf
+        self.intf = intf
         self.sysid = intf.neighbor.system_id
         self.name = intf.neighbor.name
         self.grandparents = []   # Grandparents of this node, i.e. parent of parent
@@ -2323,7 +2395,7 @@ class FloodRedParent:
 
     def cli_summary_attributes(self):
         return [
-            self.local_intf.name,
+            self.intf.name,
             utils.system_id_str(self.sysid),
             self.name,
             len(self.grandparents),

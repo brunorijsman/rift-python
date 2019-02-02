@@ -6,7 +6,7 @@ import tempfile
 # pylint: disable=invalid-name
 
 TEMP_DIR = tempfile.gettempdir()
-META_TOPOLOGY_FILE_NAME = "meta_topology/clos_3pod_3leaf_3spine_3super.yaml"
+META_TOPOLOGY_FILE_NAME = "meta_topology/clos_3pod_3leaf_3spine_4super.yaml"
 GRAPHICS_FILE_NAME = TEMP_DIR + "/rift_test_graphics.html"
 CONFIG_FILE_NAME = TEMP_DIR + "/rift_test_configuration.yaml"
 SCRIPTS_DIR_NAME = TEMP_DIR + "/rift_test_configurtion_scripts"
