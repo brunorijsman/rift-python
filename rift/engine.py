@@ -112,8 +112,9 @@ class Engine:
             return default
 
     def create_configuration(self, passive_nodes):
-        for shard_config in self._config['shards']:
-            self.create_shard(shard_config, passive_nodes)
+        if 'shards' in self._config:
+            for shard_config in self._config['shards']:
+                self.create_shard(shard_config, passive_nodes)
 
     def create_shard(self, shard_config, passive_nodes):
         if 'nodes' in shard_config:

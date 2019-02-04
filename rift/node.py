@@ -658,6 +658,7 @@ class Node:
         intf = interface.Interface(self, interface_config)
         self._interfaces_by_name[interface_name] = intf
         self._interfaces_by_id[intf.local_id] = intf
+        return intf
 
     def cli_detailed_attributes(self):
         return [
@@ -1024,19 +1025,25 @@ class Node:
             tab.add_row(intf.cli_summary_attributes())
         cli_session.print(tab.to_string())
 
-    def command_show_flooding_reduction(self, cli_session):
-        cli_session.print("Parents:")
+    def floodred_parents_table(self):
         tab = table.Table()
         tab.add_row(FloodRedParent.cli_summary_headers())
         for parent in self.floodred_parents:
             tab.add_row(parent.cli_summary_attributes())
-        cli_session.print(tab.to_string())
-        cli_session.print("Grandparents:")
+        return tab
+
+    def floodred_grandparents_table(self):
         tab = table.Table()
         tab.add_row(FloodRedGrandparent.cli_summary_headers())
         for grandparent in self.floodred_grandparents.values():
             tab.add_row(grandparent.cli_summary_attributes())
-        cli_session.print(tab.to_string())
+        return tab
+
+    def command_show_flooding_reduction(self, cli_session):
+        cli_session.print("Parents:")
+        cli_session.print(self.floodred_parents_table().to_string())
+        cli_session.print("Grandparents:")
+        cli_session.print(self.floodred_grandparents_table().to_string())
 
     def command_show_kernel_addresses(self, cli_session):
         self.kernel.command_show_addresses(cli_session)
@@ -2230,8 +2237,8 @@ class Node:
         # Gather list of sysids of parents of parent, i.e. sysids of grandparents of this node
         grandparent_sysids = []
         parent_node_ties = self.node_ties(constants.DIR_SOUTH, parent.sysid)
-        for parent_nbr in self.node_neighbors(parent_node_ties, constants.DIR_NORTH):
-            (grandparent_sysid, _grandparent_tie_element) = parent_nbr
+        for grandparent_nbr in self.node_neighbors(parent_node_ties, constants.DIR_NORTH):
+            (grandparent_sysid, _grandparent_tie_element) = grandparent_nbr
             grandparent_sysids.append(grandparent_sysid)
         return grandparent_sysids
 

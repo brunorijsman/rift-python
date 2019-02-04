@@ -26,11 +26,11 @@
             "args": [""] 
         },
         {
-            "name": "RIFT 2n_l0_l1",
+            "name": "pytest test_node_flood_repeater_election",
             "type": "python",
             "request": "launch",
-            "program": "${workspaceFolder}/rift/__main__.py",
-            "args": ["topology/2n_l0_l1.yaml"] 
+            "program": "${workspaceFolder}/env/bin/pytest",
+            "args": ["-vvv", "-s", "tests/test_node_flood_repeater_election.py"] 
         },
         {
             "name": "RIFT two_by_two_by_two",
