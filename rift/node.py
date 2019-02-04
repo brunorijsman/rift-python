@@ -1033,9 +1033,10 @@ class Node:
         return tab
 
     def floodred_grandparents_table(self):
+        sorted_floodred_grandparents = sortedcontainers.SortedDict(self.floodred_grandparents)
         tab = table.Table()
         tab.add_row(FloodRedGrandparent.cli_summary_headers())
-        for grandparent in self.floodred_grandparents.values():
+        for grandparent in sorted_floodred_grandparents.values():
             tab.add_row(grandparent.cli_summary_attributes())
         return tab
 
@@ -2251,6 +2252,7 @@ class Node:
         similarity = 2                             # TODO: Make this configurable
         parents = self.floodred_parents
         nr_parents = len(parents)
+        similarity_group_index = 1                 # Corresponds to k=0 in the draft
         i = 0
         while i < nr_parents:
             j = i
@@ -2262,16 +2264,24 @@ class Node:
                 if j_nr_grandparents - i_nr_grandparents > similarity:
                     break
                 i += 1
-            self.shuffle_parents_slice(j, i)
+            self.shuffle_parents_slice(j, i, similarity_group_index)
+            similarity_group_index += 1
 
-    def shuffle_parents_slice(self, start_inclusive, end_exclusive):
+    def shuffle_parents_slice(self, start_inclusive, end_exclusive, similarity_group_index):
         # Shuffle a slice of the parents list, using the modern Durstenfeld variation of the
         # Fisher-Yates algorithm.
         lst = self.floodred_parents
+        high_grandparent_count = len(lst[start_inclusive].grandparents)
+        low_grandparent_count = len(lst[end_exclusive-1].grandparents)
+        similarity_group = (str(similarity_group_index) + ": " +
+                            str(high_grandparent_count) + "-" + str(low_grandparent_count))
         for i in reversed(range(start_inclusive+1, end_exclusive)):
-            offset = i - start_inclusive
-            j = self.floodred_node_random % offset
+            random_range = i - start_inclusive
+            print("random_range = ", random_range)
+            j = start_inclusive + self.floodred_node_random % random_range
             lst[i], lst[j] = lst[j], lst[i]
+            lst[i].similarity_group = similarity_group
+        lst[start_inclusive].similarity_group = similarity_group
 
     def floodred_pick_repeaters(self):
         redundancy = 2     # TODO: Make this configurable
@@ -2372,6 +2382,7 @@ class FloodRedParent:
         self.sysid = intf.neighbor.system_id
         self.name = intf.neighbor.name
         self.grandparents = []   # Grandparents of this node, i.e. parent of parent
+        self.similarity_group = None
         self.flood_repeater = False
 
     def add_grandparent(self, grandparent):
@@ -2397,6 +2408,7 @@ class FloodRedParent:
             ["Parent", "System ID"],
             ["Parent", "Interface", "Name"],
             ["Grandparent", "Count"],
+            ["Similarity", "Group"],
             ["Flood", "Repeater"]
         ]
 
@@ -2406,6 +2418,7 @@ class FloodRedParent:
             utils.system_id_str(self.sysid),
             self.name,
             len(self.grandparents),
+            self.similarity_group,
             self.flood_repeater
         ]
 

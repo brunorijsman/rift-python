@@ -1,5 +1,3 @@
-###!!! TODO: Deterministic random number seeds
-
 import logging
 
 import constants
@@ -11,6 +9,7 @@ import node
 import packet_common
 
 # pylint:disable=too-many-locals
+# pylint:disable=invalid-name
 
 NODE_SYSID = 1
 NODE_LEVEL = 0
@@ -48,8 +47,8 @@ def make_test_node(parents, grandparents):
     node_tie = make_node_tie(NODE_SYSID, NODE_LEVEL, neighbors)
     test_node.store_tie(node_tie)
     # Add Node-TIEs for parents to TIE-DB
-    neighbors = []
     for parent_sysid, grandparent_sysids in parents.items():
+        neighbors = []
         neighbor_info = (NODE_LEVEL, NODE_SYSID)
         neighbors.append(neighbor_info)
         for grandparent_sysid in grandparent_sysids:
@@ -58,8 +57,8 @@ def make_test_node(parents, grandparents):
         node_tie = make_node_tie(parent_sysid, PARENT_LEVEL, neighbors)
         test_node.store_tie(node_tie)
     # Add Node-TIEs for grandparents to TIE-DB
-    neighbors = []
     for grandparent_sysid, parent_sysids in grandparents.items():
+        neighbors = []
         for parent_sysid in parent_sysids:
             neighbor_info = (PARENT_LEVEL, parent_sysid)
             neighbors.append(neighbor_info)
@@ -125,13 +124,24 @@ def make_parent_interface(test_node, parent_sysid):
         neighbor_address="1.1.1.1",
         neighbor_port=1)
 
-def check_flood_repeater_election(parents, grandparents, expected_parents, expected_grandparents):
+def check_flood_repeater_election(parents, expected_parents, expected_grandparents):
+    grandparents = compute_grandparents_connectivity(parents)
     test_node = make_test_node(parents, grandparents)
     test_node.floodred_elect_repeaters()
     assert test_node.floodred_parents_table().to_string() == expected_parents
     assert test_node.floodred_grandparents_table().to_string() == expected_grandparents
     # TODO: Check interface flags
     # TODO: Check graceful switch-over
+
+def compute_grandparents_connectivity(parents):
+    grandparents = {}
+    for parent_sysid, grandparent_sysids in parents.items():
+        for grandparent_sysid in grandparent_sysids:
+            if grandparent_sysid not in grandparents:
+                grandparents[grandparent_sysid] = []
+            if parent_sysid not in grandparents[grandparent_sysid]:
+                grandparents[grandparent_sysid].append(parent_sysid)
+    return grandparents
 
 def test_3x3_full():
     # 3 parents (11, 12, 13)
@@ -143,23 +153,18 @@ def test_3x3_full():
         12: [21, 22, 23],
         13: [21, 22, 23]
     }
-    grandparents = {
-        21: [11, 12, 13],
-        22: [11, 12, 13],
-        23: [11, 12, 13],
-    }
     expected_parents = (
-        "+-----------+-----------+-----------+-------------+----------+\n"
-        "| Interface | Parent    | Parent    | Grandparent | Flood    |\n"
-        "| Name      | System ID | Interface | Count       | Repeater |\n"
-        "|           |           | Name      |             |          |\n"
-        "+-----------+-----------+-----------+-------------+----------+\n"
-        "| intf12    | 12        | intf1     | 3           | True     |\n"
-        "+-----------+-----------+-----------+-------------+----------+\n"
-        "| intf11    | 11        | intf1     | 3           | True     |\n"
-        "+-----------+-----------+-----------+-------------+----------+\n"
-        "| intf13    | 13        | intf1     | 3           | False    |\n"
-        "+-----------+-----------+-----------+-------------+----------+\n")
+        "+-----------+-----------+-----------+-------------+------------+----------+\n"
+        "| Interface | Parent    | Parent    | Grandparent | Similarity | Flood    |\n"
+        "| Name      | System ID | Interface | Count       | Group      | Repeater |\n"
+        "|           |           | Name      |             |            |          |\n"
+        "+-----------+-----------+-----------+-------------+------------+----------+\n"
+        "| intf12    | 12        | intf1     | 3           | 1: 3-3     | True     |\n"
+        "+-----------+-----------+-----------+-------------+------------+----------+\n"
+        "| intf11    | 11        | intf1     | 3           | 1: 3-3     | True     |\n"
+        "+-----------+-----------+-----------+-------------+------------+----------+\n"
+        "| intf13    | 13        | intf1     | 3           | 1: 3-3     | False    |\n"
+        "+-----------+-----------+-----------+-------------+------------+----------+\n")
     expected_grandparents = (
         "+-------------+--------+-------------+-------------+\n"
         "| Grandparent | Parent | Flood       | Redundantly |\n"
@@ -172,7 +177,7 @@ def test_3x3_full():
         "+-------------+--------+-------------+-------------+\n"
         "| 23          | 3      | 2           | True        |\n"
         "+-------------+--------+-------------+-------------+\n")
-    check_flood_repeater_election(parents, grandparents, expected_parents, expected_grandparents)
+    check_flood_repeater_election(parents, expected_parents, expected_grandparents)
 
 def test_8x8_full():
     # 8 parents (11, ..., 18)
@@ -189,38 +194,28 @@ def test_8x8_full():
         17: [21, 22, 23, 24, 25, 26, 27, 28],
         18: [21, 22, 23, 24, 25, 26, 27, 28]
     }
-    grandparents = {
-        21: [11, 12, 13, 14, 15, 16, 17, 18],
-        22: [11, 12, 13, 14, 15, 16, 17, 18],
-        23: [11, 12, 13, 14, 15, 16, 17, 18],
-        24: [11, 12, 13, 14, 15, 16, 17, 18],
-        25: [11, 12, 13, 14, 15, 16, 17, 18],
-        26: [11, 12, 13, 14, 15, 16, 17, 18],
-        27: [11, 12, 13, 14, 15, 16, 17, 18],
-        28: [11, 12, 13, 14, 15, 16, 17, 18]
-    }
     expected_parents = (
-        "+-----------+-----------+-----------+-------------+----------+\n"
-        "| Interface | Parent    | Parent    | Grandparent | Flood    |\n"
-        "| Name      | System ID | Interface | Count       | Repeater |\n"
-        "|           |           | Name      |             |          |\n"
-        "+-----------+-----------+-----------+-------------+----------+\n"
-        "| intf17    | 17        | intf1     | 8           | True     |\n"
-        "+-----------+-----------+-----------+-------------+----------+\n"
-        "| intf15    | 15        | intf1     | 8           | True     |\n"
-        "+-----------+-----------+-----------+-------------+----------+\n"
-        "| intf13    | 13        | intf1     | 8           | False    |\n"
-        "+-----------+-----------+-----------+-------------+----------+\n"
-        "| intf14    | 14        | intf1     | 8           | False    |\n"
-        "+-----------+-----------+-----------+-------------+----------+\n"
-        "| intf11    | 11        | intf1     | 8           | False    |\n"
-        "+-----------+-----------+-----------+-------------+----------+\n"
-        "| intf18    | 18        | intf1     | 8           | False    |\n"
-        "+-----------+-----------+-----------+-------------+----------+\n"
-        "| intf16    | 16        | intf1     | 8           | False    |\n"
-        "+-----------+-----------+-----------+-------------+----------+\n"
-        "| intf12    | 12        | intf1     | 8           | False    |\n"
-        "+-----------+-----------+-----------+-------------+----------+\n")
+        "+-----------+-----------+-----------+-------------+------------+----------+\n"
+        "| Interface | Parent    | Parent    | Grandparent | Similarity | Flood    |\n"
+        "| Name      | System ID | Interface | Count       | Group      | Repeater |\n"
+        "|           |           | Name      |             |            |          |\n"
+        "+-----------+-----------+-----------+-------------+------------+----------+\n"
+        "| intf17    | 17        | intf1     | 8           | 1: 8-8     | True     |\n"
+        "+-----------+-----------+-----------+-------------+------------+----------+\n"
+        "| intf15    | 15        | intf1     | 8           | 1: 8-8     | True     |\n"
+        "+-----------+-----------+-----------+-------------+------------+----------+\n"
+        "| intf13    | 13        | intf1     | 8           | 1: 8-8     | False    |\n"
+        "+-----------+-----------+-----------+-------------+------------+----------+\n"
+        "| intf14    | 14        | intf1     | 8           | 1: 8-8     | False    |\n"
+        "+-----------+-----------+-----------+-------------+------------+----------+\n"
+        "| intf11    | 11        | intf1     | 8           | 1: 8-8     | False    |\n"
+        "+-----------+-----------+-----------+-------------+------------+----------+\n"
+        "| intf18    | 18        | intf1     | 8           | 1: 8-8     | False    |\n"
+        "+-----------+-----------+-----------+-------------+------------+----------+\n"
+        "| intf16    | 16        | intf1     | 8           | 1: 8-8     | False    |\n"
+        "+-----------+-----------+-----------+-------------+------------+----------+\n"
+        "| intf12    | 12        | intf1     | 8           | 1: 8-8     | False    |\n"
+        "+-----------+-----------+-----------+-------------+------------+----------+\n")
     expected_grandparents = (
         "+-------------+--------+-------------+-------------+\n"
         "| Grandparent | Parent | Flood       | Redundantly |\n"
@@ -243,7 +238,7 @@ def test_8x8_full():
         "+-------------+--------+-------------+-------------+\n"
         "| 28          | 8      | 2           | True        |\n"
         "+-------------+--------+-------------+-------------+\n")
-    check_flood_repeater_election(parents, grandparents, expected_parents, expected_grandparents)
+    check_flood_repeater_election(parents, expected_parents, expected_grandparents)
 
 def test_1x1():
     # 1 parents (11)
@@ -255,17 +250,14 @@ def test_1x1():
     parents = {
         11: [21]
     }
-    grandparents = {
-        21: [11]
-    }
     expected_parents = (
-        "+-----------+-----------+-----------+-------------+----------+\n"
-        "| Interface | Parent    | Parent    | Grandparent | Flood    |\n"
-        "| Name      | System ID | Interface | Count       | Repeater |\n"
-        "|           |           | Name      |             |          |\n"
-        "+-----------+-----------+-----------+-------------+----------+\n"
-        "| intf11    | 11        | intf1     | 1           | True     |\n"
-        "+-----------+-----------+-----------+-------------+----------+\n")
+        "+-----------+-----------+-----------+-------------+------------+----------+\n"
+        "| Interface | Parent    | Parent    | Grandparent | Similarity | Flood    |\n"
+        "| Name      | System ID | Interface | Count       | Group      | Repeater |\n"
+        "|           |           | Name      |             |            |          |\n"
+        "+-----------+-----------+-----------+-------------+------------+----------+\n"
+        "| intf11    | 11        | intf1     | 1           | 1: 1-1     | True     |\n"
+        "+-----------+-----------+-----------+-------------+------------+----------+\n")
     expected_grandparents = (
         "+-------------+--------+-------------+-------------+\n"
         "| Grandparent | Parent | Flood       | Redundantly |\n"
@@ -274,4 +266,68 @@ def test_1x1():
         "+-------------+--------+-------------+-------------+\n"
         "| 21          | 1      | 1           | False       |\n"
         "+-------------+--------+-------------+-------------+\n")
-    check_flood_repeater_election(parents, grandparents, expected_parents, expected_grandparents)
+    check_flood_repeater_election(parents, expected_parents, expected_grandparents)
+
+def test_8x8_partial_connectivity_full_redundant_coverage():
+    # 8 parents (11, ..., 18)
+    # 8 grandparents (21, ..., 28)
+    # Partial connectivity between parents and grandparents:
+    # Full redundant coverage of all grandparents is possible
+    # Default shuffle similarity o f2
+    packet_common.add_missing_methods_to_thrift()
+    parents = {
+        # pylint:disable=bad-whitespace
+        11: [21, 22,     24, 25, 26        ],   # 5 grandparents
+        12: [            24, 25, 26, 27, 28],   # 5 grandparents
+        13: [21, 22,     24,     26, 27, 28],   # 6 grandparents
+        14: [21, 22, 23, 24, 25, 26, 27, 28],   # 8 grandparents
+        15: [    22,     24,     26,     28],   # 4 grandparents
+        16: [21,                         28],   # 2 grandparents
+        17: [21, 22, 23,     25, 26, 27, 28],   # 7 grandparents
+        18: [21, 22, 23, 24, 25,     27, 28]    # 7 grandparents
+    }
+    expected_parents = (
+        "+-----------+-----------+-----------+-------------+------------+----------+\n"
+        "| Interface | Parent    | Parent    | Grandparent | Similarity | Flood    |\n"
+        "| Name      | System ID | Interface | Count       | Group      | Repeater |\n"
+        "|           |           | Name      |             |            |          |\n"
+        "+-----------+-----------+-----------+-------------+------------+----------+\n"
+        "| intf18    | 18        | intf1     | 7           | 1: 8-6     | True     |\n"
+        "+-----------+-----------+-----------+-------------+------------+----------+\n"
+        "| intf13    | 13        | intf1     | 6           | 1: 8-6     | True     |\n"
+        "+-----------+-----------+-----------+-------------+------------+----------+\n"
+        "| intf14    | 14        | intf1     | 8           | 1: 8-6     | True     |\n"
+        "+-----------+-----------+-----------+-------------+------------+----------+\n"
+        "| intf17    | 17        | intf1     | 7           | 1: 8-6     | False    |\n"
+        "+-----------+-----------+-----------+-------------+------------+----------+\n"
+        "| intf11    | 11        | intf1     | 5           | 2: 5-4     | False    |\n"
+        "+-----------+-----------+-----------+-------------+------------+----------+\n"
+        "| intf15    | 15        | intf1     | 4           | 2: 5-4     | False    |\n"
+        "+-----------+-----------+-----------+-------------+------------+----------+\n"
+        "| intf12    | 12        | intf1     | 5           | 2: 5-4     | False    |\n"
+        "+-----------+-----------+-----------+-------------+------------+----------+\n"
+        "| intf16    | 16        | intf1     | 2           | 3: 2-2     | False    |\n"
+        "+-----------+-----------+-----------+-------------+------------+----------+\n")
+    expected_grandparents = (
+        "+-------------+--------+-------------+-------------+\n"
+        "| Grandparent | Parent | Flood       | Redundantly |\n"
+        "| System ID   | Count  | Repeater    | Covered     |\n"
+        "|             |        | Adjacencies |             |\n"
+        "+-------------+--------+-------------+-------------+\n"
+        "| 21          | 6      | 3           | True        |\n"
+        "+-------------+--------+-------------+-------------+\n"
+        "| 22          | 6      | 3           | True        |\n"
+        "+-------------+--------+-------------+-------------+\n"
+        "| 23          | 3      | 2           | True        |\n"
+        "+-------------+--------+-------------+-------------+\n"
+        "| 24          | 6      | 3           | True        |\n"
+        "+-------------+--------+-------------+-------------+\n"
+        "| 25          | 5      | 2           | True        |\n"
+        "+-------------+--------+-------------+-------------+\n"
+        "| 26          | 6      | 2           | True        |\n"
+        "+-------------+--------+-------------+-------------+\n"
+        "| 27          | 5      | 3           | True        |\n"
+        "+-------------+--------+-------------+-------------+\n"
+        "| 28          | 7      | 3           | True        |\n"
+        "+-------------+--------+-------------+-------------+\n")
+    check_flood_repeater_election(parents, expected_parents, expected_grandparents)
