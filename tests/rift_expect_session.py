@@ -117,7 +117,6 @@ class RiftExpectSession:
         self.table_expect("Interface:")
         self.table_expect("| Interface Name | {} |".format(interface))
         self.table_expect("| State | ONE_WAY |")
-        self.table_expect("| Neighbor | False |")
         self.wait_prompt(node)
 
     def check_adjacency_2way(self, node, interface, other_node, other_interface):
@@ -136,7 +135,6 @@ class RiftExpectSession:
         self.table_expect("| Interface Name | {} |".format(interface))
         self.table_expect("| State | TWO_WAY |")
         self.table_expect("| Received LIE Accepted or Rejected | Accepted |")
-        self.table_expect("| Neighbor | True |")
         self.table_expect("Neighbor:")
         self.table_expect("| Name | {} |".format(other_full_name))
         self.wait_prompt(node)
@@ -155,7 +153,6 @@ class RiftExpectSession:
         self.table_expect("| Interface Name | {} |".format(interface))
         self.table_expect("| State | THREE_WAY |")
         self.table_expect("| Received LIE Accepted or Rejected | Accepted |")
-        self.table_expect("| Neighbor | True |")
         self.table_expect("Neighbor:")
         self.table_expect("| Name | .* |")
         self.wait_prompt(node)

@@ -255,7 +255,7 @@ class Interface:
             capabilities=capabilities,
             holdtime=3,
             not_a_ztp_offer=self._node.send_not_a_ztp_offer_on_intf(self.name),
-            you_are_flood_repeater=self._floodred_active,
+            you_are_flood_repeater=self._floodred_nbr_is_fr,
             label=None)
         packet_content = encoding.ttypes.PacketContent(lie=lie_packet)
         protocol_packet = encoding.ttypes.ProtocolPacket(packet_header, packet_content)
@@ -269,9 +269,9 @@ class Interface:
         self._node.record_tx_offer(tx_offer)
         # If this was the first time that we sent out a LIE with you_are_flood_repeater=True,
         # inform the node that activation has been completed.
-        if self._floodred_active and not self._floodred_active_confirmed:
+        if self._floodred_nbr_is_fr and not self._floodred_nbr_is_fr_sent:
             self._node.floodred_intf_activated(self)
-            self._floodred_active_confirmed = True
+            self._floodred_nbr_is_fr_sent = True
 
     def action_cleanup(self):
         self.neighbor = None
@@ -713,8 +713,8 @@ class Interface:
         self._ties_rtx = collections.OrderedDict()
         self._ties_req = collections.OrderedDict()
         self._ties_ack = collections.OrderedDict()
-        self._floodred_active = False
-        self._floodred_active_confirmed = False
+        self._floodred_nbr_is_fr = False
+        self._floodred_nbr_is_fr_sent = False
         self.fsm = fsm.Fsm(
             definition=self.fsm_definition,
             action_handler=self,
@@ -1188,13 +1188,13 @@ class Interface:
                 self.state_name]
 
     def cli_detailed_attributes(self):
-        if self._floodred_active:
-            if self._floodred_active_confirmed:
-                flood_repeater_str = "True"
+        if self._floodred_nbr_is_fr:
+            if self._floodred_nbr_is_fr_sent:
+                nbr_is_fr_str = "True"
             else:
-                flood_repeater_str = "Pending"
+                nbr_is_fr_str = "Pending"
         else:
-            flood_repeater_str = "False"
+            nbr_is_fr_str = "False"
         return [
             ["Interface Name", self.name],
             ["Physical Interface Name", self.physical_interface_name],
@@ -1218,8 +1218,7 @@ class Interface:
             ["State", self.state_name],
             ["Received LIE Accepted or Rejected", self._lie_accept_or_reject],
             ["Received LIE Accept or Reject Reason", self._lie_accept_or_reject_rule],
-            ["Neighbor", "True" if self.neighbor else "False"],
-            ["Flood Repeater", flood_repeater_str]
+            ["Neighbor is Flood Repeater", nbr_is_fr_str]
         ]
 
     def cli_detailed_neighbor_attrs(self):
@@ -1436,11 +1435,11 @@ class Interface:
         return sock
 
     def activate_flood_repeater(self):
-        assert not self._floodred_active
-        self._floodred_active = True
-        self._floodred_active_confirmed = False
+        assert not self._floodred_nbr_is_fr
+        self._floodred_nbr_is_fr = True
+        self._floodred_nbr_is_fr_sent = False
 
     def deactivate_flood_repeater(self):
-        assert self._floodred_active
-        self._floodred_active = False
-        self._floodred_active_confirmed = False
+        assert self._floodred_nbr_is_fr
+        self._floodred_nbr_is_fr = False
+        self._floodred_nbr_is_fr_sent = False

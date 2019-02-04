@@ -61,7 +61,7 @@ class Neighbor:
             ["POD", self.pod],
             ["Hold Time", self.holdtime],
             ["Not a ZTP Offer", self.not_a_ztp_offer],
-            ["You Are Not a ZTP Flood Repeater", self.not_a_ztp_offer],
+            ["You are Flood Repeater", self.you_are_flood_repeater],
             ["Your System ID", your_system_id_str],
             ["Your Local ID", your_link_id_str],
         ]
