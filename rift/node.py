@@ -2277,7 +2277,6 @@ class Node:
                             str(high_grandparent_count) + "-" + str(low_grandparent_count))
         for i in reversed(range(start_inclusive+1, end_exclusive)):
             random_range = i - start_inclusive
-            print("random_range = ", random_range)
             j = start_inclusive + self.floodred_node_random % random_range
             lst[i], lst[j] = lst[j], lst[i]
             lst[i].similarity_group = similarity_group
