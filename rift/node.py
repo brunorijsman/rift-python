@@ -663,8 +663,9 @@ class Node:
         self.interfaces_by_id[intf.local_id] = intf
         return intf
 
-    def cli_detailed_attributes(self):
-        return [
+    def cli_details_table(self):
+        tab = table.Table(separators=False)
+        tab.add_rows([
             ["Name", self.name],
             ["Passive", self._passive],
             ["Running", self.is_running()],
@@ -692,7 +693,8 @@ class Node:
             ["Flooding Reduction Redundancy", self.floodred_redundancy],
             ["Flooding Reduction Similarity", self.floodred_similarity],
             ["Flooding Reduction Node Random", self.floodred_node_random],
-        ]
+        ])
+        return tab
 
     def cli_statistics_attributes(self):
         return [
@@ -1080,9 +1082,7 @@ class Node:
 
     def command_show_node(self, cli_session):
         cli_session.print("Node:")
-        tab = table.Table(separators=False)
-        tab.add_rows(self.cli_detailed_attributes())
-        cli_session.print(tab.to_string())
+        cli_session.print(self.cli_details_table().to_string())
         cli_session.print("Received Offers:")
         tab = table.Table()
         tab.add_row(offer.RxOffer.cli_headers())
