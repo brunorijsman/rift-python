@@ -2314,19 +2314,24 @@ class Node:
         # they need to way for any pending activations to be completed)
         for parent in self.floodred_parents:
             if parent.flood_repeater:
-                parent.intf.activate_flood_repeater()
+                self.floodrep_activate_fr_on_intf(parent.intf)
         for parent in self.floodred_parents:
             if not parent.flood_repeater:
                 self.floodrep_deactivate_fr_on_intf(parent.intf)
 
     def floodrep_activate_fr_on_intf(self, intf):
-        intf.activate_flood_repeater()
-        self.floodred_debug("Activate interface %s as flood repeater", intf.name)
-        ###!!! imediate or pending depending on return value
+        if intf.activate_flood_repeater():
+            pending_str = "(pending)"
+        else:
+            pending_str = "(immediate)"
+        self.floodred_debug("Activate interface %s as flood repeater %s", intf.name, pending_str)
 
     def floodrep_deactivate_fr_on_intf(self, intf):
-        intf.deactivate_flood_repeater()
-        self.floodred_debug("Deactivate interface %s as flood repeater", intf.name)
+        if intf.deactivate_flood_repeater():
+            pending_str = "(pending)"
+        else:
+            pending_str = "(immediate)"
+        self.floodred_debug("Deactivate interface %s as flood repeater %s", intf.name, pending_str)
 
 class FloodRedParent:
 
