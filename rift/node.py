@@ -411,8 +411,8 @@ class Node:
         self._leaf_only = leaf_only
         self.leaf_2_leaf = leaf_2_leaf
         self._top_of_fabric_flag = top_of_fabric_flag
-        self._interfaces_by_name = sortedcontainers.SortedDict()
-        self._interfaces_by_id = {}
+        self.interfaces_by_name = sortedcontainers.SortedDict()
+        self.interfaces_by_id = {}
         self.rx_lie_ipv4_mcast_address = self.get_config_attribute(
             'rx_lie_mcast_address', constants.DEFAULT_LIE_IPV4_MCAST_ADDRESS)
         self._tx_lie_ipv4_mcast_address = self.get_config_attribute(
@@ -434,9 +434,6 @@ class Node:
         self.floodred_node_random = self.generate_node_random(system_random, self.system_id)
         self.floodred_parents = []
         self.floodred_grandparents = {}
-        self.floodred_fr_on_intfs = []
-        self.floodred_pending_fr_on_intfs = []
-        self.floodred_pending_fr_off_intfs = []
         self._derived_level = None
         self._rx_offers = {}     # Indexed by interface name
         self._tx_offers = {}     # Indexed by interface name
@@ -656,8 +653,8 @@ class Node:
     def create_interface(self, interface_config):
         interface_name = interface_config['name']
         intf = interface.Interface(self, interface_config)
-        self._interfaces_by_name[interface_name] = intf
-        self._interfaces_by_id[intf.local_id] = intf
+        self.interfaces_by_name[interface_name] = intf
+        self.interfaces_by_id[intf.local_id] = intf
         return intf
 
     def cli_detailed_attributes(self):
@@ -718,7 +715,7 @@ class Node:
             self.regenerate_my_south_prefix_tie()
 
     def up_interfaces(self, interface_going_down):
-        for intf in self._interfaces_by_name.values():
+        for intf in self.interfaces_by_name.values():
             if ((intf.fsm.state == interface.Interface.State.THREE_WAY) and
                     (intf != interface_going_down)):
                 yield intf
@@ -808,7 +805,7 @@ class Node:
 
     def have_s_or_ew_adjacency(self, interface_going_down):
         # Does this node have at least one south-bound or east-west adjacency?
-        for intf in self._interfaces_by_name.values():
+        for intf in self.interfaces_by_name.values():
             if ((intf.fsm.state == interface.Interface.State.THREE_WAY) and
                     (intf != interface_going_down)):
                 if intf.neighbor_direction() in [constants.DIR_SOUTH,
@@ -902,7 +899,7 @@ class Node:
         # individual neighbor. We do NOT (yet) have any optimization that attempts to prepare and
         # encode a TIDE only once in total or once per direction (N, S, EW). See the comment in the
         # function is_flood_allowed for a more detailed discussion on why not.
-        for intf in self._interfaces_by_name.values():
+        for intf in self.interfaces_by_name.values():
             self.send_tides_on_interface(intf)
 
     def send_tides_on_interface(self, intf):
@@ -965,19 +962,19 @@ class Node:
 
     def command_show_intf_fsm_hist(self, cli_session, parameters, verbose):
         interface_name = parameters['interface']
-        if not interface_name in self._interfaces_by_name:
+        if not interface_name in self.interfaces_by_name:
             cli_session.print("Error: interface {} not present".format(interface_name))
             return
-        shown_interface = self._interfaces_by_name[interface_name]
+        shown_interface = self.interfaces_by_name[interface_name]
         tab = shown_interface.fsm.history_table(verbose)
         cli_session.print(tab.to_string())
 
     def command_show_intf_queues(self, cli_session, parameters):
         interface_name = parameters['interface']
-        if not interface_name in self._interfaces_by_name:
+        if not interface_name in self.interfaces_by_name:
             cli_session.print("Error: interface {} not present".format(interface_name))
             return
-        intf = self._interfaces_by_name[interface_name]
+        intf = self.interfaces_by_name[interface_name]
         tab = intf.ties_tx_table()
         cli_session.print("Transmit queue:")
         cli_session.print(tab.to_string())
@@ -993,35 +990,31 @@ class Node:
 
     def command_show_intf_sockets(self, cli_session, parameters):
         interface_name = parameters['interface']
-        if not interface_name in self._interfaces_by_name:
+        if not interface_name in self.interfaces_by_name:
             cli_session.print("Error: interface {} not present".format(interface_name))
             return
-        intf = self._interfaces_by_name[interface_name]
+        intf = self.interfaces_by_name[interface_name]
         tab = intf.sockets_table()
         cli_session.print(tab.to_string())
 
     def command_show_interface(self, cli_session, parameters):
         interface_name = parameters['interface']
-        if not interface_name in self._interfaces_by_name:
+        if not interface_name in self.interfaces_by_name:
             cli_session.print("Error: interface {} not present".format(interface_name))
             return
-        interface_attributes = self._interfaces_by_name[interface_name].cli_detailed_attributes()
-        tab = table.Table(separators=False)
-        tab.add_rows(interface_attributes)
+        intf = self.interfaces_by_name[interface_name]
         cli_session.print("Interface:")
-        cli_session.print(tab.to_string())
-        neighbor_attributes = self._interfaces_by_name[interface_name].cli_detailed_neighbor_attrs()
-        if neighbor_attributes:
-            tab = table.Table(separators=False)
-            tab.add_rows(neighbor_attributes)
+        cli_session.print(intf.cli_details_table().to_string())
+        neighbor_table = intf.cli_neighbor_details_table()
+        if neighbor_table:
             cli_session.print("Neighbor:")
-            cli_session.print(tab.to_string())
+            cli_session.print(neighbor_table.to_string())
 
     def command_show_interfaces(self, cli_session):
         # TODO: Report neighbor uptime (time in THREE_WAY state)
         tab = table.Table()
         tab.add_row(interface.Interface.cli_summary_headers())
-        for intf in self._interfaces_by_name.values():
+        for intf in self.interfaces_by_name.values():
             tab.add_row(intf.cli_summary_attributes())
         cli_session.print(tab.to_string())
 
@@ -1040,11 +1033,20 @@ class Node:
             tab.add_row(grandparent.cli_summary_attributes())
         return tab
 
+    def floodred_interfaces_table(self):
+        tab = table.Table()
+        tab.add_row(interface.Interface.cli_floodred_summary_headers())
+        for intf in self.interfaces_by_name.values():
+            tab.add_row(intf.cli_floodred_summary_attributes())
+        return tab
+
     def command_show_flooding_reduction(self, cli_session):
         cli_session.print("Parents:")
         cli_session.print(self.floodred_parents_table().to_string())
         cli_session.print("Grandparents:")
         cli_session.print(self.floodred_grandparents_table().to_string())
+        cli_session.print("Interfaces:")
+        cli_session.print(self.floodred_interfaces_table().to_string())
 
     def command_show_kernel_addresses(self, cli_session):
         self.kernel.command_show_addresses(cli_session)
@@ -1320,7 +1322,7 @@ class Node:
 
     def command_set_interface_failure(self, cli_session, parameters):
         interface_name = parameters['interface']
-        if not interface_name in self._interfaces_by_name:
+        if not interface_name in self.interfaces_by_name:
             cli_session.print("Error: interface {} not present".format(interface_name))
             return
         failure = parameters['failure'].lower()
@@ -1330,7 +1332,7 @@ class Node:
             return
         tx_fail = failure in ["failed", "tx-failed"]
         rx_fail = failure in ["failed", "rx-failed"]
-        self._interfaces_by_name[interface_name].set_failure(tx_fail, rx_fail)
+        self.interfaces_by_name[interface_name].set_failure(tx_fail, rx_fail)
 
     def debug(self, msg, *args):
         self.log.debug("[%s] %s" % (self.log_id, msg), *args)
@@ -2086,9 +2088,9 @@ class Node:
         destination.inherit_next_hops(dest_table[predecessor_system_id])
 
     def interface_id_to_ipv4_next_hop(self, interface_id):
-        if interface_id not in self._interfaces_by_id:
+        if interface_id not in self.interfaces_by_id:
             return None
-        intf = self._interfaces_by_id[interface_id]
+        intf = self.interfaces_by_id[interface_id]
         if intf.neighbor is None:
             return None
         if intf.neighbor.ipv4_address is None:
@@ -2097,9 +2099,9 @@ class Node:
         return next_hop.NextHop(intf.name, remote_address)
 
     def interface_id_to_ipv6_next_hop(self, interface_id):
-        if interface_id not in self._interfaces_by_id:
+        if interface_id not in self.interfaces_by_id:
             return None
-        intf = self._interfaces_by_id[interface_id]
+        intf = self.interfaces_by_id[interface_id]
         if intf.neighbor is None:
             return None
         if intf.neighbor.ipv6_address is None:
@@ -2227,7 +2229,7 @@ class Node:
     def floodred_gather_parents(self):
         # Gather list of FloodRedParent objects (not sorted at this time)
         parents = []
-        for intf in self._interfaces_by_name.values():
+        for intf in self.interfaces_by_name.values():
             if (intf.fsm.state == intf.State.THREE_WAY and
                     intf.neighbor_direction() == constants.DIR_NORTH):
                 parent = FloodRedParent(self, intf)
@@ -2312,66 +2314,19 @@ class Node:
         # they need to way for any pending activations to be completed)
         for parent in self.floodred_parents:
             if parent.flood_repeater:
-                self.floodrep_interface_fr_on(parent.intf)
+                parent.intf.activate_flood_repeater()
         for parent in self.floodred_parents:
             if not parent.flood_repeater:
-                self.floodrep_interface_fr_off(parent.intf)
+                self.floodrep_deactivate_fr_on_intf(parent.intf)
 
-    def floodrep_interface_fr_on(self, intf):
-        if intf in self.floodred_fr_on_intfs:
-            # Already activated, do nothing
-            return
-        if intf in self.floodred_pending_fr_on_intfs:
-            # Activation already pending, do nothing
-            return
-        # Activate the interface as a flood repeater.
-        self.floodred_debug("Activate interface %s as flood repeater", intf.name)
+    def floodrep_activate_fr_on_intf(self, intf):
         intf.activate_flood_repeater()
-        # Add the interface to the pending activation list. The interface will call back
-        # floodred_intf_activated when activation is complete (i.e. when it sends a LIE with the
-        # FR bit set for the first time)
-        self.floodred_pending_fr_on_intfs.append(intf)
+        self.floodred_debug("Activate interface %s as flood repeater", intf.name)
+        ###!!! imediate or pending depending on return value
 
-    def floodrep_interface_fr_off(self, intf):
-        if intf in self.floodred_pending_fr_off_intfs:
-            # De-activation already pending, do nothing
-            return
-        if intf in self.floodred_fr_on_intfs:
-            need_to_deactivate = True
-            self.floodred_fr_on_intfs.remove(intf)
-        elif intf in self.floodred_pending_fr_on_intfs:
-            need_to_deactivate = True
-            self.floodred_pending_fr_on_intfs.remove(intf)
-        else:
-            need_to_deactivate = False
-        if need_to_deactivate:
-            if self.floodred_pending_fr_on_intfs == []:
-                # There are no pending activations, de-activate now.
-                self.floodred_debug("Deactivate interface %s as flood repeater (instantly)",
-                                    intf.name)
-                intf.deactivate_flood_repeater()
-            else:
-                # There are pending activations, create a pending de-activation which will be
-                # executed after all pending activations are completed.
-                self.floodred_debug("Pending deactivation interface %s as flood repeater",
-                                    intf.name)
-                self.floodred_pending_fr_off_intfs.append(intf)
-
-    def floodred_intf_activated(self, intf):
-        # An interface which was asked to activate flood repeater has completed the activation, i.e.
-        # it has sent out the first LIE with the FR bit set.
-        # Move the interface from the activation pending list to the activated list
-        assert intf in self.floodred_pending_fr_on_intfs
-        self.floodred_debug("Activation of interface %s as flood repeater is complete", intf.name)
-        self.floodred_pending_fr_on_intfs.remove(intf)
-        self.floodred_fr_on_intfs.append(intf)
-        # If there are no more pending activations, execute all pending de-activations.
-        if self.floodred_pending_fr_on_intfs == []:
-            for deactivate_intf in self.floodred_pending_fr_off_intfs:
-                self.floodred_debug("Deactivate interface %s as flood repeater (delayed)",
-                                    intf.name)
-                deactivate_intf.deactivate_flood_repeater()
-            self.floodred_pending_fr_off_intfs = []
+    def floodrep_deactivate_fr_on_intf(self, intf):
+        intf.deactivate_flood_repeater()
+        self.floodred_debug("Deactivate interface %s as flood repeater", intf.name)
 
 class FloodRedParent:
 

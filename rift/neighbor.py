@@ -1,4 +1,5 @@
 import common.constants
+import table
 import utils
 
 # TODO: Store both IPv4 and IPv6 address of neighbor
@@ -37,7 +38,7 @@ class Neighbor:
         # TODO: Is this right? Should we look at capabilities.hierarchy_indications?
         return self.level == common.constants.top_of_fabric_level
 
-    def cli_detailed_attributes(self):
+    def cli_details_table(self):
         # TODO: Report capabilities (is it possible to report the unknown ones too?"
         # TODO: Report neighbor direction in show command
         if self.neighbor_system_id:
@@ -48,7 +49,8 @@ class Neighbor:
             your_link_id_str = "{}".format(self.neighbor_link_id)
         else:
             your_link_id_str = ""
-        attributes = [
+        tab = table.Table(separators=False)
+        tab.add_rows([
             ["Name", self.name],
             ["System ID", utils.system_id_str(self.system_id)],
             ["IPv4 Address", self.ipv4_address],
@@ -64,5 +66,5 @@ class Neighbor:
             ["You are Flood Repeater", self.you_are_flood_repeater],
             ["Your System ID", your_system_id_str],
             ["Your Local ID", your_link_id_str],
-        ]
-        return attributes
+        ])
+        return tab
