@@ -427,6 +427,12 @@ class Node:
         self.lie_send_interval_secs = constants.DEFAULT_LIE_SEND_INTERVAL_SECS
         self.rx_flood_port = self.get_config_attribute('rx_tie_port', constants.DEFAULT_TIE_PORT)
         self.floodred_enabled = self.get_config_attribute('flooding_reduction', True)
+        self.floodred_redundancy = self.get_config_attribute(
+            'flooding_reduction_redundancy',
+            constants.DEFAULT_FLOODING_REDUCTION_REDUNDANCY)
+        self.floodred_similarity = self.get_config_attribute(
+            'flooding_reduction_similarity',
+            constants.DEFAULT_FLOODING_REDUCTION_SIMILARITY)
         if engine:
             system_random = engine.floodred_system_random
         else:
@@ -682,7 +688,9 @@ class Node:
             ["LIE Send Interval", "{} secs".format(self.lie_send_interval_secs)],
             ["Receive TIE Port", self.rx_flood_port],
             ["Kernel Route Table", self._kernel_route_table],
-            ["Flooding Reduction", self.floodred_enabled],
+            ["Flooding Reduction Enabled", self.floodred_enabled],
+            ["Flooding Reduction Redundancy", self.floodred_redundancy],
+            ["Flooding Reduction Similarity", self.floodred_similarity],
             ["Flooding Reduction Node Random", self.floodred_node_random],
         ]
 
@@ -2251,7 +2259,6 @@ class Node:
         # Shuffle parents that have the same grandparent count. Follow the pseudo-code in the draft
         # verbatim, even though it is not very Pythonic. I do the shuffling in-place, as is hinted
         # to by the "abstract action, maybe noop" comment in the draft (and hence we don't need k)
-        similarity = 2                             # TODO: Make this configurable
         parents = self.floodred_parents
         nr_parents = len(parents)
         similarity_group_index = 1                 # Corresponds to k=0 in the draft
@@ -2263,7 +2270,7 @@ class Node:
                     break
                 i_nr_grandparents = len(parents[i].grandparents)
                 j_nr_grandparents = len(parents[j].grandparents)
-                if j_nr_grandparents - i_nr_grandparents > similarity:
+                if j_nr_grandparents - i_nr_grandparents > self.floodred_similarity:
                     break
                 i += 1
             self.shuffle_parents_slice(j, i, similarity_group_index)
@@ -2285,7 +2292,6 @@ class Node:
         lst[start_inclusive].similarity_group = similarity_group
 
     def floodred_pick_repeaters(self):
-        redundancy = 2     # TODO: Make this configurable
         # Visit each parent (in the shuffled order) and decide whether or not it should be a
         # flood repeater.
         for parent in self.floodred_parents:
@@ -2293,7 +2299,7 @@ class Node:
             # not yet have a sufficient number of adjacencies to elected flood repeaters.
             make_flood_repeater = False
             for grandparent in parent.grandparents:
-                if grandparent.fr_adjacencies < redundancy:
+                if grandparent.fr_adjacencies < self.floodred_redundancy:
                     make_flood_repeater = True
                     break
             if make_flood_repeater:
@@ -2302,7 +2308,7 @@ class Node:
                     grandparent.fr_adjacencies += 1
         # Warn about any grandparents that could not be covered with sufficient redundancy
         for grandparent in self.floodred_grandparents.values():
-            if grandparent.fr_adjacencies >= redundancy:
+            if grandparent.fr_adjacencies >= self.floodred_redundancy:
                 grandparent.covered = True
             else:
                 grandparent.covered = False

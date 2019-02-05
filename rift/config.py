@@ -5,6 +5,8 @@ import sys
 import cerberus
 import yaml
 
+import constants
+
 SCHEMA = {
     'const': {
         'type': 'dict',
@@ -14,7 +16,9 @@ SCHEMA = {
             'tx_v6_src_address': {'type': 'ipv6address'},
             'rx_mcast_address': {'type': 'ipv4address'},
             'lie_mcast_address': {'type': 'ipv4address'},
-            'flooding_reduction': {'type': 'boolean'}
+            'flooding_reduction': {'type': 'boolean'},
+            'flooding_reduction_redundancy': {'type': 'integer', 'min': 1},
+            'flooding_reduction_similarity': {'type': 'integer', 'min': 0}
         },
     },
     'shards': {
@@ -40,6 +44,8 @@ SCHEMA = {
                             'tx_lie_port': {'type': 'port'},
                             'rx_tie_port': {'type': 'port'},
                             'flooding_reduction': {'type': 'boolean'},
+                            'flooding_reduction_redundancy': {'type': 'integer', 'min': 1},
+                            'flooding_reduction_similarity': {'type': 'integer', 'min': 0},
                             'state_thrift_services_port': {'type': 'port'},
                             'config_thrift_services_port': {'type': 'port'},
                             'kernel_route_table': {'type': 'kernel_route_table'},
@@ -199,6 +205,12 @@ def apply_global_defaults(config):
         global_config = {}
     if 'flooding_reduction' not in global_config:
         global_config['flooding_reduction'] = True
+    if 'flooding_reduction_redundancy' not in global_config:
+        global_config['flooding_reduction_redundancy'] = \
+            constants.DEFAULT_FLOODING_REDUCTION_REDUNDANCY
+    if 'flooding_reduction_similarirty' not in global_config:
+        global_config['flooding_reduction_similarity'] = \
+            constants.DEFAULT_FLOODING_REDUCTION_SIMILARITY
     config['const'] = global_config
 
 def apply_inheritance(config):
@@ -211,6 +223,8 @@ def apply_inheritance(config):
 
 def node_apply_inheritance(node_config, global_config):
     node_inherit_attr_from_engine(node_config, 'flooding_reduction', global_config)
+    node_inherit_attr_from_engine(node_config, 'flooding_reduction_redundancy', global_config)
+    node_inherit_attr_from_engine(node_config, 'flooding_reduction_similarity', global_config)
     if 'interfaces' in node_config:
         for interface_config in node_config['interfaces']:
             interface_apply_inheritance(interface_config, node_config)
