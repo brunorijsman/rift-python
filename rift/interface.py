@@ -1496,9 +1496,12 @@ class Interface:
             return None
         return sock
 
-    def activate_flood_repeater(self):
+    def activate_flood_repeater(self, force=False):
         # Returns True if activation is pending, False if not
         if self.floodred_nbr_is_fr == self.NbrIsFRState.TRUE:
+            return False
+        if force:
+            self.floodred_nbr_is_fr = self.NbrIsFRState.TRUE
             return False
         self.floodred_nbr_is_fr = self.NbrIsFRState.PENDING_TRUE
         return True

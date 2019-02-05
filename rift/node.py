@@ -2205,15 +2205,20 @@ class Node:
 
     def floodred_elect_repeaters(self):
         self.floodred_debug("Re-elect flood repeaters")
-        # Update parents and grandparents
-        self.floodred_update_ancestry()
-        # Sort and shuffle parents (order by decreasing grandparent count)
-        self.floodred_sort_shuffle_parents()
-        # Pick flood repeaters to get the required coverage of grandparents
-        self.floodred_pick_repeaters()
-        # Active newly elected flood repeater interfaces (gracefully, i.e. activating new flood
-        # repeaters before de-activating old flood repeaters)
-        self.floodrep_update_intfs()
+        if self.floodred_enabled:
+            # Update parents and grandparents
+            self.floodred_update_ancestry()
+            # Sort and shuffle parents (order by decreasing grandparent count)
+            self.floodred_sort_shuffle_parents()
+            # Pick flood repeaters to get the required coverage of grandparents
+            self.floodred_pick_repeaters()
+            # Active newly elected flood repeater interfaces (gracefully, i.e. activating new flood
+            # repeaters before de-activating old flood repeaters)
+            self.floodrep_update_intfs()
+        else:
+            # Flooding reduction is disabled. Don't compute parents or grandparents. Tell all
+            # north neighbors that they are flood repeaters (i.e. no reduction in flooding)
+            self.floodrep_all_intfs_are_fr()
 
     def floodred_update_ancestry(self):
         # Update the following information about parents and grandparents
@@ -2324,6 +2329,10 @@ class Node:
         for parent in self.floodred_parents:
             if not parent.flood_repeater:
                 self.floodrep_deactivate_fr_on_intf(parent.intf)
+
+    def floodrep_all_intfs_are_fr(self):
+        for intf in self.interfaces_by_name.values():
+            intf.activate_flood_repeater(force=True)
 
     def floodrep_activate_fr_on_intf(self, intf):
         if intf.activate_flood_repeater():

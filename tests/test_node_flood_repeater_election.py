@@ -12,6 +12,7 @@ import packet_common
 # pylint:disable=too-many-locals
 # pylint:disable=invalid-name
 # pylint:disable=line-too-long
+# pylint:disable=too-many-lines
 
 NODE_SYSID = 1
 NODE_LEVEL = 0
@@ -139,8 +140,10 @@ def check_flood_repeater_election(parents, expected_parents, expected_grandparen
                                   additional_node_config=None):
     test_node = make_test_node(parents, additional_node_config)
     test_node.floodred_elect_repeaters()
-    assert test_node.floodred_parents_table().to_string() == expected_parents
-    assert test_node.floodred_grandparents_table().to_string() == expected_grandparents
+    if expected_parents:
+        assert test_node.floodred_parents_table().to_string() == expected_parents
+    if expected_grandparents:
+        assert test_node.floodred_grandparents_table().to_string() == expected_grandparents
     assert test_node.floodred_interfaces_table().to_string() == expected_intfs
     return test_node
 
@@ -974,6 +977,237 @@ def test_similarity():
         "| intf17    | intf1     | 17        | THREE_WAY | North     | True (Pending) | Not Applicable |\n"
         "+-----------+-----------+-----------+-----------+-----------+----------------+----------------+\n"
         "| intf18    | intf1     | 18        | THREE_WAY | North     | True (Pending) | Not Applicable |\n"
+        "+-----------+-----------+-----------+-----------+-----------+----------------+----------------+\n")
+    check_flood_repeater_election(parents, expected_parents, expected_grandparents, expected_intfs,
+                                  additional_node_config)
+
+def test_redundancy():
+    packet_common.add_missing_methods_to_thrift()
+    #
+    # Default redundancy is 2
+    #
+    parents = {}
+    test_node = make_test_node(parents)
+    expected_node_re = r"Flooding Reduction Redundancy[| ]*2 "
+    assert re.search(expected_node_re, test_node.cli_details_table().to_string())
+    #
+    # Configure redundancy 1
+    #
+    additional_node_config = {"flooding_reduction_redundancy": 1}
+    test_node = make_test_node(parents, additional_node_config)
+    expected_node_re = r"Flooding Reduction Redundancy[| ]*1 "
+    assert re.search(expected_node_re, test_node.cli_details_table().to_string())
+    #
+    # Topology (same as test_8x8_partial_connectivity_fully_redundant_coverage)
+    #
+    parents = {
+        # pylint:disable=bad-whitespace
+        11: [21, 22,     24, 25, 26        ],
+        12: [            24, 25, 26, 27, 28],
+        13: [21, 22,     24,     26, 27, 28],
+        14: [21, 22, 23, 24, 25, 26, 27, 28],
+        15: [    22,     24,     26,     28],
+        16: [21,                         28],
+        17: [21, 22, 23,     25, 26, 27, 28],
+        18: [21, 22, 23, 24, 25,     27, 28]
+    }
+    expected_parents = (
+        "+-----------+-----------+-----------+-------------+------------+----------+\n"
+        "| Interface | Parent    | Parent    | Grandparent | Similarity | Flood    |\n"
+        "| Name      | System ID | Interface | Count       | Group      | Repeater |\n"
+        "|           |           | Name      |             |            |          |\n"
+        "+-----------+-----------+-----------+-------------+------------+----------+\n"
+        "| intf18    | 18        | intf1     | 7           | 1: 8-6     | True     |\n"
+        "+-----------+-----------+-----------+-------------+------------+----------+\n"
+        "| intf13    | 13        | intf1     | 6           | 1: 8-6     | True     |\n"
+        "+-----------+-----------+-----------+-------------+------------+----------+\n"
+        "| intf14    | 14        | intf1     | 8           | 1: 8-6     | False    |\n"
+        "+-----------+-----------+-----------+-------------+------------+----------+\n"
+        "| intf17    | 17        | intf1     | 7           | 1: 8-6     | False    |\n"
+        "+-----------+-----------+-----------+-------------+------------+----------+\n"
+        "| intf11    | 11        | intf1     | 5           | 2: 5-4     | False    |\n"
+        "+-----------+-----------+-----------+-------------+------------+----------+\n"
+        "| intf15    | 15        | intf1     | 4           | 2: 5-4     | False    |\n"
+        "+-----------+-----------+-----------+-------------+------------+----------+\n"
+        "| intf12    | 12        | intf1     | 5           | 2: 5-4     | False    |\n"
+        "+-----------+-----------+-----------+-------------+------------+----------+\n"
+        "| intf16    | 16        | intf1     | 2           | 3: 2-2     | False    |\n"
+        "+-----------+-----------+-----------+-------------+------------+----------+\n")
+    expected_grandparents = (
+        "+-------------+--------+-------------+-------------+\n"
+        "| Grandparent | Parent | Flood       | Redundantly |\n"
+        "| System ID   | Count  | Repeater    | Covered     |\n"
+        "|             |        | Adjacencies |             |\n"
+        "+-------------+--------+-------------+-------------+\n"
+        "| 21          | 6      | 2           | True        |\n"
+        "+-------------+--------+-------------+-------------+\n"
+        "| 22          | 6      | 2           | True        |\n"
+        "+-------------+--------+-------------+-------------+\n"
+        "| 23          | 3      | 1           | True        |\n"
+        "+-------------+--------+-------------+-------------+\n"
+        "| 24          | 6      | 2           | True        |\n"
+        "+-------------+--------+-------------+-------------+\n"
+        "| 25          | 5      | 1           | True        |\n"
+        "+-------------+--------+-------------+-------------+\n"
+        "| 26          | 6      | 1           | True        |\n"
+        "+-------------+--------+-------------+-------------+\n"
+        "| 27          | 5      | 2           | True        |\n"
+        "+-------------+--------+-------------+-------------+\n"
+        "| 28          | 7      | 2           | True        |\n"
+        "+-------------+--------+-------------+-------------+\n")
+    expected_intfs = (
+        "+-----------+-----------+-----------+-----------+-----------+----------------+----------------+\n"
+        "| Interface | Neighbor  | Neighbor  | Neighbor  | Neighbor  | Neighbor is    | This Node is   |\n"
+        "| Name      | Interface | System ID | State     | Direction | Flood Repeater | Flood Repeater |\n"
+        "|           | Name      |           |           |           | for This Node  | for Neighbor   |\n"
+        "+-----------+-----------+-----------+-----------+-----------+----------------+----------------+\n"
+        "| intf11    | intf1     | 11        | THREE_WAY | North     | False          | Not Applicable |\n"
+        "+-----------+-----------+-----------+-----------+-----------+----------------+----------------+\n"
+        "| intf12    | intf1     | 12        | THREE_WAY | North     | False          | Not Applicable |\n"
+        "+-----------+-----------+-----------+-----------+-----------+----------------+----------------+\n"
+        "| intf13    | intf1     | 13        | THREE_WAY | North     | True (Pending) | Not Applicable |\n"
+        "+-----------+-----------+-----------+-----------+-----------+----------------+----------------+\n"
+        "| intf14    | intf1     | 14        | THREE_WAY | North     | False          | Not Applicable |\n"
+        "+-----------+-----------+-----------+-----------+-----------+----------------+----------------+\n"
+        "| intf15    | intf1     | 15        | THREE_WAY | North     | False          | Not Applicable |\n"
+        "+-----------+-----------+-----------+-----------+-----------+----------------+----------------+\n"
+        "| intf16    | intf1     | 16        | THREE_WAY | North     | False          | Not Applicable |\n"
+        "+-----------+-----------+-----------+-----------+-----------+----------------+----------------+\n"
+        "| intf17    | intf1     | 17        | THREE_WAY | North     | False          | Not Applicable |\n"
+        "+-----------+-----------+-----------+-----------+-----------+----------------+----------------+\n"
+        "| intf18    | intf1     | 18        | THREE_WAY | North     | True (Pending) | Not Applicable |\n"
+        "+-----------+-----------+-----------+-----------+-----------+----------------+----------------+\n")
+    check_flood_repeater_election(parents, expected_parents, expected_grandparents, expected_intfs,
+                                  additional_node_config)
+    #
+    # Configure redundancy 6 (not all grandparents can be covered at this redundancy)
+    #
+    additional_node_config = {"flooding_reduction_redundancy": 6}
+    test_node = make_test_node(parents, additional_node_config)
+    expected_node_re = r"Flooding Reduction Redundancy[| ]*6 "
+    assert re.search(expected_node_re, test_node.cli_details_table().to_string())
+    expected_parents = (
+        "+-----------+-----------+-----------+-------------+------------+----------+\n"
+        "| Interface | Parent    | Parent    | Grandparent | Similarity | Flood    |\n"
+        "| Name      | System ID | Interface | Count       | Group      | Repeater |\n"
+        "|           |           | Name      |             |            |          |\n"
+        "+-----------+-----------+-----------+-------------+------------+----------+\n"
+        "| intf18    | 18        | intf1     | 7           | 1: 8-6     | True     |\n"
+        "+-----------+-----------+-----------+-------------+------------+----------+\n"
+        "| intf13    | 13        | intf1     | 6           | 1: 8-6     | True     |\n"
+        "+-----------+-----------+-----------+-------------+------------+----------+\n"
+        "| intf14    | 14        | intf1     | 8           | 1: 8-6     | True     |\n"
+        "+-----------+-----------+-----------+-------------+------------+----------+\n"
+        "| intf17    | 17        | intf1     | 7           | 1: 8-6     | True     |\n"
+        "+-----------+-----------+-----------+-------------+------------+----------+\n"
+        "| intf11    | 11        | intf1     | 5           | 2: 5-4     | True     |\n"
+        "+-----------+-----------+-----------+-------------+------------+----------+\n"
+        "| intf15    | 15        | intf1     | 4           | 2: 5-4     | True     |\n"
+        "+-----------+-----------+-----------+-------------+------------+----------+\n"
+        "| intf12    | 12        | intf1     | 5           | 2: 5-4     | True     |\n"
+        "+-----------+-----------+-----------+-------------+------------+----------+\n"
+        "| intf16    | 16        | intf1     | 2           | 3: 2-2     | True     |\n"
+        "+-----------+-----------+-----------+-------------+------------+----------+\n")
+    expected_grandparents = (
+        "+-------------+--------+-------------+-------------+\n"
+        "| Grandparent | Parent | Flood       | Redundantly |\n"
+        "| System ID   | Count  | Repeater    | Covered     |\n"
+        "|             |        | Adjacencies |             |\n"
+        "+-------------+--------+-------------+-------------+\n"
+        "| 21          | 6      | 6           | True        |\n"
+        "+-------------+--------+-------------+-------------+\n"
+        "| 22          | 6      | 6           | True        |\n"
+        "+-------------+--------+-------------+-------------+\n"
+        "| 23          | 3      | 3           | False       |\n"
+        "+-------------+--------+-------------+-------------+\n"
+        "| 24          | 6      | 6           | True        |\n"
+        "+-------------+--------+-------------+-------------+\n"
+        "| 25          | 5      | 5           | False       |\n"
+        "+-------------+--------+-------------+-------------+\n"
+        "| 26          | 6      | 6           | True        |\n"
+        "+-------------+--------+-------------+-------------+\n"
+        "| 27          | 5      | 5           | False       |\n"
+        "+-------------+--------+-------------+-------------+\n"
+        "| 28          | 7      | 7           | True        |\n"
+        "+-------------+--------+-------------+-------------+\n")
+    expected_intfs = (
+        "+-----------+-----------+-----------+-----------+-----------+----------------+----------------+\n"
+        "| Interface | Neighbor  | Neighbor  | Neighbor  | Neighbor  | Neighbor is    | This Node is   |\n"
+        "| Name      | Interface | System ID | State     | Direction | Flood Repeater | Flood Repeater |\n"
+        "|           | Name      |           |           |           | for This Node  | for Neighbor   |\n"
+        "+-----------+-----------+-----------+-----------+-----------+----------------+----------------+\n"
+        "| intf11    | intf1     | 11        | THREE_WAY | North     | True (Pending) | Not Applicable |\n"
+        "+-----------+-----------+-----------+-----------+-----------+----------------+----------------+\n"
+        "| intf12    | intf1     | 12        | THREE_WAY | North     | True (Pending) | Not Applicable |\n"
+        "+-----------+-----------+-----------+-----------+-----------+----------------+----------------+\n"
+        "| intf13    | intf1     | 13        | THREE_WAY | North     | True (Pending) | Not Applicable |\n"
+        "+-----------+-----------+-----------+-----------+-----------+----------------+----------------+\n"
+        "| intf14    | intf1     | 14        | THREE_WAY | North     | True (Pending) | Not Applicable |\n"
+        "+-----------+-----------+-----------+-----------+-----------+----------------+----------------+\n"
+        "| intf15    | intf1     | 15        | THREE_WAY | North     | True (Pending) | Not Applicable |\n"
+        "+-----------+-----------+-----------+-----------+-----------+----------------+----------------+\n"
+        "| intf16    | intf1     | 16        | THREE_WAY | North     | True (Pending) | Not Applicable |\n"
+        "+-----------+-----------+-----------+-----------+-----------+----------------+----------------+\n"
+        "| intf17    | intf1     | 17        | THREE_WAY | North     | True (Pending) | Not Applicable |\n"
+        "+-----------+-----------+-----------+-----------+-----------+----------------+----------------+\n"
+        "| intf18    | intf1     | 18        | THREE_WAY | North     | True (Pending) | Not Applicable |\n"
+        "+-----------+-----------+-----------+-----------+-----------+----------------+----------------+\n")
+    check_flood_repeater_election(parents, expected_parents, expected_grandparents, expected_intfs,
+                                  additional_node_config)
+
+def test_disable():
+    packet_common.add_missing_methods_to_thrift()
+    #
+    # Flooding reduction is enabled by default
+    #
+    parents = {}
+    test_node = make_test_node(parents)
+    expected_node_re = r"Flooding Reduction Enabled[| ]*True "
+    assert re.search(expected_node_re, test_node.cli_details_table().to_string())
+    #
+    # Disable flooding reduction
+    #
+    additional_node_config = {"flooding_reduction": False}
+    test_node = make_test_node(parents, additional_node_config)
+    expected_node_re = r"Flooding Reduction Enabled[| ]*False "
+    assert re.search(expected_node_re, test_node.cli_details_table().to_string())
+    #
+    # Topology (same as test_8x8_partial_connectivity_fully_redundant_coverage)
+    #
+    parents = {
+        # pylint:disable=bad-whitespace
+        11: [21, 22,     24, 25, 26        ],
+        12: [            24, 25, 26, 27, 28],
+        13: [21, 22,     24,     26, 27, 28],
+        14: [21, 22, 23, 24, 25, 26, 27, 28],
+        15: [    22,     24,     26,     28],
+        16: [21,                         28],
+        17: [21, 22, 23,     25, 26, 27, 28],
+        18: [21, 22, 23, 24, 25,     27, 28]
+    }
+    expected_parents = None
+    expected_grandparents = None
+    expected_intfs = (
+        "+-----------+-----------+-----------+-----------+-----------+----------------+----------------+\n"
+        "| Interface | Neighbor  | Neighbor  | Neighbor  | Neighbor  | Neighbor is    | This Node is   |\n"
+        "| Name      | Interface | System ID | State     | Direction | Flood Repeater | Flood Repeater |\n"
+        "|           | Name      |           |           |           | for This Node  | for Neighbor   |\n"
+        "+-----------+-----------+-----------+-----------+-----------+----------------+----------------+\n"
+        "| intf11    | intf1     | 11        | THREE_WAY | North     | True           | Not Applicable |\n"
+        "+-----------+-----------+-----------+-----------+-----------+----------------+----------------+\n"
+        "| intf12    | intf1     | 12        | THREE_WAY | North     | True           | Not Applicable |\n"
+        "+-----------+-----------+-----------+-----------+-----------+----------------+----------------+\n"
+        "| intf13    | intf1     | 13        | THREE_WAY | North     | True           | Not Applicable |\n"
+        "+-----------+-----------+-----------+-----------+-----------+----------------+----------------+\n"
+        "| intf14    | intf1     | 14        | THREE_WAY | North     | True           | Not Applicable |\n"
+        "+-----------+-----------+-----------+-----------+-----------+----------------+----------------+\n"
+        "| intf15    | intf1     | 15        | THREE_WAY | North     | True           | Not Applicable |\n"
+        "+-----------+-----------+-----------+-----------+-----------+----------------+----------------+\n"
+        "| intf16    | intf1     | 16        | THREE_WAY | North     | True           | Not Applicable |\n"
+        "+-----------+-----------+-----------+-----------+-----------+----------------+----------------+\n"
+        "| intf17    | intf1     | 17        | THREE_WAY | North     | True           | Not Applicable |\n"
+        "+-----------+-----------+-----------+-----------+-----------+----------------+----------------+\n"
+        "| intf18    | intf1     | 18        | THREE_WAY | North     | True           | Not Applicable |\n"
         "+-----------+-----------+-----------+-----------+-----------+----------------+----------------+\n")
     check_flood_repeater_election(parents, expected_parents, expected_grandparents, expected_intfs,
                                   additional_node_config)
