@@ -208,7 +208,7 @@ def apply_global_defaults(config):
     if 'flooding_reduction_redundancy' not in global_config:
         global_config['flooding_reduction_redundancy'] = \
             constants.DEFAULT_FLOODING_REDUCTION_REDUNDANCY
-    if 'flooding_reduction_similarirty' not in global_config:
+    if 'flooding_reduction_similarity' not in global_config:
         global_config['flooding_reduction_similarity'] = \
             constants.DEFAULT_FLOODING_REDUCTION_SIMILARITY
     config['const'] = global_config
