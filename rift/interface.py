@@ -46,8 +46,8 @@ class Interface:
 
     @staticmethod
     def generate_nonce():
-        # 63 bits instead of 64 because nonce field is a signed i64
-        nonce = random.getrandbits(63)
+        # 15 bits instead of 16 because nonce field is a signed i64
+        nonce = random.getrandbits(15)
         return nonce
 
     class State(enum.Enum):
