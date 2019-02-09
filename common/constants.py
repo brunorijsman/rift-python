@@ -10,6 +10,7 @@ from thrift.Thrift import TType, TMessageType, TFrozenDict, TException, TApplica
 from thrift.protocol.TProtocol import TProtocolException
 import sys
 from .ttypes import *
+undefined_packet_number = 0
 top_of_fabric_level = 24
 default_bandwidth = 100
 leaf_level = 0
@@ -29,7 +30,12 @@ IllegalSystemID = 0
 empty_set_of_nodeids = set((
 ))
 default_lifetime = 604800
-lifetime_diff2ignore = 300
+purge_lifetime = 300
+rounddown_lifetime_interval = 60
+lifetime_diff2ignore = 400
 default_lie_udp_port = 911
 default_tie_udp_flood_port = 912
 default_mtu_size = 1400
+bfd_default = True
+undefined_nonce = 0
+maximum_valid_nonce_delta = 5

@@ -132,7 +132,6 @@ class RouteType(object):
     normal prefixes are attracting traffic south (towards leafs),
     i.e. prefix in NORTH PREFIX TIE is preferred over SOUTH PREFIX TIE
 
-    @todo: external routes
     @note: The only purpose of those values is to introduce an
            ordering whereas an implementation can choose internally
            any other values as long the ordering is preserved
@@ -144,10 +143,10 @@ class RouteType(object):
     SouthPGPPrefix = 4
     NorthPGPPrefix = 5
     NorthPrefix = 6
-    SouthPrefix = 7
-    NorthExternalPrefix = 8
+    NorthExternalPrefix = 7
+    SouthPrefix = 8
     SouthExternalPrefix = 9
-    NegativeNorthPrefix = 10
+    NegativeSouthPrefix = 10
     RouteTypeMaxValue = 11
 
     _VALUES_TO_NAMES = {
@@ -158,10 +157,10 @@ class RouteType(object):
         4: "SouthPGPPrefix",
         5: "NorthPGPPrefix",
         6: "NorthPrefix",
-        7: "SouthPrefix",
-        8: "NorthExternalPrefix",
+        7: "NorthExternalPrefix",
+        8: "SouthPrefix",
         9: "SouthExternalPrefix",
-        10: "NegativeNorthPrefix",
+        10: "NegativeSouthPrefix",
         11: "RouteTypeMaxValue",
     }
 
@@ -173,10 +172,10 @@ class RouteType(object):
         "SouthPGPPrefix": 4,
         "NorthPGPPrefix": 5,
         "NorthPrefix": 6,
-        "SouthPrefix": 7,
-        "NorthExternalPrefix": 8,
+        "NorthExternalPrefix": 7,
+        "SouthPrefix": 8,
         "SouthExternalPrefix": 9,
-        "NegativeNorthPrefix": 10,
+        "NegativeSouthPrefix": 10,
         "RouteTypeMaxValue": 11,
     }
 
