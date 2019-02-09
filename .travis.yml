@@ -6,12 +6,24 @@ python:
   - "3.6-dev"
   - "3.7-dev"
 install:
+  - virtualenv env --python=python3
+  - source env/bin/activate
   - pip install -r requirements.txt
   - pip install pylint
   - pip install codecov
+  # Python3 needs root and setuid to allow test_kernel to add routes to the kernel
+  - sudo chown root env/bin/python3
+  - sudo chmod u+s env/bin/python3
+  # Insert list of interfaces and their addresses in log
+  - ifconfig
 script:
   # We are strict; if the pylint score is not perfect, we fail the build
-  - pytest --cov=rift tests && pylint rift && pylint tests
+  - pytest --cov=rift tests && pylint rift && pylint tests && pylint tools
   
 after_success:
   - codecov
+
+after_failure:
+  - cat rift_expect.log
+  - cat rift_telnet_expect.log
+  - cat test_telnet_expect.log

@@ -1,23 +1,74 @@
+# pylint: disable=too-many-lines
+
+import collections
+import copy
 import enum
 import logging
 import os
 import socket
 import uuid
 
+import heapdict
 import sortedcontainers
 
 import common.constants
 import constants
 import encoding.ttypes
+import fib
 import fsm
 import interface
-import neighbor
+import kernel
+import next_hop
 import offer
 import packet_common
+import rib
+import route
+import spf_dest
 import table
-import tie_db
 import timer
 import utils
+
+MY_TIE_NR = 1
+
+FLUSH_LIFETIME = 60
+
+# TODO: We currently only store the decoded TIE messages.
+# Also store the encoded TIE messages for the following reasons:
+# - Encode only once, instead of each time the message is sent
+# - Ability to flood the message immediately before it is decoded
+# Note: the encoded TIE protocol packet that we send is different from the encoded TIE protocol
+# packet that we send (specifically, the content is the same but the header reflect us as the
+# sender)
+
+# TODO: Make static method of Node
+def compare_tie_header_age(header1, header2):
+    # Returns -1 is header1 is older, returns +1 if header1 is newer, 0 if "same" age
+    # It is not allowed to call this function with headers with different TIE-IDs.
+    assert header1.tieid == header2.tieid
+    # Highest sequence number is newer
+    if header1.seq_nr < header2.seq_nr:
+        return -1
+    if header1.seq_nr > header2.seq_nr:
+        return 1
+    # When a node advertises remaining_lifetime 0 in a TIRE, it means a request (I don't have
+    # that TIRE, please send it). Thus, if one header has remaining_lifetime 0 and the other
+    # does not, then the one with non-zero remaining_lifetime is always newer.
+    if (header1.remaining_lifetime == 0) and (header2.remaining_lifetime != 0):
+        return -1
+    if (header1.remaining_lifetime != 0) and (header2.remaining_lifetime == 0):
+        return 1
+    # The header with the longest remaining lifetime is considered newer. However, if the
+    # difference in remaining lifetime is less than 5 minutes (300 seconds), they are considered
+    # to be the same age.
+    age_diff = abs(header1.remaining_lifetime - header2.remaining_lifetime)
+    if age_diff > common.constants.lifetime_diff2ignore:
+        if header1.remaining_lifetime < header2.remaining_lifetime:
+            return -1
+        if header1.remaining_lifetime > header2.remaining_lifetime:
+            return 1
+    # TODO: Figure out what to do with origination_time
+    # If we get this far, we have a tie (same age)
+    return 0
 
 class Node:
 
@@ -26,6 +77,27 @@ class Node:
     ZTP_MIN_NUMBER_OF_PEER_FOR_LEVEL = 3
 
     SEND_TIDES_INTERVAL = 2.0
+
+    # TODO: Use constant from Thrift file (it is currently not there, but Tony said he added it)
+    # Don't use the actual lowest value 0 (which is enum value Illegal) for direction or tietype,
+    # but value 1 (direction South) or value 2 (tietype TieTypeNode). Juniper RIFT doesn't accept
+    # illegal values.
+    MIN_TIE_ID = encoding.ttypes.TIEID(
+        direction=constants.DIR_SOUTH,
+        originator=0,
+        tietype=common.ttypes.TIETypeType.NodeTIEType,
+        tie_nr=0)
+    # For the same reason don't use DirectionMaxValue or TIETypeMaxValue but North and
+    # KeyValueTIEType instead
+    MAX_TIE_ID = encoding.ttypes.TIEID(
+        direction=constants.DIR_NORTH,
+        originator=packet_common.MAX_U64,
+        tietype=common.ttypes.TIETypeType.KeyValueTIEType,
+        tie_nr=packet_common.MAX_U32)
+
+    MIN_SPF_INTERVAL = 1.0
+
+    SPF_TRIGGER_HISTORY_LENGTH = 10
 
     # TODO: This value is not specified anywhere in the specification
     DEFAULT_HOLD_DOWN_TIME = 3.0
@@ -141,20 +213,20 @@ class Node:
             hal = None
         if self._highest_available_level != hal:
             if hal:
-                self._fsm.push_event(self.Event.BETTER_HAL)
+                self.fsm.push_event(self.Event.BETTER_HAL)
             else:
-                self._fsm.push_event(self.Event.LOST_HAL)
+                self.fsm.push_event(self.Event.LOST_HAL)
         # Determine if the Highest Adjacency Three-way (HAT) would change based on the current
         # offer. If it would change, push an event, but don't update the HAL yet.
         if best_offer_three_way:
             hat = best_offer_three_way.level
         else:
             hat = None
-        if self._highest_adjacency_three_way != hat:
+        if self.highest_adjacency_three_way != hat:
             if hat:
-                self._fsm.push_event(self.Event.BETTER_HAT)
+                self.fsm.push_event(self.Event.BETTER_HAT)
             else:
-                self._fsm.push_event(self.Event.LOST_HAT)
+                self.fsm.push_event(self.Event.LOST_HAT)
 
     def level_compute(self):
         # Find best offer overall and best offer in state 3-way. This was computer earlier in
@@ -177,9 +249,9 @@ class Node:
             hat = best_offer_three_way.level
         else:
             hat = None
-        self._highest_adjacency_three_way = hat
+        self.highest_adjacency_three_way = hat
         # Push event COMPUTATION_DONE
-        self._fsm.push_event(self.Event.COMPUTATION_DONE)
+        self.fsm.push_event(self.Event.COMPUTATION_DONE)
 
     def action_level_compute(self):
         self.level_compute()
@@ -204,9 +276,9 @@ class Node:
         parse_result = self.parse_level_symbol(self._configured_level_symbol)
         assert parse_result is not None, "Set command should not have allowed invalid config"
         (configured_level, leaf_only, leaf_2_leaf, top_of_fabric_flag) = parse_result
-        self._configured_level = configured_level
+        self.configured_level = configured_level
         self._leaf_only = leaf_only
-        self._leaf_2_leaf = leaf_2_leaf
+        self.leaf_2_leaf = leaf_2_leaf
         self._top_of_fabric_flag = top_of_fabric_flag
 
     def action_purge_offers(self):
@@ -244,7 +316,7 @@ class Node:
         if self.any_southbound_adjacencies():
             self._hold_down_timer.start()
         else:
-            self._fsm.push_event(self.Event.HOLD_DOWN_EXPIRED)
+            self.fsm.push_event(self.Event.HOLD_DOWN_EXPIRED)
 
     def action_stop_hold_down_timer(self):
         self._hold_down_timer.stop()
@@ -298,52 +370,83 @@ class Node:
         state_actions=_state_actions,
         verbose_events=verbose_events)
 
-    def __init__(self, parent_engine, config, force_passive):
+    def __init__(self, config, engine=None, force_passive=False, stand_alone=False):
+        # pylint:disable=too-many-statements
         # pylint: disable=too-many-statements
-        self._engine = parent_engine
+        self.engine = engine
         self._config = config
         self._node_nr = Node._next_node_nr
         Node._next_node_nr += 1
-        self._name = self.get_config_attribute('name', self.generate_name())
+        self.name = self.get_config_attribute("name", self.generatename())
         self._passive = force_passive or self.get_config_attribute('passive', False)
-        self._running = self.is_running()
-        self._system_id = self.get_config_attribute('systemid', self.generate_system_id())
-        self._log_id = self._name
-        self._log = logging.getLogger('node')
-        # TODO: Make sure formating of log message is deferred everywhere, not just direct calls
-        self._log.info("[%s] Create node", self._log_id)
+        self.running = self.is_running()
+        self.system_id = self.get_config_attribute("systemid", self.generate_system_id())
+        self.log_id = self.name
+        self.log = logging.getLogger('node')
+        self._fsm_log = self.log.getChild("fsm")
+        self._tie_db_log = self.log.getChild("tie_db")
+        self._spf_log = self.log.getChild("spf")
+        self._floodred_log = self.log.getChild("floodred")
+        self._rib_log = self.log.getChild("rib")
+        self._fib_log = self.log.getChild("fib")
+        self._kernel_log = self.log.getChild("kernel")
+        self._kernel_route_table = self.get_config_attribute("kernel_route_table", None)
+        if self._kernel_route_table is None:
+            if stand_alone:
+                self._kernel_route_table = "main"
+            elif self._node_nr <= 250:
+                self._kernel_route_table = self._node_nr
+            else:
+                self._kernel_route_table = "none"
+        self.kernel = kernel.Kernel(
+            self._kernel_route_table,
+            self._kernel_log,
+            self.log_id)
+        self.log.info("[%s] Create node", self.log_id)
         self._configured_level_symbol = self.get_config_attribute('level', 'undefined')
         parse_result = self.parse_level_symbol(self._configured_level_symbol)
         assert parse_result is not None, "Configuration validation should have caught this"
         (configured_level, leaf_only, leaf_2_leaf, top_of_fabric_flag) = parse_result
-        self._configured_level = configured_level
+        self.configured_level = configured_level
         self._leaf_only = leaf_only
-        self._leaf_2_leaf = leaf_2_leaf
+        self.leaf_2_leaf = leaf_2_leaf
         self._top_of_fabric_flag = top_of_fabric_flag
-        self._interfaces = sortedcontainers.SortedDict()
-        self._rx_lie_ipv4_mcast_address = self.get_config_attribute(
+        self.interfaces_by_name = sortedcontainers.SortedDict()
+        self.interfaces_by_id = {}
+        self.rx_lie_ipv4_mcast_address = self.get_config_attribute(
             'rx_lie_mcast_address', constants.DEFAULT_LIE_IPV4_MCAST_ADDRESS)
         self._tx_lie_ipv4_mcast_address = self.get_config_attribute(
             'tx_lie_mcast_address', constants.DEFAULT_LIE_IPV4_MCAST_ADDRESS)
-        self._rx_lie_ipv6_mcast_address = self.get_config_attribute(
+        self.rx_lie_ipv6_mcast_address = self.get_config_attribute(
             'rx_lie_v6_mcast_address', constants.DEFAULT_LIE_IPV6_MCAST_ADDRESS)
         self._tx_lie_ipv6_mcast_address = self.get_config_attribute(
             'tx_lie_v6_mcast_address', constants.DEFAULT_LIE_IPV6_MCAST_ADDRESS)
         self._rx_lie_port = self.get_config_attribute('rx_lie_port', constants.DEFAULT_LIE_PORT)
-        self._tx_lie_port = self.get_config_attribute('tx_lie_port', constants.DEFAULT_LIE_PORT)
+        self.tx_lie_port = self.get_config_attribute('tx_lie_port', constants.DEFAULT_LIE_PORT)
         # TODO: make lie-send-interval configurable
-        self._lie_send_interval_secs = constants.DEFAULT_LIE_SEND_INTERVAL_SECS
-        self._rx_tie_port = self.get_config_attribute('rx_tie_port', constants.DEFAULT_TIE_PORT)
+        self.lie_send_interval_secs = constants.DEFAULT_LIE_SEND_INTERVAL_SECS
+        self.rx_flood_port = self.get_config_attribute('rx_tie_port', constants.DEFAULT_TIE_PORT)
+        self.floodred_enabled = self.get_config_attribute('flooding_reduction', True)
+        self.floodred_redundancy = self.get_config_attribute(
+            'flooding_reduction_redundancy',
+            constants.DEFAULT_FLOODING_REDUCTION_REDUNDANCY)
+        self.floodred_similarity = self.get_config_attribute(
+            'flooding_reduction_similarity',
+            constants.DEFAULT_FLOODING_REDUCTION_SIMILARITY)
+        if engine:
+            system_random = engine.floodred_system_random
+        else:
+            system_random = 0
+        self.floodred_node_random = self.generate_node_random(system_random, self.system_id)
+        self.floodred_parents = []
+        self.floodred_grandparents = {}
         self._derived_level = None
         self._rx_offers = {}     # Indexed by interface name
         self._tx_offers = {}     # Indexed by interface name
         self._highest_available_level = None
-        self._highest_adjacency_three_way = None
-        self._fsm_log = self._log.getChild("fsm")
+        self.highest_adjacency_three_way = None
         self._holdtime = 1
         self._next_interface_id = 1
-        tie_db_log = self._log.getChild("tie_db")
-        self.tie_db = tie_db.TIE_DB(name=self._name, log=tie_db_log)
         if 'interfaces' in config:
             for interface_config in self._config['interfaces']:
                 self.create_interface(interface_config)
@@ -352,20 +455,57 @@ class Node:
         self.my_node_tie_seq_nrs[common.ttypes.TieDirectionType.North] = 0
         self.my_node_ties = {}                   # Indexed by neighbor direction
         self.other_node_ties_at_my_level = {}    # Indexed by tie_id
-        self._my_north_prefix_tie = None
+        self._my_north__tie = None
         self._originating_default = False
         self._my_south_prefix_tie = None
-        self.regenerate_my_node_ties()
-        self.regenerate_my_north_prefix_tie()
-        self.regenerate_my_south_prefix_tie()
-        self._fsm = fsm.Fsm(
+        self.ties = sortedcontainers.SortedDict()  # TIEPacket objects indexed by TIEID
+        self._last_received_tide_end = self.MIN_TIE_ID
+        self._defer_spf_timer = None
+        self._spf_triggers_count = 0
+        self._spf_triggers_deferred_count = 0
+        self._spf_deferred_trigger_pending = False
+        self._spf_runs_count = 0
+        self._spf_trigger_history = collections.deque([], self.SPF_TRIGGER_HISTORY_LENGTH)
+        self._spf_destinations = {}
+        self._spf_destinations[constants.DIR_SOUTH] = {}
+        self._spf_destinations[constants.DIR_NORTH] = {}
+        self._ipv4_fib = fib.ForwardingTable(
+            constants.ADDRESS_FAMILY_IPV4,
+            self.kernel,
+            self._fib_log,
+            self.log_id)
+        self._ipv6_fib = fib.ForwardingTable(
+            constants.ADDRESS_FAMILY_IPV6,
+            self.kernel,
+            self._fib_log,
+            self.log_id)
+        self._ipv4_rib = rib.RouteTable(
+            constants.ADDRESS_FAMILY_IPV4,
+            self._ipv4_fib,
+            self._rib_log,
+            self.log_id)
+        self._ipv6_rib = rib.RouteTable(
+            constants.ADDRESS_FAMILY_IPV6,
+            self._ipv6_fib,
+            self._rib_log,
+            self.log_id)
+        if "skip-self-orginated-ties" not in self._config:
+            self.regenerate_my_node_ties()
+            self.regenerate_my_north_prefix_tie()
+            self.regenerate_my_south_prefix_tie()
+        self._age_ties_timer = timer.Timer(
+            interval=1.0,
+            expire_function=self.age_ties,
+            periodic=True,
+            start=True)
+        self.fsm = fsm.Fsm(
             definition=self.fsm_definition,
             action_handler=self,
             log=self._fsm_log,
-            log_id=self._log_id)
+            log_id=self.log_id)
         self._hold_down_timer = timer.Timer(
             interval=self.DEFAULT_HOLD_DOWN_TIME,
-            expire_function=lambda: self._fsm.push_event(self.Event.HOLD_DOWN_EXPIRED),
+            expire_function=lambda: self.fsm.push_event(self.Event.HOLD_DOWN_EXPIRED),
             periodic=False,
             start=False)
         self._send_tides_timer = timer.Timer(
@@ -373,7 +513,7 @@ class Node:
             expire_function=self.send_tides,
             periodic=True,
             start=True)
-        self._fsm.start()
+        self.fsm.start()
 
     def generate_system_id(self):
         mac_address = uuid.getnode()
@@ -384,8 +524,35 @@ class Node:
             (self._node_nr & 0xff))
         return system_id
 
-    def generate_name(self):
+    def generatename(self):
         return socket.gethostname().split('.')[0] + str(self._node_nr)
+
+    @staticmethod
+    def generate_node_random(system_random, system_id):
+        assert 0 <= system_random <= 0xffffffffffffffff
+        assert 0 <= system_id <= 0xffffffffffffffff
+        system_random ^= system_id
+        word_1 = system_random & 0xffff
+        word_2 = (system_random >> 16) & 0xffff
+        word_3 = (system_random >> 32) & 0xffff
+        word_4 = (system_random >> 48) & 0xffff
+        word_1 = Node.left_shift_circular_16(word_1, 1)
+        word_2 = Node.left_shift_circular_16(word_1, 2)
+        word_3 = Node.left_shift_circular_16(word_1, 3)
+        word_4 = Node.left_shift_circular_16(word_1, 4)
+        node_random = word_1 ^ word_2 ^ word_3 ^ word_4
+        assert 0 <= node_random <= 0xffff
+        return node_random
+
+    @staticmethod
+    def left_shift_circular_16(number, shift):
+        assert 0 <= number <= 0xffff
+        for _count in range(0, shift):
+            number <<= 1
+            if number & 0x10000:
+                number &= 0xffff
+                number |= 0x0001
+        return number
 
     @staticmethod
     def parse_level_symbol(level_symbol):
@@ -413,8 +580,8 @@ class Node:
             return None
 
     def level_value(self):
-        if self._configured_level is not None:
-            return self._configured_level
+        if self.configured_level is not None:
+            return self.configured_level
         elif self._top_of_fabric_flag:
             return common.constants.top_of_fabric_level
         elif self._leaf_only:
@@ -463,7 +630,7 @@ class Node:
         # Is "Zero Touch Provisioning (ZTP)" aka "automatic level derivation" aka "level
         # determination procedure" aka "auto configuration" active? The criteria that determine
         # whether ZTP is enabled are spelled out in the first paragraph of section 4.2.9.4.
-        if self._configured_level is not None:
+        if self.configured_level is not None:
             return False
         elif self._top_of_fabric_flag:
             return False
@@ -473,9 +640,11 @@ class Node:
             return True
 
     def is_running(self):
-        if self._engine.active_nodes == constants.ActiveNodes.ONLY_PASSIVE_NODES:
+        if self.engine is None:
+            running = True
+        elif self.engine.active_nodes == constants.ActiveNodes.ONLY_PASSIVE_NODES:
             running = self._passive
-        elif self._engine.active_nodes == constants.ActiveNodes.ALL_NODES_EXCEPT_PASSIVE_NODES:
+        elif self.engine.active_nodes == constants.ActiveNodes.ALL_NODES_EXCEPT_PASSIVE_NODES:
             running = not self._passive
         else:
             running = True
@@ -489,32 +658,48 @@ class Node:
 
     def create_interface(self, interface_config):
         interface_name = interface_config['name']
-        self._interfaces[interface_name] = interface.Interface(self, interface_config)
+        intf = interface.Interface(self, interface_config)
+        self.interfaces_by_name[interface_name] = intf
+        self.interfaces_by_id[intf.local_id] = intf
+        return intf
 
-    def cli_detailed_attributes(self):
-        return [
-            ["Name", self._name],
+    def cli_details_table(self):
+        tab = table.Table(separators=False)
+        tab.add_rows([
+            ["Name", self.name],
             ["Passive", self._passive],
             ["Running", self.is_running()],
-            ["System ID", utils.system_id_str(self._system_id)],
+            ["System ID", utils.system_id_str(self.system_id)],
             ["Configured Level", self._configured_level_symbol],
             ["Leaf Only", self._leaf_only],
-            ["Leaf 2 Leaf", self._leaf_2_leaf],
+            ["Leaf 2 Leaf", self.leaf_2_leaf],
             ["Top of Fabric Flag", self._top_of_fabric_flag],
             ["Zero Touch Provisioning (ZTP) Enabled", self.zero_touch_provisioning_enabled()],
-            ["ZTP FSM State", self._fsm.state.name],
+            ["ZTP FSM State", self.fsm.state.name],
             ["ZTP Hold Down Timer", self._hold_down_timer.remaining_time_str()],
             ["Highest Available Level (HAL)", self._highest_available_level],
-            ["Highest Adjacency Three-way (HAT)", self._highest_adjacency_three_way],
+            ["Highest Adjacency Three-way (HAT)", self.highest_adjacency_three_way],
             ["Level Value", self.level_value_str()],
-            ["Receive LIE IPv4 Multicast Address", self._rx_lie_ipv4_mcast_address],
+            ["Receive LIE IPv4 Multicast Address", self.rx_lie_ipv4_mcast_address],
             ["Transmit LIE IPv4 Multicast Address", self._tx_lie_ipv4_mcast_address],
-            ["Receive LIE IPv6 Multicast Address", self._rx_lie_ipv6_mcast_address],
+            ["Receive LIE IPv6 Multicast Address", self.rx_lie_ipv6_mcast_address],
             ["Transmit LIE IPv6 Multicast Address", self._tx_lie_ipv6_mcast_address],
             ["Receive LIE Port", self._rx_lie_port],
-            ["Transmit LIE Port", self._tx_lie_port],
-            ["LIE Send Interval", "{} secs".format(self._lie_send_interval_secs)],
-            ["Receive TIE Port", self._rx_tie_port]
+            ["Transmit LIE Port", self.tx_lie_port],
+            ["LIE Send Interval", "{} secs".format(self.lie_send_interval_secs)],
+            ["Receive TIE Port", self.rx_flood_port],
+            ["Kernel Route Table", self._kernel_route_table],
+            ["Flooding Reduction Enabled", self.floodred_enabled],
+            ["Flooding Reduction Redundancy", self.floodred_redundancy],
+            ["Flooding Reduction Similarity", self.floodred_similarity],
+            ["Flooding Reduction Node Random", self.floodred_node_random],
+        ])
+        return tab
+
+    def cli_statistics_attributes(self):
+        return [
+            ["SPF Runs", self._spf_runs_count],
+            ["SPF Deferrals", self._spf_triggers_deferred_count]
         ]
 
     def allocate_interface_id(self):
@@ -527,44 +712,60 @@ class Node:
     # TODO: Have a show comman to report other_node_ties_at_my_level
 
     def store_tie_in_db(self, tie):
-        self.tie_db.store_tie(tie)
+        self.store_tie(tie)
         if ((tie.header.tieid.tietype == common.ttypes.TIETypeType.NodeTIEType) and
                 (tie.element.node.level == self.level_value())):
             self.other_node_ties_at_my_level[tie.header.tieid] = tie
             self.regenerate_my_south_prefix_tie()
 
     def remove_tie_from_db(self, tie_id):
-        self.tie_db.remove_tie(tie_id)
+        self.remove_tie(tie_id)
         if tie_id in self.other_node_ties_at_my_level:
             del self.other_node_ties_at_my_level[tie_id]
             self.regenerate_my_south_prefix_tie()
 
+    def up_interfaces(self, interface_going_down):
+        for intf in self.interfaces_by_name.values():
+            if ((intf.fsm.state == interface.Interface.State.THREE_WAY) and
+                    (intf != interface_going_down)):
+                yield intf
+
     def regenerate_node_tie(self, direction, interface_going_down=None):
-        if direction == common.ttypes.TieDirectionType.South:
-            tie_nr = tie_db.SOUTH_NODE_TIE_NR
-        elif direction == common.ttypes.TieDirectionType.North:
-            tie_nr = tie_db.NORTH_NODE_TIE_NR
-        else:
-            assert False, "Invalid direction"
+        tie_nr = MY_TIE_NR
         self.my_node_tie_seq_nrs[direction] += 1
         seq_nr = self.my_node_tie_seq_nrs[direction]
         node_tie_packet = packet_common.make_node_tie_packet(
-            name=self._name,
+            name=self.name,
             level=self.level_value(),
             direction=direction,
-            originator=self._system_id,
+            originator=self.system_id,
             tie_nr=tie_nr,
             seq_nr=seq_nr,
             lifetime=common.constants.default_lifetime)
-        for intf in self._interfaces.values():
-            if ((intf.fsm.state == interface.Interface.State.THREE_WAY) and
-                    (intf != interface_going_down)):
-                node_neighbor = packet_common.make_node_neighbor(level=intf.neighbor.level)
-                node_tie_packet.element.node.neighbors[intf.neighbor.system_id] = node_neighbor
+        for intf in self.up_interfaces(interface_going_down):
+            # Did we already report the neighbor on the other end of this interface? This
+            # happens if we have multiple parallel interfaces to the same neighbor.
+            if intf.neighbor.system_id in node_tie_packet.element.node.neighbors:
+                continue
+            # Gather all interfaces (link id pairs) from this node to the same neighbor. Once
+            # again, this happens if we have multiple parallel interfaces to the same neighbor.
+            link_ids = set()
+            for intf2 in self.up_interfaces(interface_going_down):
+                if intf.neighbor.system_id == intf2.neighbor.system_id:
+                    local_id = intf2.local_id
+                    remote_id = intf2.neighbor.local_id
+                    link_id_pair = encoding.ttypes.LinkIDPair(local_id, remote_id)
+                    link_ids.add(link_id_pair)
+            node_neighbor = encoding.ttypes.NodeNeighborsTIEElement(
+                level=intf.neighbor.level,
+                cost=1,         # TODO: Take this from config file
+                link_ids=link_ids,
+                bandwidth=100)  # TODO: Take this from config file or interface
+            node_tie_packet.element.node.neighbors[intf.neighbor.system_id] = node_neighbor
         self.my_node_ties[direction] = node_tie_packet
         self.store_tie_in_db(node_tie_packet)
-        self.info("Regenerated node TIE for direction {}: {}"
-                  .format(packet_common.direction_str(direction), node_tie_packet))
+        self.info("Regenerated node TIE for direction %s: %s",
+                  packet_common.direction_str(direction), node_tie_packet)
 
     def regenerate_my_node_ties(self, interface_going_down=None):
         for direction in [common.ttypes.TieDirectionType.South,
@@ -576,8 +777,8 @@ class Node:
         if ('v4prefixes' in config) or ('v6prefixes' in config):
             self._my_north_prefix_tie = packet_common.make_prefix_tie_packet(
                 direction=common.ttypes.TieDirectionType.North,
-                originator=self._system_id,
-                tie_nr=tie_db.NORTH_PREFIX_TIE_NR,
+                originator=self.system_id,
+                tie_nr=MY_TIE_NR,
                 seq_nr=1,
                 lifetime=common.constants.default_lifetime)
         else:
@@ -586,24 +787,26 @@ class Node:
             for v4prefix in config['v4prefixes']:
                 prefix_str = v4prefix['address'] + "/" + str(v4prefix['mask'])
                 metric = v4prefix['metric']
+                tags = set(v4prefix.get('tags', []))
                 packet_common.add_ipv4_prefix_to_prefix_tie(self._my_north_prefix_tie, prefix_str,
-                                                            metric)
+                                                            metric, tags)
         if 'v6prefixes' in config:
             for v6prefix in config['v6prefixes']:
                 prefix_str = v6prefix['address'] + "/" + str(v6prefix['mask'])
                 metric = v6prefix['metric']
+                tags = set(v6prefix.get('tags', []))
                 packet_common.add_ipv6_prefix_to_prefix_tie(self._my_north_prefix_tie, prefix_str,
-                                                            metric)
+                                                            metric, tags)
         if self._my_north_prefix_tie is None:
             tie_id = packet_common.make_tie_id(
                 direction=common.ttypes.TieDirectionType.North,
-                originator=self._system_id,
+                originator=self.system_id,
                 tie_type=common.ttypes.TIETypeType.PrefixTIEType,
-                tie_nr=tie_db.NORTH_PREFIX_TIE_NR)
+                tie_nr=MY_TIE_NR)
             self.remove_tie_from_db(tie_id)
         else:
             self.store_tie_in_db(self._my_north_prefix_tie)
-            self.info("Regenerated north prefix TIE: {}".format(self._my_north_prefix_tie))
+            self.info("Regenerated north prefix TIE: %s", self._my_north_prefix_tie)
 
     def is_overloaded(self):
         # Is this node overloaded?
@@ -612,11 +815,11 @@ class Node:
 
     def have_s_or_ew_adjacency(self, interface_going_down):
         # Does this node have at least one south-bound or east-west adjacency?
-        for intf in self._interfaces.values():
+        for intf in self.interfaces_by_name.values():
             if ((intf.fsm.state == interface.Interface.State.THREE_WAY) and
                     (intf != interface_going_down)):
-                if intf.neighbor_direction() in [neighbor.Neighbor.Direction.SOUTH,
-                                                 neighbor.Neighbor.Direction.EAST_WEST]:
+                if intf.neighbor_direction() in [constants.DIR_SOUTH,
+                                                 constants.DIR_EAST_WEST]:
                     return True
         return False
 
@@ -664,8 +867,8 @@ class Node:
         # we don't create a prefix TIE at all. But if we have ever originated one in the past, then
         # we have to flush it by originating an empty prefix TIE.
         if (not must_originate_default) and (self._my_south_prefix_tie is None):
-            self.info("Don't originate south prefix TIE because {}: {}"
-                      .format(reason, self._my_south_prefix_tie))
+            self.info("Don't originate south prefix TIE because %s: %s", reason,
+                      self._my_south_prefix_tie)
             return
         if ((must_originate_default != self._originating_default) or
                 (self._my_south_prefix_tie is None)):
@@ -676,8 +879,8 @@ class Node:
                 next_seq_nr = self._my_south_prefix_tie.header.seq_nr + 1
             self._my_south_prefix_tie = packet_common.make_prefix_tie_packet(
                 direction=common.ttypes.TieDirectionType.South,
-                originator=self._system_id,
-                tie_nr=tie_db.SOUTH_PREFIX_TIE_NR,
+                originator=self.system_id,
+                tie_nr=MY_TIE_NR,
                 seq_nr=next_seq_nr,
                 lifetime=common.constants.default_lifetime)
             if must_originate_default:
@@ -690,8 +893,8 @@ class Node:
                 packet_common.add_ipv6_prefix_to_prefix_tie(self._my_south_prefix_tie,
                                                             "::0/0", metric)
             self.store_tie_in_db(self._my_south_prefix_tie)
-            self.info("Regenerated south prefix TIE because {}: {}"
-                      .format(reason, self._my_south_prefix_tie))
+            self.info("Regenerated south prefix TIE because %s: %s", reason,
+                      self._my_south_prefix_tie)
 
     def clear_all_generated_node_ties(self):
         for direction in [common.ttypes.TieDirectionType.South,
@@ -706,22 +909,20 @@ class Node:
         # individual neighbor. We do NOT (yet) have any optimization that attempts to prepare and
         # encode a TIDE only once in total or once per direction (N, S, EW). See the comment in the
         # function is_flood_allowed for a more detailed discussion on why not.
-        for intf in self._interfaces.values():
+        for intf in self.interfaces_by_name.values():
             self.send_tides_on_interface(intf)
 
     def send_tides_on_interface(self, intf):
         if intf.fsm.state != interface.Interface.State.THREE_WAY:
             return
-        tide_packet = self.tie_db.generate_tide_packet(
+        tide_packet = self.generate_tide_packet(
             neighbor_direction=intf.neighbor_direction(),
             neighbor_system_id=intf.neighbor.system_id,
             neighbor_level=intf.neighbor.level,
             neighbor_is_top_of_fabric=intf.neighbor.top_of_fabric(),
-            my_system_id=self._system_id,
             my_level=self.level_value(),
             i_am_top_of_fabric=self.top_of_fabric())
-        self.debug("Regenerated TIDE for neighbor {}: {}"
-                   .format(intf.neighbor.system_id, tide_packet))
+        self.debug("Regenerated TIDE for neighbor %s: %s", intf.neighbor.system_id, tide_packet)
         packet_content = encoding.ttypes.PacketContent(tide=tide_packet)
         packet_header = encoding.ttypes.PacketHeader(
             sender=self.system_id,
@@ -740,9 +941,9 @@ class Node:
 
     def cli_summary_attributes(self):
         return [
-            self._name,
-            utils.system_id_str(self._system_id),
-            self._running]
+            self.name,
+            utils.system_id_str(self.system_id),
+            self.running]
 
     @staticmethod
     def cli_level_headers():
@@ -754,97 +955,152 @@ class Node:
             ["Level", "Value"]]
 
     def cli_level_attributes(self):
-        if self._running:
+        if self.running:
             return [
-                self._name,
-                utils.system_id_str(self._system_id),
-                self._running,
+                self.name,
+                utils.system_id_str(self.system_id),
+                self.running,
                 self._configured_level_symbol,
                 self.level_value_str()]
         else:
             return [
-                self._name,
-                utils.system_id_str(self._system_id),
-                self._running,
+                self.name,
+                utils.system_id_str(self.system_id),
+                self.running,
                 self._configured_level_symbol,
                 '?']
 
     def command_show_intf_fsm_hist(self, cli_session, parameters, verbose):
         interface_name = parameters['interface']
-        if not interface_name in self._interfaces:
-            cli_session.print_r("Error: interface {} not present".format(interface_name))
+        if not interface_name in self.interfaces_by_name:
+            cli_session.print("Error: interface {} not present".format(interface_name))
             return
-        shown_interface = self._interfaces[interface_name]
+        shown_interface = self.interfaces_by_name[interface_name]
         tab = shown_interface.fsm.history_table(verbose)
-        cli_session.print(tab.to_string(cli_session.current_end_line()))
+        cli_session.print(tab.to_string())
 
     def command_show_intf_queues(self, cli_session, parameters):
         interface_name = parameters['interface']
-        if not interface_name in self._interfaces:
-            cli_session.print_r("Error: interface {} not present".format(interface_name))
+        if not interface_name in self.interfaces_by_name:
+            cli_session.print("Error: interface {} not present".format(interface_name))
             return
-        intf = self._interfaces[interface_name]
+        intf = self.interfaces_by_name[interface_name]
         tab = intf.ties_tx_table()
-        cli_session.print_r("Transmit queue:")
-        cli_session.print(tab.to_string(cli_session.current_end_line()))
+        cli_session.print("Transmit queue:")
+        cli_session.print(tab.to_string())
         tab = intf.ties_rtx_table()
-        cli_session.print_r("Retransmit queue:")
-        cli_session.print(tab.to_string(cli_session.current_end_line()))
+        cli_session.print("Retransmit queue:")
+        cli_session.print(tab.to_string())
         tab = intf.ties_req_table()
-        cli_session.print_r("Request queue:")
-        cli_session.print(tab.to_string(cli_session.current_end_line()))
+        cli_session.print("Request queue:")
+        cli_session.print(tab.to_string())
         tab = intf.ties_ack_table()
-        cli_session.print_r("Acknowledge queue:")
-        cli_session.print(tab.to_string(cli_session.current_end_line()))
+        cli_session.print("Acknowledge queue:")
+        cli_session.print(tab.to_string())
+
+    def command_show_intf_sockets(self, cli_session, parameters):
+        interface_name = parameters['interface']
+        if not interface_name in self.interfaces_by_name:
+            cli_session.print("Error: interface {} not present".format(interface_name))
+            return
+        intf = self.interfaces_by_name[interface_name]
+        tab = intf.sockets_table()
+        cli_session.print(tab.to_string())
 
     def command_show_interface(self, cli_session, parameters):
         interface_name = parameters['interface']
-        if not interface_name in self._interfaces:
-            cli_session.print_r("Error: interface {} not present".format(interface_name))
+        if not interface_name in self.interfaces_by_name:
+            cli_session.print("Error: interface {} not present".format(interface_name))
             return
-        interface_attributes = self._interfaces[interface_name].cli_detailed_attributes()
-        tab = table.Table(separators=False)
-        tab.add_rows(interface_attributes)
-        cli_session.print_r("Interface:")
-        cli_session.print(tab.to_string(cli_session.current_end_line()))
-        neighbor_attributes = self._interfaces[interface_name].cli_detailed_neighbor_attrs()
-        if neighbor_attributes:
-            tab = table.Table(separators=False)
-            tab.add_rows(neighbor_attributes)
-            cli_session.print("Neighbor:\r")
-            cli_session.print(tab.to_string(cli_session.current_end_line()))
+        intf = self.interfaces_by_name[interface_name]
+        cli_session.print("Interface:")
+        cli_session.print(intf.cli_details_table().to_string())
+        neighbor_table = intf.cli_neighbor_details_table()
+        if neighbor_table:
+            cli_session.print("Neighbor:")
+            cli_session.print(neighbor_table.to_string())
 
     def command_show_interfaces(self, cli_session):
         # TODO: Report neighbor uptime (time in THREE_WAY state)
         tab = table.Table()
         tab.add_row(interface.Interface.cli_summary_headers())
-        for intf in self._interfaces.values():
+        for intf in self.interfaces_by_name.values():
             tab.add_row(intf.cli_summary_attributes())
-        cli_session.print(tab.to_string(cli_session.current_end_line()))
+        cli_session.print(tab.to_string())
+
+    def floodred_parents_table(self):
+        tab = table.Table()
+        tab.add_row(FloodRedParent.cli_summary_headers())
+        for parent in self.floodred_parents:
+            tab.add_row(parent.cli_summary_attributes())
+        return tab
+
+    def floodred_grandparents_table(self):
+        sorted_floodred_grandparents = sortedcontainers.SortedDict(self.floodred_grandparents)
+        tab = table.Table()
+        tab.add_row(FloodRedGrandparent.cli_summary_headers())
+        for grandparent in sorted_floodred_grandparents.values():
+            tab.add_row(grandparent.cli_summary_attributes())
+        return tab
+
+    def floodred_interfaces_table(self):
+        tab = table.Table()
+        tab.add_row(interface.Interface.cli_floodred_summary_headers())
+        for intf in self.interfaces_by_name.values():
+            tab.add_row(intf.cli_floodred_summary_attributes())
+        return tab
+
+    def command_show_flooding_reduction(self, cli_session):
+        cli_session.print("Parents:")
+        cli_session.print(self.floodred_parents_table().to_string())
+        cli_session.print("Grandparents:")
+        cli_session.print(self.floodred_grandparents_table().to_string())
+        cli_session.print("Interfaces:")
+        cli_session.print(self.floodred_interfaces_table().to_string())
+
+    def command_show_kernel_addresses(self, cli_session):
+        self.kernel.command_show_addresses(cli_session)
+
+    def command_show_kernel_links(self, cli_session):
+        self.kernel.command_show_links(cli_session)
+
+    def command_show_kernel_routes(self, cli_session):
+        self.kernel.command_show_routes(cli_session, None)
+
+    def command_show_kernel_routes_tab(self, cli_session, parameters):
+        table_nr = self.get_table_param(cli_session, parameters)
+        if table_nr is None:
+            return
+        self.kernel.command_show_routes(cli_session, table_nr)
+
+    def command_show_kernel_route_pref(self, cli_session, parameters):
+        table_nr = self.get_table_param(cli_session, parameters)
+        prefix = self.get_prefix_param(cli_session, parameters)
+        if (table_nr is None) or (prefix is None):
+            return
+        self.kernel.command_show_route_prefix(cli_session, table_nr, prefix)
 
     def command_show_node(self, cli_session):
-        cli_session.print_r("Node:")
-        tab = table.Table(separators=False)
-        tab.add_rows(self.cli_detailed_attributes())
-        cli_session.print(tab.to_string(cli_session.current_end_line()))
-        cli_session.print_r("Received Offers:")
+        cli_session.print("Node:")
+        cli_session.print(self.cli_details_table().to_string())
+        cli_session.print("Received Offers:")
         tab = table.Table()
         tab.add_row(offer.RxOffer.cli_headers())
         sorted_rx_offers = sortedcontainers.SortedDict(self._rx_offers)
         for off in sorted_rx_offers.values():
             tab.add_row(off.cli_attributes())
-        cli_session.print(tab.to_string(cli_session.current_end_line()))
-        cli_session.print_r("Sent Offers:")
+        cli_session.print(tab.to_string())
+        cli_session.print("Sent Offers:")
         tab = table.Table()
         tab.add_row(offer.TxOffer.cli_headers())
         sorted_tx_offers = sortedcontainers.SortedDict(self._tx_offers)
         for off in sorted_tx_offers.values():
             tab.add_row(off.cli_attributes())
-        cli_session.print(tab.to_string(cli_session.current_end_line()))
+        cli_session.print(tab.to_string())
 
     def command_show_node_fsm_history(self, cli_session, verbose):
-        tab = self._fsm.history_table(verbose)
-        cli_session.print(tab.to_string(cli_session.current_end_line()))
+        tab = self.fsm.history_table(verbose)
+        cli_session.print(tab.to_string())
 
     @staticmethod
     def tide_content_append_tie_id(contents, tie_id):
@@ -853,13 +1109,228 @@ class Node:
         contents.append("  TIE Type: " + packet_common.tietype_str(tie_id.tietype))
         contents.append("  TIE Nr: " + str(tie_id.tie_nr))
 
+    def command_show_route_prefix(self, cli_session, parameters):
+        prefix = self.get_prefix_param(cli_session, parameters)
+        if prefix is None:
+            return
+        if prefix.ipv4prefix is not None:
+            af_rib = self._ipv4_rib
+        else:
+            af_rib = self._ipv6_rib
+        at_least_one = False
+        tab = table.Table()
+        tab.add_row(route.Route.cli_summary_headers())
+        for rte in af_rib.all_prefix_routes(prefix):
+            at_least_one = True
+            tab.add_row(rte.cli_summary_attributes())
+        if at_least_one:
+            cli_session.print(tab.to_string())
+        else:
+            cli_session.print("Prefix {} not present".format(prefix))
+
+    def command_show_route_prefix_owner(self, cli_session, parameters):
+        prefix = self.get_prefix_param(cli_session, parameters)
+        if prefix is None:
+            return
+        owner = self.get_owner_param(cli_session, parameters)
+        if owner is None:
+            return
+        if prefix.ipv4prefix is not None:
+            af_rib = self._ipv4_rib
+        else:
+            af_rib = self._ipv6_rib
+        rte = af_rib.get_route(prefix, owner)
+        if rte is None:
+            cli_session.print("Prefix {} owner {} not present".
+                              format(prefix, constants.owner_str(owner)))
+        else:
+            tab = table.Table()
+            tab.add_row(rte.Route.cli_summary_headers())
+            tab.add_row(rte.cli_summary_attributes())
+            cli_session.print(tab.to_string())
+
+    def command_show_routes(self, cli_session):
+        self.command_show_routes_af(cli_session, constants.ADDRESS_FAMILY_IPV4)
+        self.command_show_routes_af(cli_session, constants.ADDRESS_FAMILY_IPV6)
+
+    def command_show_routes_af(self, cli_session, address_family):
+        cli_session.print(constants.address_family_str(address_family) + " Routes:")
+        if address_family == constants.ADDRESS_FAMILY_IPV4:
+            tab = self._ipv4_rib.cli_table()
+        else:
+            assert address_family == constants.ADDRESS_FAMILY_IPV6
+            tab = self._ipv6_rib.cli_table()
+        cli_session.print(tab.to_string())
+
+    def command_show_forwarding_prefix(self, cli_session, parameters):
+        prefix = self.get_prefix_param(cli_session, parameters)
+        if prefix is None:
+            return
+        if prefix.ipv4prefix is not None:
+            af_fib = self._ipv4_fib
+        else:
+            af_fib = self._ipv6_fib
+        rte = af_fib.get_route(prefix)
+        if rte is None:
+            cli_session.print("Prefix {} not present".format(prefix))
+            return
+        tab = table.Table()
+        tab.add_row(route.Route.cli_summary_headers())
+        tab.add_row(rte.cli_summary_attributes())
+        cli_session.print(tab.to_string())
+
+    def command_show_forwarding(self, cli_session):
+        self.command_show_forwarding_af(cli_session, constants.ADDRESS_FAMILY_IPV4)
+        self.command_show_forwarding_af(cli_session, constants.ADDRESS_FAMILY_IPV6)
+
+    def command_show_forwarding_af(self, cli_session, address_family):
+        cli_session.print(constants.address_family_str(address_family) + " Routes:")
+        if address_family == constants.ADDRESS_FAMILY_IPV4:
+            tab = self._ipv4_fib.cli_table()
+        else:
+            assert address_family == constants.ADDRESS_FAMILY_IPV6
+            tab = self._ipv6_fib.cli_table()
+        cli_session.print(tab.to_string())
+
+    def command_show_spf(self, cli_session):
+        cli_session.print("SPF Statistics:")
+        tab = self.spf_statistics_table()
+        cli_session.print(tab.to_string())
+        self.command_show_spf_destinations(cli_session, constants.DIR_SOUTH)
+        self.command_show_spf_destinations(cli_session, constants.DIR_NORTH)
+
+    @staticmethod
+    def get_direction_param(cli_session, parameters):
+        assert "direction" in parameters
+        direction_str = parameters["direction"]
+        if direction_str.lower() == "south":
+            return constants.DIR_SOUTH
+        if direction_str.lower() == "north":
+            return constants.DIR_NORTH
+        cli_session.print('Invalid direction "{}" (valid values: "south", "north")'
+                          .format(direction_str))
+        return None
+
+    @staticmethod
+    def get_destination_param(cli_session, parameters):
+        assert "destination" in parameters
+        destination_str = parameters["destination"]
+        # Is it a system-id (integer)?
+        try:
+            destination = int(destination_str)
+        except ValueError:
+            pass
+        else:
+            return destination
+        # Is it an IPv4 prefix?
+        try:
+            destination = packet_common.make_ipv4_prefix(destination_str)
+        except ValueError:
+            pass
+        else:
+            return destination
+        # Is it an IPv6 prefix?
+        try:
+            destination = packet_common.make_ipv6_prefix(destination_str)
+        except ValueError:
+            pass
+        else:
+            return destination
+        # None of the above
+        cli_session.print('Invalid destination "{}" (valid values: system-id, ipv4-prefix, '
+                          'ipv6-prefix)'.format(destination_str))
+        return None
+
+    @staticmethod
+    def get_prefix_param(cli_session, parameters):
+        assert "prefix" in parameters
+        prefix_str = parameters["prefix"]
+        # Is it an IPv4 prefix?
+        try:
+            prefix = packet_common.make_ipv4_prefix(prefix_str)
+        except ValueError:
+            pass
+        else:
+            return prefix
+        # Is it an IPv6 prefix?
+        try:
+            prefix = packet_common.make_ipv6_prefix(prefix_str)
+        except ValueError:
+            pass
+        else:
+            return prefix
+        # None of the above
+        cli_session.print('Invalid prefix "{}" (valid values: ipv4-prefix, ipv6-prefix)'
+                          .format(prefix_str))
+        return None
+
+    @staticmethod
+    def get_owner_param(cli_session, parameters):
+        assert "owner" in parameters
+        direction_str = parameters["owner"]
+        if direction_str.lower() == "south-spf":
+            return constants.OWNER_S_SPF
+        if direction_str.lower() == "north-spf":
+            return constants.OWNER_N_SPF
+        cli_session.print('Invalid owner "{}" (valid values: "south-spf", "north-spf")'
+                          .format(direction_str))
+        return None
+
+    @staticmethod
+    def get_table_param(cli_session, parameters):
+        # No matter how the table is specified (name or number), this always returns a table number
+        assert "table" in parameters
+        table_str = parameters["table"].lower()
+        if table_str == "local":
+            return 255
+        elif table_str == "main":
+            return 254
+        elif table_str == "default":
+            return 253
+        elif table_str == "unspecified":
+            return 0
+        else:
+            try:
+                return int(table_str)
+            except ValueError:
+                cli_session.print('Invalid table "{}" (valid values: "local", "main", '
+                                  '"default", "unspecified", or number)'.format(table_str))
+                return None
+
+    def command_show_spf_dir(self, cli_session, parameters):
+        direction = self.get_direction_param(cli_session, parameters)
+        if direction is None:
+            return
+        self.command_show_spf_destinations(cli_session, direction)
+
+    def command_show_spf_dir_dest(self, cli_session, parameters):
+        direction = self.get_direction_param(cli_session, parameters)
+        if direction is None:
+            return
+        destination = self.get_destination_param(cli_session, parameters)
+        if destination is None:
+            return
+        dest_table = self._spf_destinations[direction]
+        if destination in dest_table:
+            tab = table.Table()
+            tab.add_row(spf_dest.SPFDest.cli_summary_headers())
+            tab.add_row(dest_table[destination].cli_summary_attributes())
+            cli_session.print(tab.to_string())
+        else:
+            cli_session.print("Destination {} not present".format(destination))
+
+    def command_show_spf_destinations(self, cli_session, direction):
+        cli_session.print(constants.direction_str(direction) + " SPF Destinations:")
+        tab = self.spf_tree_table(direction)
+        cli_session.print(tab.to_string())
+
     def command_show_tie_db(self, cli_session):
-        tab = self.tie_db.tie_db_table()
-        cli_session.print(tab.to_string(cli_session.current_end_line()))
+        tab = self.tie_db_table()
+        cli_session.print(tab.to_string())
 
     def command_set_interface_failure(self, cli_session, parameters):
         interface_name = parameters['interface']
-        if not interface_name in self._interfaces:
+        if not interface_name in self.interfaces_by_name:
             cli_session.print("Error: interface {} not present".format(interface_name))
             return
         failure = parameters['failure'].lower()
@@ -869,71 +1340,1089 @@ class Node:
             return
         tx_fail = failure in ["failed", "tx-failed"]
         rx_fail = failure in ["failed", "rx-failed"]
-        self._interfaces[interface_name].set_failure(tx_fail, rx_fail)
+        self.interfaces_by_name[interface_name].set_failure(tx_fail, rx_fail)
 
-    def debug(self, msg):
-        self._log.debug("[%s] %s", self._log_id, msg)
+    def debug(self, msg, *args):
+        self.log.debug("[%s] %s" % (self.log_id, msg), *args)
 
-    def info(self, msg):
-        self._log.info("[%s] %s", self._log_id, msg)
+    def info(self, msg, *args):
+        self.log.info("[%s] %s" % (self.log_id, msg), *args)
 
-    @property
-    def name(self):
-        return self._name
+    def db_debug(self, msg, *args):
+        if self._tie_db_log is not None:
+            self._tie_db_log.debug("[%s] %s" % (self.log_id, msg), *args)
 
-    # TODO: get rid of these properties, more complicated than needed. Just remove _ instead
-    @property
-    def system_id(self):
-        return self._system_id
+    def spf_debug(self, msg, *args):
+        if self._spf_log is not None:
+            self._spf_log.debug("[%s] %s" % (self.log_id, msg), *args)
 
-    @property
-    def configured_level(self):
-        return self._configured_level
+    def floodred_debug(self, msg, *args):
+        if self._floodred_log is not None:
+            self._floodred_log.debug("[%s] %s" % (self.log_id, msg), *args)
 
-    @property
-    def lie_ipv4_mcast_address(self):
-        return self._rx_lie_ipv4_mcast_address
+    def floodred_warning(self, msg, *args):
+        if self._floodred_log is not None:
+            self._floodred_log.warning("[%s] %s" % (self.log_id, msg), *args)
 
-    @property
-    def lie_ipv6_mcast_address(self):
-        return self._rx_lie_ipv6_mcast_address
+    def ties_differ_enough_for_spf(self, old_tie, new_tie):
+        # Only TIEs with the same TIEID should be compared
+        assert old_tie.header.tieid == new_tie.header.tieid
+        # Any change in seq_nr triggers an SPF
+        if old_tie.header.seq_nr != new_tie.header.seq_nr:
+            return True
+        # All remaining_lifetime values are the same, except zero, for the purpose of running SPF
+        if (old_tie.header.remaining_lifetime == 0) and (new_tie.header.remaining_lifetime != 0):
+            return True
+        if (old_tie.header.remaining_lifetime != 0) and (new_tie.header.remaining_lifetime == 0):
+            return True
+        # Ignore any changes in origination_lifetime for the purpose of running SPF (TODO: really?)
+        # Any change in the element contents (node, prefixes, etc.) trigger an SPF
+        if old_tie.element != new_tie.element:
+            return True
+        # If we get here, nothing of relevance to SPF changed
+        return False
 
-    @property
-    def lie_destination_port(self):
-        return self._tx_lie_port
+    def store_tie(self, tie_packet):
+        tie_id = tie_packet.header.tieid
+        if tie_id in self.ties:
+            old_tie_packet = self.ties[tie_id]
+            trigger_spf = self.ties_differ_enough_for_spf(old_tie_packet, tie_packet)
+            if trigger_spf:
+                reason = "TIE " + packet_common.tie_id_str(tie_id) + " changed"
+        else:
+            trigger_spf = True
+            reason = "TIE " + packet_common.tie_id_str(tie_id) + " added"
+        self.ties[tie_id] = tie_packet
+        if trigger_spf:
+            self.trigger_spf(reason)
 
-    @property
-    def rx_tie_port(self):
-        return self._rx_tie_port
+    def remove_tie(self, tie_id):
+        # It is not an error to attempt to delete a TIE which is not in the database
+        if tie_id in self.ties:
+            del self.ties[tie_id]
+            reason = "TIE " + packet_common.tie_id_str(tie_id) + " removed"
+            self.trigger_spf(reason)
 
-    @property
-    def lie_send_interval_secs(self):
-        return self._lie_send_interval_secs
+    def find_tie(self, tie_id):
+        # Returns None if tie_id is not in database
+        return self.ties.get(tie_id)
 
-    @property
-    def running(self):
-        return self._running
+    def start_sending_db_ties_in_range(self, start_sending_tie_headers, start_id, start_incl,
+                                       end_id, end_incl):
+        db_ties = self.ties.irange(start_id, end_id, (start_incl, end_incl))
+        for db_tie_id in db_ties:
+            db_tie = self.ties[db_tie_id]
+            # TODO: Make sure that lifetime is decreased by at least one before propagating
+            start_sending_tie_headers.append(db_tie.header)
 
-    @property
-    def engine(self):
-        return self._engine
+    def process_received_tide_packet(self, tide_packet):
+        request_tie_headers = []
+        start_sending_tie_headers = []
+        stop_sending_tie_headers = []
+        # It is assumed TIDEs are sent and received in increasing order or range. If we observe
+        # a gap between the end of the range of the last TIDE (if any) and the start of the range
+        # of this TIDE, then we must start sending all TIEs in our database that fall in that gap.
+        if tide_packet.start_range < self._last_received_tide_end:
+            # The neighbor has wrapped around: it has sent its last TIDE and is not sending the
+            # first TIDE again (look for comment "wrap-around" in test_tie_db.py for an example)
+            # Note - I am not completely happy with this rule since it may lead to unnecessarily
+            # putting TIEs on the send queue if TIDEs are received out of order.
+            self._last_received_tide_end = self.MIN_TIE_ID
+        if tide_packet.start_range > self._last_received_tide_end:
+            # There is a gap between the end of the previous TIDE and the start of this TIDE
+            self.start_sending_db_ties_in_range(start_sending_tie_headers,
+                                                self._last_received_tide_end, True,
+                                                tide_packet.start_range, False)
+        self._last_received_tide_end = tide_packet.end_range
+        # The first gap that we need to consider starts at start_range (inclusive)
+        last_processed_tie_id = tide_packet.start_range
+        minimum_inclusive = True
+        # Process the TIDE
+        for header_in_tide in tide_packet.headers:
+            # Make sure all tie_ids in the TIDE in the range advertised by the TIDE
+            if header_in_tide.tieid < last_processed_tie_id:
+                # TODO: Handle error (not sorted)
+                assert False
+            # Start/mid-gap processing: send TIEs that are in our TIE DB but missing in TIDE
+            self.start_sending_db_ties_in_range(start_sending_tie_headers,
+                                                last_processed_tie_id, minimum_inclusive,
+                                                header_in_tide.tieid, False)
+            last_processed_tie_id = header_in_tide.tieid
+            minimum_inclusive = False
+            # Process all tie_ids in the TIDE
+            db_tie = self.find_tie(header_in_tide.tieid)
+            if db_tie is None:
+                if header_in_tide.tieid.originator == self.system_id:
+                    # Self-originate an empty TIE with a higher sequence number.
+                    bumped_own_tie_header = self.bump_own_tie(db_tie, header_in_tide)
+                    start_sending_tie_headers.append(bumped_own_tie_header)
+                else:
+                    # We don't have the TIE, request it
+                    # To request a a missing TIE, we have to set the seq_nr to 0. This is not
+                    # mentioned in the RIFT draft, but it is described in ISIS ISO/IEC 10589:1992
+                    # section 7.3.15.2 bullet b.4
+                    request_header = header_in_tide
+                    request_header.seq_nr = 0
+                    request_header.remaining_lifetime = 0
+                    request_header.origination_time = None
+                    request_tie_headers.append(request_header)
+            else:
+                comparison = compare_tie_header_age(db_tie.header, header_in_tide)
+                if comparison < 0:
+                    if header_in_tide.tieid.originator == self.system_id:
+                        # Re-originate DB TIE with higher sequence number than the one in TIDE
+                        bumped_own_tie_header = self.bump_own_tie(db_tie, header_in_tide)
+                        start_sending_tie_headers.append(bumped_own_tie_header)
+                    else:
+                        # We have an older version of the TIE, request the newer version
+                        request_tie_headers.append(header_in_tide)
+                elif comparison > 0:
+                    # We have a newer version of the TIE, send it
+                    start_sending_tie_headers.append(db_tie.header)
+                else:
+                    # We have the same version of the TIE, if we are trying to send it, stop it
+                    stop_sending_tie_headers.append(db_tie.header)
+        # End-gap processing: send TIEs that are in our TIE DB but missing in TIDE
+        self.start_sending_db_ties_in_range(start_sending_tie_headers,
+                                            last_processed_tie_id, minimum_inclusive,
+                                            tide_packet.end_range, True)
+        return (request_tie_headers, start_sending_tie_headers, stop_sending_tie_headers)
 
-    @property
-    def highest_adjacency_three_way(self):
-        return self._highest_adjacency_three_way
+    def process_received_tire_packet(self, tire_packet):
+        request_tie_headers = []
+        start_sending_tie_headers = []
+        acked_tie_headers = []
+        for header_in_tire in tire_packet.headers:
+            db_tie = self.find_tie(header_in_tire.tieid)
+            if db_tie is not None:
+                comparison = compare_tie_header_age(db_tie.header, header_in_tire)
+                if comparison < 0:
+                    # We have an older version of the TIE, request the newer version
+                    request_tie_headers.append(header_in_tire)
+                elif comparison > 0:
+                    # We have a newer version of the TIE, send it
+                    start_sending_tie_headers.append(db_tie.header)
+                else:
+                    # We have the same version of the TIE, treat it as an ACK
+                    acked_tie_headers.append(db_tie.header)
+        return (request_tie_headers, start_sending_tie_headers, acked_tie_headers)
 
-    @property
-    def leaf_2_leaf(self):
-        return self._leaf_2_leaf
+    def find_according_real_node_tie(self, rx_tie_header):
+        # We have to originate an empty node TIE for the purpose of flushing it. Use the same
+        # contents as the real node TIE that we actually originated, except don't report any
+        # neighbors.
+        real_node_tie_id = copy.deepcopy(rx_tie_header.tieid)
+        real_node_tie_id.tie_nr = MY_TIE_NR
+        real_node_tie = self.find_tie(real_node_tie_id)
+        assert real_node_tie is not None
+        return real_node_tie
 
-    @property
-    def log(self):
-        return self._log
+    def make_according_empty_tie(self, rx_tie_header):
+        new_tie_header = packet_common.make_tie_header(
+            rx_tie_header.tieid.direction,
+            rx_tie_header.tieid.originator,
+            rx_tie_header.tieid.tietype,
+            rx_tie_header.tieid.tie_nr,
+            rx_tie_header.seq_nr + 1,           # Higher sequence number
+            FLUSH_LIFETIME)                     # Short remaining life time
+        tietype = rx_tie_header.tieid.tietype
+        if tietype == common.ttypes.TIETypeType.NodeTIEType:
+            real_node_tie_packet = self.find_according_real_node_tie(rx_tie_header)
+            new_element = copy.deepcopy(real_node_tie_packet.element)
+            new_element.node.neighbors = {}
+        elif tietype == common.ttypes.TIETypeType.PrefixTIEType:
+            empty_prefixes = encoding.ttypes.PrefixTIEElement()
+            new_element = encoding.ttypes.TIEElement(prefixes=empty_prefixes)
+        elif tietype == common.ttypes.TIETypeType.PositiveDisaggregationPrefixTIEType:
+            empty_prefixes = encoding.ttypes.PrefixTIEElement()
+            new_element = encoding.ttypes.TIEElement(
+                positive_disaggregation_prefixes=empty_prefixes)
+        elif tietype == common.ttypes.TIETypeType.NegativeDisaggregationPrefixTIEType:
+            # TODO: Negative disaggregation prefixes are not yet in model in specification
+            assert False
+        elif tietype == common.ttypes.TIETypeType.PGPrefixTIEType:
+            # TODO: Policy guided prefixes are not yet in model in specification
+            assert False
+        elif tietype == common.ttypes.TIETypeType.KeyValueTIEType:
+            empty_keyvalues = encoding.ttypes.KeyValueTIEElement()
+            new_element = encoding.ttypes.TIEElement(keyvalues=empty_keyvalues)
+        else:
+            assert False
+        according_empty_tie = encoding.ttypes.TIEPacket(
+            header=new_tie_header,
+            element=new_element)
+        return according_empty_tie
 
-    @property
-    def log_id(self):
-        return self._log_id
+    def bump_own_tie(self, db_tie, rx_tie_header):
+        if db_tie is None:
+            # We received a TIE (rx_tie) which appears to be self-originated, but we don't have that
+            # TIE in our database. Re-originate the "according" (same TIE ID) TIE, but then empty
+            # (i.e. no neighbor, no prefixes, no key-values, etc.), with a higher sequence number,
+            # and a short remaining life time
+            according_empty_tie_packet = self.make_according_empty_tie(rx_tie_header)
+            self.store_tie(according_empty_tie_packet)
+            return according_empty_tie_packet.header
+        else:
+            # Re-originate DB TIE with higher sequence number than the one in RX TIE
+            db_tie.header.seq_nr = rx_tie_header.seq_nr + 1
+            return db_tie.header
 
-    @property
-    def fsm(self):
-        return self._fsm
+    def process_received_tie_packet(self, rx_tie):
+        start_sending_tie_header = None
+        ack_tie_header = None
+        rx_tie_header = rx_tie.header
+        rx_tie_id = rx_tie_header.tieid
+        db_tie = self.find_tie(rx_tie_id)
+        if db_tie is None:
+            if rx_tie_id.originator == self.system_id:
+                # Self-originate an empty TIE with a higher sequence number.
+                start_sending_tie_header = self.bump_own_tie(db_tie, rx_tie.header)
+            else:
+                # We don't have this TIE in the database, store and ack it
+                self.store_tie(rx_tie)
+                ack_tie_header = rx_tie_header
+        else:
+            comparison = compare_tie_header_age(db_tie.header, rx_tie_header)
+            if comparison < 0:
+                # We have an older version of the TIE, ...
+                if rx_tie_id.originator == self.system_id:
+                    # Re-originate DB TIE with higher sequence number than the one in RX TIE
+                    start_sending_tie_header = self.bump_own_tie(db_tie, rx_tie.header)
+                else:
+                    # We did not originate the TIE, store the newer version and ack it
+                    self.store_tie(rx_tie)
+                    ack_tie_header = rx_tie.header
+            elif comparison > 0:
+                # We have a newer version of the TIE, send it
+                start_sending_tie_header = db_tie.header
+            else:
+                # We have the same version of the TIE, ACK it
+                ack_tie_header = db_tie.header
+        return (start_sending_tie_header, ack_tie_header)
+
+    def tie_is_originated_by_node(self, tie_header, node_system_id):
+        return tie_header.tieid.originator == node_system_id
+
+    def tie_originator_level(self, tie_header):
+        # We cannot determine the level of the originator just by looking at the TIE header; we have
+        # to look in the TIE-DB to determine it. We can be confident the TIE is in the TIE-DB
+        # because we wouldn't be here, considering sending a TIE to a neighbor, if we did not have
+        # the TIE in the TIE-DB. Also, this question can only be asked about Node TIEs (other TIEs
+        # don't store the level of the originator in the TIEPacket)
+        assert tie_header.tieid.tietype == common.ttypes.TIETypeType.NodeTIEType
+        db_tie = self.find_tie(tie_header.tieid)
+        if db_tie is None:
+            # Just in case it unexpectedly not in the TIE-DB
+            return None
+        else:
+            return db_tie.element.node.level
+
+    def is_flood_allowed(self,
+                         tie_header,
+                         to_node_direction,
+                         to_node_system_id,
+                         from_node_system_id,
+                         from_node_level,
+                         from_node_is_top_of_fabric):
+        # Note: there is exactly one rule below (the one marked with [*]) which actually depend on
+        # the neighbor_system_id. If that rule wasn't there we would have been able to encode a TIDE
+        # only one per direction (N, S, EW) instead of once per neighbor, and still follow all the
+        # flooding scope rules. We have chosen to follow the rules strictly (not doing so causes all
+        # sorts of other complications), so -alas- we swallow the performance overhead of encoding
+        # separate TIDE packets for every individual neighbor. TODO: I may revisit this decision
+        # when the exact nature of the "other complications" (namely persistent oscillations) are
+        # better understood (correctness first, performance later).
+        # See https://www.dropbox.com/s/b07dnhbxawaizpi/zoom_0.mp4?dl=0 for a video recording of a
+        # discussion where these complications were discussed in detail.
+        if tie_header.tieid.direction == constants.DIR_SOUTH:
+            # S-TIE
+            if tie_header.tieid.tietype == common.ttypes.TIETypeType.NodeTIEType:
+                # Node S-TIE
+                if to_node_direction == constants.DIR_SOUTH:
+                    # Node S-TIE to S: Flood if level of originator is same as level of this node
+                    if self.tie_originator_level(tie_header) == from_node_level:
+                        return (True, "Node S-TIE to S: originator level is same as from-node")
+                    else:
+                        return (False, "Node S-TIE to S: originator level is not same as from-node")
+                elif to_node_direction == constants.DIR_NORTH:
+                    # Node S-TIE to N: flood if level of originator is higher than level of this
+                    # node
+                    originator_level = self.tie_originator_level(tie_header)
+                    if originator_level is None:
+                        return (False, "Node S-TIE to N: could not determine originator level")
+                    elif originator_level > from_node_level:
+                        return (True, "Node S-TIE to N: originator level is higher than from-node")
+                    else:
+                        return (False,
+                                "Node S-TIE to N: originator level is not higher than from-node")
+                elif to_node_direction == constants.DIR_EAST_WEST:
+                    # Node S-TIE to EW: Flood only if this node is not top of fabric
+                    if from_node_is_top_of_fabric:
+                        return (False, "Node S-TIE to EW: from-node is top of fabric")
+                    else:
+                        return (True, "Node S-TIE to EW: from-node is not top of fabric")
+                else:
+                    # Node S-TIE to ?: We can't determine the direction of the neighbor; don't flood
+                    assert to_node_direction is None
+                    return (False, "Node S-TIE to ?: never flood")
+            else:
+                # Non-Node S-TIE
+                if to_node_direction == constants.DIR_SOUTH:
+                    # Non-Node S-TIE to S: Flood self-originated only
+                    if self.tie_is_originated_by_node(tie_header, from_node_system_id):
+                        return (True, "Non-node S-TIE to S: self-originated")
+                    else:
+                        return (False, "Non-node S-TIE to S: not self-originated")
+                elif to_node_direction == constants.DIR_NORTH:
+                    # [*] Non-Node S-TIE to N: Flood only if the neighbor is the originator of
+                    # the TIE
+                    if to_node_system_id == tie_header.tieid.originator:
+                        return (True, "Non-node S-TIE to N: to-node is originator of TIE")
+                    else:
+                        return (False, "Non-node S-TIE to N: to-node is not originator of TIE")
+                elif to_node_direction == constants.DIR_EAST_WEST:
+                    # Non-Node S-TIE to EW: Flood only if if self-originated and this node is not
+                    # ToF
+                    if from_node_is_top_of_fabric:
+                        return (False, "Non-node S-TIE to EW: this top of fabric")
+                    elif self.tie_is_originated_by_node(tie_header, from_node_system_id):
+                        return (True, "Non-node S-TIE to EW: self-originated and not top of fabric")
+                    else:
+                        return (False, "Non-node S-TIE to EW: not self-originated")
+                else:
+                    # We cannot determine the direction of the neighbor; don't flood
+                    assert to_node_direction is None
+                    return (False, "None-node S-TIE to ?: never flood")
+        else:
+            # S-TIE
+            assert tie_header.tieid.direction == constants.DIR_NORTH
+            if to_node_direction == constants.DIR_SOUTH:
+                # S-TIE to S: Never flood
+                return (False, "N-TIE to S: never flood")
+            elif to_node_direction == constants.DIR_NORTH:
+                # S-TIE to N: Always flood
+                return (True, "N-TIE to N: always flood")
+            elif to_node_direction == constants.DIR_EAST_WEST:
+                # S-TIE to EW: Flood only if this node is top of fabric
+                if from_node_is_top_of_fabric:
+                    return (True, "N-TIE to EW: top of fabric")
+                else:
+                    return (False, "N-TIE to EW: not top of fabric")
+            else:
+                # S-TIE to ?: We cannot determine the direction of the neighbor; don't flood
+                assert to_node_direction is None
+                return (False, "N-TIE to ?: never flood")
+
+    def flood_allowed_from_node_to_nbr(self,
+                                       tie_header,
+                                       neighbor_direction,
+                                       neighbor_system_id,
+                                       node_system_id,
+                                       node_level,
+                                       node_is_top_of_fabric):
+        return self.is_flood_allowed(
+            tie_header=tie_header,
+            to_node_direction=neighbor_direction,
+            to_node_system_id=neighbor_system_id,
+            from_node_system_id=node_system_id,
+            from_node_level=node_level,
+            from_node_is_top_of_fabric=node_is_top_of_fabric)
+
+    def flood_allowed_from_nbr_to_node(self,
+                                       tie_header,
+                                       neighbor_direction,
+                                       neighbor_system_id,
+                                       neighbor_level,
+                                       neighbor_is_top_of_fabric,
+                                       node_system_id):
+        if neighbor_direction == constants.DIR_SOUTH:
+            neighbor_reverse_direction = constants.DIR_NORTH
+        elif neighbor_direction == constants.DIR_NORTH:
+            neighbor_reverse_direction = constants.DIR_SOUTH
+        else:
+            neighbor_reverse_direction = neighbor_direction
+        return self.is_flood_allowed(
+            tie_header=tie_header,
+            to_node_direction=neighbor_reverse_direction,
+            to_node_system_id=node_system_id,
+            from_node_system_id=neighbor_system_id,
+            from_node_level=neighbor_level,
+            from_node_is_top_of_fabric=neighbor_is_top_of_fabric)
+
+    def generate_tide_packet(self,
+                             neighbor_direction,
+                             neighbor_system_id,
+                             neighbor_level,
+                             neighbor_is_top_of_fabric,
+                             my_level,
+                             i_am_top_of_fabric):
+        # pylint:disable=too-many-locals
+        #
+        # The algorithm for deciding which TIE headers go into a TIDE packet are based on what is
+        # described as "the solution to oscillation #1" in slide deck
+        # http://bit.ly/rift-flooding-oscillations-v1. During the RIFT core team conference call on
+        # 19 Oct 2018, Tony reported that the RIFT specification was already updated with the same
+        # rules, but IMHO sections Table 3 / B.3.1. / B.3.2.1 in the draft are still ambiguous and
+        # I am not sure if they specify the same behavior.
+        #
+        # We generate a single TIDE packet which covers the entire range and we report all TIE
+        # headers in that single TIDE packet. We simple assume that it will fit in a single UDP
+        # packet which can be up to 64K. And if a single TIE gets added or removed we swallow the
+        # cost of regenerating and resending the entire TIDE packet.
+        tide_packet = packet_common.make_tide_packet(
+            start_range=self.MIN_TIE_ID,
+            end_range=self.MAX_TIE_ID)
+        # Look at every TIE in our database, and decide whether or not we want to include it in the
+        # TIDE packet. This is a rather expensive process, which is why we want to minimize the
+        # the number of times this function is run.
+        for tie_packet in self.ties.values():
+            tie_header = tie_packet.header
+            # The first possible reason for including a TIE header in the TIDE is to announce that
+            # we have a TIE that we want to send to the neighbor. In other words the TIE in the
+            # flooding scope from us to the neighbor.
+            (allowed, reason1) = self.flood_allowed_from_node_to_nbr(
+                tie_header,
+                neighbor_direction,
+                neighbor_system_id,
+                self.system_id,
+                my_level,
+                i_am_top_of_fabric)
+            if allowed:
+                self.db_debug("Include TIE %s in TIDE because %s (perspective us to neighbor)",
+                              tie_header, reason1)
+                packet_common.add_tie_header_to_tide(tide_packet, tie_header)
+                continue
+            # The second possible reason for including a TIE header in the TIDE is because the
+            # neighbor might be considering to send the TIE to us, and we want to let the neighbor
+            # know that we already have the TIE and what version it it.
+            (allowed, reason2) = self.flood_allowed_from_nbr_to_node(
+                tie_header,
+                neighbor_direction,
+                neighbor_system_id,
+                neighbor_level,
+                neighbor_is_top_of_fabric,
+                self.system_id)
+            if allowed:
+                self.db_debug("Include TIE %s in TIDE because %s (perspective neighbor to us)",
+                              tie_header, reason2)
+                packet_common.add_tie_header_to_tide(tide_packet, tie_header)
+                continue
+            # If we get here, we decided not to include the TIE header in the TIDE
+            self.db_debug("Exclude TIE %s from TIDE because %s (perspective us to neighbor) and "
+                          "%s (perspective neighbor to us)", tie_header, reason1, reason2)
+        return tide_packet
+
+    def spf_statistics_table(self):
+        tab = table.Table()
+        tab.add_rows(self.cli_statistics_attributes())
+        return tab
+
+    @staticmethod
+    def compare_spf_dest_key(dest_key):
+        if isinstance(dest_key, int):
+            return (0, dest_key)
+        else:
+            return (1, dest_key)
+
+    def spf_tree_table(self, direction):
+        tab = table.Table()
+        tab.add_row(spf_dest.SPFDest.cli_summary_headers())
+        sorted_spf_destinations = sorted(self._spf_destinations[direction].values())
+        for destination in sorted_spf_destinations:
+            tab.add_row(destination.cli_summary_attributes())
+        return tab
+
+    def tie_db_table(self):
+        tab = table.Table()
+        tab.add_row(self.cli_tie_db_summary_headers())
+        for tie in self.ties.values():
+            tab.add_row(self.cli_tie_db_summary_attributes(tie))
+        return tab
+
+    def age_ties(self):
+        expired_key_ids = []
+        for tie_id, db_tie in self.ties.items():
+            db_tie.header.remaining_lifetime -= 1
+            if db_tie.header.remaining_lifetime <= 0:
+                expired_key_ids.append(tie_id)
+        for key_id in expired_key_ids:
+            # TODO: log a message
+            self.remove_tie(key_id)
+
+    @staticmethod
+    def cli_tie_db_summary_headers():
+        return [
+            "Direction",
+            "Originator",
+            "Type",
+            "TIE Nr",
+            "Seq Nr",
+            "Lifetime",
+            "Contents"]
+
+    def cli_tie_db_summary_attributes(self, tie_packet):
+        tie_id = tie_packet.header.tieid
+        return [
+            packet_common.direction_str(tie_id.direction),
+            tie_id.originator,
+            packet_common.tietype_str(tie_id.tietype),
+            tie_id.tie_nr,
+            tie_packet.header.seq_nr,
+            tie_packet.header.remaining_lifetime,
+            packet_common.element_str(tie_id.tietype, tie_packet.element)
+        ]
+
+    def trigger_spf(self, reason):
+        self._spf_triggers_count += 1
+        self._spf_trigger_history.appendleft(reason)
+        if self._defer_spf_timer is None:
+            self.start_defer_spf_timer()
+            self._spf_deferred_trigger_pending = False
+            self.spf_debug("Trigger and run SPF: %s", reason)
+            self.spf_run()
+        else:
+            self._spf_deferred_trigger_pending = True
+            self._spf_triggers_deferred_count += 1
+            self.spf_debug("Trigger and defer SPF: %s", reason)
+
+    def start_defer_spf_timer(self):
+        self._defer_spf_timer = timer.Timer(
+            interval=self.MIN_SPF_INTERVAL,
+            expire_function=self.defer_spf_timer_expired,
+            periodic=False,
+            start=True)
+
+    def defer_spf_timer_expired(self):
+        self._defer_spf_timer = None
+        if self._spf_deferred_trigger_pending:
+            self.start_defer_spf_timer()
+            self._spf_deferred_trigger_pending = False
+            self.spf_debug("Run deferred SPF")
+            self.spf_run()
+
+    def ties_of_type(self, direction, system_id, prefix_type):
+        # Return an ordered list of TIEs from the given node and in the given direction and of the
+        # given type
+        node_ties = []
+        start_tie_id = packet_common.make_tie_id(direction, system_id, prefix_type, 0)
+        end_tie_id = packet_common.make_tie_id(direction, system_id, prefix_type,
+                                               packet_common.MAX_U32)
+        node_tie_ids = self.ties.irange(start_tie_id, end_tie_id, (True, True))
+        for node_tie_id in node_tie_ids:
+            node_tie = self.ties[node_tie_id]
+            node_ties.append(node_tie)
+        return node_ties
+
+    def node_ties(self, direction, system_id):
+        # Return an ordered list of all node TIEs from the given node and in the given direction
+        return self.ties_of_type(direction, system_id, common.ttypes.TIETypeType.NodeTIEType)
+
+    def prefix_ties(self, direction, system_id):
+        # Return an ordered list of all prefix TIEs from the given node and in the given direction
+        return self.ties_of_type(direction, system_id, common.ttypes.TIETypeType.PrefixTIEType)
+
+    def node_neighbors(self, node_ties, neighbor_direction):
+        # A generator that yields (nbr_system_id, nbr_tie_element) tuples for all neighbors in the
+        # specified direction of the nodes in the node_ties list.
+        for node_tie in node_ties:
+            node_level = node_tie.element.node.level
+            for nbr_system_id, nbr_tie_element in node_tie.element.node.neighbors.items():
+                nbr_level = nbr_tie_element.level
+                if neighbor_direction == constants.DIR_SOUTH:
+                    correct_direction = (nbr_level < node_level)
+                elif neighbor_direction == constants.DIR_NORTH:
+                    correct_direction = (nbr_level > node_level)
+                elif neighbor_direction == constants.DIR_EAST_WEST:
+                    correct_direction = (nbr_level == node_level)
+                else:
+                    assert False
+                if correct_direction:
+                    yield (nbr_system_id, nbr_tie_element)
+
+    def spf_run(self):
+        self._spf_runs_count += 1
+        # TODO: Currently we simply always run both North-SPF and South-SPF, but maybe we can be
+        # more intelligent about selectively triggering North-SPF and South-SPF separately.
+        self.spf_run_direction(constants.DIR_SOUTH)
+        self.spf_run_direction(constants.DIR_NORTH)
+        self.floodred_elect_repeaters()
+
+    def spf_run_direction(self, spf_direction):
+        # Shortest Path First (SPF) uses the Dijkstra algorithm to compute the shortest path to
+        # each destination that is reachable from this node.
+        # Each destination is represented by an SPFDest object, which represents either a node or a
+        # prefix. The attributes of the SPFDest object contain all the information that is needed to
+        # run SPF, such the best-known path cost thus far, the predecessor nodes, etc. See module
+        # spf_dest for details. Each SPFDest object also has a key which unique identifies it. For
+        # node destinations this is the system-id, and for prefix destinations it is the IP prefix.
+        # The attribute _spf_destinations contains ALL known destinations. It is a dictionary
+        # indexed by direction (south and north). Each value in the dictionary (i.e.
+        # _spf_destinations[direction]) is itself a dictionary again: the values are SPFDest
+        # SPFDest objects and the index is the key of the SPFDest object (a system-id or prefix).
+        # It contains both destinations for which the best path has not yet definitely been
+        # determined (so-called candidates) and also destinations for which the best path has
+        # already been definitely been determined. In the latter case the best attribute of the
+        # SPFDest object is set to True. This dictionary is kept around after the SPF run is
+        # completed, and there is a "show spf" CLI command to view it for debugging purposes.
+        self._spf_destinations[spf_direction] = {}
+        dest_table = self._spf_destinations[spf_direction]
+        # Initially, there is only one known destination, namely this node.
+        self_destination = spf_dest.make_node_destination(self.system_id, self.name, 0)
+        dest_table[self.system_id] = self_destination
+        # The variable "candidates" contains the set of destinations (nodes and prefixes) for which
+        # we have already determined some feasible path (which may be an ECMP path) but for which
+        # we have not yet established that the known path is indeed the best path.
+        # For efficiency, candidates is implemented as a priority queue that contains the
+        # destination keys with the best known path cost thus far as the priority.
+        # We use module heapdict (as opposed to the more widely used heapq module) because we need
+        # an efficient way to decrease the priority of an element which is already on the priority
+        # queue. Heapq only allows you to do this by calling the internal method _siftdown (see
+        # http://bit.ly/siftdown)
+        candidates = heapdict.heapdict()
+        # Initially, there is one destination in the candidates heap, namely the starting node (i.e.
+        # this node) with cost zero.
+        candidates[self.system_id] = 0
+        # Keep going until we have no more candidates
+        while candidates:
+            # Remove the destination with the lowest cost from the candidate priority queue.
+            (dest_key, dest_cost) = candidates.popitem()
+            # If already have a best path to the destination move on to the next candidate. In this
+            # case the best path should have a strictly lower cost than the candidate's cost.
+            destination = dest_table[dest_key]
+            if destination.best:
+                assert dest_cost > destination.cost
+                continue
+            # Mark that we now have the best path to the destination.
+            destination.best = True
+            # If the destination is a node (i.e. its key is a system-id number rather than an IP
+            # prefix), potentially add its neighbor nodes and its prefixes as a new candidate or
+            # as a new ECMP path for an existing candidate.
+            if isinstance(dest_key, int):
+                self.spf_add_candidates_from_node(dest_key, dest_cost, candidates, spf_direction)
+        # SPF run is done. Install the computed routes into the route table (RIB)
+        self.spf_install_routes_in_rib(spf_direction)
+
+    def spf_add_candidates_from_node(self, node_system_id, node_cost, candidates, spf_direction):
+        node_ties = self.node_ties(self.spf_use_tie_direction(node_system_id, spf_direction),
+                                   node_system_id)
+        if node_ties == []:
+            return
+        # Update the name of the node (we take it from the first node TIE)
+        dest_table = self._spf_destinations[spf_direction]
+        dest_table[node_system_id].name = node_ties[0].element.node.name
+        # Add the neighbors of this node as candidates
+        self.spf_add_neighbor_candidates(node_system_id, node_cost, node_ties, candidates,
+                                         spf_direction)
+        # Add the prefixes of this node as candidates
+        self.spf_add_prefix_candidates(node_system_id, node_cost, candidates, spf_direction)
+
+    def spf_add_neighbor_candidates(self, node_system_id, node_cost, node_ties, candidates,
+                                    spf_direction):
+        # For a given node, it visits each neighbor in the SPF direction, and either adds that
+        # neighbor to the candidate heap for the SPF run, or if the neighbor is already on the
+        # candidate heap, it (potentially) updates the cost and predecessors of the neighbor.
+        #
+        # Consider each neighbor of the visited node in the direction of the SPF
+        for nbr in self.node_neighbors(node_ties, spf_direction):
+            (nbr_system_id, nbr_tie_element) = nbr
+            # Only consider bi-directional adjacencies.
+            if self.is_neighbor_bidirectional(node_system_id, nbr_system_id, nbr_tie_element,
+                                              spf_direction):
+                # We have found a feasible path to the neighbor node; is the best path?
+                cost = node_cost + nbr_tie_element.cost
+                destination = spf_dest.make_node_destination(nbr_system_id, None, cost)
+                self.spf_consider_candidate_dest(destination, nbr_tie_element, node_system_id,
+                                                 candidates, spf_direction)
+
+    def spf_add_prefix_candidates(self, node_system_id, node_cost, candidates, spf_direction):
+        prefix_ties = self.prefix_ties(self.spf_use_tie_direction(node_system_id, spf_direction),
+                                       node_system_id)
+        for prefix_tie in prefix_ties:
+            prefixes = prefix_tie.element.prefixes.prefixes
+            if prefixes:
+                for prefix, attributes in prefixes.items():
+                    # We have found a feasible path to the prefix; is the best path?
+                    tags = attributes.tags
+                    cost = node_cost + attributes.metric
+                    destination = spf_dest.make_prefix_destintation(prefix, tags, cost)
+                    self.spf_consider_candidate_dest(destination, None, node_system_id, candidates,
+                                                     spf_direction)
+
+    def spf_consider_candidate_dest(self, destination, nbr_tie_element, predecessor_system_id,
+                                    candidates, spf_direction):
+        dest_key = destination.key()
+        dest_table = self._spf_destinations[spf_direction]
+        if dest_key not in dest_table:
+            # We did not have any previous path to the destination. Add it.
+            self.set_spf_predecessor(destination, nbr_tie_element, predecessor_system_id,
+                                     spf_direction)
+            dest_table[dest_key] = destination
+            candidates[dest_key] = destination.cost
+        else:
+            # We already had a previous path to the destination. How does the new path compare to
+            # the existing path in terms of cost?
+            old_destination = dest_table[dest_key]
+            if destination.cost < old_destination.cost:
+                # The new path is strictly better than the existing path. Replace the existing path
+                # with the new path.
+                self.set_spf_predecessor(destination, nbr_tie_element, predecessor_system_id,
+                                         spf_direction)
+                dest_table[dest_key] = destination
+                candidates[dest_key] = destination.cost
+            elif destination.cost == old_destination.cost:
+                # The new path is equal cost to the existing path. Add an ECMP path to the existing
+                # path.
+                self.add_spf_predecessor(old_destination, predecessor_system_id, spf_direction)
+                old_destination.inherit_tags(destination)
+
+    def set_spf_predecessor(self, destination, nbr_tie_element, predecessor_system_id,
+                            spf_direction):
+        destination.add_predecessor(predecessor_system_id)
+        if (nbr_tie_element is not None) and (predecessor_system_id == self.system_id):
+            for link_id_pair in nbr_tie_element.link_ids:
+                nhop = self.interface_id_to_ipv4_next_hop(link_id_pair.local_id)
+                if nhop:
+                    destination.add_ipv4_next_hop(nhop)
+                nhop = self.interface_id_to_ipv6_next_hop(link_id_pair.local_id)
+                if nhop:
+                    destination.add_ipv6_next_hop(nhop)
+        else:
+            dest_table = self._spf_destinations[spf_direction]
+            destination.inherit_next_hops(dest_table[predecessor_system_id])
+
+    def add_spf_predecessor(self, destination, predecessor_system_id, spf_direction):
+        destination.add_predecessor(predecessor_system_id)
+        dest_table = self._spf_destinations[spf_direction]
+        destination.inherit_next_hops(dest_table[predecessor_system_id])
+
+    def interface_id_to_ipv4_next_hop(self, interface_id):
+        if interface_id not in self.interfaces_by_id:
+            return None
+        intf = self.interfaces_by_id[interface_id]
+        if intf.neighbor is None:
+            return None
+        if intf.neighbor.ipv4_address is None:
+            return None
+        remote_address = packet_common.make_ip_address(intf.neighbor.ipv4_address)
+        return next_hop.NextHop(intf.name, remote_address)
+
+    def interface_id_to_ipv6_next_hop(self, interface_id):
+        if interface_id not in self.interfaces_by_id:
+            return None
+        intf = self.interfaces_by_id[interface_id]
+        if intf.neighbor is None:
+            return None
+        if intf.neighbor.ipv6_address is None:
+            return None
+        remote_address_str = intf.neighbor.ipv6_address
+        if "%" in remote_address_str:
+            remote_address_str = remote_address_str.split("%")[0]
+        remote_address = packet_common.make_ip_address(remote_address_str)
+        return next_hop.NextHop(intf.name, remote_address)
+
+    def spf_use_tie_direction(self, visit_system_id, spf_direction):
+        if spf_direction == constants.DIR_SOUTH:
+            # , we always want to use the North-Node-TIEs to look for
+            # neighbors and North-Prefix-TIEs to look for prefixes.
+            return constants.DIR_NORTH
+        elif visit_system_id != self.system_id:
+            # When running a North SPF, we normally want to use the South-Node-TIEs to look for
+            # neighbors and South-Prefix-TIEs to look for prefixes...
+            return constants.DIR_SOUTH
+        else:
+            # ... except that for self-originated TIEs, we always want to use
+            # (a) The self-originated North-Node-TIE because leafs may not originate a
+            #     South-Node-TIE and
+            # (b) The self-origianted North-Prefix-TIE (if any) because we want SPF to not
+            #     prefer the self-originated default route over the received default route route.
+            return constants.DIR_NORTH
+
+    def is_neighbor_bidirectional(self, visit_system_id, nbr_system_id, nbr_tie_element,
+                                  spf_direction):
+        # Locate the Node-TIE(s) of the neighbor node in the desired direction. If we can't find
+        # the neighbor's Node-TIE(s), we declare the adjacency to be not bi-directional.
+        reverse_direction = constants.reverse_dir(spf_direction)
+        nbr_node_ties = self.node_ties(reverse_direction, nbr_system_id)
+        if nbr_node_ties == []:
+            return False
+        # Check for bi-directional connectivity: the neighbor must report the visited node
+        # as an adjacency with the same link-id pair (in reverse).
+        bidirectional = False
+        for nbr_nbr in self.node_neighbors(nbr_node_ties, reverse_direction):
+            (nbr_nbr_system_id, nbr_nbr_tie_element) = nbr_nbr
+            # Does the neighbor report the visited node as its neighbor?
+            if nbr_nbr_system_id != visit_system_id:
+                continue
+            # Are the link_ids bidirectional?
+            if not self.are_link_ids_bidirectional(nbr_tie_element, nbr_nbr_tie_element):
+                continue
+            # Yes, connectivity is bidirectional
+            bidirectional = True
+            break
+        return bidirectional
+
+    def are_link_ids_bidirectional(self, nbr_tie_element_1, nbr_tie_element_2):
+        # Does the set link_ids_1 contain any link-id (local_id, remote_id) which is present in
+        # reverse (remote_id, local_id) in set link_ids_2?
+        for id1 in nbr_tie_element_1.link_ids:
+            for id2 in nbr_tie_element_2.link_ids:
+                if (id1.local_id == id2.remote_id) and (id1.remote_id == id2.local_id):
+                    return True
+        return False
+
+    def spf_install_routes_in_rib(self, spf_direction):
+        if spf_direction == constants.DIR_NORTH:
+            owner = constants.OWNER_N_SPF
+        else:
+            owner = constants.OWNER_S_SPF
+        self._ipv4_rib.mark_owner_routes_stale(owner)
+        self._ipv6_rib.mark_owner_routes_stale(owner)
+        dest_table = self._spf_destinations[spf_direction]
+        for dest_key, dest in dest_table.items():
+            if isinstance(dest_key, int):
+                # Destination is a node, do nothing
+                pass
+            elif dest.predecessors == []:
+                # Local node destination, don't install in RIB as result of SPF
+                pass
+            elif dest.predecessors == [self.system_id]:
+                # Local prefix destination, don't install in RIB as result of SPF
+                pass
+            else:
+                prefix = dest_key
+                if prefix.ipv4prefix is not None:
+                    next_hops = dest.ipv4_next_hops
+                    route_table = self._ipv4_rib
+                else:
+                    assert prefix.ipv6prefix is not None
+                    next_hops = dest.ipv6_next_hops
+                    route_table = self._ipv6_rib
+                if next_hops:
+                    rte = route.Route(prefix, owner, next_hops)
+                    route_table.put_route(rte)
+        self._ipv4_rib.del_stale_routes()
+        self._ipv6_rib.del_stale_routes()
+
+    def floodred_elect_repeaters(self):
+        self.floodred_debug("Re-elect flood repeaters")
+        if self.floodred_enabled:
+            # Update parents and grandparents
+            self.floodred_update_ancestry()
+            # Sort and shuffle parents (order by decreasing grandparent count)
+            self.floodred_sort_shuffle_parents()
+            # Pick flood repeaters to get the required coverage of grandparents
+            self.floodred_pick_repeaters()
+            # Active newly elected flood repeater interfaces (gracefully, i.e. activating new flood
+            # repeaters before de-activating old flood repeaters)
+            self.floodrep_update_intfs()
+        else:
+            # Flooding reduction is disabled. Don't compute parents or grandparents. Tell all
+            # north neighbors that they are flood repeaters (i.e. no reduction in flooding)
+            self.floodrep_all_intfs_are_fr()
+
+    def floodred_update_ancestry(self):
+        # Update the following information about parents and grandparents
+        #
+        # floodred_parents: A list of FloodRedParent objects (not sorted at this point)
+        self.floodred_parents = self.floodred_gather_parents()
+        #
+        # floodred_grandparents: A dictionary of FloodRedGrandparent objects, indexed by sysid
+        self.floodred_grandparents = {}
+        for parent in self.floodred_parents:
+            grandparent_sysids = self.floodred_gather_grandparents(parent)
+            for grandparent_sysid in grandparent_sysids:
+                if grandparent_sysid in self.floodred_grandparents:
+                    grandparent = self.floodred_grandparents[grandparent_sysid]
+                else:
+                    grandparent = FloodRedGrandparent(self, grandparent_sysid)
+                    self.floodred_grandparents[grandparent_sysid] = grandparent
+                parent.add_grandparent(grandparent)  # Grandparent of this node, parent of parent
+                grandparent.add_parent(parent)       # Parent of this node, child of grandparent
+
+    def floodred_gather_parents(self):
+        # Gather list of FloodRedParent objects (not sorted at this time)
+        parents = []
+        for intf in self.interfaces_by_name.values():
+            if (intf.fsm.state == intf.State.THREE_WAY and
+                    intf.neighbor_direction() == constants.DIR_NORTH):
+                parent = FloodRedParent(self, intf)
+                parents.append(parent)
+        return parents
+
+    def floodred_gather_grandparents(self, parent):
+        # Gather list of sysids of parents of parent, i.e. sysids of grandparents of this node
+        grandparent_sysids = []
+        parent_node_ties = self.node_ties(constants.DIR_SOUTH, parent.sysid)
+        for grandparent_nbr in self.node_neighbors(parent_node_ties, constants.DIR_NORTH):
+            (grandparent_sysid, _grandparent_tie_element) = grandparent_nbr
+            grandparent_sysids.append(grandparent_sysid)
+        return grandparent_sysids
+
+    def floodred_sort_shuffle_parents(self):
+        # Sort the parents array by decreasing grandparents count
+        self.floodred_parents.sort(reverse=True)
+        # Shuffle parents that have the same grandparent count. Follow the pseudo-code in the draft
+        # verbatim, even though it is not very Pythonic. I do the shuffling in-place, as is hinted
+        # to by the "abstract action, maybe noop" comment in the draft (and hence we don't need k)
+        parents = self.floodred_parents
+        nr_parents = len(parents)
+        similarity_group_index = 1                 # Corresponds to k=0 in the draft
+        i = 0
+        while i < nr_parents:
+            j = i
+            while True:
+                if i >= nr_parents:
+                    break
+                i_nr_grandparents = len(parents[i].grandparents)
+                j_nr_grandparents = len(parents[j].grandparents)
+                if j_nr_grandparents - i_nr_grandparents > self.floodred_similarity:
+                    break
+                i += 1
+            self.shuffle_parents_slice(j, i, similarity_group_index)
+            similarity_group_index += 1
+
+    def shuffle_parents_slice(self, start_inclusive, end_exclusive, similarity_group_index):
+        # Shuffle a slice of the parents list, using the modern Durstenfeld variation of the
+        # Fisher-Yates algorithm.
+        lst = self.floodred_parents
+        high_grandparent_count = len(lst[start_inclusive].grandparents)
+        low_grandparent_count = len(lst[end_exclusive-1].grandparents)
+        similarity_group = (str(similarity_group_index) + ": " +
+                            str(high_grandparent_count) + "-" + str(low_grandparent_count))
+        for i in reversed(range(start_inclusive+1, end_exclusive)):
+            random_range = i - start_inclusive
+            j = start_inclusive + self.floodred_node_random % random_range
+            lst[i], lst[j] = lst[j], lst[i]
+            lst[i].similarity_group = similarity_group
+        lst[start_inclusive].similarity_group = similarity_group
+
+    def floodred_pick_repeaters(self):
+        # Visit each parent (in the shuffled order) and decide whether or not it should be a
+        # flood repeater.
+        for parent in self.floodred_parents:
+            # Make the parent a flood repeater if it connect to at least one grandparent that does
+            # not yet have a sufficient number of adjacencies to elected flood repeaters.
+            make_flood_repeater = False
+            for grandparent in parent.grandparents:
+                if grandparent.fr_adjacencies < self.floodred_redundancy:
+                    make_flood_repeater = True
+                    break
+            if make_flood_repeater:
+                parent.flood_repeater = True
+                for grandparent in parent.grandparents:
+                    grandparent.fr_adjacencies += 1
+        # Warn about any grandparents that could not be covered with sufficient redundancy
+        for grandparent in self.floodred_grandparents.values():
+            if grandparent.fr_adjacencies >= self.floodred_redundancy:
+                grandparent.covered = True
+            else:
+                grandparent.covered = False
+                self.floodred_warning("Grandparent system-id %s not covered by flooding repeaters",
+                                      utils.system_id_str(grandparent.sysid))
+
+    def floodrep_update_intfs(self):
+        # Do all activations before any de-activations (so that the de-activations can known whether
+        # they need to way for any pending activations to be completed)
+        for parent in self.floodred_parents:
+            if parent.flood_repeater:
+                self.floodrep_activate_fr_on_intf(parent.intf)
+        for parent in self.floodred_parents:
+            if not parent.flood_repeater:
+                self.floodrep_deactivate_fr_on_intf(parent.intf)
+
+    def floodrep_all_intfs_are_fr(self):
+        for intf in self.interfaces_by_name.values():
+            intf.activate_flood_repeater(force=True)
+
+    def floodrep_activate_fr_on_intf(self, intf):
+        if intf.activate_flood_repeater():
+            pending_str = "(pending)"
+        else:
+            pending_str = "(immediate)"
+        self.floodred_debug("Activate interface %s as flood repeater %s", intf.name, pending_str)
+
+    def floodrep_deactivate_fr_on_intf(self, intf):
+        if intf.deactivate_flood_repeater():
+            pending_str = "(pending)"
+        else:
+            pending_str = "(immediate)"
+        self.floodred_debug("Deactivate interface %s as flood repeater %s", intf.name, pending_str)
+
+class FloodRedParent:
+
+    def __init__(self, node, intf):
+        self.node = node
+        self.intf = intf
+        self.sysid = intf.neighbor.system_id
+        self.name = intf.neighbor.name
+        self.grandparents = []   # Grandparents of this node, i.e. parent of parent
+        self.similarity_group = None
+        self.flood_repeater = False
+
+    def add_grandparent(self, grandparent):
+        # Add grandparent of this node, i.e. parent of parent
+        self.grandparents.append(grandparent)
+
+    def __lt__(self, other):
+        grandparent_count = len(self.grandparents)
+        other_grandparent_count = len(other.grandparents)
+        if grandparent_count < other_grandparent_count:
+            return True
+        if grandparent_count > other_grandparent_count:
+            return False
+        # Need a tie-breaker to make shuffling deterministic (which is needed for unit testing)
+        if self.sysid < other.sysid:
+            return True
+        return False
+
+    @staticmethod
+    def cli_summary_headers():
+        return [
+            ["Interface", "Name"],
+            ["Parent", "System ID"],
+            ["Parent", "Interface", "Name"],
+            ["Grandparent", "Count"],
+            ["Similarity", "Group"],
+            ["Flood", "Repeater"]
+        ]
+
+    def cli_summary_attributes(self):
+        return [
+            self.intf.name,
+            utils.system_id_str(self.sysid),
+            self.name,
+            len(self.grandparents),
+            self.similarity_group,
+            self.flood_repeater
+        ]
+
+class FloodRedGrandparent:
+
+    def __init__(self, node, sysid):
+        self.node = node
+        self.sysid = sysid
+        self.parents = []              # Parents of this node, i.e. children of grandparent
+        self.fr_adjacencies = 0
+        self.covered = False
+
+    def add_parent(self, parent):
+        # Add parent of this node, i.e. child of grandparent
+        # TODO: Don't need this if my e-mail is correct
+        self.parents.append(parent)
+
+    @staticmethod
+    def cli_summary_headers():
+        return [
+            ["Grandparent", "System ID"],
+            ["Parent", "Count"],
+            ["Flood", "Repeater", "Adjacencies"],
+            ["Redundantly", "Covered"]
+        ]
+
+    def cli_summary_attributes(self):
+        return [
+            utils.system_id_str(self.sysid),
+            len(self.parents),
+            self.fr_adjacencies,
+            self.covered
+        ]

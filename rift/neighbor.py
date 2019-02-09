@@ -1,35 +1,20 @@
-import enum
-
 import common.constants
+import table
 import utils
 
 # TODO: Store both IPv4 and IPv6 address of neighbor
 
 class Neighbor:
 
-    # The neighbor direction is slightly more general than the type TieDirectionType in the Thrift
-    # model. In addition to North and South, we also have the concept of EastWest. When we say
-    # TIE direction we mean North or South. When we say neighbor direction, we mean North or South
-    # or East-West.
-    class Direction(enum.Enum):
-        SOUTH = 1
-        NORTH = 2
-        EAST_WEST = 3
-
-    @staticmethod
-    def direction_str(direction):
-        if direction == Neighbor.Direction.SOUTH:
-            return "South"
-        if direction == Neighbor.Direction.NORTH:
-            return "North"
-        if direction == Neighbor.Direction.EAST_WEST:
-            return "East-West"
-        return str(direction)
-
     def __init__(self, lie_protocol_packet, neighbor_address, neighbor_port):
         self.system_id = lie_protocol_packet.header.sender
         self.level = lie_protocol_packet.header.level
-        self.address = neighbor_address
+        if utils.is_valid_ipv4_address(neighbor_address):
+            self.ipv4_address = neighbor_address
+            self.ipv6_address = None
+        else:
+            self.ipv4_address = None
+            self.ipv6_address = neighbor_address
         self.port = neighbor_port
         lie = lie_protocol_packet.content.lie
         self.name = lie.name
@@ -53,7 +38,7 @@ class Neighbor:
         # TODO: Is this right? Should we look at capabilities.hierarchy_indications?
         return self.level == common.constants.top_of_fabric_level
 
-    def cli_detailed_attributes(self):
+    def cli_details_table(self):
         # TODO: Report capabilities (is it possible to report the unknown ones too?"
         # TODO: Report neighbor direction in show command
         if self.neighbor_system_id:
@@ -64,10 +49,12 @@ class Neighbor:
             your_link_id_str = "{}".format(self.neighbor_link_id)
         else:
             your_link_id_str = ""
-        attributes = [
+        tab = table.Table(separators=False)
+        tab.add_rows([
             ["Name", self.name],
             ["System ID", utils.system_id_str(self.system_id)],
-            ["IPv4 Address", self.address],
+            ["IPv4 Address", self.ipv4_address],
+            ["IPv6 Address", self.ipv6_address],
             ["LIE UDP Source Port", self.port],
             ["Link ID", self.local_id],
             ["Level", self.level],
@@ -76,8 +63,8 @@ class Neighbor:
             ["POD", self.pod],
             ["Hold Time", self.holdtime],
             ["Not a ZTP Offer", self.not_a_ztp_offer],
-            ["You Are Not a ZTP Flood Repeater", self.not_a_ztp_offer],
+            ["You are Flood Repeater", self.you_are_flood_repeater],
             ["Your System ID", your_system_id_str],
             ["Your Local ID", your_link_id_str],
-        ]
-        return attributes
+        ])
+        return tab

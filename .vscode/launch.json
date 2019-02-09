@@ -4,13 +4,12 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
-
         {
-            "name": "Pytest tie_db",
+            "name": "config_generator",
             "type": "python",
             "request": "launch",
-            "program": "/Users/brunorijsman/rift-python/env/bin/pytest",
-            "args": ["-s", "-vvv", "tests/test_tie_db.py"] 
+            "program": "tools/config_generator.py",
+            "args": ["-g", "diagram.html", "meta_topology/2c_1x1.yaml", "2c_1x1.yaml"] 
         },
         {
             "name": "Interop",
@@ -27,18 +26,18 @@
             "args": [""] 
         },
         {
-            "name": "RIFT 2n_l0_l1",
+            "name": "pytest test_node_flood_repeater_election",
             "type": "python",
             "request": "launch",
-            "program": "${workspaceFolder}/rift/__main__.py",
-            "args": ["topology/2n_l0_l1.yaml"] 
+            "program": "${workspaceFolder}/env/bin/pytest",
+            "args": ["-vvv", "-s", "tests/test_node_flood_repeater_election.py"] 
         },
         {
-            "name": "RIFT two",
+            "name": "RIFT two_by_two_by_two",
             "type": "python",
             "request": "launch",
             "program": "${workspaceFolder}/rift/__main__.py",
-            "args": ["topology/two.yaml"] 
+            "args": ["topology/two_by_two_by_two.yaml"] 
         },
         {
             "name": "Python: Current File",

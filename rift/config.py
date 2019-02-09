@@ -5,6 +5,8 @@ import sys
 import cerberus
 import yaml
 
+import constants
+
 SCHEMA = {
     'const': {
         'type': 'dict',
@@ -13,7 +15,10 @@ SCHEMA = {
             'tx_src_address': {'type': 'ipv4address'},
             'tx_v6_src_address': {'type': 'ipv6address'},
             'rx_mcast_address': {'type': 'ipv4address'},
-            'lie_mcast_address': {'type': 'ipv4address'}
+            'lie_mcast_address': {'type': 'ipv4address'},
+            'flooding_reduction': {'type': 'boolean'},
+            'flooding_reduction_redundancy': {'type': 'integer', 'min': 1},
+            'flooding_reduction_similarity': {'type': 'integer', 'min': 0}
         },
     },
     'shards': {
@@ -38,8 +43,12 @@ SCHEMA = {
                             'rx_lie_port': {'type': 'port'},
                             'tx_lie_port': {'type': 'port'},
                             'rx_tie_port': {'type': 'port'},
+                            'flooding_reduction': {'type': 'boolean'},
+                            'flooding_reduction_redundancy': {'type': 'integer', 'min': 1},
+                            'flooding_reduction_similarity': {'type': 'integer', 'min': 0},
                             'state_thrift_services_port': {'type': 'port'},
                             'config_thrift_services_port': {'type': 'port'},
+                            'kernel_route_table': {'type': 'kernel_route_table'},
                             'v4prefixes': {
                                 'type': 'list',
                                 'schema': {
@@ -48,6 +57,14 @@ SCHEMA = {
                                         'address': {'required': True, 'type': 'ipv4address'},
                                         'mask': {'required': True, 'type': 'ipv4mask'},
                                         'metric': {'type': 'integer', 'min': 1, 'default': 1},
+                                        'tags': {
+                                            'type': 'list',
+                                            'schema': {
+                                                'type': 'integer',
+                                                'min': 0,
+                                                'max': 0xffffffffffffffff
+                                            }
+                                        }
                                     }
                                 }
                             },
@@ -59,6 +76,14 @@ SCHEMA = {
                                         'address': {'required': True, 'type': 'ipv6address'},
                                         'mask': {'required': True, 'type': 'ipv6mask'},
                                         'metric': {'type': 'integer', 'min': 1, 'default': 1},
+                                        'tags': {
+                                            'type': 'list',
+                                            'schema': {
+                                                'type': 'integer',
+                                                'min': 0,
+                                                'max': 0xffffffffffffffff
+                                            }
+                                        }
                                     }
                                 }
                             },
@@ -162,14 +187,44 @@ class RiftValidator(cerberus.Validator):
         else:
             return 0 <= level <= 3
 
+    def _validate_type_kernel_route_table(self, value):
+        if isinstance(value, str) and value.lower() in ['local', 'main', 'default', 'unspecified',
+                                                        'none']:
+            return True
+        try:
+            table_nr = int(value)
+        except ValueError:
+            return False
+        else:
+            return 0 <= table_nr <= 255
+
+def apply_global_defaults(config):
+    if 'const' in config:
+        global_config = config['const']
+    else:
+        global_config = {}
+    if 'flooding_reduction' not in global_config:
+        global_config['flooding_reduction'] = True
+    if 'flooding_reduction_redundancy' not in global_config:
+        global_config['flooding_reduction_redundancy'] = \
+            constants.DEFAULT_FLOODING_REDUCTION_REDUNDANCY
+    if 'flooding_reduction_similarity' not in global_config:
+        global_config['flooding_reduction_similarity'] = \
+            constants.DEFAULT_FLOODING_REDUCTION_SIMILARITY
+    config['const'] = global_config
+
 def apply_inheritance(config):
+    global_config = config['const']
     if 'shards' in config:
         for shard_config in config['shards']:
             if 'nodes' in shard_config:
                 for node_config in shard_config['nodes']:
-                    node_apply_inheritance(node_config)
+                    node_apply_inheritance(node_config, global_config)
 
-def node_apply_inheritance(node_config):
+def node_apply_inheritance(node_config, global_config):
+    node_inherit_attr_from_engine(node_config, 'flooding_reduction', global_config)
+    node_inherit_attr_from_engine(node_config, 'flooding_reduction_redundancy', global_config)
+    node_inherit_attr_from_engine(node_config, 'flooding_reduction_similarity', global_config)
     if 'interfaces' in node_config:
         for interface_config in node_config['interfaces']:
             interface_apply_inheritance(interface_config, node_config)
@@ -177,10 +232,14 @@ def node_apply_inheritance(node_config):
 def interface_apply_inheritance(interface_config, node_config):
     intf_inherit_attr_from_node(interface_config, 'rx_lie_mcast_address', node_config)
     intf_inherit_attr_from_node(interface_config, 'tx_lie_mcast_address', node_config)
-    intf_inherit_attr_from_node(interface_config, 'rx_lie_ipv6_mcast_address', node_config)
-    intf_inherit_attr_from_node(interface_config, 'tx_lie_ipv6_mcast_address', node_config)
+    intf_inherit_attr_from_node(interface_config, 'rx_lie_v6_mcast_address', node_config)
+    intf_inherit_attr_from_node(interface_config, 'tx_lie_v6_mcast_address', node_config)
     intf_inherit_attr_from_node(interface_config, 'rx_lie_port', node_config)
     intf_inherit_attr_from_node(interface_config, 'tx_lie_port', node_config)
+
+def node_inherit_attr_from_engine(node_config, attribute, global_config):
+    if (not attribute in node_config) and (attribute in global_config):
+        node_config[attribute] = global_config[attribute]
 
 def intf_inherit_attr_from_node(interface_config, attribute, node_config):
     if (not attribute in interface_config) and (attribute in node_config):
@@ -278,6 +337,8 @@ def parse_configuration(filename):
         pretty_printer = pprint.PrettyPrinter()
         pretty_printer.pprint(validator.errors)
         exit(1)
+    config = validator.normalized(config)
+    apply_global_defaults(config)
     apply_inheritance(config)
     apply_inferences(config)
     return config

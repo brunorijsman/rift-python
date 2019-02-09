@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import argparse
 import re
@@ -16,8 +16,10 @@ TIMESTAMP_COLOR = "gray"
 TARGET_COLOR = "black"
 IF_FSM_COLOR = "red"
 NODE_FSM_COLOR = "coral"
-MSG_COLOR = "blue"
+IPV4_MSG_COLOR = "#1F618D"   # Dark blue
+IPV6_MSG_COLOR = "#3498DB"    # Light blue
 CLI_COLOR = "green"
+LOG_COLOR = "orange"
 DEFAULT_COLOR = "black"
 END_OF_SVG = """
 <g id="tooltip" visibility="hidden" >
@@ -109,9 +111,14 @@ def log_record_color(record):
         elif record.target.type == "node":
             return NODE_FSM_COLOR
     elif record.type in ["send", "receive"]:
-        return MSG_COLOR
+        if record.packet_family == "IPv4":
+            return IPV4_MSG_COLOR
+        else:
+            return IPV6_MSG_COLOR
     elif record.type == "cli":
         return CLI_COLOR
+    elif record.type == "log":
+        return LOG_COLOR
     return DEFAULT_COLOR
 
 def log_record_class(record):
@@ -122,6 +129,8 @@ def log_record_class(record):
             return "node_fsm"
     if record.type == "cli":
         return "cli"
+    if record.type == "log":
+        return "log"
     if record.packet_type == "LIE":
         return "lie_msg"
     if record.packet_type == "TIE":
@@ -172,7 +181,9 @@ def normalize_tie_ids(msg_str):
     return new_msg_str
 
 def pretty_format_rift_msg(msg_str, newline='\n'):
-    space = "\u00A0"
+    # Space used to be Unicode "\u00A0" but that does not render properly on Safari
+    # A regular space " " works neither on Chrome nor on Safari - multiple spaces get merged
+    space = "."
     one_line_types = ["TIEID", "PacketHeader", "NodeNeighborsTIEElement"]
     new_msg_str = remove_none_fields(msg_str)
     pretty_str = ""
@@ -229,11 +240,11 @@ class Target:
     nodes = {}
     next_node_index = 0
 
-    def __init__(self, target_id):
+    def __init__(self, subsystem, target_id):
         self.target_id = target_id
-        if '-' in target_id:
+        if subsystem.startswith("node.if"):
             self.type = 'if'
-            split_target_id = target_id.split('-', 1)
+            split_target_id = target_id.rsplit('-', 1)
             self.node_id = split_target_id[0]
             self.if_id = split_target_id[1]
             node = Target.nodes[self.node_id]
@@ -286,7 +297,7 @@ class Visualizer:
     def target_for_record(self, record):
         if record.target_id in self.targets:
             return self.targets[record.target_id]
-        target = Target(record.target_id)
+        target = Target(record.subsystem, record.target_id)
         self.targets[record.target_id] = target
         self.show_target_id(target)
         return target
@@ -305,6 +316,8 @@ class Visualizer:
             self.show_receive(record)
         elif record.type == 'cli':
             self.show_cli(record)
+        elif record.type == 'log':
+            self.show_log(record)
 
     def show_timestamp(self, tick, timestamp):
         xpos = TIMESTAMP_X
@@ -362,7 +375,7 @@ class Visualizer:
 
     def record_sent_message(self, sent_msg_record):
         xpos = sent_msg_record.target.xpos
-        ypos = tick_y_mid(sent_msg_record.tick)        
+        ypos = tick_y_mid(sent_msg_record.tick)
         if sent_msg_record.nonce is not None:
             self.sent_messages[sent_msg_record.nonce] = SentMessage(xpos, ypos)
         elif sent_msg_record.packet is not None:
@@ -370,7 +383,11 @@ class Visualizer:
             # identify a message. Just store the message string itself. This is less than optimal
             # because the sequence of fields can vary, and the same message is often sent multiple
             # times.
-            self.sent_messages[sent_msg_record.packet] = SentMessage(xpos, ypos)
+            # To add insult to injury, we cannot use the message string as the index, we have to
+            # used the decoded binary message. This is because the conversion from an object to a
+            # string is not deterministic: the order of members of a dict (which includes attributes
+            # in an object) is not deterministic.
+            self.sent_messages[sent_msg_record.decoded_packet] = SentMessage(xpos, ypos)
 
     def show_send(self, record):
         xpos = record.target.xpos
@@ -381,20 +398,16 @@ class Visualizer:
         self.svg_dot(xpos, ypos, DOT_RADIUS, color, the_class, pretty_msg)
         self.record_sent_message(record)
         xpos += 2 * DOT_RADIUS
-        text = "TX " + record.packet_type + " " + record.packet
+        text = "TX " + record.packet_family + " " + record.packet_type + " " + record.packet
         self.svg_text(xpos, ypos, text, color, the_class)
 
     def find_sent_message(self, received_msg_record):
-        ##@@
-        if ((received_msg_record.nonce is not None) and
-                (received_msg_record.nonce not in self.sent_messages)):
-                print("nonce", received_msg_record, "not found")
-        if ((received_msg_record.nonce is not None) and
-                (received_msg_record.nonce in self.sent_messages)):
-            return self.sent_messages[received_msg_record.nonce]
-        if ((received_msg_record.packet is not None) and
-                (received_msg_record.packet in self.sent_messages)):
-            return self.sent_messages[received_msg_record.packet]
+        if received_msg_record.nonce is not None:
+            if received_msg_record.nonce in self.sent_messages:
+                return self.sent_messages[received_msg_record.nonce]
+        if received_msg_record.decoded_packet is not None:
+            if received_msg_record.decoded_packet in self.sent_messages:
+                return self.sent_messages[received_msg_record.decoded_packet]
         return None
 
     def show_receive(self, record):
@@ -412,7 +425,7 @@ class Visualizer:
             yend = tick_y_mid(record.tick)
             self.svg_line(xstart, ystart, xend, yend, color, the_class)
         xpos += 2 * DOT_RADIUS
-        text = "RX " + record.packet_type + " " + record.packet
+        text = "RX " + record.packet_family + " " + record.packet_type + " " + record.packet
         self.svg_text(xpos, ypos, text, color, the_class)
 
     def show_cli(self, record):
@@ -425,6 +438,16 @@ class Visualizer:
         text = record.cli_command
         self.svg_text(xpos, ypos, text, color, the_class)
 
+    def show_log(self, record):
+        xpos = record.target.xpos
+        ypos = tick_y_mid(record.tick)
+        color = log_record_color(record)
+        the_class = log_record_class(record)
+        self.svg_dot(xpos, ypos, DOT_RADIUS, color, the_class)
+        xpos += 2 * DOT_RADIUS
+        text = record.msg
+        self.svg_text(xpos, ypos, text, color, the_class)
+
     def html_start(self):
         self.svgfile.write('<script '
                            'src="https://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js">'
@@ -432,6 +455,7 @@ class Visualizer:
         buttons = [("Interface FSM", "if_fsm"),
                    ("Node FSM", "node_fsm"),
                    ("CLI", "cli"),
+                   ("Log >= WARNING", "log"),
                    ("LIE Messages", "lie_msg"),
                    ("TIE Messages", "tie_msg"),
                    ("TIDE Messages", "tide_msg"),

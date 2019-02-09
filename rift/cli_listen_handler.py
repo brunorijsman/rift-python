@@ -16,10 +16,8 @@ class CliListenHandler:
         self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
         self._sock.bind(('', port))
         self._sock.listen()
-        self._port = self._sock.getsockname()[1]
+        self.port = self._sock.getsockname()[1]
         scheduler.SCHEDULER.register_handler(self, True, False)
-        msg = "Command Line Interface (CLI) available on port {}".format(self._port)
-        print(msg)
 
     def close(self):
         scheduler.SCHEDULER.unregister_handler(self)

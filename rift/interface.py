@@ -2,6 +2,7 @@
 
 import collections
 import enum
+import logging
 import random
 import socket
 
@@ -12,8 +13,7 @@ import offer
 import packet_common
 import table
 import timer
-import udp_receive_handler
-import udp_send_handler
+import udp_rx_handler
 import utils
 
 import common.constants
@@ -23,15 +23,9 @@ import encoding.ttypes
 USE_SIMPLE_REQUEST_FILTERING = True
 
 # TODO: LIEs arriving with a TTL larger than 1 MUST be ignored.
-
 # TODO: Implement configuration of POD numbers
-
 # TODO: Send LIE packets with network control precedence.
-
-# TODO: Add IPv6 support
-
 # TODO: Have a mechanism to detect that an interface comes into / goes out of existence
-
 # TODO: Have a mechanism to detect IPv4 or IPv6 address changes on an interface
 
 class Interface:
@@ -41,12 +35,12 @@ class Interface:
     SERVICE_QUEUES_INTERVAL = 1.0
 
     def generate_advertised_name(self):
-        return self._node.name + '-' + self._interface_name
+        return self.node.name + '-' + self.name
 
     def get_mtu(self):
         # TODO: Find a portable (or even non-portable) way to get the interface MTU
         # TODO: Find a way to be informed whenever the interface MTU changes
-        #!!! mtu = 1500
+        # TODO: Check the hard-coded MTU value: 1400 or 1500
         mtu = 1400
         return mtu
 
@@ -82,6 +76,37 @@ class Interface:
 
     verbose_events = [Event.TIMER_TICK, Event.LIE_RECEIVED, Event.SEND_LIE]
 
+    class NbrIsFRState(enum.Enum):
+        NOT_APPLICABLE = 0  # Neighbor is not in state 3-way etc.
+        FALSE = 1           # Neighbor is not flood repeater
+        TRUE = 2            # Neighbor is flood repeater
+        PENDING_FALSE = 3   # Neighbor has recently been elected to stop being a flood repeater;
+                            # Pending until the new flood repeater is announced to the neighbor
+                            # This is for graceful switch-over from old to new flood repeaters
+        PENDING_TRUE = 4    # Neighbor has recently been elected to start being a flood repeater;
+                            # Pending until we send the first LIE with you_are_flood_repeater=True
+
+    @staticmethod
+    def nbr_is_fr_str(state):
+        if state == Interface.NbrIsFRState.NOT_APPLICABLE:
+            return "Not Applicable"
+        elif state == Interface.NbrIsFRState.FALSE:
+            return "False"
+        elif state == Interface.NbrIsFRState.TRUE:
+            return "True"
+        elif state == Interface.NbrIsFRState.PENDING_FALSE:
+            return "False (Pending)"
+        else:
+            assert state == Interface.NbrIsFRState.PENDING_TRUE
+            return "True (Pending)"
+
+    @staticmethod
+    def nbr_is_fr_bool(state):
+        # Only send you_are_flood_repeater=True to neighbor in the following states:
+        return state in [Interface.NbrIsFRState.TRUE,
+                         Interface.NbrIsFRState.PENDING_TRUE,
+                         Interface.NbrIsFRState.PENDING_FALSE]
+
     def action_store_hal(self):
         # TODO: Need to implement ZTP state machine first
         pass
@@ -100,74 +125,141 @@ class Interface:
 
     def action_start_flooding(self):
         # Start sending TIE, TIRE, and TIDE packets to this neighbor
-        rx_flood_port = self._rx_tie_port
+        rx_flood_port = self._rx_flood_port
         tx_flood_port = self.neighbor.flood_port
-        self.info(self._rx_log, ("Start flooding: receive on port {}, send on port {}"
-                                 .format(rx_flood_port, tx_flood_port)))
-        # TODO: the local addresses below should be the interface address, not the engine addresses
-        self._flood_receive_handler = udp_receive_handler.UdpReceiveHandler(
-            remote_address=self.neighbor.address,
-            port=rx_flood_port,
-            receive_function=self.receive_flood_message,
-            local_address=self._node.engine.tx_src_address)
-        self._flood_send_handler = udp_send_handler.UdpSendHandler(
-            interface_name=self._interface_name,
-            remote_address=self.neighbor.address,
-            port=tx_flood_port,
-            local_address=self._node.engine.tx_src_address)
-            # TODO: This can't be the interface address since it is per engine
+        # Use whatever IPv4 or IPv6 address we see first for the neighbor, preferring the IPv4
+        # address if we know both.
+        if self.neighbor.ipv4_address is not None:
+            self.rx_info("Start IPv4 flooding: receive on port %d, send to address %s port %d",
+                         rx_flood_port, self.neighbor.ipv4_address, tx_flood_port)
+            self._flood_rx_ipv4_handler = udp_rx_handler.UdpRxHandler(
+                interface_name=self.physical_interface_name,
+                local_port=rx_flood_port,
+                remote_address="0.0.0.0",  # TODO: Permissive... use neighbor address?
+                receive_function=self.receive_flood_message,
+                log=self._rx_log,
+                log_id=self._log_id)
+            self._flood_tx_ipv4_socket = self.create_socket_ipv4_tx_ucast(
+                remote_address=self.neighbor.ipv4_address,
+                port=tx_flood_port)
+        else:
+            assert self.neighbor.ipv6_address is not None
+            scoped_ipv6_address = self.neighbor.ipv6_address
+            if "%" not in self.neighbor.ipv6_address:
+                scoped_ipv6_address += "%" + self.physical_interface_name
+            self.rx_info("Start IPv6 flooding: receive on port %d, send to address %s port %d",
+                         rx_flood_port, scoped_ipv6_address, tx_flood_port)
+            self._flood_rx_ipv6_handler = udp_rx_handler.UdpRxHandler(
+                interface_name=self.physical_interface_name,
+                local_port=rx_flood_port,
+                remote_address="::",
+                receive_function=self.receive_flood_message,
+                log=self._rx_log,
+                log_id=self._log_id)
+            self._flood_tx_ipv6_socket = self.create_socket_ipv6_tx_ucast(
+                remote_address=scoped_ipv6_address,
+                port=tx_flood_port)
         # Periodically start sending TIE packets and TIRE packets
         self._service_queues_timer.start()
         # Update the node TIEs originated by this node to include this neighbor
-        self._node.regenerate_my_node_ties()
+        self.node.regenerate_my_node_ties()
         # Update the south prefix TIE: we may have to start or stop originating a default route
-        self._node.regenerate_my_south_prefix_tie()
+        self.node.regenerate_my_south_prefix_tie()
         # We don't blindly send all TIEs to the neighbor because he might already have them. Instead
         # we send a TIDE packet right now. If our neighbor is missing a TIE that is in our database
         # he will request it after he receives the TIDE packet.
-        self._node.send_tides_on_interface(self)
+        self.node.send_tides_on_interface(self)
 
     def action_stop_flooding(self):
         # Stop sending TIE, TIRE, and TIDE packets to this neighbor
-        self.info(self._rx_log, "Stop flooding")
+        self.rx_info("Stop flooding")
         self._service_queues_timer.stop()
         self.clear_all_queues()
-        self._flood_receive_handler.close()
-        self._flood_receive_handler = None
-        self._flood_send_handler.close()
-        self._flood_send_handler = None
+        self._flood_rx_ipv4_handler.close()
+        self._flood_rx_ipv4_handler = None
+        self._flood_tx_ipv4_socket.close()
+        self._flood_tx_ipv4_socket = None
         # Update the node TIEs originated by this node to exclude this neighbor. We have to pass
         # interface_going_down to regenerate_my_node_ties because the state of this interface is
         # still THREE_WAY at this point.
-        self._node.regenerate_my_node_ties(interface_going_down=self)
+        self.node.regenerate_my_node_ties(interface_going_down=self)
         # Update the south prefix TIE: we may have to start or stop originating a default route
-        self._node.regenerate_my_south_prefix_tie(interface_going_down=self)
+        self.node.regenerate_my_south_prefix_tie(interface_going_down=self)
+
+    def log_tx_protocol_packet(self, level, sock, prelude, protocol_packet):
+        if not self._tx_log.isEnabledFor(level):
+            return
+        packet_str = str(protocol_packet)
+        type_str = self.protocol_packet_type(protocol_packet)
+        if sock.family == socket.AF_INET:
+            fam_str = "IPv4"
+        else:
+            assert sock.family == socket.AF_INET6
+            fam_str = "IPv6"
+        to_str = str(sock.getpeername())
+        self._tx_log.log(level, "[%s] %s %s %s %s to %s" %
+                         (self._log_id, prelude, fam_str, type_str, packet_str, to_str))
+
+    def log_rx_protocol_packet(self, level, from_info, prelude, protocol_packet):
+        if not self._rx_log.isEnabledFor(level):
+            return
+        if protocol_packet:
+            packet_str = str(protocol_packet)
+        else:
+            packet_str = "?"
+        type_str = self.protocol_packet_type(protocol_packet)
+        if len(from_info) == 2:
+            fam_str = "IPv4"
+        else:
+            assert len(from_info) == 4
+            fam_str = "IPv6"
+        from_str = str(from_info)
+        self._rx_log.log(level, "[%s] %s %s %s %s from %s" %
+                         (self._log_id, prelude, fam_str, type_str, packet_str, from_str))
+
+    @staticmethod
+    def protocol_packet_type(protocol_packet):
+        types = []
+        if protocol_packet.content.lie:
+            types.append("LIE")
+        if protocol_packet.content.tie:
+            types.append("TIE")
+        if protocol_packet.content.tide:
+            types.append("TIDE")
+        if protocol_packet.content.tire:
+            types.append("TIRE")
+        if types:
+            return "+".join(types)
+        else:
+            return "No-Content"
 
     def send_protocol_packet(self, protocol_packet, flood):
         if flood:
-            handler = self._flood_send_handler
+            if self._flood_tx_ipv4_socket:
+                socks = [self._flood_tx_ipv4_socket]
+            else:
+                assert self._flood_tx_ipv6_socket
+                socks = [self._flood_tx_ipv6_socket]
         else:
-            handler = self._lie_send_handler
-        to_str = "{}:{}".format(handler.remote_address, handler.port)
-        protocol_packet_str = str(protocol_packet)
-        # TODO: Don't do this expensive to_str if logging is not at level debug
+            socks = [self._lie_tx_ipv4_socket, self._lie_tx_ipv6_socket]
         encoded_protocol_packet = packet_common.encode_protocol_packet(protocol_packet)
-        if self._tx_fail:
-            self.debug(self._tx_log, "Simulated send failure {} to {}"
-                       .format(protocol_packet_str, to_str))
-        else:
-            try:
-                handler.send_message(encoded_protocol_packet)
-            except socket.error as error:
-                self.error(self._tx_log, "Error \"{}\" sending {} to {}"
-                           .format(error, protocol_packet_str, to_str))
-                return
-            self.debug(self._tx_log, "Send {} to {}".format(protocol_packet_str, to_str))
+        for sock in socks:
+            if sock is not None:
+                if self._tx_fail:
+                    self.log_tx_protocol_packet(logging.DEBUG, sock,
+                                                "Simulated failure sending", protocol_packet)
+                else:
+                    try:
+                        self.log_tx_protocol_packet(logging.DEBUG, sock, "Send", protocol_packet)
+                        sock.send(encoded_protocol_packet)
+                    except socket.error as error:
+                        prelude = "Error {} sending".format(str(error))
+                        self.log_tx_protocol_packet(logging.ERROR, sock, prelude, protocol_packet)
 
     def action_send_lie(self):
         packet_header = encoding.ttypes.PacketHeader(
-            sender=self._node.system_id,
-            level=self._node.level_value())
+            sender=self.node.system_id,
+            level=self.node.level_value())
         capabilities = encoding.ttypes.NodeCapabilities(
             flood_reduction=True,
             hierarchy_indications=
@@ -181,41 +273,59 @@ class Interface:
             lie_neighbor = None
         lie_packet = encoding.ttypes.LIEPacket(
             name=self._advertised_name,
-            local_id=self._local_id,
-            flood_port=self._rx_tie_port,
+            local_id=self.local_id,
+            flood_port=self._rx_flood_port,
             link_mtu_size=self._mtu,
             neighbor=lie_neighbor,
             pod=self._pod,
             nonce=Interface.generate_nonce(),
             capabilities=capabilities,
             holdtime=3,
-            not_a_ztp_offer=self._node.send_not_a_ztp_offer_on_intf(self._interface_name),
-            you_are_flood_repeater=True,     # TODO: Set you_are_not_flood_repeater
+            not_a_ztp_offer=self.node.send_not_a_ztp_offer_on_intf(self.name),
+            you_are_flood_repeater=self.nbr_is_fr_bool(self.floodred_nbr_is_fr),
             label=None)
         packet_content = encoding.ttypes.PacketContent(lie=lie_packet)
         protocol_packet = encoding.ttypes.ProtocolPacket(packet_header, packet_content)
         self.send_protocol_packet(protocol_packet, flood=False)
         tx_offer = offer.TxOffer(
-            self._interface_name,
-            self._node.system_id,
+            self.name,
+            self.node.system_id,
             packet_header.level,
             lie_packet.not_a_ztp_offer,
-            self._fsm.state)
-        self._node.record_tx_offer(tx_offer)
+            self.fsm.state)
+        self.node.record_tx_offer(tx_offer)
+        if self.floodred_nbr_is_fr == self.NbrIsFRState.PENDING_TRUE:
+            # This was the first time we send you_are_flood_repeater=True to the neighbor
+            self.floodred_mark_sent_you_are_fr()
+
+    def floodred_mark_sent_you_are_fr(self):
+        self.floodred_nbr_is_fr = self.NbrIsFRState.TRUE
+        self.floodred_check_switchover_done()
+
+    def floodred_check_switchover_done(self):
+        # Are there any interfaces whose flood repeater state is still pending true?
+        for intf in self.node.interfaces_by_name.values():
+            if intf.floodred_nbr_is_fr == self.NbrIsFRState.PENDING_TRUE:
+                return
+        # No, nothing pending true. Now, change every interface that is in flood repeater state
+        # pending false to false.
+        for intf in self.node.interfaces_by_name.values():
+            if intf.floodred_nbr_is_fr == self.NbrIsFRState.PENDING_FALSE:
+                intf.floodred_nbr_is_fr = self.NbrIsFRState.FALSE
 
     def action_cleanup(self):
         self.neighbor = None
 
     def check_reflection(self):
         # Does the received LIE packet (which is now stored in _neighbor) report us as the neighbor?
-        if self.neighbor.neighbor_system_id != self._node.system_id:
-            self.info(self._log,
-                      "Neighbor does not report us as neighbor (system-id {:16x} instead of {:16x}"
-                      .format(self.neighbor.neighbor_system_id, self._node.system_id))
+        if self.neighbor.neighbor_system_id != self.node.system_id:
+            self.info("Neighbor does not report us as neighbor (system-id %s instead of %s",
+                      utils.system_id_str(self.neighbor.neighbor_system_id),
+                      utils.system_id_str(self.node.system_id))
             return False
-        if self.neighbor.neighbor_link_id != self._local_id:
-            self.info(self._log, "Neighbor does not report us as neighbor (link-id {} instead of {}"
-                      .format(self.neighbor.neighbor_link_id, self._local_id))
+        if self.neighbor.neighbor_link_id != self.local_id:
+            self.info("Neighbor does not report us as neighbor (link-id %s instead of %s",
+                      self.neighbor.neighbor_link_id, self.local_id)
             return False
         return True
 
@@ -223,22 +333,22 @@ class Interface:
         # Section B.1.5
         # CHANGE: This is a little bit different from the specification
         # (see comment [CheckThreeWay])
-        if self._fsm.state == self.State.ONE_WAY:
+        if self.fsm.state == self.State.ONE_WAY:
             pass
-        elif self._fsm.state == self.State.TWO_WAY:
+        elif self.fsm.state == self.State.TWO_WAY:
             if self.neighbor.neighbor_system_id is None:
                 pass
             elif self.check_reflection():
-                self._fsm.push_event(self.Event.VALID_REFLECTION)
+                self.fsm.push_event(self.Event.VALID_REFLECTION)
             else:
-                self._fsm.push_event(self.Event.MULTIPLE_NEIGHBORS)
+                self.fsm.push_event(self.Event.MULTIPLE_NEIGHBORS)
         else: # state is THREE_WAY
             if self.neighbor.neighbor_system_id is None:
-                self._fsm.push_event(self.Event.NEIGHBOR_DROPPED_REFLECTION)
+                self.fsm.push_event(self.Event.NEIGHBOR_DROPPED_REFLECTION)
             elif self.check_reflection():
                 pass
             else:
-                self._fsm.push_event(self.Event.MULTIPLE_NEIGHBORS)
+                self.fsm.push_event(self.Event.MULTIPLE_NEIGHBORS)
 
     def check_minor_change(self, new_neighbor):
         # TODO: what if link_mtu_size changes?
@@ -262,25 +372,25 @@ class Interface:
                    .format(self.neighbor.local_id, new_neighbor.local_id))
             minor_change = True
         if minor_change:
-            self.info(self._log, msg)
+            self.info(msg)
         return minor_change
 
     def send_offer_to_ztp_fsm(self, offering_neighbor):
         offer_for_ztp = offer.RxOffer(
-            self._interface_name,
+            self.name,
             offering_neighbor.system_id,
             offering_neighbor.level,
             offering_neighbor.not_a_ztp_offer,
-            self._fsm.state)
-        self._node.fsm.push_event(self._node.Event.NEIGHBOR_OFFER, offer_for_ztp)
+            self.fsm.state)
+        self.node.fsm.push_event(self.node.Event.NEIGHBOR_OFFER, offer_for_ztp)
 
     def this_node_is_leaf(self):
-        return self._node.level_value() == common.constants.leaf_level
+        return self.node.level_value() == common.constants.leaf_level
 
     def hat_not_greater_remote_level(self, remote_level):
-        if self._node.highest_adjacency_three_way is None:
+        if self.node.highest_adjacency_three_way is None:
             return True
-        return self._node.highest_adjacency_three_way <= remote_level
+        return self.node.highest_adjacency_three_way <= remote_level
 
     def both_nodes_support_leaf_2_leaf(self, protocol_packet):
         header = protocol_packet.header
@@ -291,7 +401,7 @@ class Interface:
         if header.level != 0:
             # Remote node is not a leaf
             return False
-        if not self._node.leaf_2_leaf:
+        if not self.node.leaf_2_leaf:
             # This node does not support leaf-2-leaf
             return False
         if lie.capabilities is None:
@@ -312,9 +422,9 @@ class Interface:
         if header.level == 0:
             # Remote node is leaf
             return False
-        assert self._node.level_value() is not None
+        assert self.node.level_value() is not None
         assert header.level is not None
-        if abs(header.level - self._node.level_value()) > 1:
+        if abs(header.level - self.node.level_value()) > 1:
             # Level difference is greater than 1
             return False
         return True
@@ -346,12 +456,12 @@ class Interface:
             # Section B.1.4.1 (1st OR clause) / section 4.2.2.2
             problem = ("Different major protocol version (local version {}, remote version {})"
                        .format(constants.RIFT_MAJOR_VERSION, header.major_version))
-            self.error(self._rx_log, problem)
+            self.rx_error(problem)
             return (False, problem, False, True)
         if not self.is_valid_received_system_id(header.sender):
             # Section B.1.4.1 (3rd OR clause) / section 4.2.2.2
             return (False, "Invalid system ID", False, True)
-        if self._node.system_id == header.sender:
+        if self.node.system_id == header.sender:
             # Section 4.2.2.5 (DEV-4: rule is missing in section B.1.4)
             return (False, "Remote system ID is same as local system ID (loop)", False, False)
         if self._mtu != lie.link_mtu_size:
@@ -360,7 +470,7 @@ class Interface:
         if header.level is None:
             # Section B.1.4.2 (1st OR clause) / section 4.2.2.7
             return (False, "Remote level (in received LIE) is undefined", True, False)
-        if self._node.level_value() is None:
+        if self.node.level_value() is None:
             # Section B.1.4.2 (2nd OR clause) / section 4.2.2.7
             return (False, "My level is undefined", True, False)
         if ((self._pod != self.UNDEFINED_OR_ANY_POD) and
@@ -387,7 +497,10 @@ class Interface:
         return (False, "Level mismatch", True, True)
 
     def action_process_lie(self, event_data):
-        (protocol_packet, (from_address, from_port)) = event_data
+        # pylint:disable=too-many-statements
+        (protocol_packet, from_info) = event_data
+        from_address = from_info[0]
+        from_port = from_info[1]
         # TODO: This is a simplistic way of implementing the hold timer. Use a real timer instead.
         self._time_ticks_since_lie_received = 0
         # Sections B.1.4.1 and B.1.4.2
@@ -397,13 +510,13 @@ class Interface:
             self._lie_accept_or_reject = "Rejected"
             self._lie_accept_or_reject_rule = rule
             if warning:
-                self.warning(self._rx_log, "Received LIE packet rejected: {}".format(rule))
+                self.rx_warning("Received LIE packet rejected: %s", rule)
             else:
-                self.info(self._rx_log, "Received LIE packet rejected: {}".format(rule))
+                self.rx_info("Received LIE packet rejected: %s", rule)
             self.action_cleanup()
             if offer_to_ztp:
                 self.send_offer_to_ztp_fsm(new_neighbor)
-                self._fsm.push_event(self.Event.UNACCEPTABLE_HEADER)
+                self.fsm.push_event(self.Event.UNACCEPTABLE_HEADER)
             return
         self._lie_accept_or_reject = "Accepted"
         self._lie_accept_or_reject_rule = rule
@@ -412,35 +525,57 @@ class Interface:
         # UPDATE_ZTP_OFFER event (see deviation DEV-2 in doc/deviations)
         self.send_offer_to_ztp_fsm(new_neighbor)
         if not self.neighbor:
-            self.info(self._log, "New neighbor detected with system-id {}"
-                      .format(utils.system_id_str(protocol_packet.header.sender)))
+            self.info("New neighbor detected with system-id %s",
+                      utils.system_id_str(protocol_packet.header.sender))
             self.neighbor = new_neighbor
-            self._fsm.push_event(self.Event.NEW_NEIGHBOR)
+            self.fsm.push_event(self.Event.NEW_NEIGHBOR)
             self.check_three_way()
             return
         # Section B.1.4.3.1
         if new_neighbor.system_id != self.neighbor.system_id:
-            self.info(self._log, "Neighbor system-id changed from {} to {}"
-                      .format(utils.system_id_str(self.neighbor.system_id),
-                              utils.system_id_str(new_neighbor.system_id)))
-            self._fsm.push_event(self.Event.MULTIPLE_NEIGHBORS)
+            self.info("Neighbor system-id changed from %s to %s",
+                      utils.system_id_str(self.neighbor.system_id),
+                      utils.system_id_str(new_neighbor.system_id))
+            self.fsm.push_event(self.Event.MULTIPLE_NEIGHBORS)
             return
         # Section B.1.4.3.2
         if new_neighbor.level != self.neighbor.level:
-            self.info(self._log, "Neighbor level changed from {} to {}"
-                      .format(self.neighbor.level, new_neighbor.level))
-            self._fsm.push_event(self.Event.NEIGHBOR_CHANGED_LEVEL)
+            self.info("Neighbor level changed from %s to %s", self.neighbor.level,
+                      new_neighbor.level)
+            self.fsm.push_event(self.Event.NEIGHBOR_CHANGED_LEVEL)
             return
         # Section B.1.4.3.3
-        if new_neighbor.address != self.neighbor.address:
-            self.info(self._log, "Neighbor address changed from {} to {}"
-                      .format(self.neighbor.address, new_neighbor.address))
-            self._fsm.push_event(self.Event.NEIGHBOR_CHANGED_ADDRESS)
-            return
+        if new_neighbor.ipv4_address is not None:
+            # We received an IPv4 LIE.
+            new_neighbor.ipv6_address = self.neighbor.ipv6_address
+            if self.neighbor.ipv4_address is None:
+                self.neighbor.ipv4_address = new_neighbor.ipv4_address
+                reason = ("Neighbor on interface {} got new IPv4 address {}"
+                          .format(self.name, new_neighbor.ipv4_address))
+                self.node.trigger_spf(reason)
+            elif self.neighbor.ipv4_address != new_neighbor.ipv4_address:
+                self.info("Neighbor IPv4 address changed from %s to %s",
+                          self.neighbor.ipv4_address, new_neighbor.ipv4_address)
+                self.fsm.push_event(self.Event.NEIGHBOR_CHANGED_ADDRESS)
+                return
+        else:
+            # We received an IPv6 LIE.
+            assert new_neighbor.ipv6_address is not None
+            new_neighbor.ipv4_address = self.neighbor.ipv4_address
+            if self.neighbor.ipv6_address is None:
+                self.neighbor.ipv6_address = new_neighbor.ipv6_address
+                reason = ("Neighbor on interface {} got new IPv6 address {}"
+                          .format(self.name, new_neighbor.ipv6_address))
+                self.node.trigger_spf(reason)
+            elif self.neighbor.ipv6_address != new_neighbor.ipv6_address:
+                self.info("Neighbor IPv6 address changed from %s to %s",
+                          self.neighbor.ipv6_address, new_neighbor.ipv6_address)
+                self.fsm.push_event(self.Event.NEIGHBOR_CHANGED_ADDRESS)
+                return
         # Section B.1.4.3.4
         if self.check_minor_change(new_neighbor):
-            self._fsm.push_event(self.Event.NEIGHBOR_CHANGED_MINOR_FIELDS)
-        self.neighbor = new_neighbor      # TODO: The draft does not specify this, but it is needed
+            self.fsm.push_event(self.Event.NEIGHBOR_CHANGED_MINOR_FIELDS)
+        self.neighbor = new_neighbor
         # Section B.1.4.3.5
         self.check_three_way()
 
@@ -456,10 +591,10 @@ class Interface:
         else:
             holdtime = common.constants.default_lie_holdtime
         if self._time_ticks_since_lie_received >= holdtime:
-            self._fsm.push_event(self.Event.HOLD_TIME_EXPIRED)
+            self.fsm.push_event(self.Event.HOLD_TIME_EXPIRED)
 
     def action_hold_time_expired(self):
-        self._node.expire_offer(self._interface_name)
+        self.node.expire_offer(self.name)
 
     _state_one_way_transitions = {
         Event.TIMER_TICK: (None, [], [Event.SEND_LIE]),
@@ -529,32 +664,51 @@ class Interface:
         state_actions=_state_actions,
         verbose_events=verbose_events)
 
-    # TODO: Use % formating for log messages
-    # See https://stackoverflow.com/questions/34619790/pylint-message-logging-format-interpolation
+    def info(self, msg, *args):
+        self._log.info("[%s] %s" % (self._log_id, msg), *args)
 
-    def debug(self, logger, msg):
-        logger.debug("[{}] {}".format(self._log_id, msg))
+    def warning(self, msg, *args):
+        self._log.warning("[%s] %s" % (self._log_id, msg), *args)
 
-    def info(self, logger, msg):
-        logger.info("[{}] {}".format(self._log_id, msg))
+    def rx_debug(self, msg, *args):
+        self._rx_log.debug("[%s] %s" % (self._log_id, msg), *args)
 
-    def warning(self, logger, msg):
-        logger.warning("[{}] {}".format(self._log_id, msg))
+    def rx_info(self, msg, *args):
+        self._rx_log.info("[%s] %s" % (self._log_id, msg), *args)
 
-    def error(self, logger, msg):
-        logger.error("[{}] {}".format(self._log_id, msg))
+    def rx_warning(self, msg, *args):
+        self._rx_log.warning("[%s] %s" % (self._log_id, msg), *args)
+
+    def rx_error(self, msg, *args):
+        self._rx_log.error("[%s] %s" % (self._log_id, msg), *args)
+
+    def tx_debug(self, msg, *args):
+        self._tx_log.debug("[%s] %s" % (self._log_id, msg), *args)
 
     def __init__(self, node, config):
+        # pylint:disable=too-many-statements
         # TODO: process bandwidth field in config
-        self._node = node
-        self._interface_name = config['name']
+        self.node = node
+        self._engine = node.engine
+        self.name = config['name']
+        self._log_id = node.log_id + "-{}".format(self.name)
+        self._log = node.log.getChild("if")
+        if self._engine.simulated_interfaces and self._engine.physical_interface_name:
+            self.physical_interface_name = self._engine.physical_interface_name
+        else:
+            self.physical_interface_name = self.name
         # TODO: Make the default metric/bandwidth depend on the speed of the interface
         self._metric = self.get_config_attribute(config, 'metric',
                                                  common.constants.default_bandwidth)
         self._advertised_name = self.generate_advertised_name()
-        self._log_id = node.log_id + "-{}".format(self._interface_name)
-        self._ipv4_address = utils.interface_ipv4_address(self._interface_name,
-                                                          self._node.engine.tx_src_address)
+        self._ipv4_address = utils.interface_ipv4_address(self.physical_interface_name)
+        self._ipv6_address = utils.interface_ipv6_address(self.physical_interface_name)
+        try:
+            self._interface_index = socket.if_nametoindex(self.physical_interface_name)
+        except IOError as err:
+            self.warning("Could determine index of interface %s: %s",
+                         self.physical_interface_name, err)
+            self._interface_index = None
         self._rx_lie_ipv4_mcast_address = self.get_config_attribute(
             config, 'rx_lie_mcast_address', constants.DEFAULT_LIE_IPV4_MCAST_ADDRESS)
         self._tx_lie_ipv4_mcast_address = self.get_config_attribute(
@@ -567,25 +721,29 @@ class Interface:
                                                       constants.DEFAULT_LIE_PORT)
         self._tx_lie_port = self.get_config_attribute(config, 'tx_lie_port',
                                                       constants.DEFAULT_LIE_PORT)
-        self._rx_tie_port = self.get_config_attribute(config, 'rx_tie_port',
-                                                      constants.DEFAULT_TIE_PORT)
+        self._rx_flood_port = self.get_config_attribute(config, 'rx_tie_port',
+                                                        constants.DEFAULT_TIE_PORT)
         self._rx_fail = False
         self._tx_fail = False
-        self._log = node.log.getChild("if")
-        self.info(self._log, "Create interface")
+        self.info("Create interface")
         self._rx_log = self._log.getChild("rx")
         self._tx_log = self._log.getChild("tx")
         self._fsm_log = self._log.getChild("fsm")
-        self._local_id = node.allocate_interface_id()
+        self.local_id = node.allocate_interface_id()
         self._mtu = self.get_mtu()
         self._pod = self.UNDEFINED_OR_ANY_POD
         self.neighbor = None
         self._time_ticks_since_lie_received = None
         self._lie_accept_or_reject = "No LIE Received"
         self._lie_accept_or_reject_rule = "-"
-        self._lie_receive_handler = None
-        self._flood_receive_handler = None
-        self._flood_send_handler = None
+        self._lie_tx_ipv4_socket = None
+        self._lie_tx_ipv6_socket = None
+        self._lie_rx_ipv4_handler = None
+        self._lie_rx_ipv6_handler = None
+        self._flood_tx_ipv4_socket = None
+        self._flood_tx_ipv6_socket = None
+        self._flood_rx_ipv4_handler = None
+        self._flood_rx_ipv6_handler = None
         # The following queues (ties_tx, ties_rtx, ties_req, are ties_ack) are ordered dictionaries.
         # The value is the header of the TIE. The index is the TIE-ID want to have two headers with
         # same TIE-ID in the queue. The ordering is needed because we want to service the entries
@@ -595,35 +753,44 @@ class Interface:
         self._ties_rtx = collections.OrderedDict()
         self._ties_req = collections.OrderedDict()
         self._ties_ack = collections.OrderedDict()
-        self._fsm = fsm.Fsm(
+        self.floodred_nbr_is_fr = self.NbrIsFRState.NOT_APPLICABLE
+        self.fsm = fsm.Fsm(
             definition=self.fsm_definition,
             action_handler=self,
             log=self._fsm_log,
             log_id=self._log_id)
-        if self._node.running:
+        if self.node.running:
             self.run()
-            self._fsm.start()
+            self.fsm.start()
 
     def run(self):
-        self._lie_send_handler = udp_send_handler.UdpSendHandler(
-            interface_name=self._interface_name,
-            remote_address=self._tx_lie_ipv4_mcast_address,
+        self._lie_tx_ipv4_socket = self.create_socket_ipv4_tx_mcast(
+            multicast_address=self._tx_lie_ipv4_mcast_address,
             port=self._tx_lie_port,
-            local_address=self._node.engine.tx_src_address,
-            multicast_loopback=self._node.engine.multicast_loopback)
-        # TODO: Use source address
-        (_, source_port) = self._lie_send_handler.source_address_and_port()
-        self._lie_udp_source_port = source_port
-        self._lie_receive_handler = udp_receive_handler.UdpReceiveHandler(
+            loopback=self.node.engine.ipv4_multicast_loopback)
+        self._lie_tx_ipv6_socket = self.create_socket_ipv6_tx_mcast(
+            multicast_address=self._tx_lie_ipv6_mcast_address,
+            port=self._tx_lie_port,
+            loopback=self.node.engine.ipv6_multicast_loopback)
+        self._lie_rx_ipv4_handler = udp_rx_handler.UdpRxHandler(
+            interface_name=self.physical_interface_name,
+            local_port=self._rx_lie_port,
             remote_address=self._rx_lie_ipv4_mcast_address,
-            port=self._rx_lie_port,
             receive_function=self.receive_lie_message,
-            local_address=self._node.engine.tx_src_address)
-        self._flood_receive_handler = None
-        self._flood_send_handler = None
+            log=self._rx_log,
+            log_id=self._log_id)
+        self._lie_rx_ipv6_handler = udp_rx_handler.UdpRxHandler(
+            interface_name=self.physical_interface_name,
+            local_port=self._rx_lie_port,
+            remote_address=self._rx_lie_ipv6_mcast_address,
+            receive_function=self.receive_lie_message,
+            log=self._rx_log,
+            log_id=self._log_id)
+        self._flood_rx_ipv4_handler = None
+        self._flood_tx_ipv4_socket = None
         self._one_second_timer = timer.Timer(
             1.0,
-            lambda: self._fsm.push_event(self.Event.TIMER_TICK))
+            lambda: self.fsm.push_event(self.Event.TIMER_TICK))
         self._service_queues_timer = timer.Timer(
             interval=self.SERVICE_QUEUES_INTERVAL,
             expire_function=self.service_queues,
@@ -641,63 +808,68 @@ class Interface:
             return False
         return True
 
-    def receive_message_common(self, message, from_address_and_port):
-        (address, port) = from_address_and_port
-        from_str = "{}:{}".format(address, port)
+    def receive_message_common(self, message, from_info):
         protocol_packet = packet_common.decode_protocol_packet(message)
         if protocol_packet is None:
-            self.error(self._rx_log,
-                       "Could not decode message received from {}".format(from_str))
+            self.log_rx_protocol_packet(logging.ERROR, from_info,
+                                        "Could not decode", protocol_packet)
             return None
         if self._rx_fail:
-            self.debug(self._rx_log, ("Simulated receive failure {} from {}"
-                                      .format(protocol_packet, from_str)))
+            self.log_rx_protocol_packet(logging.DEBUG, from_info,
+                                        "Simulated failure receiving", protocol_packet)
             return None
-        if protocol_packet.header.sender == self._node.system_id:
-            self.debug(self._rx_log, ("Looped receive {} from {}"
-                                      .format(protocol_packet, from_str)))
+        if protocol_packet.header.sender == self.node.system_id:
+            self.log_rx_protocol_packet(logging.DEBUG, from_info,
+                                        "Ignore looped receive", protocol_packet)
             return None
-        self.debug(self._rx_log, ("Receive {} from {}"
-                                  .format(protocol_packet, from_str)))
+        self.log_rx_protocol_packet(logging.DEBUG, from_info, "Receive", protocol_packet)
         if not protocol_packet.content:
-            self.warning(self._rx_log, ("Received packet without content from {}"
-                                        .format(from_str)))
+            self.log_rx_protocol_packet(logging.WARNING, from_info,
+                                        "Received contentless", protocol_packet)
             return None
         if protocol_packet.header.major_version != constants.RIFT_MAJOR_VERSION:
-            self.error(self._rx_log, ("Received different major protocol version from {} "
-                                      "(local version {}, remote version {})"
-                                      .format(from_str,
-                                              constants.RIFT_MAJOR_VERSION,
-                                              protocol_packet.header.major_version)))
+            self.rx_error("Received different major protocol version from %s (local version %d, "
+                          "remote version %d)", from_info, constants.RIFT_MAJOR_VERSION,
+                          protocol_packet.header.major_version)
             return None
         return protocol_packet
 
-    def receive_lie_message(self, message, from_address_and_port):
-        protocol_packet = self.receive_message_common(message, from_address_and_port)
+    def receive_lie_message(self, message, from_info):
+        protocol_packet = self.receive_message_common(message, from_info)
         if protocol_packet is None:
             return
         if protocol_packet.content.lie:
-            event_data = (protocol_packet, from_address_and_port)
-            self._fsm.push_event(self.Event.LIE_RECEIVED, event_data)
+            event_data = (protocol_packet, from_info)
+            self.fsm.push_event(self.Event.LIE_RECEIVED, event_data)
+        else:
+            self.rx_warning("Received packet without LIE content on LIE port (ignored)")
         if protocol_packet.content.tie:
-            self.warning(self._rx_log, "Received TIE packet on LIE port (ignored)")
+            self.rx_warning("Received TIE packet on LIE port (ignored)")
         if protocol_packet.content.tide:
-            self.warning(self._rx_log, "Received TIDE packet on LIE port (ignored)")
+            self.rx_warning("Received TIDE packet on LIE port (ignored)")
         if protocol_packet.content.tire:
-            self.warning(self._rx_log, "Received TIRE packet on LIE port (ignored)")
+            self.rx_warning("Received TIRE packet on LIE port (ignored)")
 
-    def receive_flood_message(self, message, from_address_and_port):
-        protocol_packet = self.receive_message_common(message, from_address_and_port)
+    def receive_flood_message(self, message, from_info):
+        protocol_packet = self.receive_message_common(message, from_info)
         if protocol_packet is None:
             return
+        flood_content = False
         if protocol_packet.content.tie is not None:
             self.process_received_tie_packet(protocol_packet.content.tie)
+            flood_content = True
         if protocol_packet.content.tide:
             self.process_received_tide_packet(protocol_packet.content.tide)
+            flood_content = True
         if protocol_packet.content.tire:
             self.process_received_tire_packet(protocol_packet.content.tire)
+            flood_content = True
         if protocol_packet.content.lie:
-            self.warning(self._rx_log, "Received LIE packet on flood port (ignored)")
+            self.rx_warning("Received LIE packet on flood port (ignored)")
+        else:
+            if not flood_content:
+                self.rx_warning("Received packet without TIE/TIDE/TIRE content on flood port "
+                                "(ignored)")
 
     def set_failure(self, tx_fail, rx_fail):
         self._tx_fail = tx_fail
@@ -716,8 +888,8 @@ class Interface:
                 return "ok"
 
     def process_received_tie_packet(self, tie_packet):
-        self.debug(self._rx_log, "Receive TIE packet {}".format(tie_packet))
-        result = self._node.tie_db.process_received_tie_packet(tie_packet, self._node.system_id)
+        self.rx_debug("Receive TIE packet %s", tie_packet)
+        result = self.node.process_received_tie_packet(tie_packet)
         (start_sending_tie_header, ack_tie_header) = result
         if start_sending_tie_header is not None:
             self.try_to_transmit_tie(start_sending_tie_header)
@@ -725,7 +897,7 @@ class Interface:
             self.ack_tie(ack_tie_header)
 
     def process_received_tide_packet(self, tide_packet):
-        result = self._node.tie_db.process_received_tide_packet(tide_packet, self._node.system_id)
+        result = self.node.process_received_tide_packet(tide_packet)
         (request_tie_headers, start_sending_tie_headers, stop_sending_tie_headers) = result
         for tie_header in start_sending_tie_headers:
             self.try_to_transmit_tie(tie_header)
@@ -735,8 +907,8 @@ class Interface:
             self.remove_from_all_queues(tie_header)
 
     def process_received_tire_packet(self, tire_packet):
-        self.debug(self._rx_log, "Receive TIRE packet {}".format(tire_packet))
-        result = self._node.tie_db.process_received_tire_packet(tire_packet)
+        self.rx_debug("Receive TIRE packet %s", tire_packet)
+        result = self.node.process_received_tire_packet(tire_packet)
         (request_tie_headers, start_sending_tie_headers, acked_tie_headers) = result
         for tie_header in start_sending_tie_headers:
             self.try_to_transmit_tie(tie_header)
@@ -748,13 +920,13 @@ class Interface:
     def neighbor_direction(self):
         if self.neighbor is None:
             return None
-        my_level = self._node.level_value()
+        my_level = self.node.level_value()
         if self.neighbor.level > my_level:
-            return neighbor.Neighbor.Direction.NORTH
+            return constants.DIR_NORTH
         elif self.neighbor.level < my_level:
-            return neighbor.Neighbor.Direction.SOUTH
+            return constants.DIR_SOUTH
         else:
-            return neighbor.Neighbor.Direction.EAST_WEST
+            return constants.DIR_EAST_WEST
 
     def is_flood_reduced(self, _tie_header):
         # TODO: Implement this
@@ -769,23 +941,23 @@ class Interface:
     #
     def is_request_allowed_complex(self, tie_header, i_am_top_of_fabric):
         neighbor_direction = self.neighbor_direction()
-        if neighbor_direction == neighbor.Neighbor.Direction.SOUTH:
+        if neighbor_direction == constants.DIR_SOUTH:
             dir_str = "S"
-        elif neighbor_direction == neighbor.Neighbor.Direction.NORTH:
+        elif neighbor_direction == constants.DIR_NORTH:
             dir_str = "N"
-        elif neighbor_direction == neighbor.Neighbor.Direction.EAST_WEST:
+        elif neighbor_direction == constants.DIR_EAST_WEST:
             dir_str = "EW"
         else:
             dir_str = "?"
-        if neighbor_direction == neighbor.Neighbor.Direction.EAST_WEST:
+        if neighbor_direction == constants.DIR_EAST_WEST:
             # If this node is top of fabric, then apply north scope rules, otherwise apply south
             # scope rules
             if i_am_top_of_fabric:
-                neighbor_direction = neighbor.Neighbor.Direction.NORTH
+                neighbor_direction = constants.DIR_NORTH
             else:
-                neighbor_direction = neighbor.Neighbor.Direction.SOUTH
+                neighbor_direction = constants.DIR_SOUTH
             # Fall-through to next if block is intentional
-        if neighbor_direction == neighbor.Neighbor.Direction.SOUTH:
+        if neighbor_direction == constants.DIR_SOUTH:
             # Request all N-TIEs ...
             if tie_header.tieid.direction == common.ttypes.TieDirectionType.North:
                 return (True, "to {}: include all N-TIEs".format(dir_str))
@@ -798,7 +970,7 @@ class Interface:
                 return (True, "to {}: include node S-TIE".format(dir_str))
             # Exclude everything else
             return (False, "to {}: exclude".format(dir_str))
-        if neighbor_direction == neighbor.Neighbor.Direction.NORTH:
+        if neighbor_direction == constants.DIR_NORTH:
             # Request all S-TIEs
             if tie_header.tieid.direction == common.ttypes.TieDirectionType.South:
                 return (True, "to {}: include all S-TIEs".format(dir_str))
@@ -813,13 +985,13 @@ class Interface:
     # logic. However, this seems like a simpler (and less error prone) way to achieve that.
     #
     def is_request_allowed_simple(self, tie_header, _i_am_top_of_fabric):
-        return self._node.tie_db.is_flood_allowed_from_neighbor_to_me(
+        return self.node.flood_allowed_from_nbr_to_node(
             tie_header,
             self.neighbor_direction(),
             self.neighbor.system_id,
             self.neighbor.level,
             self.neighbor.top_of_fabric(),
-            self._node.system_id)
+            self.node.system_id)
 
     def is_request_allowed(self, tie_header, i_am_top_of_fabric):
         if USE_SIMPLE_REQUEST_FILTERING:
@@ -830,18 +1002,18 @@ class Interface:
     def is_request_filtered(self, tie_header):
         # The logic is more more easy to follow and mirrors the language of the flooding scope
         # rules (table 3) more closely if we ask the opposite question: is the request allowed?
-        (allowed, reason) = self.is_request_allowed(tie_header, self._node.top_of_fabric())
+        (allowed, reason) = self.is_request_allowed(tie_header, self.node.top_of_fabric())
         filtered = not allowed
         return (filtered, reason)
 
     def is_flood_filtered(self, tie_header):
-        (allowed, reason) = self._node.tie_db.is_flood_allowed(
+        (allowed, reason) = self.node.is_flood_allowed(
             tie_header=tie_header,
             to_node_direction=self.neighbor_direction(),
             to_node_system_id=self.neighbor.system_id,
-            from_node_system_id=self._node.system_id,
-            from_node_level=self._node.level_value(),
-            from_node_is_top_of_fabric=self._node.top_of_fabric())
+            from_node_system_id=self.node.system_id,
+            from_node_level=self.node.level_value(),
+            from_node_is_top_of_fabric=self.node.top_of_fabric())
         filtered = not allowed
         return (filtered, reason)
 
@@ -857,11 +1029,11 @@ class Interface:
             send_now = False
         self._ties_tx[tie_header.tieid] = tie_header
         if send_now:
-            db_tie = self._node.tie_db.find_tie(tie_header.tieid)
+            db_tie = self.node.find_tie(tie_header.tieid)
             if db_tie is not None:
                 packet_header = encoding.ttypes.PacketHeader(
-                    sender=self._node.system_id,
-                    level=self._node.level_value())
+                    sender=self.node.system_id,
+                    level=self.node.level_value())
                 packet_content = encoding.ttypes.PacketContent()
                 protocol_packet = encoding.ttypes.ProtocolPacket(
                     header=packet_header,
@@ -872,8 +1044,7 @@ class Interface:
     def try_to_transmit_tie(self, tie_header):
         (filtered, reason) = self.is_flood_filtered(tie_header)
         outcome = "filtered" if filtered else "allowed"
-        self.debug(self._tx_log, ("Transmit TIE {} is {} because {}"
-                                  .format(tie_header, outcome, reason)))
+        self.tx_debug("Transmit TIE %s is %s because %s", tie_header, outcome, reason)
         if not filtered:
             self.remove_from_ties_rtx(tie_header)
             if tie_header.tieid in self._ties_ack:
@@ -935,8 +1106,7 @@ class Interface:
     def request_tie(self, tie_header):
         (filtered, reason) = self.is_request_filtered(tie_header)
         outcome = "excluded" if filtered else "included"
-        self.debug(self._tx_log, ("Request TIE {} is {} in TIRE because {}"
-                                  .format(tie_header, outcome, reason)))
+        self.tx_debug("Request TIE %s is %s in TIRE because %s", tie_header, outcome, reason)
         if not filtered:
             self.remove_from_all_queues(tie_header)
             self._ties_req[tie_header.tieid] = tie_header
@@ -970,8 +1140,8 @@ class Interface:
             packet_common.add_tie_header_to_tire(tire_packet, tie_header)
         packet_content = encoding.ttypes.PacketContent(tire=tire_packet)
         packet_header = encoding.ttypes.PacketHeader(
-            sender=self._node.system_id,
-            level=self._node.level_value())
+            sender=self.node.system_id,
+            level=self.node.level_value())
         protocol_packet = encoding.ttypes.ProtocolPacket(
             header=packet_header,
             content=packet_content)
@@ -984,13 +1154,13 @@ class Interface:
             # neighbor is not allowed to flood the TIE to us. Why? Because the neighbor is allowed
             # to advertise extra TIEs in the TIDE, and if we request them we will get an
             # oscillation.
-            (allowed, _reason) = self._node.tie_db.is_flood_allowed_from_neighbor_to_me(
+            (allowed, _reason) = self.node.flood_allowed_from_nbr_to_node(
                 tie_header,
                 self.neighbor_direction(),
                 self.neighbor.system_id,
                 self.neighbor.level,
                 self.neighbor.top_of_fabric(),
-                self._node.system_id)
+                self.node.system_id)
             if allowed:
                 packet_common.add_tie_header_to_tire(tire_packet, tie_header)
             else:
@@ -998,8 +1168,8 @@ class Interface:
                 pass
         packet_content = encoding.ttypes.PacketContent(tire=tire_packet)
         packet_header = encoding.ttypes.PacketHeader(
-            sender=self._node.system_id,
-            level=self._node.level_value())
+            sender=self.node.system_id,
+            level=self.node.level_value())
         protocol_packet = encoding.ttypes.ProtocolPacket(
             header=packet_header,
             content=packet_content)
@@ -1009,14 +1179,14 @@ class Interface:
         # Note: we only look at the TIE-ID in the queue and not at the header. If we have a more
         # recent version of the TIE in the TIE-DB than the one requested, we send the one we have.
         packet_header = encoding.ttypes.PacketHeader(
-            sender=self._node.system_id,
-            level=self._node.level_value())
+            sender=self.node.system_id,
+            level=self.node.level_value())
         packet_content = encoding.ttypes.PacketContent()
         protocol_packet = encoding.ttypes.ProtocolPacket(
             header=packet_header,
             content=packet_content)
         for tie_id in queue.keys():
-            db_tie = self._node.tie_db.find_tie(tie_id)
+            db_tie = self.node.find_tie(tie_id)
             if db_tie is not None:
                 protocol_packet.content.tie = db_tie
                 self.send_protocol_packet(protocol_packet, flood=True)
@@ -1029,14 +1199,10 @@ class Interface:
 
     @property
     def state_name(self):
-        if self._fsm.state is None:
+        if self.fsm.state is None:
             return ""
         else:
-            return self._fsm.state.name
-
-    @property
-    def fsm(self):
-        return self._fsm
+            return self.fsm.state.name
 
     @staticmethod
     def cli_summary_headers():
@@ -1049,46 +1215,131 @@ class Interface:
     def cli_summary_attributes(self):
         if self.neighbor:
             return [
-                self._interface_name,
+                self.name,
                 self.neighbor.name,
                 utils.system_id_str(self.neighbor.system_id),
                 self.state_name]
         else:
             return [
-                self._interface_name,
+                self.name,
                 "",
                 "",
                 self.state_name]
 
-    def cli_detailed_attributes(self):
+    @staticmethod
+    def cli_floodred_summary_headers():
         return [
-            ["Interface Name", self._interface_name],
+            ["Interface", "Name"],
+            ["Neighbor", "Interface", "Name"],
+            ["Neighbor", "System ID"],
+            ["Neighbor", "State"],
+            ["Neighbor", "Direction"],
+            ["Neighbor is", "Flood Repeater", "for This Node"],
+            ["This Node is", "Flood Repeater", "for Neighbor"]]
+
+    def cli_floodred_summary_attributes(self):
+        if self.neighbor_direction() != constants.DIR_SOUTH:
+            i_am_fr_str = "Not Applicable"
+        elif self.neighbor:
+            i_am_fr_str = str(self.neighbor.you_are_flood_repeater)
+        else:
+            i_am_fr_str = ""
+        return [
+            self.name,
+            self.neighbor.name,
+            utils.system_id_str(self.neighbor.system_id),
+            self.state_name,
+            constants.direction_str(self.neighbor_direction()),
+            self.nbr_is_fr_str(self.floodred_nbr_is_fr),
+            i_am_fr_str
+        ]
+
+    def cli_details_table(self):
+        tab = table.Table(separators=False)
+        tab.add_rows([
+            ["Interface Name", self.name],
+            ["Physical Interface Name", self.physical_interface_name],
             ["Advertised Name", self._advertised_name],
             ["Interface IPv4 Address", self._ipv4_address],
+            ["Interface IPv6 Address", self._ipv6_address],
+            ["Interface Index", self._interface_index],
             ["Metric", self._metric],
-            ["Receive LIE IPv4 Multicast Address", self._rx_lie_ipv4_mcast_address],
-            ["Transmit LIE IPv4 Multicast Address", self._tx_lie_ipv4_mcast_address],
-            ["Receive LIE IPv6 Multicast Address", self._rx_lie_ipv6_mcast_address],
-            ["Transmit LIE IPv6 Multicast Address", self._tx_lie_ipv6_mcast_address],
-            ["Receive LIE Port", self._rx_lie_port],
-            ["Transmit LIE Port", self._tx_lie_port],
-            ["Receive TIE Port", self._rx_tie_port],
-            ["System ID", utils.system_id_str(self._node.system_id)],
-            ["Local ID", self._local_id],
+            ["LIE Recieve IPv4 Multicast Address", self._rx_lie_ipv4_mcast_address],
+            ["LIE Receive IPv6 Multicast Address", self._rx_lie_ipv6_mcast_address],
+            ["LIE Receive Port", self._rx_lie_port],
+            ["LIE Transmit IPv4 Multicast Address", self._tx_lie_ipv4_mcast_address],
+            ["LIE Transmit IPv6 Multicast Address", self._tx_lie_ipv6_mcast_address],
+            ["LIE Transmit Port", self._tx_lie_port],
+            ["Flooding Receive Port", self._rx_flood_port],
+            ["System ID", utils.system_id_str(self.node.system_id)],
+            ["Local ID", self.local_id],
             ["MTU", self._mtu],
             ["POD", self._pod],
             ["Failure", self.failure_str()],
             ["State", self.state_name],
             ["Received LIE Accepted or Rejected", self._lie_accept_or_reject],
             ["Received LIE Accept or Reject Reason", self._lie_accept_or_reject_rule],
-            ["Neighbor", "True" if self.neighbor else "False"]
-        ]
+            ["Neighbor is Flood Repeater", self.nbr_is_fr_str(self.floodred_nbr_is_fr)]
+        ])
+        return tab
 
-    def cli_detailed_neighbor_attrs(self):
+    def cli_neighbor_details_table(self):
         if self.neighbor:
-            return self.neighbor.cli_detailed_attributes()
+            return self.neighbor.cli_details_table()
         else:
             return None
+
+    @staticmethod
+    def add_socket_to_table(tab, traffic, direction, family, sock):
+        local_name = sock.getsockname()
+        local_address = local_name[0]
+        local_port = local_name[1]
+        try:
+            remote_name = sock.getpeername()
+            remote_address = remote_name[0]
+            remote_port = remote_name[1]
+        except OSError:
+            # Receive UDP sockets trow an OSError if they are not connected
+            remote_address = "Any"
+            remote_port = "Any"
+        tab.add_row([traffic,
+                     direction,
+                     family,
+                     str(local_address),
+                     local_port,
+                     str(remote_address),
+                     remote_port])
+        return tab
+
+    def sockets_table(self):
+        tab = table.Table()
+        tab.add_row([
+            "Traffic",
+            "Direction",
+            "Family",
+            "Local Address",
+            "Local Port",
+            "Remote Address",
+            "Remote Port"])
+        if self._lie_rx_ipv4_handler and self._lie_rx_ipv4_handler.sock:
+            self.add_socket_to_table(tab, "LIEs", "Receive", "IPv4", self._lie_rx_ipv4_handler.sock)
+        if self._lie_rx_ipv6_handler and self._lie_rx_ipv6_handler.sock:
+            self.add_socket_to_table(tab, "LIEs", "Receive", "IPv6", self._lie_rx_ipv6_handler.sock)
+        if self._lie_tx_ipv4_socket:
+            self.add_socket_to_table(tab, "LIEs", "Send", "IPv4", self._lie_tx_ipv4_socket)
+        if self._lie_tx_ipv6_socket:
+            self.add_socket_to_table(tab, "LIEs", "Send", "IPv6", self._lie_tx_ipv6_socket)
+        if self._flood_rx_ipv4_handler and self._flood_rx_ipv4_handler.sock:
+            self.add_socket_to_table(tab, "Flooding", "Receive", "IPv4",
+                                     self._flood_rx_ipv4_handler.sock)
+        if self._flood_rx_ipv6_handler and self._flood_rx_ipv6_handler.sock:
+            self.add_socket_to_table(tab, "Flooding", "Receive", "IPv6",
+                                     self._flood_rx_ipv6_handler.sock)
+        if self._flood_tx_ipv4_socket:
+            self.add_socket_to_table(tab, "Flooding", "Send", "IPv4", self._flood_tx_ipv4_socket)
+        if self._flood_tx_ipv6_socket:
+            self.add_socket_to_table(tab, "Flooding", "Send", "IPv6", self._flood_tx_ipv6_socket)
+        return tab
 
     def tie_headers_table_common(self, tie_headers):
         tab = table.Table()
@@ -1122,3 +1373,147 @@ class Interface:
 
     def ties_ack_table(self):
         return self.tie_headers_table_common(self._ties_ack)
+
+    # TODO: Set TTL as follows:
+    # ttl_bin = struct.pack('@i', MYTTL)
+    # if addrinfo[0] == socket.AF_INET: # IPv4
+    #     s.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, ttl_bin)
+    # else:
+    #     s.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_MULTICAST_HOPS, ttl_bin)
+
+    # TODO: Set TOS and Priority
+
+    @staticmethod
+    def enable_addr_and_port_reuse(sock):
+        # Ignore exceptions because not all operating systems support these. If not setting the
+        # REUSE... option causes trouble, that will be caught later on.
+        try:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        except AttributeError:
+            pass
+        try:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+        except AttributeError:
+            pass
+
+    def socket_connect(self, sock, address, port):
+        try:
+            sock.connect((address, port))
+            return True
+        except IOError as err:
+            self.warning("Could not connect UDP socket to address %s port %d: %s",
+                         address, port, err)
+        return False
+
+    def create_socket_ipv4_tx_mcast(self, multicast_address, port, loopback):
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+        except IOError as err:
+            self.warning("Could not create IPv4 UDP socket: %s", err)
+            return None
+        self.enable_addr_and_port_reuse(sock)
+        if self._ipv4_address is not None:
+            try:
+                sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_IF,
+                                socket.inet_aton(self._ipv4_address))
+            except IOError as err:
+                self.warning("Could not set IPv6 multicast interface address %s: %s",
+                             self._ipv4_address, err)
+                return None
+        try:
+            loop_value = 1 if loopback else 0
+            sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, loop_value)
+        except IOError as err:
+            self.warning("Could not set IPv4 multicast loopback value %d: %s", loop_value, err)
+            return None
+        try:
+            sock.connect((multicast_address, port))
+        except IOError as err:
+            self.warning("Could not connect UDP socket to address %s port %d: %s",
+                         multicast_address, port, err)
+            return None
+        return sock
+
+    def create_socket_ipv4_tx_ucast(self, remote_address, port):
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+        except IOError as err:
+            self.warning("Could not create IPv4 UDP socket: %s", err)
+            return None
+        self.enable_addr_and_port_reuse(sock)
+        try:
+            sock.connect((remote_address, port))
+        except IOError as err:
+            self.warning("Could not connect UDP socket to address %s port %d: %s",
+                         remote_address, port, err)
+            return None
+        return sock
+
+    def create_socket_ipv6_tx_mcast(self, multicast_address, port, loopback):
+        if self._interface_index is None:
+            self.warning("Could not create IPv6 multicast TX socket: unknown interface index")
+            return None
+        try:
+            sock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+        except IOError as err:
+            self.warning("Could not create IPv6 UDP socket: %s", err)
+            return None
+        self.enable_addr_and_port_reuse(sock)
+        try:
+            sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_MULTICAST_IF, self._interface_index)
+        except IOError as err:
+            self.warning("Could not set IPv6 multicast interface index %d: %s",
+                         self._interface_index, err)
+            return None
+        try:
+            loop_value = 1 if loopback else 0
+            sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_MULTICAST_LOOP, loop_value)
+        except IOError as err:
+            self.warning("Could not set IPv6 multicast loopback value %d: %s", loop_value, err)
+            return None
+        try:
+            sock.connect((multicast_address, port))
+        except IOError as err:
+            self.warning("Could not connect UDP socket to address %s port %d: %s",
+                         multicast_address, port, err)
+            return None
+        return sock
+
+    def create_socket_ipv6_tx_ucast(self, remote_address, port):
+        try:
+            sock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+        except IOError as err:
+            self.warning("Could not create IPv6 UDP socket: %s", err)
+            return None
+        self.enable_addr_and_port_reuse(sock)
+        try:
+            sock_addr = socket.getaddrinfo(remote_address, port, socket.AF_INET6,
+                                           socket.SOCK_DGRAM)[0][4]
+            sock.connect(sock_addr)
+        except IOError as err:
+            self.warning("Could not connect UDP socket to address %s port %d: %s",
+                         remote_address, port, err)
+            return None
+        return sock
+
+    def activate_flood_repeater(self, force=False):
+        # Returns True if activation is pending, False if not
+        if self.floodred_nbr_is_fr == self.NbrIsFRState.TRUE:
+            return False
+        if force:
+            self.floodred_nbr_is_fr = self.NbrIsFRState.TRUE
+            return False
+        self.floodred_nbr_is_fr = self.NbrIsFRState.PENDING_TRUE
+        return True
+
+    def deactivate_flood_repeater(self):
+        # Returns True if de-activation is pending, False if not
+        if self.floodred_nbr_is_fr == self.NbrIsFRState.FALSE:
+            return False
+        if self.floodred_nbr_is_fr == self.NbrIsFRState.NOT_APPLICABLE:
+            self.floodred_nbr_is_fr = self.NbrIsFRState.FALSE
+            return False
+        self.floodred_nbr_is_fr = self.NbrIsFRState.PENDING_FALSE
+        self.floodred_check_switchover_done()
+        still_pending = (self.floodred_nbr_is_fr == self.NbrIsFRState.PENDING_FALSE)
+        return still_pending

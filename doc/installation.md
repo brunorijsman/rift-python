@@ -152,7 +152,7 @@ $ <b>source env/bin/activate</b>
 (env) $ 
 </pre>
 
-### Use pip to install dependecies
+### Use pip to install dependencies
 
 Use pip to install the dependencies. It is important that you have activated
 the virtual environment as described in the previous step before you install these dependencies.

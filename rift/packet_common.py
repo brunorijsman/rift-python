@@ -6,6 +6,7 @@ import thrift.protocol.TBinaryProtocol
 import thrift.transport.TTransport
 
 import common.ttypes
+import constants
 import encoding.ttypes
 import encoding.constants
 import utils
@@ -33,6 +34,9 @@ def tie_header_tup(tie_header):
 def link_id_pair_tup(link_id_pair):
     return (link_id_pair.local_id, link_id_pair.remote_id)
 
+def timestamp_tup(timestamp):
+    return (timestamp.AS_sec, timestamp.AS_nsec)
+
 def add_missing_methods_to_thrift():
     # See http://bit.ly/thrift-missing-hash for details about why this is needed
     common.ttypes.IPv4PrefixType.__hash__ = (
@@ -47,8 +51,13 @@ def add_missing_methods_to_thrift():
         lambda self: hash(ip_prefix_tup(self)))
     common.ttypes.IPPrefixType.__eq__ = (
         lambda self, other: ip_prefix_tup(self) == ip_prefix_tup(other))
+    common.ttypes.IPPrefixType.__str__ = ip_prefix_str
     common.ttypes.IPPrefixType.__lt__ = (
         lambda self, other: ip_prefix_tup(self) < ip_prefix_tup(other))
+    common.ttypes.IEEE802_1ASTimeStampType.__hash__ = (
+        lambda self: hash(timestamp_tup(self)))
+    common.ttypes.IEEE802_1ASTimeStampType.__eq__ = (
+        lambda self, other: timestamp_tup(self) == timestamp_tup(other))
     encoding.ttypes.TIEID.__hash__ = (
         lambda self: hash(tie_id_tup(self)))
     encoding.ttypes.TIEID.__eq__ = (
@@ -63,6 +72,10 @@ def add_missing_methods_to_thrift():
         lambda self: hash(link_id_pair_tup(self)))
     encoding.ttypes.LinkIDPair.__eq__ = (
         lambda self, other: link_id_pair_tup(self) == link_id_pair_tup(other))
+    encoding.ttypes.LinkIDPair.__hash__ = (
+        lambda self: hash(link_id_pair_tup(self)))
+    encoding.ttypes.LinkIDPair.__lt__ = (
+        lambda self, other: link_id_pair_tup(self) < link_id_pair_tup(other))
 
 def encode_protocol_packet(protocol_packet):
     # Since Thrift does not support unsigned integer, we need to "fix" unsigned integers to be
@@ -144,7 +157,7 @@ def s16_to_u16(s16):
 def s8_to_u8(s08):
     return s08 if s08 >= 0 else s08 + MAX_U8 + 1
 
-def fix_value(value, size, encode):
+def fix_int(value, size, encode):
     if encode:
         # Fix before encode
         if size == 8:
@@ -169,56 +182,157 @@ def fix_value(value, size, encode):
         assert False
     return value  # Unreachable, stop pylint from complaining about inconsistent-return-statements
 
-def fix_packet(packet, fixes, encode):
+def fix_dict(old_dict, dict_fixes, encode):
+    (key_fixes, value_fixes) = dict_fixes
+    new_dict = {}
+    for key, value in old_dict.items():
+        new_key = fix_value(key, key_fixes, encode)
+        new_value = fix_value(value, value_fixes, encode)
+        new_dict[new_key] = new_value
+    return new_dict
+
+def fix_struct(struct, fixes, encode):
     for fix in fixes:
-        (field_name, do_what) = fix
-        if field_name in vars(packet):
-            value = getattr(packet, field_name)
-            if value is None:
-                pass
-            elif isinstance(do_what, int):
-                size = do_what
-                new_value = fix_value(value, size, encode)
-                setattr(packet, field_name, new_value)
-            else:
-                nested_fixes = do_what
-                fix_packet(getattr(packet, field_name), nested_fixes, encode)
+        (field_name, field_fix) = fix
+        if field_name in vars(struct):
+            field_value = getattr(struct, field_name)
+            if field_value is not None:
+                new_value = fix_value(field_value, field_fix, encode)
+                setattr(struct, field_name, new_value)
+    return struct
+
+def fix_set(old_set, fix, encode):
+    new_set = set()
+    for old_value in old_set:
+        new_value = fix_value(old_value, fix, encode)
+        new_set.add(new_value)
+    return new_set
+
+def fix_list(old_list, fix, encode):
+    new_list = []
+    for old_value in old_list:
+        new_value = fix_value(old_value, fix, encode)
+        new_list.append(new_value)
+    return new_list
+
+def fix_value(value, fix, encode):
+    if isinstance(value, set):
+        new_value = fix_set(value, fix, encode)
+    elif isinstance(value, list):
+        new_value = fix_list(value, fix, encode)
+    elif isinstance(fix, int):
+        new_value = fix_int(value, fix, encode)
+    elif isinstance(fix, tuple):
+        new_value = fix_dict(value, fix, encode)
+    elif isinstance(fix, list):
+        new_value = fix_struct(value, fix, encode)
+    else:
+        assert False
+    return new_value
 
 def fix_packet_before_encode(packet, fixes):
-    fix_packet(packet, fixes, True)
+    fix_struct(packet, fixes, True)
 
 def fix_packet_after_decode(packet, fixes):
-    fix_packet(packet, fixes, False)
+    fix_struct(packet, fixes, False)
+
+TIEID_FIXES = [
+    ('originator', 64),
+    ('tie_nr', 32)
+]
+
+TIMESTAMP_FIXES = [
+    ('AS_sec', 64),
+    ('AS_nsec', 32)
+]
+
+TIE_HEADER_FIXES = [
+    ('tieid', TIEID_FIXES),
+    ('seq_nr', 32),
+    ('remaining_lifetime', 32),
+    ('origination_time', TIMESTAMP_FIXES),
+    ('origination_lifetime', 32)
+]
+
+LINK_ID_PAIR_FIXES = [
+    ('local_id', 32),                      # Draft doesn't mention this needs to treated as unsigned
+    ('remote_id', 32)                      # Draft doesn't mention this needs to treated as unsigned
+]
+
+NODE_NEIGHBORS_TIE_ELEMENT_FIXES = [
+    ('level', 16),
+    ('cost', 32),
+    ('link_ids', LINK_ID_PAIR_FIXES),
+    ('bandwidth', 32)
+]
+
+IP_PREFIX_FIXES = [
+    ('ipv4prefix', [
+        ('address', 32),
+        ('prefixlen', 8)                   # Draft doesn't mention this needs to treated as unsigned
+    ]),
+    ('ipv6prefix', [
+        ('prefixlen', 8)                   # Draft doesn't mention this needs to treated as unsigned
+    ])
+]
+
+PREFIX_ATTRIBUTES_FIXES = [
+    ('metric', 32),
+    ('tags', 64),
+    ('monotonic_clock', [
+        ('timestamp', TIMESTAMP_FIXES),
+        ('transactionid', 8)
+    ])
+]
+
+PREFIX_TIE_ELEMENT_FIXES = [
+    ('prefixes', (IP_PREFIX_FIXES, PREFIX_ATTRIBUTES_FIXES))
+]
 
 PROTOCOL_PACKET_FIXES = [
     ('header', [
+        ('major_version', 16),
+        ('minor_version', 16),
         ('sender', 64),
         ('level', 16)]),
     ('content', [
         ('lie', [
+            ('local_id', 32),              # Draft doesn't mention this needs to treated as unsigned
             ('flood_port', 16),
             ('link_mtu_size', 32),
+            ('link_bandwidth', 32),
             ('neighbor', [
-                ('originator', 64)]),
+                ('originator', 64),
+                ('remote_id', 32)          # Draft doesn't mention this needs to treated as unsigned
+            ]),
             ('pod', 32),
+            ('nonce', 64),                 # Draft doesn't mention this needs to treated as unsigned
+            ('last_neighbor_nonce', 64),   # Draft doesn't mention this needs to treated as unsigned
+            ('holdtime', 16),              # Draft doesn't mention this needs to treated as unsigned
             ('label', 32)]),
         ('tide', [
-            ('start_range', [
-                ('originator', 64),
-                ('tie_nr', 32)
-            ]),
-            ('end_range', [
-                ('originator', 64),
-                ('tie_nr', 32)
-            ]),
-        ]),           # TODO also fields in headers list (e.g. seq_nr)
-        ('tire', []),           # TODO
-        ('tie', [])])]          # TODO
-
-# TODO: Should we also fix link_id (not mentioned in the specification)?
-# TODO: Should we also fix remote_id (not mentioned in the specification)?
-# TODO: Should we also fix nonce (not mentioned in the specification)?
-# TODO: Should we also fix holdtime (not mentioned in the specification)?
+            ('start_range', TIEID_FIXES),
+            ('end_range', TIEID_FIXES),
+            ('headers', TIE_HEADER_FIXES)
+        ]),
+        ('tire', [
+            ('headers', TIE_HEADER_FIXES)
+        ]),
+        ('tie', [
+            ('header', TIE_HEADER_FIXES),
+            ('element', [
+                ('node', [
+                    ('level', 16),
+                    ('neighbors', (64, NODE_NEIGHBORS_TIE_ELEMENT_FIXES))
+                ]),
+                ('prefixes', PREFIX_TIE_ELEMENT_FIXES),
+                ('positive_disaggregation_prefixes', PREFIX_TIE_ELEMENT_FIXES),
+                ('negative_disaggregation_prefixes', PREFIX_TIE_ELEMENT_FIXES),
+                ('external_prefixes', PREFIX_TIE_ELEMENT_FIXES),
+            ])
+        ])
+    ])
+]
 
 def fix_prot_packet_before_encode(protocol_packet):
     fix_packet_before_encode(protocol_packet, PROTOCOL_PACKET_FIXES)
@@ -254,25 +368,49 @@ def make_prefix_tie_packet(direction, originator, tie_nr, seq_nr, lifetime):
     tie_packet = encoding.ttypes.TIEPacket(header=tie_header, element=tie_element)
     return tie_packet
 
-def add_ipv4_prefix_to_prefix_tie(prefix_tie_packet, ipv4_prefix_string, metric, tags=None,
-                                  monotonic_clock=None):
-    ipv4_network = ipaddress.IPv4Network(ipv4_prefix_string)
+def make_ip_address(address_str):
+    if ":" in address_str:
+        return make_ipv6_address(address_str)
+    else:
+        return make_ipv4_address(address_str)
+
+def make_ipv4_address(address_str):
+    return ipaddress.IPv4Address(address_str)
+
+def make_ipv6_address(address_str):
+    return ipaddress.IPv6Address(address_str)
+
+def make_ip_prefix(prefix_str):
+    if ":" in prefix_str:
+        return make_ipv6_prefix(prefix_str)
+    else:
+        return make_ipv4_prefix(prefix_str)
+
+def make_ipv4_prefix(prefix_str):
+    ipv4_network = ipaddress.IPv4Network(prefix_str)
     address = int(ipv4_network.network_address)
     prefixlen = ipv4_network.prefixlen
     ipv4_prefix = common.ttypes.IPv4PrefixType(address, prefixlen)
     prefix = common.ttypes.IPPrefixType(ipv4prefix=ipv4_prefix)
-    attributes = encoding.ttypes.PrefixAttributes(metric=metric,
-                                                  tags=tags,
-                                                  monotonic_clock=monotonic_clock)
-    prefix_tie_packet.element.prefixes.prefixes[prefix] = attributes
+    return prefix
 
-def add_ipv6_prefix_to_prefix_tie(prefix_tie_packet, ipv6_prefix_string, metric, tags=None,
-                                  monotonic_clock=None):
-    ipv6_network = ipaddress.IPv6Network(ipv6_prefix_string)
+def make_ipv6_prefix(prefix_str):
+    ipv6_network = ipaddress.IPv6Network(prefix_str)
     address = ipv6_network.network_address.packed
     prefixlen = ipv6_network.prefixlen
     ipv6_prefix = common.ttypes.IPv6PrefixType(address, prefixlen)
     prefix = common.ttypes.IPPrefixType(ipv6prefix=ipv6_prefix)
+    return prefix
+
+def add_ipv4_prefix_to_prefix_tie(prefix_tie_packet, ipv4_prefix_string, metric, tags=None,
+                                  monotonic_clock=None):
+    prefix = make_ipv4_prefix(ipv4_prefix_string)
+    attributes = encoding.ttypes.PrefixAttributes(metric, tags, monotonic_clock)
+    prefix_tie_packet.element.prefixes.prefixes[prefix] = attributes
+
+def add_ipv6_prefix_to_prefix_tie(prefix_tie_packet, ipv6_prefix_string, metric, tags=None,
+                                  monotonic_clock=None):
+    prefix = make_ipv6_prefix(ipv6_prefix_string)
     attributes = encoding.ttypes.PrefixAttributes(metric=metric,
                                                   tags=tags,
                                                   monotonic_clock=monotonic_clock)
@@ -285,21 +423,12 @@ def make_node_tie_packet(name, level, direction, originator, tie_nr, seq_nr, lif
     node_tie_element = encoding.ttypes.NodeTIEElement(
         level=level,
         neighbors={},
-        capabilities=None,  ##@@ TODO: Implement this
-        flags=None,         ##@@ TODO: Implement this
+        capabilities=None,  # TODO: Implement this
+        flags=None,         # TODO: Implement this
         name=name)
     tie_element = encoding.ttypes.TIEElement(node=node_tie_element)
     tie_packet = encoding.ttypes.TIEPacket(header=tie_header, element=tie_element)
     return tie_packet
-
-def make_node_neighbor(level):
-    # TODO: Add support for multiple parallel links (link_ids has more than one element)
-    node_neighbor = encoding.ttypes.NodeNeighborsTIEElement(
-        level=level,
-        cost=1,             # TODO: Implement this. Take cost from configuration file.
-        link_ids=None,      # TODO: ##@@ Implement
-        bandwidth=100)      # TODO: Implement this. Use actual bandwidth of link.
-    return node_neighbor
 
 def make_tide_packet(start_range, end_range):
     tide_packet = encoding.ttypes.TIDEPacket(start_range=start_range,
@@ -363,6 +492,12 @@ def tietype_str(tietype):
         return TIETYPE_TO_STR[tietype]
     else:
         return str(tietype)
+
+def tie_id_str(tie_id):
+    return (direction_str(tie_id.direction) + ":" +
+            str(tie_id.originator) + ":" +
+            tietype_str(tie_id.tietype) + ":" +
+            str(tie_id.tie_nr))
 
 HIERARCHY_INDICATIONS_TO_STR = {
     common.ttypes.HierarchyIndications.leaf_only: "LeafOnly",
@@ -460,3 +595,14 @@ def element_str(tietype, element):
         return key_value_element_str(element.keyvalues)
     else:
         return unknown_element_str(element)
+
+def assert_prefix_address_family(prefix, address_family):
+    assert isinstance(prefix, common.ttypes.IPPrefixType)
+    if address_family == constants.ADDRESS_FAMILY_IPV4:
+        assert prefix.ipv4prefix is not None
+        assert prefix.ipv6prefix is None
+    elif address_family == constants.ADDRESS_FAMILY_IPV6:
+        assert prefix.ipv4prefix is None
+        assert prefix.ipv6prefix is not None
+    else:
+        assert False

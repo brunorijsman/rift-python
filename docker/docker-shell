@@ -1,0 +1,14 @@
+if [ -z "${VIRTUAL_ENV}" ] ; then
+    echo "Must run from Python virtual environment"
+    exit 1
+fi
+RIFT_PATH="${VIRTUAL_ENV}/.."
+
+docker run \
+    --volume ${RIFT_PATH}:/host \
+    --cap-add=NET_ADMIN \
+    --cap-add=SYS_ADMIN \
+    --interactive \
+    --tty \
+    rift-python \
+    bash

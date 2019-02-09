@@ -4,6 +4,12 @@ import traceback
 import pexpect
 import pytest
 
+TRAVIS = os.environ.get('TRAVIS') == 'true'
+if TRAVIS:
+    IPV6 = False
+else:
+    IPV6 = True
+
 class RiftExpectSession:
 
     start_converge_secs = 10.0
@@ -24,6 +30,7 @@ class RiftExpectSession:
                     "--interactive "
                     "--non-passive "
                     "--log-level debug")
+        self._topology_file = topology_file
         if topology_file is not None:
             rift_cmd += " topology/{}.yaml".format(topology_file)
         cmd = "coverage run --parallel-mode {}".format(rift_cmd)
@@ -31,9 +38,17 @@ class RiftExpectSession:
         if "RIFT_TEST_RESULTS_DIR" in os.environ:
             results_file_name = os.environ["RIFT_TEST_RESULTS_DIR"] + "/" + results_file_name
         self._results_file = open(results_file_name, 'ab')
+        self.write_result("\n\n*** Start session: {}\n\n".format(topology_file))
+        self.write_result("TRAVIS : {}\n".format(TRAVIS))
+        self.write_result("IPV6   : {}\n\n".format(IPV6))
         self._expect_session = pexpect.spawn(cmd, logfile=self._results_file)
         time.sleep(converge_secs)
         self.wait_prompt()
+        self.check_engine()
+
+    def write_result(self, msg):
+        self._results_file.write(msg.encode())
+        self._results_file.flush()
 
     def stop(self):
         # Attempt graceful exit
@@ -42,22 +57,22 @@ class RiftExpectSession:
         time.sleep(1.0)
         # Terminate it forcefully, in case the graceful exit did not work for some reason
         self._expect_session.terminate(force=True)
+        self.write_result("\n\n*** End session: {}\n\n".format(self._topology_file))
 
     def sendline(self, line):
         self._expect_session.sendline(line)
 
     def log_expect_failure(self):
-        self._results_file.write(b"\n\n*** Did not find expected pattern\n\n")
+        self.write_result("\n\n*** Did not find expected pattern\n\n")
         # Generate a call stack in rift_expect.log for easier debugging
         # But pytest call stacks are very deep, so only show the "interesting" lines
         for line in traceback.format_stack():
             if "tests/" in line:
-                self._results_file.write(line.strip().encode())
-                self._results_file.write(b"\n")
+                self.write_result(line.strip())
+                self.write_result("\n")
 
     def expect(self, pattern, timeout=expect_timeout):
-        msg = "\n\n*** Expect: {}\n\n".format(pattern)
-        self._results_file.write(msg.encode())
+        self.write_result("\n\n*** Expect: {}\n\n".format(pattern))
         try:
             self._expect_session.expect(pattern, timeout)
         except pexpect.TIMEOUT:
@@ -74,7 +89,8 @@ class RiftExpectSession:
         pattern = pattern.replace(" |", " +|")
         # The | character is a literal end-of-cell, not a regexp OR
         pattern = pattern.replace("|", "[|]")
-        pattern = pattern.replace("/", "|")
+        # Since we confiscated | to mean end-of-cell, we use /// for regexp OR
+        pattern = pattern.replace("///", "|")
         return self.expect(pattern, timeout)
 
     def wait_prompt(self, node_name=None):
@@ -82,6 +98,11 @@ class RiftExpectSession:
             self.expect(".*> ")
         else:
             self.expect("{}> ".format(node_name))
+
+    def check_engine(self):
+        # Show the output of "show engine", mainly for debugging after a failure
+        self.sendline("show engine")
+        self.table_expect("Interactive")
 
     def check_adjacency_1way(self, node, interface):
         # Go to the node that we want to check
@@ -96,7 +117,6 @@ class RiftExpectSession:
         self.table_expect("Interface:")
         self.table_expect("| Interface Name | {} |".format(interface))
         self.table_expect("| State | ONE_WAY |")
-        self.table_expect("| Neighbor | False |")
         self.wait_prompt(node)
 
     def check_adjacency_2way(self, node, interface, other_node, other_interface):
@@ -115,7 +135,6 @@ class RiftExpectSession:
         self.table_expect("| Interface Name | {} |".format(interface))
         self.table_expect("| State | TWO_WAY |")
         self.table_expect("| Received LIE Accepted or Rejected | Accepted |")
-        self.table_expect("| Neighbor | True |")
         self.table_expect("Neighbor:")
         self.table_expect("| Name | {} |".format(other_full_name))
         self.wait_prompt(node)
@@ -134,7 +153,6 @@ class RiftExpectSession:
         self.table_expect("| Interface Name | {} |".format(interface))
         self.table_expect("| State | THREE_WAY |")
         self.table_expect("| Received LIE Accepted or Rejected | Accepted |")
-        self.table_expect("| Neighbor | True |")
         self.table_expect("Neighbor:")
         self.table_expect("| Name | .* |")
         self.wait_prompt(node)
@@ -208,3 +226,36 @@ class RiftExpectSession:
         self.wait_prompt()
         # Let reconverge
         time.sleep(self.reconverge_secs)
+
+    def check_spf(self, node, expect_south_spf, expect_north_spf):
+        self.sendline("set node {}".format(node))
+        self.sendline("show spf")
+        self.table_expect("South SPF Destinations:")
+        for expected_row in expect_south_spf:
+            self.table_expect(expected_row)
+        self.table_expect("North SPF Destinations:")
+        for expected_row in expect_north_spf:
+            self.table_expect(expected_row)
+
+    def check_spf_absent(self, node, direction, destination):
+        self.sendline("set node {}".format(node))
+        self.sendline("show spf direction {} destination {}".format(direction, destination))
+        self.table_expect("not present")
+
+    def check_rib(self, node, expect_rib):
+        # If IPv6 is not supported on the platform (e.g. Travis-CI), skip IPv6 routes
+        if not IPV6:
+            new_expect_rib = []
+            for expected_row in expect_rib:
+                if "::" not in expected_row:
+                    new_expect_rib.append(expected_row)
+            expect_rib = new_expect_rib
+        self.sendline("set node {}".format(node))
+        self.sendline("show routes")
+        for expected_row in expect_rib:
+            self.table_expect(expected_row)
+
+    def check_rib_absent(self, node, prefix, owner):
+        self.sendline("set node {}".format(node))
+        self.sendline("show route prefix {} owner {}".format(prefix, owner))
+        self.table_expect("not present")

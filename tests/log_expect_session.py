@@ -1,7 +1,7 @@
 import datetime
 import os
 import traceback
-import tools.log_record
+import rift.log_record
 
 class LogExpectSession:
 
@@ -60,7 +60,7 @@ class LogExpectSession:
             if not line:
                 return None
             self._line_nr += 1
-            record = tools.log_record.LogRecord(self._line_nr, line)
+            record = rift.log_record.LogRecord(self._line_nr, line)
             if record.type == "transition" and record.target_id == target_id:
                 self.write_fsm_record(record)
                 return record
@@ -147,7 +147,7 @@ class LogExpectSession:
             if not line:
                 return None
             self._line_nr += 1
-            record = tools.log_record.LogRecord(self._line_nr, line)
+            record = rift.log_record.LogRecord(self._line_nr, line)
             if record.type == "cli":
                 self.write_cli_record(record)
                 return record
@@ -300,5 +300,5 @@ class LogExpectSession:
             from_state="THREE_WAY",
             event="HOLD_TIME_EXPIRED",
             to_state="ONE_WAY",
-            skip_events=["TIMER_TICK", "SEND_LIE"])
+            skip_events=["TIMER_TICK", "SEND_LIE", "LIE_RECEIVED"])
         self.close()

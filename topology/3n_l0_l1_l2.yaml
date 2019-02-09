@@ -1,23 +1,29 @@
 # Topology: 3n_l0_l1_l2
 #
-#  +-----------+
-#  | node1     |
-#  | (level 2) |
-#  +-----------+
-#        | if1
-#        |
-#        | if1
-#  +-----------+
-#  | node2     |
-#  | (level 1) |
-#  +-----------+
-#        | if2
-#        |
-#        | if1
-#  +-----------+
-#  | node3     |
-#  | (level 0) |
-#  +-----------+
+#  +-----------------+
+#  | node1           |
+#  | (level 2)       |
+#  | 1.1.1.1/32      |
+#  | 1111:1111::/128 |
+#  +-----------------+
+#           | if1
+#           |
+#           | if1
+#  +-----------------+
+#  | node2           |
+#  | (level 1)       |
+#  | 2.2.2.2/32      |
+#  | 2222:2222::/128 |
+#  +-----------------+
+#           | if2
+#           |
+#           | if1
+#  +-----------------+
+#  | node3           |
+#  | (level 0)       |
+#  | 3.3.3.3/32      |
+#  | 3333:3333::/128 |
+#  +-----------------+
 
 shards:
   - id: 0
@@ -31,6 +37,14 @@ shards:
             rx_lie_port: 20012
             tx_lie_port: 20021
             rx_tie_port: 10012
+        v4prefixes:
+          - address: 1.1.1.1
+            mask: 32
+            metric: 1
+        v6prefixes:
+          - address: "1111:1111::"
+            mask: 128
+            metric: 1
       - name: node2
         level: 1
         systemid: 2
@@ -44,6 +58,14 @@ shards:
             rx_lie_port: 20023
             tx_lie_port: 20032
             rx_tie_port: 10023
+        v4prefixes:
+          - address: 2.2.2.2
+            mask: 32
+            metric: 1
+        v6prefixes:
+          - address: "2222:2222::"
+            mask: 128
+            metric: 1
       - name: node3
         level: 0
         systemid: 3
@@ -53,3 +75,11 @@ shards:
             rx_lie_port: 20032
             tx_lie_port: 20023
             rx_tie_port: 10032
+        v4prefixes:
+          - address: 3.3.3.3
+            mask: 32
+            metric: 1
+        v6prefixes:
+          - address: "3333:3333::"
+            mask: 128
+            metric: 1

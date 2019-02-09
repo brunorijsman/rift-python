@@ -1,29 +1,6 @@
 # System test: test_sys_2n_un_l0
-#
-# Topology: 2n_un_l0
-#
-#  +-------------------+
-#  | node1             |
-#  | (level 0)         |
-#  +-------------------+
-#            | if1
-#            |
-#            | if1
-#  +-------------------+
-#  | node2             |
-#  | (level undefined) |
-#  +-------------------+
-#
-# - 2 nodes: node1 and node2
-# - node1 is hard-configured as level 0
-# - node2 is level undefined, i.e. it uses ZTP to auto-discover its level
-# - One link: node1:if1 - node2:if1
-#
-# Test scenario:
-# - Bring the topology up
-# - Both nodes report adjacency to other node up as in state 3-way
-# - Node1 is hard-configured level 0
-# - The adjacency stays in ONE_WAY
+
+# 2n_un_l0 = 2 nodes: level undefined and level 0
 
 # Allow long test names
 # pylint: disable=invalid-name
@@ -41,12 +18,12 @@ def check_rift_node1_intf_up(res):
         interface="if1",
         system_id="2",
         level=None,
-        not_a_ztp_offer="(False/True)", # Juniper lenient
+        not_a_ztp_offer="(False///True)", # Juniper lenient
         state="ONE_WAY",
         best=False,
         best_3way=False,
         removed=True,
-        removed_reason="(Level is undefined/Not a ZTP offer flag set/)")  # Juniper lenient
+        removed_reason="(Level is undefined///Not a ZTP offer flag set)")  # Juniper lenient
     res.check_tx_offer(
         node="node1",
         interface="if1",
@@ -60,6 +37,16 @@ def check_rift_node1_intf_up(res):
         hal="None",
         hat="None",
         level_value=0)
+    expect_south_spf = [
+        r"| 1 \(node1\) | 0 |   |  |  |",
+    ]
+    expect_north_spf = [
+        r"| 1 \(node1\) | 0 |   |  |",
+    ]
+    res.check_spf("node1", expect_south_spf, expect_north_spf)
+    res.check_spf_absent("node1", "south", "2")
+    res.check_rib_absent("node1", "0.0.0.0/0", "north-spf")
+    res.check_rib_absent("node1", "::/0", "north-spf")
 
 def check_rift_node2_intf_up(res):
     res.check_adjacency_1way(
@@ -70,12 +57,12 @@ def check_rift_node2_intf_up(res):
         interface="if1",
         system_id="1",
         level=0,
-        not_a_ztp_offer="(False/True)", # Juniper lenient
+        not_a_ztp_offer="(False///True)", # Juniper lenient
         state="ONE_WAY",
         best=False,
         best_3way=False,
         removed=True,
-        removed_reason="(Level is leaf/Not a ZTP offer flag set/)")  # Juniper lenient
+        removed_reason="(Level is leaf///Not a ZTP offer flag set)")  # Juniper lenient
     res.check_tx_offer(
         node="node2",
         interface="if1",
@@ -89,6 +76,18 @@ def check_rift_node2_intf_up(res):
         hal=None,
         hat=None,
         level_value="undefined")
+    expect_south_spf = [
+        r"| 2 \(node2\) | 0 |   |  |  |",
+    ]
+    expect_north_spf = [
+        r"| 2 \(node2\) | 0 |   |  |  |",
+    ]
+    res.check_spf("node2", expect_south_spf, expect_north_spf)
+    res.check_spf_absent("node2", "north", "1")
+    res.check_spf_absent("node2", "north", "0.0.0.0/0")
+    res.check_spf_absent("node2", "north", "::/0")
+    res.check_rib_absent("node2", "0.0.0.0/0", "north-spf")
+    res.check_rib_absent("node2", "::/0", "north-spf")
 
 def check_log_node1_intf_up(les):
     les.check_lie_fsm_1way_unacc_hdr("node1", "if1")

@@ -31,19 +31,19 @@ shards:
         config_thrift_services_port: 19993
         v4prefixes:
               - address: 5.5.5.11
-                mask: 30
+                mask: 32
                 metric: 1
               - address: 5.5.5.12
-                mask: 30
+                mask: 32
                 metric: 1
               - address: 5.5.5.13
-                mask: 30
+                mask: 32
                 metric: 1
               - address: 15.5.5.0
                 mask: 24
                 metric: 1
               - address: 16.6.6.6
-                mask: 30
+                mask: 32
                 metric: 2
               - address: 16.16.0.0
                 mask: 16
@@ -52,7 +52,7 @@ shards:
                 mask: 16
                 metric: 2
               - address: 216.6.44.0
-                mask: 21
+                mask: 24
                 metric: 2
         interfaces:
               - name: if_202_1

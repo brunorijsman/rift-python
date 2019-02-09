@@ -1,43 +1,6 @@
 # System test: test_sys_2n_l1_l3
-#
-# Topology: 2n_l1_l3
-#
-#  +-----------+
-#  | node1     |
-#  | (level 3) |
-#  +-----------+
-#        | if1
-#        |
-#        | if1
-#  +-----------+
-#  | node2     |
-#  | (level 1) |
-#  +-----------+
-#
-# - 2 nodes: node1 and node2
-# - Both nodes have hard-configured levels:
-#   - node1 is level 3 (non-leaf)
-#   - node2 is level 1 (non-leaf)
-# - One link:
-#   - node1:if1 - node2:if1
-# - The difference in hard-configured levels is more than 1
-# - It is an adjacency between a non-leaf and a non-leaf
-# - The adjacency should stay in 1-way and not come up to 3-way
-# - But, despite the fact that the adjacency is not allowed to reach 3-way, the offer in the
-#   received LIE is still accepted and considered as Valid Offered Level (VOL) ...
-# - ... and used to determine the Highest Available Level (HAL)
-# - But since the adjacency will not reach 3-way, it will not be considered for Highest Adjacency
-#   in Three-way (HAT).
-# - For details see http://bit.ly/rift-lie-rejected-but-offer-accepted-mail-thread
-#
-# Test scenario:
-# - For both nodes, check all of the following:
-# - The adjacency is in state 1-way
-# - The received LIE message is rejected because of level mismatch
-# - But the offer in the receive LIE message is still considered a VOL and used to compute HAL
-# - The HAL and HAT are the correct values
-# - The level value is the correct value
-# - Check explicitly for rejection of the LIE message because of level mismatch
+
+# 2n_l1_l3 = 2 nodes: level 1 and level 3
 
 # Allow long test names
 # pylint: disable=invalid-name
@@ -78,6 +41,16 @@ def check_rift_node1(res):
         hal=1,
         hat="None",
         level_value=3)
+    expect_south_spf = [
+        r"| 1 \(node1\) | 0 |   |  |  |",
+    ]
+    expect_north_spf = [
+        r"| 1 \(node1\) | 0 |   |  |",
+    ]
+    res.check_spf("node1", expect_south_spf, expect_north_spf)
+    res.check_spf_absent("node1", "south", "2")
+    res.check_rib_absent("node1", "0.0.0.0/0", "north-spf")
+    res.check_rib_absent("node1", "::/0", "north-spf")
 
 def check_rift_node2(res):
     res.check_adjacency_1way(
@@ -111,6 +84,18 @@ def check_rift_node2(res):
         hal=3,
         hat="None",
         level_value=1)
+    expect_south_spf = [
+        r"| 2 \(node2\) | 0 |   |  |  |",
+    ]
+    expect_north_spf = [
+        r"| 2 \(node2\) | 0 |   |  |  |",
+    ]
+    res.check_spf("node2", expect_south_spf, expect_north_spf)
+    res.check_spf_absent("node2", "north", "1")
+    res.check_spf_absent("node2", "north", "0.0.0.0/0")
+    res.check_spf_absent("node2", "north", "::/0")
+    res.check_rib_absent("node2", "0.0.0.0/0", "north-spf")
+    res.check_rib_absent("node2", "::/0", "north-spf")
 
 def check_log_node1(les):
     les.check_lie_fsm_1way_unacc_hdr("node1", "if1")

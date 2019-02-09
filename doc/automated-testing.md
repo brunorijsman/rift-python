@@ -65,7 +65,7 @@ TOTAL                             2609    354    86%
 All good; you can commit.
 </pre>
 
-This currently takes about 2 minutes to complete, but that time will grow as the number of system tests increases.
+This currently takes about 4 minutes to complete, but that time will grow as the number of system tests increases.
 
 ## Pylint
 
@@ -152,7 +152,21 @@ tests/test_table.py ....                                                        
 ==================================================== 13 passed in 98.54 seconds ====================================================
 </pre>
 
-Note: the reported percentages are the code coverage percentages. However, it is much easier to look at code coverage using [codecov](https://codecov.io/gh/brunorijsman/rift-python) after the code has been committed to github.
+Use the following command to run a single test (test_rib in this example), 
+to measure the code coverage using during the test,
+and to report the code coverage results in graphical manner using the web browser.
+
+<pre>
+tools/cleanup && pytest -vvv -s tests/test_rib.py --cov --cov-report=html && open htmlcov/index.html
+</pre>
+
+Note: The "open" command is used on Apple Mac computers to use an .hmtl file using the default web browser.
+
+Once the report is generated, click on the module under test (rib.py in this example) to see which
+lines are covered and which not.
+
+Note: [Codecov](https://codecov.io/gh/brunorijsman/rift-python) (which is part of Continuous Integration
+process triggered by github commits) produces even nicer-looking graphical reports.
 
 ## Diagnosing Unit Test Failures
 
@@ -533,47 +547,6 @@ File "tests/log_expect_session.py", line 35, in expect_failure
     for line in traceback.format_stack():
 </pre>
 
-## Interoperability Tests
-
-The interoperability tests build upon the system tests. The interoperability tests run the exact same topologies and test cases as in the system tests, except that one or more RIFT-Python nodes are replaced by RIFT-Juniper nodes.
-
-To run the interoperability tests, first make sure that the RIFT-Python executable (rift-environ) is in your search path (PATH). Then run the `test/interop.py' script:
-
-<pre>
-@@@
-</pre>
-
-This currently takes about 3 minutes to complete (but it will take longer when I introduce more test cases).
-
-Each line of output reports whether or not a particular interop test case passed or failed.
-
-The naming convention for interop test cases is the topology plus a list of nodes that are running as RIFT-Juniper nodes. For example, test case `2n_l0_l1-node2` is topology `2n_l0_l1` with node2 running as a RIFT-Juniper node. As another example, test case `3n_l0_l1_l2-node1-node2` is topology `3n_l0_l1_l2` where node1 and node2 are running as RIFT-Juniper nodes.
-
-At the beginning of the tile `tests/interop.py` you can see a list of test cases that are executed during the interop testing:
-
-<pre>
-TEST_CASES = [("test_sys_2n_l0_l1.py", "2n_l0_l1.yaml", ["node1"]),
-              ("test_sys_2n_l0_l1.py", "2n_l0_l1.yaml", ["node2"]),
-              ("test_sys_2n_l0_l2.py", "2n_l0_l2.yaml", ["node1"]),
-              ("test_sys_2n_l0_l2.py", "2n_l0_l2.yaml", ["node2"]),
-              ("test_sys_2n_l1_l3.py", "2n_l1_l3.yaml", ["node1"]),
-              ("test_sys_2n_l1_l3.py", "2n_l1_l3.yaml", ["node2"]),
-              ("test_sys_3n_l0_l1_l2.py", "3n_l0_l1_l2.yaml", ["node1"]),
-              ("test_sys_3n_l0_l1_l2.py", "3n_l0_l1_l2.yaml", ["node2"]),
-              ("test_sys_3n_l0_l1_l2.py", "3n_l0_l1_l2.yaml", ["node3"]),
-              ("test_sys_3n_l0_l1_l2.py", "3n_l0_l1_l2.yaml", ["node1", "node2"]),
-              ("test_sys_3n_l0_l1_l2.py", "3n_l0_l1_l2.yaml", ["node2", "node3"]),
-              ("test_sys_3n_l0_l1_l2.py", "3n_l0_l1_l2.yaml", ["node1", "node3"]),
-              ("test_sys_2n_un_l1.py", "2n_un_l1.yaml", ["node1"]),
-              ("test_sys_2n_un_l1.py", "2n_un_l1.yaml", ["node2"])]
-</pre>
-
-Each line contains a 3-tuple (topology, sys\_test, juniper\_nodes) that describes a single integration test cases:
-
-* topology is the name of the topology file.
-* sys\_test is the name of the system test script.
-* juniper\_nodes is a list of node names that run RIFT-Juniper instead of RIFT-Python
-
 ## Diagnosing Interoperability Test Failures
 
 Running an interop test suite, creates a directory whose name is `interop-results` followed by a timestamp, for example `interop-results-2018-08-16-13:26:24.651390`. This directory contains one subdirectory for each interop test case in the suite, for example:
@@ -604,6 +577,224 @@ juniper-rift.log
 pytest.log
 rift_expect.log
 </pre>
+
+## Interoperability Tests
+
+The interoperability tests build upon the system tests. The interoperability tests run the exact same topologies and test cases as in the system tests, except that one or more RIFT-Python nodes are replaced by RIFT-Juniper nodes.
+
+To run the interoperability tests, first make sure that the RIFT-Python executable (rift-environ) is in your search path (PATH). Then run the `test/interop.py' script:
+
+<pre>
+(env) $ <b>tests/interop.py</b>
+2n_l0_l1-node1... Pass
+2n_l0_l1-node2... Pass
+2n_l0_l2-node1... Pass
+2n_l0_l2-node2... Pass
+2n_l1_l3-node1... Pass
+2n_l1_l3-node2... Pass
+3n_l0_l1_l2-node1... Pass
+3n_l0_l1_l2-node2... Pass
+3n_l0_l1_l2-node3... Pass
+3n_l0_l1_l2-node1-node2... Pass
+3n_l0_l1_l2-node2-node3... Pass
+3n_l0_l1_l2-node1-node3... Pass
+2n_un_l1-node1... Pass
+2n_un_l1-node2... Pass
+2n_un_l2-node1... Pass
+2n_un_l2-node2... Pass
+2n_un_l0-node1... Pass
+2n_un_l0-node2... Pass
+(env) $ 
+</pre>
+
+This currently takes about 6 minutes to complete (but it will take longer when I introduce more test cases).
+
+Each line of output reports whether or not a particular interop test case passed or failed.
+
+The naming convention for interop test cases is the topology plus a list of nodes that are running as RIFT-Juniper nodes. For example, test case `2n_l0_l1-node2` is topology `2n_l0_l1` with node2 running as a RIFT-Juniper node. As another example, test case `3n_l0_l1_l2-node1-node2` is topology `3n_l0_l1_l2` where node1 and node2 are running as RIFT-Juniper nodes.
+
+At the beginning of the tile `tests/interop.py` you can see a list of test cases that are executed during the interop testing:
+
+<pre>
+TEST_CASES = [("test_sys_2n_l0_l1.py", "2n_l0_l1.yaml", ["node1"]),
+              ("test_sys_2n_l0_l1.py", "2n_l0_l1.yaml", ["node2"]),
+              ("test_sys_2n_l0_l2.py", "2n_l0_l2.yaml", ["node1"]),
+              ("test_sys_2n_l0_l2.py", "2n_l0_l2.yaml", ["node2"]),
+              ("test_sys_2n_l1_l3.py", "2n_l1_l3.yaml", ["node1"]),
+              ("test_sys_2n_l1_l3.py", "2n_l1_l3.yaml", ["node2"]),
+              ("test_sys_3n_l0_l1_l2.py", "3n_l0_l1_l2.yaml", ["node1"]),
+              ("test_sys_3n_l0_l1_l2.py", "3n_l0_l1_l2.yaml", ["node2"]),
+              ("test_sys_3n_l0_l1_l2.py", "3n_l0_l1_l2.yaml", ["node3"]),
+              ("test_sys_3n_l0_l1_l2.py", "3n_l0_l1_l2.yaml", ["node1", "node2"]),
+              ("test_sys_3n_l0_l1_l2.py", "3n_l0_l1_l2.yaml", ["node2", "node3"]),
+              ("test_sys_3n_l0_l1_l2.py", "3n_l0_l1_l2.yaml", ["node1", "node3"]),
+              ("test_sys_2n_un_l1.py", "2n_un_l1.yaml", ["node1"]),
+              ("test_sys_2n_un_l1.py", "2n_un_l1.yaml", ["node2"])]
+</pre>
+
+Each line contains a 3-tuple (topology, sys\_test, juniper\_nodes) that describes a single integration test cases:
+
+* topology is the name of the topology file.
+* sys\_test is the name of the system test script.
+* juniper\_nodes is a list of node names that run RIFT-Juniper instead of RIFT-Python
+
+## Code Coverage
+
+To measure how much code-under-test is actually covered by a test script, use the following steps
+to measure code coverage.
+
+First run the `cleanup` script. This removes all temporary files, including the code coverage
+data from previous runs. 
+
+<pre>
+(env) $ <b>tools/cleanup</b>
+(env) $ 
+</pre>
+
+If you run multiple test scripts without doing a `cleanup` in between,
+then the code coverage report will cover the cumulative coverage across the multiple tests.
+
+Then, use `pytest` with a specific set of options including the `--cov` option to run one or more test cases:
+
+<pre>
+(env) $ <b>pytest -vvv -s tests/test_table.py --cov --cov-report=html </b>
+======================================================= test session starts ========================================================
+platform darwin -- Python 3.7.1, pytest-3.6.4, py-1.5.4, pluggy-0.7.1 -- /Users/brunorijsman/rift-python/env/bin/python3.7
+cachedir: .pytest_cache
+rootdir: /Users/brunorijsman/rift-python, inifile:
+plugins: profiling-1.3.0, cov-2.5.1
+collected 4 items                                                                                                                  
+
+tests/test_table.py::test_simple_table PASSED
+tests/test_table.py::test_multi_line_cells PASSED
+tests/test_table.py::test_format_extend PASSED
+tests/test_table.py::test_no_separators PASSED
+
+---------- coverage: platform darwin, python 3.7.1-final-0 -----------
+Coverage HTML written to dir htmlcov
+
+
+===================================================== 4 passed in 0.13 seconds =====================================================
+(env) $ 
+</pre>
+
+Finally, open the generated HTML files to view the coverage results. The following example
+assumes you are running on macOS and opens the default web browser to view the results.
+
+<pre>
+(env) $ <b>open htmlcov/index.html </b>
+(env) $ 
+</pre>
+
+The browser will display a directory containing all files whose coverage was measured, similar
+to this one:
+
+![RIFT-Python Coverage Report Example: Directory](http://bit.ly/rift-python-coverage-report-example-directory-png)
+
+If you click on one of the files, a detailed report is displayed showing which lines are (green) or
+are not (red) covered. Black lines mean that the line does not contain executable code. In this
+example the file `table.py` contains the module-under-test:
+
+![RIFT-Python Coverage Report Example: One File](http://bit.ly/rift-python-coverage-report-example-one-file-png)
+
+You can combine all steps into a single command line command for a very quick turn-around development
+cycle when you are developing your test script to cover as much of the code-under-test as possible:
+
+<pre>
+(env) $ <b>tools/cleanup && pytest -vvv -s tests/test_table.py --cov --cov-report=html && open htmlcov/index</b>
+</pre>
+
+Note: the [Continuous Integration](continuous-integration.md) process uses
+[codecov](https://codecov.io/gh/brunorijsman/rift-python) which produces some nicer 
+code coverage reports than the ones described above.
+
+## Code Profiling
+
+Use the following steps to profile the RIFT-Python code, i.e. to measure how much time RIFT-Python spends in each function.
+
+Start a test topology (in this example topology `4n_diamond_parallel`) as follows:
+
+<pre>
+$ <b>cd rift</b>
+$ <b>python -m cProfile -o output  __main__.py -i ../topology/4n_diamond_parallel.yaml</b>
+</pre>
+
+The `-m cProfile` option enables profiling.
+
+The `-o output` option causes the raw profile data to be written to the file `output`.
+
+Note that we start RIFT-Python a bit different than ususal. Instead of using `python rift` to start
+the RIFT module, we go into the `rift` directory and start `python __main__.py`. This is needed
+because cProfile has some issues starting a module.
+
+Once the topology-under-test is running, you can execute whatever scenario you want to profile.
+In this case, we just let the topology converge for a few seconds, and then stop the RIFT engine:
+
+<pre>
+leaf> stop
+(env) $ 
+</pre>
+
+At this point, the file `output` contains the raw profile data.
+
+We can view a textual summary of the profile data by running the following Python script:
+
+<pre>
+import pstats
+from pstats import SortKey
+p = pstats.Stats('output')
+p.sort_stats(SortKey.TIME).print_stats(10)
+</pre>
+
+This example reports the top 10 functions, sorted by total time spend in the function itself:
+
+<pre>
+Wed Dec 19 14:44:20 2018    output
+
+         1515197 function calls (1414768 primitive calls) in 6.856 seconds
+
+   Ordered by: internal time
+   List reduced from 2672 to 10 due to restriction <10>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+       57    3.114    0.055    3.114    0.055 {built-in method select.select}
+        2    2.011    1.005    2.011    1.005 {built-in method time.sleep}
+      256    0.121    0.000    0.121    0.000 {method 'read' of '_io.FileIO' objects}
+39855/366    0.082    0.000    0.193    0.001 /Users/brunorijsman/rift-python/env/lib/python3.7/copy.py:132(deepcopy)
+      256    0.079    0.000    0.200    0.001 <frozen importlib._bootstrap_external>:914(get_data)
+       28    0.074    0.003    0.074    0.003 {built-in method _imp.create_dynamic}
+      256    0.045    0.000    0.045    0.000 {built-in method marshal.loads}
+   141087    0.034    0.000    0.046    0.000 {built-in method builtins.isinstance}
+    32430    0.034    0.000    0.060    0.000 /Users/brunorijsman/rift-python/env/lib/python3.7/site-packages/thrift/transport/TTransport.py:56(readAll)
+     1323    0.033    0.000    0.033    0.000 {built-in method posix.stat}
+
+<pstats.Stats object at 0x10d3549b0>
+</pre>
+
+To produce a graphical representation of the profile (which is much easier to understand and much
+more comprehensive than the above text output) use the following steps.
+
+First install the `gprof2dot` Python module:
+
+<pre>
+(env) $ <b>pip install gprof2dot</b>
+Collecting gprof2dot
+Installing collected packages: gprof2dot
+Successfully installed gprof2dot-2017.9.19
+(env) $ 
+</pre>
+
+Then, use the following shell command to first convert the raw profile data into a "dot" graph,
+then convert the dot graph into a .png graphics file, and finally open the .png graphics file 
+in a web browser (the `open` command assumes you are running on macOS):
+
+<pre>
+(env) $ <b>python -m gprof2dot -f pstats output | dot -Tpng -o output.png && open output.png</b>
+</pre>
+
+This produces a diagram similar to the following one:
+
+![RIFT-Python Profile Report Example](http://bit.ly/example-rift-python-code-profile)
 
 ## Log Visualization Tool
 

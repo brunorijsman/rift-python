@@ -18,8 +18,8 @@ Command Line Interface (CLI) available on port 49178
 The configuration file specifies a specifies the configuration attributes for the RIFT protocol instance,
 including the attribute of the RIFT node and the RIFT interfaces.
 
-It is also possible to configure multiple RIFT nodes in the configurion file. This is used to build simulated
-network topologies that can be tested on a single physical computer. In the above example, the configurion
+It is also possible to configure multiple RIFT nodes in the configuration file. This is used to build simulated
+network topologies that can be tested on a single physical computer. In the above example, the configuration
 file "two_by_two_by_two.yaml" contains 10 simulated nodes with names core_1, core_2, agg_101, agg_102, etc.
 
 The exact syntax of the configuration file is provided in the next section.
