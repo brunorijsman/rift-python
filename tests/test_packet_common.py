@@ -137,6 +137,9 @@ def test_fix_lie_packet():
                     flood_reduction=True,
                     hierarchy_indications=common.ttypes.HierarchyIndications.leaf_only
                 ),
+                link_capabilities=encoding.ttypes.LinkCapabilities(
+                    bfd=False,
+                ),
                 holdtime=packet_common.MAX_U16,
                 not_a_ztp_offer=True,
                 you_are_flood_repeater=True,
