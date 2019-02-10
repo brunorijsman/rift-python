@@ -28,7 +28,8 @@ class Neighbor:
             self.neighbor_system_id = None
             self.neighbor_link_id = None
         self.pod = lie.pod
-        self.capabilities = lie.capabilities
+        self.node_capabilities = lie.node_capabilities
+        self.link_capabilites = lie.link_capabilities
         self.holdtime = lie.holdtime
         self.not_a_ztp_offer = lie.not_a_ztp_offer
         self.you_are_flood_repeater = lie.you_are_flood_repeater

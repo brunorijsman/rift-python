@@ -131,11 +131,14 @@ def test_fix_lie_packet():
                     remote_id=packet_common.MAX_U32
                 ),
                 pod=packet_common.MAX_U32,
-                nonce=packet_common.MAX_U64,
-                last_neighbor_nonce=packet_common.MAX_U64,
-                capabilities=encoding.ttypes.NodeCapabilities(
+                nonce=packet_common.MAX_U16,
+                last_neighbor_nonce=packet_common.MAX_U16,
+                node_capabilities=encoding.ttypes.NodeCapabilities(
                     flood_reduction=True,
                     hierarchy_indications=common.ttypes.HierarchyIndications.leaf_only
+                ),
+                link_capabilities=encoding.ttypes.LinkCapabilities(
+                    bfd=False,
                 ),
                 holdtime=packet_common.MAX_U16,
                 not_a_ztp_offer=True,

@@ -306,8 +306,8 @@ PROTOCOL_PACKET_FIXES = [
                 ('remote_id', 32)          # Draft doesn't mention this needs to treated as unsigned
             ]),
             ('pod', 32),
-            ('nonce', 64),                 # Draft doesn't mention this needs to treated as unsigned
-            ('last_neighbor_nonce', 64),   # Draft doesn't mention this needs to treated as unsigned
+            ('nonce', 16),                 # Draft doesn't mention this needs to treated as unsigned
+            ('last_neighbor_nonce', 16),   # Draft doesn't mention this needs to treated as unsigned
             ('holdtime', 16),              # Draft doesn't mention this needs to treated as unsigned
             ('label', 32)]),
         ('tide', [

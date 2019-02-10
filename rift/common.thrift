@@ -3,6 +3,7 @@
 */
 
 namespace py common
+namespace rs models
 
 /** @note MUST be interpreted in implementation as unsigned 64 bits.
  *        The implementation SHOULD NOT use the MSB.
@@ -23,6 +24,11 @@ typedef i32      SeqNrType
 typedef i32      LifeTimeInSecType
 /** @note MUST be interpreted in implementation as unsigned 16 bits */
 typedef i16      LevelType
+/** optional, recommended monotonically increasing number _per packet type per adjacency_
+    that can be used to detect losses/misordering/restarts.
+    This will be moved into envelope in the future.
+    @note MUST be interpreted in implementation as unsigned 32 bits */
+typedef i32      PacketNumberType
 /** @note MUST be interpreted in implementation as unsigned 32 bits */
 typedef i32      PodType
 /** @note MUST be interpreted in implementation as unsigned 16 bits */
@@ -46,7 +52,7 @@ typedef i8     PrefixLenType
 /** timestamp in seconds since the epoch */
 typedef i64    TimestampInSecsType
 /** security nonce */
-typedef i64    NonceType
+typedef i16    NonceType
 /** LIE FSM holdtime type */
 typedef i16    TimeIntervalInSecType
 /** Transaction ID type for prefix mobility as specified by RFC6550,  value
@@ -68,6 +74,7 @@ enum HierarchyIndications {
     top_of_fabric                        = 2,
 }
 
+const PacketNumberType  undefined_packet_number    = 0
 /** This MUST be used when node is configured as top of fabric in ZTP.
     This is kept reasonably low to alow for fast ZTP convergence on
     failures. */
@@ -100,11 +107,18 @@ const bool default_you_are_flood_repeater = true
 const SystemIDType IllegalSystemID        = 0
 /** empty set of nodes */
 const set<SystemIDType> empty_set_of_nodeids = {}
-/** default lifetime is one week */
+/** default lifetime of TIE is one week */
 const LifeTimeInSecType default_lifetime      = 604800
+/** default lifetime when TIEs are purged is 5 minutes */
+const LifeTimeInSecType purge_lifetime        = 300
+/** round down interval when TIEs are sent with security hashes
+    to prevent excessive computation. **/
+const LifeTimeInSecType rounddown_lifetime_interval = 60
 /** any `TieHeader` that has a smaller lifetime difference
-    than this constant is equal (if other fields equal) */
-const LifeTimeInSecType lifetime_diff2ignore  = 300
+    than this constant is equal (if other fields equal). This
+    constant MUST be larger than `purge_lifetime` to avoid
+    retransmissions */
+const LifeTimeInSecType lifetime_diff2ignore  = 400
 
 /** default UDP port to run LIEs on */
 const UDPPortType     default_lie_udp_port       =  911
@@ -112,7 +126,17 @@ const UDPPortType     default_lie_udp_port       =  911
 const UDPPortType     default_tie_udp_flood_port =  912
 
 /** default MTU link size to use */
-const MTUSizeType     default_mtu_size           =  1400
+const MTUSizeType     default_mtu_size           = 1400
+/** default link being BFD capable */
+const bool            bfd_default                = true
+
+/** undefined nonce, equivalent to missing nonce */
+const NonceType       undefined_nonce            = 0;
+/** Maximum delta (negative or positive) that a mirrored nonce can
+    deviate from local value to be considered valid. If nonces are
+    changed every minute on both sides this opens statistically
+    a 5 minutes window of identical LIEs **/
+const i16             maximum_valid_nonce_delta  = 5;
 
 /** indicates whether the direction is northbound/east-west
   * or southbound */
@@ -180,36 +204,35 @@ enum TIETypeType {
  *  normal prefixes are attracting traffic south (towards leafs),
  *  i.e. prefix in NORTH PREFIX TIE is preferred over SOUTH PREFIX TIE
  *
- *  @todo: external routes
  *  @note: The only purpose of those values is to introduce an
  *         ordering whereas an implementation can choose internally
  *         any other values as long the ordering is preserved
  */
 enum RouteType {
-    Illegal               = 0,
-    RouteTypeMinValue     = 1,
+    Illegal               =  0,
+    RouteTypeMinValue     =  1,
     /** First legal value. */
     /** Discard routes are most prefered */
-    Discard               = 2,
+    Discard               =  2,
 
     /** Local prefixes are directly attached prefixes on the
      *  system such as e.g. interface routes.
      */
-    LocalPrefix           = 3,
+    LocalPrefix           =  3,
     /** advertised in S-TIEs */
-    SouthPGPPrefix        = 4,
+    SouthPGPPrefix        =  4,
     /** advertised in N-TIEs */
-    NorthPGPPrefix        = 5,
+    NorthPGPPrefix        =  5,
     /** advertised in N-TIEs */
-    NorthPrefix           = 6,
-    /** advertised in S-TIEs, either normal prefix or positive disaggregation */
-    SouthPrefix           = 7,
+    NorthPrefix           =  6,
     /** externally imported north */
-    NorthExternalPrefix   = 8,
+    NorthExternalPrefix   =  7,
+    /** advertised in S-TIEs, either normal prefix or positive disaggregation */
+    SouthPrefix           =  8,
     /** externally imported south */
-    SouthExternalPrefix   = 9,
-    /** negative, transitive are least preferred of
+    SouthExternalPrefix   =  9,
+    /** negative, transitive prefixes are least preferred of
         local variety */
-    NegativeNorthPrefix   = 10,
+    NegativeSouthPrefix   = 10,
     RouteTypeMaxValue     = 11,
 }

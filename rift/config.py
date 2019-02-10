@@ -2,8 +2,8 @@ import ipaddress
 import pprint
 import sys
 
-import cerberus
 import yaml
+import cerberus
 
 import constants
 

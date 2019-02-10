@@ -4,12 +4,13 @@
 
 include "common.thrift"
 
+namespace rs models
 namespace py encoding
 
 /** represents protocol encoding schema major version */
-const i32 protocol_major_version = 19
+const i32 protocol_major_version = 24
 /** represents protocol encoding schema minor version */
-const i32 protocol_minor_version = 0
+const i32 protocol_minor_version =  0
 
 /** common RIFT packet header */
 struct PacketHeader {
@@ -22,7 +23,8 @@ struct PacketHeader {
       * LIEs. Lack of presence on LIEs indicates UNDEFINED_LEVEL and is used
       * in ZTP procedures.
      */
-    4: optional common.LevelType     level;
+    4: optional common.LevelType            level;
+   10: optional common.PacketNumberType     packet_number;
 }
 
 /** Community serves as community for PGP purposes */
@@ -37,7 +39,14 @@ struct Neighbor {
     2: required common.LinkIDType          remote_id;
 }
 
-/** Capabilities the node supports */
+/** Capabilities the node supports. The schema may add to this
+    field future capabilities to indicate whether it will support
+    interpretation of future schema extensions on the same major
+    revision. Such fields MUST be optional and have an implicit or
+    explicit false default value. If a future capability changes route
+    selection or generates blackholes if some nodes are not supporting
+    it then a major version increment is unavoidable.
+*/
 struct NodeCapabilities {
     /** can this node participate in flood reduction */
     1: optional bool                           flood_reduction =
@@ -47,56 +56,63 @@ struct NodeCapabilities {
     2: optional common.HierarchyIndications    hierarchy_indications;
 }
 
+/* Link capabilities */
+struct LinkCapabilities {
+    /* indicates that the link's `local ID` can be used as its BFD
+       discriminator and the link is supporting BFD */
+    1: optional bool                           bfd =
+            common.bfd_default;
+}
+
 /** RIFT LIE packet
 
     @note this node's level is already included on the packet header */
 struct LIEPacket {
     /** optional node or adjacency name */
-    1: optional string                    name;
+    1: optional string                        name;
     /** local link ID */
-    2: required common.LinkIDType         local_id;
+    2: required common.LinkIDType             local_id;
     /** UDP port to which we can receive flooded TIEs */
-    3: required common.UDPPortType        flood_port =
+    3: required common.UDPPortType            flood_port =
             common.default_tie_udp_flood_port;
-    /** layer 3 MTU, used to discover to mismatch */
-    4: optional common.MTUSizeType        link_mtu_size =
+    /** layer 3 MTU, used to discover to mismatch. */
+    4: optional common.MTUSizeType            link_mtu_size =
             common.default_mtu_size;
     /** local link bandwidth on the interface */
     5: optional common.BandwithInMegaBitsType link_bandwidth =
             common.default_bandwidth;
-    /** this will reflect the neighbor once received to provid
+    /** this will reflect the neighbor once received to provide
         3-way connectivity */
-    6: optional Neighbor                  neighbor;
-    7: optional common.PodType            pod = common.default_pod;
+    6: optional Neighbor                      neighbor;
+    7: optional common.PodType                pod =
+            common.default_pod;
     /** optional local nonce used for security computations */
-    8: optional common.NonceType          nonce;
-    /** optional neighbor's reflected nonce for security purposes. Significant delta
-        in nonces seen compared to current local nonce can be used to prevent replays */
-    9: optional common.NonceType          last_neighbor_nonce;
+    8: optional common.NonceType              nonce = common.undefined_nonce;
+    /** optional neighbor's reflected nonce for security purposes. */
+    9: optional common.NonceType              last_neighbor_nonce = common.undefined_nonce;
     /** optional node capabilities shown in the LIE. The capabilies
         MUST match the capabilities shown in the Node TIEs, otherwise
         the behavior is unspecified. A node detecting the mismatch
-        SHOULD generate according error.
-     */
-   10: optional NodeCapabilities          capabilities;
-    /** required holdtime of the adjacency, i.e. how much time
-        MUST expire without LIE for the adjacency to drop
-     */
-   11: required common.TimeIntervalInSecType  holdtime =
+        SHOULD generate according error */
+   10: optional NodeCapabilities              node_capabilities;
+   11: optional LinkCapabilities              link_capabilities;
+   /** required holdtime of the adjacency, i.e. how much time
+       MUST expire without LIE for the adjacency to drop */
+   12: required common.TimeIntervalInSecType  holdtime =
             common.default_lie_holdtime;
+   /** optional downstream assigned locally significant label
+       value for the adjacency */
+   13: optional common.LabelType              label;
     /** indicates that the level on the LIE MUST NOT be used
-        to derive a ZTP level by the receiving node. */
-   12: optional bool                      not_a_ztp_offer =
+        to derive a ZTP level by the receiving node */
+   21: optional bool                          not_a_ztp_offer =
             common.default_not_a_ztp_offer;
    /** indicates to northbound neighbor that it should
-       be reflooding this node's N-TIEs to achieve flood reducuction and
+       be reflooding this node's N-TIEs to achieve flood reduction and
        balancing for northbound flooding. To be ignored if received from a
-       northbound adjacency. */
-   13: optional bool                      you_are_flood_repeater =
+       northbound adjacency */
+   22: optional bool                          you_are_flood_repeater =
              common.default_you_are_flood_repeater;
-   /** optional downstream assigned locally significant label
-       value for the adjacency. */
-   14: optional common.LabelType          label;
 }
 
 /** LinkID pair describes one of parallel links between two nodes */
@@ -127,15 +143,21 @@ struct TIEID {
 
    @note: TIEID space is a total order achieved by comparing the elements
               in sequence defined and comparing each value as an
-              unsigned integer of according length. `origination_time` is
-              disregarded for comparison purposes.
+              unsigned integer of according length. `origination_time` and
+              `origination_lifetime` are disregarded for comparison purposes
+              and carried purely for debugging/security purposes if present.
 */
 struct TIEHeader {
     2: required TIEID                             tieid;
     3: required common.SeqNrType                  seq_nr;
     /** remaining lifetime that expires down to 0 just like in ISIS.
         TIEs with lifetimes differing by less than `lifetime_diff2ignore` MUST
-        be considered EQUAL. */
+        be considered EQUAL.
+
+        When using security envelope,
+        this is just a model placeholder for convienence
+        that is never being modified during flooding. The real remaining lifetime
+        is contained on the security envelope. */
     4: required common.LifeTimeInSecType          remaining_lifetime;
     /** optional absolute timestamp when the TIE
         was generated. This can be used on fabrics with
@@ -165,7 +187,7 @@ struct TIREPacket {
 /** Neighbor of a node */
 struct NodeNeighborsTIEElement {
     /** Level of neighbor */
-    1: required common.LevelType              level;
+    1: required common.LevelType                level;
     /**  Cost to neighbor.
 
          @note: All parallel links to same node
@@ -204,8 +226,9 @@ struct NodeFlags {
 */
 struct NodeTIEElement {
     1: required common.LevelType            level;
-    /** if neighbor systemID repeats in other node TIEs of same node
-        the behavior is undefined. Equivalent to |A_(n,s)(N) in spec. */
+    /** _All_ of the node's neighbors.
+    *   If neighbor systemID repeats in other node TIEs of same node
+        the behavior is undefined. */
     2: required map<common.SystemIDType,
                 NodeNeighborsTIEElement>    neighbors;
     3: optional NodeCapabilities            capabilities;

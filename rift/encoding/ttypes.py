@@ -26,25 +26,33 @@ class PacketHeader(object):
      - level: level of the node sending the packet, required on everything except
     LIEs. Lack of presence on LIEs indicates UNDEFINED_LEVEL and is used
     in ZTP procedures.
+     - packet_number
     """
 
     thrift_spec = (
         None,  # 0
-        (1, TType.I16, 'major_version', None, 19, ),  # 1
+        (1, TType.I16, 'major_version', None, 24, ),  # 1
         (2, TType.I16, 'minor_version', None, 0, ),  # 2
         (3, TType.I64, 'sender', None, None, ),  # 3
         (4, TType.I16, 'level', None, None, ),  # 4
+        None,  # 5
+        None,  # 6
+        None,  # 7
+        None,  # 8
+        None,  # 9
+        (10, TType.I32, 'packet_number', None, None, ),  # 10
     )
 
-    def __init__(self, major_version=thrift_spec[1][4], minor_version=thrift_spec[2][4], sender=None, level=None,):
+    def __init__(self, major_version=thrift_spec[1][4], minor_version=thrift_spec[2][4], sender=None, level=None, packet_number=None,):
         if major_version is self.thrift_spec[1][4]:
-            major_version = 19
+            major_version = 24
         self.major_version = major_version
         if minor_version is self.thrift_spec[2][4]:
             minor_version = 0
         self.minor_version = minor_version
         self.sender = sender
         self.level = level
+        self.packet_number = packet_number
 
     def read(self, iprot):
         if iprot._fast_decode is not None and isinstance(iprot.trans, TTransport.CReadableTransport) and self.thrift_spec is not None:
@@ -75,6 +83,11 @@ class PacketHeader(object):
                     self.level = iprot.readI16()
                 else:
                     iprot.skip(ftype)
+            elif fid == 10:
+                if ftype == TType.I32:
+                    self.packet_number = iprot.readI32()
+                else:
+                    iprot.skip(ftype)
             else:
                 iprot.skip(ftype)
             iprot.readFieldEnd()
@@ -100,6 +113,10 @@ class PacketHeader(object):
         if self.level is not None:
             oprot.writeFieldBegin('level', TType.I16, 4)
             oprot.writeI16(self.level)
+            oprot.writeFieldEnd()
+        if self.packet_number is not None:
+            oprot.writeFieldBegin('packet_number', TType.I32, 10)
+            oprot.writeI32(self.packet_number)
             oprot.writeFieldEnd()
         oprot.writeFieldStop()
         oprot.writeStructEnd()
@@ -283,7 +300,13 @@ class Neighbor(object):
 
 class NodeCapabilities(object):
     """
-    Capabilities the node supports
+    Capabilities the node supports. The schema may add to this
+    field future capabilities to indicate whether it will support
+    interpretation of future schema extensions on the same major
+    revision. Such fields MUST be optional and have an implicit or
+    explicit false default value. If a future capability changes route
+    selection or generates blackholes if some nodes are not supporting
+    it then a major version increment is unavoidable.
 
     Attributes:
      - flood_reduction: can this node participate in flood reduction
@@ -356,6 +379,66 @@ class NodeCapabilities(object):
         return not (self == other)
 
 
+class LinkCapabilities(object):
+    """
+    Attributes:
+     - bfd
+    """
+
+    thrift_spec = (
+        None,  # 0
+        (1, TType.BOOL, 'bfd', None, True, ),  # 1
+    )
+
+    def __init__(self, bfd=thrift_spec[1][4],):
+        self.bfd = bfd
+
+    def read(self, iprot):
+        if iprot._fast_decode is not None and isinstance(iprot.trans, TTransport.CReadableTransport) and self.thrift_spec is not None:
+            iprot._fast_decode(self, iprot, (self.__class__, self.thrift_spec))
+            return
+        iprot.readStructBegin()
+        while True:
+            (fname, ftype, fid) = iprot.readFieldBegin()
+            if ftype == TType.STOP:
+                break
+            if fid == 1:
+                if ftype == TType.BOOL:
+                    self.bfd = iprot.readBool()
+                else:
+                    iprot.skip(ftype)
+            else:
+                iprot.skip(ftype)
+            iprot.readFieldEnd()
+        iprot.readStructEnd()
+
+    def write(self, oprot):
+        if oprot._fast_encode is not None and self.thrift_spec is not None:
+            oprot.trans.write(oprot._fast_encode(self, (self.__class__, self.thrift_spec)))
+            return
+        oprot.writeStructBegin('LinkCapabilities')
+        if self.bfd is not None:
+            oprot.writeFieldBegin('bfd', TType.BOOL, 1)
+            oprot.writeBool(self.bfd)
+            oprot.writeFieldEnd()
+        oprot.writeFieldStop()
+        oprot.writeStructEnd()
+
+    def validate(self):
+        return
+
+    def __repr__(self):
+        L = ['%s=%r' % (key, value)
+             for key, value in self.__dict__.items()]
+        return '%s(%s)' % (self.__class__.__name__, ', '.join(L))
+
+    def __eq__(self, other):
+        return isinstance(other, self.__class__) and self.__dict__ == other.__dict__
+
+    def __ne__(self, other):
+        return not (self == other)
+
+
 class LIEPacket(object):
     """
     RIFT LIE packet
@@ -366,28 +449,28 @@ class LIEPacket(object):
      - name: optional node or adjacency name
      - local_id: local link ID
      - flood_port: UDP port to which we can receive flooded TIEs
-     - link_mtu_size: layer 3 MTU, used to discover to mismatch
+     - link_mtu_size: layer 3 MTU, used to discover to mismatch.
      - link_bandwidth: local link bandwidth on the interface
-     - neighbor: this will reflect the neighbor once received to provid
+     - neighbor: this will reflect the neighbor once received to provide
     3-way connectivity
      - pod
      - nonce: optional local nonce used for security computations
-     - last_neighbor_nonce: optional neighbor's reflected nonce for security purposes. Significant delta
-    in nonces seen compared to current local nonce can be used to prevent replays
-     - capabilities: optional node capabilities shown in the LIE. The capabilies
+     - last_neighbor_nonce: optional neighbor's reflected nonce for security purposes.
+     - node_capabilities: optional node capabilities shown in the LIE. The capabilies
     MUST match the capabilities shown in the Node TIEs, otherwise
     the behavior is unspecified. A node detecting the mismatch
-    SHOULD generate according error.
+    SHOULD generate according error
+     - link_capabilities
      - holdtime: required holdtime of the adjacency, i.e. how much time
     MUST expire without LIE for the adjacency to drop
-     - not_a_ztp_offer: indicates that the level on the LIE MUST NOT be used
-    to derive a ZTP level by the receiving node.
-     - you_are_flood_repeater: indicates to northbound neighbor that it should
-    be reflooding this node's N-TIEs to achieve flood reducuction and
-    balancing for northbound flooding. To be ignored if received from a
-    northbound adjacency.
      - label: optional downstream assigned locally significant label
-    value for the adjacency.
+    value for the adjacency
+     - not_a_ztp_offer: indicates that the level on the LIE MUST NOT be used
+    to derive a ZTP level by the receiving node
+     - you_are_flood_repeater: indicates to northbound neighbor that it should
+    be reflooding this node's N-TIEs to achieve flood reduction and
+    balancing for northbound flooding. To be ignored if received from a
+    northbound adjacency
     """
 
     thrift_spec = (
@@ -399,16 +482,24 @@ class LIEPacket(object):
         (5, TType.I32, 'link_bandwidth', None, 100, ),  # 5
         (6, TType.STRUCT, 'neighbor', (Neighbor, Neighbor.thrift_spec), None, ),  # 6
         (7, TType.I32, 'pod', None, 0, ),  # 7
-        (8, TType.I64, 'nonce', None, None, ),  # 8
-        (9, TType.I64, 'last_neighbor_nonce', None, None, ),  # 9
-        (10, TType.STRUCT, 'capabilities', (NodeCapabilities, NodeCapabilities.thrift_spec), None, ),  # 10
-        (11, TType.I16, 'holdtime', None, 3, ),  # 11
-        (12, TType.BOOL, 'not_a_ztp_offer', None, False, ),  # 12
-        (13, TType.BOOL, 'you_are_flood_repeater', None, True, ),  # 13
-        (14, TType.I32, 'label', None, None, ),  # 14
+        (8, TType.I16, 'nonce', None, 0, ),  # 8
+        (9, TType.I16, 'last_neighbor_nonce', None, 0, ),  # 9
+        (10, TType.STRUCT, 'node_capabilities', (NodeCapabilities, NodeCapabilities.thrift_spec), None, ),  # 10
+        (11, TType.STRUCT, 'link_capabilities', (LinkCapabilities, LinkCapabilities.thrift_spec), None, ),  # 11
+        (12, TType.I16, 'holdtime', None, 3, ),  # 12
+        (13, TType.I32, 'label', None, None, ),  # 13
+        None,  # 14
+        None,  # 15
+        None,  # 16
+        None,  # 17
+        None,  # 18
+        None,  # 19
+        None,  # 20
+        (21, TType.BOOL, 'not_a_ztp_offer', None, False, ),  # 21
+        (22, TType.BOOL, 'you_are_flood_repeater', None, True, ),  # 22
     )
 
-    def __init__(self, name=None, local_id=None, flood_port=thrift_spec[3][4], link_mtu_size=thrift_spec[4][4], link_bandwidth=thrift_spec[5][4], neighbor=None, pod=thrift_spec[7][4], nonce=None, last_neighbor_nonce=None, capabilities=None, holdtime=thrift_spec[11][4], not_a_ztp_offer=thrift_spec[12][4], you_are_flood_repeater=thrift_spec[13][4], label=None,):
+    def __init__(self, name=None, local_id=None, flood_port=thrift_spec[3][4], link_mtu_size=thrift_spec[4][4], link_bandwidth=thrift_spec[5][4], neighbor=None, pod=thrift_spec[7][4], nonce=thrift_spec[8][4], last_neighbor_nonce=thrift_spec[9][4], node_capabilities=None, link_capabilities=None, holdtime=thrift_spec[12][4], label=None, not_a_ztp_offer=thrift_spec[21][4], you_are_flood_repeater=thrift_spec[22][4],):
         self.name = name
         self.local_id = local_id
         if flood_port is self.thrift_spec[3][4]:
@@ -424,15 +515,20 @@ class LIEPacket(object):
         if pod is self.thrift_spec[7][4]:
             pod = 0
         self.pod = pod
+        if nonce is self.thrift_spec[8][4]:
+            nonce = 0
         self.nonce = nonce
+        if last_neighbor_nonce is self.thrift_spec[9][4]:
+            last_neighbor_nonce = 0
         self.last_neighbor_nonce = last_neighbor_nonce
-        self.capabilities = capabilities
-        if holdtime is self.thrift_spec[11][4]:
+        self.node_capabilities = node_capabilities
+        self.link_capabilities = link_capabilities
+        if holdtime is self.thrift_spec[12][4]:
             holdtime = 3
         self.holdtime = holdtime
+        self.label = label
         self.not_a_ztp_offer = not_a_ztp_offer
         self.you_are_flood_repeater = you_are_flood_repeater
-        self.label = label
 
     def read(self, iprot):
         if iprot._fast_decode is not None and isinstance(iprot.trans, TTransport.CReadableTransport) and self.thrift_spec is not None:
@@ -480,39 +576,45 @@ class LIEPacket(object):
                 else:
                     iprot.skip(ftype)
             elif fid == 8:
-                if ftype == TType.I64:
-                    self.nonce = iprot.readI64()
+                if ftype == TType.I16:
+                    self.nonce = iprot.readI16()
                 else:
                     iprot.skip(ftype)
             elif fid == 9:
-                if ftype == TType.I64:
-                    self.last_neighbor_nonce = iprot.readI64()
+                if ftype == TType.I16:
+                    self.last_neighbor_nonce = iprot.readI16()
                 else:
                     iprot.skip(ftype)
             elif fid == 10:
                 if ftype == TType.STRUCT:
-                    self.capabilities = NodeCapabilities()
-                    self.capabilities.read(iprot)
+                    self.node_capabilities = NodeCapabilities()
+                    self.node_capabilities.read(iprot)
                 else:
                     iprot.skip(ftype)
             elif fid == 11:
+                if ftype == TType.STRUCT:
+                    self.link_capabilities = LinkCapabilities()
+                    self.link_capabilities.read(iprot)
+                else:
+                    iprot.skip(ftype)
+            elif fid == 12:
                 if ftype == TType.I16:
                     self.holdtime = iprot.readI16()
                 else:
                     iprot.skip(ftype)
-            elif fid == 12:
+            elif fid == 13:
+                if ftype == TType.I32:
+                    self.label = iprot.readI32()
+                else:
+                    iprot.skip(ftype)
+            elif fid == 21:
                 if ftype == TType.BOOL:
                     self.not_a_ztp_offer = iprot.readBool()
                 else:
                     iprot.skip(ftype)
-            elif fid == 13:
+            elif fid == 22:
                 if ftype == TType.BOOL:
                     self.you_are_flood_repeater = iprot.readBool()
-                else:
-                    iprot.skip(ftype)
-            elif fid == 14:
-                if ftype == TType.I32:
-                    self.label = iprot.readI32()
                 else:
                     iprot.skip(ftype)
             else:
@@ -554,32 +656,36 @@ class LIEPacket(object):
             oprot.writeI32(self.pod)
             oprot.writeFieldEnd()
         if self.nonce is not None:
-            oprot.writeFieldBegin('nonce', TType.I64, 8)
-            oprot.writeI64(self.nonce)
+            oprot.writeFieldBegin('nonce', TType.I16, 8)
+            oprot.writeI16(self.nonce)
             oprot.writeFieldEnd()
         if self.last_neighbor_nonce is not None:
-            oprot.writeFieldBegin('last_neighbor_nonce', TType.I64, 9)
-            oprot.writeI64(self.last_neighbor_nonce)
+            oprot.writeFieldBegin('last_neighbor_nonce', TType.I16, 9)
+            oprot.writeI16(self.last_neighbor_nonce)
             oprot.writeFieldEnd()
-        if self.capabilities is not None:
-            oprot.writeFieldBegin('capabilities', TType.STRUCT, 10)
-            self.capabilities.write(oprot)
+        if self.node_capabilities is not None:
+            oprot.writeFieldBegin('node_capabilities', TType.STRUCT, 10)
+            self.node_capabilities.write(oprot)
+            oprot.writeFieldEnd()
+        if self.link_capabilities is not None:
+            oprot.writeFieldBegin('link_capabilities', TType.STRUCT, 11)
+            self.link_capabilities.write(oprot)
             oprot.writeFieldEnd()
         if self.holdtime is not None:
-            oprot.writeFieldBegin('holdtime', TType.I16, 11)
+            oprot.writeFieldBegin('holdtime', TType.I16, 12)
             oprot.writeI16(self.holdtime)
             oprot.writeFieldEnd()
+        if self.label is not None:
+            oprot.writeFieldBegin('label', TType.I32, 13)
+            oprot.writeI32(self.label)
+            oprot.writeFieldEnd()
         if self.not_a_ztp_offer is not None:
-            oprot.writeFieldBegin('not_a_ztp_offer', TType.BOOL, 12)
+            oprot.writeFieldBegin('not_a_ztp_offer', TType.BOOL, 21)
             oprot.writeBool(self.not_a_ztp_offer)
             oprot.writeFieldEnd()
         if self.you_are_flood_repeater is not None:
-            oprot.writeFieldBegin('you_are_flood_repeater', TType.BOOL, 13)
+            oprot.writeFieldBegin('you_are_flood_repeater', TType.BOOL, 22)
             oprot.writeBool(self.you_are_flood_repeater)
-            oprot.writeFieldEnd()
-        if self.label is not None:
-            oprot.writeFieldBegin('label', TType.I32, 14)
-            oprot.writeI32(self.label)
             oprot.writeFieldEnd()
         oprot.writeFieldStop()
         oprot.writeStructEnd()
@@ -799,8 +905,9 @@ class TIEHeader(object):
 
     @note: TIEID space is a total order achieved by comparing the elements
                in sequence defined and comparing each value as an
-               unsigned integer of according length. `origination_time` is
-               disregarded for comparison purposes.
+               unsigned integer of according length. `origination_time` and
+               `origination_lifetime` are disregarded for comparison purposes
+               and carried purely for debugging/security purposes if present.
 
     Attributes:
      - tieid
@@ -808,6 +915,11 @@ class TIEHeader(object):
      - remaining_lifetime: remaining lifetime that expires down to 0 just like in ISIS.
     TIEs with lifetimes differing by less than `lifetime_diff2ignore` MUST
     be considered EQUAL.
+
+    When using security envelope,
+    this is just a model placeholder for convienence
+    that is never being modified during flooding. The real remaining lifetime
+    is contained on the security envelope.
      - origination_time: optional absolute timestamp when the TIE
     was generated. This can be used on fabrics with
     synchronized clock to prevent lifetime modification attacks.
@@ -1305,8 +1417,9 @@ class NodeTIEElement(object):
 
     Attributes:
      - level
-     - neighbors: if neighbor systemID repeats in other node TIEs of same node
-    the behavior is undefined. Equivalent to |A_(n,s)(N) in spec.
+     - neighbors: _All_ of the node's neighbors.
+    *   If neighbor systemID repeats in other node TIEs of same node
+        the behavior is undefined.
      - capabilities
      - flags
      - name: optional node name for easier operations
@@ -1684,7 +1797,9 @@ class TIEElement(object):
     single element in a TIE. enum common.TIETypeType
     in TIEID indicates which elements MUST be present
     in the TIEElement. In case of mismatch the unexpected
-    elements MUST be ignored.
+    elements MUST be ignored. In case of lack of expected
+    element the TIE an error MUST be reported and the TIE
+    MUST be ignored.
 
     Attributes:
      - node: in case of enum common.TIETypeType.NodeTIEType
@@ -1820,6 +1935,7 @@ class TIEElement(object):
 class TIEPacket(object):
     """
     @todo: flood header separately in UDP to allow changing lifetime and SHA without reserialization
+
 
     Attributes:
      - header

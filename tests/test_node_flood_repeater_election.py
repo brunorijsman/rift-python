@@ -119,7 +119,7 @@ def make_parent_interface(test_node, parent_sysid):
         neighbor=lie_neighbor,
         pod=0,
         nonce=0,
-        capabilities=None,
+        node_capabilities=None,
         holdtime=3,
         not_a_ztp_offer=False,
         you_are_flood_repeater=False,

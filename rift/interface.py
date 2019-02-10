@@ -46,8 +46,8 @@ class Interface:
 
     @staticmethod
     def generate_nonce():
-        # 63 bits instead of 64 because nonce field is a signed i64
-        nonce = random.getrandbits(63)
+        # 15 bits instead of 16 because nonce field is a signed i64
+        nonce = random.getrandbits(15)
         return nonce
 
     class State(enum.Enum):
@@ -260,7 +260,7 @@ class Interface:
         packet_header = encoding.ttypes.PacketHeader(
             sender=self.node.system_id,
             level=self.node.level_value())
-        capabilities = encoding.ttypes.NodeCapabilities(
+        node_capabilities = encoding.ttypes.NodeCapabilities(
             flood_reduction=True,
             hierarchy_indications=
             common.ttypes.HierarchyIndications.leaf_only_and_leaf_2_leaf_procedures)
@@ -279,7 +279,7 @@ class Interface:
             neighbor=lie_neighbor,
             pod=self._pod,
             nonce=Interface.generate_nonce(),
-            capabilities=capabilities,
+            node_capabilities=node_capabilities,
             holdtime=3,
             not_a_ztp_offer=self.node.send_not_a_ztp_offer_on_intf(self.name),
             you_are_flood_repeater=self.nbr_is_fr_bool(self.floodred_nbr_is_fr),
