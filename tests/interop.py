@@ -4,8 +4,8 @@ import datetime
 import os
 import shutil
 import subprocess
-import yaml
 import re
+import yaml
 
 TEST_CASES = [("test_sys_2n_l0_l1.py", "2n_l0_l1.yaml", ["node1"]),
               ("test_sys_2n_l0_l1.py", "2n_l0_l1.yaml", ["node2"]),
