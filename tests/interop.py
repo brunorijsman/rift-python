@@ -89,22 +89,24 @@ def write_juniper_config(config_file_name, juniper_nodes, results_dir):
 def check_juniper_rift_in_path():
     if shutil.which("rift-environ") is None:
         fatal_error("Cannot find Juniper RIFT (rift-environ) in PATH")
-        pass
+
     # run it and check version
     output = subprocess.check_output(["rift-environ",
                                       "--version"], universal_newlines=True)
     # print (output)
-    regex = re.compile(r"^.*ersion: *(\d+)\.(\d+).*", re.RegexFlag.IGNORECASE | re.RegexFlag.MULTILINE)
+    regex = re.compile(r"^.*ersion: *(\d+)\.(\d+).*",
+                       re.RegexFlag.IGNORECASE  | re.RegexFlag.MULTILINE)
     major = re.search(regex, output)
+
     if not major or not major.group(1):
         fatal_error("Cannot detect major version of Juniper RIFT")
-        pass
+
     minor = major.group(2)
     major = major.group(1)
+
     if int(major) != 0 or int(minor) != 9:
         fatal_error("Wrong Major/Minor version of Juniper RIFT")
-        pass
-    pass
+
 
 def check_pytest_in_path():
     if shutil.which("pytest") is None:
