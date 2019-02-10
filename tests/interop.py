@@ -5,6 +5,7 @@ import os
 import shutil
 import subprocess
 import yaml
+import re
 
 TEST_CASES = [("test_sys_2n_l0_l1.py", "2n_l0_l1.yaml", ["node1"]),
               ("test_sys_2n_l0_l1.py", "2n_l0_l1.yaml", ["node2"]),
@@ -88,6 +89,22 @@ def write_juniper_config(config_file_name, juniper_nodes, results_dir):
 def check_juniper_rift_in_path():
     if shutil.which("rift-environ") is None:
         fatal_error("Cannot find Juniper RIFT (rift-environ) in PATH")
+        pass
+    # run it and check version
+    output = subprocess.check_output(["rift-environ",
+                                        "--version"], universal_newlines=True)
+    # print (output)
+    regex = re.compile(r"^.*ersion: *(\d+)\.(\d+).*", re.RegexFlag.IGNORECASE | re.RegexFlag.MULTILINE)
+    major = re.search(regex, output)
+    if not major or not major.group(1):
+        fatal_error("Cannot detect major version of Juniper RIFT")
+        pass
+    minor = major.group(2)
+    major = major.group(1)
+    if int(major) != 0 or int(minor) != 9:
+        fatal_error("Wrong Major/Minor version of Juniper RIFT")
+        pass
+    pass
 
 def check_pytest_in_path():
     if shutil.which("pytest") is None:
@@ -111,7 +128,7 @@ def start_juniper_rift(juniper_config_file_name, test_results_dir):
                                         "-C", "southbound_prefixes",
                                         "-C", "thrift_services",
                                         "-C", "zero_touch_provisioning",
-                                        "-vvv",
+                                        "-vvvv",
                                         "-R", "999999",
                                         "topology", juniper_config_file_name],
                                        stdout=juniper_log_file,
