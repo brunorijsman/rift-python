@@ -9,6 +9,7 @@ import socket
 import constants
 import fsm
 import neighbor
+import node       # TODO: Put TIEMeta in separate module to avoid this
 import offer
 import packet_common
 import table
@@ -685,14 +686,14 @@ class Interface:
     def tx_debug(self, msg, *args):
         self._tx_log.debug("[%s] %s" % (self._log_id, msg), *args)
 
-    def __init__(self, node, config):
+    def __init__(self, parent_node, config):
         # pylint:disable=too-many-statements
         # TODO: process bandwidth field in config
-        self.node = node
-        self._engine = node.engine
+        self.node = parent_node
+        self._engine = parent_node.engine
         self.name = config['name']
-        self._log_id = node.log_id + "-{}".format(self.name)
-        self._log = node.log.getChild("if")
+        self._log_id = parent_node.log_id + "-{}".format(self.name)
+        self._log = parent_node.log.getChild("if")
         if self._engine.simulated_interfaces and self._engine.physical_interface_name:
             self.physical_interface_name = self._engine.physical_interface_name
         else:
@@ -729,7 +730,7 @@ class Interface:
         self._rx_log = self._log.getChild("rx")
         self._tx_log = self._log.getChild("tx")
         self._fsm_log = self._log.getChild("fsm")
-        self.local_id = node.allocate_interface_id()
+        self.local_id = parent_node.allocate_interface_id()
         self._mtu = self.get_mtu()
         self._pod = self.UNDEFINED_OR_ANY_POD
         self.neighbor = None
@@ -889,7 +890,8 @@ class Interface:
 
     def process_received_tie_packet(self, tie_packet):
         self.rx_debug("Receive TIE packet %s", tie_packet)
-        result = self.node.process_received_tie_packet(tie_packet)
+        tie_meta = node.TIEMeta(tie_packet, rx_intf=self)
+        result = self.node.process_received_tie_packet(tie_meta)
         (start_sending_tie_header, ack_tie_header) = result
         if start_sending_tie_header is not None:
             self.try_to_transmit_tie(start_sending_tie_header)
@@ -1017,7 +1019,10 @@ class Interface:
         filtered = not allowed
         return (filtered, reason)
 
-    def add_to_ties_tx(self, tie_header):
+    def add_tie_meta_to_ties_tx(self, tie_meta):
+        self.add_tie_header_to_ties_tx(tie_meta.tie_packet.header, tie_meta)
+
+    def add_tie_header_to_ties_tx(self, tie_header, tie_meta=None):
         # If the TIE is not already on the send queue or if the TIE is a newer version than what's
         # already on the send queue, then send it immediately instead of (in addition to, really)
         # waiting for the next service timer.
@@ -1029,8 +1034,10 @@ class Interface:
             send_now = False
         self._ties_tx[tie_header.tieid] = tie_header
         if send_now:
-            db_tie = self.node.find_tie(tie_header.tieid)
-            if db_tie is not None:
+            if tie_meta is None:
+                tie_meta = self.node.find_tie_meta(tie_header.tieid)
+            if tie_meta is not None:
+                # TODO: Put already encoded TIEProtocol packet in tie_meta, and send that
                 packet_header = encoding.ttypes.PacketHeader(
                     sender=self.node.system_id,
                     level=self.node.level_value())
@@ -1038,7 +1045,7 @@ class Interface:
                 protocol_packet = encoding.ttypes.ProtocolPacket(
                     header=packet_header,
                     content=packet_content)
-                protocol_packet.content.tie = db_tie
+                protocol_packet.content.tie = tie_meta.tie_packet
                 self.send_protocol_packet(protocol_packet, flood=True)
 
     def try_to_transmit_tie(self, tie_header):
@@ -1052,13 +1059,13 @@ class Interface:
                 if ack_header.seq_nr < tie_header.seq_nr:
                     # ACK for older TIE is in queue, remove ACK from queue and send newer TIE
                     self.remove_from_ties_ack(ack_header)
-                    self.add_to_ties_tx(tie_header)
+                    self.add_tie_header_to_ties_tx(tie_header)
                 else:
                     # ACK for newer TIE in in queue, keep ACK and don't send this older TIE
                     pass
             else:
                 # No ACK in queue, send this TIE
-                self.add_to_ties_tx(tie_header)
+                self.add_tie_header_to_ties_tx(tie_header)
 
     def ack_tie(self, tie_header):
         self.remove_from_all_queues(tie_header)
@@ -1186,9 +1193,9 @@ class Interface:
             header=packet_header,
             content=packet_content)
         for tie_id in queue.keys():
-            db_tie = self.node.find_tie(tie_id)
-            if db_tie is not None:
-                protocol_packet.content.tie = db_tie
+            db_tie_meta = self.node.find_tie_meta(tie_id)
+            if db_tie_meta is not None:
+                protocol_packet.content.tie = db_tie_meta.tie_packet
                 self.send_protocol_packet(protocol_packet, flood=True)
 
     def service_ties_tx(self):

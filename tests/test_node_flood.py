@@ -119,31 +119,31 @@ def test_compare_tie_header():
 def test_add_prefix_tie():
     packet_common.add_missing_methods_to_thrift()
     test_node = make_test_node()
-    prefix_tie_1 = packet_common.make_prefix_tie_packet(
+    prefix_tie_packet_1 = packet_common.make_prefix_tie_packet(
         direction=common.ttypes.TieDirectionType.South,
         originator=222,
         tie_nr=333,
         seq_nr=444,
         lifetime=555)
-    packet_common.add_ipv4_prefix_to_prefix_tie(prefix_tie_1, "1.2.3.0/24", 2, [77, 88], 12345)
-    packet_common.add_ipv6_prefix_to_prefix_tie(prefix_tie_1, "1234:abcd::/64", 3)
-    test_node.store_tie(prefix_tie_1)
-    prefix_tie_2 = packet_common.make_prefix_tie_packet(
+    packet_common.add_ipv4_prefix_to_prefix_tie(prefix_tie_packet_1, "1.2.3.0/24", 2, [77, 88], 12345)
+    packet_common.add_ipv6_prefix_to_prefix_tie(prefix_tie_packet_1, "1234:abcd::/64", 3)
+    test_node.store_tie_packet(prefix_tie_packet_1)
+    prefix_tie_packet_2 = packet_common.make_prefix_tie_packet(
         direction=common.ttypes.TieDirectionType.North,
         originator=777,
         tie_nr=888,
         seq_nr=999,
         lifetime=0)
-    packet_common.add_ipv4_prefix_to_prefix_tie(prefix_tie_2, "0.0.0.0/0", 10)
-    test_node.store_tie(prefix_tie_2)
-    assert test_node.find_tie(prefix_tie_1.header.tieid) == prefix_tie_1
-    assert test_node.find_tie(prefix_tie_2.header.tieid) == prefix_tie_2
+    packet_common.add_ipv4_prefix_to_prefix_tie(prefix_tie_packet_2, "0.0.0.0/0", 10)
+    test_node.store_tie_packet(prefix_tie_packet_2)
+    assert test_node.find_tie_meta(prefix_tie_packet_1.header.tieid).tie_packet == prefix_tie_packet_1
+    assert test_node.find_tie_meta(prefix_tie_packet_2.header.tieid).tie_packet == prefix_tie_packet_2
     missing_tie_id = encoding.ttypes.TIEID(
         direction=common.ttypes.TieDirectionType.South,
         originator=321,
         tietype=common.ttypes.TIETypeType.PrefixTIEType,
         tie_nr=654)
-    assert test_node.find_tie(missing_tie_id) is None
+    assert test_node.find_tie_meta(missing_tie_id) is None
     tab = test_node.tie_db_table()
     tab_str = tab.to_string()
     assert (tab_str ==
@@ -169,8 +169,8 @@ def tie_headers_with_disposition(test_node, header_info_list, filter_disposition
         if disposition in filter_dispositions:
             if disposition in [START_EXTRA, START_NEWER]:
                 tie_id = packet_common.make_tie_id(direction, originator, PREFIX, tie_nr)
-                seq_nr = test_node.ties[tie_id].header.seq_nr
-                lifetime = test_node.ties[tie_id].header.remaining_lifetime
+                seq_nr = test_node.tie_metas[tie_id].tie_packet.header.seq_nr
+                lifetime = test_node.tie_metas[tie_id].tie_packet.header.remaining_lifetime
             elif disposition == REQUEST_MISSING:
                 seq_nr = 0
                 lifetime = 0
@@ -254,7 +254,7 @@ def make_test_node(db_tie_info_list=None):
     for db_tie_info in db_tie_info_list:
         (direction, origin, tietype, tie_nr, seq_nr, lifetime) = db_tie_info
         if tietype == NODE:
-            db_tie = packet_common.make_node_tie_packet(
+            db_tie_packet = packet_common.make_node_tie_packet(
                 name=MY_NAME,
                 level=MY_LEVEL,
                 direction=direction,
@@ -263,7 +263,7 @@ def make_test_node(db_tie_info_list=None):
                 seq_nr=seq_nr,
                 lifetime=lifetime)
         elif tietype == PREFIX:
-            db_tie = packet_common.make_prefix_tie_packet(
+            db_tie_packet = packet_common.make_prefix_tie_packet(
                 direction,
                 origin,
                 tie_nr,
@@ -271,13 +271,13 @@ def make_test_node(db_tie_info_list=None):
                 lifetime)
         else:
             assert False
-        test_node.store_tie(db_tie)
+        test_node.store_tie_packet(db_tie_packet)
     return test_node
 
-def make_rx_tie(header_info):
+def make_rx_tie_packet(header_info):
     (direction, origin, prefixtype, tie_nr, seq_nr, lifetime, _disposition) = header_info
     if prefixtype == NODE:
-        rx_tie = packet_common.make_node_tie_packet(
+        rx_tie_packet = packet_common.make_node_tie_packet(
             name=MY_NAME,
             level=MY_LEVEL,
             direction=direction,
@@ -286,7 +286,7 @@ def make_rx_tie(header_info):
             seq_nr=seq_nr,
             lifetime=lifetime)
     elif prefixtype == PREFIX:
-        rx_tie = packet_common.make_prefix_tie_packet(
+        rx_tie_packet = packet_common.make_prefix_tie_packet(
             direction,
             origin,
             tie_nr,
@@ -294,7 +294,7 @@ def make_rx_tie(header_info):
             lifetime)
     else:
         assert False
-    return rx_tie
+    return rx_tie_packet
 
 def test_process_tide():
     # pylint:disable=too-many-locals
@@ -382,59 +382,62 @@ TIE_MISSING_SELF = 6   # DB TIE does not yet contain RX TIE (not self-originated
 def check_process_tie_common(test_node, rx_tie_info_list):
     # pylint:disable=too-many-locals
     for rx_tie_info in rx_tie_info_list:
-        rx_tie = make_rx_tie(rx_tie_info)
-        rx_tie_id = rx_tie.header.tieid
-        old_db_tie = test_node.find_tie(rx_tie_id)
-        result = test_node.process_received_tie_packet(rx_tie)
+        rx_tie_packet = make_rx_tie_packet(rx_tie_info)
+        rx_tie_id = rx_tie_packet.header.tieid
+        old_db_tie_meta = test_node.find_tie_meta(rx_tie_id)
+        # TODO: Setting rx_inf to None makes it self-originated, which means unsolicited flodding
+        # wont' happen.
+        rx_tie_meta = node.TIEMeta(rx_tie_packet, rx_intf=None)
+        result = test_node.process_received_tie_packet(rx_tie_meta)
         (start_sending_tie_header, ack_tie_header) = result
         disposition = rx_tie_info[6]
         if disposition == TIE_SAME:
             # Acknowledge the TX TIE which is the "same" as the DB TIE
             # Note: the age in the DB TIE and the RX TIE could be slightly different; the ACK should
             # contain the DB TIE header.
-            new_db_tie = test_node.find_tie(rx_tie_id)
-            assert new_db_tie is not None
-            assert new_db_tie == old_db_tie
-            assert ack_tie_header == new_db_tie.header
+            new_db_tie_meta = test_node.find_tie_meta(rx_tie_id)
+            assert new_db_tie_meta is not None
+            assert new_db_tie_meta == old_db_tie_meta
+            assert ack_tie_header == new_db_tie_meta.tie_packet.header
             assert start_sending_tie_header is None
         elif disposition == TIE_NEWER:
             # Start sending the DB TIE
-            new_db_tie = test_node.find_tie(rx_tie_id)
-            assert new_db_tie is not None
-            assert new_db_tie == old_db_tie
-            assert start_sending_tie_header == new_db_tie.header
+            new_db_tie_meta = test_node.find_tie_meta(rx_tie_id)
+            assert new_db_tie_meta is not None
+            assert new_db_tie_meta == old_db_tie_meta
+            assert start_sending_tie_header == new_db_tie_meta.tie_packet.header
             assert ack_tie_header is None
         elif disposition == TIE_OLDER:
             # Store the RX TIE in the DB and ACK it
-            new_db_tie = test_node.find_tie(rx_tie_id)
-            assert old_db_tie is not None
-            assert new_db_tie is not None
-            assert new_db_tie != old_db_tie
-            assert new_db_tie.header == rx_tie.header
-            assert ack_tie_header == new_db_tie.header
+            new_db_tie_meta = test_node.find_tie_meta(rx_tie_id)
+            assert old_db_tie_meta is not None
+            assert new_db_tie_meta is not None
+            assert new_db_tie_meta != old_db_tie_meta
+            assert new_db_tie_meta.tie_packet.header == rx_tie_packet.header
+            assert ack_tie_header == new_db_tie_meta.tie_packet.header
             assert start_sending_tie_header is None
         elif disposition == TIE_OLDER_SELF:
             # Re-originate the DB TIE by bumping up the version to RX TIE version plus one
-            new_db_tie = test_node.find_tie(rx_tie_id)
-            assert new_db_tie is not None
-            assert new_db_tie.header.seq_nr == rx_tie.header.seq_nr + 1
-            assert start_sending_tie_header == new_db_tie.header
+            new_db_tie_meta = test_node.find_tie_meta(rx_tie_id)
+            assert new_db_tie_meta is not None
+            assert new_db_tie_meta.tie_packet.header.seq_nr == rx_tie_packet.header.seq_nr + 1
+            assert start_sending_tie_header == new_db_tie_meta.tie_packet.header
             assert ack_tie_header is None
         elif disposition == TIE_MISSING:
             # Store the RX TIE in the DB and ACK it
-            new_db_tie = test_node.find_tie(rx_tie_id)
-            assert old_db_tie is None
-            assert new_db_tie is not None
-            assert new_db_tie.header == rx_tie.header
-            assert ack_tie_header == new_db_tie.header
+            new_db_tie_meta = test_node.find_tie_meta(rx_tie_id)
+            assert old_db_tie_meta is None
+            assert new_db_tie_meta is not None
+            assert new_db_tie_meta.tie_packet.header == rx_tie_packet.header
+            assert ack_tie_header == new_db_tie_meta.tie_packet.header
             assert start_sending_tie_header is None
         elif disposition == TIE_MISSING_SELF:
             # Re-originate an empty version of the RX TIE with a higher version than the RX TIE
-            new_db_tie = test_node.find_tie(rx_tie_id)
-            assert old_db_tie is None
-            assert new_db_tie is not None
-            assert new_db_tie.header.seq_nr == rx_tie.header.seq_nr + 1
-            assert start_sending_tie_header == new_db_tie.header
+            new_db_tie_meta = test_node.find_tie_meta(rx_tie_id)
+            assert old_db_tie_meta is None
+            assert new_db_tie_meta is not None
+            assert new_db_tie_meta.tie_packet.header.seq_nr == rx_tie_packet.header.seq_nr + 1
+            assert start_sending_tie_header == new_db_tie_meta.tie_packet.header
             assert ack_tie_header is None
         else:
             assert False
@@ -475,7 +478,7 @@ def test_is_flood_allowed():
     packet_common.add_missing_methods_to_thrift()
     test_node = make_test_node()
     # Node 66 is same level as me
-    node_66_tie = packet_common.make_node_tie_packet(
+    node_66_tie_packet = packet_common.make_node_tie_packet(
         name="node66",
         level=MY_LEVEL,
         direction=SOUTH,
@@ -483,9 +486,9 @@ def test_is_flood_allowed():
         tie_nr=5,
         seq_nr=7,
         lifetime=300)
-    test_node.store_tie(node_66_tie)
+    test_node.store_tie_packet(node_66_tie_packet)
     # Node 77 has higher level than me
-    node_77_tie = packet_common.make_node_tie_packet(
+    node_77_tie_packet = packet_common.make_node_tie_packet(
         name="node77",
         level=MY_LEVEL + 1,
         direction=SOUTH,
@@ -493,9 +496,9 @@ def test_is_flood_allowed():
         tie_nr=3,
         seq_nr=2,
         lifetime=400)
-    test_node.store_tie(node_77_tie)
+    test_node.store_tie_packet(node_77_tie_packet)
     # Node 88 has lower level than me
-    node_88_tie = packet_common.make_node_tie_packet(
+    node_88_tie_packet = packet_common.make_node_tie_packet(
         name="node88",
         level=MY_LEVEL - 1,
         direction=SOUTH,
@@ -503,7 +506,7 @@ def test_is_flood_allowed():
         tie_nr=7,
         seq_nr=3,
         lifetime=400)
-    test_node.store_tie(node_88_tie)
+    test_node.store_tie_packet(node_88_tie_packet)
     tx_tie_info_list = [
         # pylint:disable=bad-whitespace
         #                                                              Neighbor   Neighbor   I am    Allowed  Reason
@@ -577,14 +580,14 @@ def test_age_ties():
     test_node = make_test_node(db_tie_info_list)
     tie_id_1 = packet_common.make_tie_id(SOUTH, 55, NODE, 2)
     tie_id_2 = packet_common.make_tie_id(SOUTH, MY_SYSTEM_ID, PREFIX, 18)
-    assert test_node.find_tie(tie_id_1) is not None
-    assert test_node.find_tie(tie_id_2) is not None
+    assert test_node.find_tie_meta(tie_id_1) is not None
+    assert test_node.find_tie_meta(tie_id_2) is not None
     test_node.age_ties()
-    tie_1 = test_node.find_tie(tie_id_1)
-    assert tie_1 is not None
-    assert tie_1.header.seq_nr == 4
-    assert tie_1.header.remaining_lifetime == 599
-    assert test_node.find_tie(tie_id_2) is None
+    tie_meta_1 = test_node.find_tie_meta(tie_id_1)
+    assert tie_meta_1 is not None
+    assert tie_meta_1.tie_packet.header.seq_nr == 4
+    assert tie_meta_1.tie_packet.header.remaining_lifetime == 599
+    assert test_node.find_tie_meta(tie_id_2) is None
 
 def test_trigger_spf():
     # Make sure there are no timers running from previous tests

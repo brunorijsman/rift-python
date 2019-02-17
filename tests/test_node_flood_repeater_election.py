@@ -54,14 +54,14 @@ def make_test_node(parents, additional_node_config=None):
 def update_test_node(test_node, parents):
     grandparents = compute_grandparents_connectivity(parents)
     # Empty the TIE-DB (we are going to re-build it from scratch)
-    test_node.ties.clear()
+    test_node.tie_metas.clear()
     # Add self-originated Node-TIE for node to TIE-DB
     neighbors = []
     for parent_sysid, _grandparent_sysids in parents.items():
         neighbor_info = (PARENT_LEVEL, parent_sysid)
         neighbors.append(neighbor_info)
-    node_tie = make_node_tie(NODE_SYSID, NODE_LEVEL, neighbors)
-    test_node.store_tie(node_tie)
+    node_tie_packet = make_node_tie_packet(NODE_SYSID, NODE_LEVEL, neighbors)
+    test_node.store_tie_packet(node_tie_packet)
     # Add Node-TIEs for parents to TIE-DB
     for parent_sysid, grandparent_sysids in parents.items():
         neighbors = []
@@ -70,18 +70,18 @@ def update_test_node(test_node, parents):
         for grandparent_sysid in grandparent_sysids:
             neighbor_info = (GRANDPARENT_LEVEL, grandparent_sysid)
             neighbors.append(neighbor_info)
-        node_tie = make_node_tie(parent_sysid, PARENT_LEVEL, neighbors)
-        test_node.store_tie(node_tie)
+        node_tie_packet = make_node_tie_packet(parent_sysid, PARENT_LEVEL, neighbors)
+        test_node.store_tie_packet(node_tie_packet)
     # Add Node-TIEs for grandparents to TIE-DB
     for grandparent_sysid, parent_sysids in grandparents.items():
         neighbors = []
         for parent_sysid in parent_sysids:
             neighbor_info = (PARENT_LEVEL, parent_sysid)
             neighbors.append(neighbor_info)
-        node_tie = make_node_tie(grandparent_sysid, GRANDPARENT_LEVEL, neighbors)
-        test_node.store_tie(node_tie)
+        node_tie_packet = make_node_tie_packet(grandparent_sysid, GRANDPARENT_LEVEL, neighbors)
+        test_node.store_tie_packet(node_tie_packet)
 
-def make_node_tie(sysid, level, neighbors):
+def make_node_tie_packet(sysid, level, neighbors):
     node_tie = packet_common.make_node_tie_packet(
         name="node" + str(sysid),
         level=level,
