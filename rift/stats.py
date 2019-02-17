@@ -8,11 +8,12 @@ class Group:
     def add_member(self, member):
         self._members.append(member)
 
-    def table(self):
+    def table(self, exclude_zero):
         tab = table.Table()
         tab.add_row(["Description", "Value"])
         for member in self._members:
-            tab.add_row([member.description, member.value_with_units])
+            if not exclude_zero or member.value:
+                tab.add_row([member.description, member.value_with_units])
         return tab
 
 class Counter:

@@ -1456,8 +1456,8 @@ class Interface:
             self.add_socket_to_table(tab, "Flooding", "Send", "IPv6", self._flood_tx_ipv6_socket)
         return tab
 
-    def stats_table(self):
-        return self._stats_group.table()
+    def stats_table(self, exclude_zero):
+        return self._stats_group.table(exclude_zero)
 
     def tie_headers_table_common(self, tie_headers):
         tab = table.Table()

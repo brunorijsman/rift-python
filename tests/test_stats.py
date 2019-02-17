@@ -5,15 +5,26 @@ def test_group():
     _counter_1 = stats.Counter(group, "Sent Packets", "Packet")
     _counter_1.increase()
     _counter_2 = stats.Counter(group, "Received Packets", "Packet")
-    _counter_2.add(5)
-    assert group.table().to_string() == (
+    _counter_3 = stats.Counter(group, "Dropped Packets", "Packet")
+    _counter_3.add(5)
+    assert group.table(exclude_zero=False).to_string() == (
         "+------------------+-----------+\n"
         "| Description      | Value     |\n"
         "+------------------+-----------+\n"
         "| Sent Packets     | 1 Packet  |\n"
         "+------------------+-----------+\n"
-        "| Received Packets | 5 Packets |\n"
+        "| Received Packets | 0 Packets |\n"
+        "+------------------+-----------+\n"
+        "| Dropped Packets  | 5 Packets |\n"
         "+------------------+-----------+\n")
+    assert group.table(exclude_zero=True).to_string() == (
+        "+-----------------+-----------+\n"
+        "| Description     | Value     |\n"
+        "+-----------------+-----------+\n"
+        "| Sent Packets    | 1 Packet  |\n"
+        "+-----------------+-----------+\n"
+        "| Dropped Packets | 5 Packets |\n"
+        "+-----------------+-----------+\n")
 
 def test_counter():
     group = stats.Group()

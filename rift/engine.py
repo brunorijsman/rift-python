@@ -174,7 +174,10 @@ class Engine:
         cli_session.current_node.command_show_intf_sockets(cli_session, parameters)
 
     def command_show_intf_stats(self, cli_session, parameters):
-        cli_session.current_node.command_show_intf_stats(cli_session, parameters)
+        cli_session.current_node.command_show_intf_stats(cli_session, parameters, False)
+
+    def command_show_intf_stats_ex_zero(self, cli_session, parameters):
+        cli_session.current_node.command_show_intf_stats(cli_session, parameters, True)
 
     def command_show_interface(self, cli_session, parameters):
         cli_session.current_node.command_show_interface(cli_session, parameters)
@@ -308,7 +311,10 @@ class Engine:
                 },
                 "queues": command_show_intf_queues,
                 "sockets": command_show_intf_sockets,
-                "statistics": command_show_intf_stats
+                "statistics": {
+                    "": command_show_intf_stats,
+                    "exclude-zero": command_show_intf_stats_ex_zero
+                }
             },
             "interfaces": command_show_interfaces,
             "kernel": {
