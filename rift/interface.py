@@ -12,6 +12,7 @@ import neighbor
 import node       # TODO: Put TIEMeta in separate module to avoid this
 import offer
 import packet_common
+import stats
 import table
 import timer
 import udp_rx_handler
@@ -249,13 +250,61 @@ class Interface:
                 if self._tx_fail:
                     self.log_tx_protocol_packet(logging.DEBUG, sock,
                                                 "Simulated failure sending", protocol_packet)
+                    self.bump_tx_sim_error_counter(sock)
                 else:
                     try:
                         self.log_tx_protocol_packet(logging.DEBUG, sock, "Send", protocol_packet)
                         sock.send(encoded_protocol_packet)
+                        self.bump_tx_counters(protocol_packet, sock)
                     except socket.error as error:
                         prelude = "Error {} sending".format(str(error))
                         self.log_tx_protocol_packet(logging.ERROR, sock, prelude, protocol_packet)
+                        self.bump_tx_real_error_counter(sock)
+
+    @staticmethod
+    def bump_family_counter(sock, ipv4_counter, ipv6_counter):
+        if sock.family == socket.AF_INET:
+            ipv4_counter.increase()
+        else:
+            assert sock.family == socket.AF_INET6
+            ipv6_counter.increase()
+
+    def bump_tx_counters(self, protocol_packet, sock):
+        if protocol_packet.content.lie:
+            self.bump_family_counter(sock, self._tx_ipv4_lie_counter, self._tx_ipv6_lie_counter)
+        if protocol_packet.content.tie:
+            self.bump_family_counter(sock, self._tx_ipv4_tie_counter, self._tx_ipv6_tie_counter)
+        if protocol_packet.content.tide:
+            self.bump_family_counter(sock, self._tx_ipv4_tide_counter, self._tx_ipv6_tide_counter)
+        if protocol_packet.content.tire:
+            self.bump_family_counter(sock, self._tx_ipv4_tire_counter, self._tx_ipv6_tire_counter)
+
+    def bump_rx_counters(self, protocol_packet, sock):
+        if protocol_packet.content.lie:
+            self.bump_family_counter(sock, self._rx_ipv4_lie_counter, self._rx_ipv6_lie_counter)
+        if protocol_packet.content.tie:
+            self.bump_family_counter(sock, self._rx_ipv4_tie_counter, self._rx_ipv6_tie_counter)
+        if protocol_packet.content.tide:
+            self.bump_family_counter(sock, self._rx_ipv4_tide_counter, self._rx_ipv6_tide_counter)
+        if protocol_packet.content.tire:
+            self.bump_family_counter(sock, self._rx_ipv4_tire_counter, self._rx_ipv6_tire_counter)
+
+    def bump_tx_real_error_counter(self, sock):
+        self.bump_family_counter(sock, self._tx_ipv4_real_error_counter,
+                                 self._tx_ipv6_real_error_counter)
+
+    # TODO: This is not called anywhere (need error callback in handler)
+    def bump_rx_real_error_counter(self, sock):
+        self.bump_family_counter(sock, self._rx_ipv4_real_error_counter,
+                                 self._rx_ipv6_real_error_counter)
+
+    def bump_tx_sim_error_counter(self, sock):
+        self.bump_family_counter(sock, self._tx_ipv4_sim_error_counter,
+                                 self._tx_ipv6_sim_error_counter)
+
+    def bump_rx_sim_error_counter(self, sock):
+        self.bump_family_counter(sock, self._rx_ipv4_sim_error_counter,
+                                 self._rx_ipv6_sim_error_counter)
 
     def action_send_lie(self):
         packet_header = encoding.ttypes.PacketHeader(
@@ -755,6 +804,55 @@ class Interface:
         self._ties_req = collections.OrderedDict()
         self._ties_ack = collections.OrderedDict()
         self.floodred_nbr_is_fr = self.NbrIsFRState.NOT_APPLICABLE
+        self._stats_group = stats.Group()
+        self._rx_ipv4_lie_counter = stats.Counter(
+            self._stats_group, "RX IPv4 LIE Packets", "Packet")
+        self._tx_ipv4_lie_counter = stats.Counter(
+            self._stats_group, "TX IPv4 LIE Packets", "Packet")
+        self._rx_ipv4_tie_counter = stats.Counter(
+            self._stats_group, "RX IPv4 TIE Packets", "Packet")
+        self._tx_ipv4_tie_counter = stats.Counter(
+            self._stats_group, "TX IPv4 TIE Packets", "Packet")
+        self._rx_ipv4_tide_counter = stats.Counter(
+            self._stats_group, "RX IPv4 TIDE Packets", "Packet")
+        self._tx_ipv4_tide_counter = stats.Counter(
+            self._stats_group, "TX IPv4 TIDE Packets", "Packet")
+        self._rx_ipv4_tire_counter = stats.Counter(
+            self._stats_group, "RX IPv4 TIRE Packets", "Packet")
+        self._tx_ipv4_tire_counter = stats.Counter(
+            self._stats_group, "TX IPv4 TIRE Packets", "Packet")
+        self._rx_ipv4_real_error_counter = stats.Counter(
+            self._stats_group, "RX IPv4 Real Errors", "Packet")
+        self._tx_ipv4_real_error_counter = stats.Counter(
+            self._stats_group, "TX IPv4 Real Errors", "Packet")
+        self._rx_ipv4_sim_error_counter = stats.Counter(
+            self._stats_group, "RX IPv4 Simulated Errors", "Packet")
+        self._tx_ipv4_sim_error_counter = stats.Counter(
+            self._stats_group, "TX IPv4 Simulated Errors", "Packet")
+        self._rx_ipv6_lie_counter = stats.Counter(
+            self._stats_group, "RX IPv6 LIE Packets", "Packet")
+        self._tx_ipv6_lie_counter = stats.Counter(
+            self._stats_group, "TX IPv6 LIE Packets", "Packet")
+        self._rx_ipv6_tie_counter = stats.Counter(
+            self._stats_group, "RX IPv6 TIE Packets", "Packet")
+        self._tx_ipv6_tie_counter = stats.Counter(
+            self._stats_group, "TX IPv6 TIE Packets", "Packet")
+        self._rx_ipv6_tide_counter = stats.Counter(
+            self._stats_group, "RX IPv6 TIDE Packets", "Packet")
+        self._tx_ipv6_tide_counter = stats.Counter(
+            self._stats_group, "TX IPv6 TIDE Packets", "Packet")
+        self._rx_ipv6_tire_counter = stats.Counter(
+            self._stats_group, "RX IPv6 TIRE Packets", "Packet")
+        self._tx_ipv6_tire_counter = stats.Counter(
+            self._stats_group, "TX IPv6 TIRE Packets", "Packet")
+        self._rx_ipv6_real_error_counter = stats.Counter(
+            self._stats_group, "RX IPv6 Real Errors", "Packet")
+        self._tx_ipv6_real_error_counter = stats.Counter(
+            self._stats_group, "TX IPv6 Real Errors", "Packet")
+        self._rx_ipv6_sim_error_counter = stats.Counter(
+            self._stats_group, "RX IPv6 Simulated Errors", "Packet")
+        self._tx_ipv6_sim_error_counter = stats.Counter(
+            self._stats_group, "TX IPv6 Simulated Errors", "Packet")
         self.fsm = fsm.Fsm(
             definition=self.fsm_definition,
             action_handler=self,
@@ -809,15 +907,17 @@ class Interface:
             return False
         return True
 
-    def receive_message_common(self, message, from_info):
+    def receive_message_common(self, message, from_info, sock):
         protocol_packet = packet_common.decode_protocol_packet(message)
         if protocol_packet is None:
+            ###!!! Decode error counter
             self.log_rx_protocol_packet(logging.ERROR, from_info,
                                         "Could not decode", protocol_packet)
             return None
         if self._rx_fail:
             self.log_rx_protocol_packet(logging.DEBUG, from_info,
                                         "Simulated failure receiving", protocol_packet)
+            self.bump_rx_sim_error_counter(sock)
             return None
         if protocol_packet.header.sender == self.node.system_id:
             self.log_rx_protocol_packet(logging.DEBUG, from_info,
@@ -835,25 +935,30 @@ class Interface:
             return None
         return protocol_packet
 
-    def receive_lie_message(self, message, from_info):
-        protocol_packet = self.receive_message_common(message, from_info)
+    def receive_lie_message(self, message, from_info, sock):
+        protocol_packet = self.receive_message_common(message, from_info, sock)
         if protocol_packet is None:
+            ###!!! Bump decode errors counter
             return
         if protocol_packet.content.lie:
             event_data = (protocol_packet, from_info)
             self.fsm.push_event(self.Event.LIE_RECEIVED, event_data)
         else:
+            ###!!! Missing contents for port counter
             self.rx_warning("Received packet without LIE content on LIE port (ignored)")
         if protocol_packet.content.tie:
+            ###!!! Wrong contents for port counter
             self.rx_warning("Received TIE packet on LIE port (ignored)")
         if protocol_packet.content.tide:
             self.rx_warning("Received TIDE packet on LIE port (ignored)")
         if protocol_packet.content.tire:
             self.rx_warning("Received TIRE packet on LIE port (ignored)")
+        self.bump_rx_counters(protocol_packet, sock)
 
-    def receive_flood_message(self, message, from_info):
-        protocol_packet = self.receive_message_common(message, from_info)
+    def receive_flood_message(self, message, from_info, sock):
+        protocol_packet = self.receive_message_common(message, from_info, sock)
         if protocol_packet is None:
+            ###!!! Bump decode errors counter
             return
         flood_content = False
         if protocol_packet.content.tie is not None:
@@ -866,11 +971,14 @@ class Interface:
             self.process_received_tire_packet(protocol_packet.content.tire)
             flood_content = True
         if protocol_packet.content.lie:
+            ###!!! Wrong contents for port counter
             self.rx_warning("Received LIE packet on flood port (ignored)")
         else:
             if not flood_content:
+                ###!!! Missing contents for port counter
                 self.rx_warning("Received packet without TIE/TIDE/TIRE content on flood port "
                                 "(ignored)")
+        self.bump_rx_counters(protocol_packet, sock)
 
     def set_failure(self, tx_fail, rx_fail):
         self._tx_fail = tx_fail
@@ -1347,6 +1455,9 @@ class Interface:
         if self._flood_tx_ipv6_socket:
             self.add_socket_to_table(tab, "Flooding", "Send", "IPv6", self._flood_tx_ipv6_socket)
         return tab
+
+    def stats_table(self):
+        return self._stats_group.table()
 
     def tie_headers_table_common(self, tie_headers):
         tab = table.Table()

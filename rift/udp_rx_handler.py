@@ -144,7 +144,7 @@ class UdpRxHandler:
                 if rx_interface_index and (rx_interface_index != self._interface_index):
                     # Message received on "wrong" interface; ignore
                     return
-            self._receive_function(message, from_info)
+            self._receive_function(message, from_info, self.sock)
 
     @staticmethod
     def enable_addr_and_port_reuse(sock):
