@@ -1811,8 +1811,9 @@ class Node:
             flood_count += 1
             tx_intf.add_tie_meta_to_ties_tx(tie_meta)
         # Log to how many interfaces the TIE was flooded
-        self.db_debug("TIE %s received on %s flooded to %d interfaces", tie_packet.header,
-                      tie_meta.rx_intf.name, flood_count)
+        if flood_count > 0:
+            self.db_debug("TIE %s received on %s flooded to %d interfaces", tie_packet.header,
+                          tie_meta.rx_intf.name, flood_count)
 
     def generate_tide_packet(self,
                              neighbor_direction,
