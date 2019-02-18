@@ -1,39 +1,61 @@
 import stats
 
+def counter_add_wrapper(counter, simulated_time, add_value):
+    stats.TIME_FUNCTION = lambda: simulated_time
+    counter.add(add_value)
+
 def test_group():
     group = stats.Group()
     _counter_1 = stats.Counter(group, "Sent Packets", "Packet")
     _counter_1.increase()
     _counter_2 = stats.Counter(group, "Received Packets", "Packet")
     _counter_3 = stats.Counter(group, "Dropped Packets", "Packet")
-    _counter_3.add(5)
+    counter_add_wrapper(_counter_3, 1.00, 5)
+    counter_add_wrapper(_counter_3, 3.00, 6)
+    counter_add_wrapper(_counter_3, 4.00, 3)
     _counter_4 = stats.MultiCounter(group, "Sent Hellos", ["Packet", "Byte"])
     _counter_5 = stats.MultiCounter(group, "Received Hellos", ["Packet", "Byte"])
-    _counter_5.add([2, 33])
+    counter_add_wrapper(_counter_5, 12.00, [2, 33])
+    counter_add_wrapper(_counter_5, 13.00, [1, 12])
+    _counter_6 = stats.MultiCounter(group, "Sent Byes", ["Packet", "Byte"])
+    counter_add_wrapper(_counter_6, 13.00, [9, 1023])
+    _counter_7 = stats.MultiCounter(group, "Received Byes", ["Packet", "Byte"])
+    counter_add_wrapper(_counter_7, 14.00, [1, 10])
+    counter_add_wrapper(_counter_7, 14.00, [1, 10])
     assert group.table(exclude_zero=False).to_string() == (
-        "+------------------+---------------------+\n"
-        "| Description      | Value               |\n"
-        "+------------------+---------------------+\n"
-        "| Sent Packets     | 1 Packet            |\n"
-        "+------------------+---------------------+\n"
-        "| Received Packets | 0 Packets           |\n"
-        "+------------------+---------------------+\n"
-        "| Dropped Packets  | 5 Packets           |\n"
-        "+------------------+---------------------+\n"
-        "| Sent Hellos      | 0 Packets, 0 Bytes  |\n"
-        "+------------------+---------------------+\n"
-        "| Received Hellos  | 2 Packets, 33 Bytes |\n"
-        "+------------------+---------------------+\n")
+        "+------------------+-----------------------+------------------------------------------+\n"
+        "| Description      | Value                 | Recent Rate                              |\n"
+        "|                  |                       | Over Last 5 Changes                      |\n"
+        "+------------------+-----------------------+------------------------------------------+\n"
+        "| Sent Packets     | 1 Packet              |                                          |\n"
+        "+------------------+-----------------------+------------------------------------------+\n"
+        "| Received Packets | 0 Packets             |                                          |\n"
+        "+------------------+-----------------------+------------------------------------------+\n"
+        "| Dropped Packets  | 14 Packets            | 3.00 Packets/Sec                         |\n"
+        "+------------------+-----------------------+------------------------------------------+\n"
+        "| Sent Hellos      | 0 Packets, 0 Bytes    |                                          |\n"
+        "+------------------+-----------------------+------------------------------------------+\n"
+        "| Received Hellos  | 3 Packets, 45 Bytes   | 1.00 Packets/Sec, 12.00 Bytes/Sec        |\n"
+        "+------------------+-----------------------+------------------------------------------+\n"
+        "| Sent Byes        | 9 Packets, 1023 Bytes |                                          |\n"
+        "+------------------+-----------------------+------------------------------------------+\n"
+        "| Received Byes    | 2 Packets, 20 Bytes   | Infinite Packets/Sec, Infinite Bytes/Sec |\n"
+        "+------------------+-----------------------+------------------------------------------+\n")
     assert group.table(exclude_zero=True).to_string() == (
-        "+-----------------+---------------------+\n"
-        "| Description     | Value               |\n"
-        "+-----------------+---------------------+\n"
-        "| Sent Packets    | 1 Packet            |\n"
-        "+-----------------+---------------------+\n"
-        "| Dropped Packets | 5 Packets           |\n"
-        "+-----------------+---------------------+\n"
-        "| Received Hellos | 2 Packets, 33 Bytes |\n"
-        "+-----------------+---------------------+\n")
+        "+-----------------+-----------------------+------------------------------------------+\n"
+        "| Description     | Value                 | Recent Rate                              |\n"
+        "|                 |                       | Over Last 5 Changes                      |\n"
+        "+-----------------+-----------------------+------------------------------------------+\n"
+        "| Sent Packets    | 1 Packet              |                                          |\n"
+        "+-----------------+-----------------------+------------------------------------------+\n"
+        "| Dropped Packets | 14 Packets            | 3.00 Packets/Sec                         |\n"
+        "+-----------------+-----------------------+------------------------------------------+\n"
+        "| Received Hellos | 3 Packets, 45 Bytes   | 1.00 Packets/Sec, 12.00 Bytes/Sec        |\n"
+        "+-----------------+-----------------------+------------------------------------------+\n"
+        "| Sent Byes       | 9 Packets, 1023 Bytes |                                          |\n"
+        "+-----------------+-----------------------+------------------------------------------+\n"
+        "| Received Byes   | 2 Packets, 20 Bytes   | Infinite Packets/Sec, Infinite Bytes/Sec |\n"
+        "+-----------------+-----------------------+------------------------------------------+\n")
 
 def test_counter():
     group = stats.Group()

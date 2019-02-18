@@ -1,6 +1,12 @@
 import operator
+import time
 
+import collections
 import table
+
+RATE_HISTORY = 5             # Look at up to last 5 samples to calculate "recent rate"
+
+TIME_FUNCTION = time.time    # So that we can stub it for unit testing
 
 class Group:
 
@@ -12,11 +18,43 @@ class Group:
 
     def table(self, exclude_zero):
         tab = table.Table()
-        tab.add_row(["Description", "Value"])
+        tab.add_row([
+            "Description",
+            "Value",
+            ["Recent Rate", "Over Last {} Changes".format(RATE_HISTORY)]
+        ])
         for member in self._members:
             if not exclude_zero or not member.is_zero():
-                tab.add_row([member.description(), member.value_display_str()])
+                tab.add_row([
+                    member.description(),
+                    member.value_display_str(),
+                    member.rate_display_str()
+                ])
         return tab
+
+
+def sample_rate_display_str(samples, units):
+    # pylint:disable=too-many-locals
+    nr_samples = len(samples)
+    if nr_samples < 2:
+        return ''
+    (oldest_sample_time, oldest_sample_values) = samples[0]
+    (newest_sample_time, newest_sample_values) = samples[-1]
+    assert len(oldest_sample_values) == len(newest_sample_values)
+    assert len(oldest_sample_values) >= 1
+    time_diff = newest_sample_time - oldest_sample_time
+    assert time_diff >= 0.0
+    rate_strs = []
+    zipped_list = zip(oldest_sample_values, newest_sample_values, units)
+    for oldest_sample_value, newest_sample_value, unit in zipped_list:
+        value_diff = newest_sample_value - oldest_sample_value
+        if time_diff == 0.0:
+            rate_str = "Infinite {}/Sec".format(unit)
+        else:
+            rate = value_diff / time_diff
+            rate_str = "{:.2f} {}/Sec".format(rate, unit)
+        rate_strs.append(rate_str)
+    return ", ".join(rate_strs)
 
 class Counter:
 
@@ -29,13 +67,16 @@ class Counter:
         else:
             self._unit_plural = unit_plural
         self._value = 0
+        self._samples = collections.deque([], RATE_HISTORY)
         group.add_member(self)
 
     def add(self, add_value):
         self._value += add_value
+        sample = (TIME_FUNCTION(), [self._value])
+        self._samples.append(sample)
 
     def increase(self):
-        self._value += 1
+        self.add(1)
 
     def description(self):
         return self._description
@@ -48,6 +89,9 @@ class Counter:
             return str(self._value) + ' ' + self._unit_singular
         else:
             return str(self._value) + ' ' + self._unit_plural
+
+    def rate_display_str(self):
+        return sample_rate_display_str(self._samples, [self._unit_plural])
 
 class MultiCounter:
 
@@ -65,12 +109,15 @@ class MultiCounter:
         self._values = []
         for _index in range(0, self._nr_values):
             self._values.append(0)
+        self._samples = collections.deque([], RATE_HISTORY)
         group.add_member(self)
 
     def add(self, add_values):
         assert isinstance(add_values, list)
         assert len(add_values) == len(self._values)
         self._values = list(map(operator.add, self._values, add_values))
+        sample = (TIME_FUNCTION(), self._values)
+        self._samples.append(sample)
 
     def description(self):
         return self._description
@@ -90,3 +137,6 @@ class MultiCounter:
                 value_str = str(value) + ' ' + self._units_plural[index]
             value_strs.append(value_str)
         return ", ".join(value_strs)
+
+    def rate_display_str(self):
+        return sample_rate_display_str(self._samples, self._units_plural)
