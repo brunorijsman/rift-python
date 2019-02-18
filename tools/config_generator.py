@@ -771,7 +771,7 @@ def parse_meta_configuration(file_name):
     try:
         with open(file_name, 'r') as stream:
             try:
-                config = yaml.load(stream)
+                config = yaml.safe_load(stream)
             except yaml.YAMLError as exception:
                 raise exception
     except IOError:

@@ -326,7 +326,7 @@ def parse_configuration(filename):
     if filename:
         with open(filename, 'r') as stream:
             try:
-                config = yaml.load(stream)
+                config = yaml.safe_load(stream)
             except yaml.YAMLError as exception:
                 raise exception
     else:
