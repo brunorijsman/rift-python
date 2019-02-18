@@ -21,14 +21,16 @@ class Group:
         tab.add_row([
             "Description",
             "Value",
-            ["Recent Rate", "Over Last {} Changes".format(RATE_HISTORY)]
+            ["Last Rate", "Over Last {} Changes".format(RATE_HISTORY)],
+            ["Last Change"]
         ])
         for member in self._members:
             if not exclude_zero or not member.is_zero():
                 tab.add_row([
                     member.description(),
                     member.value_display_str(),
-                    member.rate_display_str()
+                    member.rate_display_str(),
+                    member.last_change_display_str()
                 ])
         return tab
 
@@ -55,6 +57,29 @@ def sample_rate_display_str(samples, units):
             rate_str = "{:.2f} {}/Sec".format(rate, unit)
         rate_strs.append(rate_str)
     return ", ".join(rate_strs)
+
+def last_change_display_str(samples):
+    if not samples:
+        return ''
+    (newest_sample_time, _) = samples[-1]
+    secs = TIME_FUNCTION() - newest_sample_time
+    return secs_to_dmhs_str(secs)
+
+def secs_to_dmhs_str(secs):
+    mins = 0
+    hours = 0
+    days = 0
+    if secs >= 60.0:
+        mins = int(secs / 60.0)
+        print("mins =", mins)
+        secs -= mins * 60.0
+    if mins >= 60:
+        hours = mins // 60
+        mins %= 60
+    if hours >= 24:
+        days = hours // 24
+        hours %= 24
+    return "{:d}d {:02d}h:{:02d}m:{:05.2f}s".format(days, hours, mins, secs)
 
 class Counter:
 
@@ -92,6 +117,9 @@ class Counter:
 
     def rate_display_str(self):
         return sample_rate_display_str(self._samples, [self._unit_plural])
+
+    def last_change_display_str(self):
+        return last_change_display_str(self._samples)
 
 class MultiCounter:
 
@@ -140,3 +168,6 @@ class MultiCounter:
 
     def rate_display_str(self):
         return sample_rate_display_str(self._samples, self._units_plural)
+
+    def last_change_display_str(self):
+        return last_change_display_str(self._samples)
