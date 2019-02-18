@@ -24,7 +24,7 @@ pytest==3.6.4
 pytest-cov==2.5.1
 PyYAML==4.2b1
 requests==2.20.0
-rope==0.10.7
+rope==0.11.0
 six==1.11.0
 sortedcontainers==2.0.4
 thrift==0.11.0
