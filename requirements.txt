@@ -22,7 +22,7 @@ pylint==2.0.0
 pyroute2==0.5.3
 pytest==3.6.4
 pytest-cov==2.5.1
-PyYAML==3.13
+PyYAML==4.2b1
 requests==2.19.1
 rope==0.10.7
 six==1.11.0
