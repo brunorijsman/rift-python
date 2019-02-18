@@ -38,7 +38,6 @@ class Group:
                 ])
         return tab
 
-
 def sample_rate_display_str(samples, units):
     # pylint:disable=too-many-locals
     nr_samples = len(samples)
@@ -84,21 +83,11 @@ def secs_to_dmhs_str(secs):
         hours %= 24
     return "{:d}d {:02d}h:{:02d}m:{:05.2f}s".format(days, hours, mins, secs)
 
-class Counter:
+class StatBase:
 
-    def __init__(self, group, description, unit_singular, unit_plural=None, sum_counters=None):
+    def __init__(self, group, description):
         self._group = group
         self._description = description
-        self._unit_singular = unit_singular
-        if unit_plural is None:
-            self._unit_plural = unit_singular + 's'
-        else:
-            self._unit_plural = unit_plural
-        if sum_counters is None:
-            self._sum_counters = []
-        else:
-            self._sum_counters = sum_counters
-        self.clear()
         if group is not None:
             group.add_member(self)
 
@@ -109,6 +98,24 @@ class Counter:
         assert self._group is None
         self._group = group
         group.add_member(self)
+
+    def description(self):
+        return self._description
+
+class Counter(StatBase):
+
+    def __init__(self, group, description, unit_singular, unit_plural=None, sum_counters=None):
+        StatBase.__init__(self, group, description)
+        self._unit_singular = unit_singular
+        if unit_plural is None:
+            self._unit_plural = unit_singular + 's'
+        else:
+            self._unit_plural = unit_plural
+        if sum_counters is None:
+            self._sum_counters = []
+        else:
+            self._sum_counters = sum_counters
+        self.clear()
 
     def clear(self):
         self._value = 0
@@ -123,9 +130,6 @@ class Counter:
 
     def increase(self):
         self.add(1)
-
-    def description(self):
-        return self._description
 
     def is_zero(self):
         return self._value == 0
@@ -142,16 +146,15 @@ class Counter:
     def last_change_display_str(self):
         return last_change_display_str(self._samples)
 
-class MultiCounter:
+class MultiCounter(StatBase):
 
     def __init__(self, group, description, units_singular, units_plural=None, sum_counters=None):
+        StatBase.__init__(self, group, description)
         assert isinstance(units_singular, list)
         if units_plural is None:
             units_plural = list(map(lambda word: word + 's', units_singular))
         assert isinstance(units_plural, list)
         assert len(units_singular) == len(units_plural)
-        self._group = group
-        self._description = description
         self._units_singular = units_singular
         self._units_plural = units_plural
         self._nr_values = len(self._units_singular)
@@ -160,16 +163,6 @@ class MultiCounter:
         else:
             self._sum_counters = sum_counters
         self.clear()
-        if group is not None:
-            group.add_member(self)
-
-    def add_to_group(self, group):
-        # This is to allow sum counters to be created first, and added to a group later so that
-        # they appear at the desired row in the group table.
-        assert group is not None
-        assert self._group is None
-        self._group = group
-        group.add_member(self)
 
     def clear(self):
         self._values = []
@@ -186,9 +179,6 @@ class MultiCounter:
         self._samples.append(sample)
         for sum_counter in self._sum_counters:
             sum_counter.add(add_values)
-
-    def description(self):
-        return self._description
 
     def is_zero(self):
         for count in self._values:
