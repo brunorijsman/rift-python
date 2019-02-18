@@ -251,7 +251,7 @@ class Interface:
                 if self._tx_fail:
                     self.log_tx_protocol_packet(logging.DEBUG, sock,
                                                 "Simulated failure sending", protocol_packet)
-                    self.bump_tx_sim_error_counter(sock, nr_bytes)
+                    self.bump_tx_sim_errors_counter(sock, nr_bytes)
                 else:
                     try:
                         self.log_tx_protocol_packet(logging.DEBUG, sock, "Send", protocol_packet)
@@ -260,7 +260,7 @@ class Interface:
                     except socket.error as error:
                         prelude = "Error {} sending".format(str(error))
                         self.log_tx_protocol_packet(logging.ERROR, sock, prelude, protocol_packet)
-                        self.bump_tx_real_error_counter(sock, nr_bytes)
+                        self.bump_tx_real_errors_counter(sock, nr_bytes)
 
     @staticmethod
     def bump_family_counter(sock, ipv4_counter, ipv6_counter, nr_bytes):
@@ -298,22 +298,22 @@ class Interface:
             self.bump_family_counter(sock, self._rx_ipv4_tire_counter, self._rx_ipv6_tire_counter,
                                      nr_bytes)
 
-    def bump_tx_real_error_counter(self, sock, nr_bytes):
-        self.bump_family_counter(sock, self._tx_ipv4_real_error_counter,
-                                 self._tx_ipv6_real_error_counter, nr_bytes)
+    def bump_tx_real_errors_counter(self, sock, nr_bytes):
+        self.bump_family_counter(sock, self._tx_ipv4_real_errors_counter,
+                                 self._tx_ipv6_real_errors_counter, nr_bytes)
 
     # TODO: This is not called anywhere (need error callback in handler)
-    def bump_rx_real_error_counter(self, sock, nr_bytes):
-        self.bump_family_counter(sock, self._rx_ipv4_real_error_counter,
-                                 self._rx_ipv6_real_error_counter, nr_bytes)
+    def bump_rx_real_errors_counter(self, sock, nr_bytes):
+        self.bump_family_counter(sock, self._rx_ipv4_real_errors_counter,
+                                 self._rx_ipv6_real_errors_counter, nr_bytes)
 
-    def bump_tx_sim_error_counter(self, sock, nr_bytes):
-        self.bump_family_counter(sock, self._tx_ipv4_sim_error_counter,
-                                 self._tx_ipv6_sim_error_counter, nr_bytes)
+    def bump_tx_sim_errors_counter(self, sock, nr_bytes):
+        self.bump_family_counter(sock, self._tx_ipv4_sim_errors_counter,
+                                 self._tx_ipv6_sim_errors_counter, nr_bytes)
 
-    def bump_rx_sim_error_counter(self, sock, nr_bytes):
-        self.bump_family_counter(sock, self._rx_ipv4_sim_error_counter,
-                                 self._rx_ipv6_sim_error_counter, nr_bytes)
+    def bump_rx_sim_errors_counter(self, sock, nr_bytes):
+        self.bump_family_counter(sock, self._rx_ipv4_sim_errors_counter,
+                                 self._rx_ipv6_sim_errors_counter, nr_bytes)
 
     def action_send_lie(self):
         packet_header = encoding.ttypes.PacketHeader(
@@ -814,54 +814,137 @@ class Interface:
         self._ties_ack = collections.OrderedDict()
         self.floodred_nbr_is_fr = self.NbrIsFRState.NOT_APPLICABLE
         self._stats_group = stats.Group()
+        pab = ["Packet", "Byte"]
+        stg = self._stats_group
+        self._tx_errors_counter = stats.MultiCounter(None, "Total TX Errors", pab)
+        self._rx_errors_counter = stats.MultiCounter(None, "Total RX Errors", pab)
+        self._tx_packets_counter = stats.MultiCounter(None, "Total TX Packets", pab)
+        self._rx_packets_counter = stats.MultiCounter(None, "Total RX Packets", pab)
+        self._tx_ipv6_counter = stats.MultiCounter(None, "Total TX IPv6 Packets", pab)
+        self._rx_ipv6_counter = stats.MultiCounter(None, "Total RX IPv6 Packets", pab)
+        self._tx_ipv4_counter = stats.MultiCounter(None, "Total TX IPv4 Packets", pab)
+        self._rx_ipv4_counter = stats.MultiCounter(None, "Total RX IPv4 Packets", pab)
+        self._tx_flooding_counter = stats.MultiCounter(
+            None, "Total TX Flooding Packets", pab,
+            sum_counters=[self._tx_packets_counter])
+        self._rx_flooding_counter = stats.MultiCounter(
+            None, "Total RX Flooding Packets", pab,
+            sum_counters=[self._rx_packets_counter])
+        self._tx_tire_counter = stats.MultiCounter(
+            None, "Total TX TIRE Packets", pab,
+            sum_counters=[self._tx_flooding_counter])
+        self._rx_tire_counter = stats.MultiCounter(
+            None, "Total RX TIRE Packets", pab,
+            sum_counters=[self._rx_flooding_counter])
+        self._tx_tide_counter = stats.MultiCounter(
+            None, "Total TX TIDE Packets", pab,
+            sum_counters=[self._tx_flooding_counter])
+        self._rx_tide_counter = stats.MultiCounter(
+            None, "Total RX TIDE Packets", pab,
+            sum_counters=[self._rx_flooding_counter])
+        self._tx_tie_counter = stats.MultiCounter(
+            None, "Total TX TIE Packets", pab,
+            sum_counters=[self._tx_flooding_counter])
+        self._rx_tie_counter = stats.MultiCounter(
+            None, "Total RX TIE Packets", pab,
+            sum_counters=[self._rx_flooding_counter])
+        self._tx_lie_counter = stats.MultiCounter(
+            None, "Total TX LIE Packets", pab,
+            sum_counters=[self._tx_packets_counter])
+        self._rx_lie_counter = stats.MultiCounter(
+            None, "Total RX LIE Packets", pab,
+            sum_counters=[self._rx_packets_counter])
         self._rx_ipv4_lie_counter = stats.MultiCounter(
-            self._stats_group, "RX IPv4 LIE Packets", ["Packet", "Byte"])
+            stg, "RX IPv4 LIE Packets", pab,
+            sum_counters=[self._rx_lie_counter, self._rx_ipv4_counter])
         self._tx_ipv4_lie_counter = stats.MultiCounter(
-            self._stats_group, "TX IPv4 LIE Packets", ["Packet", "Byte"])
+            stg, "TX IPv4 LIE Packets", pab,
+            sum_counters=[self._tx_lie_counter, self._tx_ipv4_counter])
         self._rx_ipv4_tie_counter = stats.MultiCounter(
-            self._stats_group, "RX IPv4 TIE Packets", ["Packet", "Byte"])
+            stg, "RX IPv4 TIE Packets", pab,
+            sum_counters=[self._rx_tie_counter, self._rx_ipv4_counter])
         self._tx_ipv4_tie_counter = stats.MultiCounter(
-            self._stats_group, "TX IPv4 TIE Packets", ["Packet", "Byte"])
+            stg, "TX IPv4 TIE Packets", pab,
+            sum_counters=[self._tx_tie_counter, self._tx_ipv4_counter])
         self._rx_ipv4_tide_counter = stats.MultiCounter(
-            self._stats_group, "RX IPv4 TIDE Packets", ["Packet", "Byte"])
+            stg, "RX IPv4 TIDE Packets", pab,
+            sum_counters=[self._rx_tide_counter, self._rx_ipv4_counter])
         self._tx_ipv4_tide_counter = stats.MultiCounter(
-            self._stats_group, "TX IPv4 TIDE Packets", ["Packet", "Byte"])
+            stg, "TX IPv4 TIDE Packets", pab,
+            sum_counters=[self._tx_tide_counter, self._tx_ipv4_counter])
         self._rx_ipv4_tire_counter = stats.MultiCounter(
-            self._stats_group, "RX IPv4 TIRE Packets", ["Packet", "Byte"])
+            stg, "RX IPv4 TIRE Packets", pab,
+            sum_counters=[self._rx_tire_counter, self._rx_ipv4_counter])
         self._tx_ipv4_tire_counter = stats.MultiCounter(
-            self._stats_group, "TX IPv4 TIRE Packets", ["Packet", "Byte"])
-        self._rx_ipv4_real_error_counter = stats.MultiCounter(
-            self._stats_group, "RX IPv4 Real Errors", ["Packet", "Byte"])
-        self._tx_ipv4_real_error_counter = stats.MultiCounter(
-            self._stats_group, "TX IPv4 Real Errors", ["Packet", "Byte"])
-        self._rx_ipv4_sim_error_counter = stats.MultiCounter(
-            self._stats_group, "RX IPv4 Simulated Errors", ["Packet", "Byte"])
-        self._tx_ipv4_sim_error_counter = stats.MultiCounter(
-            self._stats_group, "TX IPv4 Simulated Errors", ["Packet", "Byte"])
+            stg, "TX IPv4 TIRE Packets", pab,
+            sum_counters=[self._tx_tire_counter, self._tx_ipv4_counter])
+        self._rx_ipv4_real_errors_counter = stats.MultiCounter(
+            stg, "RX IPv4 Real Errors", pab,
+            sum_counters=[self._rx_errors_counter])
+        self._tx_ipv4_real_errors_counter = stats.MultiCounter(
+            stg, "TX IPv4 Real Errors", pab,
+            sum_counters=[self._tx_errors_counter])
+        self._rx_ipv4_sim_errors_counter = stats.MultiCounter(
+            stg, "RX IPv4 Simulated Errors", pab,
+            sum_counters=[self._rx_errors_counter])
+        self._tx_ipv4_sim_errors_counter = stats.MultiCounter(
+            stg, "TX IPv4 Simulated Errors", pab,
+            sum_counters=[self._tx_errors_counter])
         self._rx_ipv6_lie_counter = stats.MultiCounter(
-            self._stats_group, "RX IPv6 LIE Packets", ["Packet", "Byte"])
+            stg, "RX IPv6 LIE Packets", pab,
+            sum_counters=[self._rx_lie_counter, self._rx_ipv6_counter])
         self._tx_ipv6_lie_counter = stats.MultiCounter(
-            self._stats_group, "TX IPv6 LIE Packets", ["Packet", "Byte"])
+            stg, "TX IPv6 LIE Packets", pab,
+            sum_counters=[self._rx_lie_counter, self._tx_ipv6_counter])
         self._rx_ipv6_tie_counter = stats.MultiCounter(
-            self._stats_group, "RX IPv6 TIE Packets", ["Packet", "Byte"])
+            stg, "RX IPv6 TIE Packets", pab,
+            sum_counters=[self._rx_tie_counter, self._rx_ipv6_counter])
         self._tx_ipv6_tie_counter = stats.MultiCounter(
-            self._stats_group, "TX IPv6 TIE Packets", ["Packet", "Byte"])
+            stg, "TX IPv6 TIE Packets", pab,
+            sum_counters=[self._tx_tie_counter, self._tx_ipv6_counter])
         self._rx_ipv6_tide_counter = stats.MultiCounter(
-            self._stats_group, "RX IPv6 TIDE Packets", ["Packet", "Byte"])
+            stg, "RX IPv6 TIDE Packets", pab,
+            sum_counters=[self._rx_tide_counter, self._rx_ipv6_counter])
         self._tx_ipv6_tide_counter = stats.MultiCounter(
-            self._stats_group, "TX IPv6 TIDE Packets", ["Packet", "Byte"])
+            stg, "TX IPv6 TIDE Packets", pab,
+            sum_counters=[self._tx_tide_counter, self._tx_ipv6_counter])
         self._rx_ipv6_tire_counter = stats.MultiCounter(
-            self._stats_group, "RX IPv6 TIRE Packets", ["Packet", "Byte"])
+            stg, "RX IPv6 TIRE Packets", pab,
+            sum_counters=[self._rx_tire_counter, self._rx_ipv6_counter])
         self._tx_ipv6_tire_counter = stats.MultiCounter(
-            self._stats_group, "TX IPv6 TIRE Packets", ["Packet", "Byte"])
-        self._rx_ipv6_real_error_counter = stats.MultiCounter(
-            self._stats_group, "RX IPv6 Real Errors", ["Packet", "Byte"])
-        self._tx_ipv6_real_error_counter = stats.MultiCounter(
-            self._stats_group, "TX IPv6 Real Errors", ["Packet", "Byte"])
-        self._rx_ipv6_sim_error_counter = stats.MultiCounter(
-            self._stats_group, "RX IPv6 Simulated Errors", ["Packet", "Byte"])
-        self._tx_ipv6_sim_error_counter = stats.MultiCounter(
-            self._stats_group, "TX IPv6 Simulated Errors", ["Packet", "Byte"])
+            stg, "TX IPv6 TIRE Packets", pab,
+            sum_counters=[self._tx_tire_counter, self._tx_ipv6_counter])
+        self._rx_ipv6_real_errors_counter = stats.MultiCounter(
+            stg, "RX IPv6 Real Errors", pab,
+            sum_counters=[self._rx_errors_counter])
+        self._tx_ipv6_real_errors_counter = stats.MultiCounter(
+            stg, "TX IPv6 Real Errors", pab,
+            sum_counters=[self._tx_errors_counter])
+        self._rx_ipv6_sim_errors_counter = stats.MultiCounter(
+            stg, "RX IPv6 Simulated Errors", pab,
+            sum_counters=[self._rx_errors_counter])
+        self._tx_ipv6_sim_errors_counter = stats.MultiCounter(
+            stg, "TX IPv6 Simulated Errors", pab,
+            sum_counters=[self._tx_errors_counter])
+        self._rx_lie_counter.add_to_group(stg)
+        self._tx_lie_counter.add_to_group(stg)
+        self._rx_tie_counter.add_to_group(stg)
+        self._tx_tie_counter.add_to_group(stg)
+        self._rx_tide_counter.add_to_group(stg)
+        self._tx_tide_counter.add_to_group(stg)
+        self._rx_tire_counter.add_to_group(stg)
+        self._tx_tire_counter.add_to_group(stg)
+        self._rx_flooding_counter.add_to_group(stg)
+        self._tx_flooding_counter.add_to_group(stg)
+        self._rx_ipv4_counter.add_to_group(stg)
+        self._tx_ipv4_counter.add_to_group(stg)
+        self._rx_ipv6_counter.add_to_group(stg)
+        self._tx_ipv6_counter.add_to_group(stg)
+        self._rx_packets_counter.add_to_group(stg)
+        self._tx_packets_counter.add_to_group(stg)
+        self._rx_errors_counter.add_to_group(stg)
+        self._tx_errors_counter.add_to_group(stg)
+
         self.fsm = fsm.Fsm(
             definition=self.fsm_definition,
             action_handler=self,
@@ -927,7 +1010,7 @@ class Interface:
         if self._rx_fail:
             self.log_rx_protocol_packet(logging.DEBUG, from_info,
                                         "Simulated failure receiving", protocol_packet)
-            self.bump_rx_sim_error_counter(sock, nr_bytes)
+            self.bump_rx_sim_errors_counter(sock, nr_bytes)
             return None
         if protocol_packet.header.sender == self.node.system_id:
             self.log_rx_protocol_packet(logging.DEBUG, from_info,

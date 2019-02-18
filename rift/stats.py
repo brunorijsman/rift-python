@@ -4,7 +4,7 @@ import time
 import collections
 import table
 
-RATE_HISTORY = 5             # Look at up to last 5 samples to calculate "recent rate"
+RATE_HISTORY = 10            # Look at up to last 5 samples to calculate "recent rate"
 
 TIME_FUNCTION = time.time    # So that we can stub it for unit testing
 
