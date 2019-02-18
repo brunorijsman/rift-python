@@ -63,6 +63,17 @@ def test_group():
         "+-----------------+-----------------------+------------------------------------------+-------------------+\n"
         "| Received Byes   | 2 Packets, 20 Bytes   | Infinite Packets/Sec, Infinite Bytes/Sec | 0d 00h:00m:01.00s |\n"
         "+-----------------+-----------------------+------------------------------------------+-------------------+\n")
+    group.clear()
+    counter_increase_wrapper(_counter_1, 16.00)
+    counter_increase_wrapper(_counter_1, 17.00)
+    stats.TIME_FUNCTION = lambda: 19.00
+    assert group.table(exclude_zero=True).to_string() == (
+        "+--------------+-----------+---------------------+-------------------+\n"
+        "| Description  | Value     | Last Rate           | Last Change       |\n"
+        "|              |           | Over Last 5 Changes |                   |\n"
+        "+--------------+-----------+---------------------+-------------------+\n"
+        "| Sent Packets | 2 Packets | 1.00 Packets/Sec    | 0d 00h:00m:02.00s |\n"
+        "+--------------+-----------+---------------------+-------------------+\n")
 
 def test_counter():
     group = stats.Group()
@@ -102,6 +113,10 @@ def test_multi_counter():
     counter_1.add([2, 66])
     assert counter_1.value_display_str() == "3 Packets, 67 Bytes"
     assert not counter_1.is_zero()
+    counter_1.clear()
+    assert counter_1.value_display_str() == "0 Packets, 0 Bytes"
+    counter_1.add([12, 34])
+    assert counter_1.value_display_str() == "12 Packets, 34 Bytes"
     counter_2 = stats.MultiCounter(group, "Caught Fish", ["Fish", "Gram"], ["Fish", "Grams"])
     assert counter_2.value_display_str() == "0 Fish, 0 Grams"
     assert counter_2.is_zero()
@@ -114,6 +129,8 @@ def test_multi_counter():
     counter_2.add([2, 66])
     assert counter_2.value_display_str() == "3 Fish, 67 Grams"
     assert not counter_2.is_zero()
+    counter_2.clear()
+    assert counter_2.value_display_str() == "0 Fish, 0 Grams"
 
 def test_secs_to_dmhs_str():
     assert stats.secs_to_dmhs_str(0.0) == "0d 00h:00m:00.00s"

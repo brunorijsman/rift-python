@@ -1469,6 +1469,9 @@ class Interface:
     def stats_table(self, exclude_zero):
         return self._stats_group.table(exclude_zero)
 
+    def clear_stats(self):
+        return self._stats_group.clear()
+
     def tie_headers_table_common(self, tie_headers):
         tab = table.Table()
         tab.add_row([

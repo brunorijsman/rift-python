@@ -16,6 +16,10 @@ class Group:
     def add_member(self, member):
         self._members.append(member)
 
+    def clear(self):
+        for member in self._members:
+            member.clear()
+
     def table(self, exclude_zero):
         tab = table.Table()
         tab.add_row([
@@ -71,7 +75,6 @@ def secs_to_dmhs_str(secs):
     days = 0
     if secs >= 60.0:
         mins = int(secs / 60.0)
-        print("mins =", mins)
         secs -= mins * 60.0
     if mins >= 60:
         hours = mins // 60
@@ -91,9 +94,12 @@ class Counter:
             self._unit_plural = unit_singular + 's'
         else:
             self._unit_plural = unit_plural
+        self.clear()
+        group.add_member(self)
+
+    def clear(self):
         self._value = 0
         self._samples = collections.deque([], RATE_HISTORY)
-        group.add_member(self)
 
     def add(self, add_value):
         self._value += add_value
@@ -133,16 +139,20 @@ class MultiCounter:
         self._description = description
         self._units_singular = units_singular
         self._units_plural = units_plural
-        self._nr_values = len(units_singular)
+        self._nr_values = len(self._units_singular)
+        self.clear()
+        group.add_member(self)
+
+    def clear(self):
         self._values = []
         for _index in range(0, self._nr_values):
             self._values.append(0)
         self._samples = collections.deque([], RATE_HISTORY)
-        group.add_member(self)
 
     def add(self, add_values):
         assert isinstance(add_values, list)
         assert len(add_values) == len(self._values)
+        # pylint:disable=attribute-defined-outside-init
         self._values = list(map(operator.add, self._values, add_values))
         sample = (TIME_FUNCTION(), self._values)
         self._samples.append(sample)

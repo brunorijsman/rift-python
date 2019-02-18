@@ -990,6 +990,14 @@ class Node:
                 self._configured_level_symbol,
                 '?']
 
+    def command_clear_intf_stats(self, cli_session, parameters):
+        interface_name = parameters['interface']
+        if not interface_name in self.interfaces_by_name:
+            cli_session.print("Error: interface {} not present".format(interface_name))
+            return
+        intf = self.interfaces_by_name[interface_name]
+        intf.clear_stats()
+
     def command_show_intf_fsm_hist(self, cli_session, parameters, verbose):
         interface_name = parameters['interface']
         if not interface_name in self.interfaces_by_name:

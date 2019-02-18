@@ -141,6 +141,9 @@ class Engine:
     def run(self):
         scheduler.SCHEDULER.run()
 
+    def command_clear_intf_stats(self, cli_session, parameters):
+        cli_session.current_node.command_clear_intf_stats(cli_session, parameters)
+
     def command_show_engine(self, cli_session):
         tab = table.Table(separators=False)
         tab.add_row(["Stand-alone", self._stand_alone])
@@ -284,6 +287,11 @@ class Engine:
         sys.exit(0)
 
     parse_tree = {
+        "clear": {
+            "$interface": {
+                "statistics": command_clear_intf_stats
+            }
+        },
         "exit": command_exit,
         "set": {
             "$interface": {
