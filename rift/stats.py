@@ -4,9 +4,24 @@ import time
 import collections
 import table
 
-RATE_HISTORY = 10            # Look at up to last 5 samples to calculate "recent rate"
+RATE_HISTORY = 10            # Look at up to last N samples to calculate "recent rate"
 
 TIME_FUNCTION = time.time    # So that we can stub it for unit testing
+
+def secs_to_dmhs_str(secs):
+    mins = 0
+    hours = 0
+    days = 0
+    if secs >= 60.0:
+        mins = int(secs / 60.0)
+        secs -= mins * 60.0
+    if mins >= 60:
+        hours = mins // 60
+        mins %= 60
+    if hours >= 24:
+        days = hours // 24
+        hours %= 24
+    return "{:d}d {:02d}h:{:02d}m:{:05.2f}s".format(days, hours, mins, secs)
 
 class Group:
 
@@ -38,51 +53,6 @@ class Group:
                 ])
         return tab
 
-def sample_rate_display_str(samples, units):
-    # pylint:disable=too-many-locals
-    nr_samples = len(samples)
-    if nr_samples < 2:
-        return ''
-    (oldest_sample_time, oldest_sample_values) = samples[0]
-    (newest_sample_time, newest_sample_values) = samples[-1]
-    assert len(oldest_sample_values) == len(newest_sample_values)
-    assert len(oldest_sample_values) >= 1
-    time_diff = newest_sample_time - oldest_sample_time
-    assert time_diff >= 0.0
-    rate_strs = []
-    zipped_list = zip(oldest_sample_values, newest_sample_values, units)
-    for oldest_sample_value, newest_sample_value, unit in zipped_list:
-        value_diff = newest_sample_value - oldest_sample_value
-        if time_diff == 0.0:
-            rate_str = "Infinite {}/Sec".format(unit)
-        else:
-            rate = value_diff / time_diff
-            rate_str = "{:.2f} {}/Sec".format(rate, unit)
-        rate_strs.append(rate_str)
-    return ", ".join(rate_strs)
-
-def last_change_display_str(samples):
-    if not samples:
-        return ''
-    (newest_sample_time, _) = samples[-1]
-    secs = TIME_FUNCTION() - newest_sample_time
-    return secs_to_dmhs_str(secs)
-
-def secs_to_dmhs_str(secs):
-    mins = 0
-    hours = 0
-    days = 0
-    if secs >= 60.0:
-        mins = int(secs / 60.0)
-        secs -= mins * 60.0
-    if mins >= 60:
-        hours = mins // 60
-        mins %= 60
-    if hours >= 24:
-        days = hours // 24
-        hours %= 24
-    return "{:d}d {:02d}h:{:02d}m:{:05.2f}s".format(days, hours, mins, secs)
-
 class StatBase:
 
     def __init__(self, group, description):
@@ -101,6 +71,36 @@ class StatBase:
 
     def description(self):
         return self._description
+
+    def sample_rate_display_str(self, samples, units):
+        # pylint:disable=too-many-locals
+        nr_samples = len(samples)
+        if nr_samples < 2:
+            return ''
+        (oldest_sample_time, oldest_sample_values) = samples[0]
+        (newest_sample_time, newest_sample_values) = samples[-1]
+        assert len(oldest_sample_values) == len(newest_sample_values)
+        assert len(oldest_sample_values) >= 1
+        time_diff = newest_sample_time - oldest_sample_time
+        assert time_diff >= 0.0
+        rate_strs = []
+        zipped_list = zip(oldest_sample_values, newest_sample_values, units)
+        for oldest_sample_value, newest_sample_value, unit in zipped_list:
+            value_diff = newest_sample_value - oldest_sample_value
+            if time_diff == 0.0:
+                rate_str = "Infinite {}/Sec".format(unit)
+            else:
+                rate = value_diff / time_diff
+                rate_str = "{:.2f} {}/Sec".format(rate, unit)
+            rate_strs.append(rate_str)
+        return ", ".join(rate_strs)
+
+    def last_change_display_str(self):
+        if not self._samples:
+            return ''
+        (newest_sample_time, _) = self._samples[-1]
+        secs = TIME_FUNCTION() - newest_sample_time
+        return secs_to_dmhs_str(secs)
 
 class Counter(StatBase):
 
@@ -141,10 +141,7 @@ class Counter(StatBase):
             return str(self._value) + ' ' + self._unit_plural
 
     def rate_display_str(self):
-        return sample_rate_display_str(self._samples, [self._unit_plural])
-
-    def last_change_display_str(self):
-        return last_change_display_str(self._samples)
+        return self.sample_rate_display_str(self._samples, [self._unit_plural])
 
 class MultiCounter(StatBase):
 
@@ -197,7 +194,4 @@ class MultiCounter(StatBase):
         return ", ".join(value_strs)
 
     def rate_display_str(self):
-        return sample_rate_display_str(self._samples, self._units_plural)
-
-    def last_change_display_str(self):
-        return last_change_display_str(self._samples)
+        return self.sample_rate_display_str(self._samples, self._units_plural)
