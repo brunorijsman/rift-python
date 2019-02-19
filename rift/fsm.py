@@ -4,6 +4,7 @@ import time
 import sortedcontainers
 
 import table
+import stats
 
 # TODO: Check completeness of FSM
 # TODO: Report superfluous transitions (same effect in every state)
@@ -231,6 +232,12 @@ class Fsm:
         self._verbose_records = collections.deque([], _MAX_RECORDS)
         self._current_record = None
         self._verbose_records_skipped = 0
+        self._stats_group = stats.Group()
+        self._event_counters = {}
+        for event in self._event_enum:
+            self._event_counters[event] = stats.Counter(self._stats_group,
+                                                        "Event " + _event_to_name(event),
+                                                        "Event")
         self.info("Create FSM")
 
     def start(self):
@@ -304,6 +311,7 @@ class Fsm:
 
     def process_event(self, event, event_data):
         assert self._current_record is None
+        self._event_counters[event].increase()
         from_state = self._state
         verbose = (event in self._verbose_events)
         self._current_record = FsmRecord(self, from_state, event, verbose)
@@ -356,6 +364,12 @@ class Fsm:
                 record.implicit])
             prev_time = record.time
         return tab
+
+    def stats_table(self, exclude_zero):
+        return self._stats_group.table(exclude_zero)
+
+    def clear_stats(self):
+        self._stats_group.clear()
 
     @property
     def state(self):

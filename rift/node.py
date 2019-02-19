@@ -1048,7 +1048,11 @@ class Node:
             cli_session.print("Error: interface {} not present".format(interface_name))
             return
         intf = self.interfaces_by_name[interface_name]
-        tab = intf.stats_table(exclude_zero)
+        tab = intf.traffic_stats_table(exclude_zero)
+        cli_session.print("Traffic:")
+        cli_session.print(tab.to_string())
+        tab = intf.fsm_stats_table(exclude_zero)
+        cli_session.print("LIE FSM:")
         cli_session.print(tab.to_string())
 
     def command_show_interface(self, cli_session, parameters):
