@@ -24,6 +24,7 @@ import packet_common
 import rib
 import route
 import spf_dest
+import stats
 import table
 import timer
 import utils
@@ -452,6 +453,7 @@ class Node:
         self._highest_available_level = None
         self.highest_adjacency_three_way = None
         self._holdtime = 1
+        self.interface_stats_group = stats.SumGroup()
         self._next_interface_id = 1
         if 'interfaces' in config:
             for interface_config in self._config['interfaces']:
@@ -998,6 +1000,9 @@ class Node:
         intf = self.interfaces_by_name[interface_name]
         intf.clear_stats()
 
+    def command_clear_node_stats(self, _cli_session):
+        self.interface_stats_group.clear()
+
     def command_show_intf_fsm_hist(self, cli_session, parameters, verbose):
         interface_name = parameters['interface']
         if not interface_name in self.interfaces_by_name:
@@ -1137,6 +1142,11 @@ class Node:
 
     def command_show_node_fsm_history(self, cli_session, verbose):
         tab = self.fsm.history_table(verbose)
+        cli_session.print(tab.to_string())
+
+    def command_show_node_stats(self, cli_session, exclude_zero):
+        tab = self.interface_stats_group.table(exclude_zero)
+        cli_session.print("Interface Statistics:")
         cli_session.print(tab.to_string())
 
     @staticmethod

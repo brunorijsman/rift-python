@@ -144,6 +144,9 @@ class Engine:
     def command_clear_intf_stats(self, cli_session, parameters):
         cli_session.current_node.command_clear_intf_stats(cli_session, parameters)
 
+    def command_clear_node_stats(self, cli_session):
+        cli_session.current_node.command_clear_node_stats(cli_session)
+
     def command_show_engine(self, cli_session):
         tab = table.Table(separators=False)
         tab.add_row(["Stand-alone", self._stand_alone])
@@ -218,6 +221,12 @@ class Engine:
     def command_show_node_fsm_vhis(self, cli_session):
         cli_session.current_node.command_show_node_fsm_history(cli_session, True)
 
+    def command_show_node_stats(self, cli_session):
+        cli_session.current_node.command_show_node_stats(cli_session, False)
+
+    def command_show_node_stats_ex_zero(self, cli_session):
+        cli_session.current_node.command_show_node_stats(cli_session, True)
+
     def command_show_nodes(self, cli_session):
         tab = table.Table()
         tab.add_row(node.Node.cli_summary_headers())
@@ -290,6 +299,9 @@ class Engine:
         "clear": {
             "$interface": {
                 "statistics": command_clear_intf_stats
+            },
+            "node": {
+                "statistics": command_clear_node_stats
             }
         },
         "exit": command_exit,
@@ -346,6 +358,10 @@ class Engine:
                     "history": command_show_node_fsm_nvhis,
                     "verbose-history": command_show_node_fsm_vhis,
                 },
+                "statistics": {
+                    "": command_show_node_stats,
+                    "exclude-zero": command_show_node_stats_ex_zero
+                }
             },
             "nodes": {
                 "": command_show_nodes,

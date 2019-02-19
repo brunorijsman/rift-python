@@ -944,6 +944,7 @@ class Interface:
         self._tx_packets_counter.add_to_group(stg)
         self._rx_errors_counter.add_to_group(stg)
         self._tx_errors_counter.add_to_group(stg)
+        self.node.interface_stats_group.add_summee_group(self._stats_group)
 
         self.fsm = fsm.Fsm(
             definition=self.fsm_definition,
