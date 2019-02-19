@@ -234,11 +234,14 @@ class Fsm:
         self._verbose_records_skipped = 0
         self._stats_group = stats.Group()
         self._event_counters = {}
-        for event in self._event_enum:
-            self._event_counters[event] = stats.Counter(self._stats_group,
-                                                        "Event " + _event_to_name(event),
-                                                        "Event")
+        self._init_event_counters()
+        self._transition_counters = {}
         self.info("Create FSM")
+
+    def _init_event_counters(self):
+        for event in self._event_enum:
+            self._event_counters[event] = \
+                stats.Counter(self._stats_group, "Events " + _event_to_name(event), "Event")
 
     def start(self):
         self._state = self._definition.initial_state
@@ -299,14 +302,31 @@ class Fsm:
             self.invoke_actions(state_exit_actions)
 
     def store_current_record(self):
-        self._verbose_records.appendleft(self._current_record)
-        if self._current_record.verbose:
+        record = self._current_record
+        assert record is not None
+        self._verbose_records.appendleft(record)
+        if record.verbose:
             self._verbose_records_skipped += 1
         else:
-            self._current_record.skipped = self._verbose_records_skipped
+            record.skipped = self._verbose_records_skipped
             self._verbose_records_skipped = 0
-            self._records.appendleft(self._current_record)
-        self.info_or_debug(self._current_record.verbose, self._current_record.log_str())
+            self._records.appendleft(record)
+        # TODO check for will log before calling log_str
+        self.info_or_debug(record.verbose, record.log_str())
+        # Also count the transition for statistics. We create a counter on the fly the first time
+        # a particular transition (from-state, to-state) has been seen to avoid have N^2 counters
+        # where N is the number of states.
+        to_state = record.to_state
+        if to_state is None:
+            to_state = record.from_state
+        state_pair = (record.from_state, to_state)
+        if state_pair not in self._transition_counters:
+            description = "Transitions {} -> {}".format(_state_to_name(record.from_state),
+                                                        _state_to_name(to_state))
+            self._transition_counters[state_pair] = stats.Counter(self._stats_group,
+                                                                  description,
+                                                                  "Transition")
+        self._transition_counters[state_pair].increase()
         self._current_record = None
 
     def process_event(self, event, event_data):
