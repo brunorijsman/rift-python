@@ -234,8 +234,9 @@ class Fsm:
         self._verbose_records_skipped = 0
         self._stats_group = stats.Group()
         self._event_counters = {}
-        self._init_event_counters()
-        self._transition_counters = {}
+        self._init_event_counters()             # Indexed by event
+        self._transition_counters = {}          # Indexed by (from_state, to_state)
+        self._event_transition_counters = {}    # Indexed by (from_state, event, to_state)
         self.info("Create FSM")
 
     def _init_event_counters(self):
@@ -319,14 +320,23 @@ class Fsm:
         to_state = record.to_state
         if to_state is None:
             to_state = record.from_state
-        state_pair = (record.from_state, to_state)
-        if state_pair not in self._transition_counters:
+        pair = (record.from_state, to_state)
+        if pair not in self._transition_counters:
             description = "Transitions {} -> {}".format(_state_to_name(record.from_state),
                                                         _state_to_name(to_state))
-            self._transition_counters[state_pair] = stats.Counter(self._stats_group,
-                                                                  description,
-                                                                  "Transition")
-        self._transition_counters[state_pair].increase()
+            self._transition_counters[pair] = stats.Counter(self._stats_group,
+                                                            description,
+                                                            "Transition")
+        self._transition_counters[pair].increase()
+        triple = (record.from_state, record.event, to_state)
+        if triple not in self._event_transition_counters:
+            description = "Event-Transitions {} -{}-> {}".format(_state_to_name(record.from_state),
+                                                                 _event_to_name(record.event),
+                                                                 _state_to_name(to_state))
+            self._event_transition_counters[triple] = stats.Counter(self._stats_group,
+                                                                    description,
+                                                                    "Transition")
+        self._event_transition_counters[triple].increase()
         self._current_record = None
 
     def process_event(self, event, event_data):
