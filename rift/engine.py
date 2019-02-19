@@ -12,6 +12,7 @@ import interface
 import netifaces
 import node
 import scheduler
+import stats
 import table
 
 # TODO: Make sure that there is always at least one node (and hence always a current node)
@@ -52,6 +53,7 @@ class Engine:
             'flooding_reduction_similarity',
             constants.DEFAULT_FLOODING_REDUCTION_SIMILARITY)
         self.floodred_system_random = random.randint(0, 0xffffffffffffffff)
+        self.interface_stats_group = stats.SumGroup()
         self._nodes = sortedcontainers.SortedDict()
         self.create_configuration(passive_nodes)
         cli_log = logging.getLogger('cli')
@@ -141,6 +143,9 @@ class Engine:
     def run(self):
         scheduler.SCHEDULER.run()
 
+    def command_clear_engine_stats(self, _cli_session):
+        self.interface_stats_group.clear()
+
     def command_clear_intf_stats(self, cli_session, parameters):
         cli_session.current_node.command_clear_intf_stats(cli_session, parameters)
 
@@ -163,6 +168,14 @@ class Engine:
         tab.add_row(["Flooding Reduction Similarity", self.floodred_similarity])
         tab.add_row(["Flooding Reduction System Random", self.floodred_system_random])
         cli_session.print(tab.to_string())
+
+    def command_show_engine_stats(self, cli_session, exclude_zero=False):
+        tab = self.interface_stats_group.table(exclude_zero)
+        cli_session.print("Interface Statistics:")
+        cli_session.print(tab.to_string())
+
+    def command_show_eng_stats_ex_zero(self, cli_session):
+        self.command_show_engine_stats(cli_session, True)
 
     def command_show_flooding_reduction(self, cli_session):
         cli_session.current_node.command_show_flooding_reduction(cli_session)
@@ -297,6 +310,9 @@ class Engine:
 
     parse_tree = {
         "clear": {
+            "engine": {
+                "statistics": command_clear_engine_stats
+            },
             "$interface": {
                 "statistics": command_clear_intf_stats
             },
@@ -313,7 +329,13 @@ class Engine:
             "$level": command_set_level,
         },
         "show": {
-            "engine":command_show_engine,
+            "engine": {
+                "": command_show_engine,
+                "statistics": {
+                    "": command_show_engine_stats,
+                    "exclude-zero": command_show_eng_stats_ex_zero
+                }
+            },
             "flooding-reduction": command_show_flooding_reduction,
             "forwarding": {
                 "": command_show_forwarding,

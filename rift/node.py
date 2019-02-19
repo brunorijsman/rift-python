@@ -458,6 +458,8 @@ class Node:
         if 'interfaces' in config:
             for interface_config in self._config['interfaces']:
                 self.create_interface(interface_config)
+        if self.engine:
+            self.engine.interface_stats_group.add_summee_group(self.interface_stats_group)
         self.my_node_tie_seq_nrs = {}
         self.my_node_tie_seq_nrs[common.ttypes.TieDirectionType.South] = 0
         self.my_node_tie_seq_nrs[common.ttypes.TieDirectionType.North] = 0
