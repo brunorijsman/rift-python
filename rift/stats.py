@@ -151,17 +151,16 @@ class MultiCounter(StatBase):
     def add(self, add_values):
         self.add_values(add_values)
 
-class Counter(MultiCounter):
+class Counter(StatBase):
 
     def __init__(self, group, description, unit_singular, unit_plural=None, sum_counters=None):
         if unit_plural is None:
             units_plural = None
         else:
             units_plural = [unit_plural]
-        MultiCounter.__init__(self, group, description, [unit_singular], units_plural, sum_counters)
+        StatBase.__init__(self, group, description, [unit_singular], units_plural, sum_counters)
 
     def add(self, add_value):
-        # pylint:disable=arguments-differ
         self.add_values([add_value])
 
     def increase(self):
