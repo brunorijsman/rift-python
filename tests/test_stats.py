@@ -6,9 +6,9 @@ def counter_increase_wrapper(counter, simulated_time):
     stats.TIME_FUNCTION = lambda: simulated_time
     counter.increase()
 
-def counter_add_wrapper(counter, simulated_time, add_value):
+def counter_add_wrapper(counter, simulated_time, add):
     stats.TIME_FUNCTION = lambda: simulated_time
-    counter.add(add_value)
+    counter.add(add)
 
 def test_group():
     group = stats.Group()
