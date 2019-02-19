@@ -36,7 +36,18 @@ class Group:
         for stat in self._stats:
             stat.clear()
 
-    def table(self, exclude_zero):
+    def table(self, exclude_zero, sort_by_description=False):
+        rows = []
+        for stat in self._stats:
+            if not exclude_zero or not stat.is_zero():
+                rows.append([
+                    stat.description(),
+                    stat.value_display_str(),
+                    stat.rate_display_str(),
+                    stat.last_change_display_str()
+                ])
+        if sort_by_description:
+            rows = sorted(rows, key=operator.itemgetter(0))
         tab = table.Table()
         tab.add_row([
             "Description",
@@ -44,14 +55,7 @@ class Group:
             ["Last Rate", "Over Last {} Changes".format(RATE_HISTORY)],
             ["Last Change"]
         ])
-        for stat in self._stats:
-            if not exclude_zero or not stat.is_zero():
-                tab.add_row([
-                    stat.description(),
-                    stat.value_display_str(),
-                    stat.rate_display_str(),
-                    stat.last_change_display_str()
-                ])
+        tab.add_rows(rows)
         return tab
 
 class SumGroup(Group):

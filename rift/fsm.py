@@ -330,9 +330,10 @@ class Fsm:
         self._transition_counters[pair].increase()
         triple = (record.from_state, record.event, to_state)
         if triple not in self._event_transition_counters:
-            description = "Event-Transitions {} -{}-> {}".format(_state_to_name(record.from_state),
-                                                                 _event_to_name(record.event),
-                                                                 _state_to_name(to_state))
+            description = ("Event-Transitions {} -[{}]-> {}"
+                           .format(_state_to_name(record.from_state),
+                                   _event_to_name(record.event),
+                                   _state_to_name(to_state)))
             self._event_transition_counters[triple] = stats.Counter(self._stats_group,
                                                                     description,
                                                                     "Transition")
@@ -396,7 +397,7 @@ class Fsm:
         return tab
 
     def stats_table(self, exclude_zero):
-        return self._stats_group.table(exclude_zero)
+        return self._stats_group.table(exclude_zero, sort_by_description=True)
 
     def clear_stats(self):
         self._stats_group.clear()
