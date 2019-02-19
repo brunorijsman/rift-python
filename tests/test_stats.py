@@ -1,3 +1,5 @@
+import pytest
+
 import stats
 
 #pylint:disable=line-too-long
@@ -280,3 +282,90 @@ def test_secs_to_dmhs_str():
     assert stats.secs_to_dmhs_str(72.34) == "0d 00h:01m:12.34s"
     assert stats.secs_to_dmhs_str(45296.78) == "0d 12h:34m:56.78s"
     assert stats.secs_to_dmhs_str(218096.78) == "2d 12h:34m:56.78s"
+
+def test_sum_group():
+    sum_group = stats.SumGroup()
+    group_1 = stats.Group()
+    session_resets_counter_1 = stats.Counter(group_1, "Session Resets", "Reset")
+    sent_packets_counter_1 = stats.MultiCounter(group_1, "Sent Packets", ["Packet", "Byte"])
+    sum_group.add_summee_group(group_1)
+    group_2 = stats.Group()
+    session_resets_counter_2 = stats.Counter(group_2, "Session Resets", "Reset")
+    _sent_packets_counter_2 = stats.MultiCounter(group_2, "Sent Packets", ["Packet", "Byte"])
+    sum_group.add_summee_group(group_2)
+    counter_add_wrapper(sent_packets_counter_1, 1.0, [1, 100])
+    counter_increase_wrapper(session_resets_counter_1, 1.5)
+    counter_add_wrapper(sent_packets_counter_1, 2.0, [3, 300])
+    counter_add_wrapper(session_resets_counter_2, 2.0, 2)
+    counter_increase_wrapper(session_resets_counter_1, 3.5)
+    counter_add_wrapper(sent_packets_counter_1, 3.0, [2, 200])
+    counter_add_wrapper(session_resets_counter_1, 3.5, 2)
+    stats.TIME_FUNCTION = lambda: 4.00
+    assert group_1.table(exclude_zero=False).to_string() == (
+        "+----------------+----------------------+------------------------------------+-------------------+\n"
+        "| Description    | Value                | Last Rate                          | Last Change       |\n"
+        "|                |                      | Over Last 10 Changes               |                   |\n"
+        "+----------------+----------------------+------------------------------------+-------------------+\n"
+        "| Session Resets | 4 Resets             | 1.50 Resets/Sec                    | 0d 00h:00m:00.50s |\n"
+        "+----------------+----------------------+------------------------------------+-------------------+\n"
+        "| Sent Packets   | 6 Packets, 600 Bytes | 2.50 Packets/Sec, 250.00 Bytes/Sec | 0d 00h:00m:01.00s |\n"
+        "+----------------+----------------------+------------------------------------+-------------------+\n")
+    assert group_2.table(exclude_zero=False).to_string() == (
+        "+----------------+--------------------+----------------------+-------------------+\n"
+        "| Description    | Value              | Last Rate            | Last Change       |\n"
+        "|                |                    | Over Last 10 Changes |                   |\n"
+        "+----------------+--------------------+----------------------+-------------------+\n"
+        "| Session Resets | 2 Resets           |                      | 0d 00h:00m:02.00s |\n"
+        "+----------------+--------------------+----------------------+-------------------+\n"
+        "| Sent Packets   | 0 Packets, 0 Bytes |                      |                   |\n"
+        "+----------------+--------------------+----------------------+-------------------+\n")
+    assert sum_group.table(exclude_zero=False).to_string() == (
+        "+----------------+----------------------+------------------------------------+-------------------+\n"
+        "| Description    | Value                | Last Rate                          | Last Change       |\n"
+        "|                |                      | Over Last 10 Changes               |                   |\n"
+        "+----------------+----------------------+------------------------------------+-------------------+\n"
+        "| Session Resets | 6 Resets             | 2.50 Resets/Sec                    | 0d 00h:00m:00.50s |\n"
+        "+----------------+----------------------+------------------------------------+-------------------+\n"
+        "| Sent Packets   | 6 Packets, 600 Bytes | 2.50 Packets/Sec, 250.00 Bytes/Sec | 0d 00h:00m:01.00s |\n"
+        "+----------------+----------------------+------------------------------------+-------------------+\n")
+
+def test_imcompatible_summee_groups():
+    # Different numbers of stats in group
+    sum_group = stats.SumGroup()
+    group_1 = stats.Group()
+    stats.Counter(group_1, "Running Rabbits", "Rabbit")
+    sum_group.add_summee_group(group_1)
+    group_2 = stats.Group()
+    stats.Counter(group_2, "Running Rabbits", "Rabbit")
+    stats.Counter(group_2, "Chasing Foxes", "Fox", "Foxes")
+    with pytest.raises(Exception):
+        sum_group.add_summee_group(group_2)
+    # Different descriptions
+    sum_group = stats.SumGroup()
+    group_1 = stats.Group()
+    stats.Counter(group_1, "Running Rabbits", "Rabbit")
+    stats.Counter(group_1, "Chasing Foxes", "Fox", "Foxes")
+    sum_group.add_summee_group(group_1)
+    group_2 = stats.Group()
+    stats.Counter(group_2, "Running Rabbits", "Rabbit")
+    stats.Counter(group_2, "Sleeping Foxes", "Fox", "Foxes")
+    with pytest.raises(Exception):
+        sum_group.add_summee_group(group_2)
+    # Different singular units
+    sum_group = stats.SumGroup()
+    group_1 = stats.Group()
+    stats.Counter(group_1, "Running Rabbits", "Rabbit")
+    sum_group.add_summee_group(group_1)
+    group_2 = stats.Group()
+    stats.Counter(group_2, "Running Rabbits", "Bunny")
+    with pytest.raises(Exception):
+        sum_group.add_summee_group(group_2)
+    # Different plural units
+    sum_group = stats.SumGroup()
+    group_1 = stats.Group()
+    stats.Counter(group_1, "Chasing Foxes", "Fox", "Foxes")
+    sum_group.add_summee_group(group_1)
+    group_2 = stats.Group()
+    stats.Counter(group_2, "Chasing Foxes", "Fox", "Foxen")
+    with pytest.raises(Exception):
+        sum_group.add_summee_group(group_2)

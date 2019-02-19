@@ -1,3 +1,4 @@
+import copy
 import operator
 import time
 
@@ -53,9 +54,32 @@ class Group:
                 ])
         return tab
 
+class SumGroup(Group):
+
+    def __init__(self):
+        Group.__init__(self)
+
+    def add_summee_group(self, summee_group):
+        # pylint:disable=protected-access
+        if self._stats:
+            # This is not the first summee group; stats must be same as those already inherited
+            assert len(self._stats) == len(summee_group._stats)
+            for sum_stat, summee_stat in zip(self._stats, summee_group._stats):
+                assert sum_stat._description == summee_stat._description
+                assert sum_stat._units_singular == summee_stat._units_singular
+                assert sum_stat._units_plural == summee_stat._units_plural
+        else:
+            # This is the first summee group; inherit stats
+            for summee_stat in summee_group._stats:
+                sum_stat = copy.deepcopy(summee_stat)
+                self.add_stat(sum_stat)
+        # Make every stat in the summee_group sum into corresponding stat in the sum_group
+        for sum_stat, summee_stat in zip(self._stats, summee_group._stats):
+            summee_stat.add_sum_stat(sum_stat)
+
 class StatBase:
 
-    def __init__(self, group, description, units_singular, units_plural, sum_counters):
+    def __init__(self, group, description, units_singular, units_plural, sum_stats):
         self._group = group
         self._description = description
         self._units_singular = units_singular
@@ -69,10 +93,10 @@ class StatBase:
         self._units_singular = units_singular
         self._units_plural = units_plural
         self._nr_values = len(self._units_singular)
-        if sum_counters is None:
-            self._sum_counters = []
+        if sum_stats is None:
+            self._sum_stats = []
         else:
-            self._sum_counters = sum_counters
+            self._sum_stats = sum_stats
         self.clear()
 
     def clear(self):
@@ -87,6 +111,9 @@ class StatBase:
         self._group = group
         group.add_stat(self)
 
+    def add_sum_stat(self, sum_stat):
+        self._sum_stats.append(sum_stat)
+
     def add_values(self, add_values):
         assert isinstance(add_values, list)
         assert len(add_values) == len(self._values)
@@ -94,8 +121,8 @@ class StatBase:
         self._values = list(map(operator.add, self._values, add_values))
         sample = (TIME_FUNCTION(), self._values)
         self._samples.append(sample)
-        for sum_counter in self._sum_counters:
-            sum_counter.add_values(add_values)
+        for sum_stat in self._sum_stats:
+            sum_stat.add_values(add_values)
 
     def is_zero(self):
         return all(value == 0 for value in self._values)
