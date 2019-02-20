@@ -59,10 +59,10 @@ check_git_directory () {
 }
 
 create_virtual_env () {
-    command="sudo apt-get install virtualenv"
-    if ! $(command); then
+    cmd="sudo apt-get install virtualenv"
+    if ! command cmd; then
         report "Coult not install virtualenv"
-        report "\"$command\" returned non-zero status code"
+        report "\"$cmd\" returned non-zero status code"
         fatal
     fi
 }
