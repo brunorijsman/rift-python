@@ -59,6 +59,12 @@ check_git_directory () {
 }
 
 create_virtual_env () {
+    cmd="sudo apt-get update"
+    if ! command $cmd; then
+        report "Coult update apt-get"
+        report "\"$cmd\" returned non-zero status code"
+        fatal
+    fi
     cmd="sudo apt-get install virtualenv"
     if ! command $cmd; then
         report "Coult not install virtualenv"
