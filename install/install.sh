@@ -43,7 +43,7 @@ check_supported_os() {
     fi
 }
 
-check_git_directoru () {
+check_git_directory () {
     if [ ! -d ".git" ]; then
          report "It appears that the current directory is not the root directory of the git repository"
          report "I don't see a .git subdirectory"
