@@ -106,7 +106,7 @@ run_cmd () {
         report "OK"
     else
         report_no_newline "${msg}... "
-        if ! command $cmd >/dev/null; then
+        if ! command $cmd >/dev/null 2>&1; then
             report "FAILED"
             report "\"$cmd\" returned non-zero status code"
             fatal
