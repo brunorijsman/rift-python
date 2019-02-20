@@ -1,12 +1,38 @@
 #!/bin/bash
 
+TRUE=1
+FALSE=0
+
+VERBOSE=$FALSE
+
 report () {
     message=$1
     echo >&2 "$message"
 }
 
+report_no_newline () {
+    message=$1
+    echo -n >&2 "$message"
+}
+
 fatal () {
     exit 1
+}
+
+parse_command_line_arguments () {
+    while [[ $# -gt 0 ]]; do
+        key=$1
+        case $key in
+            -v|--verbose)
+                VERBOSE=$TRUE
+                shift
+                ;;
+            *)
+                report "Unexpected command line argument $key"
+                fatal
+                ;;
+        esac
+    done
 }
 
 check_command_present() {
@@ -52,27 +78,54 @@ check_git_directory () {
     fi
     if [ ! -d "rift" ]; then
         report "It appears that this git repository is not a clone of the rift-python repository"
-            report "I don't see a rift subdirectory"
+        report "I don't see a rift subdirectory"
         report "You must run the installation script from the root directory of the cloned rift-python git repository"
         fatal
     fi
 }
 
-create_virtual_env () {
-    cmd="sudo apt-get update"
-    if ! command $cmd; then
-        report "Coult update apt-get"
-        report "\"$cmd\" returned non-zero status code"
-        fatal
-    fi
-    cmd="sudo apt-get install virtualenv"
-    if ! command $cmd; then
-        report "Coult not install virtualenv"
-        report "\"$cmd\" returned non-zero status code"
+check_can_run_sudo () {
+    if [ $(sudo echo hello) != hello ]; then
+    report "It appears that you cannot run sudo from a script"
+    report "The ability to run sudo from the installation script is required"
         fatal
     fi
 }
 
+run_cmd () {
+    cmd=$1
+    msg="${2}..."
+    if [ $VERBOSE == $TRUE ]; then
+        report "***** $msg *****"
+        if ! command $cmd; then
+            report "FAILED"
+            report "\"$cmd\" returned non-zero status code"
+            fatal
+        fi
+        report "OK"
+    else
+        report_no_newline "$msg "
+        if ! command $cmd >/dev/null; then
+            report "FAILED"
+            report "\"$cmd\" returned non-zero status code"
+            fatal
+        fi
+        report "OK"
+    fi
+}
+    
+apt_get_install () {
+    package=$1
+    run_cmd "sudo apt-get install -y $package" "Installing $package"
+}
+
+create_virtual_env () {
+    run_cmd "sudo apt-get update" "Updating apt-get"
+    apt_get_install "python3-venv"
+}
+
+parse_command_line_arguments $@
 check_supported_os
 check_git_directory
+check_can_run_sudo
 create_virtual_env
