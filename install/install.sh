@@ -94,9 +94,10 @@ check_can_run_sudo () {
 
 run_cmd () {
     cmd=$1
-    msg="${2}..."
+    msg=$2
     if [ $VERBOSE == $TRUE ]; then
         report "***** $msg *****"
+        report "$cmd"
         if ! command $cmd; then
             report "FAILED"
             report "\"$cmd\" returned non-zero status code"
@@ -104,7 +105,7 @@ run_cmd () {
         fi
         report "OK"
     else
-        report_no_newline "$msg "
+        report_no_newline "${msg}... "
         if ! command $cmd >/dev/null; then
             report "FAILED"
             report "\"$cmd\" returned non-zero status code"
@@ -119,13 +120,21 @@ apt_get_install () {
     run_cmd "sudo apt-get install -y $package" "Installing $package"
 }
 
-create_virtual_env () {
+create_and_activate_virtual_env () {
     run_cmd "sudo apt-get update" "Updating apt-get"
     apt_get_install "python3-venv"
+    run_cmd "python3 -m venv env" "Creating virtual environment"
+    run_cmd "source env/bin/activate" "Activating virtual environment"
+}
+
+pip_install_dependencies () {
+    check_command_present pip
+    run_cmd "pip install -r requirements.txt" "Installing Python module dependencies"
 }
 
 parse_command_line_arguments $@
 check_supported_os
 check_git_directory
 check_can_run_sudo
-create_virtual_env
+create_and_activate_virtual_env
+pip_install_dependencies
