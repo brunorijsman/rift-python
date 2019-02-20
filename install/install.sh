@@ -24,7 +24,7 @@ check_supported_os() {
         fatal_error "Not running on Ubuntu; only Ubuntu is supported (lsb_release reports $distributor_id)"
     fi
     release=$(lsb_release -rs)
-    if [ "$release" != "Ubuntu" ]; then
+    if [ "$release" != "18.04" ]; then
         fatal_error "Not running on Ubuntu 18.04; only Ubuntu 18.04 is supported (lsb_release reports $release)"
     fi
     fatal_error "OK"
