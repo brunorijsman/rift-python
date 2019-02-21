@@ -53,7 +53,7 @@ class Engine:
             'flooding_reduction_similarity',
             constants.DEFAULT_FLOODING_REDUCTION_SIMILARITY)
         self.floodred_system_random = random.randint(0, 0xffffffffffffffff)
-        self.intf_traffic_stats_group = stats.SumGroup()
+        self.intf_traffic_stats_group = stats.Group()
         self._nodes = sortedcontainers.SortedDict()
         self.create_configuration(passive_nodes)
         cli_log = logging.getLogger('cli')

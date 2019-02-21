@@ -813,7 +813,7 @@ class Interface:
         self._ties_req = collections.OrderedDict()
         self._ties_ack = collections.OrderedDict()
         self.floodred_nbr_is_fr = self.NbrIsFRState.NOT_APPLICABLE
-        self._traffic_stats_group = stats.Group()
+        self._traffic_stats_group = stats.Group(self.node.intf_traffic_stats_group)
         pab = ["Packet", "Byte"]
         stg = self._traffic_stats_group
         self._tx_errors_counter = stats.MultiCounter(None, "Total TX Errors", pab)
@@ -944,7 +944,6 @@ class Interface:
         self._tx_packets_counter.add_to_group(stg)
         self._rx_errors_counter.add_to_group(stg)
         self._tx_errors_counter.add_to_group(stg)
-        self.node.intf_traffic_stats_group.add_summee_group(self._traffic_stats_group)
 
         self.fsm = fsm.Fsm(
             definition=self.fsm_definition,

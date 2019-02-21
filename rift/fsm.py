@@ -50,6 +50,7 @@ class FsmDefinition:
             self.verbose_events = []
         else:
             self.verbose_events = verbose_events
+        self.stats_group = stats.Group()
 
     @staticmethod
     def parse_transition(transition):
@@ -241,8 +242,8 @@ class Fsm:
 
     def _init_event_counters(self):
         for event in self._event_enum:
-            self._event_counters[event] = \
-                stats.Counter(self._stats_group, "Events " + _event_to_name(event), "Event")
+            counter = stats.Counter(self._stats_group, "Events " + _event_to_name(event), "Event")
+            self._event_counters[event] = counter
 
     def start(self):
         self._state = self._definition.initial_state

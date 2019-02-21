@@ -284,15 +284,13 @@ def test_secs_to_dmhs_str():
     assert stats.secs_to_dmhs_str(218096.78) == "2d 12h:34m:56.78s"
 
 def test_sum_group():
-    sum_group = stats.SumGroup()
-    group_1 = stats.Group()
+    sum_group = stats.Group()
+    group_1 = stats.Group(sum_group)
     session_resets_counter_1 = stats.Counter(group_1, "Session Resets", "Reset")
     sent_packets_counter_1 = stats.MultiCounter(group_1, "Sent Packets", ["Packet", "Byte"])
-    sum_group.add_summee_group(group_1)
-    group_2 = stats.Group()
+    group_2 = stats.Group(sum_group)
     session_resets_counter_2 = stats.Counter(group_2, "Session Resets", "Reset")
     _sent_packets_counter_2 = stats.MultiCounter(group_2, "Sent Packets", ["Packet", "Byte"])
-    sum_group.add_summee_group(group_2)
     counter_add_wrapper(sent_packets_counter_1, 1.0, [1, 100])
     counter_increase_wrapper(session_resets_counter_1, 1.5)
     counter_add_wrapper(sent_packets_counter_1, 2.0, [3, 300])
@@ -329,43 +327,18 @@ def test_sum_group():
         "| Sent Packets   | 6 Packets, 600 Bytes | 2.50 Packets/Sec, 250.00 Bytes/Sec | 0d 00h:00m:01.00s |\n"
         "+----------------+----------------------+------------------------------------+-------------------+\n")
 
-def test_imcompatible_summee_groups():
-    # Different numbers of stats in group
-    sum_group = stats.SumGroup()
-    group_1 = stats.Group()
-    stats.Counter(group_1, "Running Rabbits", "Rabbit")
-    sum_group.add_summee_group(group_1)
-    group_2 = stats.Group()
-    stats.Counter(group_2, "Running Rabbits", "Rabbit")
-    stats.Counter(group_2, "Chasing Foxes", "Fox", "Foxes")
-    with pytest.raises(Exception):
-        sum_group.add_summee_group(group_2)
-    # Different descriptions
-    sum_group = stats.SumGroup()
-    group_1 = stats.Group()
-    stats.Counter(group_1, "Running Rabbits", "Rabbit")
-    stats.Counter(group_1, "Chasing Foxes", "Fox", "Foxes")
-    sum_group.add_summee_group(group_1)
-    group_2 = stats.Group()
-    stats.Counter(group_2, "Running Rabbits", "Rabbit")
-    stats.Counter(group_2, "Sleeping Foxes", "Fox", "Foxes")
-    with pytest.raises(Exception):
-        sum_group.add_summee_group(group_2)
+def test_imcompatible_sum_groups():
     # Different singular units
-    sum_group = stats.SumGroup()
-    group_1 = stats.Group()
+    sum_group = stats.Group()
+    group_1 = stats.Group(sum_group)
     stats.Counter(group_1, "Running Rabbits", "Rabbit")
-    sum_group.add_summee_group(group_1)
-    group_2 = stats.Group()
-    stats.Counter(group_2, "Running Rabbits", "Bunny")
+    group_2 = stats.Group(sum_group)
     with pytest.raises(Exception):
-        sum_group.add_summee_group(group_2)
+        stats.Counter(group_2, "Running Rabbits", "Bunny")
     # Different plural units
-    sum_group = stats.SumGroup()
-    group_1 = stats.Group()
+    sum_group = stats.Group()
+    group_1 = stats.Group(sum_group)
     stats.Counter(group_1, "Chasing Foxes", "Fox", "Foxes")
-    sum_group.add_summee_group(group_1)
-    group_2 = stats.Group()
-    stats.Counter(group_2, "Chasing Foxes", "Fox", "Foxen")
+    group_2 = stats.Group(sum_group)
     with pytest.raises(Exception):
-        sum_group.add_summee_group(group_2)
+        stats.Counter(group_2, "Chasing Foxes", "Fox", "Foxen")

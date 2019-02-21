@@ -453,13 +453,15 @@ class Node:
         self._highest_available_level = None
         self.highest_adjacency_three_way = None
         self._holdtime = 1
-        self.intf_traffic_stats_group = stats.SumGroup()
+        if self.engine:
+            sum_group = self.engine.intf_traffic_stats_group
+        else:
+            sum_group = None
+        self.intf_traffic_stats_group = stats.Group(sum_group)
         self._next_interface_id = 1
         if 'interfaces' in config:
             for interface_config in self._config['interfaces']:
                 self.create_interface(interface_config)
-        if self.engine:
-            self.engine.intf_traffic_stats_group.add_summee_group(self.intf_traffic_stats_group)
         self.my_node_tie_seq_nrs = {}
         self.my_node_tie_seq_nrs[common.ttypes.TieDirectionType.South] = 0
         self.my_node_tie_seq_nrs[common.ttypes.TieDirectionType.North] = 0

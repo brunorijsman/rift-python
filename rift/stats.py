@@ -1,4 +1,3 @@
-import copy
 import operator
 import time
 
@@ -26,15 +25,34 @@ def secs_to_dmhs_str(secs):
 
 class Group:
 
-    def __init__(self):
+    def __init__(self, sum_group=None):
         self._stats = []
+        self._sum_group = sum_group
 
     def add_stat(self, stat):
         self._stats.append(stat)
+        if self._sum_group:
+            # pylint:disable=protected-access
+            sum_stat = self._sum_group.find_stat_by_description(stat._description)
+            if sum_stat:
+                assert sum_stat._units_singular == stat._units_singular
+                assert sum_stat._units_plural == stat._units_plural
+            else:
+                sum_stat = stat.standalone_copy()
+                sum_stat._sum_stats = []
+                self._sum_group.add_stat(sum_stat)
+            stat.add_sum_stat(sum_stat)
 
     def clear(self):
         for stat in self._stats:
             stat.clear()
+
+    def find_stat_by_description(self, description):
+        for stat in self._stats:
+            # pylint:disable=protected-access
+            if stat._description == description:
+                return stat
+        return None
 
     def table(self, exclude_zero, sort_by_description=False):
         rows = []
@@ -58,37 +76,12 @@ class Group:
         tab.add_rows(rows)
         return tab
 
-class SumGroup(Group):
-
-    def __init__(self):
-        Group.__init__(self)
-
-    def add_summee_group(self, summee_group):
-        # pylint:disable=protected-access
-        if self._stats:
-            # This is not the first summee group; stats must be same as those already inherited
-            assert len(self._stats) == len(summee_group._stats)
-            for sum_stat, summee_stat in zip(self._stats, summee_group._stats):
-                assert sum_stat._description == summee_stat._description
-                assert sum_stat._units_singular == summee_stat._units_singular
-                assert sum_stat._units_plural == summee_stat._units_plural
-        else:
-            # This is the first summee group; inherit stats
-            for summee_stat in summee_group._stats:
-                sum_stat = copy.deepcopy(summee_stat)
-                self.add_stat(sum_stat)
-        # Make every stat in the summee_group sum into corresponding stat in the sum_group
-        for sum_stat, summee_stat in zip(self._stats, summee_group._stats):
-            summee_stat.add_sum_stat(sum_stat)
-
 class StatBase:
 
     def __init__(self, group, description, units_singular, units_plural, sum_stats):
         self._group = group
         self._description = description
         self._units_singular = units_singular
-        if group is not None:
-            group.add_stat(self)
         assert isinstance(units_singular, list)
         if units_plural is None:
             units_plural = list(map(lambda word: word + 's', units_singular))
@@ -102,6 +95,11 @@ class StatBase:
         else:
             self._sum_stats = sum_stats
         self.clear()
+        if group is not None:
+            group.add_stat(self)
+
+    def standalone_copy(self):
+        return StatBase(None, self._description, self._units_singular, self._units_plural, None)
 
     def clear(self):
         self._values = [0] * self._nr_values
