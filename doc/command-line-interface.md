@@ -412,76 +412,53 @@ current node using the <b>show interfaces</b> command.
 Example of an interface which does have a neighbor (adjacency in state THREE_WAY):
 
 <pre>
-agg_101> <b>show interface if_101_1001</b>
+agg_101> <b>show interface if_101_1</b><!-- OUTPUT-START: agg_101> show interface if_101_1 -->
 Interface:
-+--------------------------------------+--------------------------------------------+
-| Interface Name                       | if_101_1001                                |
-| Advertised Name                      | agg_101-if_101_1001                        |
-| Interface IPv4 Address               | 127.0.0.1                                  |
-| Metric                               | 1                                          |
-| Receive LIE IPv4 Multicast Address   | 224.0.0.81                                 |
-| Transmit LIE IPv4 Multicast Address  | 224.0.0.91                                 |
-| Receive LIE IPv6 Multicast Address   | FF02::0078                                 |
-| Transmit LIE IPv6 Multicast Address  | FF02::0078                                 |
-| Receive LIE Port                     | 20033                                      |
-| Transmit LIE Port                    | 20034                                      |
-| Receive TIE Port                     | 20035                                      |
-| System ID                            | 101                                        |
-| Local ID                             | 3                                          |
-| MTU                                  | 1500                                       |
-| POD                                  | 0                                          |
-| State                                | THREE_WAY                                  |
-| Received LIE Accepted or Rejected    | Accepted                                   |
-| Received LIE Accept or Reject Reason | This node is not leaf and neighbor is leaf |
-| Neighbor                             | True                                       |
-+--------------------------------------+--------------------------------------------+
++--------------------------------------+----------------------------------------------------------+
+| Interface Name                       | if_101_1                                                 |
+| Physical Interface Name              | en0                                                      |
+| Advertised Name                      | agg_101-if_101_1                                         |
+| Interface IPv4 Address               | 192.168.8.108                                            |
+| Interface IPv6 Address               | fe80::ab:bbd1:f18b:3dcd%en0                              |
+| Interface Index                      | 5                                                        |
+| Metric                               | 1                                                        |
+| LIE Recieve IPv4 Multicast Address   | 224.0.0.81                                               |
+| LIE Receive IPv6 Multicast Address   | FF02::0078                                               |
+| LIE Receive Port                     | 20001                                                    |
+| LIE Transmit IPv4 Multicast Address  | 224.0.0.71                                               |
+| LIE Transmit IPv6 Multicast Address  | FF02::0078                                               |
+| LIE Transmit Port                    | 20002                                                    |
+| Flooding Receive Port                | 20004                                                    |
+| System ID                            | 101                                                      |
+| Local ID                             | 1                                                        |
+| MTU                                  | 1400                                                     |
+| POD                                  | 0                                                        |
+| Failure                              | ok                                                       |
+| State                                | THREE_WAY                                                |
+| Received LIE Accepted or Rejected    | Accepted                                                 |
+| Received LIE Accept or Reject Reason | Neither node is leaf and level difference is at most one |
+| Neighbor is Flood Repeater           | False                                                    |
++--------------------------------------+----------------------------------------------------------+
 
 Neighbor:
-+----------------------------------+-----------------------+
-| Name                             | edge_1001-if_1001_101 |
-| System ID                        | 1001                  |
-| IPv4 Address                     | 127.0.0.1             |
-| LIE UDP Source Port              | 65344                 |
-| Link ID                          | 1                     |
-| Level                            | 0                     |
-| Flood UDP Port                   | 10001                 |
-| MTU                              | 1500                  |
-| POD                              | 0                     |
-| Hold Time                        | 3                     |
-| Not a ZTP Offer                  | True                  |
-| You Are Not a ZTP Flood Repeater | True                  |
-| Your System ID                   | 101                   |
-| Your Local ID                    | 3                     |
-+----------------------------------+-----------------------+
-</pre>
-
-Example of an interface which does not have a neighbor (adjacency in state ONE_WAY):
-
-<pre>
-agg_101> <b>show interface if_101_1</b>
-Interface:
-+--------------------------------------+------------------+
-| Interface Name                       | if_101_1         |
-| Advertised Name                      | agg_101-if_101_1 |
-| Interface IPv4 Address               | 127.0.0.1        |
-| Metric                               | 1                |
-| Receive LIE IPv4 Multicast Address   | 224.0.0.81       |
-| Transmit LIE IPv4 Multicast Address  | 224.0.0.71       |
-| Receive LIE IPv6 Multicast Address   | FF02::0078       |
-| Transmit LIE IPv6 Multicast Address  | FF02::0078       |
-| Receive LIE Port                     | 20001            |
-| Transmit LIE Port                    | 20002            |
-| Receive TIE Port                     | 20004            |
-| System ID                            | 101              |
-| Local ID                             | 1                |
-| MTU                                  | 1500             |
-| POD                                  | 0                |
-| State                                | ONE_WAY          |
-| Received LIE Accepted or Rejected    | Rejected         |
-| Received LIE Accept or Reject Reason | Level mismatch   |
-| Neighbor                             | False            |
-+--------------------------------------+------------------+
-</pre>
++------------------------+-------------------------+
+| Name                   | core_1-if_1_101         |
+| System ID              | 1                       |
+| IPv4 Address           | 192.168.8.108           |
+| IPv6 Address           | fe80::ab:bbd1:f18b:3dcd |
+| LIE UDP Source Port    | 59021                   |
+| Link ID                | 1                       |
+| Level                  | 2                       |
+| Flood UDP Port         | 20003                   |
+| MTU                    | 1400                    |
+| POD                    | 0                       |
+| Hold Time              | 3                       |
+| Not a ZTP Offer        | False                   |
+| You are Flood Repeater | False                   |
+| Your System ID         | 101                     |
+| Your Local ID          | 1                       |
++------------------------+-------------------------+
+<!-- OUTPUT-END --></pre>
 
 ### show interface <i>interface</i> fsm history
 

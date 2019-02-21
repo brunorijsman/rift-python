@@ -83,6 +83,9 @@ class RiftExpectSession:
         if failed:
             self.log_expect_failure()
             pytest.fail('Timeout expecting "{} (see rift_expect.log for details)"'.format(pattern))
+            return None
+        else:
+            return self._expect_session.before
 
     def table_expect(self, pattern, timeout=expect_timeout):
         # Allow multiple spaces at end of each cell, even if only one was asked for
@@ -95,9 +98,9 @@ class RiftExpectSession:
 
     def wait_prompt(self, node_name=None):
         if node_name is None:
-            self.expect(".*> ")
+            return self.expect(".*> ")
         else:
-            self.expect("{}> ".format(node_name))
+            return self.expect("{}> ".format(node_name))
 
     def check_engine(self):
         # Show the output of "show engine", mainly for debugging after a failure

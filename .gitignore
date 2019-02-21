@@ -117,3 +117,6 @@ interop-results-*/*
 
 # Copied requirements.txt in docker directory
 docker/requirements.txt
+
+# Backups for auto-generated docs updates
+*.md.bak
