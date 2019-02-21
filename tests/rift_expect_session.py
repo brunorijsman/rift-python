@@ -25,11 +25,10 @@ class RiftExpectSession:
 
     expect_timeout = 1.0
 
-    def __init__(self, topology_file=None, converge_secs=start_converge_secs):
-        rift_cmd = ("rift "
-                    "--interactive "
-                    "--non-passive "
-                    "--log-level debug")
+    def __init__(self, topology_file=None, converge_secs=start_converge_secs, log_debug=True):
+        rift_cmd = "rift --interactive --non-passive"
+        if log_debug:
+            rift_cmd += " --log-level debug"
         self._topology_file = topology_file
         if topology_file is not None:
             rift_cmd += " topology/{}.yaml".format(topology_file)

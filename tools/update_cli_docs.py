@@ -16,7 +16,7 @@ def process_file():
     doc_file = "doc/command-line-interface.md"
     tmp_file = "doc/command-line-interface.md.new"
     backup_file = "doc/command-line-interface.md.bak"
-    res = rift_expect_session.RiftExpectSession("two_by_two_by_two")
+    res = rift_expect_session.RiftExpectSession("two_by_two_by_two", log_debug=False)
     processed_commands = []
     all_commands = gather_output(res, "agg_101", "help")
     start_regex = re.compile(".*<!-- OUTPUT-START: (.*)> (.*) -->.*")
@@ -48,8 +48,12 @@ def process_file():
 def insert_command_output(out_file, res, node, command):
     print("Process:", command)
     output = gather_output(res, node, command)
+    print("<pre>", file=out_file)
+    print("{}> <b>{}</b>".format(node, command), file=out_file)
     for line in output:
-        print(line, file=out_file)
+        cleaned_line = line.replace("<", "&lt;").replace(">", "&gt;")
+        print(cleaned_line, file=out_file)
+    print("</pre>", file=out_file)
 
 def gather_output(res, node, command):
     set_node = "set node {}".format(node)
@@ -64,9 +68,9 @@ def gather_output(res, node, command):
         sys.exit(1)
     output = output.decode()
     output = output.split("\r\n")
-    while output[0] == '':
+    while output and output[0] == '':
         del output[0]
-    while output[-1] == '':
+    while output and output[-1] == '':
         del output[-1]
     return output
 

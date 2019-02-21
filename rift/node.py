@@ -1215,7 +1215,7 @@ class Node:
                               format(prefix, constants.owner_str(owner)))
         else:
             tab = table.Table()
-            tab.add_row(rte.Route.cli_summary_headers())
+            tab.add_row(route.Route.cli_summary_headers())
             tab.add_row(rte.cli_summary_attributes())
             cli_session.print(tab.to_string())
 

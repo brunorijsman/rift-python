@@ -86,42 +86,56 @@ is "agg_101".
 
 You can enter CLI commands at the CLI prompt. For example, try entering the <b>help</b> command:
 
+<!-- OUTPUT-START: agg_101> help -->
 <pre>
 agg_101> <b>help</b>
+clear engine statistics 
+clear interface &lt;interface&gt; statistics 
+clear node statistics 
 exit 
-set interface &lt;interface&gt; failure &lt;failure&gt;
-set level &lt;level&gt;
-set node &lt;node&gt;
-show engine
-show forwarding
-show forwarding prefix &lt;prefix&gt;
-show fsm lie
-show fsm ztp
-show interface &lt;interface&gt;
-show interface &lt;interface&gt; fsm history
-show interface &lt;interface&gt; fsm verbose-history
-show interface &lt;interface&gt; queues
-show interface &lt;interface&gt; sockets
-show interfaces
-show kernel addresses
-show kernel links
-show kernel route table &lt;table> prefix &lt;prefix&gt;
-show kernel routes
-show kernel routes table &lt;table&gt;
+set interface &lt;interface&gt; failure &lt;failure&gt; 
+set level &lt;level&gt; 
+set node &lt;node&gt; 
+show engine 
+show engine statistics 
+show engine statistics exclude-zero 
+show flooding-reduction 
+show forwarding 
+show forwarding prefix &lt;prefix&gt; 
+show fsm lie 
+show fsm ztp 
+show interface &lt;interface&gt; 
+show interface &lt;interface&gt; fsm history 
+show interface &lt;interface&gt; fsm verbose-history 
+show interface &lt;interface&gt; queues 
+show interface &lt;interface&gt; sockets 
+show interface &lt;interface&gt; statistics 
+show interface &lt;interface&gt; statistics exclude-zero 
+show interfaces 
+show kernel addresses 
+show kernel links 
+show kernel route table &lt;table&gt; prefix &lt;prefix&gt; 
+show kernel routes 
+show kernel routes table &lt;table&gt; 
 show node 
 show node fsm history 
 show node fsm verbose-history 
+show node statistics 
+show node statistics exclude-zero 
 show nodes 
 show nodes level 
-show route prefix &lt;prefix&gt;
-show route prefix &lt;prefix&gt; owner &lt;owner&gt;
+show route prefix &lt;prefix&gt; 
+show route prefix &lt;prefix&gt; owner &lt;owner&gt; 
 show routes 
+show routes prefix &lt;prefix&gt; 
+show routes prefix &lt;prefix&gt; owner &lt;owner&gt; 
 show spf 
-show spf direction &lt;direction&gt;
-show spf direction &lt;direction&gt; destination &lt;destination&gt;
+show spf direction &lt;direction&gt; 
+show spf direction &lt;direction&gt; destination &lt;destination&gt; 
 show tie-db 
 stop 
 </pre>
+<!-- OUTPUT-END -->
 
 If you are connected to the CLI using Telnet, you can use the following keys for editing:
 
@@ -250,22 +264,26 @@ that applies to all nodes running in the RIFT engine.
 
 Example:
 
+<!-- OUTPUT-START: agg_101> show engine -->
 <pre>
 agg_101> <b>show engine</b>
-+----------------------------------+---------------------+
-| Stand-alone                      | False               |
-| Interactive                      | True                |
-| Simulated Interfaces             | True                |
-| Physical Interface               | en0                 |
-| Telnet Port File                 | None                |
-| IPv4 Multicast Loopback          | True                |
-| IPv6 Multicast Loopback          | True                |
-| Number of Nodes                  | 10                  |
-| Transmit Source Address          | 127.0.0.1           |
-| Flooding Reduction               | True                |
-| Flooding Reduction System Random | 4390615406429300161 |
-+----------------------------------+---------------------+
++----------------------------------+--------------------+
+| Stand-alone                      | False              |
+| Interactive                      | True               |
+| Simulated Interfaces             | True               |
+| Physical Interface               | eth0               |
+| Telnet Port File                 | None               |
+| IPv4 Multicast Loopback          | True               |
+| IPv6 Multicast Loopback          | True               |
+| Number of Nodes                  | 10                 |
+| Transmit Source Address          | 127.0.0.1          |
+| Flooding Reduction Enabled       | True               |
+| Flooding Reduction Redundancy    | 2                  |
+| Flooding Reduction Similarity    | 2                  |
+| Flooding Reduction System Random | 744743305389765009 |
++----------------------------------+--------------------+
 </pre>
+<!-- OUTPUT-END -->
 
 ### show forwarding
 
@@ -274,43 +292,43 @@ the current node. It shows both the IPv4 FIB and the IPv6 FIB.
 
 Example:
 
+<!-- OUTPUT-START: agg_101> show forwarding -->
 <pre>
 agg_101> <b>show forwarding</b>
 IPv4 Routes:
-+---------------+-----------+-----------------------+
-| Prefix        | Owner     | Next-hops             |
-+---------------+-----------+-----------------------+
-| 0.0.0.0/0     | North SPF | if_101_1 127.0.0.1    |
-|               |           | if_101_2 127.0.0.1    |
-+---------------+-----------+-----------------------+
-| 1.1.1.0/24    | South SPF | if_101_1001 127.0.0.1 |
-+---------------+-----------+-----------------------+
-| 1.1.2.0/24    | South SPF | if_101_1001 127.0.0.1 |
-+---------------+-----------+-----------------------+
-| 1.1.3.0/24    | South SPF | if_101_1001 127.0.0.1 |
-+---------------+-----------+-----------------------+
-| 1.1.4.0/24    | South SPF | if_101_1001 127.0.0.1 |
-+---------------+-----------+-----------------------+
-| 1.2.1.0/24    | South SPF | if_101_1002 127.0.0.1 |
-+---------------+-----------+-----------------------+
-| 1.2.2.0/24    | South SPF | if_101_1002 127.0.0.1 |
-+---------------+-----------+-----------------------+
-| 1.2.3.0/24    | South SPF | if_101_1002 127.0.0.1 |
-+---------------+-----------+-----------------------+
-| 1.2.4.0/24    | South SPF | if_101_1002 127.0.0.1 |
-+---------------+-----------+-----------------------+
-| 99.99.99.0/24 | South SPF | if_101_1001 127.0.0.1 |
-|               |           | if_101_1002 127.0.0.1 |
-+---------------+-----------+-----------------------+
++---------------+-----------+------------------------+
+| Prefix        | Owner     | Next-hops              |
++---------------+-----------+------------------------+
+| 0.0.0.0/0     | North SPF | if_101_1 172.17.0.3    |
++---------------+-----------+------------------------+
+| 1.1.1.0/24    | South SPF | if_101_1001 172.17.0.3 |
++---------------+-----------+------------------------+
+| 1.1.2.0/24    | South SPF | if_101_1001 172.17.0.3 |
++---------------+-----------+------------------------+
+| 1.1.3.0/24    | South SPF | if_101_1001 172.17.0.3 |
++---------------+-----------+------------------------+
+| 1.1.4.0/24    | South SPF | if_101_1001 172.17.0.3 |
++---------------+-----------+------------------------+
+| 1.2.1.0/24    | South SPF | if_101_1002 172.17.0.3 |
++---------------+-----------+------------------------+
+| 1.2.2.0/24    | South SPF | if_101_1002 172.17.0.3 |
++---------------+-----------+------------------------+
+| 1.2.3.0/24    | South SPF | if_101_1002 172.17.0.3 |
++---------------+-----------+------------------------+
+| 1.2.4.0/24    | South SPF | if_101_1002 172.17.0.3 |
++---------------+-----------+------------------------+
+| 99.99.99.0/24 | South SPF | if_101_1001 172.17.0.3 |
+|               |           | if_101_1002 172.17.0.3 |
++---------------+-----------+------------------------+
 
 IPv6 Routes:
-+--------+-----------+--------------------+
-| Prefix | Owner     | Next-hops          |
-+--------+-----------+--------------------+
-| ::/0   | North SPF | if_101_1 127.0.0.1 |
-|        |           | if_101_2 127.0.0.1 |
-+--------+-----------+--------------------+
++--------+-----------+-------------------------------+
+| Prefix | Owner     | Next-hops                     |
++--------+-----------+-------------------------------+
+| ::/0   | North SPF | if_101_1 fe80::42:acff:fe11:3 |
++--------+-----------+-------------------------------+
 </pre>
+<!-- OUTPUT-END --></pre>
 
 ### show forwarding prefix <i>prefix</i>
 
@@ -321,15 +339,16 @@ Parameter <i>prefix</i> must be an IPv4 prefix or an IPv6 prefix
 
 Example:
 
+<!-- OUTPUT-START: agg_101> show forwarding prefix ::/0 -->
 <pre>
 agg_101> <b>show forwarding prefix ::/0</b>
-+--------+-----------+--------------------+
-| Prefix | Owner     | Next-hops          |
-+--------+-----------+--------------------+
-| ::/0   | North SPF | if_101_1 127.0.0.1 |
-|        |           | if_101_2 127.0.0.1 |
-+--------+-----------+--------------------+
++--------+-----------+-------------------------------+
+| Prefix | Owner     | Next-hops                     |
++--------+-----------+-------------------------------+
+| ::/0   | North SPF | if_101_1 fe80::42:acff:fe11:3 |
++--------+-----------+-------------------------------+
 </pre>
+<!-- OUTPUT-END -->
 
 ### show fsm <i>fsm</i>
 
@@ -342,6 +361,7 @@ Parameter <i>fsm</i> specifies the name of the FSM and can be one of the followi
 
 Example:
 
+<!-- OUTPUT-START: agg_101> show fsm lie -->
 <pre>
 agg_101> <b>show fsm lie</b>
 States:
@@ -365,9 +385,29 @@ Events:
 +-------------------------------+---------+
 | HAL_CHANGED                   | False   |
 +-------------------------------+---------+
-.                               .         .
-.                               .         .
-.                               .         .
+| HAT_CHANGED                   | False   |
++-------------------------------+---------+
+| HALS_CHANGED                  | False   |
++-------------------------------+---------+
+| LIE_RECEIVED                  | True    |
++-------------------------------+---------+
+| NEW_NEIGHBOR                  | False   |
++-------------------------------+---------+
+| VALID_REFLECTION              | False   |
++-------------------------------+---------+
+| NEIGHBOR_DROPPED_REFLECTION   | False   |
++-------------------------------+---------+
+| NEIGHBOR_CHANGED_LEVEL        | False   |
++-------------------------------+---------+
+| NEIGHBOR_CHANGED_ADDRESS      | False   |
++-------------------------------+---------+
+| NEIGHBOR_CHANGED_MINOR_FIELDS | False   |
++-------------------------------+---------+
+| UNACCEPTABLE_HEADER           | False   |
++-------------------------------+---------+
+| HOLD_TIME_EXPIRED             | False   |
++-------------------------------+---------+
+| MULTIPLE_NEIGHBORS            | False   |
 +-------------------------------+---------+
 | LIE_CORRUPT                   | False   |
 +-------------------------------+---------+
@@ -384,9 +424,71 @@ Transitions:
 +------------+-----------------------------+-----------+-------------------------+-------------+
 | ONE_WAY    | HAL_CHANGED                 | -         | store_hal               | -           |
 +------------+-----------------------------+-----------+-------------------------+-------------+
-.            .                             .           .                         .             .
-.            .                             .           .                         .             .
-.            .                             .           .                         .             .
+| ONE_WAY    | HAT_CHANGED                 | -         | store_hat               | -           |
++------------+-----------------------------+-----------+-------------------------+-------------+
+| ONE_WAY    | HALS_CHANGED                | -         | store_hals              | -           |
++------------+-----------------------------+-----------+-------------------------+-------------+
+| ONE_WAY    | LIE_RECEIVED                | -         | process_lie             | -           |
++------------+-----------------------------+-----------+-------------------------+-------------+
+| ONE_WAY    | NEW_NEIGHBOR                | TWO_WAY   | -                       | SEND_LIE    |
++------------+-----------------------------+-----------+-------------------------+-------------+
+| ONE_WAY    | UNACCEPTABLE_HEADER         | ONE_WAY   | -                       | -           |
++------------+-----------------------------+-----------+-------------------------+-------------+
+| ONE_WAY    | HOLD_TIME_EXPIRED           | -         | hold_time_expired       | -           |
++------------+-----------------------------+-----------+-------------------------+-------------+
+| ONE_WAY    | SEND_LIE                    | -         | send_lie                | -           |
++------------+-----------------------------+-----------+-------------------------+-------------+
+| TWO_WAY    | TIMER_TICK                  | -         | check_hold_time_expired | SEND_LIE    |
++------------+-----------------------------+-----------+-------------------------+-------------+
+| TWO_WAY    | LEVEL_CHANGED               | ONE_WAY   | update_level            | -           |
++------------+-----------------------------+-----------+-------------------------+-------------+
+| TWO_WAY    | HAL_CHANGED                 | -         | store_hal               | -           |
++------------+-----------------------------+-----------+-------------------------+-------------+
+| TWO_WAY    | HAT_CHANGED                 | -         | store_hat               | -           |
++------------+-----------------------------+-----------+-------------------------+-------------+
+| TWO_WAY    | HALS_CHANGED                | -         | store_hals              | -           |
++------------+-----------------------------+-----------+-------------------------+-------------+
+| TWO_WAY    | LIE_RECEIVED                | -         | process_lie             | -           |
++------------+-----------------------------+-----------+-------------------------+-------------+
+| TWO_WAY    | VALID_REFLECTION            | THREE_WAY | -                       | -           |
++------------+-----------------------------+-----------+-------------------------+-------------+
+| TWO_WAY    | NEIGHBOR_CHANGED_LEVEL      | ONE_WAY   | -                       | -           |
++------------+-----------------------------+-----------+-------------------------+-------------+
+| TWO_WAY    | NEIGHBOR_CHANGED_ADDRESS    | ONE_WAY   | -                       | -           |
++------------+-----------------------------+-----------+-------------------------+-------------+
+| TWO_WAY    | UNACCEPTABLE_HEADER         | ONE_WAY   | -                       | -           |
++------------+-----------------------------+-----------+-------------------------+-------------+
+| TWO_WAY    | HOLD_TIME_EXPIRED           | ONE_WAY   | hold_time_expired       | -           |
++------------+-----------------------------+-----------+-------------------------+-------------+
+| TWO_WAY    | MULTIPLE_NEIGHBORS          | ONE_WAY   | -                       | -           |
++------------+-----------------------------+-----------+-------------------------+-------------+
+| TWO_WAY    | LIE_CORRUPT                 | ONE_WAY   | -                       | -           |
++------------+-----------------------------+-----------+-------------------------+-------------+
+| TWO_WAY    | SEND_LIE                    | -         | send_lie                | -           |
++------------+-----------------------------+-----------+-------------------------+-------------+
+| THREE_WAY  | TIMER_TICK                  | -         | check_hold_time_expired | SEND_LIE    |
++------------+-----------------------------+-----------+-------------------------+-------------+
+| THREE_WAY  | LEVEL_CHANGED               | ONE_WAY   | update_level            | -           |
++------------+-----------------------------+-----------+-------------------------+-------------+
+| THREE_WAY  | HAL_CHANGED                 | -         | store_hal               | -           |
++------------+-----------------------------+-----------+-------------------------+-------------+
+| THREE_WAY  | HAT_CHANGED                 | -         | store_hat               | -           |
++------------+-----------------------------+-----------+-------------------------+-------------+
+| THREE_WAY  | HALS_CHANGED                | -         | store_hals              | -           |
++------------+-----------------------------+-----------+-------------------------+-------------+
+| THREE_WAY  | LIE_RECEIVED                | -         | process_lie             | -           |
++------------+-----------------------------+-----------+-------------------------+-------------+
+| THREE_WAY  | NEIGHBOR_DROPPED_REFLECTION | TWO_WAY   | -                       | -           |
++------------+-----------------------------+-----------+-------------------------+-------------+
+| THREE_WAY  | NEIGHBOR_CHANGED_LEVEL      | ONE_WAY   | -                       | -           |
++------------+-----------------------------+-----------+-------------------------+-------------+
+| THREE_WAY  | NEIGHBOR_CHANGED_ADDRESS    | ONE_WAY   | -                       | -           |
++------------+-----------------------------+-----------+-------------------------+-------------+
+| THREE_WAY  | UNACCEPTABLE_HEADER         | ONE_WAY   | -                       | -           |
++------------+-----------------------------+-----------+-------------------------+-------------+
+| THREE_WAY  | HOLD_TIME_EXPIRED           | ONE_WAY   | hold_time_expired       | -           |
++------------+-----------------------------+-----------+-------------------------+-------------+
+| THREE_WAY  | MULTIPLE_NEIGHBORS          | ONE_WAY   | -                       | -           |
 +------------+-----------------------------+-----------+-------------------------+-------------+
 | THREE_WAY  | LIE_CORRUPT                 | ONE_WAY   | -                       | -           |
 +------------+-----------------------------+-----------+-------------------------+-------------+
@@ -394,12 +496,16 @@ Transitions:
 +------------+-----------------------------+-----------+-------------------------+-------------+
 
 State entry actions:
-+---------+---------+
-| State   | Actions |
-+---------+---------+
-| ONE_WAY | cleanup |
-+---------+---------+
++-----------+----------------+---------------+
+| State     | Entry Actions  | Exit Actions  |
++-----------+----------------+---------------+
+| ONE_WAY   | cleanup        | -             |
+|           | send_lie       |               |
++-----------+----------------+---------------+
+| THREE_WAY | start_flooding | stop_flooding |
++-----------+----------------+---------------+
 </pre>
+<!-- OUTPUT-END -->
 
 ### show interface <i>interface</i>
 
@@ -411,16 +517,17 @@ current node using the <b>show interfaces</b> command.
 
 Example of an interface which does have a neighbor (adjacency in state THREE_WAY):
 
+<!-- OUTPUT-START: agg_101> show interface if_101_1 -->
 <pre>
-agg_101> <b>show interface if_101_1</b><!-- OUTPUT-START: agg_101> show interface if_101_1 -->
+agg_101> <b>show interface if_101_1</b>
 Interface:
 +--------------------------------------+----------------------------------------------------------+
 | Interface Name                       | if_101_1                                                 |
-| Physical Interface Name              | en0                                                      |
+| Physical Interface Name              | eth0                                                     |
 | Advertised Name                      | agg_101-if_101_1                                         |
-| Interface IPv4 Address               | 192.168.8.108                                            |
-| Interface IPv6 Address               | fe80::ab:bbd1:f18b:3dcd%en0                              |
-| Interface Index                      | 5                                                        |
+| Interface IPv4 Address               | 172.17.0.3                                               |
+| Interface IPv6 Address               | 2001:db8:1::242:ac11:3                                   |
+| Interface Index                      | 10                                                       |
 | Metric                               | 1                                                        |
 | LIE Recieve IPv4 Multicast Address   | 224.0.0.81                                               |
 | LIE Receive IPv6 Multicast Address   | FF02::0078                                               |
@@ -441,24 +548,25 @@ Interface:
 +--------------------------------------+----------------------------------------------------------+
 
 Neighbor:
-+------------------------+-------------------------+
-| Name                   | core_1-if_1_101         |
-| System ID              | 1                       |
-| IPv4 Address           | 192.168.8.108           |
-| IPv6 Address           | fe80::ab:bbd1:f18b:3dcd |
-| LIE UDP Source Port    | 59021                   |
-| Link ID                | 1                       |
-| Level                  | 2                       |
-| Flood UDP Port         | 20003                   |
-| MTU                    | 1400                    |
-| POD                    | 0                       |
-| Hold Time              | 3                       |
-| Not a ZTP Offer        | False                   |
-| You are Flood Repeater | False                   |
-| Your System ID         | 101                     |
-| Your Local ID          | 1                       |
-+------------------------+-------------------------+
-<!-- OUTPUT-END --></pre>
++------------------------+---------------------------+
+| Name                   | core_1-if_1_101           |
+| System ID              | 1                         |
+| IPv4 Address           | 172.17.0.3                |
+| IPv6 Address           | fe80::42:acff:fe11:3%eth0 |
+| LIE UDP Source Port    | 54310                     |
+| Link ID                | 1                         |
+| Level                  | 2                         |
+| Flood UDP Port         | 20003                     |
+| MTU                    | 1400                      |
+| POD                    | 0                         |
+| Hold Time              | 3                         |
+| Not a ZTP Offer        | False                     |
+| You are Flood Repeater | False                     |
+| Your System ID         | 101                       |
+| Your Local ID          | 1                         |
++------------------------+---------------------------+
+</pre>
+<!-- OUTPUT-END -->
 
 ### show interface <i>interface</i> fsm history
 
@@ -472,17 +580,22 @@ Use the "<b>show interface</b> <i>interface</i> <b>fsm verbose-history</b>" comm
 
 Example:
 
+<!-- OUTPUT-START: agg_101> show interface if_101_1001 fsm history -->
 <pre>
 agg_101> <b>show interface if_101_1001 fsm history</b>
-+----------+-------------+---------+---------+------------------+---------------+-----------+----------+
-| Sequence | Time        | Verbose | From    | Event            | Actions and   | To        | Implicit |
-| Nr       | Delta       | Skipped | State   |                  | Pushed Events | State     |          |
-+----------+-------------+---------+---------+------------------+---------------+-----------+----------+
-| 313      | 2087.427679 | 2       | TWO_WAY | VALID_REFLECTION |               | THREE_WAY | False    |
-+----------+-------------+---------+---------+------------------+---------------+-----------+----------+
-| 223      | 0.017177    | 3       | ONE_WAY | NEW_NEIGHBOR     | SEND_LIE      | TWO_WAY   | False    |
-+----------+-------------+---------+---------+------------------+---------------+-----------+----------+
++----------+----------+---------+---------+------------------+----------------+-----------+----------+
+| Sequence | Time     | Verbose | From    | Event            | Actions and    | To        | Implicit |
+| Nr       | Delta    | Skipped | State   |                  | Pushed Events  | State     |          |
++----------+----------+---------+---------+------------------+----------------+-----------+----------+
+| 236      | 8.971300 | 3       | TWO_WAY | VALID_REFLECTION | start_flooding | THREE_WAY | False    |
++----------+----------+---------+---------+------------------+----------------+-----------+----------+
+| 66       | 0.356497 | 1       | ONE_WAY | NEW_NEIGHBOR     | SEND_LIE       | TWO_WAY   | False    |
++----------+----------+---------+---------+------------------+----------------+-----------+----------+
+| 9        | 0.360795 | 0       | None    | None             | cleanup        | ONE_WAY   | False    |
+|          |          |         |         |                  | send_lie       |           |          |
++----------+----------+---------+---------+------------------+----------------+-----------+----------+
 </pre>
+<!-- OUTPUT-END -->
 
 ### show interface <i>interface</i> fsm verbose-history
 
@@ -498,29 +611,71 @@ Use the "<b>show interface</b> <i>interface</i> <b>fsm history</b>" command if y
 
 Example:
 
+<!-- OUTPUT-START: agg_101> show interface if_101_1001 fsm verbose-history -->
 <pre>
 agg_101> <b>show interface if_101_1001 fsm verbose-history</b>
 +----------+----------+---------+-----------+--------------+-------------------------+-------+----------+
 | Sequence | Time     | Verbose | From      | Event        | Actions and             | To    | Implicit |
 | Nr       | Delta    | Skipped | State     |              | Pushed Events           | State |          |
 +----------+----------+---------+-----------+--------------+-------------------------+-------+----------+
-| 316353   | 0.486001 | 0       | THREE_WAY | LIE_RECEIVED | process_lie             | None  | False    |
+| 1624     | 0.642295 | 0       | THREE_WAY | LIE_RECEIVED | process_lie             | None  | False    |
 +----------+----------+---------+-----------+--------------+-------------------------+-------+----------+
-| 316277   | 0.017974 | 0       | THREE_WAY | SEND_LIE     | send_lie                | None  | False    |
+| 1623     | 0.000462 | 0       | THREE_WAY | LIE_RECEIVED | process_lie             | None  | False    |
 +----------+----------+---------+-----------+--------------+-------------------------+-------+----------+
-| 316254   | 0.002745 | 0       | THREE_WAY | TIMER_TICK   | check_hold_time_expired | None  | False    |
+| 1550     | 0.161256 | 0       | THREE_WAY | SEND_LIE     | send_lie                | None  | False    |
++----------+----------+---------+-----------+--------------+-------------------------+-------+----------+
+| 1549     | 0.000330 | 0       | THREE_WAY | TIMER_TICK   | check_hold_time_expired | None  | False    |
 |          |          |         |           |              | SEND_LIE                |       |          |
 +----------+----------+---------+-----------+--------------+-------------------------+-------+----------+
-.          .          .         .           .              .                         .       .          .
-.          .          .         .           .              .                         .       .          .
-.          .          .         .           .              .                         .       .          .
+| 1478     | 0.757791 | 0       | THREE_WAY | LIE_RECEIVED | process_lie             | None  | False    |
 +----------+----------+---------+-----------+--------------+-------------------------+-------+----------+
-| 315302   | 0.002144 | 0       | THREE_WAY | TIMER_TICK   | check_hold_time_expired | None  | False    |
+| 1477     | 0.000360 | 0       | THREE_WAY | LIE_RECEIVED | process_lie             | None  | False    |
++----------+----------+---------+-----------+--------------+-------------------------+-------+----------+
+| 1398     | 0.241970 | 0       | THREE_WAY | SEND_LIE     | send_lie                | None  | False    |
++----------+----------+---------+-----------+--------------+-------------------------+-------+----------+
+| 1397     | 0.000414 | 0       | THREE_WAY | TIMER_TICK   | check_hold_time_expired | None  | False    |
 |          |          |         |           |              | SEND_LIE                |       |          |
 +----------+----------+---------+-----------+--------------+-------------------------+-------+----------+
-| 315242   | 0.983821 | 0       | THREE_WAY | LIE_RECEIVED | process_lie             | None  | False    |
+| 1320     | 0.837035 | 0       | THREE_WAY | LIE_RECEIVED | process_lie             | None  | False    |
++----------+----------+---------+-----------+--------------+-------------------------+-------+----------+
+| 1319     | 0.000459 | 0       | THREE_WAY | LIE_RECEIVED | process_lie             | None  | False    |
++----------+----------+---------+-----------+--------------+-------------------------+-------+----------+
+| 1246     | 0.162061 | 0       | THREE_WAY | SEND_LIE     | send_lie                | None  | False    |
++----------+----------+---------+-----------+--------------+-------------------------+-------+----------+
+| 1245     | 0.000566 | 0       | THREE_WAY | TIMER_TICK   | check_hold_time_expired | None  | False    |
+|          |          |         |           |              | SEND_LIE                |       |          |
++----------+----------+---------+-----------+--------------+-------------------------+-------+----------+
+| 1170     | 0.827460 | 0       | THREE_WAY | LIE_RECEIVED | process_lie             | None  | False    |
++----------+----------+---------+-----------+--------------+-------------------------+-------+----------+
+| 1169     | 0.000343 | 0       | THREE_WAY | LIE_RECEIVED | process_lie             | None  | False    |
++----------+----------+---------+-----------+--------------+-------------------------+-------+----------+
+| 1094     | 0.171259 | 0       | THREE_WAY | SEND_LIE     | send_lie                | None  | False    |
++----------+----------+---------+-----------+--------------+-------------------------+-------+----------+
+| 1093     | 0.000568 | 0       | THREE_WAY | TIMER_TICK   | check_hold_time_expired | None  | False    |
+|          |          |         |           |              | SEND_LIE                |       |          |
++----------+----------+---------+-----------+--------------+-------------------------+-------+----------+
+| 1016     | 0.837722 | 0       | THREE_WAY | LIE_RECEIVED | process_lie             | None  | False    |
++----------+----------+---------+-----------+--------------+-------------------------+-------+----------+
+| 1015     | 0.000474 | 0       | THREE_WAY | LIE_RECEIVED | process_lie             | None  | False    |
++----------+----------+---------+-----------+--------------+-------------------------+-------+----------+
+| 942      | 0.161402 | 0       | THREE_WAY | SEND_LIE     | send_lie                | None  | False    |
++----------+----------+---------+-----------+--------------+-------------------------+-------+----------+
+| 941      | 0.000562 | 0       | THREE_WAY | TIMER_TICK   | check_hold_time_expired | None  | False    |
+|          |          |         |           |              | SEND_LIE                |       |          |
++----------+----------+---------+-----------+--------------+-------------------------+-------+----------+
+| 864      | 0.830484 | 0       | THREE_WAY | LIE_RECEIVED | process_lie             | None  | False    |
++----------+----------+---------+-----------+--------------+-------------------------+-------+----------+
+| 863      | 0.000356 | 0       | THREE_WAY | LIE_RECEIVED | process_lie             | None  | False    |
++----------+----------+---------+-----------+--------------+-------------------------+-------+----------+
+| 790      | 0.169292 | 0       | THREE_WAY | SEND_LIE     | send_lie                | None  | False    |
++----------+----------+---------+-----------+--------------+-------------------------+-------+----------+
+| 789      | 0.000415 | 0       | THREE_WAY | TIMER_TICK   | check_hold_time_expired | None  | False    |
+|          |          |         |           |              | SEND_LIE                |       |          |
++----------+----------+---------+-----------+--------------+-------------------------+-------+----------+
+| 686      | 0.327403 | 0       | THREE_WAY | LIE_RECEIVED | process_lie             | None  | False    |
 +----------+----------+---------+-----------+--------------+-------------------------+-------+----------+
 </pre>
+<!-- OUTPUT-END -->
 
 ### show interface <i>interface</i> queues
 
@@ -538,6 +693,7 @@ A queue that is persistently non-empty indicates a problem in flooding convergen
 
 Example:
 
+<!-- OUTPUT-START: agg_101> show interface if_101_1 queues -->
 <pre>
 agg_101> <b>show interface if_101_1 queues</b>
 Transmit queue:
@@ -564,6 +720,7 @@ Acknowledge queue:
 |           |            |      |        |        | Lifetime  | Time        |
 +-----------+------------+------+--------+--------+-----------+-------------+
 </pre>
+<!-- OUTPUT-END -->
 
 ### show interface <i>interface</i> sockets
 
@@ -572,6 +729,7 @@ current node has opened for sending and receiving packets.
 
 Example:
 
+<!-- OUTPUT-START: agg_101> show interface if_101_1 sockets -->
 <pre>
 agg_101> <b>show interface if_101_1 sockets</b>
 +----------+-----------+--------+---------------------------+------------+----------------+-------------+
@@ -581,15 +739,16 @@ agg_101> <b>show interface if_101_1 sockets</b>
 +----------+-----------+--------+---------------------------+------------+----------------+-------------+
 | LIEs     | Receive   | IPv6   | ::                        | 20001      | Any            | Any         |
 +----------+-----------+--------+---------------------------+------------+----------------+-------------+
-| LIEs     | Send      | IPv4   | 192.168.2.100             | 54091      | 224.0.0.71     | 20002       |
+| LIEs     | Send      | IPv4   | 172.17.0.3                | 53794      | 224.0.0.71     | 20002       |
 +----------+-----------+--------+---------------------------+------------+----------------+-------------+
-| LIEs     | Send      | IPv6   | fe80::184e:acd5:2cd7:cd3f | 54092      | ff02::78       | 20002       |
+| LIEs     | Send      | IPv6   | fe80::42:acff:fe11:3%eth0 | 37087      | ff02::78%eth0  | 20002       |
 +----------+-----------+--------+---------------------------+------------+----------------+-------------+
 | Flooding | Receive   | IPv4   | 0.0.0.0                   | 20004      | Any            | Any         |
 +----------+-----------+--------+---------------------------+------------+----------------+-------------+
-| Flooding | Send      | IPv4   | 192.168.2.100             | 53073      | 192.168.2.100  | 20003       |
+| Flooding | Send      | IPv4   | 172.17.0.3                | 40803      | 172.17.0.3     | 20003       |
 +----------+-----------+--------+---------------------------+------------+----------------+-------------+
 </pre>
+<!-- OUTPUT-END -->
 
 ### show interfaces
 
@@ -598,43 +757,49 @@ on the currently active RIFT node.
 
 Use the "<b>show interface</b> <i>interface</i>" to see all details about any particular interface.
 
+<!-- OUTPUT-START: agg_101> show interfaces -->
 <pre>
 agg_101> <b>show interfaces</b>
 +-------------+-----------------------+-----------+-----------+
 | Interface   | Neighbor              | Neighbor  | Neighbor  |
 | Name        | Name                  | System ID | State     |
 +-------------+-----------------------+-----------+-----------+
-| if_101_1    |                       |           | ONE_WAY   |
+| if_101_1    | core_1-if_1_101       | 1         | THREE_WAY |
 +-------------+-----------------------+-----------+-----------+
 | if_101_1001 | edge_1001-if_1001_101 | 1001      | THREE_WAY |
 +-------------+-----------------------+-----------+-----------+
 | if_101_1002 | edge_1002-if_1002_101 | 1002      | THREE_WAY |
 +-------------+-----------------------+-----------+-----------+
-| if_101_2    | core_2-if_2_101       | 2         | THREE_WAY |
+| if_101_2    |                       |           | ONE_WAY   |
 +-------------+-----------------------+-----------+-----------+
 </pre>
+<!-- OUTPUT-END -->
 
 ### show kernel addresses
 
 The "<b>show kernel addresses</b>" command reports a summary of all addresses in the Linux kernel
 on which the RIFT engine is running.
 
+<!-- OUTPUT-START: agg_101> show kernel addresses -->
 <pre>
-real2> show kernel addresses
+agg_101> <b>show kernel addresses</b>
 Kernel Addresses:
-+-----------+---------------------------+-----------+-----------+---------+
-| Interface | Address                   | Local     | Broadcast | Anycast |
-| Name      |                           |           |           |         |
-+-----------+---------------------------+-----------+-----------+---------+
-| lo        | 127.0.0.1                 | 127.0.0.1 |           |         |
-+-----------+---------------------------+-----------+-----------+---------+
-| lo        | 88.88.2.1                 | 88.88.2.1 |           |         |
-+-----------+---------------------------+-----------+-----------+---------+
-| veth-a2   | 99.99.1.2                 | 99.99.1.2 |           |         |
-+-----------+---------------------------+-----------+-----------+---------+
-| veth-b2   | 99.99.2.2                 | 99.99.2.2 |           |         |
-+-----------+---------------------------+-----------+-----------+---------+
++-----------+------------------------+------------+----------------+---------+
+| Interface | Address                | Local      | Broadcast      | Anycast |
+| Name      |                        |            |                |         |
++-----------+------------------------+------------+----------------+---------+
+| lo        | 127.0.0.1              | 127.0.0.1  |                |         |
++-----------+------------------------+------------+----------------+---------+
+| eth0      | 172.17.0.3             | 172.17.0.3 | 172.17.255.255 |         |
++-----------+------------------------+------------+----------------+---------+
+|           | ::1                    |            |                |         |
++-----------+------------------------+------------+----------------+---------+
+|           | 2001:db8:1::242:ac11:3 |            |                |         |
++-----------+------------------------+------------+----------------+---------+
+|           | fe80::42:acff:fe11:3   |            |                |         |
++-----------+------------------------+------------+----------------+---------+
 </pre>
+<!-- OUTPUT-END -->
 
 If this command is executed on a platform that does not support the Netlink interface to the
 kernel routing table (i.e. any non-Linux platform including BSD and macOS) the following error
@@ -650,8 +815,9 @@ Kernel networking not supported on this platform
 The "<b>show kernel links</b>" command reports a summary of all links in the Linux kernel
 on which the RIFT engine is running.
 
+<!-- OUTPUT-START: agg_101> show kernel links -->
 <pre>
-real2> <b>show kernel links</b>
+agg_101> <b>show kernel links</b>
 Kernel Links:
 +-----------+-----------+-------------------+-------------------+-----------+-------+-----------+
 | Interface | Interface | Hardware          | Hardware          | Link Type | MTU   | Flags     |
@@ -667,19 +833,14 @@ Kernel Links:
 +-----------+-----------+-------------------+-------------------+-----------+-------+-----------+
 | ip6tnl0   | 3         | 00:00:00:00:00:00 | 00:00:00:00:00:00 | 0         | 1452  | NOARP     |
 +-----------+-----------+-------------------+-------------------+-----------+-------+-----------+
-| veth-a2   | 4         | b2:cd:9f:06:78:ab | ff:ff:ff:ff:ff:ff | 5         | 1500  | UP        |
-|           |           |                   |                   |           |       | BROADCAST |
-|           |           |                   |                   |           |       | RUNNING   |
-|           |           |                   |                   |           |       | MULTICAST |
-|           |           |                   |                   |           |       | LOWER_UP  |
-+-----------+-----------+-------------------+-------------------+-----------+-------+-----------+
-| veth-b2   | 6         | 0a:6b:39:ab:a9:e9 | ff:ff:ff:ff:ff:ff | 7         | 1500  | UP        |
+| eth0      | 10        | 02:42:ac:11:00:03 | ff:ff:ff:ff:ff:ff | 11        | 1500  | UP        |
 |           |           |                   |                   |           |       | BROADCAST |
 |           |           |                   |                   |           |       | RUNNING   |
 |           |           |                   |                   |           |       | MULTICAST |
 |           |           |                   |                   |           |       | LOWER_UP  |
 +-----------+-----------+-------------------+-------------------+-----------+-------+-----------+
 </pre>
+<!-- OUTPUT-END -->
 
 If this command is executed on a platform that does not support the Netlink interface to the
 kernel routing table (i.e. any non-Linux platform including BSD and macOS) the following error
@@ -700,28 +861,12 @@ a number in the range 0-255.
 
 Parameter <i>prefix</i> must be an IPv4 prefix or an IPv6 prefix
 
+<!-- OUTPUT-START: agg_101> show kernel route table main prefix 99.99.1.0/24 -->
 <pre>
-real2> show kernel route table main prefix 99.99.1.0/24
-+--------------------------+--------------+
-| Table                    | Main         |
-| Address Family           | IPv4         |
-| Destination              | 99.99.1.0/24 |
-| Type                     | Unicast      |
-| Protocol                 | Kernel       |
-| Scope                    | Link         |
-| Next-hops                | veth-a2      |
-| Priority                 |              |
-| Preference               |              |
-| Preferred Source Address | 99.99.1.2    |
-| Source                   |              |
-| Flow                     |              |
-| Encapsulation Type       |              |
-| Encapsulation            |              |
-| Metrics                  |              |
-| Type of Service          | 0            |
-| Flags                    | 0            |
-+--------------------------+--------------+
+agg_101> <b>show kernel route table main prefix 99.99.1.0/24</b>
+Prefix "99.99.1.0/24" in table "Main" not present in kernel route table
 </pre>
+<!-- OUTPUT-END -->
 
 If this command is executed on a platform that does not support the Netlink interface to the
 kernel routing table (i.e. any non-Linux platform including BSD and macOS) the following error
@@ -737,37 +882,52 @@ Kernel networking not supported on this platform
 The "<b>show kernel routes</b>" command reports a summary of
 all routes in the Linux kernel on which the RIFT engine is running.
 
+<!-- OUTPUT-START: agg_101> show kernel routes -->
 <pre>
-real2> <b>show kernel routes</b>
+agg_101> <b>show kernel routes</b>
 Kernel Routes:
-+-------------+---------+-------------------------------+-------------+----------+-----------+-----------+--------+
-| Table       | Address | Destination                   | Type        | Protocol | Outgoing  | Gateway   | Weight |
-|             | Family  |                               |             |          | Interface |           |        |
-+-------------+---------+-------------------------------+-------------+----------+-----------+-----------+--------+
-| Unspecified | IPv6    | ::/0                          | Unreachable | Kernel   | lo        |           |        |
-+-------------+---------+-------------------------------+-------------+----------+-----------+-----------+--------+
-| Unspecified | IPv6    | ::/0                          | Unreachable | Kernel   | lo        |           |        |
-+-------------+---------+-------------------------------+-------------+----------+-----------+-----------+--------+
-| Main        | IPv4    | 0.0.0.0/0                     | Unicast     | RIFT     | veth-a2   | 99.99.1.1 | 1      |
-|             |         |                               |             |          | veth-b2   | 99.99.2.1 | 1      |
-+-------------+---------+-------------------------------+-------------+----------+-----------+-----------+--------+
-| Main        | IPv4    | 99.99.1.0/24                  | Unicast     | Kernel   | veth-a2   |           |        |
-+-------------+---------+-------------------------------+-------------+----------+-----------+-----------+--------+
-| Main        | IPv4    | 99.99.2.0/24                  | Unicast     | Kernel   | veth-b2   |           |        |
-+-------------+---------+-------------------------------+-------------+----------+-----------+-----------+--------+
-| Main        | IPv6    | fe80::/64                     | Unicast     | Kernel   | veth-a2   |           |        |
-+-------------+---------+-------------------------------+-------------+----------+-----------+-----------+--------+
-| Main        | IPv6    | fe80::/64                     | Unicast     | Kernel   | veth-b2   |           |        |
-+-------------+---------+-------------------------------+-------------+----------+-----------+-----------+--------+
-| Local       | IPv4    | 88.88.2.1/32                  | Local       | Kernel   | lo        |           |        |
-+-------------+---------+-------------------------------+-------------+----------+-----------+-----------+--------+
-.             .         .                               .             .          .           .           .        .
-.             .         .                               .             .          .           .           .        .
-.             .         .                               .             .          .           .           .        .
-+-------------+---------+-------------------------------+-------------+----------+-----------+-----------+--------+
-| Local       | IPv6    | ff00::/8                      | Unicast     | Boot     | veth-b2   |           |        |
-+-------------+---------+-------------------------------+-------------+----------+-----------+-----------+--------+
++-------------+---------+----------------------------+-------------+----------+-----------+---------------+--------+
+| Table       | Address | Destination                | Type        | Protocol | Outgoing  | Gateway       | Weight |
+|             | Family  |                            |             |          | Interface |               |        |
++-------------+---------+----------------------------+-------------+----------+-----------+---------------+--------+
+| Unspecified | IPv6    | ::/0                       | Unreachable | Kernel   | lo        |               |        |
++-------------+---------+----------------------------+-------------+----------+-----------+---------------+--------+
+| Unspecified | IPv6    | ::/0                       | Unreachable | Kernel   | lo        |               |        |
++-------------+---------+----------------------------+-------------+----------+-----------+---------------+--------+
+| Main        | IPv4    | 0.0.0.0/0                  | Unicast     | Boot     | eth0      | 172.17.0.1    |        |
++-------------+---------+----------------------------+-------------+----------+-----------+---------------+--------+
+| Main        | IPv4    | 172.17.0.0/16              | Unicast     | Kernel   | eth0      |               |        |
++-------------+---------+----------------------------+-------------+----------+-----------+---------------+--------+
+| Main        | IPv6    | ::/0                       | Unicast     | Boot     | eth0      | 2001:db8:1::1 |        |
++-------------+---------+----------------------------+-------------+----------+-----------+---------------+--------+
+| Main        | IPv6    | 2001:db8:1::/64            | Unicast     | Kernel   | eth0      |               |        |
++-------------+---------+----------------------------+-------------+----------+-----------+---------------+--------+
+| Main        | IPv6    | fe80::/64                  | Unicast     | Kernel   | eth0      |               |        |
++-------------+---------+----------------------------+-------------+----------+-----------+---------------+--------+
+| Local       | IPv4    | 127.0.0.0/8                | Local       | Kernel   | lo        |               |        |
++-------------+---------+----------------------------+-------------+----------+-----------+---------------+--------+
+| Local       | IPv4    | 127.0.0.0/32               | Broadcast   | Kernel   | lo        |               |        |
++-------------+---------+----------------------------+-------------+----------+-----------+---------------+--------+
+| Local       | IPv4    | 127.0.0.1/32               | Local       | Kernel   | lo        |               |        |
++-------------+---------+----------------------------+-------------+----------+-----------+---------------+--------+
+| Local       | IPv4    | 127.255.255.255/32         | Broadcast   | Kernel   | lo        |               |        |
++-------------+---------+----------------------------+-------------+----------+-----------+---------------+--------+
+| Local       | IPv4    | 172.17.0.0/32              | Broadcast   | Kernel   | eth0      |               |        |
++-------------+---------+----------------------------+-------------+----------+-----------+---------------+--------+
+| Local       | IPv4    | 172.17.0.3/32              | Local       | Kernel   | eth0      |               |        |
++-------------+---------+----------------------------+-------------+----------+-----------+---------------+--------+
+| Local       | IPv4    | 172.17.255.255/32          | Broadcast   | Kernel   | eth0      |               |        |
++-------------+---------+----------------------------+-------------+----------+-----------+---------------+--------+
+| Local       | IPv6    | ::1/128                    | Local       | Unspec   | lo        |               |        |
++-------------+---------+----------------------------+-------------+----------+-----------+---------------+--------+
+| Local       | IPv6    | 2001:db8:1::242:ac11:3/128 | Local       | Unspec   | lo        |               |        |
++-------------+---------+----------------------------+-------------+----------+-----------+---------------+--------+
+| Local       | IPv6    | fe80::42:acff:fe11:3/128   | Local       | Unspec   | lo        |               |        |
++-------------+---------+----------------------------+-------------+----------+-----------+---------------+--------+
+| Local       | IPv6    | ff00::/8                   | Unicast     | Boot     | eth0      |               |        |
++-------------+---------+----------------------------+-------------+----------+-----------+---------------+--------+
 </pre>
+<!-- OUTPUT-END -->
 
 If this command is executed on a platform that does not support the Netlink interface to the
 kernel routing table (i.e. any non-Linux platform including BSD and macOS) the following error
@@ -786,25 +946,26 @@ all routes in a specific route table in the Linux kernel on which the RIFT engin
 Parameter <i>table</i> must be <b>local</b>, <b>main</b>, <b>default</b>, <b>unspecified</b>, or
 a number in the range 0-255.
 
+<!-- OUTPUT-START: agg_101> show kernel routes table main -->
 <pre>
-real2> <b>show kernel routes table main</b>
+agg_101> <b>show kernel routes table main</b>
 Kernel Routes:
-+-------+---------+--------------+---------+----------+-----------+-----------+--------+
-| Table | Address | Destination  | Type    | Protocol | Outgoing  | Gateway   | Weight |
-|       | Family  |              |         |          | Interface |           |        |
-+-------+---------+--------------+---------+----------+-----------+-----------+--------+
-| Main  | IPv4    | 0.0.0.0/0    | Unicast | RIFT     | veth-a2   | 99.99.1.1 | 1      |
-|       |         |              |         |          | veth-b2   | 99.99.2.1 | 1      |
-+-------+---------+--------------+---------+----------+-----------+-----------+--------+
-| Main  | IPv4    | 99.99.1.0/24 | Unicast | Kernel   | veth-a2   |           |        |
-+-------+---------+--------------+---------+----------+-----------+-----------+--------+
-| Main  | IPv4    | 99.99.2.0/24 | Unicast | Kernel   | veth-b2   |           |        |
-+-------+---------+--------------+---------+----------+-----------+-----------+--------+
-| Main  | IPv6    | fe80::/64    | Unicast | Kernel   | veth-a2   |           |        |
-+-------+---------+--------------+---------+----------+-----------+-----------+--------+
-| Main  | IPv6    | fe80::/64    | Unicast | Kernel   | veth-b2   |           |        |
-+-------+---------+--------------+---------+----------+-----------+-----------+--------+
++-------+---------+-----------------+---------+----------+-----------+---------------+--------+
+| Table | Address | Destination     | Type    | Protocol | Outgoing  | Gateway       | Weight |
+|       | Family  |                 |         |          | Interface |               |        |
++-------+---------+-----------------+---------+----------+-----------+---------------+--------+
+| Main  | IPv4    | 0.0.0.0/0       | Unicast | Boot     | eth0      | 172.17.0.1    |        |
++-------+---------+-----------------+---------+----------+-----------+---------------+--------+
+| Main  | IPv4    | 172.17.0.0/16   | Unicast | Kernel   | eth0      |               |        |
++-------+---------+-----------------+---------+----------+-----------+---------------+--------+
+| Main  | IPv6    | ::/0            | Unicast | Boot     | eth0      | 2001:db8:1::1 |        |
++-------+---------+-----------------+---------+----------+-----------+---------------+--------+
+| Main  | IPv6    | 2001:db8:1::/64 | Unicast | Kernel   | eth0      |               |        |
++-------+---------+-----------------+---------+----------+-----------+---------------+--------+
+| Main  | IPv6    | fe80::/64       | Unicast | Kernel   | eth0      |               |        |
++-------+---------+-----------------+---------+----------+-----------+---------------+--------+
 </pre>
+<!-- OUTPUT-END -->
 
 If this command is executed on a platform that does not support the Netlink interface to the
 kernel routing table (i.e. any non-Linux platform including BSD and macOS) the following error
@@ -821,6 +982,7 @@ The "<b>show node</b>" command reports the details for the currently active RIFT
 
 Example:
 
+<!-- OUTPUT-START: agg_101> show node -->
 <pre>
 agg_101> <b>show node</b>
 Node:
@@ -848,8 +1010,10 @@ Node:
 | LIE Send Interval                     | 1.0 secs         |
 | Receive TIE Port                      | 10001            |
 | Kernel Route Table                    | 3                |
-| Flooding Reduction                    | True             |
-| Flooding Reduction Node Random        | 2897             |
+| Flooding Reduction Enabled            | True             |
+| Flooding Reduction Redundancy         | 2                |
+| Flooding Reduction Similarity         | 2                |
+| Flooding Reduction Node Random        | 19842            |
 +---------------------------------------+------------------+
 
 Received Offers:
@@ -862,8 +1026,6 @@ Received Offers:
 +-------------+-----------+-------+-----------------+-----------+-------+------------+---------+----------------+
 | if_101_1002 | 1002      | 0     | False           | THREE_WAY | False | False      | True    | Level is leaf  |
 +-------------+-----------+-------+-----------------+-----------+-------+------------+---------+----------------+
-| if_101_2    | 2         | 2     | False           | THREE_WAY | False | False      | False   |                |
-+-------------+-----------+-------+-----------------+-----------+-------+------------+---------+----------------+
 
 Sent Offers:
 +-------------+-----------+-------+-----------------+-----------+
@@ -875,9 +1037,10 @@ Sent Offers:
 +-------------+-----------+-------+-----------------+-----------+
 | if_101_1002 | 101       | 1     | False           | THREE_WAY |
 +-------------+-----------+-------+-----------------+-----------+
-| if_101_2    | 101       | 1     | False           | THREE_WAY |
+| if_101_2    | 101       | 1     | False           | ONE_WAY   |
 +-------------+-----------+-------+-----------------+-----------+
 </pre>
+<!-- OUTPUT-END -->
 
 ### show node fsm history
 
@@ -891,35 +1054,33 @@ Use the "<b>show node fsm verbose-history</b>" command if you want to see all ev
 
 Example:
 
+<!-- OUTPUT-START: agg_101> show node fsm history -->
 <pre>
 agg_101> <b>show node fsm history</b>
-+----------+-------------+---------+--------------------+-------------------+----------------------------------------------+--------------------+----------+
-| Sequence | Time        | Verbose | From               | Event             | Actions and                                  | To                 | Implicit |
-| Nr       | Delta       | Skipped | State              |                   | Pushed Events                                | State              |          |
-+----------+-------------+---------+--------------------+-------------------+----------------------------------------------+--------------------+----------+
-| 172980   | 2070.046668 | 0       | COMPUTE_BEST_OFFER | COMPUTATION_DONE  | no_action                                    | UPDATING_CLIENTS   | False    |
-|          |             |         |                    |                   | update_all_lie_fsms_with_computation_results |                    |          |
-+----------+-------------+---------+--------------------+-------------------+----------------------------------------------+--------------------+----------+
-| 172979   | 0.000207    | 0       | HOLDING_DOWN       | HOLD_DOWN_EXPIRED | purge_offers                                 | COMPUTE_BEST_OFFER | False    |
-|          |             |         |                    |                   | stop_hold_down_timer                         |                    |          |
-|          |             |         |                    |                   | level_compute                                |                    |          |
-|          |             |         |                    |                   | COMPUTATION_DONE                             |                    |          |
-+----------+-------------+---------+--------------------+-------------------+----------------------------------------------+--------------------+----------+
-| 172978   | 0.000187    | 0       | HOLDING_DOWN       | LOST_HAT          | no_action                                    | None               | False    |
-+----------+-------------+---------+--------------------+-------------------+----------------------------------------------+--------------------+----------+
-.          .             .         .                    .                   .                                              .                    .          .
-.          .             .         .                    .                   .                                              .                    .          .
-.          .             .         .                    .                   .                                              .                    .          .
-+----------+-------------+---------+--------------------+-------------------+----------------------------------------------+--------------------+----------+
-| 58       | 0.000430    | 2       | UPDATING_CLIENTS   | BETTER_HAL        | no_action                                    | COMPUTE_BEST_OFFER | False    |
-|          |             |         |                    |                   | stop_hold_down_timer                         |                    |          |
-|          |             |         |                    |                   | level_compute                                |                    |          |
-|          |             |         |                    |                   | COMPUTATION_DONE                             |                    |          |
-+----------+-------------+---------+--------------------+-------------------+----------------------------------------------+--------------------+----------+
-| 3        | 0.013643    | 0       | COMPUTE_BEST_OFFER | COMPUTATION_DONE  | no_action                                    | UPDATING_CLIENTS   | False    |
-|          |             |         |                    |                   | update_all_lie_fsms_with_computation_results |                    |          |
-+----------+-------------+---------+--------------------+-------------------+----------------------------------------------+--------------------+----------+
++----------+-----------+---------+--------------------+------------------+----------------------+--------------------+----------+
+| Sequence | Time      | Verbose | From               | Event            | Actions and          | To                 | Implicit |
+| Nr       | Delta     | Skipped | State              |                  | Pushed Events        | State              |          |
++----------+-----------+---------+--------------------+------------------+----------------------+--------------------+----------+
+| 309      | 10.301464 | 0       | COMPUTE_BEST_OFFER | COMPUTATION_DONE | update_all_lie_fsms  | UPDATING_CLIENTS   | False    |
++----------+-----------+---------+--------------------+------------------+----------------------+--------------------+----------+
+| 308      | 0.001325  | 6       | UPDATING_CLIENTS   | BETTER_HAT       | stop_hold_down_timer | COMPUTE_BEST_OFFER | False    |
+|          |           |         |                    |                  | level_compute        |                    |          |
+|          |           |         |                    |                  | COMPUTATION_DONE     |                    |          |
++----------+-----------+---------+--------------------+------------------+----------------------+--------------------+----------+
+| 185      | 0.330944  | 0       | COMPUTE_BEST_OFFER | COMPUTATION_DONE | update_all_lie_fsms  | UPDATING_CLIENTS   | False    |
++----------+-----------+---------+--------------------+------------------+----------------------+--------------------+----------+
+| 184      | 0.001461  | 5       | UPDATING_CLIENTS   | BETTER_HAL       | stop_hold_down_timer | COMPUTE_BEST_OFFER | False    |
+|          |           |         |                    |                  | level_compute        |                    |          |
+|          |           |         |                    |                  | COMPUTATION_DONE     |                    |          |
++----------+-----------+---------+--------------------+------------------+----------------------+--------------------+----------+
+| 41       | 0.302293  | 0       | COMPUTE_BEST_OFFER | COMPUTATION_DONE | update_all_lie_fsms  | UPDATING_CLIENTS   | False    |
++----------+-----------+---------+--------------------+------------------+----------------------+--------------------+----------+
+| 11       | 0.307241  | 0       | None               | None             | stop_hold_down_timer | COMPUTE_BEST_OFFER | False    |
+|          |           |         |                    |                  | level_compute        |                    |          |
+|          |           |         |                    |                  | COMPUTATION_DONE     |                    |          |
++----------+-----------+---------+--------------------+------------------+----------------------+--------------------+----------+
 </pre>
+<!-- OUTPUT-END -->
 
 ### show node fsm verbose-history
 
@@ -935,27 +1096,65 @@ Use the "<b>show node fsm history</b>" command if you only want to see "interest
 
 Example:
 
+<!-- OUTPUT-START: agg_101> show node fsm verbose-history -->
 <pre>
 agg_101> <b>show node fsm verbose-history</b>
 +----------+----------+---------+------------------+----------------+------------------------+-------+----------+
 | Sequence | Time     | Verbose | From             | Event          | Actions and            | To    | Implicit |
 | Nr       | Delta    | Skipped | State            |                | Pushed Events          | State |          |
 +----------+----------+---------+------------------+----------------+------------------------+-------+----------+
-| 482554   | 0.215404 | 0       | UPDATING_CLIENTS | NEIGHBOR_OFFER | update_or_remove_offer | None  | False    |
+| 1950     | 0.111179 | 0       | UPDATING_CLIENTS | NEIGHBOR_OFFER | update_or_remove_offer | None  | False    |
 +----------+----------+---------+------------------+----------------+------------------------+-------+----------+
-| 482553   | 0.000034 | 0       | UPDATING_CLIENTS | NEIGHBOR_OFFER | update_or_remove_offer | None  | False    |
+| 1949     | 0.000261 | 0       | UPDATING_CLIENTS | NEIGHBOR_OFFER | update_or_remove_offer | None  | False    |
 +----------+----------+---------+------------------+----------------+------------------------+-------+----------+
-| 482476   | 0.014348 | 0       | UPDATING_CLIENTS | NEIGHBOR_OFFER | update_or_remove_offer | None  | False    |
+| 1930     | 0.021595 | 0       | UPDATING_CLIENTS | NEIGHBOR_OFFER | update_or_remove_offer | None  | False    |
 +----------+----------+---------+------------------+----------------+------------------------+-------+----------+
-.          .          .         .                  .                .                        .       .          .
-.          .          .         .                  .                .                        .       .          .
-.          .          .         .                  .                .                        .       .          .
+| 1929     | 0.000301 | 0       | UPDATING_CLIENTS | NEIGHBOR_OFFER | update_or_remove_offer | None  | False    |
 +----------+----------+---------+------------------+----------------+------------------------+-------+----------+
-| 481836   | 0.000660 | 0       | UPDATING_CLIENTS | NEIGHBOR_OFFER | update_or_remove_offer | None  | False    |
+| 1838     | 0.287778 | 0       | UPDATING_CLIENTS | NEIGHBOR_OFFER | update_or_remove_offer | None  | False    |
 +----------+----------+---------+------------------+----------------+------------------------+-------+----------+
-| 481736   | 0.997336 | 0       | UPDATING_CLIENTS | NEIGHBOR_OFFER | update_or_remove_offer | None  | False    |
+| 1837     | 0.000296 | 0       | UPDATING_CLIENTS | NEIGHBOR_OFFER | update_or_remove_offer | None  | False    |
++----------+----------+---------+------------------+----------------+------------------------+-------+----------+
+| 1790     | 0.759911 | 0       | UPDATING_CLIENTS | NEIGHBOR_OFFER | update_or_remove_offer | None  | False    |
++----------+----------+---------+------------------+----------------+------------------------+-------+----------+
+| 1789     | 0.000273 | 0       | UPDATING_CLIENTS | NEIGHBOR_OFFER | update_or_remove_offer | None  | False    |
++----------+----------+---------+------------------+----------------+------------------------+-------+----------+
+| 1784     | 0.003439 | 0       | UPDATING_CLIENTS | NEIGHBOR_OFFER | update_or_remove_offer | None  | False    |
++----------+----------+---------+------------------+----------------+------------------------+-------+----------+
+| 1783     | 0.000290 | 0       | UPDATING_CLIENTS | NEIGHBOR_OFFER | update_or_remove_offer | None  | False    |
++----------+----------+---------+------------------+----------------+------------------------+-------+----------+
+| 1690     | 0.191614 | 0       | UPDATING_CLIENTS | NEIGHBOR_OFFER | update_or_remove_offer | None  | False    |
++----------+----------+---------+------------------+----------------+------------------------+-------+----------+
+| 1689     | 0.000533 | 0       | UPDATING_CLIENTS | NEIGHBOR_OFFER | update_or_remove_offer | None  | False    |
++----------+----------+---------+------------------+----------------+------------------------+-------+----------+
+| 1638     | 0.801607 | 0       | UPDATING_CLIENTS | NEIGHBOR_OFFER | update_or_remove_offer | None  | False    |
++----------+----------+---------+------------------+----------------+------------------------+-------+----------+
+| 1637     | 0.000281 | 0       | UPDATING_CLIENTS | NEIGHBOR_OFFER | update_or_remove_offer | None  | False    |
++----------+----------+---------+------------------+----------------+------------------------+-------+----------+
+| 1626     | 0.040718 | 0       | UPDATING_CLIENTS | NEIGHBOR_OFFER | update_or_remove_offer | None  | False    |
++----------+----------+---------+------------------+----------------+------------------------+-------+----------+
+| 1625     | 0.000361 | 0       | UPDATING_CLIENTS | NEIGHBOR_OFFER | update_or_remove_offer | None  | False    |
++----------+----------+---------+------------------+----------------+------------------------+-------+----------+
+| 1536     | 0.208480 | 0       | UPDATING_CLIENTS | NEIGHBOR_OFFER | update_or_remove_offer | None  | False    |
++----------+----------+---------+------------------+----------------+------------------------+-------+----------+
+| 1535     | 0.000278 | 0       | UPDATING_CLIENTS | NEIGHBOR_OFFER | update_or_remove_offer | None  | False    |
++----------+----------+---------+------------------+----------------+------------------------+-------+----------+
+| 1490     | 0.705190 | 0       | UPDATING_CLIENTS | NEIGHBOR_OFFER | update_or_remove_offer | None  | False    |
++----------+----------+---------+------------------+----------------+------------------------+-------+----------+
+| 1489     | 0.000269 | 0       | UPDATING_CLIENTS | NEIGHBOR_OFFER | update_or_remove_offer | None  | False    |
++----------+----------+---------+------------------+----------------+------------------------+-------+----------+
+| 1488     | 0.000271 | 0       | UPDATING_CLIENTS | NEIGHBOR_OFFER | update_or_remove_offer | None  | False    |
++----------+----------+---------+------------------+----------------+------------------------+-------+----------+
+| 1487     | 0.000285 | 0       | UPDATING_CLIENTS | NEIGHBOR_OFFER | update_or_remove_offer | None  | False    |
++----------+----------+---------+------------------+----------------+------------------------+-------+----------+
+| 1386     | 0.261456 | 0       | UPDATING_CLIENTS | NEIGHBOR_OFFER | update_or_remove_offer | None  | False    |
++----------+----------+---------+------------------+----------------+------------------------+-------+----------+
+| 1385     | 0.000284 | 0       | UPDATING_CLIENTS | NEIGHBOR_OFFER | update_or_remove_offer | None  | False    |
++----------+----------+---------+------------------+----------------+------------------------+-------+----------+
+| 1334     | 0.786891 | 0       | UPDATING_CLIENTS | NEIGHBOR_OFFER | update_or_remove_offer | None  | False    |
 +----------+----------+---------+------------------+----------------+------------------------+-------+----------+
 </pre>
+<!-- OUTPUT-END -->
 
 ### show nodes
 
@@ -965,6 +1164,7 @@ You can make anyone of the listed nodes the currently active node using the "<b>
 
 Example:
 
+<!-- OUTPUT-START: agg_101> show nodes -->
 <pre>
 agg_101> <b>show nodes</b>
 +-----------+--------+---------+
@@ -981,7 +1181,7 @@ agg_101> <b>show nodes</b>
 +-----------+--------+---------+
 | core_1    | 1      | True    |
 +-----------+--------+---------+
-| core_2    | 2      | True    |
+| core_2    | 2      | False   |
 +-----------+--------+---------+
 | edge_1001 | 1001   | True    |
 +-----------+--------+---------+
@@ -992,6 +1192,7 @@ agg_101> <b>show nodes</b>
 | edge_2002 | 2002   | True    |
 +-----------+--------+---------+
 </pre>
+<!-- OUTPUT-END -->
 
 ### show nodes level
 
@@ -1000,33 +1201,35 @@ for all RIFT nodes in the RIFT topology:
 
 Example:
 
+<!-- OUTPUT-START: agg_101> show nodes level -->
 <pre>
 agg_101> <b>show nodes level</b>
 +-----------+--------+---------+------------+-------+
 | Node      | System | Running | Configured | Level |
 | Name      | ID     |         | Level      | Value |
 +-----------+--------+---------+------------+-------+
-| agg_101   | 101    | True    | undefined  | 23    |
+| agg_101   | 101    | True    | 1          | 1     |
 +-----------+--------+---------+------------+-------+
-| agg_102   | 102    | True    | undefined  | 23    |
+| agg_102   | 102    | True    | 1          | 1     |
 +-----------+--------+---------+------------+-------+
-| agg_201   | 201    | True    | undefined  | 23    |
+| agg_201   | 201    | True    | 1          | 1     |
 +-----------+--------+---------+------------+-------+
-| agg_202   | 202    | True    | undefined  | 23    |
+| agg_202   | 202    | True    | 1          | 1     |
 +-----------+--------+---------+------------+-------+
-| core_1    | 1      | True    | superspine | 24    |
+| core_1    | 1      | True    | 2          | 2     |
 +-----------+--------+---------+------------+-------+
-| core_2    | 2      | True    | superspine | 24    |
+| core_2    | 2      | False   | 2          | ?     |
 +-----------+--------+---------+------------+-------+
-| edge_1001 | 1001   | True    | leaf       | 0     |
+| edge_1001 | 1001   | True    | 0          | 0     |
 +-----------+--------+---------+------------+-------+
-| edge_1002 | 1002   | True    | undefined  | 22    |
+| edge_1002 | 1002   | True    | 0          | 0     |
 +-----------+--------+---------+------------+-------+
-| edge_2001 | 2001   | True    | undefined  | 23    |
+| edge_2001 | 2001   | True    | 0          | 0     |
 +-----------+--------+---------+------------+-------+
-| edge_2002 | 2002   | True    | leaf       | 0     |
+| edge_2002 | 2002   | True    | 0          | 0     |
 +-----------+--------+---------+------------+-------+
 </pre>
+<!-- OUTPUT-END -->
 
 ### show route prefix <i>prefix</i>
 
@@ -1037,15 +1240,16 @@ Parameter <i>prefix</i> must be an IPv4 prefix or an IPv6 prefix
 
 Example:
 
+<!-- OUTPUT-START: agg_101> show route prefix ::/0 -->
 <pre>
 agg_101> <b>show route prefix ::/0</b>
-+--------+-----------+--------------------+
-| Prefix | Owner     | Next-hops          |
-+--------+-----------+--------------------+
-| ::/0   | North SPF | if_101_1 127.0.0.1 |
-|        |           | if_101_2 127.0.0.1 |
-+--------+-----------+--------------------+
++--------+-----------+-------------------------------+
+| Prefix | Owner     | Next-hops                     |
++--------+-----------+-------------------------------+
+| ::/0   | North SPF | if_101_1 fe80::42:acff:fe11:3 |
++--------+-----------+-------------------------------+
 </pre>
+<!-- OUTPUT-END -->
 
 ### show route prefix <i>prefix</i> owner <i>owner</i>
 
@@ -1058,15 +1262,16 @@ Parameter <i>owner</i> must be <b>south-spf</b> or <b>north-spf</b>.
 
 Example:
 
+<!-- OUTPUT-START: agg_101> show route prefix ::/0 owner north-spf -->
 <pre>
 agg_101> <b>show route prefix ::/0 owner north-spf</b>
-+--------+-----------+--------------------+
-| Prefix | Owner     | Next-hops          |
-+--------+-----------+--------------------+
-| ::/0   | North SPF | if_101_1 127.0.0.1 |
-|        |           | if_101_2 127.0.0.1 |
-+--------+-----------+--------------------+
++--------+-----------+-------------------------------+
+| Prefix | Owner     | Next-hops                     |
++--------+-----------+-------------------------------+
+| ::/0   | North SPF | if_101_1 fe80::42:acff:fe11:3 |
++--------+-----------+-------------------------------+
 </pre>
+<!-- OUTPUT-END -->
 
 ### show routes
 
@@ -1075,43 +1280,43 @@ current node. It shows both the IPv4 RIB and the IPv6 RIB.
 
 Example:
 
+<!-- OUTPUT-START: agg_101> show routes -->
 <pre>
 agg_101> <b>show routes</b>
 IPv4 Routes:
-+---------------+-----------+-----------------------+
-| Prefix        | Owner     | Next-hops             |
-+---------------+-----------+-----------------------+
-| 0.0.0.0/0     | North SPF | if_101_1 127.0.0.1    |
-|               |           | if_101_2 127.0.0.1    |
-+---------------+-----------+-----------------------+
-| 1.1.1.0/24    | South SPF | if_101_1001 127.0.0.1 |
-+---------------+-----------+-----------------------+
-| 1.1.2.0/24    | South SPF | if_101_1001 127.0.0.1 |
-+---------------+-----------+-----------------------+
-| 1.1.3.0/24    | South SPF | if_101_1001 127.0.0.1 |
-+---------------+-----------+-----------------------+
-| 1.1.4.0/24    | South SPF | if_101_1001 127.0.0.1 |
-+---------------+-----------+-----------------------+
-| 1.2.1.0/24    | South SPF | if_101_1002 127.0.0.1 |
-+---------------+-----------+-----------------------+
-| 1.2.2.0/24    | South SPF | if_101_1002 127.0.0.1 |
-+---------------+-----------+-----------------------+
-| 1.2.3.0/24    | South SPF | if_101_1002 127.0.0.1 |
-+---------------+-----------+-----------------------+
-| 1.2.4.0/24    | South SPF | if_101_1002 127.0.0.1 |
-+---------------+-----------+-----------------------+
-| 99.99.99.0/24 | South SPF | if_101_1001 127.0.0.1 |
-|               |           | if_101_1002 127.0.0.1 |
-+---------------+-----------+-----------------------+
++---------------+-----------+------------------------+
+| Prefix        | Owner     | Next-hops              |
++---------------+-----------+------------------------+
+| 0.0.0.0/0     | North SPF | if_101_1 172.17.0.3    |
++---------------+-----------+------------------------+
+| 1.1.1.0/24    | South SPF | if_101_1001 172.17.0.3 |
++---------------+-----------+------------------------+
+| 1.1.2.0/24    | South SPF | if_101_1001 172.17.0.3 |
++---------------+-----------+------------------------+
+| 1.1.3.0/24    | South SPF | if_101_1001 172.17.0.3 |
++---------------+-----------+------------------------+
+| 1.1.4.0/24    | South SPF | if_101_1001 172.17.0.3 |
++---------------+-----------+------------------------+
+| 1.2.1.0/24    | South SPF | if_101_1002 172.17.0.3 |
++---------------+-----------+------------------------+
+| 1.2.2.0/24    | South SPF | if_101_1002 172.17.0.3 |
++---------------+-----------+------------------------+
+| 1.2.3.0/24    | South SPF | if_101_1002 172.17.0.3 |
++---------------+-----------+------------------------+
+| 1.2.4.0/24    | South SPF | if_101_1002 172.17.0.3 |
++---------------+-----------+------------------------+
+| 99.99.99.0/24 | South SPF | if_101_1001 172.17.0.3 |
+|               |           | if_101_1002 172.17.0.3 |
++---------------+-----------+------------------------+
 
 IPv6 Routes:
-+--------+-----------+--------------------+
-| Prefix | Owner     | Next-hops          |
-+--------+-----------+--------------------+
-| ::/0   | North SPF | if_101_1 127.0.0.1 |
-|        |           | if_101_2 127.0.0.1 |
-+--------+-----------+--------------------+
++--------+-----------+-------------------------------+
+| Prefix | Owner     | Next-hops                     |
++--------+-----------+-------------------------------+
+| ::/0   | North SPF | if_101_1 fe80::42:acff:fe11:3 |
++--------+-----------+-------------------------------+
 </pre>
+<!-- OUTPUT-END -->
 
 ### show spf
 
@@ -1121,64 +1326,62 @@ Note: the SPF algorithm is also known as the Dijkstra algorithm.
 
 Example:
 
+<!-- OUTPUT-START: agg_101> show spf -->
 <pre>
 agg_101> <b>show spf</b>
 SPF Statistics:
 +---------------+----+
-| SPF Runs      | 4  |
+| SPF Runs      | 5  |
 +---------------+----+
-| SPF Deferrals | 19 |
+| SPF Deferrals | 18 |
 +---------------+----+
 
 South SPF Destinations:
-+------------------+------+-------------+------+-----------------------+
-| Destination      | Cost | Predecessor | Tags | Next-hops             |
-|                  |      | System IDs  |      |                       |
-+------------------+------+-------------+------+-----------------------+
-| 101 (agg_101)    | 0    |             |      |                       |
-+------------------+------+-------------+------+-----------------------+
-| 1001 (edge_1001) | 1    | 101         |      | if_101_1001 127.0.0.1 |
-+------------------+------+-------------+------+-----------------------+
-| 1002 (edge_1002) | 1    | 101         |      | if_101_1002 127.0.0.1 |
-+------------------+------+-------------+------+-----------------------+
-| 1.1.1.0/24       | 2    | 1001        |      | if_101_1001 127.0.0.1 |
-+------------------+------+-------------+------+-----------------------+
-| 1.1.2.0/24       | 2    | 1001        |      | if_101_1001 127.0.0.1 |
-+------------------+------+-------------+------+-----------------------+
-| 1.1.3.0/24       | 2    | 1001        |      | if_101_1001 127.0.0.1 |
-+------------------+------+-------------+------+-----------------------+
-| 1.1.4.0/24       | 2    | 1001        |      | if_101_1001 127.0.0.1 |
-+------------------+------+-------------+------+-----------------------+
-| 1.2.1.0/24       | 2    | 1002        |      | if_101_1002 127.0.0.1 |
-+------------------+------+-------------+------+-----------------------+
-| 1.2.2.0/24       | 2    | 1002        |      | if_101_1002 127.0.0.1 |
-+------------------+------+-------------+------+-----------------------+
-| 1.2.3.0/24       | 2    | 1002        |      | if_101_1002 127.0.0.1 |
-+------------------+------+-------------+------+-----------------------+
-| 1.2.4.0/24       | 2    | 1002        |      | if_101_1002 127.0.0.1 |
-+------------------+------+-------------+------+-----------------------+
-| 99.99.99.0/24    | 2    | 1001        | 9992 | if_101_1001 127.0.0.1 |
-|                  |      | 1002        | 9991 | if_101_1002 127.0.0.1 |
-+------------------+------+-------------+------+-----------------------+
++------------------+------+-------------+------+------------------------+----------------------------------+
+| Destination      | Cost | Predecessor | Tags | IPv4 Next-hops         | IPv6 Next-hops                   |
+|                  |      | System IDs  |      |                        |                                  |
++------------------+------+-------------+------+------------------------+----------------------------------+
+| 101 (agg_101)    | 0    |             |      |                        |                                  |
++------------------+------+-------------+------+------------------------+----------------------------------+
+| 1001 (edge_1001) | 1    | 101         |      | if_101_1001 172.17.0.3 | if_101_1001 fe80::42:acff:fe11:3 |
++------------------+------+-------------+------+------------------------+----------------------------------+
+| 1002 (edge_1002) | 1    | 101         |      | if_101_1002 172.17.0.3 | if_101_1002 fe80::42:acff:fe11:3 |
++------------------+------+-------------+------+------------------------+----------------------------------+
+| 1.1.1.0/24       | 2    | 1001        |      | if_101_1001 172.17.0.3 | if_101_1001 fe80::42:acff:fe11:3 |
++------------------+------+-------------+------+------------------------+----------------------------------+
+| 1.1.2.0/24       | 2    | 1001        |      | if_101_1001 172.17.0.3 | if_101_1001 fe80::42:acff:fe11:3 |
++------------------+------+-------------+------+------------------------+----------------------------------+
+| 1.1.3.0/24       | 2    | 1001        |      | if_101_1001 172.17.0.3 | if_101_1001 fe80::42:acff:fe11:3 |
++------------------+------+-------------+------+------------------------+----------------------------------+
+| 1.1.4.0/24       | 2    | 1001        |      | if_101_1001 172.17.0.3 | if_101_1001 fe80::42:acff:fe11:3 |
++------------------+------+-------------+------+------------------------+----------------------------------+
+| 1.2.1.0/24       | 2    | 1002        |      | if_101_1002 172.17.0.3 | if_101_1002 fe80::42:acff:fe11:3 |
++------------------+------+-------------+------+------------------------+----------------------------------+
+| 1.2.2.0/24       | 2    | 1002        |      | if_101_1002 172.17.0.3 | if_101_1002 fe80::42:acff:fe11:3 |
++------------------+------+-------------+------+------------------------+----------------------------------+
+| 1.2.3.0/24       | 2    | 1002        |      | if_101_1002 172.17.0.3 | if_101_1002 fe80::42:acff:fe11:3 |
++------------------+------+-------------+------+------------------------+----------------------------------+
+| 1.2.4.0/24       | 2    | 1002        |      | if_101_1002 172.17.0.3 | if_101_1002 fe80::42:acff:fe11:3 |
++------------------+------+-------------+------+------------------------+----------------------------------+
+| 99.99.99.0/24    | 2    | 1001        | 9992 | if_101_1001 172.17.0.3 | if_101_1001 fe80::42:acff:fe11:3 |
+|                  |      | 1002        | 9991 | if_101_1002 172.17.0.3 | if_101_1002 fe80::42:acff:fe11:3 |
++------------------+------+-------------+------+------------------------+----------------------------------+
 
 North SPF Destinations:
-+---------------+------+-------------+------+--------------------+
-| Destination   | Cost | Predecessor | Tags | Next-hops          |
-|               |      | System IDs  |      |                    |
-+---------------+------+-------------+------+--------------------+
-| 1 (core_1)    | 1    | 101         |      | if_101_1 127.0.0.1 |
-+---------------+------+-------------+------+--------------------+
-| 2 (core_2)    | 1    | 101         |      | if_101_2 127.0.0.1 |
-+---------------+------+-------------+------+--------------------+
-| 101 (agg_101) | 0    |             |      |                    |
-+---------------+------+-------------+------+--------------------+
-| 0.0.0.0/0     | 2    | 1           |      | if_101_1 127.0.0.1 |
-|               |      | 2           |      | if_101_2 127.0.0.1 |
-+---------------+------+-------------+------+--------------------+
-| ::/0          | 2    | 1           |      | if_101_1 127.0.0.1 |
-|               |      | 2           |      | if_101_2 127.0.0.1 |
-+---------------+------+-------------+------+--------------------+
++---------------+------+-------------+------+---------------------+-------------------------------+
+| Destination   | Cost | Predecessor | Tags | IPv4 Next-hops      | IPv6 Next-hops                |
+|               |      | System IDs  |      |                     |                               |
++---------------+------+-------------+------+---------------------+-------------------------------+
+| 1 (core_1)    | 1    | 101         |      | if_101_1 172.17.0.3 | if_101_1 fe80::42:acff:fe11:3 |
++---------------+------+-------------+------+---------------------+-------------------------------+
+| 101 (agg_101) | 0    |             |      |                     |                               |
++---------------+------+-------------+------+---------------------+-------------------------------+
+| 0.0.0.0/0     | 2    | 1           |      | if_101_1 172.17.0.3 | if_101_1 fe80::42:acff:fe11:3 |
++---------------+------+-------------+------+---------------------+-------------------------------+
+| ::/0          | 2    | 1           |      | if_101_1 172.17.0.3 | if_101_1 fe80::42:acff:fe11:3 |
++---------------+------+-------------+------+---------------------+-------------------------------+
 </pre>
+<!-- OUTPUT-END -->
 
 ### show spf direction <i>direction</i>
 
@@ -1188,26 +1391,24 @@ Parameter <i>direction</i> must be <b>south</b> or <b>north</b>
 
 Example:
 
+<!-- OUTPUT-START: agg_101> show spf direction north -->
 <pre>
 agg_101> <b>show spf direction north</b>
 North SPF Destinations:
-+---------------+------+-------------+------+--------------------+
-| Destination   | Cost | Predecessor | Tags | Next-hops          |
-|               |      | System IDs  |      |                    |
-+---------------+------+-------------+------+--------------------+
-| 1 (core_1)    | 1    | 101         |      | if_101_1 127.0.0.1 |
-+---------------+------+-------------+------+--------------------+
-| 2 (core_2)    | 1    | 101         |      | if_101_2 127.0.0.1 |
-+---------------+------+-------------+------+--------------------+
-| 101 (agg_101) | 0    |             |      |                    |
-+---------------+------+-------------+------+--------------------+
-| 0.0.0.0/0     | 2    | 1           |      | if_101_1 127.0.0.1 |
-|               |      | 2           |      | if_101_2 127.0.0.1 |
-+---------------+------+-------------+------+--------------------+
-| ::/0          | 2    | 1           |      | if_101_1 127.0.0.1 |
-|               |      | 2           |      | if_101_2 127.0.0.1 |
-+---------------+------+-------------+------+--------------------+
++---------------+------+-------------+------+---------------------+-------------------------------+
+| Destination   | Cost | Predecessor | Tags | IPv4 Next-hops      | IPv6 Next-hops                |
+|               |      | System IDs  |      |                     |                               |
++---------------+------+-------------+------+---------------------+-------------------------------+
+| 1 (core_1)    | 1    | 101         |      | if_101_1 172.17.0.3 | if_101_1 fe80::42:acff:fe11:3 |
++---------------+------+-------------+------+---------------------+-------------------------------+
+| 101 (agg_101) | 0    |             |      |                     |                               |
++---------------+------+-------------+------+---------------------+-------------------------------+
+| 0.0.0.0/0     | 2    | 1           |      | if_101_1 172.17.0.3 | if_101_1 fe80::42:acff:fe11:3 |
++---------------+------+-------------+------+---------------------+-------------------------------+
+| ::/0          | 2    | 1           |      | if_101_1 172.17.0.3 | if_101_1 fe80::42:acff:fe11:3 |
++---------------+------+-------------+------+---------------------+-------------------------------+
 </pre>
+<!-- OUTPUT-END -->
 
 ### show spf direction <i>direction</i> destination <i>destination</i>
 
@@ -1224,23 +1425,26 @@ Parameter <i>destination</i> must be one of the following:
 
 Example:
 
+<!-- OUTPUT-START: agg_101> show spf direction north destination ::/0 -->
 <pre>
 agg_101> <b>show spf direction north destination ::/0</b>
-+-------------+------+-------------+------+--------------------+
-| Destination | Cost | Predecessor | Tags | Next-hops          |
-|             |      | System IDs  |      |                    |
-+-------------+------+-------------+------+--------------------+
-| ::/0        | 2    | 1           |      | if_101_1 127.0.0.1 |
-|             |      | 2           |      | if_101_2 127.0.0.1 |
-+-------------+------+-------------+------+--------------------+
++-------------+------+-------------+------+---------------------+-------------------------------+
+| Destination | Cost | Predecessor | Tags | IPv4 Next-hops      | IPv6 Next-hops                |
+|             |      | System IDs  |      |                     |                               |
++-------------+------+-------------+------+---------------------+-------------------------------+
+| ::/0        | 2    | 1           |      | if_101_1 172.17.0.3 | if_101_1 fe80::42:acff:fe11:3 |
++-------------+------+-------------+------+---------------------+-------------------------------+
 </pre>
+<!-- OUTPUT-END -->
 
 Example:
 
+<!-- OUTPUT-START: agg_101> show spf direction north destination 5 -->
 <pre>
 agg_101> <b>show spf direction north destination 5</b>
 Destination 5 not present
 </pre>
+<!-- OUTPUT-END -->
 
 ### show tie-db
 
@@ -1250,12 +1454,13 @@ Note: the TIE-DB is also known as the Link-State Database (LSDB)
 
 Example:
 
+<!-- OUTPUT-START: agg_101> show tie-db -->
 <pre>
-agg_101> show tie-db
+agg_101> <b>show tie-db</b>
 +-----------+------------+--------+--------+--------+----------+-----------------------+
 | Direction | Originator | Type   | TIE Nr | Seq Nr | Lifetime | Contents              |
 +-----------+------------+--------+--------+--------+----------+-----------------------+
-| South     | 1          | Node   | 1      | 5      | 603378   | Name: core_1          |
+| South     | 1          | Node   | 1      | 5      | 604788   | Name: core_1          |
 |           |            |        |        |        |          | Level: 2              |
 |           |            |        |        |        |          | Neighbor: 101         |
 |           |            |        |        |        |          |   Level: 1            |
@@ -1278,16 +1483,109 @@ agg_101> show tie-db
 |           |            |        |        |        |          |   Bandwidth: 100 Mbps |
 |           |            |        |        |        |          |   Link: 4-1           |
 +-----------+------------+--------+--------+--------+----------+-----------------------+
-| South     | 1          | Prefix | 1      | 1      | 603378   | Prefix: 0.0.0.0/0     |
+| South     | 1          | Prefix | 1      | 1      | 604788   | Prefix: 0.0.0.0/0     |
 |           |            |        |        |        |          |   Metric: 1           |
 |           |            |        |        |        |          | Prefix: ::/0          |
 |           |            |        |        |        |          |   Metric: 1           |
 +-----------+------------+--------+--------+--------+----------+-----------------------+
-.           .            .        .        .        .          .                       .
-.           .            .        .        .        .          .                       .
-.           .            .        .        .        .          .                       .
+| South     | 101        | Node   | 1      | 4      | 604788   | Name: agg_101         |
+|           |            |        |        |        |          | Level: 1              |
+|           |            |        |        |        |          | Neighbor: 1           |
+|           |            |        |        |        |          |   Level: 2            |
+|           |            |        |        |        |          |   Cost: 1             |
+|           |            |        |        |        |          |   Bandwidth: 100 Mbps |
+|           |            |        |        |        |          |   Link: 1-1           |
+|           |            |        |        |        |          | Neighbor: 1001        |
+|           |            |        |        |        |          |   Level: 0            |
+|           |            |        |        |        |          |   Cost: 1             |
+|           |            |        |        |        |          |   Bandwidth: 100 Mbps |
+|           |            |        |        |        |          |   Link: 3-1           |
+|           |            |        |        |        |          | Neighbor: 1002        |
+|           |            |        |        |        |          |   Level: 0            |
+|           |            |        |        |        |          |   Cost: 1             |
+|           |            |        |        |        |          |   Bandwidth: 100 Mbps |
+|           |            |        |        |        |          |   Link: 4-1           |
 +-----------+------------+--------+--------+--------+----------+-----------------------+
-| North     | 1002       | Prefix | 1      | 1      | 603378   | Prefix: 1.2.1.0/24    |
+| South     | 101        | Prefix | 1      | 1      | 604788   | Prefix: 0.0.0.0/0     |
+|           |            |        |        |        |          |   Metric: 1           |
+|           |            |        |        |        |          | Prefix: ::/0          |
+|           |            |        |        |        |          |   Metric: 1           |
++-----------+------------+--------+--------+--------+----------+-----------------------+
+| South     | 102        | Node   | 1      | 4      | 604789   | Name: agg_102         |
+|           |            |        |        |        |          | Level: 1              |
+|           |            |        |        |        |          | Neighbor: 1           |
+|           |            |        |        |        |          |   Level: 2            |
+|           |            |        |        |        |          |   Cost: 1             |
+|           |            |        |        |        |          |   Bandwidth: 100 Mbps |
+|           |            |        |        |        |          |   Link: 1-2           |
+|           |            |        |        |        |          | Neighbor: 1001        |
+|           |            |        |        |        |          |   Level: 0            |
+|           |            |        |        |        |          |   Cost: 1             |
+|           |            |        |        |        |          |   Bandwidth: 100 Mbps |
+|           |            |        |        |        |          |   Link: 3-2           |
+|           |            |        |        |        |          | Neighbor: 1002        |
+|           |            |        |        |        |          |   Level: 0            |
+|           |            |        |        |        |          |   Cost: 1             |
+|           |            |        |        |        |          |   Bandwidth: 100 Mbps |
+|           |            |        |        |        |          |   Link: 4-2           |
++-----------+------------+--------+--------+--------+----------+-----------------------+
+| North     | 101        | Node   | 1      | 4      | 604788   | Name: agg_101         |
+|           |            |        |        |        |          | Level: 1              |
+|           |            |        |        |        |          | Neighbor: 1           |
+|           |            |        |        |        |          |   Level: 2            |
+|           |            |        |        |        |          |   Cost: 1             |
+|           |            |        |        |        |          |   Bandwidth: 100 Mbps |
+|           |            |        |        |        |          |   Link: 1-1           |
+|           |            |        |        |        |          | Neighbor: 1001        |
+|           |            |        |        |        |          |   Level: 0            |
+|           |            |        |        |        |          |   Cost: 1             |
+|           |            |        |        |        |          |   Bandwidth: 100 Mbps |
+|           |            |        |        |        |          |   Link: 3-1           |
+|           |            |        |        |        |          | Neighbor: 1002        |
+|           |            |        |        |        |          |   Level: 0            |
+|           |            |        |        |        |          |   Cost: 1             |
+|           |            |        |        |        |          |   Bandwidth: 100 Mbps |
+|           |            |        |        |        |          |   Link: 4-1           |
++-----------+------------+--------+--------+--------+----------+-----------------------+
+| North     | 1001       | Node   | 1      | 3      | 604788   | Name: edge_1001       |
+|           |            |        |        |        |          | Level: 0              |
+|           |            |        |        |        |          | Neighbor: 101         |
+|           |            |        |        |        |          |   Level: 1            |
+|           |            |        |        |        |          |   Cost: 1             |
+|           |            |        |        |        |          |   Bandwidth: 100 Mbps |
+|           |            |        |        |        |          |   Link: 1-3           |
+|           |            |        |        |        |          | Neighbor: 102         |
+|           |            |        |        |        |          |   Level: 1            |
+|           |            |        |        |        |          |   Cost: 1             |
+|           |            |        |        |        |          |   Bandwidth: 100 Mbps |
+|           |            |        |        |        |          |   Link: 2-3           |
++-----------+------------+--------+--------+--------+----------+-----------------------+
+| North     | 1001       | Prefix | 1      | 1      | 604788   | Prefix: 1.1.1.0/24    |
+|           |            |        |        |        |          |   Metric: 1           |
+|           |            |        |        |        |          | Prefix: 1.1.2.0/24    |
+|           |            |        |        |        |          |   Metric: 1           |
+|           |            |        |        |        |          | Prefix: 1.1.3.0/24    |
+|           |            |        |        |        |          |   Metric: 1           |
+|           |            |        |        |        |          | Prefix: 1.1.4.0/24    |
+|           |            |        |        |        |          |   Metric: 1           |
+|           |            |        |        |        |          | Prefix: 99.99.99.0/24 |
+|           |            |        |        |        |          |   Metric: 1           |
+|           |            |        |        |        |          |   Tag: 9991           |
++-----------+------------+--------+--------+--------+----------+-----------------------+
+| North     | 1002       | Node   | 1      | 3      | 604788   | Name: edge_1002       |
+|           |            |        |        |        |          | Level: 0              |
+|           |            |        |        |        |          | Neighbor: 101         |
+|           |            |        |        |        |          |   Level: 1            |
+|           |            |        |        |        |          |   Cost: 1             |
+|           |            |        |        |        |          |   Bandwidth: 100 Mbps |
+|           |            |        |        |        |          |   Link: 1-4           |
+|           |            |        |        |        |          | Neighbor: 102         |
+|           |            |        |        |        |          |   Level: 1            |
+|           |            |        |        |        |          |   Cost: 1             |
+|           |            |        |        |        |          |   Bandwidth: 100 Mbps |
+|           |            |        |        |        |          |   Link: 2-4           |
++-----------+------------+--------+--------+--------+----------+-----------------------+
+| North     | 1002       | Prefix | 1      | 1      | 604788   | Prefix: 1.2.1.0/24    |
 |           |            |        |        |        |          |   Metric: 1           |
 |           |            |        |        |        |          | Prefix: 1.2.2.0/24    |
 |           |            |        |        |        |          |   Metric: 1           |
@@ -1300,6 +1598,7 @@ agg_101> show tie-db
 |           |            |        |        |        |          |   Tag: 9992           |
 +-----------+------------+--------+--------+--------+----------+-----------------------+
 </pre>
+<!-- OUTPUT-END -->
 
 ### stop
 
