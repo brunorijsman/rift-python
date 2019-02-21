@@ -453,13 +453,13 @@ class Node:
         self._highest_available_level = None
         self.highest_adjacency_three_way = None
         self._holdtime = 1
-        self.interface_stats_group = stats.SumGroup()
+        self.intf_traffic_stats_group = stats.SumGroup()
         self._next_interface_id = 1
         if 'interfaces' in config:
             for interface_config in self._config['interfaces']:
                 self.create_interface(interface_config)
         if self.engine:
-            self.engine.interface_stats_group.add_summee_group(self.interface_stats_group)
+            self.engine.intf_traffic_stats_group.add_summee_group(self.intf_traffic_stats_group)
         self.my_node_tie_seq_nrs = {}
         self.my_node_tie_seq_nrs[common.ttypes.TieDirectionType.South] = 0
         self.my_node_tie_seq_nrs[common.ttypes.TieDirectionType.North] = 0
@@ -1003,7 +1003,7 @@ class Node:
         intf.clear_stats()
 
     def command_clear_node_stats(self, _cli_session):
-        self.interface_stats_group.clear()
+        self.intf_traffic_stats_group.clear()
 
     def command_show_intf_fsm_hist(self, cli_session, parameters, verbose):
         interface_name = parameters['interface']
@@ -1151,8 +1151,8 @@ class Node:
         cli_session.print(tab.to_string())
 
     def command_show_node_stats(self, cli_session, exclude_zero):
-        tab = self.interface_stats_group.table(exclude_zero)
         cli_session.print("Interface Statistics:")
+        tab = self.intf_traffic_stats_group.table(exclude_zero)
         cli_session.print(tab.to_string())
 
     @staticmethod

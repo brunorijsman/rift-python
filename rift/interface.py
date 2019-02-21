@@ -813,9 +813,9 @@ class Interface:
         self._ties_req = collections.OrderedDict()
         self._ties_ack = collections.OrderedDict()
         self.floodred_nbr_is_fr = self.NbrIsFRState.NOT_APPLICABLE
-        self._stats_group = stats.Group()
+        self._traffic_stats_group = stats.Group()
         pab = ["Packet", "Byte"]
-        stg = self._stats_group
+        stg = self._traffic_stats_group
         self._tx_errors_counter = stats.MultiCounter(None, "Total TX Errors", pab)
         self._rx_errors_counter = stats.MultiCounter(None, "Total RX Errors", pab)
         self._tx_packets_counter = stats.MultiCounter(None, "Total TX Packets", pab)
@@ -944,7 +944,7 @@ class Interface:
         self._tx_packets_counter.add_to_group(stg)
         self._rx_errors_counter.add_to_group(stg)
         self._tx_errors_counter.add_to_group(stg)
-        self.node.interface_stats_group.add_summee_group(self._stats_group)
+        self.node.intf_traffic_stats_group.add_summee_group(self._traffic_stats_group)
 
         self.fsm = fsm.Fsm(
             definition=self.fsm_definition,
@@ -1551,13 +1551,13 @@ class Interface:
         return tab
 
     def traffic_stats_table(self, exclude_zero):
-        return self._stats_group.table(exclude_zero)
+        return self._traffic_stats_group.table(exclude_zero)
 
     def fsm_stats_table(self, exclude_zero):
         return self.fsm.stats_table(exclude_zero)
 
     def clear_stats(self):
-        self._stats_group.clear()
+        self._traffic_stats_group.clear()
         self.fsm.clear_stats()
 
     def tie_headers_table_common(self, tie_headers):

@@ -53,7 +53,7 @@ class Engine:
             'flooding_reduction_similarity',
             constants.DEFAULT_FLOODING_REDUCTION_SIMILARITY)
         self.floodred_system_random = random.randint(0, 0xffffffffffffffff)
-        self.interface_stats_group = stats.SumGroup()
+        self.intf_traffic_stats_group = stats.SumGroup()
         self._nodes = sortedcontainers.SortedDict()
         self.create_configuration(passive_nodes)
         cli_log = logging.getLogger('cli')
@@ -144,7 +144,7 @@ class Engine:
         scheduler.SCHEDULER.run()
 
     def command_clear_engine_stats(self, _cli_session):
-        self.interface_stats_group.clear()
+        self.intf_traffic_stats_group.clear()
 
     def command_clear_intf_stats(self, cli_session, parameters):
         cli_session.current_node.command_clear_intf_stats(cli_session, parameters)
@@ -170,8 +170,8 @@ class Engine:
         cli_session.print(tab.to_string())
 
     def command_show_engine_stats(self, cli_session, exclude_zero=False):
-        tab = self.interface_stats_group.table(exclude_zero)
-        cli_session.print("Interface Statistics:")
+        cli_session.print("Interface Traffic:")
+        tab = self.intf_traffic_stats_group.table(exclude_zero)
         cli_session.print(tab.to_string())
 
     def command_show_eng_stats_ex_zero(self, cli_session):
