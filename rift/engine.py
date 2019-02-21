@@ -55,6 +55,7 @@ class Engine:
         self.floodred_system_random = random.randint(0, 0xffffffffffffffff)
         self.intf_traffic_stats_group = stats.Group()
         self.intf_lie_fsm_stats_group = stats.Group()
+        self.node_ztp_fsm_stats_group = stats.Group()
         self._nodes = sortedcontainers.SortedDict()
         self.create_configuration(passive_nodes)
         cli_log = logging.getLogger('cli')
@@ -147,6 +148,7 @@ class Engine:
     def command_clear_engine_stats(self, _cli_session):
         self.intf_traffic_stats_group.clear()
         self.intf_lie_fsm_stats_group.clear()
+        self.node_ztp_fsm_stats_group.clear()
 
     def command_clear_intf_stats(self, cli_session, parameters):
         cli_session.current_node.command_clear_intf_stats(cli_session, parameters)
@@ -172,6 +174,9 @@ class Engine:
         cli_session.print(tab.to_string())
 
     def command_show_engine_stats(self, cli_session, exclude_zero=False):
+        cli_session.print("Node ZTP FSM:")
+        tab = self.node_ztp_fsm_stats_group.table(exclude_zero)
+        cli_session.print(tab.to_string())
         cli_session.print("Interface Traffic:")
         tab = self.intf_traffic_stats_group.table(exclude_zero)
         cli_session.print(tab.to_string())

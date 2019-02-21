@@ -379,7 +379,7 @@ class Node:
 
     def __init__(self, config, engine=None, force_passive=False, stand_alone=False):
         # pylint:disable=too-many-statements
-        # pylint: disable=too-many-statements
+        # pylint: disable=too-many-locals
         self.engine = engine
         self._config = config
         self._node_nr = Node._next_node_nr
@@ -454,11 +454,14 @@ class Node:
         self.highest_adjacency_three_way = None
         self._holdtime = 1
         if self.engine:
+            node_ztp_fsm_stats_sum_group = self.engine.node_ztp_fsm_stats_group
             intf_traffic_stats_sum_group = self.engine.intf_traffic_stats_group
             intf_lie_fsm_stats_sum_group = self.engine.intf_lie_fsm_stats_group
         else:
+            node_ztp_fsm_stats_sum_group = None
             intf_traffic_stats_sum_group = None
             intf_lie_fsm_stats_sum_group = None
+        self.node_ztp_fsm_stats_group = stats.Group(node_ztp_fsm_stats_sum_group)
         self.intf_traffic_stats_group = stats.Group(intf_traffic_stats_sum_group)
         self.intf_lie_fsm_stats_group = stats.Group(intf_lie_fsm_stats_sum_group)
         self._next_interface_id = 1
@@ -517,7 +520,8 @@ class Node:
             definition=self.fsm_definition,
             action_handler=self,
             log=self._fsm_log,
-            log_id=self.log_id)
+            log_id=self.log_id,
+            sum_stats_group=self.node_ztp_fsm_stats_group)
         self._hold_down_timer = timer.Timer(
             interval=self.DEFAULT_HOLD_DOWN_TIME,
             expire_function=lambda: self.fsm.push_event(self.Event.HOLD_DOWN_EXPIRED),
@@ -1008,6 +1012,7 @@ class Node:
         intf.clear_stats()
 
     def command_clear_node_stats(self, _cli_session):
+        self.node_ztp_fsm_stats_group.clear()
         self.intf_traffic_stats_group.clear()
         self.intf_lie_fsm_stats_group.clear()
 
@@ -1157,11 +1162,14 @@ class Node:
         cli_session.print(tab.to_string())
 
     def command_show_node_stats(self, cli_session, exclude_zero):
-        cli_session.print("Interface Statistics:")
+        cli_session.print("Node ZTP FSM:")
+        tab = self.node_ztp_fsm_stats_group.table(exclude_zero, sort_by_description=True)
+        cli_session.print(tab.to_string())
+        cli_session.print("Interface Traffic:")
         tab = self.intf_traffic_stats_group.table(exclude_zero)
         cli_session.print(tab.to_string())
-        cli_session.print("LIE FSM:")
-        tab = self.intf_lie_fsm_stats_group.table(exclude_zero)
+        cli_session.print("Interface LIE FSM:")
+        tab = self.intf_lie_fsm_stats_group.table(exclude_zero, sort_by_description=True)
         cli_session.print(tab.to_string())
 
     @staticmethod
