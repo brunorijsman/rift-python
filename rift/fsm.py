@@ -50,7 +50,6 @@ class FsmDefinition:
             self.verbose_events = []
         else:
             self.verbose_events = verbose_events
-        self.stats_group = stats.Group()
 
     @staticmethod
     def parse_transition(transition):
@@ -218,7 +217,7 @@ class Fsm:
             else:
                 self._log.info("[%s] %s" % (self._log_id, msg), *args)
 
-    def __init__(self, definition, action_handler, log, log_id):
+    def __init__(self, definition, action_handler, log, log_id, sum_stats_group=None):
         self._definition = definition
         self._log = log
         self._log_id = log_id
@@ -233,7 +232,7 @@ class Fsm:
         self._verbose_records = collections.deque([], _MAX_RECORDS)
         self._current_record = None
         self._verbose_records_skipped = 0
-        self._stats_group = stats.Group()
+        self._stats_group = stats.Group(sum_stats_group)
         self._event_counters = {}
         self._init_event_counters()             # Indexed by event
         self._transition_counters = {}          # Indexed by (from_state, to_state)

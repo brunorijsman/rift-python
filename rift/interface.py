@@ -944,12 +944,12 @@ class Interface:
         self._tx_packets_counter.add_to_group(stg)
         self._rx_errors_counter.add_to_group(stg)
         self._tx_errors_counter.add_to_group(stg)
-
         self.fsm = fsm.Fsm(
             definition=self.fsm_definition,
             action_handler=self,
             log=self._fsm_log,
-            log_id=self._log_id)
+            log_id=self._log_id,
+            sum_stats_group=self.node.intf_lie_fsm_stats_group)
         if self.node.running:
             self.run()
             self.fsm.start()
@@ -1552,7 +1552,7 @@ class Interface:
     def traffic_stats_table(self, exclude_zero):
         return self._traffic_stats_group.table(exclude_zero)
 
-    def fsm_stats_table(self, exclude_zero):
+    def lie_fsm_stats_table(self, exclude_zero):
         return self.fsm.stats_table(exclude_zero)
 
     def clear_stats(self):

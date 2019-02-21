@@ -454,10 +454,13 @@ class Node:
         self.highest_adjacency_three_way = None
         self._holdtime = 1
         if self.engine:
-            sum_group = self.engine.intf_traffic_stats_group
+            intf_traffic_stats_sum_group = self.engine.intf_traffic_stats_group
+            intf_lie_fsm_stats_sum_group = self.engine.intf_lie_fsm_stats_group
         else:
-            sum_group = None
-        self.intf_traffic_stats_group = stats.Group(sum_group)
+            intf_traffic_stats_sum_group = None
+            intf_lie_fsm_stats_sum_group = None
+        self.intf_traffic_stats_group = stats.Group(intf_traffic_stats_sum_group)
+        self.intf_lie_fsm_stats_group = stats.Group(intf_lie_fsm_stats_sum_group)
         self._next_interface_id = 1
         if 'interfaces' in config:
             for interface_config in self._config['interfaces']:
@@ -1006,6 +1009,7 @@ class Node:
 
     def command_clear_node_stats(self, _cli_session):
         self.intf_traffic_stats_group.clear()
+        self.intf_lie_fsm_stats_group.clear()
 
     def command_show_intf_fsm_hist(self, cli_session, parameters, verbose):
         interface_name = parameters['interface']
@@ -1050,11 +1054,11 @@ class Node:
             cli_session.print("Error: interface {} not present".format(interface_name))
             return
         intf = self.interfaces_by_name[interface_name]
-        tab = intf.traffic_stats_table(exclude_zero)
         cli_session.print("Traffic:")
+        tab = intf.traffic_stats_table(exclude_zero)
         cli_session.print(tab.to_string())
-        tab = intf.fsm_stats_table(exclude_zero)
         cli_session.print("LIE FSM:")
+        tab = intf.lie_fsm_stats_table(exclude_zero)
         cli_session.print(tab.to_string())
 
     def command_show_interface(self, cli_session, parameters):
@@ -1155,6 +1159,9 @@ class Node:
     def command_show_node_stats(self, cli_session, exclude_zero):
         cli_session.print("Interface Statistics:")
         tab = self.intf_traffic_stats_group.table(exclude_zero)
+        cli_session.print(tab.to_string())
+        cli_session.print("LIE FSM:")
+        tab = self.intf_lie_fsm_stats_group.table(exclude_zero)
         cli_session.print(tab.to_string())
 
     @staticmethod
