@@ -4,12 +4,22 @@
 import sys
 sys.path.append("tests")
 
+import argparse
 import copy
 import os
 import re
 import shutil
 
 import rift_expect_session
+
+def parse_command_line_arguments():
+    parser = argparse.ArgumentParser(description='RIFT CLI documentation generator')
+    parser.add_argument(
+        '-c', '--check-only',
+        action="store_true",
+        help='Only check for missing documentation; don\'t generate documentation')
+    args = parser.parse_args()
+    return args
 
 def process_file():
     # pylint:disable=too-many-locals
@@ -43,18 +53,21 @@ def process_file():
                 print(line, file=out_file, end='')
                 node = manual_match.group(1)
                 command = manual_match.group(2)
-                print("Manual:", command)
+                if not ARGS.check_only:
+                    print("Manual:", command)
                 processed_commands.append(command)
             elif not skipping:
                 print(line, file=out_file, end='')
     res.stop()
-    shutil.copyfile(doc_file, backup_file)
-    shutil.copyfile(tmp_file, doc_file)
+    if not ARGS.check_only:
+        shutil.copyfile(doc_file, backup_file)
+        shutil.copyfile(tmp_file, doc_file)
     os.remove(tmp_file)
-    check_missing_commands(all_commands, processed_commands)
+    return check_missing_commands(all_commands, processed_commands)
 
 def insert_command_output(out_file, res, node, command):
-    print("Process:", command)
+    if not ARGS.check_only:
+        print("Process:", command)
     output = gather_output(res, node, command)
     print("<pre>", file=out_file)
     print("{}> <b>{}</b>".format(node, command), file=out_file)
@@ -81,6 +94,7 @@ def gather_output(res, node, command):
     return output
 
 def check_missing_commands(all_commands, processed_commands):
+    something_missing = False
     for command in all_commands:
         pattern = "^{}$".format(command.strip().rstrip())
         pattern = re.sub(r"<.*?>", ".*", pattern)
@@ -91,6 +105,8 @@ def check_missing_commands(all_commands, processed_commands):
                 break
         if not covered:
             print("MISSING:", command)
+            something_missing = True
+    return something_missing
 
 def summarize_tables(output, out_file):
     in_table = False
@@ -134,4 +150,9 @@ def print_table_summary(rows, separator_line, out_file):
     print(separator_line, file=out_file)
 
 if __name__ == "__main__":
-    process_file()
+    ARGS = parse_command_line_arguments()
+    SOMETHING_MISSING = process_file()
+    if SOMETHING_MISSING:
+        exit(1)
+    else:
+        exit(0)
