@@ -1452,12 +1452,20 @@ class Interface:
             i_am_fr_str = str(self.neighbor.you_are_flood_repeater)
         else:
             i_am_fr_str = ""
+        if self.neighbor:
+            neighbor_sysid = utils.system_id_str(self.neighbor.system_id)
+            neighbor_name = self.neighbor.name
+            neighbor_dir = constants.direction_str(self.neighbor_direction())
+        else:
+            neighbor_sysid = ''
+            neighbor_name = ''
+            neighbor_dir = ''
         return [
             self.name,
-            self.neighbor.name,
-            utils.system_id_str(self.neighbor.system_id),
+            neighbor_name,
+            neighbor_sysid,
             self.state_name,
-            constants.direction_str(self.neighbor_direction()),
+            neighbor_dir,
             self.nbr_is_fr_str(self.floodred_nbr_is_fr),
             i_am_fr_str
         ]
