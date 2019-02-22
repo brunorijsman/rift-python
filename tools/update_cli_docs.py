@@ -7,6 +7,7 @@ sys.path.append("tests")
 import argparse
 import copy
 import os
+import platform
 import re
 import shutil
 
@@ -151,6 +152,10 @@ def print_table_summary(rows, separator_line, out_file):
 
 if __name__ == "__main__":
     ARGS = parse_command_line_arguments()
+    if not ARGS.check_only:
+        if platform.system() != "Linux":
+            print("Must be on Linux to generate documentation")
+            exit(1)
     SOMETHING_MISSING = process_file()
     if SOMETHING_MISSING:
         exit(1)
