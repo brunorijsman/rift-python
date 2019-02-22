@@ -174,13 +174,13 @@ class Engine:
         cli_session.print(tab.to_string())
 
     def command_show_engine_stats(self, cli_session, exclude_zero=False):
-        cli_session.print("Node ZTP FSM:")
+        cli_session.print("All Node ZTP FSMs:")
         tab = self.node_ztp_fsm_stats_group.table(exclude_zero)
         cli_session.print(tab.to_string())
-        cli_session.print("Interface Traffic:")
+        cli_session.print("All Interfaces Traffic:")
         tab = self.intf_traffic_stats_group.table(exclude_zero)
         cli_session.print(tab.to_string())
-        cli_session.print("Interface LIE FSM:")
+        cli_session.print("All Interface LIE FSMs:")
         tab = self.intf_lie_fsm_stats_group.table(exclude_zero)
         cli_session.print(tab.to_string())
 

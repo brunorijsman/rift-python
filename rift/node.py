@@ -1165,10 +1165,10 @@ class Node:
         cli_session.print("Node ZTP FSM:")
         tab = self.node_ztp_fsm_stats_group.table(exclude_zero, sort_by_description=True)
         cli_session.print(tab.to_string())
-        cli_session.print("Interface Traffic:")
+        cli_session.print("Node Interfaces Traffic:")
         tab = self.intf_traffic_stats_group.table(exclude_zero)
         cli_session.print(tab.to_string())
-        cli_session.print("Interface LIE FSM:")
+        cli_session.print("Node Interface LIE FSMs:")
         tab = self.intf_lie_fsm_stats_group.table(exclude_zero, sort_by_description=True)
         cli_session.print(tab.to_string())
 
