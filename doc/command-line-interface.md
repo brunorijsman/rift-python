@@ -254,9 +254,12 @@ The <i>failure</i> parameter can be one of the following:
 
 Example:
 
+<!-- OUTPUT-START: agg_101> set interface if1 failure failed -->
 <pre>
-node1> <b>set interface if1 failure failed</b>
+agg_101> <b>set interface if1 failure failed</b>
+Error: interface if1 not present
 </pre>
+<!-- OUTPUT-END -->
 
 ### set level <i>level</i>
 
@@ -283,9 +286,11 @@ top_of_fabric_level (= 24) in the sent LIE packets.
 
 Example:
 
+<!-- OUTPUT-START: agg_101> set level undefined -->
 <pre>
-core_1> <b>set level undefined</b>
+agg_101> <b>set level undefined</b>
 </pre>
+<!-- OUTPUT-END -->
 
 ### set node <i>node</i>
 
@@ -311,21 +316,21 @@ Example:
 <!-- OUTPUT-START: agg_101> show engine -->
 <pre>
 agg_101> <b>show engine</b>
-+----------------------------------+---------------------+
-| Stand-alone                      | False               |
-| Interactive                      | True                |
-| Simulated Interfaces             | True                |
-| Physical Interface               | en0                 |
-| Telnet Port File                 | None                |
-| IPv4 Multicast Loopback          | True                |
-| IPv6 Multicast Loopback          | True                |
-| Number of Nodes                  | 10                  |
-| Transmit Source Address          | 127.0.0.1           |
-| Flooding Reduction Enabled       | True                |
-| Flooding Reduction Redundancy    | 2                   |
-| Flooding Reduction Similarity    | 2                   |
-| Flooding Reduction System Random | 2443197552277236590 |
-+----------------------------------+---------------------+
++----------------------------------+----------------------+
+| Stand-alone                      | False                |
+| Interactive                      | True                 |
+| Simulated Interfaces             | True                 |
+| Physical Interface               | en0                  |
+| Telnet Port File                 | None                 |
+| IPv4 Multicast Loopback          | True                 |
+| IPv6 Multicast Loopback          | True                 |
+| Number of Nodes                  | 10                   |
+| Transmit Source Address          | 127.0.0.1            |
+| Flooding Reduction Enabled       | True                 |
+| Flooding Reduction Redundancy    | 2                    |
+| Flooding Reduction Similarity    | 2                    |
+| Flooding Reduction System Random | 11595267702276269909 |
++----------------------------------+----------------------+
 </pre>
 <!-- OUTPUT-END -->
 
@@ -506,7 +511,7 @@ Neighbor:
 | System ID              | 1                       |
 | IPv4 Address           | 192.168.8.108           |
 | IPv6 Address           | fe80::ab:bbd1:f18b:3dcd |
-| LIE UDP Source Port    | 53781                   |
+| LIE UDP Source Port    | 50509                   |
 | Link ID                | 1                       |
 | Level                  | 2                       |
 | Flood UDP Port         | 20003                   |
@@ -536,17 +541,17 @@ Example:
 <!-- OUTPUT-START: agg_101> show interface if_101_1001 fsm history -->
 <pre>
 agg_101> <b>show interface if_101_1001 fsm history</b>
-+----------+----------+---------+---------+------------------+----------------+-----------+----------+
-| Sequence | Time     | Verbose | From    | Event            | Actions and    | To        | Implicit |
-| Nr       | Delta    | Skipped | State   |                  | Pushed Events  | State     |          |
-+----------+----------+---------+---------+------------------+----------------+-----------+----------+
-| 236      | 9.868893 | 3       | TWO_WAY | VALID_REFLECTION | start_flooding | THREE_WAY | False    |
-+----------+----------+---------+---------+------------------+----------------+-----------+----------+
-| 66       | 0.154018 | 1       | ONE_WAY | NEW_NEIGHBOR     | SEND_LIE       | TWO_WAY   | False    |
-+----------+----------+---------+---------+------------------+----------------+-----------+----------+
-| 9        | 0.208963 | 0       | None    | None             | cleanup        | ONE_WAY   | False    |
-|          |          |         |         |                  | send_lie       |           |          |
-+----------+----------+---------+---------+------------------+----------------+-----------+----------+
++----------+-----------+---------+---------+------------------+----------------+-----------+----------+
+| Sequence | Time      | Verbose | From    | Event            | Actions and    | To        | Implicit |
+| Nr       | Delta     | Skipped | State   |                  | Pushed Events  | State     |          |
++----------+-----------+---------+---------+------------------+----------------+-----------+----------+
+| 236      | 10.290677 | 3       | TWO_WAY | VALID_REFLECTION | start_flooding | THREE_WAY | False    |
++----------+-----------+---------+---------+------------------+----------------+-----------+----------+
+| 66       | 0.148739  | 1       | ONE_WAY | NEW_NEIGHBOR     | SEND_LIE       | TWO_WAY   | False    |
++----------+-----------+---------+---------+------------------+----------------+-----------+----------+
+| 9        | 0.198757  | 0       | None    | None             | cleanup        | ONE_WAY   | False    |
+|          |           |         |         |                  | send_lie       |           |          |
++----------+-----------+---------+---------+------------------+----------------+-----------+----------+
 </pre>
 <!-- OUTPUT-END -->
 
@@ -571,19 +576,19 @@ agg_101> <b>show interface if_101_1001 fsm verbose-history</b>
 | Sequence | Time     | Verbose | From      | Event        | Actions and             | To    | Implicit |
 | Nr       | Delta    | Skipped | State     |              | Pushed Events           | State |          |
 +----------+----------+---------+-----------+--------------+-------------------------+-------+----------+
-| 1780     | 0.208488 | 0       | THREE_WAY | LIE_RECEIVED | process_lie             | None  | False    |
+| 1780     | 0.632143 | 0       | THREE_WAY | LIE_RECEIVED | process_lie             | None  | False    |
 +----------+----------+---------+-----------+--------------+-------------------------+-------+----------+
-| 1779     | 0.000257 | 0       | THREE_WAY | LIE_RECEIVED | process_lie             | None  | False    |
+| 1779     | 0.000612 | 0       | THREE_WAY | LIE_RECEIVED | process_lie             | None  | False    |
 +----------+----------+---------+-----------+--------------+-------------------------+-------+----------+
-| 1696     | 0.113404 | 0       | THREE_WAY | SEND_LIE     | send_lie                | None  | False    |
+| 1700     | 0.111055 | 0       | THREE_WAY | SEND_LIE     | send_lie                | None  | False    |
 +----------+----------+---------+-----------+--------------+-------------------------+-------+----------+
-| 1695     | 0.000369 | 0       | THREE_WAY | TIMER_TICK   | check_hold_time_expired | None  | False    |
+| 1699     | 0.000114 | 0       | THREE_WAY | TIMER_TICK   | check_hold_time_expired | None  | False    |
 |          |          |         |           |              | SEND_LIE                |       |          |
 +----------+----------+---------+-----------+--------------+-------------------------+-------+----------+
 .          .          .         .           .              .                         .       .          .
 .          .          .         .           .              .                         .       .          .
 +----------+----------+---------+-----------+--------------+-------------------------+-------+----------+
-| 868      | 0.858954 | 0       | THREE_WAY | LIE_RECEIVED | process_lie             | None  | False    |
+| 868      | 0.867370 | 0       | THREE_WAY | LIE_RECEIVED | process_lie             | None  | False    |
 +----------+----------+---------+-----------+--------------+-------------------------+-------+----------+
 </pre>
 <!-- OUTPUT-END -->
@@ -650,14 +655,14 @@ agg_101> <b>show interface if_101_1 sockets</b>
 +----------+-----------+--------+-------------------------+------------+----------------+-------------+
 | LIEs     | Receive   | IPv6   | ::                      | 20001      | Any            | Any         |
 +----------+-----------+--------+-------------------------+------------+----------------+-------------+
-| LIEs     | Send      | IPv4   | 192.168.8.108           | 54103      | 224.0.0.71     | 20002       |
+| LIEs     | Send      | IPv4   | 192.168.8.108           | 49531      | 224.0.0.71     | 20002       |
 +----------+-----------+--------+-------------------------+------------+----------------+-------------+
-| LIEs     | Send      | IPv6   | fe80::ab:bbd1:f18b:3dcd | 54104      | ff02::78       | 20002       |
+| LIEs     | Send      | IPv6   | fe80::ab:bbd1:f18b:3dcd | 49532      | ff02::78       | 20002       |
 +----------+-----------+--------+-------------------------+------------+----------------+-------------+
 .          .           .        .                         .            .                .             .
 .          .           .        .                         .            .                .             .
 +----------+-----------+--------+-------------------------+------------+----------------+-------------+
-| Flooding | Send      | IPv4   | 192.168.8.108           | 64651      | 192.168.8.108  | 20003       |
+| Flooding | Send      | IPv4   | 192.168.8.108           | 62861      | 192.168.8.108  | 20003       |
 +----------+-----------+--------+-------------------------+------------+----------------+-------------+
 </pre>
 <!-- OUTPUT-END -->
@@ -815,11 +820,11 @@ Node:
 | Passive                               | False            |
 | Running                               | True             |
 | System ID                             | 101              |
-| Configured Level                      | 1                |
+| Configured Level                      | undefined        |
 | Leaf Only                             | False            |
 | Leaf 2 Leaf                           | False            |
-| Top of Fabric Flag                    | True             |
-| Zero Touch Provisioning (ZTP) Enabled | False            |
+| Top of Fabric Flag                    | False            |
+| Zero Touch Provisioning (ZTP) Enabled | True             |
 | ZTP FSM State                         | UPDATING_CLIENTS |
 | ZTP Hold Down Timer                   | Stopped          |
 | Highest Available Level (HAL)         | 2                |
@@ -837,7 +842,7 @@ Node:
 | Flooding Reduction Enabled            | True             |
 | Flooding Reduction Redundancy         | 2                |
 | Flooding Reduction Similarity         | 2                |
-| Flooding Reduction Node Random        | 57221            |
+| Flooding Reduction Node Random        | 58106            |
 +---------------------------------------+------------------+
 
 Received Offers:
@@ -855,7 +860,7 @@ Sent Offers:
 +-------------+-----------+-------+-----------------+-----------+
 | Interface   | System ID | Level | Not A ZTP Offer | State     |
 +-------------+-----------+-------+-----------------+-----------+
-| if_101_1    | 101       | 1     | False           | THREE_WAY |
+| if_101_1    | 101       | 1     | True            | THREE_WAY |
 +-------------+-----------+-------+-----------------+-----------+
 | if_101_1001 | 101       | 1     | False           | THREE_WAY |
 +-------------+-----------+-------+-----------------+-----------+
@@ -881,29 +886,30 @@ Example:
 <!-- OUTPUT-START: agg_101> show node fsm history -->
 <pre>
 agg_101> <b>show node fsm history</b>
-+----------+-----------+---------+--------------------+------------------+----------------------+--------------------+----------+
-| Sequence | Time      | Verbose | From               | Event            | Actions and          | To                 | Implicit |
-| Nr       | Delta     | Skipped | State              |                  | Pushed Events        | State              |          |
-+----------+-----------+---------+--------------------+------------------+----------------------+--------------------+----------+
-| 293      | 10.513009 | 0       | COMPUTE_BEST_OFFER | COMPUTATION_DONE | update_all_lie_fsms  | UPDATING_CLIENTS   | False    |
-+----------+-----------+---------+--------------------+------------------+----------------------+--------------------+----------+
-| 292      | 0.000682  | 6       | UPDATING_CLIENTS   | BETTER_HAT       | stop_hold_down_timer | COMPUTE_BEST_OFFER | False    |
-|          |           |         |                    |                  | level_compute        |                    |          |
-|          |           |         |                    |                  | COMPUTATION_DONE     |                    |          |
-+----------+-----------+---------+--------------------+------------------+----------------------+--------------------+----------+
-| 185      | 0.635658  | 0       | COMPUTE_BEST_OFFER | COMPUTATION_DONE | update_all_lie_fsms  | UPDATING_CLIENTS   | False    |
-+----------+-----------+---------+--------------------+------------------+----------------------+--------------------+----------+
-| 184      | 0.000707  | 5       | UPDATING_CLIENTS   | BETTER_HAL       | stop_hold_down_timer | COMPUTE_BEST_OFFER | False    |
-|          |           |         |                    |                  | level_compute        |                    |          |
-|          |           |         |                    |                  | COMPUTATION_DONE     |                    |          |
-+----------+-----------+---------+--------------------+------------------+----------------------+--------------------+----------+
-.          .           .         .                    .                  .                      .                    .          .
-.          .           .         .                    .                  .                      .                    .          .
-+----------+-----------+---------+--------------------+------------------+----------------------+--------------------+----------+
-| 11       | 0.187042  | 0       | None               | None             | stop_hold_down_timer | COMPUTE_BEST_OFFER | False    |
-|          |           |         |                    |                  | level_compute        |                    |          |
-|          |           |         |                    |                  | COMPUTATION_DONE     |                    |          |
-+----------+-----------+---------+--------------------+------------------+----------------------+--------------------+----------+
++----------+----------+---------+--------------------+-------------------------------+----------------------+--------------------+----------+
+| Sequence | Time     | Verbose | From               | Event                         | Actions and          | To                 | Implicit |
+| Nr       | Delta    | Skipped | State              |                               | Pushed Events        | State              |          |
++----------+----------+---------+--------------------+-------------------------------+----------------------+--------------------+----------+
+| 1676     | 1.906459 | 0       | COMPUTE_BEST_OFFER | COMPUTATION_DONE              | update_all_lie_fsms  | UPDATING_CLIENTS   | False    |
++----------+----------+---------+--------------------+-------------------------------+----------------------+--------------------+----------+
+| 1675     | 0.000675 | 53      | UPDATING_CLIENTS   | CHANGE_LOCAL_CONFIGURED_LEVEL | store_level          | COMPUTE_BEST_OFFER | False    |
+|          |          |         |                    |                               | stop_hold_down_timer |                    |          |
+|          |          |         |                    |                               | level_compute        |                    |          |
+|          |          |         |                    |                               | COMPUTATION_DONE     |                    |          |
++----------+----------+---------+--------------------+-------------------------------+----------------------+--------------------+----------+
+| 291      | 9.007707 | 0       | COMPUTE_BEST_OFFER | COMPUTATION_DONE              | update_all_lie_fsms  | UPDATING_CLIENTS   | False    |
++----------+----------+---------+--------------------+-------------------------------+----------------------+--------------------+----------+
+| 290      | 0.000638 | 6       | UPDATING_CLIENTS   | BETTER_HAT                    | stop_hold_down_timer | COMPUTE_BEST_OFFER | False    |
+|          |          |         |                    |                               | level_compute        |                    |          |
+|          |          |         |                    |                               | COMPUTATION_DONE     |                    |          |
++----------+----------+---------+--------------------+-------------------------------+----------------------+--------------------+----------+
+.          .          .         .                    .                               .                      .                    .          .
+.          .          .         .                    .                               .                      .                    .          .
++----------+----------+---------+--------------------+-------------------------------+----------------------+--------------------+----------+
+| 11       | 0.176771 | 0       | None               | None                          | stop_hold_down_timer | COMPUTE_BEST_OFFER | False    |
+|          |          |         |                    |                               | level_compute        |                    |          |
+|          |          |         |                    |                               | COMPUTATION_DONE     |                    |          |
++----------+----------+---------+--------------------+-------------------------------+----------------------+--------------------+----------+
 </pre>
 <!-- OUTPUT-END -->
 
@@ -924,23 +930,23 @@ Example:
 <!-- OUTPUT-START: agg_101> show node fsm verbose-history -->
 <pre>
 agg_101> <b>show node fsm verbose-history</b>
-+----------+----------+---------+------------------+----------------+------------------------+-------+----------+
-| Sequence | Time     | Verbose | From             | Event          | Actions and            | To    | Implicit |
-| Nr       | Delta    | Skipped | State            |                | Pushed Events          | State |          |
-+----------+----------+---------+------------------+----------------+------------------------+-------+----------+
-| 1942     | 0.459597 | 0       | UPDATING_CLIENTS | NEIGHBOR_OFFER | update_or_remove_offer | None  | False    |
-+----------+----------+---------+------------------+----------------+------------------------+-------+----------+
-| 1941     | 0.000099 | 0       | UPDATING_CLIENTS | NEIGHBOR_OFFER | update_or_remove_offer | None  | False    |
-+----------+----------+---------+------------------+----------------+------------------------+-------+----------+
-| 1934     | 0.003638 | 0       | UPDATING_CLIENTS | NEIGHBOR_OFFER | update_or_remove_offer | None  | False    |
-+----------+----------+---------+------------------+----------------+------------------------+-------+----------+
-| 1933     | 0.000106 | 0       | UPDATING_CLIENTS | NEIGHBOR_OFFER | update_or_remove_offer | None  | False    |
-+----------+----------+---------+------------------+----------------+------------------------+-------+----------+
-.          .          .         .                  .                .                        .       .          .
-.          .          .         .                  .                .                        .       .          .
-+----------+----------+---------+------------------+----------------+------------------------+-------+----------+
-| 1334     | 0.828700 | 0       | UPDATING_CLIENTS | NEIGHBOR_OFFER | update_or_remove_offer | None  | False    |
-+----------+----------+---------+------------------+----------------+------------------------+-------+----------+
++----------+----------+---------+--------------------+-------------------------------+------------------------+--------------------+----------+
+| Sequence | Time     | Verbose | From               | Event                         | Actions and            | To                 | Implicit |
+| Nr       | Delta    | Skipped | State              |                               | Pushed Events          | State              |          |
++----------+----------+---------+--------------------+-------------------------------+------------------------+--------------------+----------+
+| 1982     | 0.032782 | 0       | UPDATING_CLIENTS   | NEIGHBOR_OFFER                | update_or_remove_offer | None               | False    |
++----------+----------+---------+--------------------+-------------------------------+------------------------+--------------------+----------+
+| 1981     | 0.000184 | 0       | UPDATING_CLIENTS   | NEIGHBOR_OFFER                | update_or_remove_offer | None               | False    |
++----------+----------+---------+--------------------+-------------------------------+------------------------+--------------------+----------+
+| 1944     | 0.836044 | 0       | UPDATING_CLIENTS   | NEIGHBOR_OFFER                | update_or_remove_offer | None               | False    |
++----------+----------+---------+--------------------+-------------------------------+------------------------+--------------------+----------+
+| 1943     | 0.000178 | 0       | UPDATING_CLIENTS   | NEIGHBOR_OFFER                | update_or_remove_offer | None               | False    |
++----------+----------+---------+--------------------+-------------------------------+------------------------+--------------------+----------+
+.          .          .         .                    .                               .                        .                    .          .
+.          .          .         .                    .                               .                        .                    .          .
++----------+----------+---------+--------------------+-------------------------------+------------------------+--------------------+----------+
+| 1482     | 0.004387 | 0       | UPDATING_CLIENTS   | NEIGHBOR_OFFER                | update_or_remove_offer | None               | False    |
++----------+----------+---------+--------------------+-------------------------------+------------------------+--------------------+----------+
 </pre>
 <!-- OUTPUT-END -->
 
@@ -989,7 +995,7 @@ agg_101> <b>show nodes level</b>
 | Node      | System | Running | Configured | Level |
 | Name      | ID     |         | Level      | Value |
 +-----------+--------+---------+------------+-------+
-| agg_101   | 101    | True    | 1          | 1     |
+| agg_101   | 101    | True    | undefined  | 1     |
 +-----------+--------+---------+------------+-------+
 | agg_102   | 102    | True    | 1          | 1     |
 +-----------+--------+---------+------------+-------+
@@ -1216,7 +1222,7 @@ agg_101> <b>show tie-db</b>
 +-----------+------------+--------+--------+--------+----------+-----------------------+
 | Direction | Originator | Type   | TIE Nr | Seq Nr | Lifetime | Contents              |
 +-----------+------------+--------+--------+--------+----------+-----------------------+
-| South     | 1          | Node   | 1      | 5      | 604788   | Name: core_1          |
+| South     | 1          | Node   | 1      | 5      | 604787   | Name: core_1          |
 |           |            |        |        |        |          | Level: 2              |
 |           |            |        |        |        |          | Neighbor: 101         |
 |           |            |        |        |        |          |   Level: 1            |
@@ -1239,12 +1245,12 @@ agg_101> <b>show tie-db</b>
 |           |            |        |        |        |          |   Bandwidth: 100 Mbps |
 |           |            |        |        |        |          |   Link: 4-1           |
 +-----------+------------+--------+--------+--------+----------+-----------------------+
-| South     | 1          | Prefix | 1      | 1      | 604788   | Prefix: 0.0.0.0/0     |
+| South     | 1          | Prefix | 1      | 1      | 604787   | Prefix: 0.0.0.0/0     |
 |           |            |        |        |        |          |   Metric: 1           |
 |           |            |        |        |        |          | Prefix: ::/0          |
 |           |            |        |        |        |          |   Metric: 1           |
 +-----------+------------+--------+--------+--------+----------+-----------------------+
-| South     | 101        | Node   | 1      | 4      | 604788   | Name: agg_101         |
+| South     | 101        | Node   | 1      | 4      | 604787   | Name: agg_101         |
 |           |            |        |        |        |          | Level: 1              |
 |           |            |        |        |        |          | Neighbor: 1           |
 |           |            |        |        |        |          |   Level: 2            |
@@ -1262,7 +1268,7 @@ agg_101> <b>show tie-db</b>
 |           |            |        |        |        |          |   Bandwidth: 100 Mbps |
 |           |            |        |        |        |          |   Link: 4-1           |
 +-----------+------------+--------+--------+--------+----------+-----------------------+
-| South     | 101        | Prefix | 1      | 1      | 604788   | Prefix: 0.0.0.0/0     |
+| South     | 101        | Prefix | 1      | 1      | 604787   | Prefix: 0.0.0.0/0     |
 |           |            |        |        |        |          |   Metric: 1           |
 |           |            |        |        |        |          | Prefix: ::/0          |
 |           |            |        |        |        |          |   Metric: 1           |
@@ -1270,7 +1276,7 @@ agg_101> <b>show tie-db</b>
 .           .            .        .        .        .          .                       .
 .           .            .        .        .        .          .                       .
 +-----------+------------+--------+--------+--------+----------+-----------------------+
-| North     | 1002       | Prefix | 1      | 1      | 604788   | Prefix: 1.2.1.0/24    |
+| North     | 1002       | Prefix | 1      | 1      | 604787   | Prefix: 1.2.1.0/24    |
 |           |            |        |        |        |          |   Metric: 1           |
 |           |            |        |        |        |          | Prefix: 1.2.2.0/24    |
 |           |            |        |        |        |          |   Metric: 1           |
