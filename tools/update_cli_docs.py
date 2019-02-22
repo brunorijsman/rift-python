@@ -21,12 +21,14 @@ def process_file():
     all_commands = gather_output(res, "agg_101", "help")
     start_regex = re.compile(".*<!-- OUTPUT-START: (.*)> (.*) -->.*")
     end_regex = re.compile(".*<!-- OUTPUT-END -->.*")
+    manual_regex = re.compile(".*<!-- OUTPUT-MANUAL: (.*)> (.*) -->.*")
     with open('doc/command-line-interface.md', 'rt') as in_file, \
         open('doc/command-line-interface.md.new', 'wt') as out_file:
         skipping = False
         for line in in_file:
             start_match = start_regex.match(line)
             end_match = end_regex.match(line)
+            manual_match = manual_regex.match(line)
             if start_match:
                 print(line, file=out_file, end='')
                 node = start_match.group(1)
@@ -37,6 +39,12 @@ def process_file():
             elif end_match:
                 print(line, file=out_file, end='')
                 skipping = False
+            elif manual_match:
+                print(line, file=out_file, end='')
+                node = manual_match.group(1)
+                command = manual_match.group(2)
+                print("Manual:", command)
+                processed_commands.append(command)
             elif not skipping:
                 print(line, file=out_file, end='')
     res.stop()
