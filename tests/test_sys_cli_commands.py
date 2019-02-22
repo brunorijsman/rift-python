@@ -131,9 +131,7 @@ def check_show_interface_queues(res):
 def check_show_interface_sockets(res):
     res.sendline("show interface if1 sockets")
     res.table_expect("| LIEs | Receive | IPv4 |")
-    res.table_expect("| LIEs | Receive | IPv6 |")
     res.table_expect("| LIEs | Send | IPv4 |")
-    res.table_expect("| LIEs | Send | IPv6 |")
     res.table_expect("| Flooding | Receive |")
     res.table_expect("| Flooding | Send |")
     res.wait_prompt()
