@@ -1132,7 +1132,7 @@ class Node:
             return
         self.kernel.command_show_routes(cli_session, table_nr)
 
-    def command_show_kernel_route_pref(self, cli_session, parameters):
+    def command_show_kernel_routes_pref(self, cli_session, parameters):
         table_nr = self.get_table_param(cli_session, parameters)
         prefix = self.get_prefix_param(cli_session, parameters)
         if (table_nr is None) or (prefix is None):

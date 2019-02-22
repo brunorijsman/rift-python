@@ -229,8 +229,8 @@ class Engine:
     def command_show_kernel_routes_tab(self, cli_session, parameters):
         cli_session.current_node.command_show_kernel_routes_tab(cli_session, parameters)
 
-    def command_show_kernel_route_pref(self, cli_session, parameters):
-        cli_session.current_node.command_show_kernel_route_pref(cli_session, parameters)
+    def command_show_kernel_routes_pref(self, cli_session, parameters):
+        cli_session.current_node.command_show_kernel_routes_pref(cli_session, parameters)
 
     def command_show_lie_fsm(self, cli_session):
         interface.Interface.fsm_definition.command_show_fsm(cli_session)
@@ -376,11 +376,7 @@ class Engine:
                     "": command_show_kernel_routes,
                     "$table": {
                         "": command_show_kernel_routes_tab,
-                    },
-                },
-                "route": {
-                    "$table": {
-                        "$prefix": command_show_kernel_route_pref,
+                        "$prefix": command_show_kernel_routes_pref
                     },
                 },
             },
@@ -398,12 +394,6 @@ class Engine:
             "nodes": {
                 "": command_show_nodes,
                 "level": command_show_nodes_level,
-            },
-            "route": {
-                "$prefix": {
-                    "": command_show_route_prefix,
-                    "$owner": command_show_route_prefix_owner,
-                },
             },
             "routes": {
                 "": command_show_routes,

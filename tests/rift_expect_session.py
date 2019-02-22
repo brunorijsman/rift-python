@@ -259,5 +259,5 @@ class RiftExpectSession:
 
     def check_rib_absent(self, node, prefix, owner):
         self.sendline("set node {}".format(node))
-        self.sendline("show route prefix {} owner {}".format(prefix, owner))
+        self.sendline("show routes prefix {} owner {}".format(prefix, owner))
         self.table_expect("not present")
