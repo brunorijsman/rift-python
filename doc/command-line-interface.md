@@ -12,6 +12,7 @@
   * [set node <i>node</i>](#set-node-node)
   * [show engine](#show-engine)
   * [show engine statistics](#show-engine-statistics)
+  * [show engine statistics exclude-zero](#show-engine-statistics-exclude-zero)
   * [show forwarding](#show-forwarding)
   * [show forwarding prefix <i>prefix</i>](#show-forwarding-prefix-prefix)
   * [show fsm <i>fsm</i>](#show-fsm-fsm)
@@ -21,6 +22,7 @@
   * [show interface <i>interface</i> queues](#show-interface-interface-queues)
   * [show interface <i>interface</i> sockets](#show-interface-interface-sockets)
   * [show interface <i>interface</i> statistics](#show-interface-interface-statistics)
+  * [show interface <i>interface</i> statistics exclude-zero](#show-interface-interface-statistics-exclude-zero)
   * [show interfaces](#show-interfaces)
   * [show kernel addresses](#show-kernel-addresses)
   * [show kernel links](#show-kernel-links)
@@ -31,6 +33,7 @@
   * [show node fsm history](#show-node-fsm-history)
   * [show node fsm verbose-history](#show-node-fsm-verbose-history)
   * [show node statistics](#show-node-statistics)
+  * [show node statistics exclude-zero](#show-node-statistics-exclude-zero)
   * [show nodes](#show-nodes)
   * [show nodes level](#show-nodes-level)
   * [show route prefix <i>prefix</i>](#show-route-prefix-prefix)
@@ -178,7 +181,8 @@ agg_101> <b>clear engine statistics</b>
 </pre>
 <!-- OUTPUT-END -->
 
-See also: [show engine statistics](#show-engine-statistics)
+See also: [show engine statistics](#show-engine-statistics), 
+[show engine statistics exclude-zero](#show-engine-statistics-exclude-zero)
 
 ### clear interface <i>interface</i> statistics
 
@@ -191,7 +195,8 @@ agg_101> <b>clear interface if_101_1 statistics</b>
 </pre>
 <!-- OUTPUT-END -->
 
-See also: [show interface <i>interface</i> statistics](#show-interface-interface-statistics)
+See also: [show interface <i>interface</i> statistics](#show-interface-interface-statistics),
+[show interface <i>interface</i> statistics exclude-zero](#show-interface-interface-statistics-exclude-zero)
 
 ### clear node statistics
 
@@ -204,7 +209,8 @@ agg_101> <b>clear node statistics</b>
 </pre>
 <!-- OUTPUT-END -->
 
-See also: [show node statistics](#show-node-statistics)
+See also: [show node statistics](#show-node-statistics),
+[show node statistics exclude-zero](#show-interface-interface-statistics-exclude-zero)
 
 ### exit
 
@@ -316,23 +322,161 @@ Example:
 <!-- OUTPUT-START: agg_101> show engine -->
 <pre>
 agg_101> <b>show engine</b>
-+----------------------------------+----------------------+
-| Stand-alone                      | False                |
-| Interactive                      | True                 |
-| Simulated Interfaces             | True                 |
-| Physical Interface               | en0                  |
-| Telnet Port File                 | None                 |
-| IPv4 Multicast Loopback          | True                 |
-| IPv6 Multicast Loopback          | True                 |
-| Number of Nodes                  | 10                   |
-| Transmit Source Address          | 127.0.0.1            |
-| Flooding Reduction Enabled       | True                 |
-| Flooding Reduction Redundancy    | 2                    |
-| Flooding Reduction Similarity    | 2                    |
-| Flooding Reduction System Random | 11595267702276269909 |
-+----------------------------------+----------------------+
++----------------------------------+---------------------+
+| Stand-alone                      | False               |
+| Interactive                      | True                |
+| Simulated Interfaces             | True                |
+| Physical Interface               | en0                 |
+| Telnet Port File                 | None                |
+| IPv4 Multicast Loopback          | True                |
+| IPv6 Multicast Loopback          | True                |
+| Number of Nodes                  | 10                  |
+| Transmit Source Address          | 127.0.0.1           |
+| Flooding Reduction Enabled       | True                |
+| Flooding Reduction Redundancy    | 2                   |
+| Flooding Reduction Similarity    | 2                   |
+| Flooding Reduction System Random | 4898581087497737084 |
++----------------------------------+---------------------+
 </pre>
 <!-- OUTPUT-END -->
+
+### show engine statistics
+
+The "<b>show engine statistics</b>" command shows all the statistics for the RIFT-Python
+engine.
+
+Example:
+
+<!-- OUTPUT-START: agg_101> show engine statistics -->
+<pre>
+agg_101> <b>show engine statistics</b>
+Node ZTP FSM:
++------------------------------------------------------------------------------------------+----------------+------------------------+-------------------+
+| Description                                                                              | Value          | Last Rate              | Last Change       |
+|                                                                                          |                | Over Last 10 Changes   |                   |
++------------------------------------------------------------------------------------------+----------------+------------------------+-------------------+
+| Events CHANGE_LOCAL_CONFIGURED_LEVEL                                                     | 1 Event        |                        | 0d 00h:00m:00.24s |
++------------------------------------------------------------------------------------------+----------------+------------------------+-------------------+
+| Events NEIGHBOR_OFFER                                                                    | 48 Events      | 215.78 Events/Sec      | 0d 00h:00m:00.00s |
++------------------------------------------------------------------------------------------+----------------+------------------------+-------------------+
+| Events BETTER_HAL                                                                        | 0 Events       |                        |                   |
++------------------------------------------------------------------------------------------+----------------+------------------------+-------------------+
+| Events BETTER_HAT                                                                        | 0 Events       |                        |                   |
++------------------------------------------------------------------------------------------+----------------+------------------------+-------------------+
+.                                                                                          .                .                        .                   .
+.                                                                                          .                .                        .                   .
++------------------------------------------------------------------------------------------+----------------+------------------------+-------------------+
+| Event-Transitions UPDATING_CLIENTS -[CHANGE_LOCAL_CONFIGURED_LEVEL]-&gt; COMPUTE_BEST_OFFER | 1 Transition   |                        | 0d 00h:00m:00.24s |
++------------------------------------------------------------------------------------------+----------------+------------------------+-------------------+
+
+Interface Traffic:
++---------------------------+-------------------------+-----------------------------------------+-------------------+
+| Description               | Value                   | Last Rate                               | Last Change       |
+|                           |                         | Over Last 10 Changes                    |                   |
++---------------------------+-------------------------+-----------------------------------------+-------------------+
+| RX IPv4 LIE Packets       | 24 Packets, 3780 Bytes  | 113.02 Packets/Sec, 18057.41 Bytes/Sec  | 0d 00h:00m:00.00s |
++---------------------------+-------------------------+-----------------------------------------+-------------------+
+| TX IPv4 LIE Packets       | 28 Packets, 4312 Bytes  | 111.62 Packets/Sec, 17833.64 Bytes/Sec  | 0d 00h:00m:00.01s |
++---------------------------+-------------------------+-----------------------------------------+-------------------+
+| RX IPv4 TIE Packets       | 0 Packets, 0 Bytes      |                                         |                   |
++---------------------------+-------------------------+-----------------------------------------+-------------------+
+| TX IPv4 TIE Packets       | 0 Packets, 0 Bytes      |                                         |                   |
++---------------------------+-------------------------+-----------------------------------------+-------------------+
+.                           .                         .                                         .                   .
+.                           .                         .                                         .                   .
++---------------------------+-------------------------+-----------------------------------------+-------------------+
+| Total TX Errors           | 0 Packets, 0 Bytes      |                                         |                   |
++---------------------------+-------------------------+-----------------------------------------+-------------------+
+
+Interface LIE FSM:
++-----------------------------------------------------------+----------------+------------------------+-------------------+
+| Description                                               | Value          | Last Rate              | Last Change       |
+|                                                           |                | Over Last 10 Changes   |                   |
++-----------------------------------------------------------+----------------+------------------------+-------------------+
+| Events TIMER_TICK                                         | 28 Events      | 111.46 Events/Sec      | 0d 00h:00m:00.01s |
++-----------------------------------------------------------+----------------+------------------------+-------------------+
+| Events LEVEL_CHANGED                                      | 0 Events       |                        |                   |
++-----------------------------------------------------------+----------------+------------------------+-------------------+
+| Events HAL_CHANGED                                        | 0 Events       |                        |                   |
++-----------------------------------------------------------+----------------+------------------------+-------------------+
+| Events HAT_CHANGED                                        | 0 Events       |                        |                   |
++-----------------------------------------------------------+----------------+------------------------+-------------------+
+.                                                           .                .                        .                   .
+.                                                           .                .                        .                   .
++-----------------------------------------------------------+----------------+------------------------+-------------------+
+| Event-Transitions ONE_WAY -[SEND_LIE]-&gt; ONE_WAY           | 4 Transitions  | 47.26 Transitions/Sec  | 0d 00h:00m:00.10s |
++-----------------------------------------------------------+----------------+------------------------+-------------------+
+</pre>
+<!-- OUTPUT-END --></pre>
+
+### show engine statistics exclude-zero
+
+The "<b>show engine statistics</b>" command shows all the statistics for the RIFT-Python
+engine, excluding any zero statistics.
+
+Example:
+
+<!-- OUTPUT-START: agg_101> show engine statistics exclude-zero -->
+<pre>
+agg_101> <b>show engine statistics exclude-zero</b>
+Node ZTP FSM:
++------------------------------------------------------------------------------------------+----------------+------------------------+-------------------+
+| Description                                                                              | Value          | Last Rate              | Last Change       |
+|                                                                                          |                | Over Last 10 Changes   |                   |
++------------------------------------------------------------------------------------------+----------------+------------------------+-------------------+
+| Events CHANGE_LOCAL_CONFIGURED_LEVEL                                                     | 1 Event        |                        | 0d 00h:00m:00.37s |
++------------------------------------------------------------------------------------------+----------------+------------------------+-------------------+
+| Events NEIGHBOR_OFFER                                                                    | 48 Events      | 215.78 Events/Sec      | 0d 00h:00m:00.12s |
++------------------------------------------------------------------------------------------+----------------+------------------------+-------------------+
+| Events COMPUTATION_DONE                                                                  | 1 Event        |                        | 0d 00h:00m:00.36s |
++------------------------------------------------------------------------------------------+----------------+------------------------+-------------------+
+| Transitions COMPUTE_BEST_OFFER -&gt; UPDATING_CLIENTS                                       | 1 Transition   |                        | 0d 00h:00m:00.36s |
++------------------------------------------------------------------------------------------+----------------+------------------------+-------------------+
+.                                                                                          .                .                        .                   .
+.                                                                                          .                .                        .                   .
++------------------------------------------------------------------------------------------+----------------+------------------------+-------------------+
+| Event-Transitions UPDATING_CLIENTS -[CHANGE_LOCAL_CONFIGURED_LEVEL]-&gt; COMPUTE_BEST_OFFER | 1 Transition   |                        | 0d 00h:00m:00.36s |
++------------------------------------------------------------------------------------------+----------------+------------------------+-------------------+
+
+Interface Traffic:
++---------------------------+--------------------------+----------------------------------------+-------------------+
+| Description               | Value                    | Last Rate                              | Last Change       |
+|                           |                          | Over Last 10 Changes                   |                   |
++---------------------------+--------------------------+----------------------------------------+-------------------+
+| RX IPv4 LIE Packets       | 24 Packets, 3780 Bytes   | 113.02 Packets/Sec, 18057.41 Bytes/Sec | 0d 00h:00m:00.13s |
++---------------------------+--------------------------+----------------------------------------+-------------------+
+| TX IPv4 LIE Packets       | 28 Packets, 4312 Bytes   | 111.62 Packets/Sec, 17833.64 Bytes/Sec | 0d 00h:00m:00.13s |
++---------------------------+--------------------------+----------------------------------------+-------------------+
+| RX IPv4 TIDE Packets      | 24 Packets, 13056 Bytes  | 106.47 Packets/Sec, 41026.68 Bytes/Sec | 0d 00h:00m:00.11s |
++---------------------------+--------------------------+----------------------------------------+-------------------+
+| TX IPv4 TIDE Packets      | 24 Packets, 13056 Bytes  | 98.94 Packets/Sec, 39246.26 Bytes/Sec  | 0d 00h:00m:00.11s |
++---------------------------+--------------------------+----------------------------------------+-------------------+
+.                           .                          .                                        .                   .
+.                           .                          .                                        .                   .
++---------------------------+--------------------------+----------------------------------------+-------------------+
+| Total TX Packets          | 52 Packets, 17368 Bytes  | 187.03 Packets/Sec, 52161.24 Bytes/Sec | 0d 00h:00m:00.11s |
++---------------------------+--------------------------+----------------------------------------+-------------------+
+
+Interface LIE FSM:
++---------------------------------------------------------+----------------+------------------------+-------------------+
+| Description                                             | Value          | Last Rate              | Last Change       |
+|                                                         |                | Over Last 10 Changes   |                   |
++---------------------------------------------------------+----------------+------------------------+-------------------+
+| Events TIMER_TICK                                       | 28 Events      | 111.46 Events/Sec      | 0d 00h:00m:00.13s |
++---------------------------------------------------------+----------------+------------------------+-------------------+
+| Events LIE_RECEIVED                                     | 48 Events      | 214.50 Events/Sec      | 0d 00h:00m:00.13s |
++---------------------------------------------------------+----------------+------------------------+-------------------+
+| Events SEND_LIE                                         | 28 Events      | 111.63 Events/Sec      | 0d 00h:00m:00.13s |
++---------------------------------------------------------+----------------+------------------------+-------------------+
+| Transitions ONE_WAY -&gt; ONE_WAY                          | 8 Transitions  | 108.42 Transitions/Sec | 0d 00h:00m:00.22s |
++---------------------------------------------------------+----------------+------------------------+-------------------+
+.                                                         .                .                        .                   .
+.                                                         .                .                        .                   .
++---------------------------------------------------------+----------------+------------------------+-------------------+
+| Event-Transitions ONE_WAY -[SEND_LIE]-&gt; ONE_WAY         | 4 Transitions  | 47.26 Transitions/Sec  | 0d 00h:00m:00.22s |
++---------------------------------------------------------+----------------+------------------------+-------------------+
+</pre>
+<!-- OUTPUT-END --></pre>
 
 ### show forwarding
 
@@ -511,7 +655,7 @@ Neighbor:
 | System ID              | 1                       |
 | IPv4 Address           | 192.168.8.108           |
 | IPv6 Address           | fe80::ab:bbd1:f18b:3dcd |
-| LIE UDP Source Port    | 50509                   |
+| LIE UDP Source Port    | 51051                   |
 | Link ID                | 1                       |
 | Level                  | 2                       |
 | Flood UDP Port         | 20003                   |
@@ -545,11 +689,11 @@ agg_101> <b>show interface if_101_1001 fsm history</b>
 | Sequence | Time      | Verbose | From    | Event            | Actions and    | To        | Implicit |
 | Nr       | Delta     | Skipped | State   |                  | Pushed Events  | State     |          |
 +----------+-----------+---------+---------+------------------+----------------+-----------+----------+
-| 236      | 10.290677 | 3       | TWO_WAY | VALID_REFLECTION | start_flooding | THREE_WAY | False    |
+| 236      | 10.517266 | 3       | TWO_WAY | VALID_REFLECTION | start_flooding | THREE_WAY | False    |
 +----------+-----------+---------+---------+------------------+----------------+-----------+----------+
-| 66       | 0.148739  | 1       | ONE_WAY | NEW_NEIGHBOR     | SEND_LIE       | TWO_WAY   | False    |
+| 66       | 0.156334  | 1       | ONE_WAY | NEW_NEIGHBOR     | SEND_LIE       | TWO_WAY   | False    |
 +----------+-----------+---------+---------+------------------+----------------+-----------+----------+
-| 9        | 0.198757  | 0       | None    | None             | cleanup        | ONE_WAY   | False    |
+| 9        | 0.205267  | 0       | None    | None             | cleanup        | ONE_WAY   | False    |
 |          |           |         |         |                  | send_lie       |           |          |
 +----------+-----------+---------+---------+------------------+----------------+-----------+----------+
 </pre>
@@ -576,19 +720,19 @@ agg_101> <b>show interface if_101_1001 fsm verbose-history</b>
 | Sequence | Time     | Verbose | From      | Event        | Actions and             | To    | Implicit |
 | Nr       | Delta    | Skipped | State     |              | Pushed Events           | State |          |
 +----------+----------+---------+-----------+--------------+-------------------------+-------+----------+
-| 1780     | 0.632143 | 0       | THREE_WAY | LIE_RECEIVED | process_lie             | None  | False    |
+| 1782     | 0.863421 | 0       | THREE_WAY | LIE_RECEIVED | process_lie             | None  | False    |
 +----------+----------+---------+-----------+--------------+-------------------------+-------+----------+
-| 1779     | 0.000612 | 0       | THREE_WAY | LIE_RECEIVED | process_lie             | None  | False    |
+| 1781     | 0.000193 | 0       | THREE_WAY | LIE_RECEIVED | process_lie             | None  | False    |
 +----------+----------+---------+-----------+--------------+-------------------------+-------+----------+
-| 1700     | 0.111055 | 0       | THREE_WAY | SEND_LIE     | send_lie                | None  | False    |
+| 1696     | 0.103501 | 0       | THREE_WAY | SEND_LIE     | send_lie                | None  | False    |
 +----------+----------+---------+-----------+--------------+-------------------------+-------+----------+
-| 1699     | 0.000114 | 0       | THREE_WAY | TIMER_TICK   | check_hold_time_expired | None  | False    |
+| 1695     | 0.000133 | 0       | THREE_WAY | TIMER_TICK   | check_hold_time_expired | None  | False    |
 |          |          |         |           |              | SEND_LIE                |       |          |
 +----------+----------+---------+-----------+--------------+-------------------------+-------+----------+
 .          .          .         .           .              .                         .       .          .
 .          .          .         .           .              .                         .       .          .
 +----------+----------+---------+-----------+--------------+-------------------------+-------+----------+
-| 868      | 0.867370 | 0       | THREE_WAY | LIE_RECEIVED | process_lie             | None  | False    |
+| 870      | 0.847573 | 0       | THREE_WAY | LIE_RECEIVED | process_lie             | None  | False    |
 +----------+----------+---------+-----------+--------------+-------------------------+-------+----------+
 </pre>
 <!-- OUTPUT-END -->
@@ -655,17 +799,117 @@ agg_101> <b>show interface if_101_1 sockets</b>
 +----------+-----------+--------+-------------------------+------------+----------------+-------------+
 | LIEs     | Receive   | IPv6   | ::                      | 20001      | Any            | Any         |
 +----------+-----------+--------+-------------------------+------------+----------------+-------------+
-| LIEs     | Send      | IPv4   | 192.168.8.108           | 49531      | 224.0.0.71     | 20002       |
+| LIEs     | Send      | IPv4   | 192.168.8.108           | 58378      | 224.0.0.71     | 20002       |
 +----------+-----------+--------+-------------------------+------------+----------------+-------------+
-| LIEs     | Send      | IPv6   | fe80::ab:bbd1:f18b:3dcd | 49532      | ff02::78       | 20002       |
+| LIEs     | Send      | IPv6   | fe80::ab:bbd1:f18b:3dcd | 58379      | ff02::78       | 20002       |
 +----------+-----------+--------+-------------------------+------------+----------------+-------------+
 .          .           .        .                         .            .                .             .
 .          .           .        .                         .            .                .             .
 +----------+-----------+--------+-------------------------+------------+----------------+-------------+
-| Flooding | Send      | IPv4   | 192.168.8.108           | 62861      | 192.168.8.108  | 20003       |
+| Flooding | Send      | IPv4   | 192.168.8.108           | 61914      | 192.168.8.108  | 20003       |
 +----------+-----------+--------+-------------------------+------------+----------------+-------------+
 </pre>
 <!-- OUTPUT-END -->
+
+### show interface <i>interface</i> statistics
+
+The "<b>show interface <i>interface</i> statistics</b>" command shows all the statistics for the 
+speficied interface.
+
+Example:
+
+<!-- OUTPUT-START: agg_101> show interface if_101_1 statistics -->
+<pre>
+agg_101> <b>show interface if_101_1 statistics</b>
+Traffic:
++---------------------------+-----------------------+-------------------------------------+-------------------+
+| Description               | Value                 | Last Rate                           | Last Change       |
+|                           |                       | Over Last 10 Changes                |                   |
++---------------------------+-----------------------+-------------------------------------+-------------------+
+| RX IPv4 LIE Packets       | 2 Packets, 308 Bytes  | 1.00 Packets/Sec, 153.82 Bytes/Sec  | 0d 00h:00m:00.38s |
++---------------------------+-----------------------+-------------------------------------+-------------------+
+| TX IPv4 LIE Packets       | 2 Packets, 310 Bytes  | 1.02 Packets/Sec, 158.49 Bytes/Sec  | 0d 00h:00m:00.33s |
++---------------------------+-----------------------+-------------------------------------+-------------------+
+| RX IPv4 TIE Packets       | 0 Packets, 0 Bytes    |                                     |                   |
++---------------------------+-----------------------+-------------------------------------+-------------------+
+| TX IPv4 TIE Packets       | 0 Packets, 0 Bytes    |                                     |                   |
++---------------------------+-----------------------+-------------------------------------+-------------------+
+.                           .                       .                                     .                   .
+.                           .                       .                                     .                   .
++---------------------------+-----------------------+-------------------------------------+-------------------+
+| Total TX Errors           | 0 Packets, 0 Bytes    |                                     |                   |
++---------------------------+-----------------------+-------------------------------------+-------------------+
+
+LIE FSM:
++-----------------------------------------------------------+---------------+----------------------+-------------------+
+| Description                                               | Value         | Last Rate            | Last Change       |
+|                                                           |               | Over Last 10 Changes |                   |
++-----------------------------------------------------------+---------------+----------------------+-------------------+
+| Event-Transitions None -[None]-&gt; ONE_WAY                  | 0 Transitions |                      |                   |
++-----------------------------------------------------------+---------------+----------------------+-------------------+
+| Event-Transitions ONE_WAY -[LIE_RECEIVED]-&gt; ONE_WAY       | 0 Transitions |                      |                   |
++-----------------------------------------------------------+---------------+----------------------+-------------------+
+| Event-Transitions ONE_WAY -[NEW_NEIGHBOR]-&gt; TWO_WAY       | 0 Transitions |                      |                   |
++-----------------------------------------------------------+---------------+----------------------+-------------------+
+| Event-Transitions THREE_WAY -[LIE_RECEIVED]-&gt; THREE_WAY   | 4 Transitions | 3.00 Transitions/Sec | 0d 00h:00m:00.39s |
++-----------------------------------------------------------+---------------+----------------------+-------------------+
+.                                                           .               .                      .                   .
+.                                                           .               .                      .                   .
++-----------------------------------------------------------+---------------+----------------------+-------------------+
+| Transitions TWO_WAY -&gt; TWO_WAY                            | 0 Transitions |                      |                   |
++-----------------------------------------------------------+---------------+----------------------+-------------------+
+</pre>
+<!-- OUTPUT-END --></pre>
+
+### show interface <i>interface</i> statistics exclude-zero
+
+The "<b>show interface <i>interface</i> statistics</b>" command shows all the statistics for the 
+specified interface, excluding any zero statistics.
+
+Example:
+
+<!-- OUTPUT-START: agg_101> show interface if_101_1 statistics exclude-zero -->
+<pre>
+agg_101> <b>show interface if_101_1 statistics exclude-zero</b>
+Traffic:
++---------------------------+-----------------------+-------------------------------------+-------------------+
+| Description               | Value                 | Last Rate                           | Last Change       |
+|                           |                       | Over Last 10 Changes                |                   |
++---------------------------+-----------------------+-------------------------------------+-------------------+
+| RX IPv4 LIE Packets       | 2 Packets, 308 Bytes  | 1.00 Packets/Sec, 153.82 Bytes/Sec  | 0d 00h:00m:00.51s |
++---------------------------+-----------------------+-------------------------------------+-------------------+
+| TX IPv4 LIE Packets       | 2 Packets, 310 Bytes  | 1.02 Packets/Sec, 158.49 Bytes/Sec  | 0d 00h:00m:00.46s |
++---------------------------+-----------------------+-------------------------------------+-------------------+
+| RX IPv4 TIDE Packets      | 1 Packet, 884 Bytes   |                                     | 0d 00h:00m:01.46s |
++---------------------------+-----------------------+-------------------------------------+-------------------+
+| TX IPv4 TIDE Packets      | 1 Packet, 476 Bytes   |                                     | 0d 00h:00m:01.44s |
++---------------------------+-----------------------+-------------------------------------+-------------------+
+.                           .                       .                                     .                   .
+.                           .                       .                                     .                   .
++---------------------------+-----------------------+-------------------------------------+-------------------+
+| Total TX Packets          | 3 Packets, 786 Bytes  | 2.03 Packets/Sec, 314.85 Bytes/Sec  | 0d 00h:00m:00.46s |
++---------------------------+-----------------------+-------------------------------------+-------------------+
+
+LIE FSM:
++---------------------------------------------------------+---------------+----------------------+-------------------+
+| Description                                             | Value         | Last Rate            | Last Change       |
+|                                                         |               | Over Last 10 Changes |                   |
++---------------------------------------------------------+---------------+----------------------+-------------------+
+| Event-Transitions THREE_WAY -[LIE_RECEIVED]-&gt; THREE_WAY | 4 Transitions | 3.00 Transitions/Sec | 0d 00h:00m:00.51s |
++---------------------------------------------------------+---------------+----------------------+-------------------+
+| Event-Transitions THREE_WAY -[SEND_LIE]-&gt; THREE_WAY     | 2 Transitions | 1.02 Transitions/Sec | 0d 00h:00m:00.46s |
++---------------------------------------------------------+---------------+----------------------+-------------------+
+| Event-Transitions THREE_WAY -[TIMER_TICK]-&gt; THREE_WAY   | 2 Transitions | 1.02 Transitions/Sec | 0d 00h:00m:00.47s |
++---------------------------------------------------------+---------------+----------------------+-------------------+
+| Events LIE_RECEIVED                                     | 4 Events      | 3.00 Events/Sec      | 0d 00h:00m:00.51s |
++---------------------------------------------------------+---------------+----------------------+-------------------+
+.                                                         .               .                      .                   .
+.                                                         .               .                      .                   .
++---------------------------------------------------------+---------------+----------------------+-------------------+
+| Transitions THREE_WAY -&gt; THREE_WAY                      | 8 Transitions | 6.69 Transitions/Sec | 0d 00h:00m:00.46s |
++---------------------------------------------------------+---------------+----------------------+-------------------+
+</pre>
+<!-- OUTPUT-END --></pre>
 
 ### show interfaces
 
@@ -842,7 +1086,7 @@ Node:
 | Flooding Reduction Enabled            | True             |
 | Flooding Reduction Redundancy         | 2                |
 | Flooding Reduction Similarity         | 2                |
-| Flooding Reduction Node Random        | 58106            |
+| Flooding Reduction Node Random        | 27738            |
 +---------------------------------------+------------------+
 
 Received Offers:
@@ -890,23 +1134,23 @@ agg_101> <b>show node fsm history</b>
 | Sequence | Time     | Verbose | From               | Event                         | Actions and          | To                 | Implicit |
 | Nr       | Delta    | Skipped | State              |                               | Pushed Events        | State              |          |
 +----------+----------+---------+--------------------+-------------------------------+----------------------+--------------------+----------+
-| 1676     | 1.906459 | 0       | COMPUTE_BEST_OFFER | COMPUTATION_DONE              | update_all_lie_fsms  | UPDATING_CLIENTS   | False    |
+| 1670     | 2.430749 | 0       | COMPUTE_BEST_OFFER | COMPUTATION_DONE              | update_all_lie_fsms  | UPDATING_CLIENTS   | False    |
 +----------+----------+---------+--------------------+-------------------------------+----------------------+--------------------+----------+
-| 1675     | 0.000675 | 53      | UPDATING_CLIENTS   | CHANGE_LOCAL_CONFIGURED_LEVEL | store_level          | COMPUTE_BEST_OFFER | False    |
+| 1669     | 0.000755 | 53      | UPDATING_CLIENTS   | CHANGE_LOCAL_CONFIGURED_LEVEL | store_level          | COMPUTE_BEST_OFFER | False    |
 |          |          |         |                    |                               | stop_hold_down_timer |                    |          |
 |          |          |         |                    |                               | level_compute        |                    |          |
 |          |          |         |                    |                               | COMPUTATION_DONE     |                    |          |
 +----------+----------+---------+--------------------+-------------------------------+----------------------+--------------------+----------+
-| 291      | 9.007707 | 0       | COMPUTE_BEST_OFFER | COMPUTATION_DONE              | update_all_lie_fsms  | UPDATING_CLIENTS   | False    |
+| 291      | 8.983499 | 0       | COMPUTE_BEST_OFFER | COMPUTATION_DONE              | update_all_lie_fsms  | UPDATING_CLIENTS   | False    |
 +----------+----------+---------+--------------------+-------------------------------+----------------------+--------------------+----------+
-| 290      | 0.000638 | 6       | UPDATING_CLIENTS   | BETTER_HAT                    | stop_hold_down_timer | COMPUTE_BEST_OFFER | False    |
+| 290      | 0.000467 | 6       | UPDATING_CLIENTS   | BETTER_HAT                    | stop_hold_down_timer | COMPUTE_BEST_OFFER | False    |
 |          |          |         |                    |                               | level_compute        |                    |          |
 |          |          |         |                    |                               | COMPUTATION_DONE     |                    |          |
 +----------+----------+---------+--------------------+-------------------------------+----------------------+--------------------+----------+
 .          .          .         .                    .                               .                      .                    .          .
 .          .          .         .                    .                               .                      .                    .          .
 +----------+----------+---------+--------------------+-------------------------------+----------------------+--------------------+----------+
-| 11       | 0.176771 | 0       | None               | None                          | stop_hold_down_timer | COMPUTE_BEST_OFFER | False    |
+| 11       | 0.181422 | 0       | None               | None                          | stop_hold_down_timer | COMPUTE_BEST_OFFER | False    |
 |          |          |         |                    |                               | level_compute        |                    |          |
 |          |          |         |                    |                               | COMPUTATION_DONE     |                    |          |
 +----------+----------+---------+--------------------+-------------------------------+----------------------+--------------------+----------+
@@ -934,21 +1178,158 @@ agg_101> <b>show node fsm verbose-history</b>
 | Sequence | Time     | Verbose | From               | Event                         | Actions and            | To                 | Implicit |
 | Nr       | Delta    | Skipped | State              |                               | Pushed Events          | State              |          |
 +----------+----------+---------+--------------------+-------------------------------+------------------------+--------------------+----------+
-| 1982     | 0.032782 | 0       | UPDATING_CLIENTS   | NEIGHBOR_OFFER                | update_or_remove_offer | None               | False    |
+| 2096     | 0.356168 | 0       | UPDATING_CLIENTS   | NEIGHBOR_OFFER                | update_or_remove_offer | None               | False    |
 +----------+----------+---------+--------------------+-------------------------------+------------------------+--------------------+----------+
-| 1981     | 0.000184 | 0       | UPDATING_CLIENTS   | NEIGHBOR_OFFER                | update_or_remove_offer | None               | False    |
+| 2095     | 0.000107 | 0       | UPDATING_CLIENTS   | NEIGHBOR_OFFER                | update_or_remove_offer | None               | False    |
 +----------+----------+---------+--------------------+-------------------------------+------------------------+--------------------+----------+
-| 1944     | 0.836044 | 0       | UPDATING_CLIENTS   | NEIGHBOR_OFFER                | update_or_remove_offer | None               | False    |
+| 2088     | 0.006827 | 0       | UPDATING_CLIENTS   | NEIGHBOR_OFFER                | update_or_remove_offer | None               | False    |
 +----------+----------+---------+--------------------+-------------------------------+------------------------+--------------------+----------+
-| 1943     | 0.000178 | 0       | UPDATING_CLIENTS   | NEIGHBOR_OFFER                | update_or_remove_offer | None               | False    |
+| 2087     | 0.000110 | 0       | UPDATING_CLIENTS   | NEIGHBOR_OFFER                | update_or_remove_offer | None               | False    |
 +----------+----------+---------+--------------------+-------------------------------+------------------------+--------------------+----------+
 .          .          .         .                    .                               .                        .                    .          .
 .          .          .         .                    .                               .                        .                    .          .
 +----------+----------+---------+--------------------+-------------------------------+------------------------+--------------------+----------+
-| 1482     | 0.004387 | 0       | UPDATING_CLIENTS   | NEIGHBOR_OFFER                | update_or_remove_offer | None               | False    |
+| 1524     | 0.151686 | 0       | UPDATING_CLIENTS   | NEIGHBOR_OFFER                | update_or_remove_offer | None               | False    |
 +----------+----------+---------+--------------------+-------------------------------+------------------------+--------------------+----------+
 </pre>
 <!-- OUTPUT-END -->
+
+### show node statistics
+
+The "<b>show node statistics</b>" command shows all the statistics for the current node.
+
+Example:
+
+<!-- OUTPUT-START: agg_101> show node statistics -->
+<pre>
+agg_101> <b>show node statistics</b>
+Node ZTP FSM:
++------------------------------------------------------------------------------------------+----------------+----------------------+-------------------+
+| Description                                                                              | Value          | Last Rate            | Last Change       |
+|                                                                                          |                | Over Last 10 Changes |                   |
++------------------------------------------------------------------------------------------+----------------+----------------------+-------------------+
+| Event-Transitions COMPUTE_BEST_OFFER -[COMPUTATION_DONE]-&gt; UPDATING_CLIENTS              | 1 Transition   |                      | 0d 00h:00m:02.66s |
++------------------------------------------------------------------------------------------+----------------+----------------------+-------------------+
+| Event-Transitions None -[None]-&gt; COMPUTE_BEST_OFFER                                      | 0 Transitions  |                      |                   |
++------------------------------------------------------------------------------------------+----------------+----------------------+-------------------+
+| Event-Transitions UPDATING_CLIENTS -[BETTER_HAL]-&gt; COMPUTE_BEST_OFFER                    | 0 Transitions  |                      |                   |
++------------------------------------------------------------------------------------------+----------------+----------------------+-------------------+
+| Event-Transitions UPDATING_CLIENTS -[BETTER_HAT]-&gt; COMPUTE_BEST_OFFER                    | 0 Transitions  |                      |                   |
++------------------------------------------------------------------------------------------+----------------+----------------------+-------------------+
+.                                                                                          .                .                      .                   .
+.                                                                                          .                .                      .                   .
++------------------------------------------------------------------------------------------+----------------+----------------------+-------------------+
+| Transitions UPDATING_CLIENTS -&gt; UPDATING_CLIENTS                                         | 18 Transitions | 8.85 Transitions/Sec | 0d 00h:00m:00.47s |
++------------------------------------------------------------------------------------------+----------------+----------------------+-------------------+
+
+Interface Traffic:
++---------------------------+------------------------+---------------------------------------+-------------------+
+| Description               | Value                  | Last Rate                             | Last Change       |
+|                           |                        | Over Last 10 Changes                  |                   |
++---------------------------+------------------------+---------------------------------------+-------------------+
+| RX IPv4 LIE Packets       | 9 Packets, 1422 Bytes  | 3.69 Packets/Sec, 584.10 Bytes/Sec    | 0d 00h:00m:00.48s |
++---------------------------+------------------------+---------------------------------------+-------------------+
+| TX IPv4 LIE Packets       | 12 Packets, 1812 Bytes | 4.54 Packets/Sec, 688.66 Bytes/Sec    | 0d 00h:00m:00.59s |
++---------------------------+------------------------+---------------------------------------+-------------------+
+| RX IPv4 TIE Packets       | 0 Packets, 0 Bytes     |                                       |                   |
++---------------------------+------------------------+---------------------------------------+-------------------+
+| TX IPv4 TIE Packets       | 0 Packets, 0 Bytes     |                                       |                   |
++---------------------------+------------------------+---------------------------------------+-------------------+
+.                           .                        .                                       .                   .
+.                           .                        .                                       .                   .
++---------------------------+------------------------+---------------------------------------+-------------------+
+| Total TX Errors           | 0 Packets, 0 Bytes     |                                       |                   |
++---------------------------+------------------------+---------------------------------------+-------------------+
+
+Interface LIE FSM:
++-----------------------------------------------------------+----------------+-----------------------+-------------------+
+| Description                                               | Value          | Last Rate             | Last Change       |
+|                                                           |                | Over Last 10 Changes  |                   |
++-----------------------------------------------------------+----------------+-----------------------+-------------------+
+| Event-Transitions None -[None]-&gt; ONE_WAY                  | 0 Transitions  |                       |                   |
++-----------------------------------------------------------+----------------+-----------------------+-------------------+
+| Event-Transitions ONE_WAY -[LIE_RECEIVED]-&gt; ONE_WAY       | 0 Transitions  |                       |                   |
++-----------------------------------------------------------+----------------+-----------------------+-------------------+
+| Event-Transitions ONE_WAY -[NEW_NEIGHBOR]-&gt; TWO_WAY       | 0 Transitions  |                       |                   |
++-----------------------------------------------------------+----------------+-----------------------+-------------------+
+| Event-Transitions ONE_WAY -[SEND_LIE]-&gt; ONE_WAY           | 3 Transitions  | 1.01 Transitions/Sec  | 0d 00h:00m:00.61s |
++-----------------------------------------------------------+----------------+-----------------------+-------------------+
+.                                                           .                .                       .                   .
+.                                                           .                .                       .                   .
++-----------------------------------------------------------+----------------+-----------------------+-------------------+
+| Transitions TWO_WAY -&gt; TWO_WAY                            | 0 Transitions  |                       |                   |
++-----------------------------------------------------------+----------------+-----------------------+-------------------+
+</pre>
+<!-- OUTPUT-END --></pre>
+
+### show node statistics exclude-zero
+
+The "<b>show engine statistics</b>" command shows all the statistics for the current node, excluding
+any zero statistics.
+
+Example:
+
+<!-- OUTPUT-START: agg_101> show node statistics exclude-zero -->
+<pre>
+agg_101> <b>show node statistics exclude-zero</b>
+Node ZTP FSM:
++------------------------------------------------------------------------------------------+----------------+----------------------+-------------------+
+| Description                                                                              | Value          | Last Rate            | Last Change       |
+|                                                                                          |                | Over Last 10 Changes |                   |
++------------------------------------------------------------------------------------------+----------------+----------------------+-------------------+
+| Event-Transitions COMPUTE_BEST_OFFER -[COMPUTATION_DONE]-&gt; UPDATING_CLIENTS              | 1 Transition   |                      | 0d 00h:00m:02.79s |
++------------------------------------------------------------------------------------------+----------------+----------------------+-------------------+
+| Event-Transitions UPDATING_CLIENTS -[CHANGE_LOCAL_CONFIGURED_LEVEL]-&gt; COMPUTE_BEST_OFFER | 1 Transition   |                      | 0d 00h:00m:02.79s |
++------------------------------------------------------------------------------------------+----------------+----------------------+-------------------+
+| Event-Transitions UPDATING_CLIENTS -[NEIGHBOR_OFFER]-&gt; UPDATING_CLIENTS                  | 18 Transitions | 8.85 Transitions/Sec | 0d 00h:00m:00.60s |
++------------------------------------------------------------------------------------------+----------------+----------------------+-------------------+
+| Events CHANGE_LOCAL_CONFIGURED_LEVEL                                                     | 1 Event        |                      | 0d 00h:00m:02.79s |
++------------------------------------------------------------------------------------------+----------------+----------------------+-------------------+
+.                                                                                          .                .                      .                   .
+.                                                                                          .                .                      .                   .
++------------------------------------------------------------------------------------------+----------------+----------------------+-------------------+
+| Transitions UPDATING_CLIENTS -&gt; UPDATING_CLIENTS                                         | 18 Transitions | 8.85 Transitions/Sec | 0d 00h:00m:00.60s |
++------------------------------------------------------------------------------------------+----------------+----------------------+-------------------+
+
+Interface Traffic:
++---------------------------+------------------------+---------------------------------------+-------------------+
+| Description               | Value                  | Last Rate                             | Last Change       |
+|                           |                        | Over Last 10 Changes                  |                   |
++---------------------------+------------------------+---------------------------------------+-------------------+
+| RX IPv4 LIE Packets       | 9 Packets, 1422 Bytes  | 3.69 Packets/Sec, 584.10 Bytes/Sec    | 0d 00h:00m:00.61s |
++---------------------------+------------------------+---------------------------------------+-------------------+
+| TX IPv4 LIE Packets       | 12 Packets, 1812 Bytes | 4.54 Packets/Sec, 688.66 Bytes/Sec    | 0d 00h:00m:00.72s |
++---------------------------+------------------------+---------------------------------------+-------------------+
+| RX IPv4 TIDE Packets      | 6 Packets, 3264 Bytes  | 2.32 Packets/Sec, 1106.09 Bytes/Sec   | 0d 00h:00m:00.58s |
++---------------------------+------------------------+---------------------------------------+-------------------+
+| TX IPv4 TIDE Packets      | 6 Packets, 3264 Bytes  | 2.50 Packets/Sec, 1392.56 Bytes/Sec   | 0d 00h:00m:00.71s |
++---------------------------+------------------------+---------------------------------------+-------------------+
+.                           .                        .                                       .                   .
+.                           .                        .                                       .                   .
++---------------------------+------------------------+---------------------------------------+-------------------+
+| Total TX Packets          | 18 Packets, 5076 Bytes | 8.86 Packets/Sec, 2511.51 Bytes/Sec   | 0d 00h:00m:00.71s |
++---------------------------+------------------------+---------------------------------------+-------------------+
+
+Interface LIE FSM:
++---------------------------------------------------------+----------------+-----------------------+-------------------+
+| Description                                             | Value          | Last Rate             | Last Change       |
+|                                                         |                | Over Last 10 Changes  |                   |
++---------------------------------------------------------+----------------+-----------------------+-------------------+
+| Event-Transitions ONE_WAY -[SEND_LIE]-&gt; ONE_WAY         | 3 Transitions  | 1.01 Transitions/Sec  | 0d 00h:00m:00.73s |
++---------------------------------------------------------+----------------+-----------------------+-------------------+
+| Event-Transitions ONE_WAY -[TIMER_TICK]-&gt; ONE_WAY       | 3 Transitions  | 1.01 Transitions/Sec  | 0d 00h:00m:00.74s |
++---------------------------------------------------------+----------------+-----------------------+-------------------+
+| Event-Transitions THREE_WAY -[LIE_RECEIVED]-&gt; THREE_WAY | 18 Transitions | 8.85 Transitions/Sec  | 0d 00h:00m:00.61s |
++---------------------------------------------------------+----------------+-----------------------+-------------------+
+| Event-Transitions THREE_WAY -[SEND_LIE]-&gt; THREE_WAY     | 9 Transitions  | 4.03 Transitions/Sec  | 0d 00h:00m:00.72s |
++---------------------------------------------------------+----------------+-----------------------+-------------------+
+.                                                         .                .                       .                   .
+.                                                         .                .                       .                   .
++---------------------------------------------------------+----------------+-----------------------+-------------------+
+| Transitions THREE_WAY -&gt; THREE_WAY                      | 36 Transitions | 70.20 Transitions/Sec | 0d 00h:00m:00.61s |
++---------------------------------------------------------+----------------+-----------------------+-------------------+
+</pre>
+<!-- OUTPUT-END --></pre>
 
 ### show nodes
 
