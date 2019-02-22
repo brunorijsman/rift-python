@@ -50,9 +50,7 @@ def insert_command_output(out_file, res, node, command):
     output = gather_output(res, node, command)
     print("<pre>", file=out_file)
     print("{}> <b>{}</b>".format(node, command), file=out_file)
-    for line in output:
-        cleaned_line = line.replace("<", "&lt;").replace(">", "&gt;")
-        print(cleaned_line, file=out_file)
+    summarize_tables(output, out_file)
     print("</pre>", file=out_file)
 
 def gather_output(res, node, command):
@@ -85,6 +83,47 @@ def check_missing_commands(all_commands, processed_commands):
                 break
         if not covered:
             print("MISSING:", command)
+
+def summarize_tables(output, out_file):
+    in_table = False
+    for raw_line in output:
+        line = raw_line.replace("<", "&lt;").replace(">", "&gt;")
+        if line.startswith("+---"):
+            if in_table:
+                rows.append(current_row_lines)
+            else:
+                in_table = True
+                separator_line = line
+                rows = []
+            current_row_lines = []
+        elif '|' in line:
+            assert in_table
+            current_row_lines.append(line)
+        else:
+            if in_table:
+                print_table_summary(rows, separator_line, out_file)
+                in_table = False
+            print(line, file=out_file)
+    if in_table:
+        print_table_summary(rows, separator_line, out_file)
+
+def print_table_summary(rows, separator_line, out_file):
+    max_top_rows = 5
+    row_nr = 0
+    nr_rows = len(rows)
+    dots_line = None
+    for row in rows:
+        if (row_nr < max_top_rows) or (row_nr == nr_rows-1):
+            print(separator_line, file=out_file)
+            for row_line in row:
+                print(row_line, file=out_file)
+        elif row_nr == max_top_rows:
+            print(separator_line, file=out_file)
+            dots_line = separator_line.replace('-', ' ').replace('+', '.')
+            print(dots_line, file=out_file)
+            print(dots_line, file=out_file)
+        row_nr += 1
+    print(separator_line, file=out_file)
 
 if __name__ == "__main__":
     process_file()
