@@ -56,18 +56,18 @@ def test_cli_routes_table():
     if not kern.platform_supported:
         return
     # We assume that the main route table always has a default route, and we look for this:
-    # +-------------+---------+--------------------+-------------+----------+-----------+------------+--------+
-    # | Table       | Address | Destination        | Type        | Protocol | Outgoing  | Gateway    | Weight |
-    # |             | Family  |                    |             |          | Interface |            |        |
-    # +-------------+---------+--------------------+-------------+----------+-----------+------------+--------+
+    # +-------------+---------+--------------------+-------------+-----------+-----------+------------+--------+
+    # | Table       | Address | Destination        | Type        | Protocol  | Outgoing  | Gateway    | Weight |
+    # |             | Family  |                    |             |           | Interface |            |        |
+    # +-------------+---------+--------------------+-------------+-----------+-----------+------------+--------+
     # ...
-    # | Main        | IPv4    | 0.0.0.0/0          | Unicast     | Boot     | eth0      | 172.17.0.1 |        |
+    # | Main        | IPv4    | 0.0.0.0/0          | Unicast     | Boot/Dhcp | eth0      | 172.17.0.1 |        |
     # ...
     tab_str = kern.cli_routes_table(254).to_string()
     pattern = (r"[|] Table +[|] Address +[|] Destination +[|] Type +[|] Protocol +[|] Outgoing +[|] Gateway +[|] Weight +[|]\n"
                r"[|] +[|] Family +[|] +[|] +[|] +[|] Interface +[|] +[|] +[|]\n"
                r"(.|[\n])*"
-               r"[|] Main +[|] IPv4 +[|] 0\.0\.0\.0/0 +[|] Unicast +[|] Boot +[|]")
+               r"[|] Main +[|] IPv4 +[|] 0\.0\.0\.0/0 +[|] Unicast +[|]")
     assert re.search(pattern, tab_str) is not None
 
 def test_cli_route_prefix_table():
@@ -80,7 +80,7 @@ def test_cli_route_prefix_table():
     # | Address Family           | IPv4             |
     # | Destination              | 0.0.0.0/0        |
     # | Type                     | Unicast          |
-    # | Protocol                 | Boot             |
+    # | Protocol                 | Boot             | << or Dhcp in some deployments
     # | Scope                    | Universe         |
     # | Next-hops                | eth0 172.17.0.1  |
     # | Priority                 |                  |
@@ -100,7 +100,7 @@ def test_cli_route_prefix_table():
                r"[|] Address Family +[|] IPv4 +[|]\n"
                r"[|] Destination +[|] 0\.0\.0\.0/0 +[|]\n"
                r"[|] Type +[|] Unicast +[|]\n"
-               r"[|] Protocol +[|] Boot +[|]\n"
+               r"[|] Protocol +[|] (Boot|Dhcp) +[|]\n"
                r"[|] Scope +[|] Universe +[|]\n")
     assert re.search(pattern, tab_str) is not None
 
