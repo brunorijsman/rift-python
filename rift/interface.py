@@ -177,10 +177,18 @@ class Interface:
         self.rx_info("Stop flooding")
         self._service_queues_timer.stop()
         self.clear_all_queues()
-        self._flood_rx_ipv4_handler.close()
-        self._flood_rx_ipv4_handler = None
-        self._flood_tx_ipv4_socket.close()
-        self._flood_tx_ipv4_socket = None
+        if self._flood_rx_ipv4_handler:
+            self._flood_rx_ipv4_handler.close()
+            self._flood_rx_ipv4_handler = None
+        if self._flood_tx_ipv4_socket:
+            self._flood_tx_ipv4_socket.close()
+            self._flood_tx_ipv4_socket = None
+        if self._flood_rx_ipv6_handler:
+            self._flood_rx_ipv6_handler.close()
+            self._flood_rx_ipv6_handler = None
+        if self._flood_tx_ipv6_socket:
+            self._flood_tx_ipv6_socket.close()
+            self._flood_tx_ipv6_socket = None
         # Update the node TIEs originated by this node to exclude this neighbor. We have to pass
         # interface_going_down to regenerate_my_node_ties because the state of this interface is
         # still THREE_WAY at this point.
