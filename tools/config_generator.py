@@ -191,18 +191,28 @@ class Group:
             node.write_netns_configs_and_scripts()
 
     def write_netns_start_scr_to_file_1(self, file):
-        # Phase 1: Crate all namespaces and interfaces
+        # Start phase 1: Create all namespaces and interfaces
         for link in self.links:
             link.write_netns_start_scr_to_file(file)
         for node in self.nodes:
             node.write_netns_start_scr_to_file_1(file)
 
     def write_netns_start_scr_to_file_2(self, file):
+        # Start phase 2: Start all nodes
         # Allow interfaces to come up (particularly IPv6 interfaces take a bit of time)
         print("sleep 1", file=file)
-        # Phase 2: Start all nodes
         for node in self.nodes:
             node.write_netns_start_scr_to_file_2(file)
+
+    def write_netns_stop_scr_to_file_1(self, file):
+        # Stop phase 1: Delete all namespaces and interfaces
+        for node in self.nodes:
+            node.write_netns_stop_scr_to_file_1(file)
+
+    def write_netns_stop_scr_to_file_2(self, file):
+        # Stop phase 2: Stop all nodes
+        for node in self.nodes:
+            node.write_netns_stop_scr_to_file_2(file)
 
     def write_graphics_to_file(self, file):
         x_pos = self.x_pos()
@@ -452,7 +462,7 @@ class Node:
 
     def write_netns_start_scr_to_file_1(self, file):
         ns_name = "netns-" + str(self.node_id)
-        progress = ("Create netns \"{}\" for node {}".format(ns_name, self.name))
+        progress = ("Create network namespace {} for node {}".format(ns_name, self.name))
         print('echo "{}"'.format(progress), file=file)
         print("ip netns add {}".format(ns_name), file=file)
         addr = self.lo_addr
@@ -475,6 +485,29 @@ class Node:
               "--ipv6-multicast-loopback-disable "
               "--telnet-port-file {} {} < /dev/null &"
               .format(ns_name, port_file, self.config_file_name), file=file)
+
+    def write_netns_stop_scr_to_file_1(self, file):
+        progress = ("Stop RIFT-Python engine for node {}".format(self.name))
+        print('echo "{}"'.format(progress), file=file)
+        # We use a big hammer: we kill -9 all processes in the the namespace
+        ns_name = "netns-" + str(self.node_id)
+        print("kill -9 $(ip netns pids {})".format(ns_name), file=file)
+        # Also clean up the port file
+        port_file = "/tmp/rift-python-telnet-port-" + self.name
+        print("rm -f {}".format(port_file), file=file)
+        # Delete all interfaces for the node
+        for intf in self.interfaces:
+            veth = intf.veth_name()
+            progress = ("Delete interface {} for node {}".format(veth, self.name))
+            print('echo "{}"'.format(progress), file=file)
+            print("ip netns exec {} ip link del dev {} >/dev/null 2>&1".format(ns_name, veth),
+                  file=file)
+
+    def write_netns_stop_scr_to_file_2(self, file):
+        ns_name = "netns-" + str(self.node_id)
+        progress = ("Delete network namespace {} for node {}".format(ns_name, self.name))
+        print('echo "{}"'.format(progress), file=file)
+        print("ip netns del {} >/dev/null 2>&1".format(ns_name), file=file)
 
     def write_graphics_to_file(self, file):
         x_pos = self.x_pos()
@@ -587,7 +620,7 @@ class Link:
     def write_netns_start_scr_to_file(self, file):
         veth1_name = self.intf1.veth_name()
         veth2_name = self.intf2.veth_name()
-        progress = ("Create veth pair \"{}\" and \"{}\" for link from {} to {}"
+        progress = ("Create veth pair {} and {} for link from {} to {}"
                     .format(veth1_name, veth2_name, self.intf1.fq_name(), self.intf2.fq_name()))
         print('echo "{}"'.format(progress), file=file)
         print("ip link add dev {} type veth peer name {}".format(veth1_name, veth2_name), file=file)
@@ -690,6 +723,7 @@ class Fabric:
         for plane in self.planes:
             plane.write_netns_configs_and_scripts()
         self.write_netns_start_script()
+        self.write_netns_stop_script()
 
     def write_netns_start_script(self):
         dir_name = getattr(ARGS, 'output-file-or-dir')
@@ -699,6 +733,20 @@ class Fabric:
                 self.write_netns_start_scr_to_file(file)
         except IOError:
             fatal_error('Could not open start script file "{}"'.format(file_name))
+        try:
+            existing_stat = os.stat(file_name)
+            os.chmod(file_name, existing_stat.st_mode | stat.S_IXUSR)
+        except IOError:
+            fatal_error('Could not make "{}" executable'.format(file_name))
+
+    def write_netns_stop_script(self):
+        dir_name = getattr(ARGS, 'output-file-or-dir')
+        file_name = dir_name + "/stop.sh"
+        try:
+            with open(file_name, 'w') as file:
+                self.write_netns_stop_scr_to_file(file)
+        except IOError:
+            fatal_error('Could not open stop script file "{}"'.format(file_name))
         try:
             existing_stat = os.stat(file_name)
             os.chmod(file_name, existing_stat.st_mode | stat.S_IXUSR)
@@ -719,6 +767,16 @@ class Fabric:
             plane.write_netns_start_scr_to_file_2(file)
         for pod in self.pods:
             pod.write_netns_start_scr_to_file_2(file)
+
+    def write_netns_stop_scr_to_file(self, file):
+        for plane in self.planes:
+            plane.write_netns_stop_scr_to_file_1(file)
+        for pod in self.pods:
+            pod.write_netns_stop_scr_to_file_1(file)
+        for plane in self.planes:
+            plane.write_netns_stop_scr_to_file_2(file)
+        for pod in self.pods:
+            pod.write_netns_stop_scr_to_file_2(file)
 
     def write_graphics(self):
         file_name = ARGS.graphics_file
