@@ -365,7 +365,7 @@ class Node:
         self.rx_lie_ipv6_mcast_addr = generate_ipv6_address_str("ff02", self.node_id)
         self.interfaces = []
         self.ipv4_prefixes = []
-        self.lo_addr = generate_ipv4_address_str(88, 0, 0, 0, 1) + "/32"
+        self.lo_addresses = []
         self.config_file_name = None
 
     def add_ipv4_loopbacks(self, count):
@@ -376,6 +376,7 @@ class Node:
             metric = "1"
             prefix = (address, mask, metric)
             self.ipv4_prefixes.append(prefix)
+            self.lo_addresses.append(address)
 
     def create_interface(self):
         intf_index = len(self.interfaces) + 1
@@ -469,9 +470,9 @@ class Node:
         progress = ("Create network namespace {} for node {}".format(ns_name, self.name))
         print('echo "{}"'.format(progress), file=file)
         print("ip netns add {}".format(ns_name), file=file)
-        addr = self.lo_addr
         print("ip netns exec {} ip link set dev lo up".format(ns_name), file=file)
-        print("ip netns exec {} ip addr add {} dev lo".format(ns_name, addr), file=file)
+        for addr in self.lo_addresses:
+            print("ip netns exec {} ip addr add {} dev lo".format(ns_name, addr), file=file)
         for intf in self.interfaces:
             veth = intf.veth_name()
             addr = intf.addr
