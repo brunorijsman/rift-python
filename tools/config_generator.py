@@ -496,7 +496,7 @@ class Node:
         print('echo "{}"'.format(progress), file=file)
         # We use a big hammer: we kill -9 all processes in the the namespace
         ns_name = NETNS_PREFIX + str(self.node_id)
-        print("kill -9 $(ip netns pids {})".format(ns_name), file=file)
+        print("kill -9 $(ip netns pids {}) >/dev/null 2>&1".format(ns_name), file=file)
         # Also clean up the port file
         port_file = "/tmp/rift-python-telnet-port-" + self.name
         print("rm -f {}".format(port_file), file=file)
