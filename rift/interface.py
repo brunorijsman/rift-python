@@ -247,9 +247,12 @@ class Interface:
         if flood:
             if self._flood_tx_ipv4_socket:
                 socks = [self._flood_tx_ipv4_socket]
-            else:
-                assert self._flood_tx_ipv6_socket
+            elif self._flood_tx_ipv6_socket:
                 socks = [self._flood_tx_ipv6_socket]
+            else:
+                self.tx_warning("Could not send flood packet because interface has neither IPv4 "
+                                "nor IPv6 TX flood socket")
+                return
         else:
             socks = [self._lie_tx_ipv4_socket, self._lie_tx_ipv6_socket]
         encoded_protocol_packet = packet_common.encode_protocol_packet(protocol_packet)
@@ -1011,7 +1014,7 @@ class Interface:
         protocol_packet = packet_common.decode_protocol_packet(message)
         nr_bytes = len(message)
         if protocol_packet is None:
-            ###!!! Decode error counter
+            # TODO: Decode error counter
             self.log_rx_protocol_packet(logging.ERROR, from_info,
                                         "Could not decode", protocol_packet)
             return None
@@ -1039,16 +1042,16 @@ class Interface:
     def receive_lie_message(self, message, from_info, sock):
         protocol_packet = self.receive_message_common(message, from_info, sock)
         if protocol_packet is None:
-            ###!!! Bump decode errors counter
+            # TODO: Bump decode errors counter
             return
         if protocol_packet.content.lie:
             event_data = (protocol_packet, from_info)
             self.fsm.push_event(self.Event.LIE_RECEIVED, event_data)
         else:
-            ###!!! Missing contents for port counter
+            # TODO: Missing contents for port counter
             self.rx_warning("Received packet without LIE content on LIE port (ignored)")
         if protocol_packet.content.tie:
-            ###!!! Wrong contents for port counter
+            # TODO: Wrong contents for port counter
             self.rx_warning("Received TIE packet on LIE port (ignored)")
         if protocol_packet.content.tide:
             self.rx_warning("Received TIDE packet on LIE port (ignored)")
@@ -1072,11 +1075,11 @@ class Interface:
             self.process_received_tire_packet(protocol_packet.content.tire)
             flood_content = True
         if protocol_packet.content.lie:
-            ###!!! Wrong contents for port counter
+            # TODO: Wrong contents for port counter
             self.rx_warning("Received LIE packet on flood port (ignored)")
         else:
             if not flood_content:
-                ###!!! Missing contents for port counter
+                # TODO: Missing contents for port counter
                 self.rx_warning("Received packet without TIE/TIDE/TIRE content on flood port "
                                 "(ignored)")
         self.bump_rx_counters(protocol_packet, sock, len(message))
