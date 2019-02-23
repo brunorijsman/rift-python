@@ -14,6 +14,10 @@ ARGS = None
 
 DEFAULT_NR_IPV4_LOOPBACKS = 1
 
+SEPARATOR = '_'
+
+NETNS_PREFIX = 'netns' + SEPARATOR
+
 NODE_SCHEMA = {
     'type': 'dict',
     'schema': {
@@ -448,7 +452,7 @@ class Node:
         file_name = "{}/connect-{}.sh".format(dir_name, self.name)
         try:
             with open(file_name, 'w') as file:
-                ns_name = "netns-" + str(self.node_id)
+                ns_name = NETNS_PREFIX + str(self.node_id)
                 port_file = "/tmp/rift-python-telnet-port-" + self.name
                 print("ip netns exec {} telnet localhost $(cat {})".format(ns_name, port_file),
                       file=file)
@@ -461,7 +465,7 @@ class Node:
             fatal_error('Could name make "{}" executable'.format(file_name))
 
     def write_netns_start_scr_to_file_1(self, file):
-        ns_name = "netns-" + str(self.node_id)
+        ns_name = NETNS_PREFIX + str(self.node_id)
         progress = ("Create network namespace {} for node {}".format(ns_name, self.name))
         print('echo "{}"'.format(progress), file=file)
         print("ip netns add {}".format(ns_name), file=file)
@@ -478,7 +482,7 @@ class Node:
     def write_netns_start_scr_to_file_2(self, file):
         progress = ("Start RIFT-Python engine for node {}".format(self.name))
         print('echo "{}"'.format(progress), file=file)
-        ns_name = "netns-" + str(self.node_id)
+        ns_name = NETNS_PREFIX + str(self.node_id)
         port_file = "/tmp/rift-python-telnet-port-" + self.name
         print("ip netns exec {} python3 rift "
               "--ipv4-multicast-loopback-disable "
@@ -490,7 +494,7 @@ class Node:
         progress = ("Stop RIFT-Python engine for node {}".format(self.name))
         print('echo "{}"'.format(progress), file=file)
         # We use a big hammer: we kill -9 all processes in the the namespace
-        ns_name = "netns-" + str(self.node_id)
+        ns_name = NETNS_PREFIX + str(self.node_id)
         print("kill -9 $(ip netns pids {})".format(ns_name), file=file)
         # Also clean up the port file
         port_file = "/tmp/rift-python-telnet-port-" + self.name
@@ -504,7 +508,7 @@ class Node:
                   file=file)
 
     def write_netns_stop_scr_to_file_2(self, file):
-        ns_name = "netns-" + str(self.node_id)
+        ns_name = NETNS_PREFIX + str(self.node_id)
         progress = ("Delete network namespace {} for node {}".format(ns_name, self.name))
         print('echo "{}"'.format(progress), file=file)
         print("ip netns del {} >/dev/null 2>&1".format(ns_name), file=file)
@@ -581,7 +585,7 @@ class Interface:
         return self.node.name + ":" + self.name()
 
     def veth_name(self):
-        return "veth" + "-" + str(self.intf_id) + "-" + str(self.peer_intf.intf_id)
+        return "veth" + SEPARATOR + str(self.intf_id) + SEPARATOR + str(self.peer_intf.intf_id)
 
     def write_graphics_to_file(self, file):
         x_pos = self.x_pos()
