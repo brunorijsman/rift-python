@@ -11,10 +11,6 @@
 
 from rift_expect_session import RiftExpectSession
 
-    # res.sendline("")
-    # res.table_expect("")
-    # res.wait_prompt()
-
 def check_clear_engine_statistics(res):
     res.sendline("clear interface if1 statistics")
     res.wait_prompt()
@@ -161,7 +157,7 @@ def check_show_kernel_addresses(res):
 
 def check_show_kernel_links(res):
     res.sendline("show kernel links")
-    res.wait_prompt()
+    res.wait_prompt(timeout=10.0)   # This can take a long time if there are many veth links
 
 def check_show_kernel_routes(res):
     res.sendline("show kernel routes")

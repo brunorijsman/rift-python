@@ -95,11 +95,11 @@ class RiftExpectSession:
         pattern = pattern.replace("///", "|")
         return self.expect(pattern, timeout)
 
-    def wait_prompt(self, node_name=None):
+    def wait_prompt(self, node_name=None, timeout=expect_timeout):
         if node_name is None:
-            return self.expect(".*> ")
+            return self.expect(".*> ", timeout)
         else:
-            return self.expect("{}> ".format(node_name))
+            return self.expect("{}> ".format(node_name), timeout)
 
     def check_engine(self):
         # Show the output of "show engine", mainly for debugging after a failure
