@@ -451,9 +451,9 @@ class Node:
             fatal_error('Could name make "{}" executable'.format(file_name))
 
     def write_netns_start_scr_to_file_1(self, file):
-        progress = ("Create netns for node {}".format(self.name))
-        print('echo "{}"'.format(progress), file=file)
         ns_name = "netns-" + str(self.node_id)
+        progress = ("Create netns {} for node {}".format(ns_name, self.name))
+        print('echo "{}"'.format(progress), file=file)
         print("ip netns add {}".format(ns_name), file=file)
         addr = self.lo_addr
         print("ip netns exec {} ip link set dev lo up".format(ns_name), file=file)
@@ -585,11 +585,11 @@ class Link:
         self.intf2.set_peer_intf(self.intf1)
 
     def write_netns_start_scr_to_file(self, file):
-        progress = ("Create veth pair for link from {} to {}"
-                    .format(self.intf1.fq_name(), self.intf2.fq_name()))
-        print('echo "{}"'.format(progress), file=file)
         veth1_name = self.intf1.veth_name()
         veth2_name = self.intf2.veth_name()
+        progress = ("Create veth pair {} and {} for link from {} to {}"
+                    .format(veth1_name, veth2_name, self.intf1.fq_name(), self.intf2.fq_name()))
+        print('echo "{}"'.format(progress), file=file)
         print("ip link add dev {} type veth peer name {}".format(veth1_name, veth2_name), file=file)
 
     def write_graphics_to_file(self, file):
