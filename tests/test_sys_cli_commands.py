@@ -49,10 +49,10 @@ def check_show_flooding_reduction(res):
     res.wait_prompt()
     res.sendline("show flooding-reduction")
     res.table_expect("Parents:")
-    res.table_expect("| if1 | 1 | node1-if1 | 0 | 1: 0-0 | False |")
+    res.table_expect("| if1 | 1 | node1:if1 | 0 | 1: 0-0 | False |")
     res.table_expect("Grandparents:")
     res.table_expect("Interfaces:")
-    res.table_expect("| if1 | node1-if1 | 1 | THREE_WAY | North | False | Not Applicable |")
+    res.table_expect("| if1 | node1:if1 | 1 | THREE_WAY | North | False | Not Applicable |")
     res.wait_prompt()
     res.sendline("set node node1")
     res.wait_prompt()
@@ -100,7 +100,7 @@ def check_show_interface(res):
     res.table_expect("| Interface Name | if1 |")
     res.table_expect("| State | THREE_WAY |")
     res.table_expect("Neighbor:")
-    res.table_expect("| Name | node2-if1 |")
+    res.table_expect("| Name | node2:if1 |")
     res.table_expect("| System ID | 2 |")
     res.wait_prompt()
 
@@ -148,7 +148,7 @@ def check_show_interface_statistics_exclude_zero(res):
 
 def check_show_interfaces(res):
     res.sendline("show interfaces")
-    res.table_expect("| if1 | node2-if1 | 2 | THREE_WAY |")
+    res.table_expect("| if1 | node2:if1 | 2 | THREE_WAY |")
     res.wait_prompt()
 
 def check_show_kernel_addresses(res):
