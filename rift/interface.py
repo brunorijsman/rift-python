@@ -779,7 +779,7 @@ class Interface:
         self._ipv6_address = utils.interface_ipv6_address(self.physical_interface_name)
         try:
             self._interface_index = socket.if_nametoindex(self.physical_interface_name)
-        except IOError as err:
+        except (IOError, OSError) as err:
             self.warning("Could determine index of interface %s: %s",
                          self.physical_interface_name, err)
             self._interface_index = None
@@ -1717,10 +1717,14 @@ class Interface:
             self.warning("Could not set IPv6 multicast loopback value %d: %s", loop_value, err)
             return None
         try:
-            sock.connect((multicast_address, port))
-        except IOError as err:
+            scoped_ipv6_multicast_address = (
+                str(multicast_address) + '%' + self.physical_interface_name)
+            sock_addr = socket.getaddrinfo(scoped_ipv6_multicast_address, port,
+                                           socket.AF_INET6, socket.SOCK_DGRAM)[0][4]
+            sock.connect(sock_addr)
+        except (IOError, OSError) as err:
             self.warning("Could not connect UDP socket to address %s port %d: %s",
-                         multicast_address, port, err)
+                         scoped_ipv6_multicast_address, port, err)
             return None
         return sock
 

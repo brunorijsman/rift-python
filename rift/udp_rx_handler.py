@@ -170,8 +170,7 @@ class UdpRxHandler:
         self.enable_addr_and_port_reuse(sock)
         try:
             sock.bind((self._local_ipv4_address, self._local_port))
-        # pylint:disable=broad-except
-        except Exception as err:
+        except (IOError, OSError) as err:
             self.warning("Could not bind UDP socket to address %s port %d: %s",
                          self._local_ipv4_address, self._local_port, err)
             return None
@@ -186,8 +185,7 @@ class UdpRxHandler:
         self.enable_addr_and_port_reuse(sock)
         try:
             sock.bind((self._multicast_address, self._local_port))
-        # pylint:disable=broad-except
-        except Exception as err:
+        except (IOError, OSError) as err:
             self.warning("Could not bind UDP socket to address %s port %d: %s",
                          self._multicast_address, self._local_port, err)
             return None
@@ -226,8 +224,7 @@ class UdpRxHandler:
                                           socket.AF_INET6,
                                           socket.SOCK_DGRAM)[0][4]
             sock.bind(sockaddr)
-        # pylint:disable=broad-except
-        except Exception as err:
+        except (IOError, OSError) as err:
             self.warning("Could not bind UDP socket to address %s port %d: %s",
                          self._local_ipv6_address, self._local_port, err)
             return None
@@ -235,7 +232,8 @@ class UdpRxHandler:
 
     def create_socket_ipv6_rx_mcast(self):
         if self._interface_index is None:
-            self.warning("Could create IPv6 multicast receive socket: unknown interface index")
+            self.warning("Could not create IPv6 multicast receive socket: "
+                         "unknown interface index")
             return None
         try:
             sock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
@@ -251,8 +249,7 @@ class UdpRxHandler:
                                           socket.AF_INET6,
                                           socket.SOCK_DGRAM)[0][4]
             sock.bind(sockaddr)
-        # pylint:disable=broad-except
-        except Exception as err:
+        except (IOError, OSError) as err:
             self.warning("Could not bind UDP socket to address %s port %d: %s",
                          self._multicast_address, self._local_port, err)
             return None
