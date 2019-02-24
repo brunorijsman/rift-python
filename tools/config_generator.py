@@ -40,7 +40,6 @@ SCHEMA = {
         'schema': {
             'nr-events': {'type': 'integer', 'min': 0, 'default': DEFAULT_CHAOS_EVENTS},
             'event-interval': {'type': 'integer', 'min': 1, 'default': DEFAULT_CHAOS_INTERVAL},
-
         }
     }
 }
@@ -781,48 +780,33 @@ class Fabric:
         self.write_netns_start_script()
         self.write_netns_stop_script()
         self.write_netns_check_script()
+        self.write_netns_chaos_script()
+
+    def write_netns_any_script(self, script_file_name, write_script_function):
+        dir_name = getattr(ARGS, 'output-file-or-dir')
+        file_name = dir_name + '/' + script_file_name
+        try:
+            with open(file_name, 'w') as file:
+                write_script_function(file)
+        except IOError:
+            fatal_error('Could not open script file "{}"'.format(file_name))
+        try:
+            existing_stat = os.stat(file_name)
+            os.chmod(file_name, existing_stat.st_mode | stat.S_IXUSR)
+        except IOError:
+            fatal_error('Could not make script file "{}" executable'.format(file_name))
 
     def write_netns_start_script(self):
-        dir_name = getattr(ARGS, 'output-file-or-dir')
-        file_name = dir_name + "/start.sh"
-        try:
-            with open(file_name, 'w') as file:
-                self.write_netns_start_scr_to_file(file)
-        except IOError:
-            fatal_error('Could not open start script file "{}"'.format(file_name))
-        try:
-            existing_stat = os.stat(file_name)
-            os.chmod(file_name, existing_stat.st_mode | stat.S_IXUSR)
-        except IOError:
-            fatal_error('Could not make "{}" executable'.format(file_name))
+        self.write_netns_any_script("start.sh", self.write_netns_start_scr_to_file)
 
     def write_netns_stop_script(self):
-        dir_name = getattr(ARGS, 'output-file-or-dir')
-        file_name = dir_name + "/stop.sh"
-        try:
-            with open(file_name, 'w') as file:
-                self.write_netns_stop_scr_to_file(file)
-        except IOError:
-            fatal_error('Could not open stop script file "{}"'.format(file_name))
-        try:
-            existing_stat = os.stat(file_name)
-            os.chmod(file_name, existing_stat.st_mode | stat.S_IXUSR)
-        except IOError:
-            fatal_error('Could not make "{}" executable'.format(file_name))
+        self.write_netns_any_script("stop.sh", self.write_netns_stop_scr_to_file)
 
     def write_netns_check_script(self):
-        dir_name = getattr(ARGS, 'output-file-or-dir')
-        file_name = dir_name + "/check.sh"
-        try:
-            with open(file_name, 'w') as file:
-                self.write_netns_check_scr_to_file(file)
-        except IOError:
-            fatal_error('Could not open check script file "{}"'.format(file_name))
-        try:
-            existing_stat = os.stat(file_name)
-            os.chmod(file_name, existing_stat.st_mode | stat.S_IXUSR)
-        except IOError:
-            fatal_error('Could not make "{}" executable'.format(file_name))
+        self.write_netns_any_script("check.sh", self.write_netns_check_scr_to_file)
+
+    def write_netns_chaos_script(self):
+        self.write_netns_any_script("chaos.sh", self.write_netns_chaos_scr_to_file)
 
     def write_progress_msg(self, file, message):
         print('echo "{}"'.format(message), file=file)
@@ -863,8 +847,11 @@ class Fabric:
               "    echo\n"
               "    echo '*** THERE WERE FAILURES ***'\n"
               "fi", file=file)
-
         print("exit $FAILURE_COUNT", file=file)
+
+    def write_netns_chaos_scr_to_file(self, file):
+        ###!!!
+        print("echo The monkeys are causing mayhem!!!", file=file)
 
     def write_netns_ping_all_pairs(self, file, nodes):
         print("echo '\n*** ping ***'", file=file)
