@@ -244,7 +244,7 @@ class Target:
         self.target_id = target_id
         if subsystem.startswith("node.if"):
             self.type = 'if'
-            split_target_id = target_id.rsplit('-', 1)
+            split_target_id = target_id.rsplit(':', 1)
             self.node_id = split_target_id[0]
             self.if_id = split_target_id[1]
             node = Target.nodes[self.node_id]

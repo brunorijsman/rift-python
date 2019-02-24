@@ -37,7 +37,7 @@ class Interface:
     SERVICE_QUEUES_INTERVAL = 1.0
 
     def generate_advertised_name(self):
-        return self.node.name + '-' + self.name
+        return self.node.name + ':' + self.name
 
     def get_mtu(self):
         # TODO: Find a portable (or even non-portable) way to get the interface MTU
@@ -768,7 +768,7 @@ class Interface:
         self.node = parent_node
         self._engine = parent_node.engine
         self.name = config['name']
-        self._log_id = parent_node.log_id + "-{}".format(self.name)
+        self._log_id = parent_node.log_id + ":{}".format(self.name)
         self._log = parent_node.log.getChild("if")
         if self._engine.simulated_interfaces and self._engine.physical_interface_name:
             self.physical_interface_name = self._engine.physical_interface_name
