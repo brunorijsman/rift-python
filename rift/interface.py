@@ -137,6 +137,8 @@ class Interface:
             self._flood_rx_ipv4_handler = udp_rx_handler.UdpRxHandler(
                 interface_name=self.physical_interface_name,
                 local_port=rx_flood_port,
+                ipv4=True,
+                multicast_address=None,
                 remote_address="0.0.0.0",  # TODO: Permissive... use neighbor address?
                 receive_function=self.receive_flood_message,
                 log=self._rx_log,
@@ -154,6 +156,8 @@ class Interface:
             self._flood_rx_ipv6_handler = udp_rx_handler.UdpRxHandler(
                 interface_name=self.physical_interface_name,
                 local_port=rx_flood_port,
+                ipv4=False,
+                multicast_address=None,
                 remote_address="::",
                 receive_function=self.receive_flood_message,
                 log=self._rx_log,
@@ -977,14 +981,18 @@ class Interface:
         self._lie_rx_ipv4_handler = udp_rx_handler.UdpRxHandler(
             interface_name=self.physical_interface_name,
             local_port=self._rx_lie_port,
-            remote_address=self._rx_lie_ipv4_mcast_address,
+            ipv4=True,
+            multicast_address=self._rx_lie_ipv4_mcast_address,
+            remote_address=None,
             receive_function=self.receive_lie_message,
             log=self._rx_log,
             log_id=self._log_id)
         self._lie_rx_ipv6_handler = udp_rx_handler.UdpRxHandler(
             interface_name=self.physical_interface_name,
             local_port=self._rx_lie_port,
-            remote_address=self._rx_lie_ipv6_mcast_address,
+            ipv4=False,
+            multicast_address=self._rx_lie_ipv6_mcast_address,
+            remote_address=None,
             receive_function=self.receive_lie_message,
             log=self._rx_log,
             log_id=self._log_id)
@@ -1062,7 +1070,7 @@ class Interface:
     def receive_flood_message(self, message, from_info, sock):
         protocol_packet = self.receive_message_common(message, from_info, sock)
         if protocol_packet is None:
-            ###!!! Bump decode errors counter
+            # TODO: Bump decode errors counter
             return
         flood_content = False
         if protocol_packet.content.tie is not None:

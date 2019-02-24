@@ -1,5 +1,4 @@
 import ctypes
-import ipaddress
 import platform
 import socket
 import struct
@@ -83,10 +82,13 @@ class UdpRxHandler:
 
     MAX_SIZE = 65535
 
-    def __init__(self, interface_name, local_port, remote_address, receive_function, log, log_id):
+    def __init__(self, interface_name, local_port, ipv4, multicast_address, remote_address,
+                 receive_function, log, log_id):
         self._interface_name = interface_name
         self._local_port = local_port
-        self._remote_address = remote_address
+        self._ipv4 = ipv4                             # IPv4 if True, IPv6 if False
+        self._remote_address = remote_address   # TODO: Should we connect to the neighbor for ucast?
+        self._multicast_address = multicast_address   # Unicast socket if None
         self._receive_function = receive_function
         self._log = log
         self._log_id = log_id
@@ -97,13 +99,13 @@ class UdpRxHandler:
         except IOError as err:
             self.warning("Could determine index of interface %s: %s", interface_name, err)
             self._interface_index = None
-        if utils.is_valid_ipv4_address(remote_address):
-            if ipaddress.IPv4Address(remote_address).is_multicast:
+        if ipv4:
+            if self._multicast_address:
                 self.sock = self.create_socket_ipv4_rx_mcast()
             else:
                 self.sock = self.create_socket_ipv4_rx_ucast()
         else:
-            if ipaddress.IPv6Address(remote_address).is_multicast:
+            if self._multicast_address:
                 self.sock = self.create_socket_ipv6_rx_mcast()
             else:
                 self.sock = self.create_socket_ipv6_rx_ucast()
@@ -159,7 +161,7 @@ class UdpRxHandler:
         except AttributeError:
             pass
 
-    def create_socket_ipv4_rx_common(self):
+    def create_socket_ipv4_rx_ucast(self):
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
         except IOError as err:
@@ -167,30 +169,40 @@ class UdpRxHandler:
             return None
         self.enable_addr_and_port_reuse(sock)
         try:
-            sock.bind((self._remote_address, self._local_port))
-        except IOError as err:
+            sock.bind((self._local_ipv4_address, self._local_port))
+        # pylint:disable=broad-except
+        except Exception as err:
             self.warning("Could not bind UDP socket to address %s port %d: %s",
-                         self._remote_address, self._local_port, err)
+                         self._local_ipv4_address, self._local_port, err)
             return None
         return sock
 
-    def create_socket_ipv4_rx_ucast(self):
-        return self.create_socket_ipv4_rx_common()
-
     def create_socket_ipv4_rx_mcast(self):
-        sock = self.create_socket_ipv4_rx_common()
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+        except IOError as err:
+            self.warning("Could not create IPv4 UDP socket: %s", err)
+            return None
+        self.enable_addr_and_port_reuse(sock)
+        try:
+            sock.bind((self._multicast_address, self._local_port))
+        # pylint:disable=broad-except
+        except Exception as err:
+            self.warning("Could not bind UDP socket to address %s port %d: %s",
+                         self._multicast_address, self._local_port, err)
+            return None
         if sock is None:
             return None
         if self._local_ipv4_address:
-            req = struct.pack("=4s4s", socket.inet_aton(self._remote_address),
+            req = struct.pack("=4s4s", socket.inet_aton(self._multicast_address),
                               socket.inet_aton(self._local_ipv4_address))
         else:
-            req = struct.pack("=4sl", socket.inet_aton(self._remote_address), socket.INADDR_ANY)
+            req = struct.pack("=4sl", socket.inet_aton(self._multicast_address), socket.INADDR_ANY)
         try:
             sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, req)
         except IOError as err:
             self.warning("Could not join group %s for local address %s: %s",
-                         self._remote_address, self._local_ipv4_address, err)
+                         self._multicast_address, self._local_ipv4_address, err)
             return None
         if not MACOS:
             try:
@@ -209,10 +221,15 @@ class UdpRxHandler:
             return None
         self.enable_addr_and_port_reuse(sock)
         try:
-            sock.bind((self._remote_address, self._local_port))
-        except IOError as err:
+            sockaddr = socket.getaddrinfo(self._local_ipv6_address,
+                                          self._local_port,
+                                          socket.AF_INET6,
+                                          socket.SOCK_DGRAM)[0][4]
+            sock.bind(sockaddr)
+        # pylint:disable=broad-except
+        except Exception as err:
             self.warning("Could not bind UDP socket to address %s port %d: %s",
-                         self._remote_address, self._local_port, err)
+                         self._local_ipv6_address, self._local_port, err)
             return None
         return sock
 
@@ -227,14 +244,21 @@ class UdpRxHandler:
             return None
         self.enable_addr_and_port_reuse(sock)
         try:
-            sock.bind(("::", self._local_port))
-        except IOError as err:
+            scoped_ipv6_multicast_address = (
+                str(self._multicast_address) + '%' + self._interface_name)
+            sockaddr = socket.getaddrinfo(scoped_ipv6_multicast_address,
+                                          self._local_port,
+                                          socket.AF_INET6,
+                                          socket.SOCK_DGRAM)[0][4]
+            sock.bind(sockaddr)
+        # pylint:disable=broad-except
+        except Exception as err:
             self.warning("Could not bind UDP socket to address %s port %d: %s",
-                         self._remote_address, self._local_port, err)
+                         self._multicast_address, self._local_port, err)
             return None
         try:
             # pylint:disable=no-member
-            req = struct.pack("=16si", socket.inet_pton(socket.AF_INET6, self._remote_address),
+            req = struct.pack("=16si", socket.inet_pton(socket.AF_INET6, self._multicast_address),
                               self._interface_index)
             if MACOS:
                 sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_JOIN_GROUP, req)
@@ -242,7 +266,7 @@ class UdpRxHandler:
                 sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_ADD_MEMBERSHIP, req)
         except IOError as err:
             self.warning("Could not join group %s for interface index %s: %s",
-                         self._remote_address, self._interface_index, err)
+                         self._multicast_address, self._interface_index, err)
             return None
         if not MACOS:
             try:
