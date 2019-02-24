@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+# pylint:disable=too-many-lines
+
 import argparse
 import os
 import pprint
@@ -13,6 +15,8 @@ META_CONFIG = None
 ARGS = None
 
 DEFAULT_NR_IPV4_LOOPBACKS = 1
+DEFAULT_CHAOS_EVENTS = 10
+DEFAULT_CHAOS_INTERVAL = 1  # seconds
 
 SEPARATOR = '-'
 NETNS_PREFIX = 'netns' + SEPARATOR
@@ -30,7 +34,15 @@ SCHEMA = {
     'nr-spine-nodes-per-pod': {'required': True, 'type': 'integer', 'min': 1},
     'nr-superspine-nodes': {'required': False, 'type': 'integer', 'min': 1},
     'leafs': NODE_SCHEMA,
-    'spines': NODE_SCHEMA
+    'spines': NODE_SCHEMA,
+    'chaos': {
+        'type': 'dict',
+        'schema': {
+            'nr-events': {'type': 'integer', 'min': 0, 'default': DEFAULT_CHAOS_EVENTS},
+            'event-interval': {'type': 'integer', 'min': 1, 'default': DEFAULT_CHAOS_INTERVAL},
+
+        }
+    }
 }
 
 SOUTH = 1
@@ -351,6 +363,7 @@ class Node:
         self.group = group
         self.name = name
         self.allocate_node_ids(level)
+        self.ns_name = NETNS_PREFIX + str(self.global_node_id)
         self.level = level
         self.group_level_node_id = group_level_node_id
         self.given_y_pos = y_pos
@@ -484,9 +497,8 @@ class Node:
         file_name = "{}/connect-{}.sh".format(dir_name, self.name)
         try:
             with open(file_name, 'w') as file:
-                ns_name = NETNS_PREFIX + str(self.global_node_id)
                 port_file = "/tmp/rift-python-telnet-port-" + self.name
-                print("ip netns exec {} telnet localhost $(cat {})".format(ns_name, port_file),
+                print("ip netns exec {} telnet localhost $(cat {})".format(self.ns_name, port_file),
                       file=file)
         except IOError:
             fatal_error('Could not open start script file "{}"'.format(file_name))
@@ -497,19 +509,19 @@ class Node:
             fatal_error('Could name make "{}" executable'.format(file_name))
 
     def write_netns_start_scr_to_file_1(self, file):
-        ns_name = NETNS_PREFIX + str(self.global_node_id)
-        progress = ("Create network namespace {} for node {}".format(ns_name, self.name))
+        progress = ("Create network namespace {} for node {}".format(self.ns_name, self.name))
         print('echo "{}"'.format(progress), file=file)
-        print("ip netns add {}".format(ns_name), file=file)
-        print("ip netns exec {} ip link set dev lo up".format(ns_name), file=file)
+        print("ip netns add {}".format(self.ns_name), file=file)
+        print("ip netns exec {} ip link set dev lo up".format(self.ns_name), file=file)
         for addr in self.lo_addresses:
-            print("ip netns exec {} ip addr add {} dev lo".format(ns_name, addr), file=file)
+            print("ip netns exec {} ip addr add {} dev lo".format(self.ns_name, addr), file=file)
         for intf in self.interfaces:
             veth = intf.veth_name()
             addr = intf.addr
-            print("ip link set {} netns {}".format(veth, ns_name), file=file)
-            print("ip netns exec {} ip link set dev {} up".format(ns_name, veth), file=file)
-            print("ip netns exec {} ip addr add {} dev {}".format(ns_name, addr, veth), file=file)
+            print("ip link set {} netns {}".format(veth, self.ns_name), file=file)
+            print("ip netns exec {} ip link set dev {} up".format(self.ns_name, veth), file=file)
+            print("ip netns exec {} ip addr add {} dev {}".format(self.ns_name, addr, veth),
+                  file=file)
 
     def write_netns_start_scr_to_file_2(self, file):
         progress = ("Start RIFT-Python engine for node {}".format(self.name))
@@ -768,6 +780,7 @@ class Fabric:
             plane.write_netns_configs_and_scripts()
         self.write_netns_start_script()
         self.write_netns_stop_script()
+        self.write_netns_check_script()
 
     def write_netns_start_script(self):
         dir_name = getattr(ARGS, 'output-file-or-dir')
@@ -791,6 +804,20 @@ class Fabric:
                 self.write_netns_stop_scr_to_file(file)
         except IOError:
             fatal_error('Could not open stop script file "{}"'.format(file_name))
+        try:
+            existing_stat = os.stat(file_name)
+            os.chmod(file_name, existing_stat.st_mode | stat.S_IXUSR)
+        except IOError:
+            fatal_error('Could not make "{}" executable'.format(file_name))
+
+    def write_netns_check_script(self):
+        dir_name = getattr(ARGS, 'output-file-or-dir')
+        file_name = dir_name + "/check.sh"
+        try:
+            with open(file_name, 'w') as file:
+                self.write_netns_check_scr_to_file(file)
+        except IOError:
+            fatal_error('Could not open check script file "{}"'.format(file_name))
         try:
             existing_stat = os.stat(file_name)
             os.chmod(file_name, existing_stat.st_mode | stat.S_IXUSR)
@@ -821,6 +848,74 @@ class Fabric:
             plane.write_netns_stop_scr_to_file_2(file)
         for pod in self.pods:
             pod.write_netns_stop_scr_to_file_2(file)
+
+    def write_netns_check_scr_to_file(self, file):
+        print("FAILURE_COUNT=0", file=file)
+        all_leaf_nodes = []
+        for pod in self.pods:
+            for leaf_node in pod.nodes_by_level[LEAF_LEVEL]:
+                all_leaf_nodes.append(leaf_node)
+        self.write_netns_ping_all_pairs(file, all_leaf_nodes)
+        self.write_netns_trace_all_pairs(file, all_leaf_nodes)
+        print("echo", file=file)
+        print("echo Number of failures: $FAILURE_COUNT", file=file)
+        print("if [ $FAILURE_COUNT -ne 0 ]; then\n"
+              "    echo\n"
+              "    echo '*** THERE WERE FAILURES ***'\n"
+              "fi", file=file)
+
+        print("exit $FAILURE_COUNT", file=file)
+
+    def write_netns_ping_all_pairs(self, file, nodes):
+        print("echo '\n*** ping ***'", file=file)
+        for from_node in nodes:
+            for to_node in nodes:
+                if from_node != to_node:
+                    for from_address in from_node.lo_addresses:
+                        for to_address in to_node.lo_addresses:
+                            print("echo", file=file)
+                            self.write_netns_ping_to_file(file, from_node, from_address, to_node,
+                                                          to_address)
+
+    def write_netns_trace_all_pairs(self, file, nodes):
+        print("echo '\n*** traceroute ***'", file=file)
+        for from_node in nodes:
+            for to_node in nodes:
+                if from_node != to_node:
+                    for from_address in from_node.lo_addresses:
+                        for to_address in to_node.lo_addresses:
+                            print("echo", file=file)
+                            self.write_netns_trace_to_file(file, from_node, from_address, to_node,
+                                                           to_address)
+
+    def write_netns_ping_to_file(self, file, from_node, from_address, to_node, to_address):
+        description = ("ping {} {} -> {} {}"
+                       .format(from_node.name, from_address, to_node.name, to_address))
+        command = ("ip netns exec {} ping -f -c5 -w1 -I {} {}"
+                   .format(from_node.ns_name, from_address, to_address))
+        self.write_netns_chk_command_to_file(file, description, command)
+
+    def write_netns_trace_to_file(self, file, from_node, from_address, to_node, to_address):
+        description = ("trace-route {} {} -> {} {}"
+                       .format(from_node.name, from_address, to_node.name, to_address))
+        command = ("ip netns exec {} traceroute -n -s {} {}"
+                   .format(from_node.ns_name, from_address, to_address))
+        self.write_netns_out_command_to_file(file, description, command)
+
+    def write_netns_chk_command_to_file(self, file, description, command):
+        wrap_command = "OUTPUT=$({} 2>&1)".format(command)
+        print(wrap_command, file=file)
+        check_result = ("if [ $? -eq 0 ]; then\n"
+                        "    echo OK: '{0}'\n"
+                        "else\n"
+                        "    echo FAIL: '{0}'\n"
+                        "    FAILURE_COUNT=$((FAILURE_COUNT+1))\n"
+                        "fi".format(description))
+        print(check_result, file=file)
+
+    def write_netns_out_command_to_file(self, file, description, command):
+        print("echo '{}'".format(description), file=file)
+        print(command, file=file)
 
     def write_graphics(self):
         file_name = ARGS.graphics_file
