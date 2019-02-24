@@ -910,7 +910,7 @@ class Interface:
             sum_counters=[self._rx_lie_counter, self._rx_ipv6_counter])
         self._tx_ipv6_lie_counter = stats.MultiCounter(
             stg, "TX IPv6 LIE Packets", pab,
-            sum_counters=[self._rx_lie_counter, self._tx_ipv6_counter])
+            sum_counters=[self._tx_lie_counter, self._tx_ipv6_counter])
         self._rx_ipv6_tie_counter = stats.MultiCounter(
             stg, "RX IPv6 TIE Packets", pab,
             sum_counters=[self._rx_tie_counter, self._rx_ipv6_counter])
