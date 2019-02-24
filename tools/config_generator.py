@@ -65,6 +65,9 @@ INTF_RADIUS = "3"
 INTF_HIGHLIGHT_RADIUS = "5"
 HIGHLIGHT_COLOR = "red"
 
+LOOPBACKS_ADDRESS_BYTE = 88    # 88.level.index.lb
+LIE_MCAST_ADDRESS_BYTE = 88    # 224.88.level.index  ff02::88:level:index
+
 END_OF_SVG = """
 <script type="text/javascript"><![CDATA[
 
@@ -137,21 +140,6 @@ END_OF_SVG = END_OF_SVG.replace("INTF_RADIUS", INTF_RADIUS)
 END_OF_SVG = END_OF_SVG.replace("INTF_HIGHLIGHT_RADIUS", INTF_HIGHLIGHT_RADIUS)
 END_OF_SVG = END_OF_SVG.replace("HIGHLIGHT_COLOR", HIGHLIGHT_COLOR)
 
-def generate_ipv4_address_str(byte1, byte2, byte3, byte4, offset):
-    assert offset <= 65535
-    byte4 += offset
-    byte3 += byte4 // 256
-    byte4 %= 256
-    byte2 += byte3 // 256
-    byte3 %= 256
-    byte1 += byte2 // 256
-    byte2 %= 256
-    ip_address_str = "{}.{}.{}.{}".format(byte1, byte2, byte3, byte4)
-    return ip_address_str
-
-def generate_ipv6_address_str(prefix, offset):
-    return "{}::{}".format(prefix, offset)
-
 class Group:
 
     def __init__(self, fabric, name, group_index, only_instance, y_pos, y_size):
@@ -166,8 +154,8 @@ class Group:
         self.nodes_by_level = {}
         self.links = []
 
-    def create_node(self, name, level, index_in_level, y_pos):
-        node = Node(self, name, level, index_in_level, y_pos)
+    def create_node(self, name, level, group_index_in_level, y_pos):
+        node = Node(self, name, level, group_index_in_level, y_pos)
         # TODO: Move adding of loopbacks to here
         self.nodes.append(node)
         if level not in self.nodes_by_level:
@@ -180,11 +168,12 @@ class Group:
         self.links.append(link)
         return link
 
-    def node_name(self, base_name, node_index_in_level):
+    def node_name(self, base_name, node_group_index_in_level):
         if self.only_instance:
-            return base_name + "-" + str(node_index_in_level + 1)
+            return base_name + "-" + str(node_group_index_in_level + 1)
         else:
-            return base_name + "-" + str(self.group_index + 1) + "-" + str(node_index_in_level + 1)
+            return (base_name + "-" + str(self.group_index + 1) + "-" +
+                    str(node_group_index_in_level + 1))
 
     def write_config_to_file(self, file, netns):
         for node in self.nodes:
@@ -351,27 +340,63 @@ class Plane(Group):
 
 class Node:
 
-    next_node_id = 1
+    next_global_index_in_level = {}
 
-    def __init__(self, group, name, level, index_in_level, y_pos):
+    def __init__(self, group, name, level, group_index_in_level, y_pos):
+        # For now, we support max 3 levels, and they must be level 0, 1, and 2
+        assert level <= 2
         self.group = group
         self.name = name
-        self.node_id = Node.next_node_id
-        Node.next_node_id += 1
+        self.allocate_node_id_and_index(level)
         self.level = level
-        self.index_in_level = index_in_level
+        self.group_index_in_level = group_index_in_level
         self.given_y_pos = y_pos
-        self.rx_lie_ipv4_mcast_addr = generate_ipv4_address_str(224, 0, 1, 0, self.node_id)
-        self.rx_lie_ipv6_mcast_addr = generate_ipv6_address_str("ff02", self.node_id)
+        self.rx_lie_ipv4_mcast_addr = self.generate_ipv4_address_str(
+            224, LIE_MCAST_ADDRESS_BYTE, self.level, self.global_index_in_level)
+        self.rx_lie_ipv6_mcast_addr = self.generate_ipv6_address_str(
+            "ff02", LIE_MCAST_ADDRESS_BYTE, self.level, self.global_index_in_level)
         self.interfaces = []
         self.ipv4_prefixes = []
         self.lo_addresses = []
         self.config_file_name = None
 
+    def allocate_node_id_and_index(self, level):
+        if level in Node.next_global_index_in_level:
+            self.global_index_in_level = Node.next_global_index_in_level[level]
+            Node.next_global_index_in_level[level] += 1
+        else:
+            self.global_index_in_level = 1
+            Node.next_global_index_in_level[level] = 2
+        # We use the index as a byte in IP addresses, so we support max 254 nodes per level
+        assert self.global_index_in_level <= 254
+        if level == 0:
+            base_id = 1000
+        elif level == 1:
+            base_id = 100
+        elif level == 2:
+            base_id = 0
+        else:
+            assert False
+        self.node_id = base_id + self.global_index_in_level
+
+    def generate_ipv4_address_str(self, byte1, byte2, byte3, byte4):
+        assert 0 <= byte1 <= 255
+        assert 0 <= byte2 <= 255
+        assert 0 <= byte3 <= 255
+        assert 1 <= byte4 <= 254
+        ip_address_str = "{}.{}.{}.{}".format(byte1, byte2, byte3, byte4)
+        return ip_address_str
+
+    def generate_ipv6_address_str(self, prefix, byte1, byte2, byte3):
+        assert 0 <= byte1 <= 255
+        assert 0 <= byte2 <= 255
+        assert 1 <= byte3 <= 254
+        return "{}::{}:{}:{}".format(prefix, byte1, byte2, byte3)
+
     def add_ipv4_loopbacks(self, count):
-        for index in range(1, count+1):
-            offset = self.node_id * 256 + index
-            address = generate_ipv4_address_str(88, 0, 0, 0, offset)
+        for loopback_index in range(1, count+1):
+            address = self.generate_ipv4_address_str(
+                LOOPBACKS_ADDRESS_BYTE, self.level, self.global_index_in_level, loopback_index)
             mask = "32"
             metric = "1"
             prefix = (address, mask, metric)
@@ -542,7 +567,7 @@ class Node:
 
     def x_pos(self):
         # X position of top-left corner of rectangle representing the node
-        x_delta = self.index_in_level * (NODE_X_SIZE + NODE_X_INTERVAL)
+        x_delta = self.group_index_in_level * (NODE_X_SIZE + NODE_X_INTERVAL)
         return self.group.first_node_x_pos(self.level) + x_delta
 
     def y_pos(self):

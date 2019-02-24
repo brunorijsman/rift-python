@@ -759,6 +759,9 @@ class Interface:
     def tx_debug(self, msg, *args):
         self._tx_log.debug("[%s] %s" % (self._log_id, msg), *args)
 
+    def tx_warning(self, msg, *args):
+        self._tx_log.warning("[%s] %s" % (self._log_id, msg), *args)
+
     def __init__(self, parent_node, config):
         # pylint:disable=too-many-statements
         # TODO: process bandwidth field in config

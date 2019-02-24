@@ -96,7 +96,7 @@ class UdpRxHandler:
         self._local_ipv6_address = utils.interface_ipv6_address(interface_name)
         try:
             self._interface_index = socket.if_nametoindex(interface_name)
-        except IOError as err:
+        except (IOError, OSError) as err:
             self.warning("Could determine index of interface %s: %s", interface_name, err)
             self._interface_index = None
         if ipv4:
@@ -130,7 +130,7 @@ class UdpRxHandler:
         try:
             message, ancillary_messages, _msg_flags, from_info = \
                 self.sock.recvmsg(self.MAX_SIZE, ancillary_size)
-        except IOError as err:
+        except (IOError, OSError) as err:
             self.warning("Socket receive failed: %s", err)
         else:
             if not MACOS:
@@ -162,16 +162,19 @@ class UdpRxHandler:
             pass
 
     def create_socket_ipv4_rx_ucast(self):
+        if self._local_ipv4_address is None:
+            self.warning("Could not create IPv4 UDP socket: don't have a local address")
+            return None
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-        except IOError as err:
+        except (IOError, OSError) as err:
             self.warning("Could not create IPv4 UDP socket: %s", err)
             return None
         self.enable_addr_and_port_reuse(sock)
         try:
             sock.bind((self._local_ipv4_address, self._local_port))
         except (IOError, OSError) as err:
-            self.warning("Could not bind UDP socket to address %s port %d: %s",
+            self.warning("Could not bind IPv4 UDP socket to address %s port %d: %s",
                          self._local_ipv4_address, self._local_port, err)
             return None
         return sock
@@ -179,14 +182,14 @@ class UdpRxHandler:
     def create_socket_ipv4_rx_mcast(self):
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-        except IOError as err:
+        except (IOError, OSError) as err:
             self.warning("Could not create IPv4 UDP socket: %s", err)
             return None
         self.enable_addr_and_port_reuse(sock)
         try:
             sock.bind((self._multicast_address, self._local_port))
         except (IOError, OSError) as err:
-            self.warning("Could not bind UDP socket to address %s port %d: %s",
+            self.warning("Could not bind IPv4 UDP socket to address %s port %d: %s",
                          self._multicast_address, self._local_port, err)
             return None
         if sock is None:
@@ -198,23 +201,26 @@ class UdpRxHandler:
             req = struct.pack("=4sl", socket.inet_aton(self._multicast_address), socket.INADDR_ANY)
         try:
             sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, req)
-        except IOError as err:
-            self.warning("Could not join group %s for local address %s: %s",
+        except (IOError, OSError) as err:
+            self.warning("Could not join IPv4 group %s for local address %s: %s",
                          self._multicast_address, self._local_ipv4_address, err)
             return None
         if not MACOS:
             try:
                 # pylint:disable=no-member
                 sock.setsockopt(socket.IPPROTO_IP, socket.IP_PKTINFO, 1)
-            except IOError as err:
+            except (IOError, OSError) as err:
                 # Warn, but keep going; this socket option is not supported on macOS
                 self.warning("Could not set IP_PKTINFO socket option: %s", err)
         return sock
 
     def create_socket_ipv6_rx_ucast(self):
+        if self._local_ipv6_address is None:
+            self.warning("Could not create IPv6 UDP socket: don't have a local address")
+            return None
         try:
             sock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-        except IOError as err:
+        except (IOError, OSError) as err:
             self.warning("Could not create IPv6 UDP socket: %s", err)
             return None
         self.enable_addr_and_port_reuse(sock)
@@ -225,7 +231,7 @@ class UdpRxHandler:
                                           socket.SOCK_DGRAM)[0][4]
             sock.bind(sockaddr)
         except (IOError, OSError) as err:
-            self.warning("Could not bind UDP socket to address %s port %d: %s",
+            self.warning("Could not bind IPv6 UDP socket to address %s port %d: %s",
                          self._local_ipv6_address, self._local_port, err)
             return None
         return sock
@@ -237,7 +243,7 @@ class UdpRxHandler:
             return None
         try:
             sock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-        except IOError as err:
+        except (IOError, OSError) as err:
             self.warning("Could not create IPv6 UDP socket: %s", err)
             return None
         self.enable_addr_and_port_reuse(sock)
@@ -250,7 +256,7 @@ class UdpRxHandler:
                                           socket.SOCK_DGRAM)[0][4]
             sock.bind(sockaddr)
         except (IOError, OSError) as err:
-            self.warning("Could not bind UDP socket to address %s port %d: %s",
+            self.warning("Could not bind IPv6 UDP socket to address %s port %d: %s",
                          self._multicast_address, self._local_port, err)
             return None
         try:
@@ -261,15 +267,15 @@ class UdpRxHandler:
                 sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_JOIN_GROUP, req)
             else:
                 sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_ADD_MEMBERSHIP, req)
-        except IOError as err:
-            self.warning("Could not join group %s for interface index %s: %s",
+        except (IOError, OSError) as err:
+            self.warning("Could not join IPv6 group %s for interface index %s: %s",
                          self._multicast_address, self._interface_index, err)
             return None
         if not MACOS:
             try:
                 # pylint:disable=no-member
                 sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_RECVPKTINFO, 1)
-            except IOError as err:
+            except (IOError, OSError) as err:
                 # Warn, but keep going; this socket option is not supported on macOS
                 self.warning("Could not set IPV6_RECVPKTINFO socket option: %s", err)
         return sock
