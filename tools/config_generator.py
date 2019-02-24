@@ -5,6 +5,7 @@
 import argparse
 import os
 import pprint
+import random
 import stat
 
 import sys
@@ -15,8 +16,8 @@ META_CONFIG = None
 ARGS = None
 
 DEFAULT_NR_IPV4_LOOPBACKS = 1
-DEFAULT_CHAOS_EVENTS = 10
-DEFAULT_CHAOS_INTERVAL = 1  # seconds
+DEFAULT_CHAOS_NR_EVENTS = 10
+DEFAULT_CHAOS_EVENT_INTERVAL = 5.0  # seconds
 
 SEPARATOR = '-'
 NETNS_PREFIX = 'netns' + SEPARATOR
@@ -38,8 +39,9 @@ SCHEMA = {
     'chaos': {
         'type': 'dict',
         'schema': {
-            'nr-events': {'type': 'integer', 'min': 0, 'default': DEFAULT_CHAOS_EVENTS},
-            'event-interval': {'type': 'integer', 'min': 1, 'default': DEFAULT_CHAOS_INTERVAL},
+            'nr-events': {'type': 'integer', 'min': 0, 'default': DEFAULT_CHAOS_NR_EVENTS},
+            'event-interval': {'type': 'float', 'min': 0.0,
+                               'default': DEFAULT_CHAOS_EVENT_INTERVAL},
         }
     }
 }
@@ -164,6 +166,8 @@ class Group:
         self.x_center_shift = 0
         self.nodes = []
         self.nodes_by_level = {}
+        # Links within the group. Spine to super-spine links are owned by the plane group, not the
+        # pod group.
         self.links = []
 
     def create_node(self, name, level, group_level_node_id, y_pos):
@@ -669,6 +673,9 @@ class Link:
         self.intf1.set_peer_intf(self.intf2)
         self.intf2.set_peer_intf(self.intf1)
 
+    def description(self):
+        return self.intf1.name() + "-" + self.intf2.name()
+
     def write_netns_start_scr_to_file(self, file):
         veth1_name = self.intf1.veth_name()
         veth2_name = self.intf2.veth_name()
@@ -695,6 +702,45 @@ class Link:
         self.intf1.write_graphics_to_file(file)
         self.intf2.write_graphics_to_file(file)
         file.write('</g>\n')
+
+class LinkDownEvent:
+
+    def __init__(self, link):
+        self.link = link
+
+    def write_break_script(self, file):
+        description = "Bring link {} down (bi-directional failure)".format(self.link.description())
+        print("#" * 80, file=file)
+        print("# {}".format(description), file=file)
+        print("#" * 80, file=file)
+        print(file=file)
+        print("echo '{}'".format(description), file=file)
+        # Transmit loss 100% on one side
+        script = ("ip netns exec {} tc qdisc add dev {} root netem loss 100%"
+                  .format(self.link.intf1.node.ns_name, self.link.intf1.veth_name()))
+        print("{}".format(script), file=file)
+        # Transmit loss 100% on the other side
+        script = ("ip netns exec {} tc qdisc add dev {} root netem loss 100%"
+                  .format(self.link.intf2.node.ns_name, self.link.intf2.veth_name()))
+        print("{}".format(script), file=file)
+        print(file=file)
+
+    def write_fix_script(self, file):
+        description = "Bring link {} up".format(self.link.description())
+        print("#" * 80, file=file)
+        print("# {}".format(description), file=file)
+        print("#" * 80, file=file)
+        print(file=file)
+        print("echo '{}'".format(description), file=file)
+        # Undo transmit loss 100% on one side
+        script = ("ip netns exec {} tc qdisc del dev {} root netem"
+                  .format(self.link.intf1.node.ns_name, self.link.intf1.veth_name()))
+        print("{}".format(script), file=file)
+        # Unto transmit loss 100% on the other side
+        script = ("ip netns exec {} tc qdisc del dev {} root netem"
+                  .format(self.link.intf2.node.ns_name, self.link.intf2.veth_name()))
+        print("{}".format(script), file=file)
+        print(file=file)
 
 class Fabric:
 
@@ -849,10 +895,6 @@ class Fabric:
               "fi", file=file)
         print("exit $FAILURE_COUNT", file=file)
 
-    def write_netns_chaos_scr_to_file(self, file):
-        ###!!!
-        print("echo The monkeys are causing mayhem!!!", file=file)
-
     def write_netns_ping_all_pairs(self, file, nodes):
         print("echo '\n*** ping ***'", file=file)
         for from_node in nodes:
@@ -903,6 +945,64 @@ class Fabric:
     def write_netns_out_command_to_file(self, file, description, command):
         print("echo '{}'".format(description), file=file)
         print(command, file=file)
+
+    def write_netns_chaos_scr_to_file(self, file):
+        clean_links = []        # List of link
+        affected_links = {}     # Break events, indexed by link
+        for pod in self.pods:
+            clean_links.extend(pod.links)
+        for plane in self.planes:
+            clean_links.extend(plane.links)
+        nr_events = self.get_chaos_config('nr-events', DEFAULT_CHAOS_NR_EVENTS)
+        event_interval = self.get_chaos_config('event-interval', DEFAULT_CHAOS_EVENT_INTERVAL)
+        for _event_nr in range(1, nr_events + 1):
+            break_something = self.choose_break_or_fix(clean_links, affected_links)
+            if break_something:
+                link = random.choice(clean_links)
+                event = LinkDownEvent(link)
+                event.write_break_script(file)
+                clean_links.remove(link)
+                affected_links[link] = event
+            else:
+                link = random.choice(list(affected_links.keys()))
+                event = affected_links[link]
+                event.write_fix_script(file)
+                del affected_links[link]
+                clean_links.append(link)
+            print("sleep {}".format(event_interval), file=file)
+            print(file=file)
+        # Fix everything that is still broken, without delays in between
+        while affected_links:
+            link = random.choice(list(affected_links.keys()))
+            event = affected_links[link]
+            event.write_fix_script(file)
+            del affected_links[link]
+            clean_links.append(link)
+        # One final delay to let everything reconverge
+        print("sleep {}".format(event_interval), file=file)
+        print(file=file)
+
+
+    def choose_break_or_fix(self, clean_links, affected_links):
+        # Returns True for break, False for fix
+        nr_clean_links = len(clean_links)
+        nr_affected_links = len(affected_links)
+        nr_links = nr_clean_links + nr_affected_links
+        assert nr_links > 1
+        # pylint: disable=simplifiable-if-statement
+        if random.randint(1, nr_links) <= nr_clean_links:
+            # Break something
+            return True
+        else:
+            # Fix something
+            return False
+
+    @staticmethod
+    def get_chaos_config(attribute, default_value):
+        if 'chaos' in META_CONFIG and attribute in META_CONFIG['chaos']:
+            return META_CONFIG['chaos'][attribute]
+        else:
+            return default_value
 
     def write_graphics(self):
         file_name = ARGS.graphics_file
