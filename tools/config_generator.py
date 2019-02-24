@@ -376,11 +376,11 @@ class Node:
             Node.next_level_node_id[level] = 2
         # We use the index as a byte in IP addresses, so we support max 254 nodes per level
         assert self.level_node_id <= 254
-        if level == SUPERSPINE_LEVEL:
+        if level == LEAF_LEVEL:
             base_global_node_id_for_level = 1000
         elif level == SPINE_LEVEL:
             base_global_node_id_for_level = 100
-        elif level == LEAF_LEVEL:
+        elif level == SUPERSPINE_LEVEL:
             base_global_node_id_for_level = 0
         else:
             assert False
@@ -611,15 +611,19 @@ class Interface:
         upper = max(self.global_intf_id, self.peer_intf.global_intf_id)
         self.addr = "99.{}.{}.{}/24".format(lower, upper, self.global_intf_id)
 
+    def node_intf_id_letter(self):
+        return chr(ord('a') + self.node_intf_id - 1)
+
     def name(self):
-        return "if" + str(self.node_intf_id)
+        return "if" + SEPARATOR + str(self.node.global_node_id) + self.node_intf_id_letter()
 
     def fq_name(self):
         return self.node.name + ":" + self.name()
 
     def veth_name(self):
-        return ("veth" + SEPARATOR + str(self.global_intf_id) + SEPARATOR +
-                str(self.peer_intf.global_intf_id))
+        return ("veth" + SEPARATOR +
+                str(self.node.global_node_id) + self.node_intf_id_letter() + SEPARATOR +
+                str(self.peer_intf.node.global_node_id) + self.peer_intf.node_intf_id_letter())
 
     def write_graphics_to_file(self, file):
         x_pos = self.x_pos()
