@@ -142,10 +142,12 @@ END_OF_SVG = END_OF_SVG.replace("HIGHLIGHT_COLOR", HIGHLIGHT_COLOR)
 
 class Group:
 
-    def __init__(self, fabric, name, group_index, only_instance, y_pos, y_size):
+    def __init__(self, fabric, name, class_group_id, only_instance, y_pos, y_size):
+        # class_group_id: group ID, uniquely identifies the group within the scope of the subclass
+        #                 (pods have IDs 1,2,3... and planes have IDs 1, 2, 3...)
         self.fabric = fabric
         self.name = name
-        self.group_index = group_index
+        self.class_group_id = class_group_id
         self.only_instance = only_instance
         self.given_y_pos = y_pos
         self.given_y_size = y_size
@@ -154,8 +156,8 @@ class Group:
         self.nodes_by_level = {}
         self.links = []
 
-    def create_node(self, name, level, group_index_in_level, y_pos):
-        node = Node(self, name, level, group_index_in_level, y_pos)
+    def create_node(self, name, level, group_level_node_id, y_pos):
+        node = Node(self, name, level, group_level_node_id, y_pos)
         # TODO: Move adding of loopbacks to here
         self.nodes.append(node)
         if level not in self.nodes_by_level:
@@ -168,12 +170,11 @@ class Group:
         self.links.append(link)
         return link
 
-    def node_name(self, base_name, node_group_index_in_level):
+    def node_name(self, base_name, group_level_node_id):
         if self.only_instance:
-            return base_name + "-" + str(node_group_index_in_level + 1)
+            return base_name + "-" + str(group_level_node_id)
         else:
-            return (base_name + "-" + str(self.group_index + 1) + "-" +
-                    str(node_group_index_in_level + 1))
+            return base_name + "-" + str(self.class_group_id) + "-" + str(group_level_node_id)
 
     def write_config_to_file(self, file, netns):
         for node in self.nodes:
@@ -239,7 +240,7 @@ class Group:
     def x_pos(self):
         # X position of top-left corner of rectangle representing the group
         x_pos = GLOBAL_X_OFFSET
-        x_pos += self.group_index * (self.x_size() + GROUP_X_INTERVAL)
+        x_pos += (self.class_group_id - 1) * (self.x_size() + GROUP_X_INTERVAL)
         x_pos += self.x_center_shift
         return x_pos
 
@@ -274,9 +275,9 @@ class Group:
 
 class Pod(Group):
 
-    def __init__(self, fabric, pod_name, pod_index, only_pod, y_pos):
+    def __init__(self, fabric, pod_name, global_pod_id, only_pod, y_pos):
         y_size = 2 * NODE_Y_SIZE + NODE_Y_INTERVAL + 2 * GROUP_Y_SPACER
-        Group.__init__(self, fabric, pod_name, pod_index, only_pod, y_pos, y_size)
+        Group.__init__(self, fabric, pod_name, global_pod_id, only_pod, y_pos, y_size)
         self.leaf_nodes = []
         self.spine_nodes = []
         self.nr_leaf_nodes = META_CONFIG['nr-leaf-nodes-per-pod']
@@ -298,16 +299,18 @@ class Pod(Group):
     def create_leaf_nodes(self):
         y_pos = self.y_pos() + GROUP_Y_SPACER + NODE_Y_SIZE + NODE_Y_INTERVAL
         for index in range(0, self.nr_leaf_nodes):
-            node_name = self.node_name("leaf", index)
-            node = self.create_node(node_name, LEAF_LEVEL, index, y_pos)
+            group_level_node_id = index + 1
+            node_name = self.node_name("leaf", group_level_node_id)
+            node = self.create_node(node_name, LEAF_LEVEL, group_level_node_id, y_pos)
             node.add_ipv4_loopbacks(self.leaf_nr_ipv4_loopbacks)
             self.leaf_nodes.append(node)
 
     def create_spine_nodes(self):
         y_pos = self.y_pos() + GROUP_Y_SPACER
         for index in range(0, self.nr_spine_nodes):
-            node_name = self.node_name("spine", index)
-            node = self.create_node(node_name, SPINE_LEVEL, index, y_pos)
+            group_level_node_id = index + 1
+            node_name = self.node_name("spine", group_level_node_id)
+            node = self.create_node(node_name, SPINE_LEVEL, group_level_node_id, y_pos)
             node.add_ipv4_loopbacks(self.spine_nr_ipv4_loopbacks)
             self.spine_nodes.append(node)
 
@@ -318,9 +321,9 @@ class Pod(Group):
 
 class Plane(Group):
 
-    def __init__(self, fabric, plane_name, plane_index, only_plane, y_pos):
+    def __init__(self, fabric, plane_name, global_plane_id, only_plane, y_pos):
         y_size = NODE_Y_SIZE + 2 * GROUP_Y_SPACER
-        Group.__init__(self, fabric, plane_name, plane_index, only_plane, y_pos, y_size)
+        Group.__init__(self, fabric, plane_name, global_plane_id, only_plane, y_pos, y_size)
         self.superspine_nodes = []
         self.superspine_spine_links = []
         self.nr_leaf_nodes = 0
@@ -333,51 +336,55 @@ class Plane(Group):
     def create_superspine_nodes(self):
         y_pos = self.y_pos() + GROUP_Y_SPACER
         for index in range(0, self.nr_superspine_nodes):
-            node_name = self.node_name("super", index)   # TODO: Index per group type
-            node = self.create_node(node_name, SUPERSPINE_LEVEL, index, y_pos)
+            group_level_node_id = index + 1
+            node_name = self.node_name("super", group_level_node_id)
+            node = self.create_node(node_name, SUPERSPINE_LEVEL, group_level_node_id, y_pos)
             node.add_ipv4_loopbacks(self.superspine_nr_ipv4_loopbacks)
             self.superspine_nodes.append(node)
 
 class Node:
 
-    next_global_index_in_level = {}
+    next_level_node_id = {}
 
-    def __init__(self, group, name, level, group_index_in_level, y_pos):
+    def __init__(self, group, name, level, group_level_node_id, y_pos):
         # For now, we support max 3 levels, and they must be level 0, 1, and 2
         assert level <= 2
         self.group = group
         self.name = name
-        self.allocate_node_id_and_index(level)
+        self.allocate_node_ids(level)
         self.level = level
-        self.group_index_in_level = group_index_in_level
+        self.group_level_node_id = group_level_node_id
         self.given_y_pos = y_pos
         self.rx_lie_ipv4_mcast_addr = self.generate_ipv4_address_str(
-            224, LIE_MCAST_ADDRESS_BYTE, self.level, self.global_index_in_level)
+            224, LIE_MCAST_ADDRESS_BYTE, self.level, self.level_node_id)
         self.rx_lie_ipv6_mcast_addr = self.generate_ipv6_address_str(
-            "ff02", LIE_MCAST_ADDRESS_BYTE, self.level, self.global_index_in_level)
+            "ff02", LIE_MCAST_ADDRESS_BYTE, self.level, self.level_node_id)
         self.interfaces = []
         self.ipv4_prefixes = []
         self.lo_addresses = []
         self.config_file_name = None
 
-    def allocate_node_id_and_index(self, level):
-        if level in Node.next_global_index_in_level:
-            self.global_index_in_level = Node.next_global_index_in_level[level]
-            Node.next_global_index_in_level[level] += 1
+    def allocate_node_ids(self, level):
+        # level_node_id: a node ID unique only within the level (each level has IDs 1, 2, 3...)
+        # global_node_id: a node ID which is globally unque (1001, 1002, 1003... for leaf nodes,
+        #                 101, 102, 103... for spine nodes, and 1, 2, 3... for super-spine nodes)
+        if level in Node.next_level_node_id:
+            self.level_node_id = Node.next_level_node_id[level]
+            Node.next_level_node_id[level] += 1
         else:
-            self.global_index_in_level = 1
-            Node.next_global_index_in_level[level] = 2
+            self.level_node_id = 1
+            Node.next_level_node_id[level] = 2
         # We use the index as a byte in IP addresses, so we support max 254 nodes per level
-        assert self.global_index_in_level <= 254
-        if level == 0:
-            base_id = 1000
-        elif level == 1:
-            base_id = 100
-        elif level == 2:
-            base_id = 0
+        assert self.level_node_id <= 254
+        if level == SUPERSPINE_LEVEL:
+            base_global_node_id_for_level = 1000
+        elif level == SPINE_LEVEL:
+            base_global_node_id_for_level = 100
+        elif level == LEAF_LEVEL:
+            base_global_node_id_for_level = 0
         else:
             assert False
-        self.node_id = base_id + self.global_index_in_level
+        self.global_node_id = base_global_node_id_for_level + self.level_node_id
 
     def generate_ipv4_address_str(self, byte1, byte2, byte3, byte4):
         assert 0 <= byte1 <= 255
@@ -394,9 +401,9 @@ class Node:
         return "{}::{}:{}:{}".format(prefix, byte1, byte2, byte3)
 
     def add_ipv4_loopbacks(self, count):
-        for loopback_index in range(1, count+1):
+        for node_loopback_id in range(1, count+1):
             address = self.generate_ipv4_address_str(
-                LOOPBACKS_ADDRESS_BYTE, self.level, self.global_index_in_level, loopback_index)
+                LOOPBACKS_ADDRESS_BYTE, self.level, self.level_node_id, node_loopback_id)
             mask = "32"
             metric = "1"
             prefix = (address, mask, metric)
@@ -404,8 +411,8 @@ class Node:
             self.lo_addresses.append(address)
 
     def create_interface(self):
-        intf_index = len(self.interfaces) + 1
-        interface = Interface(self, intf_index)
+        node_intf_id = len(self.interfaces) + 1
+        interface = Interface(self, node_intf_id)
         self.interfaces.append(interface)
         return interface
 
@@ -436,7 +443,7 @@ class Node:
             print("    nodes:", file=file)
         print("      - name: " + self.name, file=file)
         print("        level: " + str(self.level), file=file)
-        print("        systemid: " + str(self.node_id), file=file)
+        print("        systemid: " + str(self.global_node_id), file=file)
         if not netns:
             print("        rx_lie_mcast_address: " + self.rx_lie_ipv4_mcast_addr, file=file)
             print("        rx_lie_v6_mcast_address: " + self.rx_lie_ipv6_mcast_addr, file=file)
@@ -478,7 +485,7 @@ class Node:
         file_name = "{}/connect-{}.sh".format(dir_name, self.name)
         try:
             with open(file_name, 'w') as file:
-                ns_name = NETNS_PREFIX + str(self.node_id)
+                ns_name = NETNS_PREFIX + str(self.global_node_id)
                 port_file = "/tmp/rift-python-telnet-port-" + self.name
                 print("ip netns exec {} telnet localhost $(cat {})".format(ns_name, port_file),
                       file=file)
@@ -491,7 +498,7 @@ class Node:
             fatal_error('Could name make "{}" executable'.format(file_name))
 
     def write_netns_start_scr_to_file_1(self, file):
-        ns_name = NETNS_PREFIX + str(self.node_id)
+        ns_name = NETNS_PREFIX + str(self.global_node_id)
         progress = ("Create network namespace {} for node {}".format(ns_name, self.name))
         print('echo "{}"'.format(progress), file=file)
         print("ip netns add {}".format(ns_name), file=file)
@@ -508,7 +515,7 @@ class Node:
     def write_netns_start_scr_to_file_2(self, file):
         progress = ("Start RIFT-Python engine for node {}".format(self.name))
         print('echo "{}"'.format(progress), file=file)
-        ns_name = NETNS_PREFIX + str(self.node_id)
+        ns_name = NETNS_PREFIX + str(self.global_node_id)
         port_file = "/tmp/rift-python-telnet-port-" + self.name
         print("ip netns exec {} python3 rift "
               "--ipv4-multicast-loopback-disable "
@@ -520,7 +527,7 @@ class Node:
         progress = ("Stop RIFT-Python engine for node {}".format(self.name))
         print('echo "{}"'.format(progress), file=file)
         # We use a big hammer: we kill -9 all processes in the the namespace
-        ns_name = NETNS_PREFIX + str(self.node_id)
+        ns_name = NETNS_PREFIX + str(self.global_node_id)
         print("kill -9 $(ip netns pids {}) >/dev/null 2>&1".format(ns_name), file=file)
         # Also clean up the port file
         port_file = "/tmp/rift-python-telnet-port-" + self.name
@@ -534,7 +541,7 @@ class Node:
                   file=file)
 
     def write_netns_stop_scr_to_file_2(self, file):
-        ns_name = NETNS_PREFIX + str(self.node_id)
+        ns_name = NETNS_PREFIX + str(self.global_node_id)
         progress = ("Delete network namespace {} for node {}".format(ns_name, self.name))
         print('echo "{}"'.format(progress), file=file)
         print("ip netns del {} >/dev/null 2>&1".format(ns_name), file=file)
@@ -567,7 +574,7 @@ class Node:
 
     def x_pos(self):
         # X position of top-left corner of rectangle representing the node
-        x_delta = self.group_index_in_level * (NODE_X_SIZE + NODE_X_INTERVAL)
+        x_delta = (self.group_level_node_id - 1) * (NODE_X_SIZE + NODE_X_INTERVAL)
         return self.group.first_node_x_pos(self.level) + x_delta
 
     def y_pos(self):
@@ -576,13 +583,13 @@ class Node:
 
 class Interface:
 
-    next_interface_id = 1
+    next_global_intf_id = 1
 
-    def __init__(self, node, intf_index):
+    def __init__(self, node, node_intf_id):
         self.node = node
-        self.intf_id = Interface.next_interface_id  # Globally unique identifier for interface
-        Interface.next_interface_id += 1
-        self.intf_index = intf_index  # Local index for interface, unique within scope of node
+        self.global_intf_id = Interface.next_global_intf_id       # Globally unique ID for interface
+        Interface.next_global_intf_id += 1
+        self.node_intf_id = node_intf_id   # ID for interface, only unique within scope of interface
         self.peer_intf = None
         self.direction = None
         self.rx_lie_port = None
@@ -597,21 +604,22 @@ class Interface:
             self.direction = SOUTH
         else:
             self.direction = NORTH
-        self.rx_lie_port = 20000 + self.intf_id
-        self.tx_lie_port = 20000 + self.peer_intf.intf_id
-        self.rx_flood_port = 10000 + self.intf_id
-        lower = min(self.intf_id, self.peer_intf.intf_id)
-        upper = max(self.intf_id, self.peer_intf.intf_id)
-        self.addr = "99.{}.{}.{}/24".format(lower, upper, self.intf_id)
+        self.rx_lie_port = 20000 + self.global_intf_id
+        self.tx_lie_port = 20000 + self.peer_intf.global_intf_id
+        self.rx_flood_port = 10000 + self.global_intf_id
+        lower = min(self.global_intf_id, self.peer_intf.global_intf_id)
+        upper = max(self.global_intf_id, self.peer_intf.global_intf_id)
+        self.addr = "99.{}.{}.{}/24".format(lower, upper, self.global_intf_id)
 
     def name(self):
-        return "if" + str(self.intf_index)
+        return "if" + str(self.node_intf_id)
 
     def fq_name(self):
         return self.node.name + ":" + self.name()
 
     def veth_name(self):
-        return "veth" + SEPARATOR + str(self.intf_id) + SEPARATOR + str(self.peer_intf.intf_id)
+        return ("veth" + SEPARATOR + str(self.global_intf_id) + SEPARATOR +
+                str(self.peer_intf.global_intf_id))
 
     def write_graphics_to_file(self, file):
         x_pos = self.x_pos()
@@ -677,6 +685,7 @@ class Link:
 class Fabric:
 
     def __init__(self):
+        # pylint: disable=too-many-locals
         self.nr_pods = META_CONFIG['nr-pods']
         self.pods = []
         self.planes = []
@@ -688,14 +697,16 @@ class Fabric:
             planes_y_pos = GLOBAL_Y_OFFSET
             pods_y_pos += NODE_Y_SIZE + SUPERSPINE_TO_POD_Y_INTERVAL
             for index in range(0, nr_planes):
-                plane_name = "plane-" + str(index + 1)
-                pod = Plane(self, plane_name, index, only_plane, planes_y_pos)
+                global_plane_id = index + 1
+                plane_name = "plane-" + str(global_plane_id)
+                pod = Plane(self, plane_name, global_plane_id, only_plane, planes_y_pos)
                 self.planes.append(pod)
         # Generate the pods with leaf and spine nodes within them
         only_pod = (self.nr_pods == 1)
         for index in range(0, self.nr_pods):
-            pod_name = "pod-" + str(index + 1)
-            pod = Pod(self, pod_name, index, only_pod, pods_y_pos)
+            global_pod_id = index + 1
+            pod_name = "pod-" + str(global_pod_id)
+            pod = Pod(self, pod_name, global_pod_id, only_pod, pods_y_pos)
             self.pods.append(pod)
         # Center the pods and planes
         pod_x_center_shift = (self.x_size() - self.pods_total_x_size()) // 2
