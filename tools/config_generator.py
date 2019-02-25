@@ -513,9 +513,17 @@ class Node:
 
     def write_netns_start_scr_to_file_1(self, file):
         progress = ("Create network namespace {} for node {}".format(self.ns_name, self.name))
-        print('echo "{}"'.format(progress), file=file)
-        print("ip netns add {}".format(self.ns_name), file=file)
-        print("ip netns exec {} ip link set dev lo up".format(self.ns_name), file=file)
+        print("echo '{0}'\n"
+              "ip netns add {1}\n"
+              "if [[ $(ip netns exec {1} sysctl -n net.ipv4.conf.all.forwarding) == 0 ]]; then\n"
+              "  ip netns exec {1} sysctl -w net.ipv4.conf.all.forwarding=1\n"
+              "fi\n"
+              "if [[ $(ip netns exec {1} sysctl -n net.ipv6.conf.all.forwarding) == 0 ]]; then\n"
+              "  ip netns exec {1} sysctl -w net.ipv6.conf.all.forwarding=1\n"
+              "fi\n"
+              "ip netns exec {1} ip link set dev lo up"
+              .format(progress, self.ns_name),
+              file=file)
         for addr in self.lo_addresses:
             print("ip netns exec {} ip addr add {} dev lo".format(self.ns_name, addr), file=file)
         for intf in self.interfaces:
