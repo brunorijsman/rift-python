@@ -516,10 +516,10 @@ class Node:
         print("echo '{0}'\n"
               "ip netns add {1}\n"
               "if [[ $(ip netns exec {1} sysctl -n net.ipv4.conf.all.forwarding) == 0 ]]; then\n"
-              "  ip netns exec {1} sysctl -w net.ipv4.conf.all.forwarding=1\n"
+              "  ip netns exec {1} sysctl -q -w net.ipv4.conf.all.forwarding=1\n"
               "fi\n"
               "if [[ $(ip netns exec {1} sysctl -n net.ipv6.conf.all.forwarding) == 0 ]]; then\n"
-              "  ip netns exec {1} sysctl -w net.ipv6.conf.all.forwarding=1\n"
+              "  ip netns exec {1} sysctl -q -w net.ipv6.conf.all.forwarding=1\n"
               "fi\n"
               "ip netns exec {1} ip link set dev lo up"
               .format(progress, self.ns_name),
