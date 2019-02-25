@@ -117,7 +117,9 @@ class UdpRxHandler:
 
     def close(self):
         scheduler.SCHEDULER.unregister_handler(self)
-        self.sock.close()
+        if self.sock is not None:
+            self.sock.close()
+            self.sock = None
 
     def rx_fd(self):
         if self.sock:
