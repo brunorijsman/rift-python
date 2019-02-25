@@ -935,7 +935,7 @@ class Fabric:
     def write_netns_trace_to_file(self, file, from_node, from_address, to_node, to_address):
         description = ("trace-route {} {} -> {} {}"
                        .format(from_node.name, from_address, to_node.name, to_address))
-        command = ("ip netns exec {} traceroute -n -s {} {}"
+        command = ("ip netns exec {} traceroute -n -m 5 -s {} {}"
                    .format(from_node.ns_name, from_address, to_address))
         self.write_netns_out_command_to_file(file, description, command)
 
