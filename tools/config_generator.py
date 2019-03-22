@@ -7,10 +7,15 @@ import os
 import pprint
 import random
 import stat
-
 import sys
+
 import cerberus
 import yaml
+
+sys.path.append("rift")
+
+# pylint:disable=wrong-import-position
+import table
 
 META_CONFIG = None
 ARGS = None
@@ -594,6 +599,32 @@ class Node:
                    .format(x_pos, y_pos, NODE_LINE_COLOR, self.name))
         file.write('</g>\n')
 
+    def add_allocations_to_table(self, tab):
+        interface_names = []
+        neighbor_nodes = []
+        interface_addresses = []
+        neighbor_addresses = []
+        for intf in self.interfaces:
+            interface_names.append(intf.name())
+            interface_addresses.append(intf.addr)
+            if intf.peer_intf is None:
+                neighbor_nodes.append("-")
+                neighbor_addresses.append("-")
+            else:
+                neighbor_nodes.append(intf.peer_intf.node.name)
+                neighbor_addresses.append(intf.peer_intf.addr)
+
+        tab.add_row([
+            self.name,
+            self.lo_addresses,
+            self.global_node_id,
+            self.ns_name,
+            interface_names,
+            interface_addresses,
+            neighbor_nodes,
+            neighbor_addresses
+        ])
+
     def x_pos(self):
         # X position of top-left corner of rectangle representing the node
         x_delta = (self.group_level_node_id - 1) * (NODE_X_SIZE + NODE_X_INTERVAL)
@@ -990,7 +1021,6 @@ class Fabric:
         print("sleep {}".format(event_interval), file=file)
         print(file=file)
 
-
     def choose_break_or_fix(self, clean_links, affected_links):
         # Returns True for break, False for fix
         nr_clean_links = len(clean_links)
@@ -1019,7 +1049,7 @@ class Fabric:
             with open(file_name, 'w') as file:
                 self.write_graphics_to_file(file)
         except IOError:
-            fatal_error('Could not open start graphics file "{}"'.format(file_name))
+            fatal_error('Could not open graphics file "{}"'.format(file_name))
 
     def write_graphics_to_file(self, file):
         self.svg_start(file)
@@ -1039,6 +1069,35 @@ class Fabric:
 
     def svg_end(self, file):
         file.write(END_OF_SVG)
+
+    def write_allocations(self):
+        dir_name = getattr(ARGS, 'output-file-or-dir')
+        file_name = "{}/allocations.txt".format(dir_name)
+        try:
+            with open(file_name, 'w') as file:
+                self.write_allocations_to_file(file)
+        except IOError:
+            fatal_error('Could not open allocations file "{}"'.format(file_name))
+
+    def write_allocations_to_file(self, file):
+        tab = table.Table()
+        tab.add_row([
+            ["Node", "Name"],
+            ["Loopback", "Address"],
+            ["System", "ID"],
+            ["Network", "Namespace"],
+            ["Interface", "Name"],
+            ["Interface", "Address"],
+            ["Neighbor", "Node"],
+            ["Neighbor", "Address"]
+        ])
+        for pod in self.pods:
+            for node in pod.nodes:
+                node.add_allocations_to_table(tab)
+        for plane in self.planes:
+            for node in plane.nodes:
+                node.add_allocations_to_table(tab)
+        print(tab.to_string(), file=file)
 
     def pods_total_x_size(self):
         total_x_size = 0
@@ -1120,6 +1179,7 @@ def main():
     fabric = Fabric()
     if ARGS.netns_per_node:
         fabric.write_netns_configs_and_scripts()
+        fabric.write_allocations()
     else:
         fabric.write_config()
     if ARGS.graphics_file is not None:
