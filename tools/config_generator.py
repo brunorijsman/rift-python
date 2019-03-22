@@ -8,8 +8,10 @@ import pprint
 import random
 import stat
 import sys
+import traceback
 
 import cerberus
+import pexpect
 import yaml
 
 sys.path.append("rift")
@@ -383,6 +385,7 @@ class Node:
         self.ipv4_prefixes = []
         self.lo_addresses = []
         self.config_file_name = None
+        self.port_file = "/tmp/rift-python-telnet-port-" + self.name
 
     def allocate_node_ids(self, level):
         # level_node_id: a node ID unique only within the level (each level has IDs 1, 2, 3...)
@@ -505,9 +508,8 @@ class Node:
         file_name = "{}/connect-{}.sh".format(dir_name, self.name)
         try:
             with open(file_name, 'w') as file:
-                port_file = "/tmp/rift-python-telnet-port-" + self.name
-                print("ip netns exec {} telnet localhost $(cat {})".format(self.ns_name, port_file),
-                      file=file)
+                print("ip netns exec {} telnet localhost $(cat {})"
+                      .format(self.ns_name, self.port_file), file=file)
         except IOError:
             fatal_error('Could not open start script file "{}"'.format(file_name))
         try:
@@ -624,6 +626,36 @@ class Node:
             neighbor_nodes,
             neighbor_addresses
         ])
+
+    def check(self):
+        print("Check node {}".format(self.name))
+        step = "Telnet to node"
+        try:
+            with open(self.port_file, 'r') as file:
+                telnet_port = int(file.read())
+        except (IOError, OSError):
+            error = 'Could not open telnet port file "{}"'.format(self.port_file)
+            self.report_check_result(step, False, error)
+            return False
+        telnet_session = TelnetSession(self.ns_name, telnet_port)
+        if not telnet_session.connected:
+            error = 'Could not Telnet to {}:{}'.format(self.ns_name, telnet_port)
+            self.report_check_result(step, False, error)
+            return False
+        if not telnet_session.wait_prompt():
+            error = 'Did not get prompt on Telnet session'
+            self.report_check_result(step, False, error)
+            return False
+        self.report_check_result(step)
+        return True
+
+    def report_check_result(self, step, okay=True, error=None):
+        if okay:
+            print("  {}: OK".format(step))
+        elif error:
+            print("  {}: FAIL ({})".format(step, error))
+        else:
+            print("  {}: FAIL".format(step))
 
     def x_pos(self):
         # X position of top-left corner of rectangle representing the node
@@ -1099,6 +1131,16 @@ class Fabric:
                 node.add_allocations_to_table(tab)
         print(tab.to_string(), file=file)
 
+    def check(self):
+        okay = True
+        for pod in self.pods:
+            for node in pod.nodes:
+                okay = node.check() and okay
+        for plane in self.planes:
+            for node in plane.nodes:
+                okay = node.check() and okay
+        return okay
+
     def pods_total_x_size(self):
         total_x_size = 0
         for pod in self.pods:
@@ -1117,6 +1159,68 @@ class Fabric:
 
     def x_size(self):
         return max(self.pods_total_x_size(), self.planes_total_x_size())
+
+class TelnetSession:
+
+    def __init__(self, netns, port):
+        self._netns = netns
+        self._port = port
+        log_file_name = "config_generator_check.log"
+        if "RIFT_TEST_RESULTS_DIR" in os.environ:
+            log_file_name = os.environ["RIFT_TEST_RESULTS_DIR"] + '/' + log_file_name
+        self._log_file = open(log_file_name, 'ab')
+        cmd = "ip netns exec {} telnet localhost {}".format(netns, port)
+        ###@@@ Handle connect failure
+        self._expect_session = pexpect.spawn(cmd, logfile=self._log_file)
+        self.connected = self.expect("Connected")
+
+    def write_result(self, msg):
+        self._log_file.write(msg.encode())
+        self._log_file.flush()
+
+    def stop(self):
+        # Attempt graceful exit
+        self._expect_session.sendline("exit")
+        # Terminate it forcefully, in case the graceful exit did not work for some reason
+        self._expect_session.terminate(force=True)
+        self.write_result("\n\n*** End session to {}:{}\n\n".format(self._netns, self._port))
+
+    def sendline(self, line):
+        self._expect_session.sendline(line)
+
+    def log_expect_failure(self):
+        self.write_result("\n\n*** Did not find expected pattern\n\n")
+        # Generate a call stack in the log file for easier debugging
+        for line in traceback.format_stack():
+            self.write_result(line.strip())
+            self.write_result("\n")
+
+    def expect(self, pattern, timeout=1.0):
+        self.write_result("\n\n*** Expect: {}\n\n".format(pattern))
+        # Report the failures outside of this block, otherwise pytest reports a huge callstack
+        try:
+            self._expect_session.expect(pattern, timeout)
+        except (pexpect.TIMEOUT, pexpect.exceptions.EOF, OSError, IOError):
+            failed = True
+        else:
+            failed = False
+        if failed:
+            self.log_expect_failure()
+            return False
+        else:
+            return True
+
+    def table_expect(self, pattern, timeout=1.0):
+        # Allow multiple spaces at end of each cell, even if only one was asked for
+        pattern = pattern.replace(" |", " +|")
+        # The | character is a literal end-of-cell, not a regexp OR
+        pattern = pattern.replace("|", "[|]")
+        # Since we confiscated | to mean end-of-cell, we use /// for regexp OR
+        pattern = pattern.replace("///", "|")
+        return self.expect(pattern, timeout)
+
+    def wait_prompt(self, timeout=1.0):
+        return self.expect(".*> ", timeout)
 
 def parse_meta_configuration(file_name):
     try:
@@ -1161,6 +1265,10 @@ def parse_command_line_arguments():
     parser.add_argument(
         '-g', '--graphics-file',
         help='Output file name for graphical representation')
+    parser.add_argument(
+        '-c', '--check',
+        action="store_true",
+        help='Check running configuration')
     args = parser.parse_args()
     return args
 
@@ -1177,6 +1285,13 @@ def main():
     META_CONFIG = parse_meta_configuration(input_file_name)
     validate_meta_configuration()
     fabric = Fabric()
+    if ARGS.check:
+        if not ARGS.netns_per_node:
+            fatal_error('Check command-line option only supported in netns-per-node mode')
+        if fabric.check():
+            sys.exit(0)
+        else:
+            sys.exit(1)
     if ARGS.netns_per_node:
         fabric.write_netns_configs_and_scripts()
         fabric.write_allocations()
