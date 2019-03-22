@@ -386,6 +386,7 @@ class Node:
         self.lo_addresses = []
         self.config_file_name = None
         self.port_file = "/tmp/rift-python-telnet-port-" + self.name
+        self.telnet_session = None
 
     def allocate_node_ids(self, level):
         # level_node_id: a node ID unique only within the level (each level has IDs 1, 2, 3...)
@@ -628,7 +629,42 @@ class Node:
         ])
 
     def check(self):
-        print("Check node {}".format(self.name))
+        print("**** Check node {}".format(self.name))
+        if not self.connect_telnet():
+            return False
+        self.check_engine()
+        self.check_interfaces_3way()
+        return True
+
+    def check_engine(self):
+        step = "Show engine"
+        self.telnet_session.sendline("show engine")
+        if not self.telnet_session.table_expect("Stand-alone | True"):
+            error = 'Show engine reported unexpected result for stand-alone'
+            self.report_check_result(step, False, error)
+            return
+        self.report_check_result(step)
+
+    def check_interfaces_3way(self):
+        for intf in self.interfaces:
+            intf_name = intf.veth_name()
+            step = "Interface {} in state THREE_WAY".format(intf_name)
+            cmd = "show interface {}".format(intf_name)
+            self.telnet_session.sendline(cmd)
+            if self.telnet_session.table_expect("State | THREE_WAY"):
+                self.report_check_result(step)
+            else:
+                self.report_check_result(step, False)
+
+    def report_check_result(self, step, okay=True, error=None):
+        if okay:
+            print("OK    {}".format(step))
+        elif error:
+            print("FAIL  {}: {}".format(step, error))
+        else:
+            print("FAIL  {}".format(step))
+
+    def connect_telnet(self):
         step = "Telnet to node"
         try:
             with open(self.port_file, 'r') as file:
@@ -637,25 +673,17 @@ class Node:
             error = 'Could not open telnet port file "{}"'.format(self.port_file)
             self.report_check_result(step, False, error)
             return False
-        telnet_session = TelnetSession(self.ns_name, telnet_port)
-        if not telnet_session.connected:
+        self.telnet_session = TelnetSession(self.ns_name, telnet_port)
+        if not self.telnet_session.connected:
             error = 'Could not Telnet to {}:{}'.format(self.ns_name, telnet_port)
             self.report_check_result(step, False, error)
             return False
-        if not telnet_session.wait_prompt():
+        if not self.telnet_session.wait_prompt():
             error = 'Did not get prompt on Telnet session'
             self.report_check_result(step, False, error)
             return False
         self.report_check_result(step)
         return True
-
-    def report_check_result(self, step, okay=True, error=None):
-        if okay:
-            print("  {}: OK".format(step))
-        elif error:
-            print("  {}: FAIL ({})".format(step, error))
-        else:
-            print("  {}: FAIL".format(step))
 
     def x_pos(self):
         # X position of top-left corner of rectangle representing the node
@@ -1170,7 +1198,6 @@ class TelnetSession:
             log_file_name = os.environ["RIFT_TEST_RESULTS_DIR"] + '/' + log_file_name
         self._log_file = open(log_file_name, 'ab')
         cmd = "ip netns exec {} telnet localhost {}".format(netns, port)
-        ###@@@ Handle connect failure
         self._expect_session = pexpect.spawn(cmd, logfile=self._log_file)
         self.connected = self.expect("Connected")
 
@@ -1217,7 +1244,8 @@ class TelnetSession:
         pattern = pattern.replace("|", "[|]")
         # Since we confiscated | to mean end-of-cell, we use /// for regexp OR
         pattern = pattern.replace("///", "|")
-        return self.expect(pattern, timeout)
+        result = self.expect(pattern, timeout)
+        return result
 
     def wait_prompt(self, timeout=1.0):
         return self.expect(".*> ", timeout)
