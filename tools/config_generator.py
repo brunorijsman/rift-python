@@ -29,6 +29,10 @@ DEFAULT_CHAOS_EVENT_INTERVAL = 5.0  # seconds
 SEPARATOR = '-'
 NETNS_PREFIX = 'netns' + SEPARATOR
 
+BLACK = '\u001b[30m'
+RED = '\u001b[31m'
+GREEN = '\u001b[32m'
+
 NODE_SCHEMA = {
     'type': 'dict',
     'schema': {
@@ -710,11 +714,11 @@ class Node:
 
     def report_check_result(self, step, okay=True, error=None):
         if okay:
-            print("OK    {}".format(step))
+            print(GREEN + "OK" + BLACK + "    {}".format(step))
         elif error:
-            print("FAIL  {}: {}".format(step, error))
+            print(RED + "FAIL" + BLACK + "  {}: {}".format(step, error))
         else:
-            print("FAIL  {}".format(step))
+            print(RED + "FAIL" + BLACK + "  {}".format(step))
 
     def connect_telnet(self):
         step = "Telnet to node"
