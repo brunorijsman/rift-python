@@ -1589,6 +1589,61 @@ class Interface:
         self._traffic_stats_group.clear()
         self.fsm.clear_stats()
 
+    def send_tides_table(self):
+        tab = table.Table()
+        tab.add_row(self.cli_tides_summary_headers())
+        # TODO: Make this code common with Node.send_tides_on_interface (avoid code duplication)
+        if self.fsm.state == self.State.THREE_WAY:
+            tide_packet = self.node.generate_tide_packet(
+                neighbor_direction=self.neighbor_direction(),
+                neighbor_system_id=self.neighbor.system_id,
+                neighbor_level=self.neighbor.level,
+                neighbor_is_top_of_fabric=self.neighbor.top_of_fabric(),
+                my_level=self.node.level_value(),
+                i_am_top_of_fabric=self.node.top_of_fabric())
+            tab.add_row(self.cli_tides_summary_attributes(tide_packet))
+        return tab
+
+    @staticmethod
+    def cli_tides_summary_headers():
+        return [
+            ["Start", "Range"],
+            ["End", "Range"],
+            "Direction",
+            "Originator",
+            "Type",
+            "TIE Nr",
+            "Seq Nr",
+            ["Remaining", "Lifetime"],
+            ["Origination", "Time"]]
+
+    def cli_tides_summary_attributes(self, tide_packet):
+        directions = []
+        originators = []
+        types = []
+        tie_nrs = []
+        seq_nrs = []
+        remaining_lifetimes = []
+        origination_times = []
+        for header in tide_packet.headers:
+            directions.append(packet_common.direction_str(header.tieid.direction))
+            originators.append(header.tieid.originator)
+            types.append(packet_common.tietype_str(header.tieid.tietype))
+            tie_nrs.append(header.tieid.tie_nr)
+            seq_nrs.append(header.seq_nr)
+            remaining_lifetimes.append(header.remaining_lifetime)
+            origination_times.append('-')   # TODO: Report origination_time
+        return [
+            packet_common.tie_id_str(tide_packet.start_range),
+            packet_common.tie_id_str(tide_packet.end_range),
+            directions,
+            originators,
+            types,
+            tie_nrs,
+            seq_nrs,
+            remaining_lifetimes,
+            origination_times]
+
     def tie_headers_table_common(self, tie_headers):
         tab = table.Table()
         tab.add_row([

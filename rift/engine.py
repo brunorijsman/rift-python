@@ -208,6 +208,9 @@ class Engine:
     def command_show_intf_stats_ex_zero(self, cli_session, parameters):
         cli_session.current_node.command_show_intf_stats(cli_session, parameters, True)
 
+    def command_show_intf_tides(self, cli_session, parameters):
+        cli_session.current_node.command_show_intf_tides(cli_session, parameters)
+
     def command_show_interface(self, cli_session, parameters):
         cli_session.current_node.command_show_interface(cli_session, parameters)
 
@@ -366,7 +369,8 @@ class Engine:
                 "statistics": {
                     "": command_show_intf_stats,
                     "exclude-zero": command_show_intf_stats_ex_zero
-                }
+                },
+                "tides": command_show_intf_tides
             },
             "interfaces": command_show_interfaces,
             "kernel": {
