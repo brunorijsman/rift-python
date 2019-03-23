@@ -1262,17 +1262,17 @@ class Fabric:
                         pass
                     pass
                 pass
-            hostroutespernode[node] = hostroutes
+            hostroutespernode[node.global_node_id] = hostroutes
             pass
 
         for plane in self.planes:
-            union = list(set.union(hostroutespernode.values()))
+            union = list(set.union(*[set(v) for v in hostroutespernode.values()]))
             for node in plane.nodes:
-                hostroutespernode = union
+                hostroutespernode[node.global_node_id] = union
                 pass
             pass
 
-        pprint.pprint("hostroutes: ", hostroutespernode
+        pprint.pprint(hostroutespernode)
         pass
 
 class TelnetSession:
