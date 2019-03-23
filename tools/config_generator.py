@@ -177,8 +177,8 @@ class Group:
         # pod group.
         self.links = []
 
-    def create_node(self, name, level, group_level_node_id, y_pos):
-        node = Node(self, name, level, group_level_node_id, y_pos)
+    def create_node(self, name, level, top_of_fabric, group_level_node_id, y_pos):
+        node = Node(self, name, level, top_of_fabric, group_level_node_id, y_pos)
         # TODO: Move adding of loopbacks to here
         self.nodes.append(node)
         if level not in self.nodes_by_level:
@@ -322,16 +322,20 @@ class Pod(Group):
         for index in range(0, self.nr_leaf_nodes):
             group_level_node_id = index + 1
             node_name = self.node_name("leaf", group_level_node_id)
-            node = self.create_node(node_name, LEAF_LEVEL, group_level_node_id, y_pos)
+            node = self.create_node(node_name, LEAF_LEVEL, False, group_level_node_id, y_pos)
             node.add_ipv4_loopbacks(self.leaf_nr_ipv4_loopbacks)
             self.leaf_nodes.append(node)
 
     def create_spine_nodes(self):
+        # If this is the only PoD, then the spines are the top-of-fabric. If there are multiple PoDs
+        # then there are superspines which are the top-of-fabric.
+        top_of_fabric = self.only_instance
         y_pos = self.y_pos() + GROUP_Y_SPACER
         for index in range(0, self.nr_spine_nodes):
             group_level_node_id = index + 1
             node_name = self.node_name("spine", group_level_node_id)
-            node = self.create_node(node_name, SPINE_LEVEL, group_level_node_id, y_pos)
+            node = self.create_node(node_name, SPINE_LEVEL, top_of_fabric, group_level_node_id,
+                                    y_pos)
             node.add_ipv4_loopbacks(self.spine_nr_ipv4_loopbacks)
             self.spine_nodes.append(node)
 
@@ -355,11 +359,13 @@ class Plane(Group):
         self.create_superspine_nodes()
 
     def create_superspine_nodes(self):
+        top_of_fabric = True
         y_pos = self.y_pos() + GROUP_Y_SPACER
         for index in range(0, self.nr_superspine_nodes):
             group_level_node_id = index + 1
             node_name = self.node_name("super", group_level_node_id)
-            node = self.create_node(node_name, SUPERSPINE_LEVEL, group_level_node_id, y_pos)
+            node = self.create_node(node_name, SUPERSPINE_LEVEL, top_of_fabric, group_level_node_id,
+                                    y_pos)
             node.add_ipv4_loopbacks(self.superspine_nr_ipv4_loopbacks)
             self.superspine_nodes.append(node)
 
@@ -367,7 +373,7 @@ class Node:
 
     next_level_node_id = {}
 
-    def __init__(self, group, name, level, group_level_node_id, y_pos):
+    def __init__(self, group, name, level, top_of_fabric, group_level_node_id, y_pos):
         # For now, we support max 3 levels, and they must be level 0, 1, and 2
         assert level <= 2
         self.group = group
@@ -375,6 +381,7 @@ class Node:
         self.allocate_node_ids(level)
         self.ns_name = NETNS_PREFIX + str(self.global_node_id)
         self.level = level
+        self.top_of_fabric = top_of_fabric
         self.group_level_node_id = group_level_node_id
         self.given_y_pos = y_pos
         self.rx_lie_ipv4_mcast_addr = self.generate_ipv4_address_str(
@@ -634,6 +641,7 @@ class Node:
             return False
         self.check_engine()
         self.check_interfaces_3way()
+        self.check_rib_north_default_route()
         return True
 
     def check_engine(self):
@@ -655,6 +663,50 @@ class Node:
                 self.report_check_result(step)
             else:
                 self.report_check_result(step, False)
+
+    def check_rib_north_default_route(self):
+        if self.top_of_fabric:
+            return
+        step = "North-bound IPv4 default route is present in RIB"
+        cmd = "show routes prefix 0.0.0.0/0"
+        self.telnet_session.sendline(cmd)
+        if self.telnet_session.table_expect("0.0.0.0/0 | North SPF"):
+            self.report_check_result(step)
+        else:
+            self.report_check_result(step, False)
+        ###@@@
+        for intf in self.interfaces:
+            if intf.peer_intf.node.level > self.level:  # North-bound interface?
+                intf_name = intf.veth_name()
+                next_hop_address = intf.peer_intf.addr.split('/')[0]   # Strip off /prefix-len
+                next_hop = "{} {}".format(intf_name, next_hop_address)
+                step = ("North-bound IPv4 default route in RIB includes next-hop {}"
+                        .format(next_hop))
+                self.telnet_session.sendline(cmd)
+                if self.telnet_session.table_expect(next_hop):
+                    self.report_check_result(step)
+                else:
+                    self.report_check_result(step, False)
+        step = "North-bound IPv6 default route is present in RIB"
+        cmd = "show routes prefix ::/0"
+        self.telnet_session.sendline(cmd)
+        if self.telnet_session.table_expect("::/0 | North SPF"):
+            self.report_check_result(step)
+        else:
+            self.report_check_result(step, False)
+        for intf in self.interfaces:
+            if intf.peer_intf.node.level > self.level:  # North-bound interface?
+                intf_name = intf.veth_name()
+                # For IPv6 we don't check the next-hop address since it is some unpredictable
+                # link-local address
+                next_hop = intf_name
+                step = ("North-bound IPv6 default route in RIB includes next-hop {}"
+                        .format(next_hop))
+                self.telnet_session.sendline(cmd)
+                if self.telnet_session.table_expect(next_hop):
+                    self.report_check_result(step)
+                else:
+                    self.report_check_result(step, False)
 
     def report_check_result(self, step, okay=True, error=None):
         if okay:
