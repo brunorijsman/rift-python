@@ -1251,6 +1251,7 @@ class Fabric:
     # the host routes are basically loopbacks of all the nodes lower in hierarchy
     def check_host_routes(self):
         okay = True
+        hostroutespernode = {}
         for pod in self.pods:
             for node in pod.nodes:
                 level = node.level
@@ -1261,11 +1262,18 @@ class Fabric:
                         pass
                     pass
                 pass
+            hostroutespernode[node] = hostroutes
             pass
 
-            print("node: ", node.name, " host routes:", hostroutes)
+        for plane in self.planes:
+            union = list(set.union(hostroutespernode.values()))
+            for node in plane.nodes:
+                hostroutespernode = union
+                pass
+            pass
+
+        pprint.pprint("hostroutes: ", hostroutespernode
         pass
-    pass
 
 class TelnetSession:
 
