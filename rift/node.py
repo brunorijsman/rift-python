@@ -708,6 +708,7 @@ class Node:
             ["LIE Send Interval", "{} secs".format(self.lie_send_interval_secs)],
             ["Receive TIE Port", self.rx_flood_port],
             ["Kernel Route Table", self._kernel_route_table],
+            ["Originating South-bound Default Route", self._originating_default],
             ["Flooding Reduction Enabled", self.floodred_enabled],
             ["Flooding Reduction Redundancy", self.floodred_redundancy],
             ["Flooding Reduction Similarity", self.floodred_similarity],
