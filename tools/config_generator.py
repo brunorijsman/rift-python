@@ -1247,6 +1247,26 @@ class Fabric:
     def x_size(self):
         return max(self.pods_total_x_size(), self.planes_total_x_size())
 
+    # walk the fabric and check @ every node whether the correct host routes are present
+    # the host routes are basically loopbacks of all the nodes lower in hierarchy
+    def check_host_routes(self):
+        okay = True
+        for pod in self.pods:
+            for node in pod.nodes:
+                level = node.level
+                hostroutes = []
+                for lowernode in pod.nodes:
+                    if lowernode.level < level:
+                        hostroutes = hostroutes + lowernode.lo_addresses
+                        pass
+                    pass
+                pass
+            pass
+
+            print("node: ", node.name, " host routes:", hostroutes)
+        pass
+    pass
+
 class TelnetSession:
 
     def __init__(self, netns, port):
@@ -1362,28 +1382,6 @@ def parse_command_line_arguments():
 def fatal_error(error_msg):
     print(error_msg, file=sys.stderr)
     sys.exit(1)
-
-class Fabric:
-
-    # walk the fabric and check @ every node whether the correct host routes are present
-    # the host routes are basically loopbacks of all the nodes lower in hierarchy
-    def check_host_routes(self):
-        okay = True
-        for pod in self.pods:
-            for node in pod.nodes:
-                level = node.level
-                hostroutes = []
-                for lowernode in pod.nodes:
-                    if lowernode.level < level:
-                        hostroutes = hostroutes + lowernode.lo_addresses
-                        pass
-                    pass
-                pass
-            pass
-
-            print("node: ", node.name, " host routes:", hostroutes)
-        pass
-    pass
 
 def main():
     # pylint:disable=global-statement
