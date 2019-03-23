@@ -3,11 +3,17 @@
 * [Connect to the CLI](#connect-to-the-cli)
 * [Entering CLI commands](#entering-cli-commands)
 * [Command Line Interface Commands](#command-line-interface-commands)
+  * [clear engine statistics](#clear-engine-statistics)
+  * [clear interface <i>interface</i> statistics](#clear-interface-interface-statistics)
+  * [clear node statistics](#clear-node-statistics)
   * [exit](#exit)
   * [set interface <i>interface</i> failure <i>failure</i>](#set-interface-interface-failure-failure)
   * [set level <i>level</i>](#set-level-level)
   * [set node <i>node</i>](#set-node-node)
   * [show engine](#show-engine)
+  * [show engine statistics](#show-engine-statistics)
+  * [show engine statistics exclude-zero](#show-engine-statistics-exclude-zero)
+  * [show flooding-reduction](#show-flooding-reduction)
   * [show forwarding](#show-forwarding)
   * [show forwarding prefix <i>prefix</i>](#show-forwarding-prefix-prefix)
   * [show fsm <i>fsm</i>](#show-fsm-fsm)
@@ -16,20 +22,24 @@
   * [show interface <i>interface</i> fsm verbose-history](#show-interface-interface-fsm-verbose-history)
   * [show interface <i>interface</i> queues](#show-interface-interface-queues)
   * [show interface <i>interface</i> sockets](#show-interface-interface-sockets)
+  * [show interface <i>interface</i> statistics](#show-interface-interface-statistics)
+  * [show interface <i>interface</i> statistics exclude-zero](#show-interface-interface-statistics-exclude-zero)
   * [show interfaces](#show-interfaces)
   * [show kernel addresses](#show-kernel-addresses)
   * [show kernel links](#show-kernel-links)
-  * [show kernel route table <i>table</i> prefix <i>prefix</i>](#show-kernel-route-table-table-prefix-prefix)
   * [show kernel routes](#show-kernel-routes)
   * [show kernel routes table <i>table</i>](#show-kernel-routes-table-table)
+  * [show kernel routes table <i>table</i> prefix <i>prefix</i>](#show-kernel-routes-table-table-prefix-prefix)
   * [show node](#show-node)
   * [show node fsm history](#show-node-fsm-history)
   * [show node fsm verbose-history](#show-node-fsm-verbose-history)
+  * [show node statistics](#show-node-statistics)
+  * [show node statistics exclude-zero](#show-node-statistics-exclude-zero)
   * [show nodes](#show-nodes)
   * [show nodes level](#show-nodes-level)
-  * [show route prefix <i>prefix</i>](#show-route-prefix-prefix)
-  * [show route prefix <i>prefix</i> owner <i>owner</i>](#show-route-prefix-prefix-owner-owner)
   * [show routes](#show-routes)
+  * [show routes prefix <i>prefix</i>](#show-routes-prefix-prefix)
+  * [show routes prefix <i>prefix</i> owner <i>owner</i>](#show-routes-prefix-prefix-owner-owner)
   * [show spf](#show-spf)
   * [show spf direction <i>direction</i>](#show-spf-direction-direction)
   * [show spf direction <i>direction</i> destination <i>destination</i>](#show-spf-direction-direction-destination-destination)
@@ -86,42 +96,54 @@ is "agg_101".
 
 You can enter CLI commands at the CLI prompt. For example, try entering the <b>help</b> command:
 
+<!-- OUTPUT-START: agg_101> help -->
 <pre>
 agg_101> <b>help</b>
+clear engine statistics 
+clear interface &lt;interface&gt; statistics 
+clear node statistics 
 exit 
-set interface &lt;interface&gt; failure &lt;failure&gt;
-set level &lt;level&gt;
-set node &lt;node&gt;
-show engine
-show forwarding
-show forwarding prefix &lt;prefix&gt;
-show fsm lie
-show fsm ztp
-show interface &lt;interface&gt;
-show interface &lt;interface&gt; fsm history
-show interface &lt;interface&gt; fsm verbose-history
-show interface &lt;interface&gt; queues
-show interface &lt;interface&gt; sockets
-show interfaces
-show kernel addresses
-show kernel links
-show kernel route table &lt;table> prefix &lt;prefix&gt;
-show kernel routes
-show kernel routes table &lt;table&gt;
+set interface &lt;interface&gt; failure &lt;failure&gt; 
+set level &lt;level&gt; 
+set node &lt;node&gt; 
+show engine 
+show engine statistics 
+show engine statistics exclude-zero 
+show flooding-reduction 
+show forwarding 
+show forwarding prefix &lt;prefix&gt; 
+show fsm lie 
+show fsm ztp 
+show interface &lt;interface&gt; 
+show interface &lt;interface&gt; fsm history 
+show interface &lt;interface&gt; fsm verbose-history 
+show interface &lt;interface&gt; queues 
+show interface &lt;interface&gt; sockets 
+show interface &lt;interface&gt; statistics 
+show interface &lt;interface&gt; statistics exclude-zero 
+show interfaces 
+show kernel addresses 
+show kernel links 
+show kernel routes 
+show kernel routes table &lt;table&gt; 
+show kernel routes table &lt;table&gt; prefix &lt;prefix&gt; 
 show node 
 show node fsm history 
 show node fsm verbose-history 
+show node statistics 
+show node statistics exclude-zero 
 show nodes 
 show nodes level 
-show route prefix &lt;prefix&gt;
-show route prefix &lt;prefix&gt; owner &lt;owner&gt;
 show routes 
+show routes prefix &lt;prefix&gt; 
+show routes prefix &lt;prefix&gt; owner &lt;owner&gt; 
 show spf 
-show spf direction &lt;direction&gt;
-show spf direction &lt;direction&gt; destination &lt;destination&gt;
+show spf direction &lt;direction&gt; 
+show spf direction &lt;direction&gt; destination &lt;destination&gt; 
 show tie-db 
 stop 
 </pre>
+<!-- OUTPUT-END -->
 
 If you are connected to the CLI using Telnet, you can use the following keys for editing:
 
@@ -137,7 +159,6 @@ If you are connected to the CLI using Telnet, you can use the following keys for
 
 * Control-E: Move cursor to the end of the line.
 
-
 The CLI does not yet support any of the following features:
 
 * Command completion: you must manually enter the complete command; you cannot enter partial commands or use
@@ -147,6 +168,48 @@ tab to complete commands.
 line to get context-sensitive help. But after reading the help text, you must manually re-enter the command line. 
 
 ## Command Line Interface Commands
+
+### clear engine statistics
+
+The "<b>clear engine statistics</b>" command clears (i.e. resets to zero) all the statistics of the
+RIFT-Python engine.
+
+<!-- OUTPUT-START: agg_101> clear engine statistics -->
+<pre>
+agg_101> <b>clear engine statistics</b>
+</pre>
+<!-- OUTPUT-END -->
+
+See also: [show engine statistics](#show-engine-statistics), 
+[show engine statistics exclude-zero](#show-engine-statistics-exclude-zero)
+
+### clear interface <i>interface</i> statistics
+
+The "<b>clear interface</b> <i>interface</i> <b>statistics</b>" command clears (i.e. resets to zero)
+all the statistics of the specified interface.
+
+<!-- OUTPUT-START: agg_101> clear interface if_101_1 statistics -->
+<pre>
+agg_101> <b>clear interface if_101_1 statistics</b>
+</pre>
+<!-- OUTPUT-END -->
+
+See also: [show interface <i>interface</i> statistics](#show-interface-interface-statistics),
+[show interface <i>interface</i> statistics exclude-zero](#show-interface-interface-statistics-exclude-zero)
+
+### clear node statistics
+
+The "<b>clear node statistics</b>" clears (i.e. resets to zero) all the statistics of the current
+node.
+
+<!-- OUTPUT-START: agg_101> clear node statistics -->
+<pre>
+agg_101> <b>clear node statistics</b>
+</pre>
+<!-- OUTPUT-END -->
+
+See also: [show node statistics](#show-node-statistics),
+[show node statistics exclude-zero](#show-interface-interface-statistics-exclude-zero)
 
 ### exit
 
@@ -159,6 +222,7 @@ Example:
 Command Line Interface (CLI) available on port 50102
 </pre>
 
+<!-- OUTPUT-MANUAL: agg_101> exit -->
 <pre>
 $ telnet localhost 50102
 Trying 127.0.0.1...
@@ -196,9 +260,12 @@ The <i>failure</i> parameter can be one of the following:
 
 Example:
 
+<!-- OUTPUT-START: agg_101> set interface if1 failure failed -->
 <pre>
-node1> <b>set interface if1 failure failed</b>
+agg_101> <b>set interface if1 failure failed</b>
+Error: interface if1 not present
 </pre>
+<!-- OUTPUT-END -->
 
 ### set level <i>level</i>
 
@@ -225,9 +292,11 @@ top_of_fabric_level (= 24) in the sent LIE packets.
 
 Example:
 
+<!-- OUTPUT-START: agg_101> set level undefined -->
 <pre>
-core_1> <b>set level undefined</b>
+agg_101> <b>set level undefined</b>
 </pre>
+<!-- OUTPUT-END -->
 
 ### set node <i>node</i>
 
@@ -238,6 +307,7 @@ Note: you can get a list of RIFT nodes present in the current RIFT protocol engi
 
 Example:
 
+<!-- OUTPUT-MANUAL: agg_101> set node core_1 -->
 <pre>
 agg_101> <b>set node core_1</b>
 core_1> 
@@ -250,22 +320,208 @@ that applies to all nodes running in the RIFT engine.
 
 Example:
 
+<!-- OUTPUT-START: agg_101> show engine -->
 <pre>
 agg_101> <b>show engine</b>
 +----------------------------------+---------------------+
 | Stand-alone                      | False               |
 | Interactive                      | True                |
 | Simulated Interfaces             | True                |
-| Physical Interface               | en0                 |
+| Physical Interface               | eth0                |
 | Telnet Port File                 | None                |
 | IPv4 Multicast Loopback          | True                |
 | IPv6 Multicast Loopback          | True                |
 | Number of Nodes                  | 10                  |
 | Transmit Source Address          | 127.0.0.1           |
-| Flooding Reduction               | True                |
-| Flooding Reduction System Random | 4390615406429300161 |
+| Flooding Reduction Enabled       | True                |
+| Flooding Reduction Redundancy    | 2                   |
+| Flooding Reduction Similarity    | 2                   |
+| Flooding Reduction System Random | 2439975447418660079 |
 +----------------------------------+---------------------+
 </pre>
+<!-- OUTPUT-END -->
+
+### show engine statistics
+
+The "<b>show engine statistics</b>" command shows all the statistics for the RIFT-Python
+engine.
+
+Example:
+
+<!-- OUTPUT-START: agg_101> show engine statistics -->
+<pre>
+agg_101> <b>show engine statistics</b>
+All Node ZTP FSMs:
++------------------------------------------------------------------------------------------+----------------+------------------------+-------------------+
+| Description                                                                              | Value          | Last Rate              | Last Change       |
+|                                                                                          |                | Over Last 10 Changes   |                   |
++------------------------------------------------------------------------------------------+----------------+------------------------+-------------------+
+| Events CHANGE_LOCAL_CONFIGURED_LEVEL                                                     | 1 Event        |                        | 0d 00h:00m:00.24s |
++------------------------------------------------------------------------------------------+----------------+------------------------+-------------------+
+| Events NEIGHBOR_OFFER                                                                    | 48 Events      | 117.85 Events/Sec      | 0d 00h:00m:00.23s |
++------------------------------------------------------------------------------------------+----------------+------------------------+-------------------+
+| Events BETTER_HAL                                                                        | 0 Events       |                        |                   |
++------------------------------------------------------------------------------------------+----------------+------------------------+-------------------+
+| Events BETTER_HAT                                                                        | 0 Events       |                        |                   |
++------------------------------------------------------------------------------------------+----------------+------------------------+-------------------+
+.                                                                                          .                .                        .                   .
+.                                                                                          .                .                        .                   .
++------------------------------------------------------------------------------------------+----------------+------------------------+-------------------+
+| Event-Transitions UPDATING_CLIENTS -[CHANGE_LOCAL_CONFIGURED_LEVEL]-&gt; COMPUTE_BEST_OFFER | 1 Transition   |                        | 0d 00h:00m:00.24s |
++------------------------------------------------------------------------------------------+----------------+------------------------+-------------------+
+
+All Interfaces Traffic:
++---------------------------+-------------------------+----------------------------------------+-------------------+
+| Description               | Value                   | Last Rate                              | Last Change       |
+|                           |                         | Over Last 10 Changes                   |                   |
++---------------------------+-------------------------+----------------------------------------+-------------------+
+| RX IPv4 LIE Packets       | 24 Packets, 3780 Bytes  | 59.96 Packets/Sec, 9579.70 Bytes/Sec   | 0d 00h:00m:00.25s |
++---------------------------+-------------------------+----------------------------------------+-------------------+
+| TX IPv4 LIE Packets       | 28 Packets, 4312 Bytes  | 61.29 Packets/Sec, 9793.16 Bytes/Sec   | 0d 00h:00m:00.26s |
++---------------------------+-------------------------+----------------------------------------+-------------------+
+| RX IPv4 TIE Packets       | 0 Packets, 0 Bytes      |                                        |                   |
++---------------------------+-------------------------+----------------------------------------+-------------------+
+| TX IPv4 TIE Packets       | 0 Packets, 0 Bytes      |                                        |                   |
++---------------------------+-------------------------+----------------------------------------+-------------------+
+.                           .                         .                                        .                   .
+.                           .                         .                                        .                   .
++---------------------------+-------------------------+----------------------------------------+-------------------+
+| Total TX Errors           | 0 Packets, 0 Bytes      |                                        |                   |
++---------------------------+-------------------------+----------------------------------------+-------------------+
+
+All Interface LIE FSMs:
++-----------------------------------------------------------+----------------+------------------------+-------------------+
+| Description                                               | Value          | Last Rate              | Last Change       |
+|                                                           |                | Over Last 10 Changes   |                   |
++-----------------------------------------------------------+----------------+------------------------+-------------------+
+| Events TIMER_TICK                                         | 28 Events      | 61.13 Events/Sec       | 0d 00h:00m:00.26s |
++-----------------------------------------------------------+----------------+------------------------+-------------------+
+| Events LEVEL_CHANGED                                      | 0 Events       |                        |                   |
++-----------------------------------------------------------+----------------+------------------------+-------------------+
+| Events HAL_CHANGED                                        | 0 Events       |                        |                   |
++-----------------------------------------------------------+----------------+------------------------+-------------------+
+| Events HAT_CHANGED                                        | 0 Events       |                        |                   |
++-----------------------------------------------------------+----------------+------------------------+-------------------+
+.                                                           .                .                        .                   .
+.                                                           .                .                        .                   .
++-----------------------------------------------------------+----------------+------------------------+-------------------+
+| Event-Transitions ONE_WAY -[SEND_LIE]-&gt; ONE_WAY           | 4 Transitions  | 20.69 Transitions/Sec  | 0d 00h:00m:00.42s |
++-----------------------------------------------------------+----------------+------------------------+-------------------+
+</pre>
+<!-- OUTPUT-END -->
+
+### show engine statistics exclude-zero
+
+The "<b>show engine statistics</b>" command shows all the statistics for the RIFT-Python
+engine, excluding any zero statistics.
+
+Example:
+
+<!-- OUTPUT-START: agg_101> show engine statistics exclude-zero -->
+<pre>
+agg_101> <b>show engine statistics exclude-zero</b>
+All Node ZTP FSMs:
++------------------------------------------------------------------------------------------+----------------+------------------------+-------------------+
+| Description                                                                              | Value          | Last Rate              | Last Change       |
+|                                                                                          |                | Over Last 10 Changes   |                   |
++------------------------------------------------------------------------------------------+----------------+------------------------+-------------------+
+| Events CHANGE_LOCAL_CONFIGURED_LEVEL                                                     | 1 Event        |                        | 0d 00h:00m:00.38s |
++------------------------------------------------------------------------------------------+----------------+------------------------+-------------------+
+| Events NEIGHBOR_OFFER                                                                    | 48 Events      | 117.85 Events/Sec      | 0d 00h:00m:00.38s |
++------------------------------------------------------------------------------------------+----------------+------------------------+-------------------+
+| Events COMPUTATION_DONE                                                                  | 1 Event        |                        | 0d 00h:00m:00.38s |
++------------------------------------------------------------------------------------------+----------------+------------------------+-------------------+
+| Transitions COMPUTE_BEST_OFFER -&gt; UPDATING_CLIENTS                                       | 1 Transition   |                        | 0d 00h:00m:00.38s |
++------------------------------------------------------------------------------------------+----------------+------------------------+-------------------+
+.                                                                                          .                .                        .                   .
+.                                                                                          .                .                        .                   .
++------------------------------------------------------------------------------------------+----------------+------------------------+-------------------+
+| Event-Transitions UPDATING_CLIENTS -[CHANGE_LOCAL_CONFIGURED_LEVEL]-&gt; COMPUTE_BEST_OFFER | 1 Transition   |                        | 0d 00h:00m:00.38s |
++------------------------------------------------------------------------------------------+----------------+------------------------+-------------------+
+
+All Interfaces Traffic:
++-----------------------+-------------------------+----------------------------------------+-------------------+
+| Description           | Value                   | Last Rate                              | Last Change       |
+|                       |                         | Over Last 10 Changes                   |                   |
++-----------------------+-------------------------+----------------------------------------+-------------------+
+| RX IPv4 LIE Packets   | 24 Packets, 3780 Bytes  | 59.96 Packets/Sec, 9579.70 Bytes/Sec   | 0d 00h:00m:00.39s |
++-----------------------+-------------------------+----------------------------------------+-------------------+
+| TX IPv4 LIE Packets   | 28 Packets, 4312 Bytes  | 61.29 Packets/Sec, 9793.16 Bytes/Sec   | 0d 00h:00m:00.40s |
++-----------------------+-------------------------+----------------------------------------+-------------------+
+| RX IPv6 LIE Packets   | 24 Packets, 3780 Bytes  | 60.19 Packets/Sec, 9617.08 Bytes/Sec   | 0d 00h:00m:00.39s |
++-----------------------+-------------------------+----------------------------------------+-------------------+
+| TX IPv6 LIE Packets   | 28 Packets, 4312 Bytes  | 61.35 Packets/Sec, 9802.96 Bytes/Sec   | 0d 00h:00m:00.40s |
++-----------------------+-------------------------+----------------------------------------+-------------------+
+.                       .                         .                                        .                   .
+.                       .                         .                                        .                   .
++-----------------------+-------------------------+----------------------------------------+-------------------+
+| Total TX Packets      | 28 Packets, 4312 Bytes  | 61.19 Packets/Sec, 9776.68 Bytes/Sec   | 0d 00h:00m:00.40s |
++-----------------------+-------------------------+----------------------------------------+-------------------+
+
+All Interface LIE FSMs:
++---------------------------------------------------------+----------------+------------------------+-------------------+
+| Description                                             | Value          | Last Rate              | Last Change       |
+|                                                         |                | Over Last 10 Changes   |                   |
++---------------------------------------------------------+----------------+------------------------+-------------------+
+| Events TIMER_TICK                                       | 28 Events      | 61.13 Events/Sec       | 0d 00h:00m:00.41s |
++---------------------------------------------------------+----------------+------------------------+-------------------+
+| Events LIE_RECEIVED                                     | 48 Events      | 124.21 Events/Sec      | 0d 00h:00m:00.39s |
++---------------------------------------------------------+----------------+------------------------+-------------------+
+| Events SEND_LIE                                         | 28 Events      | 61.14 Events/Sec       | 0d 00h:00m:00.41s |
++---------------------------------------------------------+----------------+------------------------+-------------------+
+| Transitions ONE_WAY -&gt; ONE_WAY                          | 8 Transitions  | 47.40 Transitions/Sec  | 0d 00h:00m:00.56s |
++---------------------------------------------------------+----------------+------------------------+-------------------+
+.                                                         .                .                        .                   .
+.                                                         .                .                        .                   .
++---------------------------------------------------------+----------------+------------------------+-------------------+
+| Event-Transitions ONE_WAY -[SEND_LIE]-&gt; ONE_WAY         | 4 Transitions  | 20.69 Transitions/Sec  | 0d 00h:00m:00.56s |
++---------------------------------------------------------+----------------+------------------------+-------------------+
+</pre>
+<!-- OUTPUT-END -->
+
+### show flooding-reduction
+
+The "<b>show flooding-reduction</b>" command shows information about flooding reduction.
+Specifically, it shows which parent routers have been elected as Flood Repeaters (FRs) including
+additional information to understand the steps in the algorithm for the election.
+
+Example:
+
+<!-- OUTPUT-START: agg_101> show flooding-reduction -->
+<pre>
+agg_101> <b>show flooding-reduction</b>
+Parents:
++-----------+-----------+-----------------+-------------+------------+----------+
+| Interface | Parent    | Parent          | Grandparent | Similarity | Flood    |
+| Name      | System ID | Interface       | Count       | Group      | Repeater |
+|           |           | Name            |             |            |          |
++-----------+-----------+-----------------+-------------+------------+----------+
+| if_101_1  | 1         | core_1-if_1_101 | 0           | 1: 0-0     | False    |
++-----------+-----------+-----------------+-------------+------------+----------+
+
+Grandparents:
++-------------+--------+-------------+-------------+
+| Grandparent | Parent | Flood       | Redundantly |
+| System ID   | Count  | Repeater    | Covered     |
+|             |        | Adjacencies |             |
++-------------+--------+-------------+-------------+
+
+Interfaces:
++-------------+-----------------------+-----------+-----------+-----------+----------------+----------------+
+| Interface   | Neighbor              | Neighbor  | Neighbor  | Neighbor  | Neighbor is    | This Node is   |
+| Name        | Interface             | System ID | State     | Direction | Flood Repeater | Flood Repeater |
+|             | Name                  |           |           |           | for This Node  | for Neighbor   |
++-------------+-----------------------+-----------+-----------+-----------+----------------+----------------+
+| if_101_1    | core_1-if_1_101       | 1         | THREE_WAY | North     | False          | Not Applicable |
++-------------+-----------------------+-----------+-----------+-----------+----------------+----------------+
+| if_101_1001 | edge_1001-if_1001_101 | 1001      | THREE_WAY | South     | Not Applicable | True           |
++-------------+-----------------------+-----------+-----------+-----------+----------------+----------------+
+| if_101_1002 | edge_1002-if_1002_101 | 1002      | THREE_WAY | South     | Not Applicable | True           |
++-------------+-----------------------+-----------+-----------+-----------+----------------+----------------+
+| if_101_2    |                       |           | ONE_WAY   |           | Not Applicable | Not Applicable |
++-------------+-----------------------+-----------+-----------+-----------+----------------+----------------+
+</pre>
+<!-- OUTPUT-END -->
 
 ### show forwarding
 
@@ -274,43 +530,36 @@ the current node. It shows both the IPv4 FIB and the IPv6 FIB.
 
 Example:
 
+<!-- OUTPUT-START: agg_101> show forwarding -->
 <pre>
 agg_101> <b>show forwarding</b>
 IPv4 Routes:
-+---------------+-----------+-----------------------+
-| Prefix        | Owner     | Next-hops             |
-+---------------+-----------+-----------------------+
-| 0.0.0.0/0     | North SPF | if_101_1 127.0.0.1    |
-|               |           | if_101_2 127.0.0.1    |
-+---------------+-----------+-----------------------+
-| 1.1.1.0/24    | South SPF | if_101_1001 127.0.0.1 |
-+---------------+-----------+-----------------------+
-| 1.1.2.0/24    | South SPF | if_101_1001 127.0.0.1 |
-+---------------+-----------+-----------------------+
-| 1.1.3.0/24    | South SPF | if_101_1001 127.0.0.1 |
-+---------------+-----------+-----------------------+
-| 1.1.4.0/24    | South SPF | if_101_1001 127.0.0.1 |
-+---------------+-----------+-----------------------+
-| 1.2.1.0/24    | South SPF | if_101_1002 127.0.0.1 |
-+---------------+-----------+-----------------------+
-| 1.2.2.0/24    | South SPF | if_101_1002 127.0.0.1 |
-+---------------+-----------+-----------------------+
-| 1.2.3.0/24    | South SPF | if_101_1002 127.0.0.1 |
-+---------------+-----------+-----------------------+
-| 1.2.4.0/24    | South SPF | if_101_1002 127.0.0.1 |
-+---------------+-----------+-----------------------+
-| 99.99.99.0/24 | South SPF | if_101_1001 127.0.0.1 |
-|               |           | if_101_1002 127.0.0.1 |
-+---------------+-----------+-----------------------+
++---------------+-----------+------------------------+
+| Prefix        | Owner     | Next-hops              |
++---------------+-----------+------------------------+
+| 0.0.0.0/0     | North SPF | if_101_1 172.17.0.3    |
++---------------+-----------+------------------------+
+| 1.1.1.0/24    | South SPF | if_101_1001 172.17.0.3 |
++---------------+-----------+------------------------+
+| 1.1.2.0/24    | South SPF | if_101_1001 172.17.0.3 |
++---------------+-----------+------------------------+
+| 1.1.3.0/24    | South SPF | if_101_1001 172.17.0.3 |
++---------------+-----------+------------------------+
+.               .           .                        .
+.               .           .                        .
++---------------+-----------+------------------------+
+| 99.99.99.0/24 | South SPF | if_101_1001 172.17.0.3 |
+|               |           | if_101_1002 172.17.0.3 |
++---------------+-----------+------------------------+
 
 IPv6 Routes:
-+--------+-----------+--------------------+
-| Prefix | Owner     | Next-hops          |
-+--------+-----------+--------------------+
-| ::/0   | North SPF | if_101_1 127.0.0.1 |
-|        |           | if_101_2 127.0.0.1 |
-+--------+-----------+--------------------+
++--------+-----------+-------------------------------+
+| Prefix | Owner     | Next-hops                     |
++--------+-----------+-------------------------------+
+| ::/0   | North SPF | if_101_1 fe80::42:acff:fe11:3 |
++--------+-----------+-------------------------------+
 </pre>
+<!-- OUTPUT-END -->
 
 ### show forwarding prefix <i>prefix</i>
 
@@ -321,15 +570,16 @@ Parameter <i>prefix</i> must be an IPv4 prefix or an IPv6 prefix
 
 Example:
 
+<!-- OUTPUT-START: agg_101> show forwarding prefix ::/0 -->
 <pre>
 agg_101> <b>show forwarding prefix ::/0</b>
-+--------+-----------+--------------------+
-| Prefix | Owner     | Next-hops          |
-+--------+-----------+--------------------+
-| ::/0   | North SPF | if_101_1 127.0.0.1 |
-|        |           | if_101_2 127.0.0.1 |
-+--------+-----------+--------------------+
++--------+-----------+-------------------------------+
+| Prefix | Owner     | Next-hops                     |
++--------+-----------+-------------------------------+
+| ::/0   | North SPF | if_101_1 fe80::42:acff:fe11:3 |
++--------+-----------+-------------------------------+
 </pre>
+<!-- OUTPUT-END -->
 
 ### show fsm <i>fsm</i>
 
@@ -342,6 +592,7 @@ Parameter <i>fsm</i> specifies the name of the FSM and can be one of the followi
 
 Example:
 
+<!-- OUTPUT-START: agg_101> show fsm lie -->
 <pre>
 agg_101> <b>show fsm lie</b>
 States:
@@ -365,11 +616,10 @@ Events:
 +-------------------------------+---------+
 | HAL_CHANGED                   | False   |
 +-------------------------------+---------+
-.                               .         .
-.                               .         .
-.                               .         .
+| HAT_CHANGED                   | False   |
 +-------------------------------+---------+
-| LIE_CORRUPT                   | False   |
+.                               .         .
+.                               .         .
 +-------------------------------+---------+
 | SEND_LIE                      | True    |
 +-------------------------------+---------+
@@ -384,22 +634,87 @@ Transitions:
 +------------+-----------------------------+-----------+-------------------------+-------------+
 | ONE_WAY    | HAL_CHANGED                 | -         | store_hal               | -           |
 +------------+-----------------------------+-----------+-------------------------+-------------+
-.            .                             .           .                         .             .
-.            .                             .           .                         .             .
-.            .                             .           .                         .             .
+| ONE_WAY    | HAT_CHANGED                 | -         | store_hat               | -           |
 +------------+-----------------------------+-----------+-------------------------+-------------+
-| THREE_WAY  | LIE_CORRUPT                 | ONE_WAY   | -                       | -           |
+.            .                             .           .                         .             .
+.            .                             .           .                         .             .
 +------------+-----------------------------+-----------+-------------------------+-------------+
 | THREE_WAY  | SEND_LIE                    | -         | send_lie                | -           |
 +------------+-----------------------------+-----------+-------------------------+-------------+
 
 State entry actions:
-+---------+---------+
-| State   | Actions |
-+---------+---------+
-| ONE_WAY | cleanup |
-+---------+---------+
++-----------+----------------+---------------+
+| State     | Entry Actions  | Exit Actions  |
++-----------+----------------+---------------+
+| ONE_WAY   | cleanup        | -             |
+|           | send_lie       |               |
++-----------+----------------+---------------+
+| THREE_WAY | start_flooding | stop_flooding |
++-----------+----------------+---------------+
 </pre>
+<!-- OUTPUT-END -->
+
+<!-- OUTPUT-START: agg_101> show fsm ztp -->
+<pre>
+agg_101> <b>show fsm ztp</b>
+States:
++--------------------+
+| State              |
++--------------------+
+| UPDATING_CLIENTS   |
++--------------------+
+| HOLDING_DOWN       |
++--------------------+
+| COMPUTE_BEST_OFFER |
++--------------------+
+
+Events:
++-------------------------------+---------+
+| Event                         | Verbose |
++-------------------------------+---------+
+| CHANGE_LOCAL_CONFIGURED_LEVEL | False   |
++-------------------------------+---------+
+| NEIGHBOR_OFFER                | True    |
++-------------------------------+---------+
+| BETTER_HAL                    | False   |
++-------------------------------+---------+
+| BETTER_HAT                    | False   |
++-------------------------------+---------+
+.                               .         .
+.                               .         .
++-------------------------------+---------+
+| HOLD_DOWN_EXPIRED             | False   |
++-------------------------------+---------+
+
+Transitions:
++--------------------+-------------------------------+--------------------+-------------------------+-------------+
+| From state         | Event                         | To state           | Actions                 | Push events |
++--------------------+-------------------------------+--------------------+-------------------------+-------------+
+| UPDATING_CLIENTS   | CHANGE_LOCAL_CONFIGURED_LEVEL | COMPUTE_BEST_OFFER | store_level             | -           |
++--------------------+-------------------------------+--------------------+-------------------------+-------------+
+| UPDATING_CLIENTS   | NEIGHBOR_OFFER                | -                  | update_or_remove_offer  | -           |
++--------------------+-------------------------------+--------------------+-------------------------+-------------+
+| UPDATING_CLIENTS   | BETTER_HAL                    | COMPUTE_BEST_OFFER | -                       | -           |
++--------------------+-------------------------------+--------------------+-------------------------+-------------+
+| UPDATING_CLIENTS   | BETTER_HAT                    | COMPUTE_BEST_OFFER | -                       | -           |
++--------------------+-------------------------------+--------------------+-------------------------+-------------+
+.                    .                               .                    .                         .             .
+.                    .                               .                    .                         .             .
++--------------------+-------------------------------+--------------------+-------------------------+-------------+
+| COMPUTE_BEST_OFFER | COMPUTATION_DONE              | UPDATING_CLIENTS   | -                       | -           |
++--------------------+-------------------------------+--------------------+-------------------------+-------------+
+
+State entry actions:
++--------------------+----------------------+--------------+
+| State              | Entry Actions        | Exit Actions |
++--------------------+----------------------+--------------+
+| COMPUTE_BEST_OFFER | stop_hold_down_timer | -            |
+|                    | level_compute        |              |
++--------------------+----------------------+--------------+
+| UPDATING_CLIENTS   | update_all_lie_fsms  | -            |
++--------------------+----------------------+--------------+
+</pre>
+<!-- OUTPUT-END -->
 
 ### show interface <i>interface</i>
 
@@ -411,77 +726,56 @@ current node using the <b>show interfaces</b> command.
 
 Example of an interface which does have a neighbor (adjacency in state THREE_WAY):
 
-<pre>
-agg_101> <b>show interface if_101_1001</b>
-Interface:
-+--------------------------------------+--------------------------------------------+
-| Interface Name                       | if_101_1001                                |
-| Advertised Name                      | agg_101-if_101_1001                        |
-| Interface IPv4 Address               | 127.0.0.1                                  |
-| Metric                               | 1                                          |
-| Receive LIE IPv4 Multicast Address   | 224.0.0.81                                 |
-| Transmit LIE IPv4 Multicast Address  | 224.0.0.91                                 |
-| Receive LIE IPv6 Multicast Address   | FF02::0078                                 |
-| Transmit LIE IPv6 Multicast Address  | FF02::0078                                 |
-| Receive LIE Port                     | 20033                                      |
-| Transmit LIE Port                    | 20034                                      |
-| Receive TIE Port                     | 20035                                      |
-| System ID                            | 101                                        |
-| Local ID                             | 3                                          |
-| MTU                                  | 1500                                       |
-| POD                                  | 0                                          |
-| State                                | THREE_WAY                                  |
-| Received LIE Accepted or Rejected    | Accepted                                   |
-| Received LIE Accept or Reject Reason | This node is not leaf and neighbor is leaf |
-| Neighbor                             | True                                       |
-+--------------------------------------+--------------------------------------------+
-
-Neighbor:
-+----------------------------------+-----------------------+
-| Name                             | edge_1001-if_1001_101 |
-| System ID                        | 1001                  |
-| IPv4 Address                     | 127.0.0.1             |
-| LIE UDP Source Port              | 65344                 |
-| Link ID                          | 1                     |
-| Level                            | 0                     |
-| Flood UDP Port                   | 10001                 |
-| MTU                              | 1500                  |
-| POD                              | 0                     |
-| Hold Time                        | 3                     |
-| Not a ZTP Offer                  | True                  |
-| You Are Not a ZTP Flood Repeater | True                  |
-| Your System ID                   | 101                   |
-| Your Local ID                    | 3                     |
-+----------------------------------+-----------------------+
-</pre>
-
-Example of an interface which does not have a neighbor (adjacency in state ONE_WAY):
-
+<!-- OUTPUT-START: agg_101> show interface if_101_1 -->
 <pre>
 agg_101> <b>show interface if_101_1</b>
 Interface:
-+--------------------------------------+------------------+
-| Interface Name                       | if_101_1         |
-| Advertised Name                      | agg_101-if_101_1 |
-| Interface IPv4 Address               | 127.0.0.1        |
-| Metric                               | 1                |
-| Receive LIE IPv4 Multicast Address   | 224.0.0.81       |
-| Transmit LIE IPv4 Multicast Address  | 224.0.0.71       |
-| Receive LIE IPv6 Multicast Address   | FF02::0078       |
-| Transmit LIE IPv6 Multicast Address  | FF02::0078       |
-| Receive LIE Port                     | 20001            |
-| Transmit LIE Port                    | 20002            |
-| Receive TIE Port                     | 20004            |
-| System ID                            | 101              |
-| Local ID                             | 1                |
-| MTU                                  | 1500             |
-| POD                                  | 0                |
-| State                                | ONE_WAY          |
-| Received LIE Accepted or Rejected    | Rejected         |
-| Received LIE Accept or Reject Reason | Level mismatch   |
-| Neighbor                             | False            |
-+--------------------------------------+------------------+
++--------------------------------------+----------------------------------------------------------+
+| Interface Name                       | if_101_1                                                 |
+| Physical Interface Name              | eth0                                                     |
+| Advertised Name                      | agg_101-if_101_1                                         |
+| Interface IPv4 Address               | 172.17.0.3                                               |
+| Interface IPv6 Address               | 2001:db8:1::242:ac11:3                                   |
+| Interface Index                      | 12                                                       |
+| Metric                               | 1                                                        |
+| LIE Recieve IPv4 Multicast Address   | 224.0.0.81                                               |
+| LIE Receive IPv6 Multicast Address   | FF02::0078                                               |
+| LIE Receive Port                     | 20001                                                    |
+| LIE Transmit IPv4 Multicast Address  | 224.0.0.71                                               |
+| LIE Transmit IPv6 Multicast Address  | FF02::0078                                               |
+| LIE Transmit Port                    | 20002                                                    |
+| Flooding Receive Port                | 20004                                                    |
+| System ID                            | 101                                                      |
+| Local ID                             | 1                                                        |
+| MTU                                  | 1400                                                     |
+| POD                                  | 0                                                        |
+| Failure                              | ok                                                       |
+| State                                | THREE_WAY                                                |
+| Received LIE Accepted or Rejected    | Accepted                                                 |
+| Received LIE Accept or Reject Reason | Neither node is leaf and level difference is at most one |
+| Neighbor is Flood Repeater           | False                                                    |
++--------------------------------------+----------------------------------------------------------+
+
+Neighbor:
++------------------------+---------------------------+
+| Name                   | core_1-if_1_101           |
+| System ID              | 1                         |
+| IPv4 Address           | 172.17.0.3                |
+| IPv6 Address           | fe80::42:acff:fe11:3%eth0 |
+| LIE UDP Source Port    | 38105                     |
+| Link ID                | 1                         |
+| Level                  | 2                         |
+| Flood UDP Port         | 20003                     |
+| MTU                    | 1400                      |
+| POD                    | 0                         |
+| Hold Time              | 3                         |
+| Not a ZTP Offer        | False                     |
+| You are Flood Repeater | False                     |
+| Your System ID         | 101                       |
+| Your Local ID          | 1                         |
++------------------------+---------------------------+
 </pre>
+<!-- OUTPUT-END -->
 
 ### show interface <i>interface</i> fsm history
 
@@ -495,17 +789,22 @@ Use the "<b>show interface</b> <i>interface</i> <b>fsm verbose-history</b>" comm
 
 Example:
 
+<!-- OUTPUT-START: agg_101> show interface if_101_1001 fsm history -->
 <pre>
 agg_101> <b>show interface if_101_1001 fsm history</b>
-+----------+-------------+---------+---------+------------------+---------------+-----------+----------+
-| Sequence | Time        | Verbose | From    | Event            | Actions and   | To        | Implicit |
-| Nr       | Delta       | Skipped | State   |                  | Pushed Events | State     |          |
-+----------+-------------+---------+---------+------------------+---------------+-----------+----------+
-| 313      | 2087.427679 | 2       | TWO_WAY | VALID_REFLECTION |               | THREE_WAY | False    |
-+----------+-------------+---------+---------+------------------+---------------+-----------+----------+
-| 223      | 0.017177    | 3       | ONE_WAY | NEW_NEIGHBOR     | SEND_LIE      | TWO_WAY   | False    |
-+----------+-------------+---------+---------+------------------+---------------+-----------+----------+
++----------+----------+---------+---------+------------------+----------------+-----------+----------+
+| Sequence | Time     | Verbose | From    | Event            | Actions and    | To        | Implicit |
+| Nr       | Delta    | Skipped | State   |                  | Pushed Events  | State     |          |
++----------+----------+---------+---------+------------------+----------------+-----------+----------+
+| 236      | 9.890605 | 3       | TWO_WAY | VALID_REFLECTION | start_flooding | THREE_WAY | False    |
++----------+----------+---------+---------+------------------+----------------+-----------+----------+
+| 66       | 0.374664 | 1       | ONE_WAY | NEW_NEIGHBOR     | SEND_LIE       | TWO_WAY   | False    |
++----------+----------+---------+---------+------------------+----------------+-----------+----------+
+| 9        | 0.361774 | 0       | None    | None             | cleanup        | ONE_WAY   | False    |
+|          |          |         |         |                  | send_lie       |           |          |
++----------+----------+---------+---------+------------------+----------------+-----------+----------+
 </pre>
+<!-- OUTPUT-END -->
 
 ### show interface <i>interface</i> fsm verbose-history
 
@@ -521,29 +820,29 @@ Use the "<b>show interface</b> <i>interface</i> <b>fsm history</b>" command if y
 
 Example:
 
+<!-- OUTPUT-START: agg_101> show interface if_101_1001 fsm verbose-history -->
 <pre>
 agg_101> <b>show interface if_101_1001 fsm verbose-history</b>
 +----------+----------+---------+-----------+--------------+-------------------------+-------+----------+
 | Sequence | Time     | Verbose | From      | Event        | Actions and             | To    | Implicit |
 | Nr       | Delta    | Skipped | State     |              | Pushed Events           | State |          |
 +----------+----------+---------+-----------+--------------+-------------------------+-------+----------+
-| 316353   | 0.486001 | 0       | THREE_WAY | LIE_RECEIVED | process_lie             | None  | False    |
+| 1780     | 0.534314 | 0       | THREE_WAY | LIE_RECEIVED | process_lie             | None  | False    |
 +----------+----------+---------+-----------+--------------+-------------------------+-------+----------+
-| 316277   | 0.017974 | 0       | THREE_WAY | SEND_LIE     | send_lie                | None  | False    |
+| 1779     | 0.000715 | 0       | THREE_WAY | LIE_RECEIVED | process_lie             | None  | False    |
 +----------+----------+---------+-----------+--------------+-------------------------+-------+----------+
-| 316254   | 0.002745 | 0       | THREE_WAY | TIMER_TICK   | check_hold_time_expired | None  | False    |
+| 1702     | 0.208900 | 0       | THREE_WAY | SEND_LIE     | send_lie                | None  | False    |
++----------+----------+---------+-----------+--------------+-------------------------+-------+----------+
+| 1701     | 0.000278 | 0       | THREE_WAY | TIMER_TICK   | check_hold_time_expired | None  | False    |
 |          |          |         |           |              | SEND_LIE                |       |          |
 +----------+----------+---------+-----------+--------------+-------------------------+-------+----------+
 .          .          .         .           .              .                         .       .          .
 .          .          .         .           .              .                         .       .          .
-.          .          .         .           .              .                         .       .          .
 +----------+----------+---------+-----------+--------------+-------------------------+-------+----------+
-| 315302   | 0.002144 | 0       | THREE_WAY | TIMER_TICK   | check_hold_time_expired | None  | False    |
-|          |          |         |           |              | SEND_LIE                |       |          |
-+----------+----------+---------+-----------+--------------+-------------------------+-------+----------+
-| 315242   | 0.983821 | 0       | THREE_WAY | LIE_RECEIVED | process_lie             | None  | False    |
+| 866      | 0.808267 | 0       | THREE_WAY | LIE_RECEIVED | process_lie             | None  | False    |
 +----------+----------+---------+-----------+--------------+-------------------------+-------+----------+
 </pre>
+<!-- OUTPUT-END -->
 
 ### show interface <i>interface</i> queues
 
@@ -561,6 +860,7 @@ A queue that is persistently non-empty indicates a problem in flooding convergen
 
 Example:
 
+<!-- OUTPUT-START: agg_101> show interface if_101_1 queues -->
 <pre>
 agg_101> <b>show interface if_101_1 queues</b>
 Transmit queue:
@@ -587,6 +887,7 @@ Acknowledge queue:
 |           |            |      |        |        | Lifetime  | Time        |
 +-----------+------------+------+--------+--------+-----------+-------------+
 </pre>
+<!-- OUTPUT-END -->
 
 ### show interface <i>interface</i> sockets
 
@@ -595,6 +896,7 @@ current node has opened for sending and receiving packets.
 
 Example:
 
+<!-- OUTPUT-START: agg_101> show interface if_101_1 sockets -->
 <pre>
 agg_101> <b>show interface if_101_1 sockets</b>
 +----------+-----------+--------+---------------------------+------------+----------------+-------------+
@@ -604,15 +906,117 @@ agg_101> <b>show interface if_101_1 sockets</b>
 +----------+-----------+--------+---------------------------+------------+----------------+-------------+
 | LIEs     | Receive   | IPv6   | ::                        | 20001      | Any            | Any         |
 +----------+-----------+--------+---------------------------+------------+----------------+-------------+
-| LIEs     | Send      | IPv4   | 192.168.2.100             | 54091      | 224.0.0.71     | 20002       |
+| LIEs     | Send      | IPv4   | 172.17.0.3                | 51094      | 224.0.0.71     | 20002       |
 +----------+-----------+--------+---------------------------+------------+----------------+-------------+
-| LIEs     | Send      | IPv6   | fe80::184e:acd5:2cd7:cd3f | 54092      | ff02::78       | 20002       |
+| LIEs     | Send      | IPv6   | fe80::42:acff:fe11:3%eth0 | 42440      | ff02::78%eth0  | 20002       |
 +----------+-----------+--------+---------------------------+------------+----------------+-------------+
-| Flooding | Receive   | IPv4   | 0.0.0.0                   | 20004      | Any            | Any         |
+.          .           .        .                           .            .                .             .
+.          .           .        .                           .            .                .             .
 +----------+-----------+--------+---------------------------+------------+----------------+-------------+
-| Flooding | Send      | IPv4   | 192.168.2.100             | 53073      | 192.168.2.100  | 20003       |
+| Flooding | Send      | IPv4   | 172.17.0.3                | 33894      | 172.17.0.3     | 20003       |
 +----------+-----------+--------+---------------------------+------------+----------------+-------------+
 </pre>
+<!-- OUTPUT-END -->
+
+### show interface <i>interface</i> statistics
+
+The "<b>show interface <i>interface</i> statistics</b>" command shows all the statistics for the 
+speficied interface.
+
+Example:
+
+<!-- OUTPUT-START: agg_101> show interface if_101_1 statistics -->
+<pre>
+agg_101> <b>show interface if_101_1 statistics</b>
+Traffic:
++---------------------------+-----------------------+-------------------------------------+-------------------+
+| Description               | Value                 | Last Rate                           | Last Change       |
+|                           |                       | Over Last 10 Changes                |                   |
++---------------------------+-----------------------+-------------------------------------+-------------------+
+| RX IPv4 LIE Packets       | 2 Packets, 308 Bytes  | 1.01 Packets/Sec, 155.72 Bytes/Sec  | 0d 00h:00m:00.22s |
++---------------------------+-----------------------+-------------------------------------+-------------------+
+| TX IPv4 LIE Packets       | 3 Packets, 465 Bytes  | 1.00 Packets/Sec, 154.88 Bytes/Sec  | 0d 00h:00m:00.13s |
++---------------------------+-----------------------+-------------------------------------+-------------------+
+| RX IPv4 TIE Packets       | 0 Packets, 0 Bytes    |                                     |                   |
++---------------------------+-----------------------+-------------------------------------+-------------------+
+| TX IPv4 TIE Packets       | 0 Packets, 0 Bytes    |                                     |                   |
++---------------------------+-----------------------+-------------------------------------+-------------------+
+.                           .                       .                                     .                   .
+.                           .                       .                                     .                   .
++---------------------------+-----------------------+-------------------------------------+-------------------+
+| Total TX Errors           | 0 Packets, 0 Bytes    |                                     |                   |
++---------------------------+-----------------------+-------------------------------------+-------------------+
+
+LIE FSM:
++-----------------------------------------------------------+----------------+----------------------+-------------------+
+| Description                                               | Value          | Last Rate            | Last Change       |
+|                                                           |                | Over Last 10 Changes |                   |
++-----------------------------------------------------------+----------------+----------------------+-------------------+
+| Event-Transitions None -[None]-&gt; ONE_WAY                  | 0 Transitions  |                      |                   |
++-----------------------------------------------------------+----------------+----------------------+-------------------+
+| Event-Transitions ONE_WAY -[LIE_RECEIVED]-&gt; ONE_WAY       | 0 Transitions  |                      |                   |
++-----------------------------------------------------------+----------------+----------------------+-------------------+
+| Event-Transitions ONE_WAY -[NEW_NEIGHBOR]-&gt; TWO_WAY       | 0 Transitions  |                      |                   |
++-----------------------------------------------------------+----------------+----------------------+-------------------+
+| Event-Transitions THREE_WAY -[LIE_RECEIVED]-&gt; THREE_WAY   | 4 Transitions  | 3.04 Transitions/Sec | 0d 00h:00m:00.22s |
++-----------------------------------------------------------+----------------+----------------------+-------------------+
+.                                                           .                .                      .                   .
+.                                                           .                .                      .                   .
++-----------------------------------------------------------+----------------+----------------------+-------------------+
+| Transitions TWO_WAY -&gt; TWO_WAY                            | 0 Transitions  |                      |                   |
++-----------------------------------------------------------+----------------+----------------------+-------------------+
+</pre>
+<!-- OUTPUT-END -->
+
+### show interface <i>interface</i> statistics exclude-zero
+
+The "<b>show interface <i>interface</i> statistics</b>" command shows all the statistics for the 
+specified interface, excluding any zero statistics.
+
+Example:
+
+<!-- OUTPUT-START: agg_101> show interface if_101_1 statistics exclude-zero -->
+<pre>
+agg_101> <b>show interface if_101_1 statistics exclude-zero</b>
+Traffic:
++---------------------------+-----------------------+-------------------------------------+-------------------+
+| Description               | Value                 | Last Rate                           | Last Change       |
+|                           |                       | Over Last 10 Changes                |                   |
++---------------------------+-----------------------+-------------------------------------+-------------------+
+| RX IPv4 LIE Packets       | 2 Packets, 308 Bytes  | 1.01 Packets/Sec, 155.72 Bytes/Sec  | 0d 00h:00m:00.36s |
++---------------------------+-----------------------+-------------------------------------+-------------------+
+| TX IPv4 LIE Packets       | 3 Packets, 465 Bytes  | 1.00 Packets/Sec, 154.88 Bytes/Sec  | 0d 00h:00m:00.28s |
++---------------------------+-----------------------+-------------------------------------+-------------------+
+| RX IPv4 TIDE Packets      | 1 Packet, 884 Bytes   |                                     | 0d 00h:00m:01.28s |
++---------------------------+-----------------------+-------------------------------------+-------------------+
+| TX IPv4 TIDE Packets      | 1 Packet, 476 Bytes   |                                     | 0d 00h:00m:01.24s |
++---------------------------+-----------------------+-------------------------------------+-------------------+
+.                           .                       .                                     .                   .
+.                           .                       .                                     .                   .
++---------------------------+-----------------------+-------------------------------------+-------------------+
+| Total TX Packets          | 4 Packets, 941 Bytes  | 1.50 Packets/Sec, 392.69 Bytes/Sec  | 0d 00h:00m:00.28s |
++---------------------------+-----------------------+-------------------------------------+-------------------+
+
+LIE FSM:
++---------------------------------------------------------+----------------+----------------------+-------------------+
+| Description                                             | Value          | Last Rate            | Last Change       |
+|                                                         |                | Over Last 10 Changes |                   |
++---------------------------------------------------------+----------------+----------------------+-------------------+
+| Event-Transitions THREE_WAY -[LIE_RECEIVED]-&gt; THREE_WAY | 4 Transitions  | 3.04 Transitions/Sec | 0d 00h:00m:00.36s |
++---------------------------------------------------------+----------------+----------------------+-------------------+
+| Event-Transitions THREE_WAY -[SEND_LIE]-&gt; THREE_WAY     | 3 Transitions  | 1.00 Transitions/Sec | 0d 00h:00m:00.28s |
++---------------------------------------------------------+----------------+----------------------+-------------------+
+| Event-Transitions THREE_WAY -[TIMER_TICK]-&gt; THREE_WAY   | 3 Transitions  | 1.00 Transitions/Sec | 0d 00h:00m:00.28s |
++---------------------------------------------------------+----------------+----------------------+-------------------+
+| Events LIE_RECEIVED                                     | 4 Events       | 3.04 Events/Sec      | 0d 00h:00m:00.36s |
++---------------------------------------------------------+----------------+----------------------+-------------------+
+.                                                         .                .                      .                   .
+.                                                         .                .                      .                   .
++---------------------------------------------------------+----------------+----------------------+-------------------+
+| Transitions THREE_WAY -&gt; THREE_WAY                      | 10 Transitions | 4.49 Transitions/Sec | 0d 00h:00m:00.28s |
++---------------------------------------------------------+----------------+----------------------+-------------------+
+</pre>
+<!-- OUTPUT-END -->
 
 ### show interfaces
 
@@ -621,43 +1025,49 @@ on the currently active RIFT node.
 
 Use the "<b>show interface</b> <i>interface</i>" to see all details about any particular interface.
 
+<!-- OUTPUT-START: agg_101> show interfaces -->
 <pre>
 agg_101> <b>show interfaces</b>
 +-------------+-----------------------+-----------+-----------+
 | Interface   | Neighbor              | Neighbor  | Neighbor  |
 | Name        | Name                  | System ID | State     |
 +-------------+-----------------------+-----------+-----------+
-| if_101_1    |                       |           | ONE_WAY   |
+| if_101_1    | core_1-if_1_101       | 1         | THREE_WAY |
 +-------------+-----------------------+-----------+-----------+
 | if_101_1001 | edge_1001-if_1001_101 | 1001      | THREE_WAY |
 +-------------+-----------------------+-----------+-----------+
 | if_101_1002 | edge_1002-if_1002_101 | 1002      | THREE_WAY |
 +-------------+-----------------------+-----------+-----------+
-| if_101_2    | core_2-if_2_101       | 2         | THREE_WAY |
+| if_101_2    |                       |           | ONE_WAY   |
 +-------------+-----------------------+-----------+-----------+
 </pre>
+<!-- OUTPUT-END -->
 
 ### show kernel addresses
 
 The "<b>show kernel addresses</b>" command reports a summary of all addresses in the Linux kernel
 on which the RIFT engine is running.
 
+<!-- OUTPUT-START: agg_101> show kernel addresses -->
 <pre>
-real2> show kernel addresses
+agg_101> <b>show kernel addresses</b>
 Kernel Addresses:
-+-----------+---------------------------+-----------+-----------+---------+
-| Interface | Address                   | Local     | Broadcast | Anycast |
-| Name      |                           |           |           |         |
-+-----------+---------------------------+-----------+-----------+---------+
-| lo        | 127.0.0.1                 | 127.0.0.1 |           |         |
-+-----------+---------------------------+-----------+-----------+---------+
-| lo        | 88.88.2.1                 | 88.88.2.1 |           |         |
-+-----------+---------------------------+-----------+-----------+---------+
-| veth-a2   | 99.99.1.2                 | 99.99.1.2 |           |         |
-+-----------+---------------------------+-----------+-----------+---------+
-| veth-b2   | 99.99.2.2                 | 99.99.2.2 |           |         |
-+-----------+---------------------------+-----------+-----------+---------+
++-----------+------------------------+------------+----------------+---------+
+| Interface | Address                | Local      | Broadcast      | Anycast |
+| Name      |                        |            |                |         |
++-----------+------------------------+------------+----------------+---------+
+| lo        | 127.0.0.1              | 127.0.0.1  |                |         |
++-----------+------------------------+------------+----------------+---------+
+| eth0      | 172.17.0.3             | 172.17.0.3 | 172.17.255.255 |         |
++-----------+------------------------+------------+----------------+---------+
+|           | ::1                    |            |                |         |
++-----------+------------------------+------------+----------------+---------+
+|           | 2001:db8:1::242:ac11:3 |            |                |         |
++-----------+------------------------+------------+----------------+---------+
+|           | fe80::42:acff:fe11:3   |            |                |         |
++-----------+------------------------+------------+----------------+---------+
 </pre>
+<!-- OUTPUT-END -->
 
 If this command is executed on a platform that does not support the Netlink interface to the
 kernel routing table (i.e. any non-Linux platform including BSD and macOS) the following error
@@ -673,8 +1083,9 @@ Kernel networking not supported on this platform
 The "<b>show kernel links</b>" command reports a summary of all links in the Linux kernel
 on which the RIFT engine is running.
 
+<!-- OUTPUT-START: agg_101> show kernel links -->
 <pre>
-real2> <b>show kernel links</b>
+agg_101> <b>show kernel links</b>
 Kernel Links:
 +-----------+-----------+-------------------+-------------------+-----------+-------+-----------+
 | Interface | Interface | Hardware          | Hardware          | Link Type | MTU   | Flags     |
@@ -690,19 +1101,14 @@ Kernel Links:
 +-----------+-----------+-------------------+-------------------+-----------+-------+-----------+
 | ip6tnl0   | 3         | 00:00:00:00:00:00 | 00:00:00:00:00:00 | 0         | 1452  | NOARP     |
 +-----------+-----------+-------------------+-------------------+-----------+-------+-----------+
-| veth-a2   | 4         | b2:cd:9f:06:78:ab | ff:ff:ff:ff:ff:ff | 5         | 1500  | UP        |
-|           |           |                   |                   |           |       | BROADCAST |
-|           |           |                   |                   |           |       | RUNNING   |
-|           |           |                   |                   |           |       | MULTICAST |
-|           |           |                   |                   |           |       | LOWER_UP  |
-+-----------+-----------+-------------------+-------------------+-----------+-------+-----------+
-| veth-b2   | 6         | 0a:6b:39:ab:a9:e9 | ff:ff:ff:ff:ff:ff | 7         | 1500  | UP        |
+| eth0      | 12        | 02:42:ac:11:00:03 | ff:ff:ff:ff:ff:ff | 13        | 1500  | UP        |
 |           |           |                   |                   |           |       | BROADCAST |
 |           |           |                   |                   |           |       | RUNNING   |
 |           |           |                   |                   |           |       | MULTICAST |
 |           |           |                   |                   |           |       | LOWER_UP  |
 +-----------+-----------+-------------------+-------------------+-----------+-------+-----------+
 </pre>
+<!-- OUTPUT-END -->
 
 If this command is executed on a platform that does not support the Netlink interface to the
 kernel routing table (i.e. any non-Linux platform including BSD and macOS) the following error
@@ -713,9 +1119,9 @@ agg_101> <b>show kernel links</b>
 Kernel networking not supported on this platform
 </pre>
 
-### show kernel route table <i>table</i> prefix <i>prefix</i>
+### show kernel routes table <i>table</i> prefix <i>prefix</i>
 
-The "<b>show kernel route table</b> <i>table</i> <b>prefix</b> <i>prefix</i>" command reports the
+The "<b>show kernel routes table</b> <i>table</i> <b>prefix</b> <i>prefix</i>" command reports the
 details of a single route in the route table in the Linux kernel on which the RIFT engine is running.
 
 Parameter <i>table</i> must be <b>local</b>, <b>main</b>, <b>default</b>, <b>unspecified</b>, or
@@ -723,35 +1129,19 @@ a number in the range 0-255.
 
 Parameter <i>prefix</i> must be an IPv4 prefix or an IPv6 prefix
 
+<!-- OUTPUT-START: agg_101> show kernel routes table main prefix 99.99.1.0/24 -->
 <pre>
-real2> show kernel route table main prefix 99.99.1.0/24
-+--------------------------+--------------+
-| Table                    | Main         |
-| Address Family           | IPv4         |
-| Destination              | 99.99.1.0/24 |
-| Type                     | Unicast      |
-| Protocol                 | Kernel       |
-| Scope                    | Link         |
-| Next-hops                | veth-a2      |
-| Priority                 |              |
-| Preference               |              |
-| Preferred Source Address | 99.99.1.2    |
-| Source                   |              |
-| Flow                     |              |
-| Encapsulation Type       |              |
-| Encapsulation            |              |
-| Metrics                  |              |
-| Type of Service          | 0            |
-| Flags                    | 0            |
-+--------------------------+--------------+
+agg_101> <b>show kernel routes table main prefix 99.99.1.0/24</b>
+Prefix "99.99.1.0/24" in table "Main" not present in kernel route table
 </pre>
+<!-- OUTPUT-END -->
 
 If this command is executed on a platform that does not support the Netlink interface to the
 kernel routing table (i.e. any non-Linux platform including BSD and macOS) the following error
 message is reported:
 
 <pre>
-agg_101> <b>show kernel route table main prefix 0.0.0.0/0</b>
+agg_101> <b>show kernel routes table main prefix 0.0.0.0/0</b>
 Kernel networking not supported on this platform
 </pre>
 
@@ -760,37 +1150,29 @@ Kernel networking not supported on this platform
 The "<b>show kernel routes</b>" command reports a summary of
 all routes in the Linux kernel on which the RIFT engine is running.
 
+<!-- OUTPUT-START: agg_101> show kernel routes -->
 <pre>
-real2> <b>show kernel routes</b>
+agg_101> <b>show kernel routes</b>
 Kernel Routes:
-+-------------+---------+-------------------------------+-------------+----------+-----------+-----------+--------+
-| Table       | Address | Destination                   | Type        | Protocol | Outgoing  | Gateway   | Weight |
-|             | Family  |                               |             |          | Interface |           |        |
-+-------------+---------+-------------------------------+-------------+----------+-----------+-----------+--------+
-| Unspecified | IPv6    | ::/0                          | Unreachable | Kernel   | lo        |           |        |
-+-------------+---------+-------------------------------+-------------+----------+-----------+-----------+--------+
-| Unspecified | IPv6    | ::/0                          | Unreachable | Kernel   | lo        |           |        |
-+-------------+---------+-------------------------------+-------------+----------+-----------+-----------+--------+
-| Main        | IPv4    | 0.0.0.0/0                     | Unicast     | RIFT     | veth-a2   | 99.99.1.1 | 1      |
-|             |         |                               |             |          | veth-b2   | 99.99.2.1 | 1      |
-+-------------+---------+-------------------------------+-------------+----------+-----------+-----------+--------+
-| Main        | IPv4    | 99.99.1.0/24                  | Unicast     | Kernel   | veth-a2   |           |        |
-+-------------+---------+-------------------------------+-------------+----------+-----------+-----------+--------+
-| Main        | IPv4    | 99.99.2.0/24                  | Unicast     | Kernel   | veth-b2   |           |        |
-+-------------+---------+-------------------------------+-------------+----------+-----------+-----------+--------+
-| Main        | IPv6    | fe80::/64                     | Unicast     | Kernel   | veth-a2   |           |        |
-+-------------+---------+-------------------------------+-------------+----------+-----------+-----------+--------+
-| Main        | IPv6    | fe80::/64                     | Unicast     | Kernel   | veth-b2   |           |        |
-+-------------+---------+-------------------------------+-------------+----------+-----------+-----------+--------+
-| Local       | IPv4    | 88.88.2.1/32                  | Local       | Kernel   | lo        |           |        |
-+-------------+---------+-------------------------------+-------------+----------+-----------+-----------+--------+
-.             .         .                               .             .          .           .           .        .
-.             .         .                               .             .          .           .           .        .
-.             .         .                               .             .          .           .           .        .
-+-------------+---------+-------------------------------+-------------+----------+-----------+-----------+--------+
-| Local       | IPv6    | ff00::/8                      | Unicast     | Boot     | veth-b2   |           |        |
-+-------------+---------+-------------------------------+-------------+----------+-----------+-----------+--------+
++-------------+---------+----------------------------+-------------+----------+-----------+---------------+--------+
+| Table       | Address | Destination                | Type        | Protocol | Outgoing  | Gateway       | Weight |
+|             | Family  |                            |             |          | Interface |               |        |
++-------------+---------+----------------------------+-------------+----------+-----------+---------------+--------+
+| Unspecified | IPv6    | ::/0                       | Unreachable | Kernel   | lo        |               |        |
++-------------+---------+----------------------------+-------------+----------+-----------+---------------+--------+
+| Unspecified | IPv6    | ::/0                       | Unreachable | Kernel   | lo        |               |        |
++-------------+---------+----------------------------+-------------+----------+-----------+---------------+--------+
+| Main        | IPv4    | 0.0.0.0/0                  | Unicast     | Boot     | eth0      | 172.17.0.1    |        |
++-------------+---------+----------------------------+-------------+----------+-----------+---------------+--------+
+| Main        | IPv4    | 172.17.0.0/16              | Unicast     | Kernel   | eth0      |               |        |
++-------------+---------+----------------------------+-------------+----------+-----------+---------------+--------+
+.             .         .                            .             .          .           .               .        .
+.             .         .                            .             .          .           .               .        .
++-------------+---------+----------------------------+-------------+----------+-----------+---------------+--------+
+| Local       | IPv6    | ff00::/8                   | Unicast     | Boot     | eth0      |               |        |
++-------------+---------+----------------------------+-------------+----------+-----------+---------------+--------+
 </pre>
+<!-- OUTPUT-END -->
 
 If this command is executed on a platform that does not support the Netlink interface to the
 kernel routing table (i.e. any non-Linux platform including BSD and macOS) the following error
@@ -809,25 +1191,26 @@ all routes in a specific route table in the Linux kernel on which the RIFT engin
 Parameter <i>table</i> must be <b>local</b>, <b>main</b>, <b>default</b>, <b>unspecified</b>, or
 a number in the range 0-255.
 
+<!-- OUTPUT-START: agg_101> show kernel routes table main -->
 <pre>
-real2> <b>show kernel routes table main</b>
+agg_101> <b>show kernel routes table main</b>
 Kernel Routes:
-+-------+---------+--------------+---------+----------+-----------+-----------+--------+
-| Table | Address | Destination  | Type    | Protocol | Outgoing  | Gateway   | Weight |
-|       | Family  |              |         |          | Interface |           |        |
-+-------+---------+--------------+---------+----------+-----------+-----------+--------+
-| Main  | IPv4    | 0.0.0.0/0    | Unicast | RIFT     | veth-a2   | 99.99.1.1 | 1      |
-|       |         |              |         |          | veth-b2   | 99.99.2.1 | 1      |
-+-------+---------+--------------+---------+----------+-----------+-----------+--------+
-| Main  | IPv4    | 99.99.1.0/24 | Unicast | Kernel   | veth-a2   |           |        |
-+-------+---------+--------------+---------+----------+-----------+-----------+--------+
-| Main  | IPv4    | 99.99.2.0/24 | Unicast | Kernel   | veth-b2   |           |        |
-+-------+---------+--------------+---------+----------+-----------+-----------+--------+
-| Main  | IPv6    | fe80::/64    | Unicast | Kernel   | veth-a2   |           |        |
-+-------+---------+--------------+---------+----------+-----------+-----------+--------+
-| Main  | IPv6    | fe80::/64    | Unicast | Kernel   | veth-b2   |           |        |
-+-------+---------+--------------+---------+----------+-----------+-----------+--------+
++-------+---------+-----------------+---------+----------+-----------+---------------+--------+
+| Table | Address | Destination     | Type    | Protocol | Outgoing  | Gateway       | Weight |
+|       | Family  |                 |         |          | Interface |               |        |
++-------+---------+-----------------+---------+----------+-----------+---------------+--------+
+| Main  | IPv4    | 0.0.0.0/0       | Unicast | Boot     | eth0      | 172.17.0.1    |        |
++-------+---------+-----------------+---------+----------+-----------+---------------+--------+
+| Main  | IPv4    | 172.17.0.0/16   | Unicast | Kernel   | eth0      |               |        |
++-------+---------+-----------------+---------+----------+-----------+---------------+--------+
+| Main  | IPv6    | ::/0            | Unicast | Boot     | eth0      | 2001:db8:1::1 |        |
++-------+---------+-----------------+---------+----------+-----------+---------------+--------+
+| Main  | IPv6    | 2001:db8:1::/64 | Unicast | Kernel   | eth0      |               |        |
++-------+---------+-----------------+---------+----------+-----------+---------------+--------+
+| Main  | IPv6    | fe80::/64       | Unicast | Kernel   | eth0      |               |        |
++-------+---------+-----------------+---------+----------+-----------+---------------+--------+
 </pre>
+<!-- OUTPUT-END -->
 
 If this command is executed on a platform that does not support the Netlink interface to the
 kernel routing table (i.e. any non-Linux platform including BSD and macOS) the following error
@@ -844,6 +1227,7 @@ The "<b>show node</b>" command reports the details for the currently active RIFT
 
 Example:
 
+<!-- OUTPUT-START: agg_101> show node -->
 <pre>
 agg_101> <b>show node</b>
 Node:
@@ -852,11 +1236,11 @@ Node:
 | Passive                               | False            |
 | Running                               | True             |
 | System ID                             | 101              |
-| Configured Level                      | 1                |
+| Configured Level                      | undefined        |
 | Leaf Only                             | False            |
 | Leaf 2 Leaf                           | False            |
-| Top of Fabric Flag                    | True             |
-| Zero Touch Provisioning (ZTP) Enabled | False            |
+| Top of Fabric Flag                    | False            |
+| Zero Touch Provisioning (ZTP) Enabled | True             |
 | ZTP FSM State                         | UPDATING_CLIENTS |
 | ZTP Hold Down Timer                   | Stopped          |
 | Highest Available Level (HAL)         | 2                |
@@ -871,8 +1255,10 @@ Node:
 | LIE Send Interval                     | 1.0 secs         |
 | Receive TIE Port                      | 10001            |
 | Kernel Route Table                    | 3                |
-| Flooding Reduction                    | True             |
-| Flooding Reduction Node Random        | 2897             |
+| Flooding Reduction Enabled            | True             |
+| Flooding Reduction Redundancy         | 2                |
+| Flooding Reduction Similarity         | 2                |
+| Flooding Reduction Node Random        | 13485            |
 +---------------------------------------+------------------+
 
 Received Offers:
@@ -885,22 +1271,21 @@ Received Offers:
 +-------------+-----------+-------+-----------------+-----------+-------+------------+---------+----------------+
 | if_101_1002 | 1002      | 0     | False           | THREE_WAY | False | False      | True    | Level is leaf  |
 +-------------+-----------+-------+-----------------+-----------+-------+------------+---------+----------------+
-| if_101_2    | 2         | 2     | False           | THREE_WAY | False | False      | False   |                |
-+-------------+-----------+-------+-----------------+-----------+-------+------------+---------+----------------+
 
 Sent Offers:
 +-------------+-----------+-------+-----------------+-----------+
 | Interface   | System ID | Level | Not A ZTP Offer | State     |
 +-------------+-----------+-------+-----------------+-----------+
-| if_101_1    | 101       | 1     | False           | THREE_WAY |
+| if_101_1    | 101       | 1     | True            | THREE_WAY |
 +-------------+-----------+-------+-----------------+-----------+
 | if_101_1001 | 101       | 1     | False           | THREE_WAY |
 +-------------+-----------+-------+-----------------+-----------+
 | if_101_1002 | 101       | 1     | False           | THREE_WAY |
 +-------------+-----------+-------+-----------------+-----------+
-| if_101_2    | 101       | 1     | False           | THREE_WAY |
+| if_101_2    | 101       | 1     | False           | ONE_WAY   |
 +-------------+-----------+-------+-----------------+-----------+
 </pre>
+<!-- OUTPUT-END -->
 
 ### show node fsm history
 
@@ -914,35 +1299,35 @@ Use the "<b>show node fsm verbose-history</b>" command if you want to see all ev
 
 Example:
 
+<!-- OUTPUT-START: agg_101> show node fsm history -->
 <pre>
 agg_101> <b>show node fsm history</b>
-+----------+-------------+---------+--------------------+-------------------+----------------------------------------------+--------------------+----------+
-| Sequence | Time        | Verbose | From               | Event             | Actions and                                  | To                 | Implicit |
-| Nr       | Delta       | Skipped | State              |                   | Pushed Events                                | State              |          |
-+----------+-------------+---------+--------------------+-------------------+----------------------------------------------+--------------------+----------+
-| 172980   | 2070.046668 | 0       | COMPUTE_BEST_OFFER | COMPUTATION_DONE  | no_action                                    | UPDATING_CLIENTS   | False    |
-|          |             |         |                    |                   | update_all_lie_fsms_with_computation_results |                    |          |
-+----------+-------------+---------+--------------------+-------------------+----------------------------------------------+--------------------+----------+
-| 172979   | 0.000207    | 0       | HOLDING_DOWN       | HOLD_DOWN_EXPIRED | purge_offers                                 | COMPUTE_BEST_OFFER | False    |
-|          |             |         |                    |                   | stop_hold_down_timer                         |                    |          |
-|          |             |         |                    |                   | level_compute                                |                    |          |
-|          |             |         |                    |                   | COMPUTATION_DONE                             |                    |          |
-+----------+-------------+---------+--------------------+-------------------+----------------------------------------------+--------------------+----------+
-| 172978   | 0.000187    | 0       | HOLDING_DOWN       | LOST_HAT          | no_action                                    | None               | False    |
-+----------+-------------+---------+--------------------+-------------------+----------------------------------------------+--------------------+----------+
-.          .             .         .                    .                   .                                              .                    .          .
-.          .             .         .                    .                   .                                              .                    .          .
-.          .             .         .                    .                   .                                              .                    .          .
-+----------+-------------+---------+--------------------+-------------------+----------------------------------------------+--------------------+----------+
-| 58       | 0.000430    | 2       | UPDATING_CLIENTS   | BETTER_HAL        | no_action                                    | COMPUTE_BEST_OFFER | False    |
-|          |             |         |                    |                   | stop_hold_down_timer                         |                    |          |
-|          |             |         |                    |                   | level_compute                                |                    |          |
-|          |             |         |                    |                   | COMPUTATION_DONE                             |                    |          |
-+----------+-------------+---------+--------------------+-------------------+----------------------------------------------+--------------------+----------+
-| 3        | 0.013643    | 0       | COMPUTE_BEST_OFFER | COMPUTATION_DONE  | no_action                                    | UPDATING_CLIENTS   | False    |
-|          |             |         |                    |                   | update_all_lie_fsms_with_computation_results |                    |          |
-+----------+-------------+---------+--------------------+-------------------+----------------------------------------------+--------------------+----------+
++----------+----------+---------+--------------------+-------------------------------+----------------------+--------------------+----------+
+| Sequence | Time     | Verbose | From               | Event                         | Actions and          | To                 | Implicit |
+| Nr       | Delta    | Skipped | State              |                               | Pushed Events        | State              |          |
++----------+----------+---------+--------------------+-------------------------------+----------------------+--------------------+----------+
+| 1668     | 2.989399 | 0       | COMPUTE_BEST_OFFER | COMPUTATION_DONE              | update_all_lie_fsms  | UPDATING_CLIENTS   | False    |
++----------+----------+---------+--------------------+-------------------------------+----------------------+--------------------+----------+
+| 1667     | 0.001746 | 53      | UPDATING_CLIENTS   | CHANGE_LOCAL_CONFIGURED_LEVEL | store_level          | COMPUTE_BEST_OFFER | False    |
+|          |          |         |                    |                               | stop_hold_down_timer |                    |          |
+|          |          |         |                    |                               | level_compute        |                    |          |
+|          |          |         |                    |                               | COMPUTATION_DONE     |                    |          |
++----------+----------+---------+--------------------+-------------------------------+----------------------+--------------------+----------+
+| 293      | 8.391850 | 0       | COMPUTE_BEST_OFFER | COMPUTATION_DONE              | update_all_lie_fsms  | UPDATING_CLIENTS   | False    |
++----------+----------+---------+--------------------+-------------------------------+----------------------+--------------------+----------+
+| 292      | 0.001630 | 6       | UPDATING_CLIENTS   | BETTER_HAT                    | stop_hold_down_timer | COMPUTE_BEST_OFFER | False    |
+|          |          |         |                    |                               | level_compute        |                    |          |
+|          |          |         |                    |                               | COMPUTATION_DONE     |                    |          |
++----------+----------+---------+--------------------+-------------------------------+----------------------+--------------------+----------+
+.          .          .         .                    .                               .                      .                    .          .
+.          .          .         .                    .                               .                      .                    .          .
++----------+----------+---------+--------------------+-------------------------------+----------------------+--------------------+----------+
+| 11       | 0.310091 | 0       | None               | None                          | stop_hold_down_timer | COMPUTE_BEST_OFFER | False    |
+|          |          |         |                    |                               | level_compute        |                    |          |
+|          |          |         |                    |                               | COMPUTATION_DONE     |                    |          |
++----------+----------+---------+--------------------+-------------------------------+----------------------+--------------------+----------+
 </pre>
+<!-- OUTPUT-END -->
 
 ### show node fsm verbose-history
 
@@ -958,27 +1343,165 @@ Use the "<b>show node fsm history</b>" command if you only want to see "interest
 
 Example:
 
+<!-- OUTPUT-START: agg_101> show node fsm verbose-history -->
 <pre>
 agg_101> <b>show node fsm verbose-history</b>
-+----------+----------+---------+------------------+----------------+------------------------+-------+----------+
-| Sequence | Time     | Verbose | From             | Event          | Actions and            | To    | Implicit |
-| Nr       | Delta    | Skipped | State            |                | Pushed Events          | State |          |
-+----------+----------+---------+------------------+----------------+------------------------+-------+----------+
-| 482554   | 0.215404 | 0       | UPDATING_CLIENTS | NEIGHBOR_OFFER | update_or_remove_offer | None  | False    |
-+----------+----------+---------+------------------+----------------+------------------------+-------+----------+
-| 482553   | 0.000034 | 0       | UPDATING_CLIENTS | NEIGHBOR_OFFER | update_or_remove_offer | None  | False    |
-+----------+----------+---------+------------------+----------------+------------------------+-------+----------+
-| 482476   | 0.014348 | 0       | UPDATING_CLIENTS | NEIGHBOR_OFFER | update_or_remove_offer | None  | False    |
-+----------+----------+---------+------------------+----------------+------------------------+-------+----------+
-.          .          .         .                  .                .                        .       .          .
-.          .          .         .                  .                .                        .       .          .
-.          .          .         .                  .                .                        .       .          .
-+----------+----------+---------+------------------+----------------+------------------------+-------+----------+
-| 481836   | 0.000660 | 0       | UPDATING_CLIENTS | NEIGHBOR_OFFER | update_or_remove_offer | None  | False    |
-+----------+----------+---------+------------------+----------------+------------------------+-------+----------+
-| 481736   | 0.997336 | 0       | UPDATING_CLIENTS | NEIGHBOR_OFFER | update_or_remove_offer | None  | False    |
-+----------+----------+---------+------------------+----------------+------------------------+-------+----------+
++----------+----------+---------+--------------------+-------------------------------+------------------------+--------------------+----------+
+| Sequence | Time     | Verbose | From               | Event                         | Actions and            | To                 | Implicit |
+| Nr       | Delta    | Skipped | State              |                               | Pushed Events          | State              |          |
++----------+----------+---------+--------------------+-------------------------------+------------------------+--------------------+----------+
+| 2096     | 0.197355 | 0       | UPDATING_CLIENTS   | NEIGHBOR_OFFER                | update_or_remove_offer | None               | False    |
++----------+----------+---------+--------------------+-------------------------------+------------------------+--------------------+----------+
+| 2095     | 0.000312 | 0       | UPDATING_CLIENTS   | NEIGHBOR_OFFER                | update_or_remove_offer | None               | False    |
++----------+----------+---------+--------------------+-------------------------------+------------------------+--------------------+----------+
+| 2088     | 0.009996 | 0       | UPDATING_CLIENTS   | NEIGHBOR_OFFER                | update_or_remove_offer | None               | False    |
++----------+----------+---------+--------------------+-------------------------------+------------------------+--------------------+----------+
+| 2087     | 0.000278 | 0       | UPDATING_CLIENTS   | NEIGHBOR_OFFER                | update_or_remove_offer | None               | False    |
++----------+----------+---------+--------------------+-------------------------------+------------------------+--------------------+----------+
+.          .          .         .                    .                               .                        .                    .          .
+.          .          .         .                    .                               .                        .                    .          .
++----------+----------+---------+--------------------+-------------------------------+------------------------+--------------------+----------+
+| 1524     | 0.279970 | 0       | UPDATING_CLIENTS   | NEIGHBOR_OFFER                | update_or_remove_offer | None               | False    |
++----------+----------+---------+--------------------+-------------------------------+------------------------+--------------------+----------+
 </pre>
+<!-- OUTPUT-END -->
+
+### show node statistics
+
+The "<b>show node statistics</b>" command shows all the statistics for the current node.
+
+Example:
+
+<!-- OUTPUT-START: agg_101> show node statistics -->
+<pre>
+agg_101> <b>show node statistics</b>
+Node ZTP FSM:
++------------------------------------------------------------------------------------------+----------------+----------------------+-------------------+
+| Description                                                                              | Value          | Last Rate            | Last Change       |
+|                                                                                          |                | Over Last 10 Changes |                   |
++------------------------------------------------------------------------------------------+----------------+----------------------+-------------------+
+| Event-Transitions COMPUTE_BEST_OFFER -[COMPUTATION_DONE]-&gt; UPDATING_CLIENTS              | 1 Transition   |                      | 0d 00h:00m:03.24s |
++------------------------------------------------------------------------------------------+----------------+----------------------+-------------------+
+| Event-Transitions None -[None]-&gt; COMPUTE_BEST_OFFER                                      | 0 Transitions  |                      |                   |
++------------------------------------------------------------------------------------------+----------------+----------------------+-------------------+
+| Event-Transitions UPDATING_CLIENTS -[BETTER_HAL]-&gt; COMPUTE_BEST_OFFER                    | 0 Transitions  |                      |                   |
++------------------------------------------------------------------------------------------+----------------+----------------------+-------------------+
+| Event-Transitions UPDATING_CLIENTS -[BETTER_HAT]-&gt; COMPUTE_BEST_OFFER                    | 0 Transitions  |                      |                   |
++------------------------------------------------------------------------------------------+----------------+----------------------+-------------------+
+.                                                                                          .                .                      .                   .
+.                                                                                          .                .                      .                   .
++------------------------------------------------------------------------------------------+----------------+----------------------+-------------------+
+| Transitions UPDATING_CLIENTS -&gt; UPDATING_CLIENTS                                         | 22 Transitions | 8.67 Transitions/Sec | 0d 00h:00m:00.32s |
++------------------------------------------------------------------------------------------+----------------+----------------------+-------------------+
+
+Node Interfaces Traffic:
++---------------------------+------------------------+--------------------------------------+-------------------+
+| Description               | Value                  | Last Rate                            | Last Change       |
+|                           |                        | Over Last 10 Changes                 |                   |
++---------------------------+------------------------+--------------------------------------+-------------------+
+| RX IPv4 LIE Packets       | 11 Packets, 1742 Bytes | 3.00 Packets/Sec, 474.46 Bytes/Sec   | 0d 00h:00m:00.33s |
++---------------------------+------------------------+--------------------------------------+-------------------+
+| TX IPv4 LIE Packets       | 12 Packets, 1812 Bytes | 4.48 Packets/Sec, 679.64 Bytes/Sec   | 0d 00h:00m:00.54s |
++---------------------------+------------------------+--------------------------------------+-------------------+
+| RX IPv4 TIE Packets       | 0 Packets, 0 Bytes     |                                      |                   |
++---------------------------+------------------------+--------------------------------------+-------------------+
+| TX IPv4 TIE Packets       | 0 Packets, 0 Bytes     |                                      |                   |
++---------------------------+------------------------+--------------------------------------+-------------------+
+.                           .                        .                                      .                   .
+.                           .                        .                                      .                   .
++---------------------------+------------------------+--------------------------------------+-------------------+
+| Total TX Errors           | 0 Packets, 0 Bytes     |                                      |                   |
++---------------------------+------------------------+--------------------------------------+-------------------+
+
+Node Interface LIE FSMs:
++-----------------------------------------------------------+----------------+-----------------------+-------------------+
+| Description                                               | Value          | Last Rate             | Last Change       |
+|                                                           |                | Over Last 10 Changes  |                   |
++-----------------------------------------------------------+----------------+-----------------------+-------------------+
+| Event-Transitions None -[None]-&gt; ONE_WAY                  | 0 Transitions  |                       |                   |
++-----------------------------------------------------------+----------------+-----------------------+-------------------+
+| Event-Transitions ONE_WAY -[LIE_RECEIVED]-&gt; ONE_WAY       | 0 Transitions  |                       |                   |
++-----------------------------------------------------------+----------------+-----------------------+-------------------+
+| Event-Transitions ONE_WAY -[NEW_NEIGHBOR]-&gt; TWO_WAY       | 0 Transitions  |                       |                   |
++-----------------------------------------------------------+----------------+-----------------------+-------------------+
+| Event-Transitions ONE_WAY -[SEND_LIE]-&gt; ONE_WAY           | 3 Transitions  | 1.00 Transitions/Sec  | 0d 00h:00m:00.56s |
++-----------------------------------------------------------+----------------+-----------------------+-------------------+
+.                                                           .                .                       .                   .
+.                                                           .                .                       .                   .
++-----------------------------------------------------------+----------------+-----------------------+-------------------+
+| Transitions TWO_WAY -&gt; TWO_WAY                            | 0 Transitions  |                       |                   |
++-----------------------------------------------------------+----------------+-----------------------+-------------------+
+</pre>
+<!-- OUTPUT-END -->
+
+### show node statistics exclude-zero
+
+The "<b>show engine statistics</b>" command shows all the statistics for the current node, excluding
+any zero statistics.
+
+Example:
+
+<!-- OUTPUT-START: agg_101> show node statistics exclude-zero -->
+<pre>
+agg_101> <b>show node statistics exclude-zero</b>
+Node ZTP FSM:
++------------------------------------------------------------------------------------------+----------------+----------------------+-------------------+
+| Description                                                                              | Value          | Last Rate            | Last Change       |
+|                                                                                          |                | Over Last 10 Changes |                   |
++------------------------------------------------------------------------------------------+----------------+----------------------+-------------------+
+| Event-Transitions COMPUTE_BEST_OFFER -[COMPUTATION_DONE]-&gt; UPDATING_CLIENTS              | 1 Transition   |                      | 0d 00h:00m:03.38s |
++------------------------------------------------------------------------------------------+----------------+----------------------+-------------------+
+| Event-Transitions UPDATING_CLIENTS -[CHANGE_LOCAL_CONFIGURED_LEVEL]-&gt; COMPUTE_BEST_OFFER | 1 Transition   |                      | 0d 00h:00m:03.38s |
++------------------------------------------------------------------------------------------+----------------+----------------------+-------------------+
+| Event-Transitions UPDATING_CLIENTS -[NEIGHBOR_OFFER]-&gt; UPDATING_CLIENTS                  | 22 Transitions | 8.67 Transitions/Sec | 0d 00h:00m:00.46s |
++------------------------------------------------------------------------------------------+----------------+----------------------+-------------------+
+| Events CHANGE_LOCAL_CONFIGURED_LEVEL                                                     | 1 Event        |                      | 0d 00h:00m:03.38s |
++------------------------------------------------------------------------------------------+----------------+----------------------+-------------------+
+.                                                                                          .                .                      .                   .
+.                                                                                          .                .                      .                   .
++------------------------------------------------------------------------------------------+----------------+----------------------+-------------------+
+| Transitions UPDATING_CLIENTS -&gt; UPDATING_CLIENTS                                         | 22 Transitions | 8.67 Transitions/Sec | 0d 00h:00m:00.46s |
++------------------------------------------------------------------------------------------+----------------+----------------------+-------------------+
+
+Node Interfaces Traffic:
++---------------------------+------------------------+--------------------------------------+-------------------+
+| Description               | Value                  | Last Rate                            | Last Change       |
+|                           |                        | Over Last 10 Changes                 |                   |
++---------------------------+------------------------+--------------------------------------+-------------------+
+| RX IPv4 LIE Packets       | 11 Packets, 1742 Bytes | 3.00 Packets/Sec, 474.46 Bytes/Sec   | 0d 00h:00m:00.47s |
++---------------------------+------------------------+--------------------------------------+-------------------+
+| TX IPv4 LIE Packets       | 12 Packets, 1812 Bytes | 4.48 Packets/Sec, 679.64 Bytes/Sec   | 0d 00h:00m:00.68s |
++---------------------------+------------------------+--------------------------------------+-------------------+
+| RX IPv4 TIDE Packets      | 6 Packets, 3264 Bytes  | 2.20 Packets/Sec, 1047.14 Bytes/Sec  | 0d 00h:00m:00.44s |
++---------------------------+------------------------+--------------------------------------+-------------------+
+| TX IPv4 TIDE Packets      | 6 Packets, 3264 Bytes  | 2.49 Packets/Sec, 1390.94 Bytes/Sec  | 0d 00h:00m:00.66s |
++---------------------------+------------------------+--------------------------------------+-------------------+
+.                           .                        .                                      .                   .
+.                           .                        .                                      .                   .
++---------------------------+------------------------+--------------------------------------+-------------------+
+| Total TX Packets          | 18 Packets, 5076 Bytes | 8.75 Packets/Sec, 2480.58 Bytes/Sec  | 0d 00h:00m:00.67s |
++---------------------------+------------------------+--------------------------------------+-------------------+
+
+Node Interface LIE FSMs:
++---------------------------------------------------------+----------------+-----------------------+-------------------+
+| Description                                             | Value          | Last Rate             | Last Change       |
+|                                                         |                | Over Last 10 Changes  |                   |
++---------------------------------------------------------+----------------+-----------------------+-------------------+
+| Event-Transitions ONE_WAY -[SEND_LIE]-&gt; ONE_WAY         | 3 Transitions  | 1.00 Transitions/Sec  | 0d 00h:00m:00.70s |
++---------------------------------------------------------+----------------+-----------------------+-------------------+
+| Event-Transitions ONE_WAY -[TIMER_TICK]-&gt; ONE_WAY       | 3 Transitions  | 1.00 Transitions/Sec  | 0d 00h:00m:00.70s |
++---------------------------------------------------------+----------------+-----------------------+-------------------+
+| Event-Transitions THREE_WAY -[LIE_RECEIVED]-&gt; THREE_WAY | 22 Transitions | 8.65 Transitions/Sec  | 0d 00h:00m:00.47s |
++---------------------------------------------------------+----------------+-----------------------+-------------------+
+| Event-Transitions THREE_WAY -[SEND_LIE]-&gt; THREE_WAY     | 9 Transitions  | 3.97 Transitions/Sec  | 0d 00h:00m:00.68s |
++---------------------------------------------------------+----------------+-----------------------+-------------------+
+.                                                         .                .                       .                   .
+.                                                         .                .                       .                   .
++---------------------------------------------------------+----------------+-----------------------+-------------------+
+| Transitions THREE_WAY -&gt; THREE_WAY                      | 40 Transitions | 37.29 Transitions/Sec | 0d 00h:00m:00.47s |
++---------------------------------------------------------+----------------+-----------------------+-------------------+
+</pre>
+<!-- OUTPUT-END -->
 
 ### show nodes
 
@@ -988,6 +1511,7 @@ You can make anyone of the listed nodes the currently active node using the "<b>
 
 Example:
 
+<!-- OUTPUT-START: agg_101> show nodes -->
 <pre>
 agg_101> <b>show nodes</b>
 +-----------+--------+---------+
@@ -1002,19 +1526,13 @@ agg_101> <b>show nodes</b>
 +-----------+--------+---------+
 | agg_202   | 202    | True    |
 +-----------+--------+---------+
-| core_1    | 1      | True    |
-+-----------+--------+---------+
-| core_2    | 2      | True    |
-+-----------+--------+---------+
-| edge_1001 | 1001   | True    |
-+-----------+--------+---------+
-| edge_1002 | 1002   | True    |
-+-----------+--------+---------+
-| edge_2001 | 2001   | True    |
+.           .        .         .
+.           .        .         .
 +-----------+--------+---------+
 | edge_2002 | 2002   | True    |
 +-----------+--------+---------+
 </pre>
+<!-- OUTPUT-END -->
 
 ### show nodes level
 
@@ -1023,56 +1541,52 @@ for all RIFT nodes in the RIFT topology:
 
 Example:
 
+<!-- OUTPUT-START: agg_101> show nodes level -->
 <pre>
 agg_101> <b>show nodes level</b>
 +-----------+--------+---------+------------+-------+
 | Node      | System | Running | Configured | Level |
 | Name      | ID     |         | Level      | Value |
 +-----------+--------+---------+------------+-------+
-| agg_101   | 101    | True    | undefined  | 23    |
+| agg_101   | 101    | True    | undefined  | 1     |
 +-----------+--------+---------+------------+-------+
-| agg_102   | 102    | True    | undefined  | 23    |
+| agg_102   | 102    | True    | 1          | 1     |
 +-----------+--------+---------+------------+-------+
-| agg_201   | 201    | True    | undefined  | 23    |
+| agg_201   | 201    | True    | 1          | 1     |
 +-----------+--------+---------+------------+-------+
-| agg_202   | 202    | True    | undefined  | 23    |
+| agg_202   | 202    | True    | 1          | 1     |
 +-----------+--------+---------+------------+-------+
-| core_1    | 1      | True    | superspine | 24    |
+.           .        .         .            .       .
+.           .        .         .            .       .
 +-----------+--------+---------+------------+-------+
-| core_2    | 2      | True    | superspine | 24    |
-+-----------+--------+---------+------------+-------+
-| edge_1001 | 1001   | True    | leaf       | 0     |
-+-----------+--------+---------+------------+-------+
-| edge_1002 | 1002   | True    | undefined  | 22    |
-+-----------+--------+---------+------------+-------+
-| edge_2001 | 2001   | True    | undefined  | 23    |
-+-----------+--------+---------+------------+-------+
-| edge_2002 | 2002   | True    | leaf       | 0     |
+| edge_2002 | 2002   | True    | 0          | 0     |
 +-----------+--------+---------+------------+-------+
 </pre>
+<!-- OUTPUT-END -->
 
-### show route prefix <i>prefix</i>
+### show routes prefix <i>prefix</i>
 
-The "<b>show route prefix</b> <i>prefix</i>" command shows the routes for a given prefix in the
+The "<b>show routes prefix</b> <i>prefix</i>" command shows the routes for a given prefix in the
 Routing Information Base (RIB) of the current node.
 
 Parameter <i>prefix</i> must be an IPv4 prefix or an IPv6 prefix
 
 Example:
 
+<!-- OUTPUT-START: agg_101> show routes prefix ::/0 -->
 <pre>
-agg_101> <b>show route prefix ::/0</b>
-+--------+-----------+--------------------+
-| Prefix | Owner     | Next-hops          |
-+--------+-----------+--------------------+
-| ::/0   | North SPF | if_101_1 127.0.0.1 |
-|        |           | if_101_2 127.0.0.1 |
-+--------+-----------+--------------------+
+agg_101> <b>show routes prefix ::/0</b>
++--------+-----------+-------------------------------+
+| Prefix | Owner     | Next-hops                     |
++--------+-----------+-------------------------------+
+| ::/0   | North SPF | if_101_1 fe80::42:acff:fe11:3 |
++--------+-----------+-------------------------------+
 </pre>
+<!-- OUTPUT-END -->
 
-### show route prefix <i>prefix</i> owner <i>owner</i>
+### show routes prefix <i>prefix</i> owner <i>owner</i>
 
-The "<b>show route prefix</b> <i>prefix</i> <b>owner</b> <i>owner</i>" command shows the routes for
+The "<b>show routes prefix</b> <i>prefix</i> <b>owner</b> <i>owner</i>" command shows the routes for
 a given prefix and a given owner in the Routing Information Base (RIB) of the current node.
 
 Parameter <i>prefix</i> must be an IPv4 prefix or an IPv6 prefix.
@@ -1081,15 +1595,16 @@ Parameter <i>owner</i> must be <b>south-spf</b> or <b>north-spf</b>.
 
 Example:
 
+<!-- OUTPUT-START: agg_101> show routes prefix ::/0 owner north-spf -->
 <pre>
-agg_101> <b>show route prefix ::/0 owner north-spf</b>
-+--------+-----------+--------------------+
-| Prefix | Owner     | Next-hops          |
-+--------+-----------+--------------------+
-| ::/0   | North SPF | if_101_1 127.0.0.1 |
-|        |           | if_101_2 127.0.0.1 |
-+--------+-----------+--------------------+
+agg_101> <b>show routes prefix ::/0 owner north-spf</b>
++--------+-----------+-------------------------------+
+| Prefix | Owner     | Next-hops                     |
++--------+-----------+-------------------------------+
+| ::/0   | North SPF | if_101_1 fe80::42:acff:fe11:3 |
++--------+-----------+-------------------------------+
 </pre>
+<!-- OUTPUT-END -->
 
 ### show routes
 
@@ -1098,43 +1613,36 @@ current node. It shows both the IPv4 RIB and the IPv6 RIB.
 
 Example:
 
+<!-- OUTPUT-START: agg_101> show routes -->
 <pre>
 agg_101> <b>show routes</b>
 IPv4 Routes:
-+---------------+-----------+-----------------------+
-| Prefix        | Owner     | Next-hops             |
-+---------------+-----------+-----------------------+
-| 0.0.0.0/0     | North SPF | if_101_1 127.0.0.1    |
-|               |           | if_101_2 127.0.0.1    |
-+---------------+-----------+-----------------------+
-| 1.1.1.0/24    | South SPF | if_101_1001 127.0.0.1 |
-+---------------+-----------+-----------------------+
-| 1.1.2.0/24    | South SPF | if_101_1001 127.0.0.1 |
-+---------------+-----------+-----------------------+
-| 1.1.3.0/24    | South SPF | if_101_1001 127.0.0.1 |
-+---------------+-----------+-----------------------+
-| 1.1.4.0/24    | South SPF | if_101_1001 127.0.0.1 |
-+---------------+-----------+-----------------------+
-| 1.2.1.0/24    | South SPF | if_101_1002 127.0.0.1 |
-+---------------+-----------+-----------------------+
-| 1.2.2.0/24    | South SPF | if_101_1002 127.0.0.1 |
-+---------------+-----------+-----------------------+
-| 1.2.3.0/24    | South SPF | if_101_1002 127.0.0.1 |
-+---------------+-----------+-----------------------+
-| 1.2.4.0/24    | South SPF | if_101_1002 127.0.0.1 |
-+---------------+-----------+-----------------------+
-| 99.99.99.0/24 | South SPF | if_101_1001 127.0.0.1 |
-|               |           | if_101_1002 127.0.0.1 |
-+---------------+-----------+-----------------------+
++---------------+-----------+------------------------+
+| Prefix        | Owner     | Next-hops              |
++---------------+-----------+------------------------+
+| 0.0.0.0/0     | North SPF | if_101_1 172.17.0.3    |
++---------------+-----------+------------------------+
+| 1.1.1.0/24    | South SPF | if_101_1001 172.17.0.3 |
++---------------+-----------+------------------------+
+| 1.1.2.0/24    | South SPF | if_101_1001 172.17.0.3 |
++---------------+-----------+------------------------+
+| 1.1.3.0/24    | South SPF | if_101_1001 172.17.0.3 |
++---------------+-----------+------------------------+
+.               .           .                        .
+.               .           .                        .
++---------------+-----------+------------------------+
+| 99.99.99.0/24 | South SPF | if_101_1001 172.17.0.3 |
+|               |           | if_101_1002 172.17.0.3 |
++---------------+-----------+------------------------+
 
 IPv6 Routes:
-+--------+-----------+--------------------+
-| Prefix | Owner     | Next-hops          |
-+--------+-----------+--------------------+
-| ::/0   | North SPF | if_101_1 127.0.0.1 |
-|        |           | if_101_2 127.0.0.1 |
-+--------+-----------+--------------------+
++--------+-----------+-------------------------------+
+| Prefix | Owner     | Next-hops                     |
++--------+-----------+-------------------------------+
+| ::/0   | North SPF | if_101_1 fe80::42:acff:fe11:3 |
++--------+-----------+-------------------------------+
 </pre>
+<!-- OUTPUT-END -->
 
 ### show spf
 
@@ -1144,64 +1652,51 @@ Note: the SPF algorithm is also known as the Dijkstra algorithm.
 
 Example:
 
+<!-- OUTPUT-START: agg_101> show spf -->
 <pre>
 agg_101> <b>show spf</b>
 SPF Statistics:
 +---------------+----+
-| SPF Runs      | 4  |
+| SPF Runs      | 5  |
 +---------------+----+
-| SPF Deferrals | 19 |
+| SPF Deferrals | 18 |
 +---------------+----+
 
 South SPF Destinations:
-+------------------+------+-------------+------+-----------------------+
-| Destination      | Cost | Predecessor | Tags | Next-hops             |
-|                  |      | System IDs  |      |                       |
-+------------------+------+-------------+------+-----------------------+
-| 101 (agg_101)    | 0    |             |      |                       |
-+------------------+------+-------------+------+-----------------------+
-| 1001 (edge_1001) | 1    | 101         |      | if_101_1001 127.0.0.1 |
-+------------------+------+-------------+------+-----------------------+
-| 1002 (edge_1002) | 1    | 101         |      | if_101_1002 127.0.0.1 |
-+------------------+------+-------------+------+-----------------------+
-| 1.1.1.0/24       | 2    | 1001        |      | if_101_1001 127.0.0.1 |
-+------------------+------+-------------+------+-----------------------+
-| 1.1.2.0/24       | 2    | 1001        |      | if_101_1001 127.0.0.1 |
-+------------------+------+-------------+------+-----------------------+
-| 1.1.3.0/24       | 2    | 1001        |      | if_101_1001 127.0.0.1 |
-+------------------+------+-------------+------+-----------------------+
-| 1.1.4.0/24       | 2    | 1001        |      | if_101_1001 127.0.0.1 |
-+------------------+------+-------------+------+-----------------------+
-| 1.2.1.0/24       | 2    | 1002        |      | if_101_1002 127.0.0.1 |
-+------------------+------+-------------+------+-----------------------+
-| 1.2.2.0/24       | 2    | 1002        |      | if_101_1002 127.0.0.1 |
-+------------------+------+-------------+------+-----------------------+
-| 1.2.3.0/24       | 2    | 1002        |      | if_101_1002 127.0.0.1 |
-+------------------+------+-------------+------+-----------------------+
-| 1.2.4.0/24       | 2    | 1002        |      | if_101_1002 127.0.0.1 |
-+------------------+------+-------------+------+-----------------------+
-| 99.99.99.0/24    | 2    | 1001        | 9992 | if_101_1001 127.0.0.1 |
-|                  |      | 1002        | 9991 | if_101_1002 127.0.0.1 |
-+------------------+------+-------------+------+-----------------------+
++------------------+------+-------------+------+------------------------+----------------------------------+
+| Destination      | Cost | Predecessor | Tags | IPv4 Next-hops         | IPv6 Next-hops                   |
+|                  |      | System IDs  |      |                        |                                  |
++------------------+------+-------------+------+------------------------+----------------------------------+
+| 101 (agg_101)    | 0    |             |      |                        |                                  |
++------------------+------+-------------+------+------------------------+----------------------------------+
+| 1001 (edge_1001) | 1    | 101         |      | if_101_1001 172.17.0.3 | if_101_1001 fe80::42:acff:fe11:3 |
++------------------+------+-------------+------+------------------------+----------------------------------+
+| 1002 (edge_1002) | 1    | 101         |      | if_101_1002 172.17.0.3 | if_101_1002 fe80::42:acff:fe11:3 |
++------------------+------+-------------+------+------------------------+----------------------------------+
+| 1.1.1.0/24       | 2    | 1001        |      | if_101_1001 172.17.0.3 | if_101_1001 fe80::42:acff:fe11:3 |
++------------------+------+-------------+------+------------------------+----------------------------------+
+.                  .      .             .      .                        .                                  .
+.                  .      .             .      .                        .                                  .
++------------------+------+-------------+------+------------------------+----------------------------------+
+| 99.99.99.0/24    | 2    | 1001        | 9992 | if_101_1001 172.17.0.3 | if_101_1001 fe80::42:acff:fe11:3 |
+|                  |      | 1002        | 9991 | if_101_1002 172.17.0.3 | if_101_1002 fe80::42:acff:fe11:3 |
++------------------+------+-------------+------+------------------------+----------------------------------+
 
 North SPF Destinations:
-+---------------+------+-------------+------+--------------------+
-| Destination   | Cost | Predecessor | Tags | Next-hops          |
-|               |      | System IDs  |      |                    |
-+---------------+------+-------------+------+--------------------+
-| 1 (core_1)    | 1    | 101         |      | if_101_1 127.0.0.1 |
-+---------------+------+-------------+------+--------------------+
-| 2 (core_2)    | 1    | 101         |      | if_101_2 127.0.0.1 |
-+---------------+------+-------------+------+--------------------+
-| 101 (agg_101) | 0    |             |      |                    |
-+---------------+------+-------------+------+--------------------+
-| 0.0.0.0/0     | 2    | 1           |      | if_101_1 127.0.0.1 |
-|               |      | 2           |      | if_101_2 127.0.0.1 |
-+---------------+------+-------------+------+--------------------+
-| ::/0          | 2    | 1           |      | if_101_1 127.0.0.1 |
-|               |      | 2           |      | if_101_2 127.0.0.1 |
-+---------------+------+-------------+------+--------------------+
++---------------+------+-------------+------+---------------------+-------------------------------+
+| Destination   | Cost | Predecessor | Tags | IPv4 Next-hops      | IPv6 Next-hops                |
+|               |      | System IDs  |      |                     |                               |
++---------------+------+-------------+------+---------------------+-------------------------------+
+| 1 (core_1)    | 1    | 101         |      | if_101_1 172.17.0.3 | if_101_1 fe80::42:acff:fe11:3 |
++---------------+------+-------------+------+---------------------+-------------------------------+
+| 101 (agg_101) | 0    |             |      |                     |                               |
++---------------+------+-------------+------+---------------------+-------------------------------+
+| 0.0.0.0/0     | 2    | 1           |      | if_101_1 172.17.0.3 | if_101_1 fe80::42:acff:fe11:3 |
++---------------+------+-------------+------+---------------------+-------------------------------+
+| ::/0          | 2    | 1           |      | if_101_1 172.17.0.3 | if_101_1 fe80::42:acff:fe11:3 |
++---------------+------+-------------+------+---------------------+-------------------------------+
 </pre>
+<!-- OUTPUT-END -->
 
 ### show spf direction <i>direction</i>
 
@@ -1211,26 +1706,24 @@ Parameter <i>direction</i> must be <b>south</b> or <b>north</b>
 
 Example:
 
+<!-- OUTPUT-START: agg_101> show spf direction north -->
 <pre>
 agg_101> <b>show spf direction north</b>
 North SPF Destinations:
-+---------------+------+-------------+------+--------------------+
-| Destination   | Cost | Predecessor | Tags | Next-hops          |
-|               |      | System IDs  |      |                    |
-+---------------+------+-------------+------+--------------------+
-| 1 (core_1)    | 1    | 101         |      | if_101_1 127.0.0.1 |
-+---------------+------+-------------+------+--------------------+
-| 2 (core_2)    | 1    | 101         |      | if_101_2 127.0.0.1 |
-+---------------+------+-------------+------+--------------------+
-| 101 (agg_101) | 0    |             |      |                    |
-+---------------+------+-------------+------+--------------------+
-| 0.0.0.0/0     | 2    | 1           |      | if_101_1 127.0.0.1 |
-|               |      | 2           |      | if_101_2 127.0.0.1 |
-+---------------+------+-------------+------+--------------------+
-| ::/0          | 2    | 1           |      | if_101_1 127.0.0.1 |
-|               |      | 2           |      | if_101_2 127.0.0.1 |
-+---------------+------+-------------+------+--------------------+
++---------------+------+-------------+------+---------------------+-------------------------------+
+| Destination   | Cost | Predecessor | Tags | IPv4 Next-hops      | IPv6 Next-hops                |
+|               |      | System IDs  |      |                     |                               |
++---------------+------+-------------+------+---------------------+-------------------------------+
+| 1 (core_1)    | 1    | 101         |      | if_101_1 172.17.0.3 | if_101_1 fe80::42:acff:fe11:3 |
++---------------+------+-------------+------+---------------------+-------------------------------+
+| 101 (agg_101) | 0    |             |      |                     |                               |
++---------------+------+-------------+------+---------------------+-------------------------------+
+| 0.0.0.0/0     | 2    | 1           |      | if_101_1 172.17.0.3 | if_101_1 fe80::42:acff:fe11:3 |
++---------------+------+-------------+------+---------------------+-------------------------------+
+| ::/0          | 2    | 1           |      | if_101_1 172.17.0.3 | if_101_1 fe80::42:acff:fe11:3 |
++---------------+------+-------------+------+---------------------+-------------------------------+
 </pre>
+<!-- OUTPUT-END -->
 
 ### show spf direction <i>direction</i> destination <i>destination</i>
 
@@ -1247,23 +1740,26 @@ Parameter <i>destination</i> must be one of the following:
 
 Example:
 
+<!-- OUTPUT-START: agg_101> show spf direction north destination ::/0 -->
 <pre>
 agg_101> <b>show spf direction north destination ::/0</b>
-+-------------+------+-------------+------+--------------------+
-| Destination | Cost | Predecessor | Tags | Next-hops          |
-|             |      | System IDs  |      |                    |
-+-------------+------+-------------+------+--------------------+
-| ::/0        | 2    | 1           |      | if_101_1 127.0.0.1 |
-|             |      | 2           |      | if_101_2 127.0.0.1 |
-+-------------+------+-------------+------+--------------------+
++-------------+------+-------------+------+---------------------+-------------------------------+
+| Destination | Cost | Predecessor | Tags | IPv4 Next-hops      | IPv6 Next-hops                |
+|             |      | System IDs  |      |                     |                               |
++-------------+------+-------------+------+---------------------+-------------------------------+
+| ::/0        | 2    | 1           |      | if_101_1 172.17.0.3 | if_101_1 fe80::42:acff:fe11:3 |
++-------------+------+-------------+------+---------------------+-------------------------------+
 </pre>
+<!-- OUTPUT-END -->
 
 Example:
 
+<!-- OUTPUT-START: agg_101> show spf direction north destination 5 -->
 <pre>
 agg_101> <b>show spf direction north destination 5</b>
 Destination 5 not present
 </pre>
+<!-- OUTPUT-END -->
 
 ### show tie-db
 
@@ -1273,12 +1769,13 @@ Note: the TIE-DB is also known as the Link-State Database (LSDB)
 
 Example:
 
+<!-- OUTPUT-START: agg_101> show tie-db -->
 <pre>
-agg_101> show tie-db
+agg_101> <b>show tie-db</b>
 +-----------+------------+--------+--------+--------+----------+-----------------------+
 | Direction | Originator | Type   | TIE Nr | Seq Nr | Lifetime | Contents              |
 +-----------+------------+--------+--------+--------+----------+-----------------------+
-| South     | 1          | Node   | 1      | 5      | 603378   | Name: core_1          |
+| South     | 1          | Node   | 1      | 5      | 604787   | Name: core_1          |
 |           |            |        |        |        |          | Level: 2              |
 |           |            |        |        |        |          | Neighbor: 101         |
 |           |            |        |        |        |          |   Level: 1            |
@@ -1301,16 +1798,38 @@ agg_101> show tie-db
 |           |            |        |        |        |          |   Bandwidth: 100 Mbps |
 |           |            |        |        |        |          |   Link: 4-1           |
 +-----------+------------+--------+--------+--------+----------+-----------------------+
-| South     | 1          | Prefix | 1      | 1      | 603378   | Prefix: 0.0.0.0/0     |
+| South     | 1          | Prefix | 1      | 1      | 604787   | Prefix: 0.0.0.0/0     |
+|           |            |        |        |        |          |   Metric: 1           |
+|           |            |        |        |        |          | Prefix: ::/0          |
+|           |            |        |        |        |          |   Metric: 1           |
++-----------+------------+--------+--------+--------+----------+-----------------------+
+| South     | 101        | Node   | 1      | 4      | 604787   | Name: agg_101         |
+|           |            |        |        |        |          | Level: 1              |
+|           |            |        |        |        |          | Neighbor: 1           |
+|           |            |        |        |        |          |   Level: 2            |
+|           |            |        |        |        |          |   Cost: 1             |
+|           |            |        |        |        |          |   Bandwidth: 100 Mbps |
+|           |            |        |        |        |          |   Link: 1-1           |
+|           |            |        |        |        |          | Neighbor: 1001        |
+|           |            |        |        |        |          |   Level: 0            |
+|           |            |        |        |        |          |   Cost: 1             |
+|           |            |        |        |        |          |   Bandwidth: 100 Mbps |
+|           |            |        |        |        |          |   Link: 3-1           |
+|           |            |        |        |        |          | Neighbor: 1002        |
+|           |            |        |        |        |          |   Level: 0            |
+|           |            |        |        |        |          |   Cost: 1             |
+|           |            |        |        |        |          |   Bandwidth: 100 Mbps |
+|           |            |        |        |        |          |   Link: 4-1           |
++-----------+------------+--------+--------+--------+----------+-----------------------+
+| South     | 101        | Prefix | 1      | 1      | 604787   | Prefix: 0.0.0.0/0     |
 |           |            |        |        |        |          |   Metric: 1           |
 |           |            |        |        |        |          | Prefix: ::/0          |
 |           |            |        |        |        |          |   Metric: 1           |
 +-----------+------------+--------+--------+--------+----------+-----------------------+
 .           .            .        .        .        .          .                       .
 .           .            .        .        .        .          .                       .
-.           .            .        .        .        .          .                       .
 +-----------+------------+--------+--------+--------+----------+-----------------------+
-| North     | 1002       | Prefix | 1      | 1      | 603378   | Prefix: 1.2.1.0/24    |
+| North     | 1002       | Prefix | 1      | 1      | 604787   | Prefix: 1.2.1.0/24    |
 |           |            |        |        |        |          |   Metric: 1           |
 |           |            |        |        |        |          | Prefix: 1.2.2.0/24    |
 |           |            |        |        |        |          |   Metric: 1           |
@@ -1323,6 +1842,7 @@ agg_101> show tie-db
 |           |            |        |        |        |          |   Tag: 9992           |
 +-----------+------------+--------+--------+--------+----------+-----------------------+
 </pre>
+<!-- OUTPUT-END -->
 
 ### stop
 
@@ -1338,6 +1858,7 @@ Example:
 Command Line Interface (CLI) available on port 50102
 </pre>
 
+<!-- OUTPUT-MANUAL: agg_101> stop -->
 <pre>
 $ telnet localhost 50102
 Trying 127.0.0.1...

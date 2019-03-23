@@ -52,7 +52,7 @@ class Kernel:
             return False
         if self._table_nr == -1:
             return False
-        dst = str(rte.prefix)
+        dst = packet_common.ip_prefix_str(rte.prefix)
         if rte.next_hops == []:
             kernel_args = {}
         elif len(rte.next_hops) == 1:
@@ -91,7 +91,7 @@ class Kernel:
             return False
         if self._table_nr == -1:
             return False
-        dst = str(prefix)
+        dst = packet_common.ip_prefix_str(prefix)
         try:
             self.ipr.route('del', table=self._table_nr, dst=dst, proto=RTPROT_RIFT)
         except pyroute2.netlink.exceptions.NetlinkError as err:
@@ -415,11 +415,12 @@ class Kernel:
         cli_session.print(tab.to_string())
 
     def cli_route_prefix_table(self, table_nr, prefix):
+        prefix_str = packet_common.ip_prefix_str(prefix)
         route = None
         for rte in self.ipr.get_routes():
             route_table_nr = rte.get_attr('RTA_TABLE')
             dst_prefix_str = self.kernel_route_dst_prefix_str(rte)
-            if (table_nr == route_table_nr) and (dst_prefix_str == str(prefix)):
+            if (table_nr == route_table_nr) and (dst_prefix_str == prefix_str):
                 route = rte
                 break
         if route is None:
@@ -433,7 +434,7 @@ class Kernel:
             next_hops_cell.append(next_hop_str)
         tab.add_row(["Table", self.table_nr_to_name(table_nr)])
         tab.add_row(["Address Family", self.af_str(self.af_str(route["family"]))])
-        tab.add_row(["Destination", str(prefix)])
+        tab.add_row(["Destination", prefix_str])
         tab.add_row(["Type", self.route_type_str(route["type"])])
         tab.add_row(["Protocol", self.proto_str(route["proto"])])
         tab.add_row(["Scope", self.scope_str(route["scope"])])

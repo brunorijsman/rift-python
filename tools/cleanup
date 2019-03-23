@@ -17,3 +17,4 @@ rm -f rift_telnet_expect.log
 rm -f log_expect.log
 rm -rf htmlcov
 rm -rf interop-results-*
+rm -rf *.md.bak

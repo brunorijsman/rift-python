@@ -169,7 +169,7 @@ class LogExpectSession:
     def check_lie_fsm_3way(self, node, interface):
         # Check that an adjacency comes up to the 3-way between a pair of nodes where both nodes
         # have a hard-configured level.
-        target_id = node + "-" + interface
+        target_id = node + ":" + interface
         self.open()
         self.fsm_expect(
             target_id=target_id,
@@ -220,7 +220,7 @@ class LogExpectSession:
         # - one node is undefined and the other is leaf
         # We look for the first UNACCEPTABLE_HEADER and then look for 2 more to make sure it is not
         # transient.
-        target_id = node + "-" + interface
+        target_id = node + ":" + interface
         self.open()
         self.fsm_find(
             target_id=target_id,
@@ -247,7 +247,7 @@ class LogExpectSession:
         # This is assuming that one node or both nodes start out with level undefined, and that
         # ZTP is used to eventually negotiate a level for one or both nodes.
         # See also comments in check_lie_fsm_3way to understand some of the finer timing gotchas
-        target_id = node + "-" + interface
+        target_id = node + ":" + interface
         self.open()
         self.fsm_expect(
             target_id=target_id,
@@ -292,7 +292,7 @@ class LogExpectSession:
     def check_lie_fsm_timeout_to_1way(self, node, interface, failure_command):
         # Check that after an interface fails, the adjacency times out and transitions from
         # 3-way to 1-way.
-        target_id = node + "-" + interface
+        target_id = node + ":" + interface
         self.open()
         self.skip_to_cli_command(failure_command)
         self.fsm_expect(

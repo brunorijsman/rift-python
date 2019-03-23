@@ -24,6 +24,7 @@ import packet_common
 import rib
 import route
 import spf_dest
+import stats
 import table
 import timer
 import utils
@@ -69,6 +70,12 @@ def compare_tie_header_age(header1, header2):
     # TODO: Figure out what to do with origination_time
     # If we get this far, we have a tie (same age)
     return 0
+
+class TIEMeta:
+
+    def __init__(self, tie_packet, rx_intf):
+        self.tie_packet = tie_packet
+        self.rx_intf = rx_intf              # None for self originated TIEs
 
 class Node:
 
@@ -372,7 +379,7 @@ class Node:
 
     def __init__(self, config, engine=None, force_passive=False, stand_alone=False):
         # pylint:disable=too-many-statements
-        # pylint: disable=too-many-statements
+        # pylint: disable=too-many-locals
         self.engine = engine
         self._config = config
         self._node_nr = Node._next_node_nr
@@ -446,6 +453,17 @@ class Node:
         self._highest_available_level = None
         self.highest_adjacency_three_way = None
         self._holdtime = 1
+        if self.engine:
+            node_ztp_fsm_stats_sum_group = self.engine.node_ztp_fsm_stats_group
+            intf_traffic_stats_sum_group = self.engine.intf_traffic_stats_group
+            intf_lie_fsm_stats_sum_group = self.engine.intf_lie_fsm_stats_group
+        else:
+            node_ztp_fsm_stats_sum_group = None
+            intf_traffic_stats_sum_group = None
+            intf_lie_fsm_stats_sum_group = None
+        self.node_ztp_fsm_stats_group = stats.Group(node_ztp_fsm_stats_sum_group)
+        self.intf_traffic_stats_group = stats.Group(intf_traffic_stats_sum_group)
+        self.intf_lie_fsm_stats_group = stats.Group(intf_lie_fsm_stats_sum_group)
         self._next_interface_id = 1
         if 'interfaces' in config:
             for interface_config in self._config['interfaces']:
@@ -453,12 +471,12 @@ class Node:
         self.my_node_tie_seq_nrs = {}
         self.my_node_tie_seq_nrs[common.ttypes.TieDirectionType.South] = 0
         self.my_node_tie_seq_nrs[common.ttypes.TieDirectionType.North] = 0
-        self.my_node_ties = {}                   # Indexed by neighbor direction
-        self.other_node_ties_at_my_level = {}    # Indexed by tie_id
-        self._my_north__tie = None
+        self.my_node_tie_metas = {}              # Indexed by neighbor direction
+        self.other_node_tie_metas_my_level = {}  # Indexed by tie_id
         self._originating_default = False
-        self._my_south_prefix_tie = None
-        self.ties = sortedcontainers.SortedDict()  # TIEPacket objects indexed by TIEID
+        self._my_south_prefix_tie_meta = None
+        self._my_north_prefix_tie_meta = None
+        self.tie_metas = sortedcontainers.SortedDict()  # TIEMeta objects indexed by TIEID
         self._last_received_tide_end = self.MIN_TIE_ID
         self._defer_spf_timer = None
         self._spf_triggers_count = 0
@@ -502,7 +520,8 @@ class Node:
             definition=self.fsm_definition,
             action_handler=self,
             log=self._fsm_log,
-            log_id=self.log_id)
+            log_id=self.log_id,
+            sum_stats_group=self.node_ztp_fsm_stats_group)
         self._hold_down_timer = timer.Timer(
             interval=self.DEFAULT_HOLD_DOWN_TIME,
             expire_function=lambda: self.fsm.push_event(self.Event.HOLD_DOWN_EXPIRED),
@@ -708,20 +727,21 @@ class Node:
         self._next_interface_id += 1
         return interface_id
 
-    # TODO: Need to re-evaluate other_node_ties_at_my_level when the level of this node changes
-    # TODO: Have a show comman to report other_node_ties_at_my_level
+    # TODO: Need to re-evaluate other_node_tie_metas_my_level when the level of this node changes
+    # TODO: Have a show comman to report other_node_tie_metas_my_level
 
-    def store_tie_in_db(self, tie):
-        self.store_tie(tie)
-        if ((tie.header.tieid.tietype == common.ttypes.TIETypeType.NodeTIEType) and
-                (tie.element.node.level == self.level_value())):
-            self.other_node_ties_at_my_level[tie.header.tieid] = tie
+    def store_tie_in_db(self, tie_meta):
+        self.store_tie_meta(tie_meta)
+        tie_packet = tie_meta.tie_packet
+        if ((tie_packet.header.tieid.tietype == common.ttypes.TIETypeType.NodeTIEType) and
+                (tie_packet.element.node.level == self.level_value())):
+            self.other_node_tie_metas_my_level[tie_packet.header.tieid] = tie_meta
             self.regenerate_my_south_prefix_tie()
 
     def remove_tie_from_db(self, tie_id):
         self.remove_tie(tie_id)
-        if tie_id in self.other_node_ties_at_my_level:
-            del self.other_node_ties_at_my_level[tie_id]
+        if tie_id in self.other_node_tie_metas_my_level:
+            del self.other_node_tie_metas_my_level[tie_id]
             self.regenerate_my_south_prefix_tie()
 
     def up_interfaces(self, interface_going_down):
@@ -762,8 +782,9 @@ class Node:
                 link_ids=link_ids,
                 bandwidth=100)  # TODO: Take this from config file or interface
             node_tie_packet.element.node.neighbors[intf.neighbor.system_id] = node_neighbor
-        self.my_node_ties[direction] = node_tie_packet
-        self.store_tie_in_db(node_tie_packet)
+        node_tie_meta = TIEMeta(node_tie_packet, rx_intf=None)
+        self.my_node_tie_metas[direction] = node_tie_meta
+        self.store_tie_in_db(node_tie_meta)
         self.info("Regenerated node TIE for direction %s: %s",
                   packet_common.direction_str(direction), node_tie_packet)
 
@@ -775,29 +796,36 @@ class Node:
     def regenerate_my_north_prefix_tie(self):
         config = self._config
         if ('v4prefixes' in config) or ('v6prefixes' in config):
-            self._my_north_prefix_tie = packet_common.make_prefix_tie_packet(
+            tie_packet = packet_common.make_prefix_tie_packet(
                 direction=common.ttypes.TieDirectionType.North,
                 originator=self.system_id,
                 tie_nr=MY_TIE_NR,
                 seq_nr=1,
                 lifetime=common.constants.default_lifetime)
+            self._my_north_prefix_tie_meta = TIEMeta(tie_packet, rx_intf=None)
         else:
-            self._my_north_prefix_tie = None
+            self._my_north_prefix_tie_meta = None
         if 'v4prefixes' in config:
             for v4prefix in config['v4prefixes']:
                 prefix_str = v4prefix['address'] + "/" + str(v4prefix['mask'])
                 metric = v4prefix['metric']
                 tags = set(v4prefix.get('tags', []))
-                packet_common.add_ipv4_prefix_to_prefix_tie(self._my_north_prefix_tie, prefix_str,
-                                                            metric, tags)
+                packet_common.add_ipv4_prefix_to_prefix_tie(
+                    self._my_north_prefix_tie_meta.tie_packet,
+                    prefix_str,
+                    metric,
+                    tags)
         if 'v6prefixes' in config:
             for v6prefix in config['v6prefixes']:
                 prefix_str = v6prefix['address'] + "/" + str(v6prefix['mask'])
                 metric = v6prefix['metric']
                 tags = set(v6prefix.get('tags', []))
-                packet_common.add_ipv6_prefix_to_prefix_tie(self._my_north_prefix_tie, prefix_str,
-                                                            metric, tags)
-        if self._my_north_prefix_tie is None:
+                packet_common.add_ipv6_prefix_to_prefix_tie(
+                    self._my_north_prefix_tie_meta.tie_packet,
+                    prefix_str,
+                    metric,
+                    tags)
+        if self._my_north_prefix_tie_meta is None:
             tie_id = packet_common.make_tie_id(
                 direction=common.ttypes.TieDirectionType.North,
                 originator=self.system_id,
@@ -805,8 +833,9 @@ class Node:
                 tie_nr=MY_TIE_NR)
             self.remove_tie_from_db(tie_id)
         else:
-            self.store_tie_in_db(self._my_north_prefix_tie)
-            self.info("Regenerated north prefix TIE: %s", self._my_north_prefix_tie)
+            self.store_tie_in_db(self._my_north_prefix_tie_meta)
+            self.info("Regenerated north prefix TIE: %s",
+                      self._my_north_prefix_tie_meta.tie_packet)
 
     def is_overloaded(self):
         # Is this node overloaded?
@@ -825,22 +854,22 @@ class Node:
 
     def other_nodes_are_overloaded(self):
         # Are all the other nodes at my level overloaded?
-        if not self.other_node_ties_at_my_level:
+        if not self.other_node_tie_metas_my_level:
             # There are no other nodes at my level
             return False
-        for node_tie in self.other_node_ties_at_my_level.values():
-            flags = node_tie.element.node.flags
+        for node_tie_meta in self.other_node_tie_metas_my_level.values():
+            flags = node_tie_meta.tie_packet.element.node.flags
             if (flags is not None) and (not flags.overload):
                 return False
         return True
 
     def other_nodes_have_no_n_adjacency(self):
         # Do all the other nodes at my level have NO north-bound adjacencies?
-        if not self.other_node_ties_at_my_level:
+        if not self.other_node_tie_metas_my_level:
             # There are no other nodes at my level
             return False
-        for node_tie in self.other_node_ties_at_my_level.values():
-            for check_neighbor in node_tie.element.node.neighbors.values():
+        for node_tie_meta in self.other_node_tie_metas_my_level.values():
+            for check_neighbor in node_tie_meta.tie_packet.element.node.neighbors.values():
                 if check_neighbor.level > self.level_value():
                     return False
         return True
@@ -866,43 +895,47 @@ class Node:
         # If we don't want to originate a default now, and we never originated one in the past, then
         # we don't create a prefix TIE at all. But if we have ever originated one in the past, then
         # we have to flush it by originating an empty prefix TIE.
-        if (not must_originate_default) and (self._my_south_prefix_tie is None):
-            self.info("Don't originate south prefix TIE because %s: %s", reason,
-                      self._my_south_prefix_tie)
+        if (not must_originate_default) and (self._my_south_prefix_tie_meta is None):
+            self.info("Don't originate south prefix TIE because: %s", reason)
             return
         if ((must_originate_default != self._originating_default) or
-                (self._my_south_prefix_tie is None)):
+                (self._my_south_prefix_tie_meta is None)):
             self._originating_default = must_originate_default
-            if self._my_south_prefix_tie is None:
+            if self._my_south_prefix_tie_meta is None:
                 next_seq_nr = 1
             else:
-                next_seq_nr = self._my_south_prefix_tie.header.seq_nr + 1
-            self._my_south_prefix_tie = packet_common.make_prefix_tie_packet(
+                next_seq_nr = self._my_south_prefix_tie_meta.tie_packet.header.seq_nr + 1
+            tie_packet = packet_common.make_prefix_tie_packet(
                 direction=common.ttypes.TieDirectionType.South,
                 originator=self.system_id,
                 tie_nr=MY_TIE_NR,
                 seq_nr=next_seq_nr,
                 lifetime=common.constants.default_lifetime)
+            self._my_south_prefix_tie_meta = TIEMeta(tie_packet, rx_intf=None)
             if must_originate_default:
                 # The specification does not mention what metric the default route should be
                 # originated with. Juniper originates with metric 1, so that is what I will do as
                 # well.
                 metric = 1
-                packet_common.add_ipv4_prefix_to_prefix_tie(self._my_south_prefix_tie,
-                                                            "0.0.0.0/0", metric)
-                packet_common.add_ipv6_prefix_to_prefix_tie(self._my_south_prefix_tie,
-                                                            "::0/0", metric)
-            self.store_tie_in_db(self._my_south_prefix_tie)
+                packet_common.add_ipv4_prefix_to_prefix_tie(
+                    self._my_south_prefix_tie_meta.tie_packet,
+                    "0.0.0.0/0",
+                    metric)
+                packet_common.add_ipv6_prefix_to_prefix_tie(
+                    self._my_south_prefix_tie_meta.tie_packet,
+                    "::0/0",
+                    metric)
+            self.store_tie_in_db(self._my_south_prefix_tie_meta)
             self.info("Regenerated south prefix TIE because %s: %s", reason,
-                      self._my_south_prefix_tie)
+                      self._my_south_prefix_tie_meta.tie_packet)
 
     def clear_all_generated_node_ties(self):
         for direction in [common.ttypes.TieDirectionType.South,
                           common.ttypes.TieDirectionType.North]:
-            node_tie = self.my_node_ties[direction]
-            if node_tie is not None:
-                self.remove_tie_from_db(node_tie.header)
-                self.my_node_ties[direction] = None
+            node_tie_meta = self.my_node_tie_metas[direction]
+            if node_tie_meta is not None:
+                self.remove_tie_from_db(node_tie_meta.tie_packet.header)
+                self.my_node_tie_metas[direction] = None
 
     def send_tides(self):
         # The current implementation prepares, encodes, and sends a unique TIDE packet for each
@@ -970,6 +1003,19 @@ class Node:
                 self._configured_level_symbol,
                 '?']
 
+    def command_clear_intf_stats(self, cli_session, parameters):
+        interface_name = parameters['interface']
+        if not interface_name in self.interfaces_by_name:
+            cli_session.print("Error: interface {} not present".format(interface_name))
+            return
+        intf = self.interfaces_by_name[interface_name]
+        intf.clear_stats()
+
+    def command_clear_node_stats(self, _cli_session):
+        self.node_ztp_fsm_stats_group.clear()
+        self.intf_traffic_stats_group.clear()
+        self.intf_lie_fsm_stats_group.clear()
+
     def command_show_intf_fsm_hist(self, cli_session, parameters, verbose):
         interface_name = parameters['interface']
         if not interface_name in self.interfaces_by_name:
@@ -1005,6 +1051,19 @@ class Node:
             return
         intf = self.interfaces_by_name[interface_name]
         tab = intf.sockets_table()
+        cli_session.print(tab.to_string())
+
+    def command_show_intf_stats(self, cli_session, parameters, exclude_zero):
+        interface_name = parameters['interface']
+        if not interface_name in self.interfaces_by_name:
+            cli_session.print("Error: interface {} not present".format(interface_name))
+            return
+        intf = self.interfaces_by_name[interface_name]
+        cli_session.print("Traffic:")
+        tab = intf.traffic_stats_table(exclude_zero)
+        cli_session.print(tab.to_string())
+        cli_session.print("LIE FSM:")
+        tab = intf.lie_fsm_stats_table(exclude_zero)
         cli_session.print(tab.to_string())
 
     def command_show_interface(self, cli_session, parameters):
@@ -1073,7 +1132,7 @@ class Node:
             return
         self.kernel.command_show_routes(cli_session, table_nr)
 
-    def command_show_kernel_route_pref(self, cli_session, parameters):
+    def command_show_kernel_routes_pref(self, cli_session, parameters):
         table_nr = self.get_table_param(cli_session, parameters)
         prefix = self.get_prefix_param(cli_session, parameters)
         if (table_nr is None) or (prefix is None):
@@ -1100,6 +1159,17 @@ class Node:
 
     def command_show_node_fsm_history(self, cli_session, verbose):
         tab = self.fsm.history_table(verbose)
+        cli_session.print(tab.to_string())
+
+    def command_show_node_stats(self, cli_session, exclude_zero):
+        cli_session.print("Node ZTP FSM:")
+        tab = self.node_ztp_fsm_stats_group.table(exclude_zero, sort_by_description=True)
+        cli_session.print(tab.to_string())
+        cli_session.print("Node Interfaces Traffic:")
+        tab = self.intf_traffic_stats_group.table(exclude_zero)
+        cli_session.print(tab.to_string())
+        cli_session.print("Node Interface LIE FSMs:")
+        tab = self.intf_lie_fsm_stats_group.table(exclude_zero, sort_by_description=True)
         cli_session.print(tab.to_string())
 
     @staticmethod
@@ -1145,7 +1215,7 @@ class Node:
                               format(prefix, constants.owner_str(owner)))
         else:
             tab = table.Table()
-            tab.add_row(rte.Route.cli_summary_headers())
+            tab.add_row(route.Route.cli_summary_headers())
             tab.add_row(rte.cli_summary_attributes())
             cli_session.print(tab.to_string())
 
@@ -1382,38 +1452,43 @@ class Node:
         # If we get here, nothing of relevance to SPF changed
         return False
 
-    def store_tie(self, tie_packet):
+    def store_tie_packet(self, tie_packet, rx_intf=None):
+        tie_meta = TIEMeta(tie_packet, rx_intf)
+        self.store_tie_meta(tie_meta)
+
+    def store_tie_meta(self, tie_meta):
+        tie_packet = tie_meta.tie_packet
         tie_id = tie_packet.header.tieid
-        if tie_id in self.ties:
-            old_tie_packet = self.ties[tie_id]
+        if tie_id in self.tie_metas:
+            old_tie_packet = self.tie_metas[tie_id].tie_packet
             trigger_spf = self.ties_differ_enough_for_spf(old_tie_packet, tie_packet)
             if trigger_spf:
                 reason = "TIE " + packet_common.tie_id_str(tie_id) + " changed"
         else:
             trigger_spf = True
             reason = "TIE " + packet_common.tie_id_str(tie_id) + " added"
-        self.ties[tie_id] = tie_packet
+        self.tie_metas[tie_id] = tie_meta
         if trigger_spf:
             self.trigger_spf(reason)
 
     def remove_tie(self, tie_id):
         # It is not an error to attempt to delete a TIE which is not in the database
-        if tie_id in self.ties:
-            del self.ties[tie_id]
+        if tie_id in self.tie_metas:
+            del self.tie_metas[tie_id]
             reason = "TIE " + packet_common.tie_id_str(tie_id) + " removed"
             self.trigger_spf(reason)
 
-    def find_tie(self, tie_id):
+    def find_tie_meta(self, tie_id):
         # Returns None if tie_id is not in database
-        return self.ties.get(tie_id)
+        return self.tie_metas.get(tie_id)
 
     def start_sending_db_ties_in_range(self, start_sending_tie_headers, start_id, start_incl,
                                        end_id, end_incl):
-        db_ties = self.ties.irange(start_id, end_id, (start_incl, end_incl))
-        for db_tie_id in db_ties:
-            db_tie = self.ties[db_tie_id]
+        db_tie_ids = self.tie_metas.irange(start_id, end_id, (start_incl, end_incl))
+        for db_tie_id in db_tie_ids:
+            db_tie_meta = self.tie_metas[db_tie_id]
             # TODO: Make sure that lifetime is decreased by at least one before propagating
-            start_sending_tie_headers.append(db_tie.header)
+            start_sending_tie_headers.append(db_tie_meta.tie_packet.header)
 
     def process_received_tide_packet(self, tide_packet):
         request_tie_headers = []
@@ -1450,11 +1525,11 @@ class Node:
             last_processed_tie_id = header_in_tide.tieid
             minimum_inclusive = False
             # Process all tie_ids in the TIDE
-            db_tie = self.find_tie(header_in_tide.tieid)
-            if db_tie is None:
+            db_tie_meta = self.find_tie_meta(header_in_tide.tieid)
+            if db_tie_meta is None:
                 if header_in_tide.tieid.originator == self.system_id:
                     # Self-originate an empty TIE with a higher sequence number.
-                    bumped_own_tie_header = self.bump_own_tie(db_tie, header_in_tide)
+                    bumped_own_tie_header = self.bump_own_tie(db_tie_meta, header_in_tide)
                     start_sending_tie_headers.append(bumped_own_tie_header)
                 else:
                     # We don't have the TIE, request it
@@ -1467,21 +1542,22 @@ class Node:
                     request_header.origination_time = None
                     request_tie_headers.append(request_header)
             else:
-                comparison = compare_tie_header_age(db_tie.header, header_in_tide)
+                db_tie_packet = db_tie_meta.tie_packet
+                comparison = compare_tie_header_age(db_tie_packet.header, header_in_tide)
                 if comparison < 0:
                     if header_in_tide.tieid.originator == self.system_id:
                         # Re-originate DB TIE with higher sequence number than the one in TIDE
-                        bumped_own_tie_header = self.bump_own_tie(db_tie, header_in_tide)
+                        bumped_own_tie_header = self.bump_own_tie(db_tie_meta, header_in_tide)
                         start_sending_tie_headers.append(bumped_own_tie_header)
                     else:
                         # We have an older version of the TIE, request the newer version
                         request_tie_headers.append(header_in_tide)
                 elif comparison > 0:
                     # We have a newer version of the TIE, send it
-                    start_sending_tie_headers.append(db_tie.header)
+                    start_sending_tie_headers.append(db_tie_packet.header)
                 else:
                     # We have the same version of the TIE, if we are trying to send it, stop it
-                    stop_sending_tie_headers.append(db_tie.header)
+                    stop_sending_tie_headers.append(db_tie_packet.header)
         # End-gap processing: send TIEs that are in our TIE DB but missing in TIDE
         self.start_sending_db_ties_in_range(start_sending_tie_headers,
                                             last_processed_tie_id, minimum_inclusive,
@@ -1493,29 +1569,30 @@ class Node:
         start_sending_tie_headers = []
         acked_tie_headers = []
         for header_in_tire in tire_packet.headers:
-            db_tie = self.find_tie(header_in_tire.tieid)
-            if db_tie is not None:
-                comparison = compare_tie_header_age(db_tie.header, header_in_tire)
+            db_tie_meta = self.find_tie_meta(header_in_tire.tieid)
+            if db_tie_meta is not None:
+                db_tie_packet = db_tie_meta.tie_packet
+                comparison = compare_tie_header_age(db_tie_packet.header, header_in_tire)
                 if comparison < 0:
                     # We have an older version of the TIE, request the newer version
                     request_tie_headers.append(header_in_tire)
                 elif comparison > 0:
                     # We have a newer version of the TIE, send it
-                    start_sending_tie_headers.append(db_tie.header)
+                    start_sending_tie_headers.append(db_tie_packet.header)
                 else:
                     # We have the same version of the TIE, treat it as an ACK
-                    acked_tie_headers.append(db_tie.header)
+                    acked_tie_headers.append(db_tie_packet.header)
         return (request_tie_headers, start_sending_tie_headers, acked_tie_headers)
 
-    def find_according_real_node_tie(self, rx_tie_header):
+    def find_according_tie_meta(self, rx_tie_header):
         # We have to originate an empty node TIE for the purpose of flushing it. Use the same
         # contents as the real node TIE that we actually originated, except don't report any
         # neighbors.
         real_node_tie_id = copy.deepcopy(rx_tie_header.tieid)
         real_node_tie_id.tie_nr = MY_TIE_NR
-        real_node_tie = self.find_tie(real_node_tie_id)
-        assert real_node_tie is not None
-        return real_node_tie
+        real_node_tie_meta = self.find_tie_meta(real_node_tie_id)
+        assert real_node_tie_meta is not None
+        return real_node_tie_meta
 
     def make_according_empty_tie(self, rx_tie_header):
         new_tie_header = packet_common.make_tie_header(
@@ -1527,7 +1604,8 @@ class Node:
             FLUSH_LIFETIME)                     # Short remaining life time
         tietype = rx_tie_header.tieid.tietype
         if tietype == common.ttypes.TIETypeType.NodeTIEType:
-            real_node_tie_packet = self.find_according_real_node_tie(rx_tie_header)
+            real_node_tie_meta = self.find_according_tie_meta(rx_tie_header)
+            real_node_tie_packet = real_node_tie_meta.tie_packet
             new_element = copy.deepcopy(real_node_tie_packet.element)
             new_element.node.neighbors = {}
         elif tietype == common.ttypes.TIETypeType.PrefixTIEType:
@@ -1553,51 +1631,54 @@ class Node:
             element=new_element)
         return according_empty_tie
 
-    def bump_own_tie(self, db_tie, rx_tie_header):
-        if db_tie is None:
+    def bump_own_tie(self, db_tie_meta, rx_tie_header):
+        if db_tie_meta is None:
             # We received a TIE (rx_tie) which appears to be self-originated, but we don't have that
             # TIE in our database. Re-originate the "according" (same TIE ID) TIE, but then empty
             # (i.e. no neighbor, no prefixes, no key-values, etc.), with a higher sequence number,
             # and a short remaining life time
             according_empty_tie_packet = self.make_according_empty_tie(rx_tie_header)
-            self.store_tie(according_empty_tie_packet)
+            self.store_tie_packet(according_empty_tie_packet, rx_intf=None)
             return according_empty_tie_packet.header
         else:
             # Re-originate DB TIE with higher sequence number than the one in RX TIE
-            db_tie.header.seq_nr = rx_tie_header.seq_nr + 1
-            return db_tie.header
+            db_tie_meta.tie_packet.header.seq_nr = rx_tie_header.seq_nr + 1
+            return db_tie_meta.tie_packet.header
 
-    def process_received_tie_packet(self, rx_tie):
+    def process_received_tie_packet(self, rx_tie_meta):
         start_sending_tie_header = None
         ack_tie_header = None
-        rx_tie_header = rx_tie.header
+        rx_tie_packet = rx_tie_meta.tie_packet
+        rx_tie_header = rx_tie_packet.header
         rx_tie_id = rx_tie_header.tieid
-        db_tie = self.find_tie(rx_tie_id)
-        if db_tie is None:
+        db_tie_meta = self.find_tie_meta(rx_tie_id)
+        if db_tie_meta is None:
             if rx_tie_id.originator == self.system_id:
                 # Self-originate an empty TIE with a higher sequence number.
-                start_sending_tie_header = self.bump_own_tie(db_tie, rx_tie.header)
+                start_sending_tie_header = self.bump_own_tie(db_tie_meta, rx_tie_packet.header)
             else:
                 # We don't have this TIE in the database, store and ack it
-                self.store_tie(rx_tie)
+                self.store_tie_meta(rx_tie_meta)
                 ack_tie_header = rx_tie_header
         else:
-            comparison = compare_tie_header_age(db_tie.header, rx_tie_header)
+            comparison = compare_tie_header_age(db_tie_meta.tie_packet.header, rx_tie_header)
             if comparison < 0:
                 # We have an older version of the TIE, ...
                 if rx_tie_id.originator == self.system_id:
                     # Re-originate DB TIE with higher sequence number than the one in RX TIE
-                    start_sending_tie_header = self.bump_own_tie(db_tie, rx_tie.header)
+                    start_sending_tie_header = self.bump_own_tie(db_tie_meta, rx_tie_packet.header)
                 else:
                     # We did not originate the TIE, store the newer version and ack it
-                    self.store_tie(rx_tie)
-                    ack_tie_header = rx_tie.header
+                    self.store_tie_meta(rx_tie_meta)
+                    ack_tie_header = rx_tie_packet.header
+                    # Flood the TIE
+                    self.unsolicitied_flood_tie_meta(rx_tie_meta)
             elif comparison > 0:
                 # We have a newer version of the TIE, send it
-                start_sending_tie_header = db_tie.header
+                start_sending_tie_header = db_tie_meta.tie_packet.header
             else:
                 # We have the same version of the TIE, ACK it
-                ack_tie_header = db_tie.header
+                ack_tie_header = db_tie_meta.tie_packet.header
         return (start_sending_tie_header, ack_tie_header)
 
     def tie_is_originated_by_node(self, tie_header, node_system_id):
@@ -1610,12 +1691,12 @@ class Node:
         # the TIE in the TIE-DB. Also, this question can only be asked about Node TIEs (other TIEs
         # don't store the level of the originator in the TIEPacket)
         assert tie_header.tieid.tietype == common.ttypes.TIETypeType.NodeTIEType
-        db_tie = self.find_tie(tie_header.tieid)
-        if db_tie is None:
+        db_tie_meta = self.find_tie_meta(tie_header.tieid)
+        if db_tie_meta is None:
             # Just in case it unexpectedly not in the TIE-DB
             return None
         else:
-            return db_tie.element.node.level
+            return db_tie_meta.tie_packet.element.node.level
 
     def is_flood_allowed(self,
                          tie_header,
@@ -1749,6 +1830,41 @@ class Node:
             from_node_level=neighbor_level,
             from_node_is_top_of_fabric=neighbor_is_top_of_fabric)
 
+    def unsolicitied_flood_tie_meta(self, tie_meta):
+        # Self-originated TIEs are not subject to unsolicited flooding
+        if tie_meta.rx_intf is None:
+            return
+        flood_count = 0
+        tie_packet = tie_meta.tie_packet
+        for tx_intf in self.interfaces_by_name.values():
+            # Never flood back to interface on which TIE was received (split horizon)
+            if tx_intf == tie_meta.rx_intf:
+                continue
+            # Only flood to adjacencies that are in state 3-way
+            if tx_intf.fsm.state != tx_intf.State.THREE_WAY:
+                continue
+            # If flooding reduction is enabled, only flood to flood repeaters
+            if self.floodred_enabled:
+                if not tx_intf.floodred_nbr_is_fr:
+                    continue
+            # Only flood if allowed by flooding scope rules
+            (allowed, _reason) = self.flood_allowed_from_node_to_nbr(
+                tie_meta.tie_packet.header,
+                tx_intf.neighbor_direction(),
+                tx_intf.neighbor.system_id,
+                tx_intf.neighbor.level,
+                tx_intf.neighbor.top_of_fabric(),
+                self.system_id)
+            if not allowed:
+                continue
+            # Put the packet on the transmit queue.
+            flood_count += 1
+            tx_intf.add_tie_meta_to_ties_tx(tie_meta)
+        # Log to how many interfaces the TIE was flooded
+        if flood_count > 0:
+            self.db_debug("TIE %s received on %s flooded to %d interfaces", tie_packet.header,
+                          tie_meta.rx_intf.name, flood_count)
+
     def generate_tide_packet(self,
                              neighbor_direction,
                              neighbor_system_id,
@@ -1775,7 +1891,8 @@ class Node:
         # Look at every TIE in our database, and decide whether or not we want to include it in the
         # TIDE packet. This is a rather expensive process, which is why we want to minimize the
         # the number of times this function is run.
-        for tie_packet in self.ties.values():
+        for tie_meta in self.tie_metas.values():
+            tie_packet = tie_meta.tie_packet
             tie_header = tie_packet.header
             # The first possible reason for including a TIE header in the TIDE is to announce that
             # we have a TIE that we want to send to the neighbor. In other words the TIE in the
@@ -1835,15 +1952,17 @@ class Node:
     def tie_db_table(self):
         tab = table.Table()
         tab.add_row(self.cli_tie_db_summary_headers())
-        for tie in self.ties.values():
-            tab.add_row(self.cli_tie_db_summary_attributes(tie))
+        for tie_meta in self.tie_metas.values():
+            # TODO Pass tie_meta so that we can also report rx_intf
+            tab.add_row(self.cli_tie_db_summary_attributes(tie_meta.tie_packet))
         return tab
 
     def age_ties(self):
         expired_key_ids = []
-        for tie_id, db_tie in self.ties.items():
-            db_tie.header.remaining_lifetime -= 1
-            if db_tie.header.remaining_lifetime <= 0:
+        for tie_id, tie_meta in self.tie_metas.items():
+            tie_packet = tie_meta.tie_packet
+            tie_packet.header.remaining_lifetime -= 1
+            if tie_packet.header.remaining_lifetime <= 0:
                 expired_key_ids.append(tie_id)
         for key_id in expired_key_ids:
             # TODO: log a message
@@ -1907,10 +2026,10 @@ class Node:
         start_tie_id = packet_common.make_tie_id(direction, system_id, prefix_type, 0)
         end_tie_id = packet_common.make_tie_id(direction, system_id, prefix_type,
                                                packet_common.MAX_U32)
-        node_tie_ids = self.ties.irange(start_tie_id, end_tie_id, (True, True))
+        node_tie_ids = self.tie_metas.irange(start_tie_id, end_tie_id, (True, True))
         for node_tie_id in node_tie_ids:
-            node_tie = self.ties[node_tie_id]
-            node_ties.append(node_tie)
+            node_tie_packet = self.tie_metas[node_tie_id].tie_packet
+            node_ties.append(node_tie_packet)
         return node_ties
 
     def node_ties(self, direction, system_id):

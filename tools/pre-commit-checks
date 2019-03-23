@@ -38,4 +38,11 @@ if ! pytest --cov tests ; then
     exit 1
 fi
 
+# Check documentation for completeness
+if ! tools/update_cli_docs.py -c; then 
+    echo "*** DO NOT COMMIT ***"
+    echo "Add missing documentation"
+    exit 1
+fi
+
 echo "All good; you can commit."

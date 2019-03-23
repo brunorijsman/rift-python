@@ -4,8 +4,6 @@ import packet_common
 import route
 import table
 
-# TODO: If on Linux, and if running in stand-alone mode, program FIB routes into the kernel
-
 class ForwardingTable:
 
     def __init__(self, address_family, kernel, log, log_id):

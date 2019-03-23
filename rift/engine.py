@@ -12,6 +12,7 @@ import interface
 import netifaces
 import node
 import scheduler
+import stats
 import table
 
 # TODO: Make sure that there is always at least one node (and hence always a current node)
@@ -52,6 +53,9 @@ class Engine:
             'flooding_reduction_similarity',
             constants.DEFAULT_FLOODING_REDUCTION_SIMILARITY)
         self.floodred_system_random = random.randint(0, 0xffffffffffffffff)
+        self.intf_traffic_stats_group = stats.Group()
+        self.intf_lie_fsm_stats_group = stats.Group()
+        self.node_ztp_fsm_stats_group = stats.Group()
         self._nodes = sortedcontainers.SortedDict()
         self.create_configuration(passive_nodes)
         cli_log = logging.getLogger('cli')
@@ -141,6 +145,17 @@ class Engine:
     def run(self):
         scheduler.SCHEDULER.run()
 
+    def command_clear_engine_stats(self, _cli_session):
+        self.intf_traffic_stats_group.clear()
+        self.intf_lie_fsm_stats_group.clear()
+        self.node_ztp_fsm_stats_group.clear()
+
+    def command_clear_intf_stats(self, cli_session, parameters):
+        cli_session.current_node.command_clear_intf_stats(cli_session, parameters)
+
+    def command_clear_node_stats(self, cli_session):
+        cli_session.current_node.command_clear_node_stats(cli_session)
+
     def command_show_engine(self, cli_session):
         tab = table.Table(separators=False)
         tab.add_row(["Stand-alone", self._stand_alone])
@@ -158,6 +173,20 @@ class Engine:
         tab.add_row(["Flooding Reduction System Random", self.floodred_system_random])
         cli_session.print(tab.to_string())
 
+    def command_show_engine_stats(self, cli_session, exclude_zero=False):
+        cli_session.print("All Node ZTP FSMs:")
+        tab = self.node_ztp_fsm_stats_group.table(exclude_zero)
+        cli_session.print(tab.to_string())
+        cli_session.print("All Interfaces Traffic:")
+        tab = self.intf_traffic_stats_group.table(exclude_zero)
+        cli_session.print(tab.to_string())
+        cli_session.print("All Interface LIE FSMs:")
+        tab = self.intf_lie_fsm_stats_group.table(exclude_zero)
+        cli_session.print(tab.to_string())
+
+    def command_show_eng_stats_ex_zero(self, cli_session):
+        self.command_show_engine_stats(cli_session, True)
+
     def command_show_flooding_reduction(self, cli_session):
         cli_session.current_node.command_show_flooding_reduction(cli_session)
 
@@ -172,6 +201,12 @@ class Engine:
 
     def command_show_intf_sockets(self, cli_session, parameters):
         cli_session.current_node.command_show_intf_sockets(cli_session, parameters)
+
+    def command_show_intf_stats(self, cli_session, parameters):
+        cli_session.current_node.command_show_intf_stats(cli_session, parameters, False)
+
+    def command_show_intf_stats_ex_zero(self, cli_session, parameters):
+        cli_session.current_node.command_show_intf_stats(cli_session, parameters, True)
 
     def command_show_interface(self, cli_session, parameters):
         cli_session.current_node.command_show_interface(cli_session, parameters)
@@ -194,8 +229,8 @@ class Engine:
     def command_show_kernel_routes_tab(self, cli_session, parameters):
         cli_session.current_node.command_show_kernel_routes_tab(cli_session, parameters)
 
-    def command_show_kernel_route_pref(self, cli_session, parameters):
-        cli_session.current_node.command_show_kernel_route_pref(cli_session, parameters)
+    def command_show_kernel_routes_pref(self, cli_session, parameters):
+        cli_session.current_node.command_show_kernel_routes_pref(cli_session, parameters)
 
     def command_show_lie_fsm(self, cli_session):
         interface.Interface.fsm_definition.command_show_fsm(cli_session)
@@ -208,6 +243,12 @@ class Engine:
 
     def command_show_node_fsm_vhis(self, cli_session):
         cli_session.current_node.command_show_node_fsm_history(cli_session, True)
+
+    def command_show_node_stats(self, cli_session):
+        cli_session.current_node.command_show_node_stats(cli_session, False)
+
+    def command_show_node_stats_ex_zero(self, cli_session):
+        cli_session.current_node.command_show_node_stats(cli_session, True)
 
     def command_show_nodes(self, cli_session):
         tab = table.Table()
@@ -278,6 +319,17 @@ class Engine:
         sys.exit(0)
 
     parse_tree = {
+        "clear": {
+            "engine": {
+                "statistics": command_clear_engine_stats
+            },
+            "$interface": {
+                "statistics": command_clear_intf_stats
+            },
+            "node": {
+                "statistics": command_clear_node_stats
+            }
+        },
         "exit": command_exit,
         "set": {
             "$interface": {
@@ -287,7 +339,13 @@ class Engine:
             "$level": command_set_level,
         },
         "show": {
-            "engine":command_show_engine,
+            "engine": {
+                "": command_show_engine,
+                "statistics": {
+                    "": command_show_engine_stats,
+                    "exclude-zero": command_show_eng_stats_ex_zero
+                }
+            },
             "flooding-reduction": command_show_flooding_reduction,
             "forwarding": {
                 "": command_show_forwarding,
@@ -304,7 +362,11 @@ class Engine:
                     "verbose-history": command_show_intf_fsm_vhis,
                 },
                 "queues": command_show_intf_queues,
-                "sockets": command_show_intf_sockets
+                "sockets": command_show_intf_sockets,
+                "statistics": {
+                    "": command_show_intf_stats,
+                    "exclude-zero": command_show_intf_stats_ex_zero
+                }
             },
             "interfaces": command_show_interfaces,
             "kernel": {
@@ -314,11 +376,7 @@ class Engine:
                     "": command_show_kernel_routes,
                     "$table": {
                         "": command_show_kernel_routes_tab,
-                    },
-                },
-                "route": {
-                    "$table": {
-                        "$prefix": command_show_kernel_route_pref,
+                        "$prefix": command_show_kernel_routes_pref
                     },
                 },
             },
@@ -328,16 +386,14 @@ class Engine:
                     "history": command_show_node_fsm_nvhis,
                     "verbose-history": command_show_node_fsm_vhis,
                 },
+                "statistics": {
+                    "": command_show_node_stats,
+                    "exclude-zero": command_show_node_stats_ex_zero
+                }
             },
             "nodes": {
                 "": command_show_nodes,
                 "level": command_show_nodes_level,
-            },
-            "route": {
-                "$prefix": {
-                    "": command_show_route_prefix,
-                    "$owner": command_show_route_prefix_owner,
-                },
             },
             "routes": {
                 "": command_show_routes,

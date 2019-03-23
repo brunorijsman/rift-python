@@ -25,11 +25,10 @@ class RiftExpectSession:
 
     expect_timeout = 1.0
 
-    def __init__(self, topology_file=None, converge_secs=start_converge_secs):
-        rift_cmd = ("rift "
-                    "--interactive "
-                    "--non-passive "
-                    "--log-level debug")
+    def __init__(self, topology_file=None, converge_secs=start_converge_secs, log_debug=True):
+        rift_cmd = "rift --interactive --non-passive"
+        if log_debug:
+            rift_cmd += " --log-level debug"
         self._topology_file = topology_file
         if topology_file is not None:
             rift_cmd += " topology/{}.yaml".format(topology_file)
@@ -83,6 +82,9 @@ class RiftExpectSession:
         if failed:
             self.log_expect_failure()
             pytest.fail('Timeout expecting "{} (see rift_expect.log for details)"'.format(pattern))
+            return None
+        else:
+            return self._expect_session.before
 
     def table_expect(self, pattern, timeout=expect_timeout):
         # Allow multiple spaces at end of each cell, even if only one was asked for
@@ -93,11 +95,11 @@ class RiftExpectSession:
         pattern = pattern.replace("///", "|")
         return self.expect(pattern, timeout)
 
-    def wait_prompt(self, node_name=None):
+    def wait_prompt(self, node_name=None, timeout=expect_timeout):
         if node_name is None:
-            self.expect(".*> ")
+            return self.expect(".*> ", timeout)
         else:
-            self.expect("{}> ".format(node_name))
+            return self.expect("{}> ".format(node_name), timeout)
 
     def check_engine(self):
         # Show the output of "show engine", mainly for debugging after a failure
@@ -257,5 +259,5 @@ class RiftExpectSession:
 
     def check_rib_absent(self, node, prefix, owner):
         self.sendline("set node {}".format(node))
-        self.sendline("show route prefix {} owner {}".format(prefix, owner))
+        self.sendline("show routes prefix {} owner {}".format(prefix, owner))
         self.table_expect("not present")

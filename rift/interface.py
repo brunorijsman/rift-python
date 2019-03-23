@@ -9,8 +9,10 @@ import socket
 import constants
 import fsm
 import neighbor
+import node       # TODO: Put TIEMeta in separate module to avoid this
 import offer
 import packet_common
+import stats
 import table
 import timer
 import udp_rx_handler
@@ -35,7 +37,7 @@ class Interface:
     SERVICE_QUEUES_INTERVAL = 1.0
 
     def generate_advertised_name(self):
-        return self.node.name + '-' + self.name
+        return self.node.name + ':' + self.name
 
     def get_mtu(self):
         # TODO: Find a portable (or even non-portable) way to get the interface MTU
@@ -135,6 +137,8 @@ class Interface:
             self._flood_rx_ipv4_handler = udp_rx_handler.UdpRxHandler(
                 interface_name=self.physical_interface_name,
                 local_port=rx_flood_port,
+                ipv4=True,
+                multicast_address=None,
                 remote_address="0.0.0.0",  # TODO: Permissive... use neighbor address?
                 receive_function=self.receive_flood_message,
                 log=self._rx_log,
@@ -152,6 +156,8 @@ class Interface:
             self._flood_rx_ipv6_handler = udp_rx_handler.UdpRxHandler(
                 interface_name=self.physical_interface_name,
                 local_port=rx_flood_port,
+                ipv4=False,
+                multicast_address=None,
                 remote_address="::",
                 receive_function=self.receive_flood_message,
                 log=self._rx_log,
@@ -175,10 +181,18 @@ class Interface:
         self.rx_info("Stop flooding")
         self._service_queues_timer.stop()
         self.clear_all_queues()
-        self._flood_rx_ipv4_handler.close()
-        self._flood_rx_ipv4_handler = None
-        self._flood_tx_ipv4_socket.close()
-        self._flood_tx_ipv4_socket = None
+        if self._flood_rx_ipv4_handler:
+            self._flood_rx_ipv4_handler.close()
+            self._flood_rx_ipv4_handler = None
+        if self._flood_tx_ipv4_socket:
+            self._flood_tx_ipv4_socket.close()
+            self._flood_tx_ipv4_socket = None
+        if self._flood_rx_ipv6_handler:
+            self._flood_rx_ipv6_handler.close()
+            self._flood_rx_ipv6_handler = None
+        if self._flood_tx_ipv6_socket:
+            self._flood_tx_ipv6_socket.close()
+            self._flood_tx_ipv6_socket = None
         # Update the node TIEs originated by this node to exclude this neighbor. We have to pass
         # interface_going_down to regenerate_my_node_ties because the state of this interface is
         # still THREE_WAY at this point.
@@ -237,24 +251,84 @@ class Interface:
         if flood:
             if self._flood_tx_ipv4_socket:
                 socks = [self._flood_tx_ipv4_socket]
-            else:
-                assert self._flood_tx_ipv6_socket
+            elif self._flood_tx_ipv6_socket:
                 socks = [self._flood_tx_ipv6_socket]
+            else:
+                self.tx_warning("Could not send flood packet because interface has neither IPv4 "
+                                "nor IPv6 TX flood socket")
+                return
         else:
             socks = [self._lie_tx_ipv4_socket, self._lie_tx_ipv6_socket]
         encoded_protocol_packet = packet_common.encode_protocol_packet(protocol_packet)
+        nr_bytes = len(encoded_protocol_packet)
         for sock in socks:
             if sock is not None:
                 if self._tx_fail:
                     self.log_tx_protocol_packet(logging.DEBUG, sock,
                                                 "Simulated failure sending", protocol_packet)
+                    self.bump_tx_sim_errors_counter(sock, nr_bytes)
                 else:
                     try:
                         self.log_tx_protocol_packet(logging.DEBUG, sock, "Send", protocol_packet)
                         sock.send(encoded_protocol_packet)
+                        self.bump_tx_counters(protocol_packet, sock, nr_bytes)
                     except socket.error as error:
                         prelude = "Error {} sending".format(str(error))
                         self.log_tx_protocol_packet(logging.ERROR, sock, prelude, protocol_packet)
+                        self.bump_tx_real_errors_counter(sock, nr_bytes)
+
+    @staticmethod
+    def bump_family_counter(sock, ipv4_counter, ipv6_counter, nr_bytes):
+        if sock.family == socket.AF_INET:
+            ipv4_counter.add([1, nr_bytes])
+        else:
+            assert sock.family == socket.AF_INET6
+            ipv6_counter.add([1, nr_bytes])
+
+    def bump_tx_counters(self, protocol_packet, sock, nr_bytes):
+        if protocol_packet.content.lie:
+            self.bump_family_counter(sock, self._tx_ipv4_lie_counter, self._tx_ipv6_lie_counter,
+                                     nr_bytes)
+        if protocol_packet.content.tie:
+            self.bump_family_counter(sock, self._tx_ipv4_tie_counter, self._tx_ipv6_tie_counter,
+                                     nr_bytes)
+        if protocol_packet.content.tide:
+            self.bump_family_counter(sock, self._tx_ipv4_tide_counter, self._tx_ipv6_tide_counter,
+                                     nr_bytes)
+        if protocol_packet.content.tire:
+            self.bump_family_counter(sock, self._tx_ipv4_tire_counter, self._tx_ipv6_tire_counter,
+                                     nr_bytes)
+
+    def bump_rx_counters(self, protocol_packet, sock, nr_bytes):
+        if protocol_packet.content.lie:
+            self.bump_family_counter(sock, self._rx_ipv4_lie_counter, self._rx_ipv6_lie_counter,
+                                     nr_bytes)
+        if protocol_packet.content.tie:
+            self.bump_family_counter(sock, self._rx_ipv4_tie_counter, self._rx_ipv6_tie_counter,
+                                     nr_bytes)
+        if protocol_packet.content.tide:
+            self.bump_family_counter(sock, self._rx_ipv4_tide_counter, self._rx_ipv6_tide_counter,
+                                     nr_bytes)
+        if protocol_packet.content.tire:
+            self.bump_family_counter(sock, self._rx_ipv4_tire_counter, self._rx_ipv6_tire_counter,
+                                     nr_bytes)
+
+    def bump_tx_real_errors_counter(self, sock, nr_bytes):
+        self.bump_family_counter(sock, self._tx_ipv4_real_errors_counter,
+                                 self._tx_ipv6_real_errors_counter, nr_bytes)
+
+    # TODO: This is not called anywhere (need error callback in handler)
+    def bump_rx_real_errors_counter(self, sock, nr_bytes):
+        self.bump_family_counter(sock, self._rx_ipv4_real_errors_counter,
+                                 self._rx_ipv6_real_errors_counter, nr_bytes)
+
+    def bump_tx_sim_errors_counter(self, sock, nr_bytes):
+        self.bump_family_counter(sock, self._tx_ipv4_sim_errors_counter,
+                                 self._tx_ipv6_sim_errors_counter, nr_bytes)
+
+    def bump_rx_sim_errors_counter(self, sock, nr_bytes):
+        self.bump_family_counter(sock, self._rx_ipv4_sim_errors_counter,
+                                 self._rx_ipv6_sim_errors_counter, nr_bytes)
 
     def action_send_lie(self):
         packet_header = encoding.ttypes.PacketHeader(
@@ -685,14 +759,17 @@ class Interface:
     def tx_debug(self, msg, *args):
         self._tx_log.debug("[%s] %s" % (self._log_id, msg), *args)
 
-    def __init__(self, node, config):
+    def tx_warning(self, msg, *args):
+        self._tx_log.warning("[%s] %s" % (self._log_id, msg), *args)
+
+    def __init__(self, parent_node, config):
         # pylint:disable=too-many-statements
         # TODO: process bandwidth field in config
-        self.node = node
-        self._engine = node.engine
+        self.node = parent_node
+        self._engine = parent_node.engine
         self.name = config['name']
-        self._log_id = node.log_id + "-{}".format(self.name)
-        self._log = node.log.getChild("if")
+        self._log_id = parent_node.log_id + ":{}".format(self.name)
+        self._log = parent_node.log.getChild("if")
         if self._engine.simulated_interfaces and self._engine.physical_interface_name:
             self.physical_interface_name = self._engine.physical_interface_name
         else:
@@ -705,7 +782,7 @@ class Interface:
         self._ipv6_address = utils.interface_ipv6_address(self.physical_interface_name)
         try:
             self._interface_index = socket.if_nametoindex(self.physical_interface_name)
-        except IOError as err:
+        except (IOError, OSError) as err:
             self.warning("Could determine index of interface %s: %s",
                          self.physical_interface_name, err)
             self._interface_index = None
@@ -729,7 +806,7 @@ class Interface:
         self._rx_log = self._log.getChild("rx")
         self._tx_log = self._log.getChild("tx")
         self._fsm_log = self._log.getChild("fsm")
-        self.local_id = node.allocate_interface_id()
+        self.local_id = parent_node.allocate_interface_id()
         self._mtu = self.get_mtu()
         self._pod = self.UNDEFINED_OR_ANY_POD
         self.neighbor = None
@@ -754,11 +831,143 @@ class Interface:
         self._ties_req = collections.OrderedDict()
         self._ties_ack = collections.OrderedDict()
         self.floodred_nbr_is_fr = self.NbrIsFRState.NOT_APPLICABLE
+        self._traffic_stats_group = stats.Group(self.node.intf_traffic_stats_group)
+        pab = ["Packet", "Byte"]
+        stg = self._traffic_stats_group
+        self._tx_errors_counter = stats.MultiCounter(None, "Total TX Errors", pab)
+        self._rx_errors_counter = stats.MultiCounter(None, "Total RX Errors", pab)
+        self._tx_packets_counter = stats.MultiCounter(None, "Total TX Packets", pab)
+        self._rx_packets_counter = stats.MultiCounter(None, "Total RX Packets", pab)
+        self._tx_ipv6_counter = stats.MultiCounter(None, "Total TX IPv6 Packets", pab)
+        self._rx_ipv6_counter = stats.MultiCounter(None, "Total RX IPv6 Packets", pab)
+        self._tx_ipv4_counter = stats.MultiCounter(None, "Total TX IPv4 Packets", pab)
+        self._rx_ipv4_counter = stats.MultiCounter(None, "Total RX IPv4 Packets", pab)
+        self._tx_flooding_counter = stats.MultiCounter(
+            None, "Total TX Flooding Packets", pab,
+            sum_counters=[self._tx_packets_counter])
+        self._rx_flooding_counter = stats.MultiCounter(
+            None, "Total RX Flooding Packets", pab,
+            sum_counters=[self._rx_packets_counter])
+        self._tx_tire_counter = stats.MultiCounter(
+            None, "Total TX TIRE Packets", pab,
+            sum_counters=[self._tx_flooding_counter])
+        self._rx_tire_counter = stats.MultiCounter(
+            None, "Total RX TIRE Packets", pab,
+            sum_counters=[self._rx_flooding_counter])
+        self._tx_tide_counter = stats.MultiCounter(
+            None, "Total TX TIDE Packets", pab,
+            sum_counters=[self._tx_flooding_counter])
+        self._rx_tide_counter = stats.MultiCounter(
+            None, "Total RX TIDE Packets", pab,
+            sum_counters=[self._rx_flooding_counter])
+        self._tx_tie_counter = stats.MultiCounter(
+            None, "Total TX TIE Packets", pab,
+            sum_counters=[self._tx_flooding_counter])
+        self._rx_tie_counter = stats.MultiCounter(
+            None, "Total RX TIE Packets", pab,
+            sum_counters=[self._rx_flooding_counter])
+        self._tx_lie_counter = stats.MultiCounter(
+            None, "Total TX LIE Packets", pab,
+            sum_counters=[self._tx_packets_counter])
+        self._rx_lie_counter = stats.MultiCounter(
+            None, "Total RX LIE Packets", pab,
+            sum_counters=[self._rx_packets_counter])
+        self._rx_ipv4_lie_counter = stats.MultiCounter(
+            stg, "RX IPv4 LIE Packets", pab,
+            sum_counters=[self._rx_lie_counter, self._rx_ipv4_counter])
+        self._tx_ipv4_lie_counter = stats.MultiCounter(
+            stg, "TX IPv4 LIE Packets", pab,
+            sum_counters=[self._tx_lie_counter, self._tx_ipv4_counter])
+        self._rx_ipv4_tie_counter = stats.MultiCounter(
+            stg, "RX IPv4 TIE Packets", pab,
+            sum_counters=[self._rx_tie_counter, self._rx_ipv4_counter])
+        self._tx_ipv4_tie_counter = stats.MultiCounter(
+            stg, "TX IPv4 TIE Packets", pab,
+            sum_counters=[self._tx_tie_counter, self._tx_ipv4_counter])
+        self._rx_ipv4_tide_counter = stats.MultiCounter(
+            stg, "RX IPv4 TIDE Packets", pab,
+            sum_counters=[self._rx_tide_counter, self._rx_ipv4_counter])
+        self._tx_ipv4_tide_counter = stats.MultiCounter(
+            stg, "TX IPv4 TIDE Packets", pab,
+            sum_counters=[self._tx_tide_counter, self._tx_ipv4_counter])
+        self._rx_ipv4_tire_counter = stats.MultiCounter(
+            stg, "RX IPv4 TIRE Packets", pab,
+            sum_counters=[self._rx_tire_counter, self._rx_ipv4_counter])
+        self._tx_ipv4_tire_counter = stats.MultiCounter(
+            stg, "TX IPv4 TIRE Packets", pab,
+            sum_counters=[self._tx_tire_counter, self._tx_ipv4_counter])
+        self._rx_ipv4_real_errors_counter = stats.MultiCounter(
+            stg, "RX IPv4 Real Errors", pab,
+            sum_counters=[self._rx_errors_counter])
+        self._tx_ipv4_real_errors_counter = stats.MultiCounter(
+            stg, "TX IPv4 Real Errors", pab,
+            sum_counters=[self._tx_errors_counter])
+        self._rx_ipv4_sim_errors_counter = stats.MultiCounter(
+            stg, "RX IPv4 Simulated Errors", pab,
+            sum_counters=[self._rx_errors_counter])
+        self._tx_ipv4_sim_errors_counter = stats.MultiCounter(
+            stg, "TX IPv4 Simulated Errors", pab,
+            sum_counters=[self._tx_errors_counter])
+        self._rx_ipv6_lie_counter = stats.MultiCounter(
+            stg, "RX IPv6 LIE Packets", pab,
+            sum_counters=[self._rx_lie_counter, self._rx_ipv6_counter])
+        self._tx_ipv6_lie_counter = stats.MultiCounter(
+            stg, "TX IPv6 LIE Packets", pab,
+            sum_counters=[self._tx_lie_counter, self._tx_ipv6_counter])
+        self._rx_ipv6_tie_counter = stats.MultiCounter(
+            stg, "RX IPv6 TIE Packets", pab,
+            sum_counters=[self._rx_tie_counter, self._rx_ipv6_counter])
+        self._tx_ipv6_tie_counter = stats.MultiCounter(
+            stg, "TX IPv6 TIE Packets", pab,
+            sum_counters=[self._tx_tie_counter, self._tx_ipv6_counter])
+        self._rx_ipv6_tide_counter = stats.MultiCounter(
+            stg, "RX IPv6 TIDE Packets", pab,
+            sum_counters=[self._rx_tide_counter, self._rx_ipv6_counter])
+        self._tx_ipv6_tide_counter = stats.MultiCounter(
+            stg, "TX IPv6 TIDE Packets", pab,
+            sum_counters=[self._tx_tide_counter, self._tx_ipv6_counter])
+        self._rx_ipv6_tire_counter = stats.MultiCounter(
+            stg, "RX IPv6 TIRE Packets", pab,
+            sum_counters=[self._rx_tire_counter, self._rx_ipv6_counter])
+        self._tx_ipv6_tire_counter = stats.MultiCounter(
+            stg, "TX IPv6 TIRE Packets", pab,
+            sum_counters=[self._tx_tire_counter, self._tx_ipv6_counter])
+        self._rx_ipv6_real_errors_counter = stats.MultiCounter(
+            stg, "RX IPv6 Real Errors", pab,
+            sum_counters=[self._rx_errors_counter])
+        self._tx_ipv6_real_errors_counter = stats.MultiCounter(
+            stg, "TX IPv6 Real Errors", pab,
+            sum_counters=[self._tx_errors_counter])
+        self._rx_ipv6_sim_errors_counter = stats.MultiCounter(
+            stg, "RX IPv6 Simulated Errors", pab,
+            sum_counters=[self._rx_errors_counter])
+        self._tx_ipv6_sim_errors_counter = stats.MultiCounter(
+            stg, "TX IPv6 Simulated Errors", pab,
+            sum_counters=[self._tx_errors_counter])
+        self._rx_lie_counter.add_to_group(stg)
+        self._tx_lie_counter.add_to_group(stg)
+        self._rx_tie_counter.add_to_group(stg)
+        self._tx_tie_counter.add_to_group(stg)
+        self._rx_tide_counter.add_to_group(stg)
+        self._tx_tide_counter.add_to_group(stg)
+        self._rx_tire_counter.add_to_group(stg)
+        self._tx_tire_counter.add_to_group(stg)
+        self._rx_flooding_counter.add_to_group(stg)
+        self._tx_flooding_counter.add_to_group(stg)
+        self._rx_ipv4_counter.add_to_group(stg)
+        self._tx_ipv4_counter.add_to_group(stg)
+        self._rx_ipv6_counter.add_to_group(stg)
+        self._tx_ipv6_counter.add_to_group(stg)
+        self._rx_packets_counter.add_to_group(stg)
+        self._tx_packets_counter.add_to_group(stg)
+        self._rx_errors_counter.add_to_group(stg)
+        self._tx_errors_counter.add_to_group(stg)
         self.fsm = fsm.Fsm(
             definition=self.fsm_definition,
             action_handler=self,
             log=self._fsm_log,
-            log_id=self._log_id)
+            log_id=self._log_id,
+            sum_stats_group=self.node.intf_lie_fsm_stats_group)
         if self.node.running:
             self.run()
             self.fsm.start()
@@ -775,14 +984,18 @@ class Interface:
         self._lie_rx_ipv4_handler = udp_rx_handler.UdpRxHandler(
             interface_name=self.physical_interface_name,
             local_port=self._rx_lie_port,
-            remote_address=self._rx_lie_ipv4_mcast_address,
+            ipv4=True,
+            multicast_address=self._rx_lie_ipv4_mcast_address,
+            remote_address=None,
             receive_function=self.receive_lie_message,
             log=self._rx_log,
             log_id=self._log_id)
         self._lie_rx_ipv6_handler = udp_rx_handler.UdpRxHandler(
             interface_name=self.physical_interface_name,
             local_port=self._rx_lie_port,
-            remote_address=self._rx_lie_ipv6_mcast_address,
+            ipv4=False,
+            multicast_address=self._rx_lie_ipv6_mcast_address,
+            remote_address=None,
             receive_function=self.receive_lie_message,
             log=self._rx_log,
             log_id=self._log_id)
@@ -808,15 +1021,18 @@ class Interface:
             return False
         return True
 
-    def receive_message_common(self, message, from_info):
+    def receive_message_common(self, message, from_info, sock):
         protocol_packet = packet_common.decode_protocol_packet(message)
+        nr_bytes = len(message)
         if protocol_packet is None:
+            # TODO: Decode error counter
             self.log_rx_protocol_packet(logging.ERROR, from_info,
                                         "Could not decode", protocol_packet)
             return None
         if self._rx_fail:
             self.log_rx_protocol_packet(logging.DEBUG, from_info,
                                         "Simulated failure receiving", protocol_packet)
+            self.bump_rx_sim_errors_counter(sock, nr_bytes)
             return None
         if protocol_packet.header.sender == self.node.system_id:
             self.log_rx_protocol_packet(logging.DEBUG, from_info,
@@ -834,25 +1050,30 @@ class Interface:
             return None
         return protocol_packet
 
-    def receive_lie_message(self, message, from_info):
-        protocol_packet = self.receive_message_common(message, from_info)
+    def receive_lie_message(self, message, from_info, sock):
+        protocol_packet = self.receive_message_common(message, from_info, sock)
         if protocol_packet is None:
+            # TODO: Bump decode errors counter
             return
         if protocol_packet.content.lie:
             event_data = (protocol_packet, from_info)
             self.fsm.push_event(self.Event.LIE_RECEIVED, event_data)
         else:
+            # TODO: Missing contents for port counter
             self.rx_warning("Received packet without LIE content on LIE port (ignored)")
         if protocol_packet.content.tie:
+            # TODO: Wrong contents for port counter
             self.rx_warning("Received TIE packet on LIE port (ignored)")
         if protocol_packet.content.tide:
             self.rx_warning("Received TIDE packet on LIE port (ignored)")
         if protocol_packet.content.tire:
             self.rx_warning("Received TIRE packet on LIE port (ignored)")
+        self.bump_rx_counters(protocol_packet, sock, len(message))
 
-    def receive_flood_message(self, message, from_info):
-        protocol_packet = self.receive_message_common(message, from_info)
+    def receive_flood_message(self, message, from_info, sock):
+        protocol_packet = self.receive_message_common(message, from_info, sock)
         if protocol_packet is None:
+            # TODO: Bump decode errors counter
             return
         flood_content = False
         if protocol_packet.content.tie is not None:
@@ -865,11 +1086,14 @@ class Interface:
             self.process_received_tire_packet(protocol_packet.content.tire)
             flood_content = True
         if protocol_packet.content.lie:
+            # TODO: Wrong contents for port counter
             self.rx_warning("Received LIE packet on flood port (ignored)")
         else:
             if not flood_content:
+                # TODO: Missing contents for port counter
                 self.rx_warning("Received packet without TIE/TIDE/TIRE content on flood port "
                                 "(ignored)")
+        self.bump_rx_counters(protocol_packet, sock, len(message))
 
     def set_failure(self, tx_fail, rx_fail):
         self._tx_fail = tx_fail
@@ -889,7 +1113,8 @@ class Interface:
 
     def process_received_tie_packet(self, tie_packet):
         self.rx_debug("Receive TIE packet %s", tie_packet)
-        result = self.node.process_received_tie_packet(tie_packet)
+        tie_meta = node.TIEMeta(tie_packet, rx_intf=self)
+        result = self.node.process_received_tie_packet(tie_meta)
         (start_sending_tie_header, ack_tie_header) = result
         if start_sending_tie_header is not None:
             self.try_to_transmit_tie(start_sending_tie_header)
@@ -1017,7 +1242,10 @@ class Interface:
         filtered = not allowed
         return (filtered, reason)
 
-    def add_to_ties_tx(self, tie_header):
+    def add_tie_meta_to_ties_tx(self, tie_meta):
+        self.add_tie_header_to_ties_tx(tie_meta.tie_packet.header, tie_meta)
+
+    def add_tie_header_to_ties_tx(self, tie_header, tie_meta=None):
         # If the TIE is not already on the send queue or if the TIE is a newer version than what's
         # already on the send queue, then send it immediately instead of (in addition to, really)
         # waiting for the next service timer.
@@ -1029,8 +1257,10 @@ class Interface:
             send_now = False
         self._ties_tx[tie_header.tieid] = tie_header
         if send_now:
-            db_tie = self.node.find_tie(tie_header.tieid)
-            if db_tie is not None:
+            if tie_meta is None:
+                tie_meta = self.node.find_tie_meta(tie_header.tieid)
+            if tie_meta is not None:
+                # TODO: Put already encoded TIEProtocol packet in tie_meta, and send that
                 packet_header = encoding.ttypes.PacketHeader(
                     sender=self.node.system_id,
                     level=self.node.level_value())
@@ -1038,7 +1268,7 @@ class Interface:
                 protocol_packet = encoding.ttypes.ProtocolPacket(
                     header=packet_header,
                     content=packet_content)
-                protocol_packet.content.tie = db_tie
+                protocol_packet.content.tie = tie_meta.tie_packet
                 self.send_protocol_packet(protocol_packet, flood=True)
 
     def try_to_transmit_tie(self, tie_header):
@@ -1052,13 +1282,13 @@ class Interface:
                 if ack_header.seq_nr < tie_header.seq_nr:
                     # ACK for older TIE is in queue, remove ACK from queue and send newer TIE
                     self.remove_from_ties_ack(ack_header)
-                    self.add_to_ties_tx(tie_header)
+                    self.add_tie_header_to_ties_tx(tie_header)
                 else:
                     # ACK for newer TIE in in queue, keep ACK and don't send this older TIE
                     pass
             else:
                 # No ACK in queue, send this TIE
-                self.add_to_ties_tx(tie_header)
+                self.add_tie_header_to_ties_tx(tie_header)
 
     def ack_tie(self, tie_header):
         self.remove_from_all_queues(tie_header)
@@ -1186,9 +1416,9 @@ class Interface:
             header=packet_header,
             content=packet_content)
         for tie_id in queue.keys():
-            db_tie = self.node.find_tie(tie_id)
-            if db_tie is not None:
-                protocol_packet.content.tie = db_tie
+            db_tie_meta = self.node.find_tie_meta(tie_id)
+            if db_tie_meta is not None:
+                protocol_packet.content.tie = db_tie_meta.tie_packet
                 self.send_protocol_packet(protocol_packet, flood=True)
 
     def service_ties_tx(self):
@@ -1244,12 +1474,20 @@ class Interface:
             i_am_fr_str = str(self.neighbor.you_are_flood_repeater)
         else:
             i_am_fr_str = ""
+        if self.neighbor:
+            neighbor_sysid = utils.system_id_str(self.neighbor.system_id)
+            neighbor_name = self.neighbor.name
+            neighbor_dir = constants.direction_str(self.neighbor_direction())
+        else:
+            neighbor_sysid = ''
+            neighbor_name = ''
+            neighbor_dir = ''
         return [
             self.name,
-            self.neighbor.name,
-            utils.system_id_str(self.neighbor.system_id),
+            neighbor_name,
+            neighbor_sysid,
             self.state_name,
-            constants.direction_str(self.neighbor_direction()),
+            neighbor_dir,
             self.nbr_is_fr_str(self.floodred_nbr_is_fr),
             i_am_fr_str
         ]
@@ -1340,6 +1578,16 @@ class Interface:
         if self._flood_tx_ipv6_socket:
             self.add_socket_to_table(tab, "Flooding", "Send", "IPv6", self._flood_tx_ipv6_socket)
         return tab
+
+    def traffic_stats_table(self, exclude_zero):
+        return self._traffic_stats_group.table(exclude_zero)
+
+    def lie_fsm_stats_table(self, exclude_zero):
+        return self.fsm.stats_table(exclude_zero)
+
+    def clear_stats(self):
+        self._traffic_stats_group.clear()
+        self.fsm.clear_stats()
 
     def tie_headers_table_common(self, tie_headers):
         tab = table.Table()
@@ -1472,10 +1720,14 @@ class Interface:
             self.warning("Could not set IPv6 multicast loopback value %d: %s", loop_value, err)
             return None
         try:
-            sock.connect((multicast_address, port))
-        except IOError as err:
+            scoped_ipv6_multicast_address = (
+                str(multicast_address) + '%' + self.physical_interface_name)
+            sock_addr = socket.getaddrinfo(scoped_ipv6_multicast_address, port,
+                                           socket.AF_INET6, socket.SOCK_DGRAM)[0][4]
+            sock.connect(sock_addr)
+        except (IOError, OSError) as err:
             self.warning("Could not connect UDP socket to address %s port %d: %s",
-                         multicast_address, port, err)
+                         scoped_ipv6_multicast_address, port, err)
             return None
         return sock
 

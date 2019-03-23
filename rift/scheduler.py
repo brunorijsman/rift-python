@@ -41,6 +41,7 @@ class Scheduler:
             # Process timers in two places because FSM event processing might cause timers to be
             # created, and timer expire processing might cause FSM events to be queued.
             timeout = TIMER_SCHEDULER.trigger_all_expired_timers()
+            Fsm.process_queued_events()
             rx_ready, tx_ready, _ = select.select(self._rx_fds, self._tx_fds, [], timeout)
             for rx_fd in rx_ready:
                 handler = self._handlers_by_rx_fd[rx_fd]
@@ -48,7 +49,5 @@ class Scheduler:
             for tx_fd in tx_ready:
                 handler = self._handlers_by_tx_fd[tx_fd]
                 handler.ready_to_write()
-            TIMER_SCHEDULER.trigger_all_expired_timers()
-            Fsm.process_queued_events()
 
 SCHEDULER = Scheduler()

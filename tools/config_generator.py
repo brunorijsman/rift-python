@@ -1,18 +1,37 @@
 #!/usr/bin/env python3
 
+# pylint:disable=too-many-lines
+
 import argparse
 import os
 import pprint
+import random
 import stat
-
 import sys
+import traceback
+
 import cerberus
+import pexpect
 import yaml
+
+sys.path.append("rift")
+
+# pylint:disable=wrong-import-position
+import table
 
 META_CONFIG = None
 ARGS = None
 
 DEFAULT_NR_IPV4_LOOPBACKS = 1
+DEFAULT_CHAOS_NR_EVENTS = 10
+DEFAULT_CHAOS_EVENT_INTERVAL = 5.0  # seconds
+
+SEPARATOR = '-'
+NETNS_PREFIX = 'netns' + SEPARATOR
+
+BLACK = '\u001b[30m'
+RED = '\u001b[31m'
+GREEN = '\u001b[32m'
 
 NODE_SCHEMA = {
     'type': 'dict',
@@ -27,7 +46,15 @@ SCHEMA = {
     'nr-spine-nodes-per-pod': {'required': True, 'type': 'integer', 'min': 1},
     'nr-superspine-nodes': {'required': False, 'type': 'integer', 'min': 1},
     'leafs': NODE_SCHEMA,
-    'spines': NODE_SCHEMA
+    'spines': NODE_SCHEMA,
+    'chaos': {
+        'type': 'dict',
+        'schema': {
+            'nr-events': {'type': 'integer', 'min': 0, 'default': DEFAULT_CHAOS_NR_EVENTS},
+            'event-interval': {'type': 'float', 'min': 0.0,
+                               'default': DEFAULT_CHAOS_EVENT_INTERVAL},
+        }
+    }
 }
 
 SOUTH = 1
@@ -60,6 +87,9 @@ INTF_COLOR = "black"
 INTF_RADIUS = "3"
 INTF_HIGHLIGHT_RADIUS = "5"
 HIGHLIGHT_COLOR = "red"
+
+LOOPBACKS_ADDRESS_BYTE = 88    # 88.level.index.lb
+LIE_MCAST_ADDRESS_BYTE = 88    # 224.88.level.index  ff02::88:level:index
 
 END_OF_SVG = """
 <script type="text/javascript"><![CDATA[
@@ -133,37 +163,26 @@ END_OF_SVG = END_OF_SVG.replace("INTF_RADIUS", INTF_RADIUS)
 END_OF_SVG = END_OF_SVG.replace("INTF_HIGHLIGHT_RADIUS", INTF_HIGHLIGHT_RADIUS)
 END_OF_SVG = END_OF_SVG.replace("HIGHLIGHT_COLOR", HIGHLIGHT_COLOR)
 
-def generate_ipv4_address_str(byte1, byte2, byte3, byte4, offset):
-    assert offset <= 65535
-    byte4 += offset
-    byte3 += byte4 // 256
-    byte4 %= 256
-    byte2 += byte3 // 256
-    byte3 %= 256
-    byte1 += byte2 // 256
-    byte2 %= 256
-    ip_address_str = "{}.{}.{}.{}".format(byte1, byte2, byte3, byte4)
-    return ip_address_str
-
-def generate_ipv6_address_str(prefix, offset):
-    return "{}::{}".format(prefix, offset)
-
 class Group:
 
-    def __init__(self, fabric, name, group_index, only_instance, y_pos, y_size):
+    def __init__(self, fabric, name, class_group_id, only_instance, y_pos, y_size):
+        # class_group_id: group ID, uniquely identifies the group within the scope of the subclass
+        #                 (pods have IDs 1,2,3... and planes have IDs 1, 2, 3...)
         self.fabric = fabric
         self.name = name
-        self.group_index = group_index
+        self.class_group_id = class_group_id
         self.only_instance = only_instance
         self.given_y_pos = y_pos
         self.given_y_size = y_size
         self.x_center_shift = 0
         self.nodes = []
         self.nodes_by_level = {}
+        # Links within the group. Spine to super-spine links are owned by the plane group, not the
+        # pod group.
         self.links = []
 
-    def create_node(self, name, level, index_in_level, y_pos):
-        node = Node(self, name, level, index_in_level, y_pos)
+    def create_node(self, name, level, top_of_fabric, group_level_node_id, y_pos):
+        node = Node(self, name, level, top_of_fabric, group_level_node_id, y_pos)
         # TODO: Move adding of loopbacks to here
         self.nodes.append(node)
         if level not in self.nodes_by_level:
@@ -176,11 +195,11 @@ class Group:
         self.links.append(link)
         return link
 
-    def node_name(self, base_name, node_index_in_level):
+    def node_name(self, base_name, group_level_node_id):
         if self.only_instance:
-            return base_name + "-" + str(node_index_in_level + 1)
+            return base_name + "-" + str(group_level_node_id)
         else:
-            return base_name + "-" + str(self.group_index + 1) + "-" + str(node_index_in_level + 1)
+            return base_name + "-" + str(self.class_group_id) + "-" + str(group_level_node_id)
 
     def write_config_to_file(self, file, netns):
         for node in self.nodes:
@@ -191,18 +210,28 @@ class Group:
             node.write_netns_configs_and_scripts()
 
     def write_netns_start_scr_to_file_1(self, file):
-        # Phase 1: Crate all namespaces and interfaces
+        # Start phase 1: Create all namespaces and interfaces
         for link in self.links:
             link.write_netns_start_scr_to_file(file)
         for node in self.nodes:
             node.write_netns_start_scr_to_file_1(file)
 
     def write_netns_start_scr_to_file_2(self, file):
+        # Start phase 2: Start all nodes
         # Allow interfaces to come up (particularly IPv6 interfaces take a bit of time)
         print("sleep 1", file=file)
-        # Phase 2: Start all nodes
         for node in self.nodes:
             node.write_netns_start_scr_to_file_2(file)
+
+    def write_netns_stop_scr_to_file_1(self, file):
+        # Stop phase 1: Delete all namespaces and interfaces
+        for node in self.nodes:
+            node.write_netns_stop_scr_to_file_1(file)
+
+    def write_netns_stop_scr_to_file_2(self, file):
+        # Stop phase 2: Stop all nodes
+        for node in self.nodes:
+            node.write_netns_stop_scr_to_file_2(file)
 
     def write_graphics_to_file(self, file):
         x_pos = self.x_pos()
@@ -236,7 +265,7 @@ class Group:
     def x_pos(self):
         # X position of top-left corner of rectangle representing the group
         x_pos = GLOBAL_X_OFFSET
-        x_pos += self.group_index * (self.x_size() + GROUP_X_INTERVAL)
+        x_pos += (self.class_group_id - 1) * (self.x_size() + GROUP_X_INTERVAL)
         x_pos += self.x_center_shift
         return x_pos
 
@@ -271,9 +300,9 @@ class Group:
 
 class Pod(Group):
 
-    def __init__(self, fabric, pod_name, pod_index, only_pod, y_pos):
+    def __init__(self, fabric, pod_name, global_pod_id, only_pod, y_pos):
         y_size = 2 * NODE_Y_SIZE + NODE_Y_INTERVAL + 2 * GROUP_Y_SPACER
-        Group.__init__(self, fabric, pod_name, pod_index, only_pod, y_pos, y_size)
+        Group.__init__(self, fabric, pod_name, global_pod_id, only_pod, y_pos, y_size)
         self.leaf_nodes = []
         self.spine_nodes = []
         self.nr_leaf_nodes = META_CONFIG['nr-leaf-nodes-per-pod']
@@ -295,16 +324,22 @@ class Pod(Group):
     def create_leaf_nodes(self):
         y_pos = self.y_pos() + GROUP_Y_SPACER + NODE_Y_SIZE + NODE_Y_INTERVAL
         for index in range(0, self.nr_leaf_nodes):
-            node_name = self.node_name("leaf", index)
-            node = self.create_node(node_name, LEAF_LEVEL, index, y_pos)
+            group_level_node_id = index + 1
+            node_name = self.node_name("leaf", group_level_node_id)
+            node = self.create_node(node_name, LEAF_LEVEL, False, group_level_node_id, y_pos)
             node.add_ipv4_loopbacks(self.leaf_nr_ipv4_loopbacks)
             self.leaf_nodes.append(node)
 
     def create_spine_nodes(self):
+        # If this is the only PoD, then the spines are the top-of-fabric. If there are multiple PoDs
+        # then there are superspines which are the top-of-fabric.
+        top_of_fabric = self.only_instance
         y_pos = self.y_pos() + GROUP_Y_SPACER
         for index in range(0, self.nr_spine_nodes):
-            node_name = self.node_name("spine", index)
-            node = self.create_node(node_name, SPINE_LEVEL, index, y_pos)
+            group_level_node_id = index + 1
+            node_name = self.node_name("spine", group_level_node_id)
+            node = self.create_node(node_name, SPINE_LEVEL, top_of_fabric, group_level_node_id,
+                                    y_pos)
             node.add_ipv4_loopbacks(self.spine_nr_ipv4_loopbacks)
             self.spine_nodes.append(node)
 
@@ -315,9 +350,9 @@ class Pod(Group):
 
 class Plane(Group):
 
-    def __init__(self, fabric, plane_name, plane_index, only_plane, y_pos):
+    def __init__(self, fabric, plane_name, global_plane_id, only_plane, y_pos):
         y_size = NODE_Y_SIZE + 2 * GROUP_Y_SPACER
-        Group.__init__(self, fabric, plane_name, plane_index, only_plane, y_pos, y_size)
+        Group.__init__(self, fabric, plane_name, global_plane_id, only_plane, y_pos, y_size)
         self.superspine_nodes = []
         self.superspine_spine_links = []
         self.nr_leaf_nodes = 0
@@ -328,44 +363,91 @@ class Plane(Group):
         self.create_superspine_nodes()
 
     def create_superspine_nodes(self):
+        top_of_fabric = True
         y_pos = self.y_pos() + GROUP_Y_SPACER
         for index in range(0, self.nr_superspine_nodes):
-            node_name = self.node_name("super", index)   # TODO: Index per group type
-            node = self.create_node(node_name, SUPERSPINE_LEVEL, index, y_pos)
+            group_level_node_id = index + 1
+            node_name = self.node_name("super", group_level_node_id)
+            node = self.create_node(node_name, SUPERSPINE_LEVEL, top_of_fabric, group_level_node_id,
+                                    y_pos)
             node.add_ipv4_loopbacks(self.superspine_nr_ipv4_loopbacks)
             self.superspine_nodes.append(node)
 
 class Node:
 
-    next_node_id = 1
+    next_level_node_id = {}
 
-    def __init__(self, group, name, level, index_in_level, y_pos):
+    def __init__(self, group, name, level, top_of_fabric, group_level_node_id, y_pos):
+        # For now, we support max 3 levels, and they must be level 0, 1, and 2
+        assert level <= 2
         self.group = group
         self.name = name
-        self.node_id = Node.next_node_id
-        Node.next_node_id += 1
+        self.allocate_node_ids(level)
+        self.ns_name = NETNS_PREFIX + str(self.global_node_id)
         self.level = level
-        self.index_in_level = index_in_level
+        self.top_of_fabric = top_of_fabric
+        self.group_level_node_id = group_level_node_id
         self.given_y_pos = y_pos
-        self.rx_lie_ipv4_mcast_addr = generate_ipv4_address_str(224, 0, 1, 0, self.node_id)
-        self.rx_lie_ipv6_mcast_addr = generate_ipv6_address_str("ff02", self.node_id)
+        self.rx_lie_ipv4_mcast_addr = self.generate_ipv4_address_str(
+            224, LIE_MCAST_ADDRESS_BYTE, self.level, self.level_node_id)
+        self.rx_lie_ipv6_mcast_addr = self.generate_ipv6_address_str(
+            "ff02", LIE_MCAST_ADDRESS_BYTE, self.level, self.level_node_id)
         self.interfaces = []
         self.ipv4_prefixes = []
-        self.lo_addr = generate_ipv4_address_str(88, 0, 0, 0, 1) + "/32"
+        self.lo_addresses = []
         self.config_file_name = None
+        self.port_file = "/tmp/rift-python-telnet-port-" + self.name
+        self.telnet_session = None
+
+    def allocate_node_ids(self, level):
+        # level_node_id: a node ID unique only within the level (each level has IDs 1, 2, 3...)
+        # global_node_id: a node ID which is globally unque (1001, 1002, 1003... for leaf nodes,
+        #                 101, 102, 103... for spine nodes, and 1, 2, 3... for super-spine nodes)
+        if level in Node.next_level_node_id:
+            self.level_node_id = Node.next_level_node_id[level]
+            Node.next_level_node_id[level] += 1
+        else:
+            self.level_node_id = 1
+            Node.next_level_node_id[level] = 2
+        # We use the index as a byte in IP addresses, so we support max 254 nodes per level
+        assert self.level_node_id <= 254
+        if level == LEAF_LEVEL:
+            base_global_node_id_for_level = 1000
+        elif level == SPINE_LEVEL:
+            base_global_node_id_for_level = 100
+        elif level == SUPERSPINE_LEVEL:
+            base_global_node_id_for_level = 0
+        else:
+            assert False
+        self.global_node_id = base_global_node_id_for_level + self.level_node_id
+
+    def generate_ipv4_address_str(self, byte1, byte2, byte3, byte4):
+        assert 0 <= byte1 <= 255
+        assert 0 <= byte2 <= 255
+        assert 0 <= byte3 <= 255
+        assert 1 <= byte4 <= 254
+        ip_address_str = "{}.{}.{}.{}".format(byte1, byte2, byte3, byte4)
+        return ip_address_str
+
+    def generate_ipv6_address_str(self, prefix, byte1, byte2, byte3):
+        assert 0 <= byte1 <= 255
+        assert 0 <= byte2 <= 255
+        assert 1 <= byte3 <= 254
+        return "{}::{}:{}:{}".format(prefix, byte1, byte2, byte3)
 
     def add_ipv4_loopbacks(self, count):
-        for index in range(1, count+1):
-            offset = self.node_id * 256 + index
-            address = generate_ipv4_address_str(88, 0, 0, 0, offset)
+        for node_loopback_id in range(1, count+1):
+            address = self.generate_ipv4_address_str(
+                LOOPBACKS_ADDRESS_BYTE, self.level, self.level_node_id, node_loopback_id)
             mask = "32"
             metric = "1"
             prefix = (address, mask, metric)
             self.ipv4_prefixes.append(prefix)
+            self.lo_addresses.append(address)
 
     def create_interface(self):
-        intf_index = len(self.interfaces) + 1
-        interface = Interface(self, intf_index)
+        node_intf_id = len(self.interfaces) + 1
+        interface = Interface(self, node_intf_id)
         self.interfaces.append(interface)
         return interface
 
@@ -396,7 +478,7 @@ class Node:
             print("    nodes:", file=file)
         print("      - name: " + self.name, file=file)
         print("        level: " + str(self.level), file=file)
-        print("        systemid: " + str(self.node_id), file=file)
+        print("        systemid: " + str(self.global_node_id), file=file)
         if not netns:
             print("        rx_lie_mcast_address: " + self.rx_lie_ipv4_mcast_addr, file=file)
             print("        rx_lie_v6_mcast_address: " + self.rx_lie_ipv6_mcast_addr, file=file)
@@ -438,10 +520,8 @@ class Node:
         file_name = "{}/connect-{}.sh".format(dir_name, self.name)
         try:
             with open(file_name, 'w') as file:
-                ns_name = "netns-" + str(self.node_id)
-                port_file = "/tmp/rift-python-telnet-port-" + self.name
-                print("ip netns exec {} telnet localhost $(cat {})".format(ns_name, port_file),
-                      file=file)
+                print("ip netns exec {} telnet localhost $(cat {})"
+                      .format(self.ns_name, self.port_file), file=file)
         except IOError:
             fatal_error('Could not open start script file "{}"'.format(file_name))
         try:
@@ -451,30 +531,61 @@ class Node:
             fatal_error('Could name make "{}" executable'.format(file_name))
 
     def write_netns_start_scr_to_file_1(self, file):
-        progress = ("Create netns for node {}".format(self.name))
-        print('echo "{}"'.format(progress), file=file)
-        ns_name = "netns-" + str(self.node_id)
-        print("ip netns add {}".format(ns_name), file=file)
-        addr = self.lo_addr
-        print("ip netns exec {} ip link set dev lo up".format(ns_name), file=file)
-        print("ip netns exec {} ip addr add {} dev lo".format(ns_name, addr), file=file)
+        progress = ("Create network namespace {} for node {}".format(self.ns_name, self.name))
+        print("echo '{0}'\n"
+              "ip netns add {1}\n"
+              "if [[ $(ip netns exec {1} sysctl -n net.ipv4.conf.all.forwarding) == 0 ]]; then\n"
+              "  ip netns exec {1} sysctl -q -w net.ipv4.conf.all.forwarding=1\n"
+              "fi\n"
+              "if [[ $(ip netns exec {1} sysctl -n net.ipv6.conf.all.forwarding) == 0 ]]; then\n"
+              "  ip netns exec {1} sysctl -q -w net.ipv6.conf.all.forwarding=1\n"
+              "fi\n"
+              "ip netns exec {1} ip link set dev lo up"
+              .format(progress, self.ns_name),
+              file=file)
+        for addr in self.lo_addresses:
+            print("ip netns exec {} ip addr add {} dev lo".format(self.ns_name, addr), file=file)
         for intf in self.interfaces:
             veth = intf.veth_name()
             addr = intf.addr
-            print("ip link set {} netns {}".format(veth, ns_name), file=file)
-            print("ip netns exec {} ip link set dev {} up".format(ns_name, veth), file=file)
-            print("ip netns exec {} ip addr add {} dev {}".format(ns_name, addr, veth), file=file)
+            print("ip link set {} netns {}".format(veth, self.ns_name), file=file)
+            print("ip netns exec {} ip link set dev {} up".format(self.ns_name, veth), file=file)
+            print("ip netns exec {} ip addr add {} dev {}".format(self.ns_name, addr, veth),
+                  file=file)
 
     def write_netns_start_scr_to_file_2(self, file):
         progress = ("Start RIFT-Python engine for node {}".format(self.name))
         print('echo "{}"'.format(progress), file=file)
-        ns_name = "netns-" + str(self.node_id)
+        ns_name = NETNS_PREFIX + str(self.global_node_id)
         port_file = "/tmp/rift-python-telnet-port-" + self.name
         print("ip netns exec {} python3 rift "
               "--ipv4-multicast-loopback-disable "
               "--ipv6-multicast-loopback-disable "
               "--telnet-port-file {} {} < /dev/null &"
               .format(ns_name, port_file, self.config_file_name), file=file)
+
+    def write_netns_stop_scr_to_file_1(self, file):
+        progress = ("Stop RIFT-Python engine for node {}".format(self.name))
+        print('echo "{}"'.format(progress), file=file)
+        # We use a big hammer: we kill -9 all processes in the the namespace
+        ns_name = NETNS_PREFIX + str(self.global_node_id)
+        print("kill -9 $(ip netns pids {}) >/dev/null 2>&1".format(ns_name), file=file)
+        # Also clean up the port file
+        port_file = "/tmp/rift-python-telnet-port-" + self.name
+        print("rm -f {}".format(port_file), file=file)
+        # Delete all interfaces for the node
+        for intf in self.interfaces:
+            veth = intf.veth_name()
+            progress = ("Delete interface {} for node {}".format(veth, self.name))
+            print('echo "{}"'.format(progress), file=file)
+            print("ip netns exec {} ip link del dev {} >/dev/null 2>&1".format(ns_name, veth),
+                  file=file)
+
+    def write_netns_stop_scr_to_file_2(self, file):
+        ns_name = NETNS_PREFIX + str(self.global_node_id)
+        progress = ("Delete network namespace {} for node {}".format(ns_name, self.name))
+        print('echo "{}"'.format(progress), file=file)
+        print("ip netns del {} >/dev/null 2>&1".format(ns_name), file=file)
 
     def write_graphics_to_file(self, file):
         x_pos = self.x_pos()
@@ -502,9 +613,137 @@ class Node:
                    .format(x_pos, y_pos, NODE_LINE_COLOR, self.name))
         file.write('</g>\n')
 
+    def add_allocations_to_table(self, tab):
+        interface_names = []
+        neighbor_nodes = []
+        interface_addresses = []
+        neighbor_addresses = []
+        for intf in self.interfaces:
+            interface_names.append(intf.name())
+            interface_addresses.append(intf.addr)
+            if intf.peer_intf is None:
+                neighbor_nodes.append("-")
+                neighbor_addresses.append("-")
+            else:
+                neighbor_nodes.append(intf.peer_intf.node.name)
+                neighbor_addresses.append(intf.peer_intf.addr)
+
+        tab.add_row([
+            self.name,
+            self.lo_addresses,
+            self.global_node_id,
+            self.ns_name,
+            interface_names,
+            interface_addresses,
+            neighbor_nodes,
+            neighbor_addresses
+        ])
+
+    def check(self):
+        print("**** Check node {}".format(self.name))
+        if not self.connect_telnet():
+            return False
+        self.check_engine()
+        self.check_interfaces_3way()
+        self.check_rib_north_default_route()
+        return True
+
+    def check_engine(self):
+        step = "Show engine"
+        self.telnet_session.sendline("show engine")
+        if not self.telnet_session.table_expect("Stand-alone | True"):
+            error = 'Show engine reported unexpected result for stand-alone'
+            self.report_check_result(step, False, error)
+            return
+        self.report_check_result(step)
+
+    def check_interfaces_3way(self):
+        for intf in self.interfaces:
+            intf_name = intf.veth_name()
+            step = "Interface {} in state THREE_WAY".format(intf_name)
+            cmd = "show interface {}".format(intf_name)
+            self.telnet_session.sendline(cmd)
+            if self.telnet_session.table_expect("State | THREE_WAY"):
+                self.report_check_result(step)
+            else:
+                self.report_check_result(step, False)
+
+    def check_rib_north_default_route(self):
+        if self.top_of_fabric:
+            return
+        step = "North-bound IPv4 default route is present in RIB"
+        cmd = "show routes prefix 0.0.0.0/0"
+        self.telnet_session.sendline(cmd)
+        if self.telnet_session.table_expect("0.0.0.0/0 | North SPF"):
+            self.report_check_result(step)
+        else:
+            self.report_check_result(step, False)
+        ###@@@
+        for intf in self.interfaces:
+            if intf.peer_intf.node.level > self.level:  # North-bound interface?
+                intf_name = intf.veth_name()
+                next_hop_address = intf.peer_intf.addr.split('/')[0]   # Strip off /prefix-len
+                next_hop = "{} {}".format(intf_name, next_hop_address)
+                step = ("North-bound IPv4 default route in RIB includes next-hop {}"
+                        .format(next_hop))
+                self.telnet_session.sendline(cmd)
+                if self.telnet_session.table_expect(next_hop):
+                    self.report_check_result(step)
+                else:
+                    self.report_check_result(step, False)
+        step = "North-bound IPv6 default route is present in RIB"
+        cmd = "show routes prefix ::/0"
+        self.telnet_session.sendline(cmd)
+        if self.telnet_session.table_expect("::/0 | North SPF"):
+            self.report_check_result(step)
+        else:
+            self.report_check_result(step, False)
+        for intf in self.interfaces:
+            if intf.peer_intf.node.level > self.level:  # North-bound interface?
+                intf_name = intf.veth_name()
+                # For IPv6 we don't check the next-hop address since it is some unpredictable
+                # link-local address
+                next_hop = intf_name
+                step = ("North-bound IPv6 default route in RIB includes next-hop {}"
+                        .format(next_hop))
+                self.telnet_session.sendline(cmd)
+                if self.telnet_session.table_expect(next_hop):
+                    self.report_check_result(step)
+                else:
+                    self.report_check_result(step, False)
+
+    def report_check_result(self, step, okay=True, error=None):
+        if okay:
+            print(GREEN + "OK" + BLACK + "    {}".format(step))
+        elif error:
+            print(RED + "FAIL" + BLACK + "  {}: {}".format(step, error))
+        else:
+            print(RED + "FAIL" + BLACK + "  {}".format(step))
+
+    def connect_telnet(self):
+        step = "Telnet to node"
+        try:
+            with open(self.port_file, 'r') as file:
+                telnet_port = int(file.read())
+        except (IOError, OSError):
+            error = 'Could not open telnet port file "{}"'.format(self.port_file)
+            self.report_check_result(step, False, error)
+            return False
+        self.telnet_session = TelnetSession(self.ns_name, telnet_port)
+        if not self.telnet_session.connected:
+            error = 'Could not Telnet to {}:{}'.format(self.ns_name, telnet_port)
+            self.report_check_result(step, False, error)
+            return False
+        if not self.telnet_session.wait_prompt():
+            error = 'Did not get prompt on Telnet session'
+            self.report_check_result(step, False, error)
+            return False
+        self.report_check_result(step)
+        return True
+
     def x_pos(self):
         # X position of top-left corner of rectangle representing the node
-        x_delta = self.index_in_level * (NODE_X_SIZE + NODE_X_INTERVAL)
+        x_delta = (self.group_level_node_id - 1) * (NODE_X_SIZE + NODE_X_INTERVAL)
         return self.group.first_node_x_pos(self.level) + x_delta
 
     def y_pos(self):
@@ -513,13 +752,13 @@ class Node:
 
 class Interface:
 
-    next_interface_id = 1
+    next_global_intf_id = 1
 
-    def __init__(self, node, intf_index):
+    def __init__(self, node, node_intf_id):
         self.node = node
-        self.intf_id = Interface.next_interface_id  # Globally unique identifier for interface
-        Interface.next_interface_id += 1
-        self.intf_index = intf_index  # Local index for interface, unique within scope of node
+        self.global_intf_id = Interface.next_global_intf_id       # Globally unique ID for interface
+        Interface.next_global_intf_id += 1
+        self.node_intf_id = node_intf_id   # ID for interface, only unique within scope of interface
         self.peer_intf = None
         self.direction = None
         self.rx_lie_port = None
@@ -534,21 +773,26 @@ class Interface:
             self.direction = SOUTH
         else:
             self.direction = NORTH
-        self.rx_lie_port = 20000 + self.intf_id
-        self.tx_lie_port = 20000 + self.peer_intf.intf_id
-        self.rx_flood_port = 10000 + self.intf_id
-        lower = min(self.intf_id, self.peer_intf.intf_id)
-        upper = max(self.intf_id, self.peer_intf.intf_id)
-        self.addr = "99.{}.{}.{}/24".format(lower, upper, self.intf_id)
+        self.rx_lie_port = 20000 + self.global_intf_id
+        self.tx_lie_port = 20000 + self.peer_intf.global_intf_id
+        self.rx_flood_port = 10000 + self.global_intf_id
+        lower = min(self.global_intf_id, self.peer_intf.global_intf_id)
+        upper = max(self.global_intf_id, self.peer_intf.global_intf_id)
+        self.addr = "99.{}.{}.{}/24".format(lower, upper, self.global_intf_id)
+
+    def node_intf_id_letter(self):
+        return chr(ord('a') + self.node_intf_id - 1)
 
     def name(self):
-        return "if" + str(self.intf_index)
+        return "if" + SEPARATOR + str(self.node.global_node_id) + self.node_intf_id_letter()
 
     def fq_name(self):
         return self.node.name + ":" + self.name()
 
     def veth_name(self):
-        return "veth" + "-" + str(self.intf_id) + "-" + str(self.peer_intf.intf_id)
+        return ("veth" + SEPARATOR +
+                str(self.node.global_node_id) + self.node_intf_id_letter() + SEPARATOR +
+                str(self.peer_intf.node.global_node_id) + self.peer_intf.node_intf_id_letter())
 
     def write_graphics_to_file(self, file):
         x_pos = self.x_pos()
@@ -584,12 +828,15 @@ class Link:
         self.intf1.set_peer_intf(self.intf2)
         self.intf2.set_peer_intf(self.intf1)
 
+    def description(self):
+        return self.intf1.name() + "-" + self.intf2.name()
+
     def write_netns_start_scr_to_file(self, file):
-        progress = ("Create veth pair for link from {} to {}"
-                    .format(self.intf1.fq_name(), self.intf2.fq_name()))
-        print('echo "{}"'.format(progress), file=file)
         veth1_name = self.intf1.veth_name()
         veth2_name = self.intf2.veth_name()
+        progress = ("Create veth pair {} and {} for link from {} to {}"
+                    .format(veth1_name, veth2_name, self.intf1.fq_name(), self.intf2.fq_name()))
+        print('echo "{}"'.format(progress), file=file)
         print("ip link add dev {} type veth peer name {}".format(veth1_name, veth2_name), file=file)
 
     def write_graphics_to_file(self, file):
@@ -611,9 +858,49 @@ class Link:
         self.intf2.write_graphics_to_file(file)
         file.write('</g>\n')
 
+class LinkDownEvent:
+
+    def __init__(self, link):
+        self.link = link
+
+    def write_break_script(self, file):
+        description = "Bring link {} down (bi-directional failure)".format(self.link.description())
+        print("#" * 80, file=file)
+        print("# {}".format(description), file=file)
+        print("#" * 80, file=file)
+        print(file=file)
+        print("echo '{}'".format(description), file=file)
+        # Transmit loss 100% on one side
+        script = ("ip netns exec {} tc qdisc add dev {} root netem loss 100%"
+                  .format(self.link.intf1.node.ns_name, self.link.intf1.veth_name()))
+        print("{}".format(script), file=file)
+        # Transmit loss 100% on the other side
+        script = ("ip netns exec {} tc qdisc add dev {} root netem loss 100%"
+                  .format(self.link.intf2.node.ns_name, self.link.intf2.veth_name()))
+        print("{}".format(script), file=file)
+        print(file=file)
+
+    def write_fix_script(self, file):
+        description = "Bring link {} up".format(self.link.description())
+        print("#" * 80, file=file)
+        print("# {}".format(description), file=file)
+        print("#" * 80, file=file)
+        print(file=file)
+        print("echo '{}'".format(description), file=file)
+        # Undo transmit loss 100% on one side
+        script = ("ip netns exec {} tc qdisc del dev {} root netem"
+                  .format(self.link.intf1.node.ns_name, self.link.intf1.veth_name()))
+        print("{}".format(script), file=file)
+        # Unto transmit loss 100% on the other side
+        script = ("ip netns exec {} tc qdisc del dev {} root netem"
+                  .format(self.link.intf2.node.ns_name, self.link.intf2.veth_name()))
+        print("{}".format(script), file=file)
+        print(file=file)
+
 class Fabric:
 
     def __init__(self):
+        # pylint: disable=too-many-locals
         self.nr_pods = META_CONFIG['nr-pods']
         self.pods = []
         self.planes = []
@@ -625,14 +912,16 @@ class Fabric:
             planes_y_pos = GLOBAL_Y_OFFSET
             pods_y_pos += NODE_Y_SIZE + SUPERSPINE_TO_POD_Y_INTERVAL
             for index in range(0, nr_planes):
-                plane_name = "plane-" + str(index + 1)
-                pod = Plane(self, plane_name, index, only_plane, planes_y_pos)
+                global_plane_id = index + 1
+                plane_name = "plane-" + str(global_plane_id)
+                pod = Plane(self, plane_name, global_plane_id, only_plane, planes_y_pos)
                 self.planes.append(pod)
         # Generate the pods with leaf and spine nodes within them
         only_pod = (self.nr_pods == 1)
         for index in range(0, self.nr_pods):
-            pod_name = "pod-" + str(index + 1)
-            pod = Pod(self, pod_name, index, only_pod, pods_y_pos)
+            global_pod_id = index + 1
+            pod_name = "pod-" + str(global_pod_id)
+            pod = Pod(self, pod_name, global_pod_id, only_pod, pods_y_pos)
             self.pods.append(pod)
         # Center the pods and planes
         pod_x_center_shift = (self.x_size() - self.pods_total_x_size()) // 2
@@ -690,20 +979,35 @@ class Fabric:
         for plane in self.planes:
             plane.write_netns_configs_and_scripts()
         self.write_netns_start_script()
+        self.write_netns_stop_script()
+        self.write_netns_check_script()
+        self.write_netns_chaos_script()
 
-    def write_netns_start_script(self):
+    def write_netns_any_script(self, script_file_name, write_script_function):
         dir_name = getattr(ARGS, 'output-file-or-dir')
-        file_name = dir_name + "/start.sh"
+        file_name = dir_name + '/' + script_file_name
         try:
             with open(file_name, 'w') as file:
-                self.write_netns_start_scr_to_file(file)
+                write_script_function(file)
         except IOError:
-            fatal_error('Could not open start script file "{}"'.format(file_name))
+            fatal_error('Could not open script file "{}"'.format(file_name))
         try:
             existing_stat = os.stat(file_name)
             os.chmod(file_name, existing_stat.st_mode | stat.S_IXUSR)
         except IOError:
-            fatal_error('Could not make "{}" executable'.format(file_name))
+            fatal_error('Could not make script file "{}" executable'.format(file_name))
+
+    def write_netns_start_script(self):
+        self.write_netns_any_script("start.sh", self.write_netns_start_scr_to_file)
+
+    def write_netns_stop_script(self):
+        self.write_netns_any_script("stop.sh", self.write_netns_stop_scr_to_file)
+
+    def write_netns_check_script(self):
+        self.write_netns_any_script("check.sh", self.write_netns_check_scr_to_file)
+
+    def write_netns_chaos_script(self):
+        self.write_netns_any_script("chaos.sh", self.write_netns_chaos_scr_to_file)
 
     def write_progress_msg(self, file, message):
         print('echo "{}"'.format(message), file=file)
@@ -720,6 +1024,140 @@ class Fabric:
         for pod in self.pods:
             pod.write_netns_start_scr_to_file_2(file)
 
+    def write_netns_stop_scr_to_file(self, file):
+        for plane in self.planes:
+            plane.write_netns_stop_scr_to_file_1(file)
+        for pod in self.pods:
+            pod.write_netns_stop_scr_to_file_1(file)
+        for plane in self.planes:
+            plane.write_netns_stop_scr_to_file_2(file)
+        for pod in self.pods:
+            pod.write_netns_stop_scr_to_file_2(file)
+
+    def write_netns_check_scr_to_file(self, file):
+        print("FAILURE_COUNT=0", file=file)
+        all_leaf_nodes = []
+        for pod in self.pods:
+            for leaf_node in pod.nodes_by_level[LEAF_LEVEL]:
+                all_leaf_nodes.append(leaf_node)
+        self.write_netns_ping_all_pairs(file, all_leaf_nodes)
+        self.write_netns_trace_all_pairs(file, all_leaf_nodes)
+        print("echo", file=file)
+        print("echo Number of failures: $FAILURE_COUNT", file=file)
+        print("if [ $FAILURE_COUNT -ne 0 ]; then\n"
+              "    echo\n"
+              "    echo '*** THERE WERE FAILURES ***'\n"
+              "fi", file=file)
+        print("exit $FAILURE_COUNT", file=file)
+
+    def write_netns_ping_all_pairs(self, file, nodes):
+        print("echo '\n*** ping ***'", file=file)
+        for from_node in nodes:
+            for to_node in nodes:
+                if from_node != to_node:
+                    for from_address in from_node.lo_addresses:
+                        for to_address in to_node.lo_addresses:
+                            print("echo", file=file)
+                            self.write_netns_ping_to_file(file, from_node, from_address, to_node,
+                                                          to_address)
+
+    def write_netns_trace_all_pairs(self, file, nodes):
+        print("echo '\n*** traceroute ***'", file=file)
+        for from_node in nodes:
+            for to_node in nodes:
+                if from_node != to_node:
+                    for from_address in from_node.lo_addresses:
+                        for to_address in to_node.lo_addresses:
+                            print("echo", file=file)
+                            self.write_netns_trace_to_file(file, from_node, from_address, to_node,
+                                                           to_address)
+
+    def write_netns_ping_to_file(self, file, from_node, from_address, to_node, to_address):
+        description = ("ping {} {} -> {} {}"
+                       .format(from_node.name, from_address, to_node.name, to_address))
+        command = ("ip netns exec {} ping -f -c5 -w1 -I {} {}"
+                   .format(from_node.ns_name, from_address, to_address))
+        self.write_netns_chk_command_to_file(file, description, command)
+
+    def write_netns_trace_to_file(self, file, from_node, from_address, to_node, to_address):
+        description = ("trace-route {} {} -> {} {}"
+                       .format(from_node.name, from_address, to_node.name, to_address))
+        command = ("ip netns exec {} traceroute -n -m 5 -s {} {}"
+                   .format(from_node.ns_name, from_address, to_address))
+        self.write_netns_out_command_to_file(file, description, command)
+
+    def write_netns_chk_command_to_file(self, file, description, command):
+        wrap_command = "OUTPUT=$({} 2>&1)".format(command)
+        print(wrap_command, file=file)
+        check_result = ("if [ $? -eq 0 ]; then\n"
+                        "    echo OK: '{0}'\n"
+                        "else\n"
+                        "    echo FAIL: '{0}'\n"
+                        "    FAILURE_COUNT=$((FAILURE_COUNT+1))\n"
+                        "fi".format(description))
+        print(check_result, file=file)
+
+    def write_netns_out_command_to_file(self, file, description, command):
+        print("echo '{}'".format(description), file=file)
+        print(command, file=file)
+
+    def write_netns_chaos_scr_to_file(self, file):
+        clean_links = []        # List of link
+        affected_links = {}     # Break events, indexed by link
+        for pod in self.pods:
+            clean_links.extend(pod.links)
+        for plane in self.planes:
+            clean_links.extend(plane.links)
+        nr_events = self.get_chaos_config('nr-events', DEFAULT_CHAOS_NR_EVENTS)
+        event_interval = self.get_chaos_config('event-interval', DEFAULT_CHAOS_EVENT_INTERVAL)
+        for _event_nr in range(1, nr_events + 1):
+            break_something = self.choose_break_or_fix(clean_links, affected_links)
+            if break_something:
+                link = random.choice(clean_links)
+                event = LinkDownEvent(link)
+                event.write_break_script(file)
+                clean_links.remove(link)
+                affected_links[link] = event
+            else:
+                link = random.choice(list(affected_links.keys()))
+                event = affected_links[link]
+                event.write_fix_script(file)
+                del affected_links[link]
+                clean_links.append(link)
+            print("sleep {}".format(event_interval), file=file)
+            print(file=file)
+        # Fix everything that is still broken, without delays in between
+        while affected_links:
+            link = random.choice(list(affected_links.keys()))
+            event = affected_links[link]
+            event.write_fix_script(file)
+            del affected_links[link]
+            clean_links.append(link)
+        # One final delay to let everything reconverge
+        print("sleep {}".format(event_interval), file=file)
+        print(file=file)
+
+    def choose_break_or_fix(self, clean_links, affected_links):
+        # Returns True for break, False for fix
+        nr_clean_links = len(clean_links)
+        nr_affected_links = len(affected_links)
+        nr_links = nr_clean_links + nr_affected_links
+        assert nr_links > 1
+        # pylint: disable=simplifiable-if-statement
+        if random.randint(1, nr_links) <= nr_clean_links:
+            # Break something
+            return True
+        else:
+            # Fix something
+            return False
+
+    @staticmethod
+    def get_chaos_config(attribute, default_value):
+        if 'chaos' in META_CONFIG and attribute in META_CONFIG['chaos']:
+            return META_CONFIG['chaos'][attribute]
+        else:
+            return default_value
+
     def write_graphics(self):
         file_name = ARGS.graphics_file
         assert file_name is not None
@@ -727,7 +1165,7 @@ class Fabric:
             with open(file_name, 'w') as file:
                 self.write_graphics_to_file(file)
         except IOError:
-            fatal_error('Could not open start graphics file "{}"'.format(file_name))
+            fatal_error('Could not open graphics file "{}"'.format(file_name))
 
     def write_graphics_to_file(self, file):
         self.svg_start(file)
@@ -748,6 +1186,45 @@ class Fabric:
     def svg_end(self, file):
         file.write(END_OF_SVG)
 
+    def write_allocations(self):
+        dir_name = getattr(ARGS, 'output-file-or-dir')
+        file_name = "{}/allocations.txt".format(dir_name)
+        try:
+            with open(file_name, 'w') as file:
+                self.write_allocations_to_file(file)
+        except IOError:
+            fatal_error('Could not open allocations file "{}"'.format(file_name))
+
+    def write_allocations_to_file(self, file):
+        tab = table.Table()
+        tab.add_row([
+            ["Node", "Name"],
+            ["Loopback", "Address"],
+            ["System", "ID"],
+            ["Network", "Namespace"],
+            ["Interface", "Name"],
+            ["Interface", "Address"],
+            ["Neighbor", "Node"],
+            ["Neighbor", "Address"]
+        ])
+        for pod in self.pods:
+            for node in pod.nodes:
+                node.add_allocations_to_table(tab)
+        for plane in self.planes:
+            for node in plane.nodes:
+                node.add_allocations_to_table(tab)
+        print(tab.to_string(), file=file)
+
+    def check(self):
+        okay = True
+        for pod in self.pods:
+            for node in pod.nodes:
+                okay = node.check() and okay
+        for plane in self.planes:
+            for node in plane.nodes:
+                okay = node.check() and okay
+        return okay
+
     def pods_total_x_size(self):
         total_x_size = 0
         for pod in self.pods:
@@ -767,11 +1244,73 @@ class Fabric:
     def x_size(self):
         return max(self.pods_total_x_size(), self.planes_total_x_size())
 
+class TelnetSession:
+
+    def __init__(self, netns, port):
+        self._netns = netns
+        self._port = port
+        log_file_name = "config_generator_check.log"
+        if "RIFT_TEST_RESULTS_DIR" in os.environ:
+            log_file_name = os.environ["RIFT_TEST_RESULTS_DIR"] + '/' + log_file_name
+        self._log_file = open(log_file_name, 'ab')
+        cmd = "ip netns exec {} telnet localhost {}".format(netns, port)
+        self._expect_session = pexpect.spawn(cmd, logfile=self._log_file)
+        self.connected = self.expect("Connected")
+
+    def write_result(self, msg):
+        self._log_file.write(msg.encode())
+        self._log_file.flush()
+
+    def stop(self):
+        # Attempt graceful exit
+        self._expect_session.sendline("exit")
+        # Terminate it forcefully, in case the graceful exit did not work for some reason
+        self._expect_session.terminate(force=True)
+        self.write_result("\n\n*** End session to {}:{}\n\n".format(self._netns, self._port))
+
+    def sendline(self, line):
+        self._expect_session.sendline(line)
+
+    def log_expect_failure(self):
+        self.write_result("\n\n*** Did not find expected pattern\n\n")
+        # Generate a call stack in the log file for easier debugging
+        for line in traceback.format_stack():
+            self.write_result(line.strip())
+            self.write_result("\n")
+
+    def expect(self, pattern, timeout=1.0):
+        self.write_result("\n\n*** Expect: {}\n\n".format(pattern))
+        # Report the failures outside of this block, otherwise pytest reports a huge callstack
+        try:
+            self._expect_session.expect(pattern, timeout)
+        except (pexpect.TIMEOUT, pexpect.exceptions.EOF, OSError, IOError):
+            failed = True
+        else:
+            failed = False
+        if failed:
+            self.log_expect_failure()
+            return False
+        else:
+            return True
+
+    def table_expect(self, pattern, timeout=1.0):
+        # Allow multiple spaces at end of each cell, even if only one was asked for
+        pattern = pattern.replace(" |", " +|")
+        # The | character is a literal end-of-cell, not a regexp OR
+        pattern = pattern.replace("|", "[|]")
+        # Since we confiscated | to mean end-of-cell, we use /// for regexp OR
+        pattern = pattern.replace("///", "|")
+        result = self.expect(pattern, timeout)
+        return result
+
+    def wait_prompt(self, timeout=1.0):
+        return self.expect(".*> ", timeout)
+
 def parse_meta_configuration(file_name):
     try:
         with open(file_name, 'r') as stream:
             try:
-                config = yaml.load(stream)
+                config = yaml.safe_load(stream)
             except yaml.YAMLError as exception:
                 raise exception
     except IOError:
@@ -810,6 +1349,10 @@ def parse_command_line_arguments():
     parser.add_argument(
         '-g', '--graphics-file',
         help='Output file name for graphical representation')
+    parser.add_argument(
+        '-c', '--check',
+        action="store_true",
+        help='Check running configuration')
     args = parser.parse_args()
     return args
 
@@ -826,8 +1369,16 @@ def main():
     META_CONFIG = parse_meta_configuration(input_file_name)
     validate_meta_configuration()
     fabric = Fabric()
+    if ARGS.check:
+        if not ARGS.netns_per_node:
+            fatal_error('Check command-line option only supported in netns-per-node mode')
+        if fabric.check():
+            sys.exit(0)
+        else:
+            sys.exit(1)
     if ARGS.netns_per_node:
         fabric.write_netns_configs_and_scripts()
+        fabric.write_allocations()
     else:
         fabric.write_config()
     if ARGS.graphics_file is not None:
