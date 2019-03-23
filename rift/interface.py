@@ -129,20 +129,11 @@ class Interface:
         # Start sending TIE, TIRE, and TIDE packets to this neighbor
         rx_flood_port = self._rx_flood_port
         tx_flood_port = self.neighbor.flood_port
-        # Use whatever IPv4 or IPv6 address we see first for the neighbor, preferring the IPv4
-        # address if we know both.
+        # For sending flooding packets, use whatever IPv4 or IPv6 address we see first for the
+        # neighbor, preferring the IPv4 address if we know both.
         if self.neighbor.ipv4_address is not None:
-            self.rx_info("Start IPv4 flooding: receive on port %d, send to address %s port %d",
-                         rx_flood_port, self.neighbor.ipv4_address, tx_flood_port)
-            self._flood_rx_ipv4_handler = udp_rx_handler.UdpRxHandler(
-                interface_name=self.physical_interface_name,
-                local_port=rx_flood_port,
-                ipv4=True,
-                multicast_address=None,
-                remote_address="0.0.0.0",  # TODO: Permissive... use neighbor address?
-                receive_function=self.receive_flood_message,
-                log=self._rx_log,
-                log_id=self._log_id)
+            self.rx_info("Start IPv4 flooding: send to address %s port %d",
+                         self.neighbor.ipv4_address, tx_flood_port)
             self._flood_tx_ipv4_socket = self.create_socket_ipv4_tx_ucast(
                 remote_address=self.neighbor.ipv4_address,
                 port=tx_flood_port)
@@ -151,20 +142,33 @@ class Interface:
             scoped_ipv6_address = self.neighbor.ipv6_address
             if "%" not in self.neighbor.ipv6_address:
                 scoped_ipv6_address += "%" + self.physical_interface_name
-            self.rx_info("Start IPv6 flooding: receive on port %d, send to address %s port %d",
-                         rx_flood_port, scoped_ipv6_address, tx_flood_port)
-            self._flood_rx_ipv6_handler = udp_rx_handler.UdpRxHandler(
-                interface_name=self.physical_interface_name,
-                local_port=rx_flood_port,
-                ipv4=False,
-                multicast_address=None,
-                remote_address="::",
-                receive_function=self.receive_flood_message,
-                log=self._rx_log,
-                log_id=self._log_id)
+            self.rx_info("Start IPv6 flooding: send to address %s port %d",
+                         scoped_ipv6_address, tx_flood_port)
             self._flood_tx_ipv6_socket = self.create_socket_ipv6_tx_ucast(
                 remote_address=scoped_ipv6_address,
                 port=tx_flood_port)
+        # For *receiving* flooding packets, always listen on both IPv4 and also on IPv6 since we
+        # don't know whether the same will choose to send on IPv4 or on IPv6
+        self.rx_info("Start IPv4 flooding: receive on port %d", rx_flood_port)
+        self._flood_rx_ipv4_handler = udp_rx_handler.UdpRxHandler(
+            interface_name=self.physical_interface_name,
+            local_port=rx_flood_port,
+            ipv4=True,
+            multicast_address=None,
+            remote_address="0.0.0.0",  # TODO: Permissive... use neighbor address?
+            receive_function=self.receive_flood_message,
+            log=self._rx_log,
+            log_id=self._log_id)
+        self.rx_info("Start IPv6 flooding: receive on port %d", rx_flood_port)
+        self._flood_rx_ipv6_handler = udp_rx_handler.UdpRxHandler(
+            interface_name=self.physical_interface_name,
+            local_port=rx_flood_port,
+            ipv4=False,
+            multicast_address=None,
+            remote_address="::",
+            receive_function=self.receive_flood_message,
+            log=self._rx_log,
+            log_id=self._log_id)
         # Periodically start sending TIE packets and TIRE packets
         self._service_queues_timer.start()
         # Update the node TIEs originated by this node to include this neighbor
