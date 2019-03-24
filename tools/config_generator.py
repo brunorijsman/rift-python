@@ -905,7 +905,7 @@ class NodeDownEvent:
         self.node = node
 
     def write_break_script(self, file):
-        description = "Bring node {} down ".format(self.node.description())
+        description = "Bring node {} down ".format(self.node.name)
         print("#" * 80, file=file)
         print("# {}".format(description), file=file)
         print("#" * 80, file=file)
@@ -915,7 +915,7 @@ class NodeDownEvent:
         print("kill -9 $(ip netns pids {}) >/dev/null 2>&1".format(ns_name), file=file)
 
     def write_fix_script(self, file):
-        description = "Bring node {} up".format(self.node.description())
+        description = "Bring node {} up".format(self.node.name)
         print("#" * 80, file=file)
         print("# {}".format(description), file=file)
         print("#" * 80, file=file)
@@ -1130,7 +1130,7 @@ class Fabric:
         clean_links = []        # List of link
         affected_links = {}     # Break events, indexed by link
         clean_nodes = []
-        affected_nodes = []
+        affected_nodes = {}
         for pod in self.pods:
             clean_links.extend(pod.links)
             clean_nodes.extend(pod.nodes)
@@ -1161,13 +1161,13 @@ class Fabric:
             break_something = self.choose_break_or_fix_node(clean_nodes, affected_nodes)
             if break_something:
                 node = random.choice(clean_nodes)
-                event = nodeDownEvent(node)
+                event = NodeDownEvent(node)
                 event.write_break_script(file)
                 clean_nodes.remove(node)
                 affected_nodes[node] = event
             else:
                 node = random.choice(list(affected_nodes.keys()))
-                event = affected_nodes[node]
+                event = affected_nodes[node.global_node_id]
                 event.write_fix_script(file)
                 del affected_nodes[node]
                 clean_nodes.append(node)
