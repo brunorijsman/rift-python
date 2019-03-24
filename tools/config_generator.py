@@ -3,6 +3,7 @@
 # pylint:disable=too-many-lines
 
 import argparse
+import csv
 import os
 import pprint
 import random
@@ -646,6 +647,8 @@ class Node:
         self.check_engine()
         self.check_interfaces_3way()
         self.check_rib_north_default_route()
+        self.check_fib_consistency()
+        self.check_fib_kernel_consistency()
         return True
 
     def check_engine(self):
@@ -711,6 +714,71 @@ class Node:
                     self.report_check_result(step)
                 else:
                     self.report_check_result(step, False)
+
+    def check_fib_consistency(self):
+        step = "Checking RIB/FIB consistency"
+        self.telnet_session.sendline("set cli-mode csv")
+
+        routes = self.parse_show_routes()
+        entries = self.parse_show_forwarding()
+
+        def key_func(dictionary):
+            items = ((k, v if v is not None else '') for k, v in dictionary.items())
+            return sorted(items)
+
+        if sorted(routes, key=key_func) != sorted(entries, key=key_func):
+            self.report_check_result(step, False)
+
+        self.report_check_result(step)
+
+    def parse_show_routes(self):
+        routes = self.parse_show_rib_fib("routes", "ipv4")
+        routes.extend(self.parse_show_rib_fib("routes", "ipv6"))
+        return routes
+
+    def parse_show_forwarding(self):
+        entries = self.parse_show_rib_fib("forwarding", "ipv4")
+        entries.extend(self.parse_show_rib_fib("forwarding", "ipv6"))
+        return entries
+
+    def parse_show_rib_fib(self, target, family):
+        header = "Prefix,Owner,Next-hops"
+        self.telnet_session.sendline("show %s family %s" % (target, family))
+
+        start = False
+        routes = []
+        while True:
+            line = self.telnet_session.readline().decode('utf-8').strip()
+            if line == header:
+                start = True
+                continue
+
+            if start:
+                if not line:
+                    break
+                routes.append(line)
+
+        ret = []
+        for entry in csv.reader(routes):
+            ret.append({"prefix": entry[0], "owner": entry[1],
+                        "next-hop": entry[2], "family": family})
+        return ret
+
+    def check_fib_kernel_consistency(self):
+        step = "Checking FIB/Kernal consistency"
+        fib = self.parse_show_forwarding()
+
+        for entry in fib:
+            step = "Next-hop %s for prefix %s is present in the kernel table" % (
+                entry["next-hop"], entry["prefix"])
+            self.telnet_session.sendline("show kernel routes table main prefix %s" % (
+                entry["prefix"]))
+            if self.telnet_session.table_expect(entry["next-hop"]):
+                self.report_check_result(step)
+            else:
+                self.report_check_result(step, False)
+
+        self.report_check_result(step)
 
     def report_check_result(self, step, okay=True, error=None):
         if okay:
@@ -1270,6 +1338,9 @@ class TelnetSession:
 
     def sendline(self, line):
         self._expect_session.sendline(line)
+
+    def readline(self):
+        return self._expect_session.readline()
 
     def log_expect_failure(self):
         self.write_result("\n\n*** Did not find expected pattern\n\n")

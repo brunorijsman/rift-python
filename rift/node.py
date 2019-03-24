@@ -1234,14 +1234,21 @@ class Node:
         self.command_show_routes_af(cli_session, constants.ADDRESS_FAMILY_IPV4)
         self.command_show_routes_af(cli_session, constants.ADDRESS_FAMILY_IPV6)
 
+    def command_show_routes_family(self, cli_session, parameters):
+        if parameters["family"].lower() == "ipv4":
+            self.command_show_routes_af(cli_session, constants.ADDRESS_FAMILY_IPV4)
+        else:
+            self.command_show_routes_af(cli_session, constants.ADDRESS_FAMILY_IPV6)
+
     def command_show_routes_af(self, cli_session, address_family):
-        cli_session.print(constants.address_family_str(address_family) + " Routes:")
+        if cli_session.human_mode():
+            cli_session.print(constants.address_family_str(address_family) + " Routes:")
         if address_family == constants.ADDRESS_FAMILY_IPV4:
             tab = self._ipv4_rib.cli_table()
         else:
             assert address_family == constants.ADDRESS_FAMILY_IPV6
             tab = self._ipv6_rib.cli_table()
-        cli_session.print(tab.to_string())
+        cli_session.print_table(tab)
 
     def command_show_forwarding_prefix(self, cli_session, parameters):
         prefix = self.get_prefix_param(cli_session, parameters)
@@ -1258,20 +1265,28 @@ class Node:
         tab = table.Table()
         tab.add_row(route.Route.cli_summary_headers())
         tab.add_row(rte.cli_summary_attributes())
-        cli_session.print(tab.to_string())
+        cli_session.print_table(tab)
 
     def command_show_forwarding(self, cli_session):
         self.command_show_forwarding_af(cli_session, constants.ADDRESS_FAMILY_IPV4)
         self.command_show_forwarding_af(cli_session, constants.ADDRESS_FAMILY_IPV6)
 
+    def command_show_forwarding_family(self, cli_session, parameters):
+        if parameters["family"].lower() == "ipv4":
+            self.command_show_forwarding_af(cli_session, constants.ADDRESS_FAMILY_IPV4)
+        else:
+            self.command_show_forwarding_af(cli_session, constants.ADDRESS_FAMILY_IPV6)
+
     def command_show_forwarding_af(self, cli_session, address_family):
-        cli_session.print(constants.address_family_str(address_family) + " Routes:")
+        if cli_session.human_mode():
+            cli_session.print(constants.address_family_str(address_family) + " Routes:")
+
         if address_family == constants.ADDRESS_FAMILY_IPV4:
             tab = self._ipv4_fib.cli_table()
         else:
             assert address_family == constants.ADDRESS_FAMILY_IPV6
             tab = self._ipv6_fib.cli_table()
-        cli_session.print(tab.to_string())
+        cli_session.print_table(tab)
 
     def command_show_spf(self, cli_session):
         cli_session.print("SPF Statistics:")
