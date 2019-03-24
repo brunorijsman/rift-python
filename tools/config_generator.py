@@ -682,7 +682,7 @@ class Node:
             self.report_check_result(step, False)
         ###@@@
         for intf in self.interfaces:
-            if intf.peer_intf.node.level > self.level:  # North-bound interface?
+            if direction == "North" and intf.peer_intf.node.level > self.level:  # North-bound interface?
                 intf_name = intf.veth_name()
                 if check_nexthop_by_address:
                     next_hop_address = intf.peer_intf.addr.split('/')[0]   # Strip off /prefix-len
@@ -1248,10 +1248,9 @@ class Fabric:
             for node in pod.nodes:
                 okay = node.check() and okay
                 routes = hostroutespernode[node.global_node_id]
-                print("checking node: %d for south routes %s" % (
-                    node.global_node_id, routes))
+                # print("checking node: %d for south routes %s" % ( node.global_node_id, routes))
                 for r in routes:
-                    okay = node.check_rib_route(r, "South", True) and okay
+                    okay = node.check_rib_route(r+"/32", "South", True) and okay
                     pass
                 pass
             pass
@@ -1260,10 +1259,9 @@ class Fabric:
             for node in plane.nodes:
                 okay = node.check() and okay
             routes = hostroutespernode[node.global_node_id]
-            print("checking node: %d for south routes %s" % (
-                node.global_node_id, routes))
+            # print("checking node: %d for south routes %s" % ( node.global_node_id, routes))
             for r in routes:
-                okay = node.check_rib_route(r, "South", True) and okay
+                okay = node.check_rib_route(r+"/32", "South", True) and okay
                 pass
             pass
         return okay
