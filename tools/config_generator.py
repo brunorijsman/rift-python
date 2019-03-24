@@ -3,7 +3,6 @@
 # pylint:disable=too-many-lines
 
 import argparse
-import csv
 import os
 import pprint
 import random
@@ -651,13 +650,13 @@ class Node:
         self.check_engine()
         self.check_interfaces_3way()
         self.check_rib_north_default_route()
-        self.check_fib_consistency()
+        self.check_rib_fib_consistency()
         self.check_fib_kernel_consistency()
         return True
 
     def check_engine(self):
         step = "Show engine"
-        self.telnet_session.sendline("show engine")
+        self.telnet_session.send_line("show engine")
         if not self.telnet_session.table_expect("Stand-alone | True"):
             error = 'Show engine reported unexpected result for stand-alone'
             self.report_check_result(step, False, error)
@@ -669,25 +668,27 @@ class Node:
             intf_name = intf.veth_name()
             step = "Interface {} in state THREE_WAY".format(intf_name)
             cmd = "show interface {}".format(intf_name)
-            self.telnet_session.sendline(cmd)
+            self.telnet_session.send_line(cmd)
             if self.telnet_session.table_expect("State | THREE_WAY"):
                 self.report_check_result(step)
             else:
                 self.report_check_result(step, False)
 
-    # checks for presence of a route in RIB, route is ASCII prefix to check
-    # direction is either "North" or "South"
+    def check_rib_north_default_route(self):
+        ###@@@
+        self.check_rib_route("0.0.0.0/0", "North", True)
+        self.check_rib_route("::/0", "North", False)
+
     def check_rib_route(self, route, direction, check_nexthop_by_address):
         if self.top_of_fabric:
             return
         step = direction + " " + route + " route is present in RIB"
         cmd = "show routes prefix " + route
-        self.telnet_session.sendline(cmd)
+        self.telnet_session.send_line(cmd)
         if self.telnet_session.table_expect(route + " | " + direction + " SPF"):
             self.report_check_result(step)
         else:
             self.report_check_result(step, False)
-        ###@@@
         for intf in self.interfaces:
             # North-bound interface?
             if direction == "North" and intf.peer_intf.node.level > self.level:
@@ -697,7 +698,7 @@ class Node:
                     next_hop = "{} {}".format(intf_name, next_hop_address)
                     step = (direction + " " + route + " in RIB includes next-hop {}"
                             .format(next_hop))
-                    self.telnet_session.sendline(cmd)
+                    self.telnet_session.send_line(cmd)
                     if self.telnet_session.table_expect(next_hop):
                         self.report_check_result(step)
                     else:
@@ -708,80 +709,86 @@ class Node:
                     next_hop = intf_name
                     step = (direction + " " + route + " in RIB includes next-hop {}"
                             .format(next_hop))
-                    self.telnet_session.sendline(cmd)
+                    self.telnet_session.send_line(cmd)
                     if self.telnet_session.table_expect(next_hop):
                         self.report_check_result(step)
                     else:
                         self.report_check_result(step, False)
 
-    def check_rib_north_default_route(self):
-        self.check_rib_route("0.0.0.0/0", "North", True)
-        self.check_rib_route("::/0", "North", False)
-
-    def check_fib_consistency(self):
+    def check_rib_fib_consistency(self):
+        # None of our tests involve a scenario where we have both a North-SPF route and also a
+        # South-SPF route for the same prefix. So, we can simply check that the forwarding table
+        # (FIB) is identical to the route table (RIB).
         step = "Checking RIB/FIB consistency"
-        self.telnet_session.sendline("set cli-mode csv")
-
-        routes = self.parse_show_routes()
-        entries = self.parse_show_forwarding()
-
-        def key_func(dictionary):
-            items = ((k, v if v is not None else '') for k, v in dictionary.items())
-            return sorted(items)
-
-        if sorted(routes, key=key_func) != sorted(entries, key=key_func):
-            self.report_check_result(step, False)
-
-        self.report_check_result(step)
-
-    def parse_show_routes(self):
-        routes = self.parse_show_rib_fib("routes", "ipv4")
-        routes.extend(self.parse_show_rib_fib("routes", "ipv6"))
-        return routes
-
-    def parse_show_forwarding(self):
-        entries = self.parse_show_rib_fib("forwarding", "ipv4")
-        entries.extend(self.parse_show_rib_fib("forwarding", "ipv6"))
-        return entries
-
-    def parse_show_rib_fib(self, target, family):
-        header = "Prefix,Owner,Next-hops"
-        self.telnet_session.sendline("show %s family %s" % (target, family))
-
-        start = False
-        routes = []
-        while True:
-            line = self.telnet_session.readline().decode('utf-8').strip()
-            if line == header:
-                start = True
-                continue
-
-            if start:
-                if not line:
-                    break
-                routes.append(line)
-
-        ret = []
-        for entry in csv.reader(routes):
-            ret.append({"prefix": entry[0], "owner": entry[1],
-                        "next-hop": entry[2], "family": family})
-        return ret
-
-    def check_fib_kernel_consistency(self):
-        step = "Checking FIB/Kernal consistency"
-        fib = self.parse_show_forwarding()
-
-        for entry in fib:
-            step = "Next-hop %s for prefix %s is present in the kernel table" % (
-                entry["next-hop"], entry["prefix"])
-            self.telnet_session.sendline("show kernel routes table main prefix %s" % (
-                entry["prefix"]))
-            if self.telnet_session.table_expect(entry["next-hop"]):
+        try:
+            parsed_rib = self.telnet_session.parse_show_output("show routes")
+            parsed_fib = self.telnet_session.parse_show_output("show forwarding")
+            if parsed_rib == parsed_fib:
                 self.report_check_result(step)
             else:
-                self.report_check_result(step, False)
+                self.report_check_result(step, False, "FIB is different than RIB")
+        except RuntimeError as err:
+            self.report_check_result(step, False, str(err))
 
-        self.report_check_result(step)
+    def check_fib_kernel_consistency(self):
+        step = "Checking FIB/Kernel consistency"
+        fib = self.telnet_session.parse_show_output("show forwarding")
+        kernel = self.telnet_session.parse_show_output("show kernel routes table main")
+        all_ok = True
+        for fib_fam in fib:
+            for fib_route in fib_fam['rows'][1:]:
+                fib_prefix = fib_route[0][0]
+                fib_nexthops = fib_route[2]
+                if not self.check_fib_route_in_kernel(step, fib_prefix, fib_nexthops, kernel):
+                    all_ok = False
+        if all_ok:
+            self.report_check_result(step)
+
+    def check_fib_route_in_kernel(self, step, fib_prefix, fib_nexthops, kernel):
+        # pylint:disable=too-many-locals
+        # In the FIB, and ECMP route is one row with multiple nexthops. In the kernel, an ECMP route
+        # may be one row with multuple nexthops or may be multiple rows with the same prefix (the
+        # former appears to be the case for IPv4 and the latter appears to be the case for IPv6)
+        partial_match = False
+        remaining_fib_nexthops = fib_nexthops
+        for kernel_route in kernel[0]['rows'][1:]:
+            kernel_prefix = kernel_route[2][0]
+            kernel_nexthop_intfs = kernel_route[5]
+            kernel_nexthop_addrs = kernel_route[6]
+            kernel_nexthops = [intf + ' ' + addr for (intf, addr) in zip(kernel_nexthop_intfs,
+                                                                         kernel_nexthop_addrs)]
+            if kernel_prefix == fib_prefix:
+                sorted_kernel_nexthops = sorted(kernel_nexthops)
+                sorted_fib_nexthops = sorted(fib_nexthops)
+                if len(kernel_nexthops) == 1:
+                    # If the kernel has a single nexthop, look for a partial match
+                    kernel_nexthop = kernel_nexthops[0]
+                    if kernel_nexthop in remaining_fib_nexthops:
+                        remaining_fib_nexthops.remove(kernel_nexthop)
+                        if remaining_fib_nexthops == []:
+                            return True
+                        else:
+                            partial_match = True
+                    else:
+                        err = ("Route {} has nexthop {} in kernel but not in FIB"
+                               .format(fib_prefix, kernel_nexthop))
+                        self.report_check_result(step, False, err)
+                        return False
+                elif sorted_kernel_nexthops == sorted_fib_nexthops:
+                    # If the kernel has a multiple nexthops, look for an exact match
+                    return True
+                else:
+                    err = ("Route {} has nexthops {} in kernel but {} in FIB"
+                           .format(fib_prefix, kernel_nexthops, fib_nexthops))
+                    self.report_check_result(step, False, err)
+                    return False
+        if partial_match:
+            err = ("Route {} in FIB has extra nexthops {} which are missing in kernel"
+                   .format(fib_prefix, remaining_fib_nexthops))
+        else:
+            err = "Route {} is in FIB but not in kernel".format(fib_prefix)
+        self.report_check_result(step, False, err)
+        return False
 
     def report_check_result(self, step, okay=True, error=None):
         if okay:
@@ -1440,16 +1447,18 @@ class TelnetSession:
 
     def stop(self):
         # Attempt graceful exit
-        self._expect_session.sendline("exit")
+        self._expect_session.send_line("exit")
         # Terminate it forcefully, in case the graceful exit did not work for some reason
         self._expect_session.terminate(force=True)
         self.write_result("\n\n*** End session to {}:{}\n\n".format(self._netns, self._port))
 
-    def sendline(self, line):
+    def send_line(self, line):
         self._expect_session.sendline(line)
 
-    def readline(self):
-        return self._expect_session.readline()
+    def read_line(self):
+        ###@@@ handle encode consistently
+        line = self._expect_session.readline()
+        return line.decode('utf-8').strip()
 
     def log_expect_failure(self):
         self.write_result("\n\n*** Did not find expected pattern\n\n")
@@ -1485,6 +1494,74 @@ class TelnetSession:
 
     def wait_prompt(self, timeout=1.0):
         return self.expect(".*> ", timeout)
+
+    def parse_show_output(self, show_command):
+        # Send a marker (which will cause a command syntax error) and look for the echo. This is to
+        # avoid accidentally parsing output from some previous show command.
+        marker = "show PARSE_SHOW_OUTPUT_MARKER"
+        self.send_line(marker)
+        while True:
+            line = self.read_line()
+            if marker in line:
+                break
+        # Send the command whose output we want to collect
+        self.send_line(show_command)
+        # Send a blank line to make sure we have a prompt followed by a newline at the end
+        self.send_line('')
+        # Look for echo of show command in output
+        while True:
+            line = self.read_line()
+            if show_command in line:
+                break
+        parsed_tables = []
+        table_title = None
+        while True:
+            line = self.read_line()
+            if line == '':
+                # Skip blank lines
+                continue
+            elif '+' in line:
+                # Table contents starts
+                parsed_table = self.parse_table(table_title)
+                table_title = None
+                parsed_tables.append(parsed_table)
+            elif ':' in line:
+                # Table title (there should only be one line of table title)
+                if table_title is not None:
+                    raise RuntimeError("Table title is more than one line")
+                table_title = line.strip(':')
+            elif '>' in line:
+                # Reached prompt for next command; we are done
+                return parsed_tables
+            else:
+                raise RuntimeError("Unrecognized format of show command output")
+
+    def parse_table(self, table_title):
+        parsed_table = {}
+        parsed_table['title'] = table_title
+        parsed_table['rows'] = []
+        row = None
+        while True:
+            line = self.read_line()
+            if line == '':
+                # Every table is followed by a blank line, so we have reached the end of the table
+                return parsed_table
+            elif '+-' in line:
+                # Row seperator
+                if row:
+                    parsed_table['rows'].append(row)
+                    row = None
+            elif '|' in line:
+                # Row contents
+                add_to_row = line.split('|')
+                add_to_row = add_to_row[1:-1]
+                add_to_row = [[cell.strip()] for cell in add_to_row]
+                if row:
+                    row = [cell + new_cell for (cell, new_cell) in zip(row, add_to_row)]
+                else:
+                    row = add_to_row
+            else:
+                raise RuntimeError("Unrecognized format of table")
 
 def parse_meta_configuration(file_name):
     try:
