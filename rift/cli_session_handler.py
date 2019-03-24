@@ -58,7 +58,6 @@ class CliSessionHandler:
         self._command_history = []
         self._command_history_pos = None
         self._next_commands = []
-        self._mode = "human"
         self.info("Open CLI session")
         self._telnet = (sock is not None)
         self._telnet_suppress_go_ahead = False
@@ -74,12 +73,6 @@ class CliSessionHandler:
             return self._sock.getpeername()[0] + ":" + str(self._sock.getpeername()[1])
         else:
             return "local"
-
-    def set_mode(self, mode):
-        self._mode = mode
-
-    def human_mode(self):
-        return self._mode == "human"
 
     def info(self, msg, *args):
         self._log.info("[%s] %s: %s" % (self.current_node_name(), self.peername(), msg), *args)
@@ -101,12 +94,6 @@ class CliSessionHandler:
 
     def tx_fd(self):
         return self._tx_fd
-
-    def print_table(self, tab):
-        if self._mode == "csv":
-            self.print(tab.to_csv_string())
-        else:
-            self.print(tab.to_string())
 
     def print(self, message, add_newline=True):
         if self._tx_fd is None:

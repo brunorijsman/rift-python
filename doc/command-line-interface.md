@@ -248,7 +248,8 @@ agg_101> <b>exit</b>
 
 ### set interface <i>interface</i> failure <i>failure</i>
 
-The "<b>set interface</b> <i>interface</i> <b>failure</b> <i>failure</i>" enables or disables a simulated failure of an interface.
+The "<b>set interface</b> <i>interface</i> <b>failure</b> <i>failure</i>" command enables or
+disables a simulated failure of an interface.
 
 The <i>failure</i> parameter can be one of the following:
 
