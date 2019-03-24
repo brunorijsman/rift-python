@@ -713,8 +713,8 @@ class Node:
         pass
 
     def check_rib_north_default_route(self):
-        check_rib_route("0.0.0.0/0", "North", True)
-        check_rib_route("::/0", "North", False)
+        self.check_rib_route("0.0.0.0/0", "North", True)
+        self.check_rib_route("::/0", "North", False)
 
     def report_check_result(self, step, okay=True, error=None):
         if okay:
@@ -1222,14 +1222,15 @@ class Fabric:
     def check(self):
 
         okay = True
+
+        okay = self.check_host_routes() and okay
+
         for pod in self.pods:
             for node in pod.nodes:
                 okay = node.check() and okay
         for plane in self.planes:
             for node in plane.nodes:
                 okay = node.check() and okay
-
-        okay = self.check_host_routes() and okay
 
         return okay
 
@@ -1266,8 +1267,8 @@ class Fabric:
                         hostroutes = hostroutes + lowernode.lo_addresses
                         pass
                     pass
+                hostroutespernode[node.global_node_id] = hostroutes
                 pass
-            hostroutespernode[node.global_node_id] = hostroutes
             pass
 
         for plane in self.planes:
@@ -1277,6 +1278,16 @@ class Fabric:
                 pass
             pass
 
+        for pod in self.pods:
+            for node in pod.nodes:
+                routes = hostroutespernode[node.global_node_id]
+                print ("checking node: %d for south routes %s" % (
+                            node.global_node_id, routes))
+                for r in routes:
+                    node.check_rib_route(r, "South", True)
+                    pass
+                pass
+            pass
         return okay
 
 class TelnetSession:
