@@ -1199,7 +1199,7 @@ class Fabric:
     def write_netns_chaos_scr_to_file(self, file):
         # pylint:disable=too-many-locals
         # pylint:disable=too-many-statements
-        clean_links = []        # List of link
+        clean_links = []        # List of links
         affected_links = {}     # Break events, indexed by link
         clean_nodes = []
         affected_nodes = {}
@@ -1238,7 +1238,7 @@ class Fabric:
                 affected_nodes[node] = event
             else:
                 node = random.choice(list(affected_nodes.keys()))
-                event = affected_nodes[node.global_node_id]
+                event = affected_nodes[node]
                 event.write_fix_script(file)
                 del affected_nodes[node]
                 clean_nodes.append(node)
