@@ -23,7 +23,8 @@ META_CONFIG = None
 ARGS = None
 
 DEFAULT_NR_IPV4_LOOPBACKS = 1
-DEFAULT_CHAOS_NR_EVENTS = 10
+DEFAULT_CHAOS_NR_LINK_EVENTS = 10
+DEFAULT_CHAOS_NR_NODE_EVENTS = 3
 DEFAULT_CHAOS_EVENT_INTERVAL = 5.0  # seconds
 
 SEPARATOR = '-'
@@ -50,7 +51,10 @@ SCHEMA = {
     'chaos': {
         'type': 'dict',
         'schema': {
-            'nr-events': {'type': 'integer', 'min': 0, 'default': DEFAULT_CHAOS_NR_EVENTS},
+            'nr-link-events': {'type': 'integer', 'min': 0,
+                               'default': DEFAULT_CHAOS_NR_LINK_EVENTS},
+            'nr-node-events': {'type': 'integer', 'min': 0,
+                               'default': DEFAULT_CHAOS_NR_NODE_EVENTS},
             'event-interval': {'type': 'float', 'min': 0.0,
                                'default': DEFAULT_CHAOS_EVENT_INTERVAL},
         }
@@ -668,49 +672,48 @@ class Node:
             else:
                 self.report_check_result(step, False)
 
-    def check_rib_north_default_route(self):
+    # checks for presence of a route in RIB, route is ASCII prefix to check
+    # direction is either "North" or "South"
+    def check_rib_route(self, route, direction, check_nexthop_by_address):
         if self.top_of_fabric:
             return
-        step = "North-bound IPv4 default route is present in RIB"
-        cmd = "show routes prefix 0.0.0.0/0"
+        step = direction + " " + route + " route is present in RIB"
+        cmd = "show routes prefix " + route
         self.telnet_session.sendline(cmd)
-        if self.telnet_session.table_expect("0.0.0.0/0 | North SPF"):
+        if self.telnet_session.table_expect(route + " | " + direction + " SPF"):
             self.report_check_result(step)
         else:
             self.report_check_result(step, False)
         ###@@@
         for intf in self.interfaces:
-            if intf.peer_intf.node.level > self.level:  # North-bound interface?
+            # North-bound interface?
+            if direction == "North" and intf.peer_intf.node.level > self.level:
                 intf_name = intf.veth_name()
-                next_hop_address = intf.peer_intf.addr.split('/')[0]   # Strip off /prefix-len
-                next_hop = "{} {}".format(intf_name, next_hop_address)
-                step = ("North-bound IPv4 default route in RIB includes next-hop {}"
-                        .format(next_hop))
-                self.telnet_session.sendline(cmd)
-                if self.telnet_session.table_expect(next_hop):
-                    self.report_check_result(step)
+                if check_nexthop_by_address:
+                    next_hop_address = intf.peer_intf.addr.split('/')[0]   # Strip off /prefix-len
+                    next_hop = "{} {}".format(intf_name, next_hop_address)
+                    step = (direction + " " + route + " in RIB includes next-hop {}"
+                            .format(next_hop))
+                    self.telnet_session.sendline(cmd)
+                    if self.telnet_session.table_expect(next_hop):
+                        self.report_check_result(step)
+                    else:
+                        self.report_check_result(step, False)
                 else:
-                    self.report_check_result(step, False)
-        step = "North-bound IPv6 default route is present in RIB"
-        cmd = "show routes prefix ::/0"
-        self.telnet_session.sendline(cmd)
-        if self.telnet_session.table_expect("::/0 | North SPF"):
-            self.report_check_result(step)
-        else:
-            self.report_check_result(step, False)
-        for intf in self.interfaces:
-            if intf.peer_intf.node.level > self.level:  # North-bound interface?
-                intf_name = intf.veth_name()
-                # For IPv6 we don't check the next-hop address since it is some unpredictable
-                # link-local address
-                next_hop = intf_name
-                step = ("North-bound IPv6 default route in RIB includes next-hop {}"
-                        .format(next_hop))
-                self.telnet_session.sendline(cmd)
-                if self.telnet_session.table_expect(next_hop):
-                    self.report_check_result(step)
-                else:
-                    self.report_check_result(step, False)
+                    # For IPv6 we don't check the next-hop address since it is some unpredictable
+                    # link-local address
+                    next_hop = intf_name
+                    step = (direction + " " + route + " in RIB includes next-hop {}"
+                            .format(next_hop))
+                    self.telnet_session.sendline(cmd)
+                    if self.telnet_session.table_expect(next_hop):
+                        self.report_check_result(step)
+                    else:
+                        self.report_check_result(step, False)
+
+    def check_rib_north_default_route(self):
+        self.check_rib_route("0.0.0.0/0", "North", True)
+        self.check_rib_route("::/0", "North", False)
 
     def report_check_result(self, step, okay=True, error=None):
         if okay:
@@ -896,6 +899,30 @@ class LinkDownEvent:
                   .format(self.link.intf2.node.ns_name, self.link.intf2.veth_name()))
         print("{}".format(script), file=file)
         print(file=file)
+
+
+class NodeDownEvent:
+
+    def __init__(self, node):
+        self.node = node
+
+    def write_break_script(self, file):
+        description = "Bring node {} down ".format(self.node.name)
+        print("#" * 80, file=file)
+        print("# {}".format(description), file=file)
+        print("#" * 80, file=file)
+        print(file=file)
+        print("echo '{}'".format(description), file=file)
+        ns_name = NETNS_PREFIX + str(self.node.global_node_id)
+        print("kill -9 $(ip netns pids {}) >/dev/null 2>&1".format(ns_name), file=file)
+
+    def write_fix_script(self, file):
+        description = "Bring node {} up".format(self.node.name)
+        print("#" * 80, file=file)
+        print("# {}".format(description), file=file)
+        print("#" * 80, file=file)
+        print(file=file)
+        self.node.write_netns_start_scr_to_file_2(file)
 
 class Fabric:
 
@@ -1104,14 +1131,20 @@ class Fabric:
     def write_netns_chaos_scr_to_file(self, file):
         clean_links = []        # List of link
         affected_links = {}     # Break events, indexed by link
+        clean_nodes = []
+        affected_nodes = {}
         for pod in self.pods:
             clean_links.extend(pod.links)
+            clean_nodes.extend(pod.nodes)
         for plane in self.planes:
             clean_links.extend(plane.links)
-        nr_events = self.get_chaos_config('nr-events', DEFAULT_CHAOS_NR_EVENTS)
+            clean_nodes.extend(plane.nodes)
+        nr_link_events = self.get_chaos_config('nr-link-events', DEFAULT_CHAOS_NR_LINK_EVENTS)
+        nr_node_events = self.get_chaos_config('nr-node-events', DEFAULT_CHAOS_NR_NODE_EVENTS)
         event_interval = self.get_chaos_config('event-interval', DEFAULT_CHAOS_EVENT_INTERVAL)
-        for _event_nr in range(1, nr_events + 1):
-            break_something = self.choose_break_or_fix(clean_links, affected_links)
+
+        for _event_nr in range(1, nr_link_events + 1):
+            break_something = self.choose_break_or_fix_link(clean_links, affected_links)
             if break_something:
                 link = random.choice(clean_links)
                 event = LinkDownEvent(link)
@@ -1124,8 +1157,28 @@ class Fabric:
                 event.write_fix_script(file)
                 del affected_links[link]
                 clean_links.append(link)
+
             print("sleep {}".format(event_interval), file=file)
             print(file=file)
+            
+        for _event_nr in range(1, nr_node_events + 1):
+            break_something = self.choose_break_or_fix_node(clean_nodes, affected_nodes)
+            if break_something:
+                node = random.choice(clean_nodes)
+                event = NodeDownEvent(node)
+                event.write_break_script(file)
+                clean_nodes.remove(node)
+                affected_nodes[node] = event
+            else:
+                node = random.choice(list(affected_nodes.keys()))
+                event = affected_nodes[node.global_node_id]
+                event.write_fix_script(file)
+                del affected_nodes[node]
+                clean_nodes.append(node)
+
+            print("sleep {}".format(event_interval), file=file)
+            print(file=file)
+            
         # Fix everything that is still broken, without delays in between
         while affected_links:
             link = random.choice(list(affected_links.keys()))
@@ -1133,11 +1186,19 @@ class Fabric:
             event.write_fix_script(file)
             del affected_links[link]
             clean_links.append(link)
+            
+        while affected_nodes:
+            node = random.choice(list(affected_nodes.keys()))
+            event = affected_nodes[node]
+            event.write_fix_script(file)
+            del affected_nodes[node]
+            clean_nodes.append(node)
+
         # One final delay to let everything reconverge
         print("sleep {}".format(event_interval), file=file)
         print(file=file)
 
-    def choose_break_or_fix(self, clean_links, affected_links):
+    def choose_break_or_fix_link(self, clean_links, affected_links):
         # Returns True for break, False for fix
         nr_clean_links = len(clean_links)
         nr_affected_links = len(affected_links)
@@ -1145,6 +1206,20 @@ class Fabric:
         assert nr_links > 1
         # pylint: disable=simplifiable-if-statement
         if random.randint(1, nr_links) <= nr_clean_links:
+            # Break something
+            return True
+        else:
+            # Fix something
+            return False
+
+    def choose_break_or_fix_node(selfself, clean_nodes, affected_nodes):
+        # Returns True for break, False for fix
+        nr_clean_nodes = len(clean_nodes)
+        nr_affected_nodes = len(affected_nodes)
+        nr_nodes = nr_clean_nodes + nr_affected_nodes
+        assert nr_nodes > 1
+        # pylint: disable=simplifiable-if-statement
+        if random.randint(1, nr_nodes) <= nr_clean_nodes:
             # Break something
             return True
         else:
@@ -1216,13 +1291,43 @@ class Fabric:
         print(tab.to_string(), file=file)
 
     def check(self):
+
         okay = True
+
+        hostroutespernode = {}
+        for pod in self.pods:
+            for node in pod.nodes:
+                level = node.level
+                hostroutes = []
+                for lowernode in pod.nodes:
+                    if lowernode.level < level:
+                        hostroutes = hostroutes + lowernode.lo_addresses
+
+                hostroutespernode[node.global_node_id] = hostroutes
+
+        for plane in self.planes:
+            union = list(set.union(*[set(v) for v in hostroutespernode.values()]))
+            for node in plane.nodes:
+                hostroutespernode[node.global_node_id] = union
+
         for pod in self.pods:
             for node in pod.nodes:
                 okay = node.check() and okay
+                routes = hostroutespernode[node.global_node_id]
+                # print("checking node: %d for south routes %s" % ( node.global_node_id, routes))
+                for route in routes:
+                    okay = node.check_rib_route(route+"/32", "South", True) and okay
+
         for plane in self.planes:
             for node in plane.nodes:
                 okay = node.check() and okay
+
+            routes = hostroutespernode[node.global_node_id]
+
+            # print("checking node: %d for south routes %s" % ( node.global_node_id, routes))
+            for route in routes:
+                okay = node.check_rib_route(route+"/32", "South", True) and okay
+
         return okay
 
     def pods_total_x_size(self):
@@ -1237,12 +1342,21 @@ class Fabric:
         total_x_size = 0
         for plane in self.planes:
             total_x_size += plane.x_size() + GROUP_X_INTERVAL
+
         if total_x_size > 0:
             total_x_size -= GROUP_X_INTERVAL
+
         return total_x_size
 
     def x_size(self):
         return max(self.pods_total_x_size(), self.planes_total_x_size())
+
+    # walk the fabric and check @ every node whether the correct host routes are present
+    # the host routes are basically loopbacks of all the nodes lower in hierarchy
+    def check_host_routes(self):
+        okay = True
+
+        return okay
 
 class TelnetSession:
 
