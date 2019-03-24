@@ -1223,15 +1223,49 @@ class Fabric:
 
         okay = True
 
-        okay = self.check_host_routes() and okay
+        hostroutespernode = {}
+        for pod in self.pods:
+            for node in pod.nodes:
+                level = node.level
+                hostroutes = []
+                for lowernode in pod.nodes:
+                    if lowernode.level < level:
+                        hostroutes = hostroutes + lowernode.lo_addresses
+                        pass
+                    pass
+                hostroutespernode[node.global_node_id] = hostroutes
+                pass
+            pass
+
+        for plane in self.planes:
+            union = list(set.union(*[set(v) for v in hostroutespernode.values()]))
+            for node in plane.nodes:
+                hostroutespernode[node.global_node_id] = union
+                pass
+            pass
 
         for pod in self.pods:
             for node in pod.nodes:
                 okay = node.check() and okay
+                routes = hostroutespernode[node.global_node_id]
+                print("checking node: %d for south routes %s" % (
+                    node.global_node_id, routes))
+                for r in routes:
+                    okay = node.check_rib_route(r, "South", True) and okay
+                    pass
+                pass
+            pass
+
         for plane in self.planes:
             for node in plane.nodes:
                 okay = node.check() and okay
-
+            routes = hostroutespernode[node.global_node_id]
+            print("checking node: %d for south routes %s" % (
+                node.global_node_id, routes))
+            for r in routes:
+                okay = node.check_rib_route(r, "South", True) and okay
+                pass
+            pass
         return okay
 
     def pods_total_x_size(self):
@@ -1257,37 +1291,7 @@ class Fabric:
     # the host routes are basically loopbacks of all the nodes lower in hierarchy
     def check_host_routes(self):
         okay = True
-        hostroutespernode = {}
-        for pod in self.pods:
-            for node in pod.nodes:
-                level = node.level
-                hostroutes = []
-                for lowernode in pod.nodes:
-                    if lowernode.level < level:
-                        hostroutes = hostroutes + lowernode.lo_addresses
-                        pass
-                    pass
-                hostroutespernode[node.global_node_id] = hostroutes
-                pass
-            pass
 
-        for plane in self.planes:
-            union = list(set.union(*[set(v) for v in hostroutespernode.values()]))
-            for node in plane.nodes:
-                hostroutespernode[node.global_node_id] = union
-                pass
-            pass
-
-        for pod in self.pods:
-            for node in pod.nodes:
-                routes = hostroutespernode[node.global_node_id]
-                print ("checking node: %d for south routes %s" % (
-                            node.global_node_id, routes))
-                for r in routes:
-                    node.check_rib_route(r, "South", True)
-                    pass
-                pass
-            pass
         return okay
 
 class TelnetSession:
