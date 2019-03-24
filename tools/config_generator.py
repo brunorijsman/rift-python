@@ -682,7 +682,8 @@ class Node:
             self.report_check_result(step, False)
         ###@@@
         for intf in self.interfaces:
-            if direction == "North" and intf.peer_intf.node.level > self.level:  # North-bound interface?
+            # North-bound interface?
+            if direction == "North" and intf.peer_intf.node.level > self.level:
                 intf_name = intf.veth_name()
                 if check_nexthop_by_address:
                     next_hop_address = intf.peer_intf.addr.split('/')[0]   # Strip off /prefix-len
@@ -694,8 +695,6 @@ class Node:
                         self.report_check_result(step)
                     else:
                         self.report_check_result(step, False)
-                        pass
-                    pass
                 else:
                     # For IPv6 we don't check the next-hop address since it is some unpredictable
                     # link-local address
@@ -707,10 +706,6 @@ class Node:
                         self.report_check_result(step)
                     else:
                         self.report_check_result(step, False)
-                    pass
-                pass
-            pass
-        pass
 
     def check_rib_north_default_route(self):
         self.check_rib_route("0.0.0.0/0", "North", True)
@@ -1231,39 +1226,32 @@ class Fabric:
                 for lowernode in pod.nodes:
                     if lowernode.level < level:
                         hostroutes = hostroutes + lowernode.lo_addresses
-                        pass
-                    pass
+
                 hostroutespernode[node.global_node_id] = hostroutes
-                pass
-            pass
 
         for plane in self.planes:
             union = list(set.union(*[set(v) for v in hostroutespernode.values()]))
             for node in plane.nodes:
                 hostroutespernode[node.global_node_id] = union
-                pass
-            pass
 
         for pod in self.pods:
             for node in pod.nodes:
                 okay = node.check() and okay
                 routes = hostroutespernode[node.global_node_id]
                 # print("checking node: %d for south routes %s" % ( node.global_node_id, routes))
-                for r in routes:
-                    okay = node.check_rib_route(r+"/32", "South", True) and okay
-                    pass
-                pass
-            pass
+                for route in routes:
+                    okay = node.check_rib_route(route+"/32", "South", True) and okay
 
         for plane in self.planes:
             for node in plane.nodes:
                 okay = node.check() and okay
+
             routes = hostroutespernode[node.global_node_id]
+
             # print("checking node: %d for south routes %s" % ( node.global_node_id, routes))
-            for r in routes:
-                okay = node.check_rib_route(r+"/32", "South", True) and okay
-                pass
-            pass
+            for route in routes:
+                okay = node.check_rib_route(route+"/32", "South", True) and okay
+
         return okay
 
     def pods_total_x_size(self):
@@ -1278,8 +1266,10 @@ class Fabric:
         total_x_size = 0
         for plane in self.planes:
             total_x_size += plane.x_size() + GROUP_X_INTERVAL
+
         if total_x_size > 0:
             total_x_size -= GROUP_X_INTERVAL
+
         return total_x_size
 
     def x_size(self):
