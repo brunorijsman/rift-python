@@ -276,11 +276,17 @@ class Engine:
     def command_show_routes(self, cli_session):
         cli_session.current_node.command_show_routes(cli_session)
 
+    def command_show_routes_family(self, cli_session, parameters):
+        cli_session.current_node.command_show_routes_family(cli_session, parameters)
+
     def command_show_forwarding(self, cli_session):
         cli_session.current_node.command_show_forwarding(cli_session)
 
     def command_show_forwarding_prefix(self, cli_session, parameters):
         cli_session.current_node.command_show_forwarding_prefix(cli_session, parameters)
+
+    def command_show_forwarding_family(self, cli_session, parameters):
+        cli_session.current_node.command_show_forwarding_family(cli_session, parameters)
 
     def command_show_spf(self, cli_session):
         cli_session.current_node.command_show_spf(cli_session)
@@ -314,6 +320,9 @@ class Engine:
         cli_session.current_node.fsm.push_event(node.Node.Event.CHANGE_LOCAL_CONFIGURED_LEVEL,
                                                 level_symbol)
 
+    def command_set_cli_mode(self, cli_session, parameters):
+        cli_session.set_mode(parameters['cli-mode'].lower())
+
     def command_exit(self, cli_session):
         cli_session.close()
 
@@ -340,6 +349,7 @@ class Engine:
             },
             "$node": command_set_node,
             "$level": command_set_level,
+            "$cli-mode": command_set_cli_mode,
         },
         "show": {
             "engine": {
@@ -353,6 +363,7 @@ class Engine:
             "forwarding": {
                 "": command_show_forwarding,
                 "$prefix": command_show_forwarding_prefix,
+                "$family": command_show_forwarding_family,
             },
             "fsm": {
                 "lie": command_show_lie_fsm,
@@ -405,6 +416,7 @@ class Engine:
                     "": command_show_route_prefix,
                     "$owner": command_show_route_prefix_owner,
                 },
+                "$family": command_show_routes_family,
             },
             "spf": {
                 "": command_show_spf,

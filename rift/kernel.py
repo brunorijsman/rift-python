@@ -411,8 +411,9 @@ class Kernel:
         if self.unsupported_platform_error(cli_session):
             return
         tab = self.cli_routes_table(table_nr)
-        cli_session.print("Kernel Routes:")
-        cli_session.print(tab.to_string())
+        if cli_session.human_mode():
+            cli_session.print("Kernel Routes:")
+        cli_session.print_table(tab)
 
     def cli_route_prefix_table(self, table_nr, prefix):
         prefix_str = packet_common.ip_prefix_str(prefix)
