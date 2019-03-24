@@ -668,13 +668,15 @@ class Node:
             else:
                 self.report_check_result(step, False)
 
-    def check_rib_north_default_route(self):
+    # checks for presence of a route in RIB, route is ASCII prefix to check
+    # direction is either "North" or "South"
+    def check_rib_route(self, route, direction, check_nexthop_by_address):
         if self.top_of_fabric:
             return
-        step = "North-bound IPv4 default route is present in RIB"
-        cmd = "show routes prefix 0.0.0.0/0"
+        step = direction + " " + route + " route is present in RIB"
+        cmd = "show routes prefix " + route
         self.telnet_session.sendline(cmd)
-        if self.telnet_session.table_expect("0.0.0.0/0 | North SPF"):
+        if self.telnet_session.table_expect(route + " | " + direction + " SPF"):
             self.report_check_result(step)
         else:
             self.report_check_result(step, False)
@@ -682,35 +684,37 @@ class Node:
         for intf in self.interfaces:
             if intf.peer_intf.node.level > self.level:  # North-bound interface?
                 intf_name = intf.veth_name()
-                next_hop_address = intf.peer_intf.addr.split('/')[0]   # Strip off /prefix-len
-                next_hop = "{} {}".format(intf_name, next_hop_address)
-                step = ("North-bound IPv4 default route in RIB includes next-hop {}"
-                        .format(next_hop))
-                self.telnet_session.sendline(cmd)
-                if self.telnet_session.table_expect(next_hop):
-                    self.report_check_result(step)
+                if check_nexthop_by_address:
+                    next_hop_address = intf.peer_intf.addr.split('/')[0]   # Strip off /prefix-len
+                    next_hop = "{} {}".format(intf_name, next_hop_address)
+                    step = (direction + " " + route + " in RIB includes next-hop {}"
+                            .format(next_hop))
+                    self.telnet_session.sendline(cmd)
+                    if self.telnet_session.table_expect(next_hop):
+                        self.report_check_result(step)
+                    else:
+                        self.report_check_result(step, False)
+                        pass
+                    pass
                 else:
-                    self.report_check_result(step, False)
-        step = "North-bound IPv6 default route is present in RIB"
-        cmd = "show routes prefix ::/0"
-        self.telnet_session.sendline(cmd)
-        if self.telnet_session.table_expect("::/0 | North SPF"):
-            self.report_check_result(step)
-        else:
-            self.report_check_result(step, False)
-        for intf in self.interfaces:
-            if intf.peer_intf.node.level > self.level:  # North-bound interface?
-                intf_name = intf.veth_name()
-                # For IPv6 we don't check the next-hop address since it is some unpredictable
-                # link-local address
-                next_hop = intf_name
-                step = ("North-bound IPv6 default route in RIB includes next-hop {}"
-                        .format(next_hop))
-                self.telnet_session.sendline(cmd)
-                if self.telnet_session.table_expect(next_hop):
-                    self.report_check_result(step)
-                else:
-                    self.report_check_result(step, False)
+                    # For IPv6 we don't check the next-hop address since it is some unpredictable
+                    # link-local address
+                    next_hop = intf_name
+                    step = (direction + " " + route + " in RIB includes next-hop {}"
+                            .format(next_hop))
+                    self.telnet_session.sendline(cmd)
+                    if self.telnet_session.table_expect(next_hop):
+                        self.report_check_result(step)
+                    else:
+                        self.report_check_result(step, False)
+                    pass
+                pass
+            pass
+        pass
+
+    def check_rib_north_default_route(self):
+        check_rib_route("0.0.0.0/0", "North", True)
+        check_rib_route("::/0", "North", False)
 
     def report_check_result(self, step, okay=True, error=None):
         if okay:
@@ -1216,8 +1220,6 @@ class Fabric:
         print(tab.to_string(), file=file)
 
     def check(self):
-        self.check_host_routes()
-        exit(1)
 
         okay = True
         for pod in self.pods:
@@ -1226,6 +1228,9 @@ class Fabric:
         for plane in self.planes:
             for node in plane.nodes:
                 okay = node.check() and okay
+
+        okay = self.check_host_routes() and okay
+
         return okay
 
     def pods_total_x_size(self):
@@ -1272,8 +1277,7 @@ class Fabric:
                 pass
             pass
 
-        pprint.pprint(hostroutespernode)
-        pass
+        return okay
 
 class TelnetSession:
 
