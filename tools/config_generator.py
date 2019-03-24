@@ -51,8 +51,10 @@ SCHEMA = {
     'chaos': {
         'type': 'dict',
         'schema': {
-            'nr-link-events': {'type': 'integer', 'min': 0, 'default': DEFAULT_CHAOS_NR_LINK_EVENTS},
-            'nr-node-events': {'type': 'integer', 'min': 0, 'default': DEFAULT_CHAOS_NR_NODE_EVENTS},
+            'nr-link-events': {'type': 'integer', 'min': 0,
+                               'default': DEFAULT_CHAOS_NR_LINK_EVENTS},
+            'nr-node-events': {'type': 'integer', 'min': 0,
+                               'default': DEFAULT_CHAOS_NR_NODE_EVENTS},
             'event-interval': {'type': 'float', 'min': 0.0,
                                'default': DEFAULT_CHAOS_EVENT_INTERVAL},
         }
@@ -1140,6 +1142,7 @@ class Fabric:
         nr_link_events = self.get_chaos_config('nr-link-events', DEFAULT_CHAOS_NR_LINK_EVENTS)
         nr_node_events = self.get_chaos_config('nr-node-events', DEFAULT_CHAOS_NR_NODE_EVENTS)
         event_interval = self.get_chaos_config('event-interval', DEFAULT_CHAOS_EVENT_INTERVAL)
+
         for _event_nr in range(1, nr_link_events + 1):
             break_something = self.choose_break_or_fix_link(clean_links, affected_links)
             if break_something:
@@ -1154,6 +1157,7 @@ class Fabric:
                 event.write_fix_script(file)
                 del affected_links[link]
                 clean_links.append(link)
+
             print("sleep {}".format(event_interval), file=file)
             print(file=file)
             
@@ -1171,6 +1175,7 @@ class Fabric:
                 event.write_fix_script(file)
                 del affected_nodes[node]
                 clean_nodes.append(node)
+
             print("sleep {}".format(event_interval), file=file)
             print(file=file)
             
@@ -1188,6 +1193,7 @@ class Fabric:
             event.write_fix_script(file)
             del affected_nodes[node]
             clean_nodes.append(node)
+
         # One final delay to let everything reconverge
         print("sleep {}".format(event_interval), file=file)
         print(file=file)
