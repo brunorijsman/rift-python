@@ -1235,10 +1235,14 @@ class Node:
         self.command_show_routes_af(cli_session, constants.ADDRESS_FAMILY_IPV6)
 
     def command_show_routes_family(self, cli_session, parameters):
-        if parameters["family"].lower() == "ipv4":
+        family = parameters["family"].lower()
+        if family == "ipv4":
             self.command_show_routes_af(cli_session, constants.ADDRESS_FAMILY_IPV4)
-        else:
+        elif family == "ipv6":
             self.command_show_routes_af(cli_session, constants.ADDRESS_FAMILY_IPV6)
+        else:
+            cli_session.print("Error: unknown family {} (valid values are: ipv4, ipv6)"
+                              .format(family))
 
     def command_show_routes_af(self, cli_session, address_family):
         cli_session.print(constants.address_family_str(address_family) + " Routes:")
@@ -1271,10 +1275,14 @@ class Node:
         self.command_show_forwarding_af(cli_session, constants.ADDRESS_FAMILY_IPV6)
 
     def command_show_forwarding_family(self, cli_session, parameters):
-        if parameters["family"].lower() == "ipv4":
+        family = parameters["family"].lower()
+        if family == "ipv4":
             self.command_show_forwarding_af(cli_session, constants.ADDRESS_FAMILY_IPV4)
-        else:
+        elif family == "ipv6":
             self.command_show_forwarding_af(cli_session, constants.ADDRESS_FAMILY_IPV6)
+        else:
+            cli_session.print("Error: unknown family {} (valid values are: ipv4, ipv6)"
+                              .format(family))
 
     def command_show_forwarding_af(self, cli_session, address_family):
         cli_session.print(constants.address_family_str(address_family) + " Routes:")
