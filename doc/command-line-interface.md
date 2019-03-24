@@ -15,6 +15,7 @@
   * [show engine statistics exclude-zero](#show-engine-statistics-exclude-zero)
   * [show flooding-reduction](#show-flooding-reduction)
   * [show forwarding](#show-forwarding)
+  * [show forwarding family <i>family</i>](#show-forwarding-family-family)
   * [show forwarding prefix <i>prefix</i>](#show-forwarding-prefix-prefix)
   * [show fsm <i>fsm</i>](#show-fsm-fsm)
   * [show interface <i>interface</i>](#show-interface-interface)
@@ -38,6 +39,7 @@
   * [show nodes](#show-nodes)
   * [show nodes level](#show-nodes-level)
   * [show routes](#show-routes)
+  * [show routes family <i>family</i>](#show-routes-family-family)
   * [show routes prefix <i>prefix</i>](#show-routes-prefix-prefix)
   * [show routes prefix <i>prefix</i> owner <i>owner</i>](#show-routes-prefix-prefix-owner-owner)
   * [show spf](#show-spf)
@@ -111,6 +113,7 @@ show engine statistics
 show engine statistics exclude-zero 
 show flooding-reduction 
 show forwarding 
+show forwarding family &lt;family&gt; 
 show forwarding prefix &lt;prefix&gt; 
 show fsm lie 
 show fsm ztp 
@@ -136,6 +139,7 @@ show node statistics exclude-zero
 show nodes 
 show nodes level 
 show routes 
+show routes family &lt;family&gt; 
 show routes prefix &lt;prefix&gt; 
 show routes prefix &lt;prefix&gt; owner &lt;owner&gt; 
 show spf 
@@ -325,21 +329,21 @@ Example:
 <!-- OUTPUT-START: agg_101> show engine -->
 <pre>
 agg_101> <b>show engine</b>
-+----------------------------------+---------------------+
-| Stand-alone                      | False               |
-| Interactive                      | True                |
-| Simulated Interfaces             | True                |
-| Physical Interface               | eth0                |
-| Telnet Port File                 | None                |
-| IPv4 Multicast Loopback          | True                |
-| IPv6 Multicast Loopback          | True                |
-| Number of Nodes                  | 10                  |
-| Transmit Source Address          | 127.0.0.1           |
-| Flooding Reduction Enabled       | True                |
-| Flooding Reduction Redundancy    | 2                   |
-| Flooding Reduction Similarity    | 2                   |
-| Flooding Reduction System Random | 8765045630663094069 |
-+----------------------------------+---------------------+
++----------------------------------+----------------------+
+| Stand-alone                      | False                |
+| Interactive                      | True                 |
+| Simulated Interfaces             | True                 |
+| Physical Interface               | eth0                 |
+| Telnet Port File                 | None                 |
+| IPv4 Multicast Loopback          | True                 |
+| IPv6 Multicast Loopback          | True                 |
+| Number of Nodes                  | 10                   |
+| Transmit Source Address          | 127.0.0.1            |
+| Flooding Reduction Enabled       | True                 |
+| Flooding Reduction Redundancy    | 2                    |
+| Flooding Reduction Similarity    | 2                    |
+| Flooding Reduction System Random | 16181562419268783826 |
++----------------------------------+----------------------+
 </pre>
 <!-- OUTPUT-END -->
 
@@ -358,9 +362,9 @@ All Node ZTP FSMs:
 | Description                                                                              | Value          | Last Rate              | Last Change       |
 |                                                                                          |                | Over Last 10 Changes   |                   |
 +------------------------------------------------------------------------------------------+----------------+------------------------+-------------------+
-| Events CHANGE_LOCAL_CONFIGURED_LEVEL                                                     | 1 Event        |                        | 0d 00h:00m:00.23s |
+| Events CHANGE_LOCAL_CONFIGURED_LEVEL                                                     | 1 Event        |                        | 0d 00h:00m:00.24s |
 +------------------------------------------------------------------------------------------+----------------+------------------------+-------------------+
-| Events NEIGHBOR_OFFER                                                                    | 46 Events      | 123.99 Events/Sec      | 0d 00h:00m:00.01s |
+| Events NEIGHBOR_OFFER                                                                    | 48 Events      | 131.75 Events/Sec      | 0d 00h:00m:00.02s |
 +------------------------------------------------------------------------------------------+----------------+------------------------+-------------------+
 | Events BETTER_HAL                                                                        | 0 Events       |                        |                   |
 +------------------------------------------------------------------------------------------+----------------+------------------------+-------------------+
@@ -369,7 +373,7 @@ All Node ZTP FSMs:
 .                                                                                          .                .                        .                   .
 .                                                                                          .                .                        .                   .
 +------------------------------------------------------------------------------------------+----------------+------------------------+-------------------+
-| Event-Transitions UPDATING_CLIENTS -[CHANGE_LOCAL_CONFIGURED_LEVEL]-&gt; COMPUTE_BEST_OFFER | 1 Transition   |                        | 0d 00h:00m:00.23s |
+| Event-Transitions UPDATING_CLIENTS -[CHANGE_LOCAL_CONFIGURED_LEVEL]-&gt; COMPUTE_BEST_OFFER | 1 Transition   |                        | 0d 00h:00m:00.24s |
 +------------------------------------------------------------------------------------------+----------------+------------------------+-------------------+
 
 All Interfaces Traffic:
@@ -377,9 +381,9 @@ All Interfaces Traffic:
 | Description               | Value                  | Last Rate                              | Last Change       |
 |                           |                        | Over Last 10 Changes                   |                   |
 +---------------------------+------------------------+----------------------------------------+-------------------+
-| RX IPv4 LIE Packets       | 24 Packets, 3780 Bytes | 56.69 Packets/Sec, 9057.38 Bytes/Sec   | 0d 00h:00m:00.01s |
+| RX IPv4 LIE Packets       | 24 Packets, 3780 Bytes | 59.88 Packets/Sec, 9567.35 Bytes/Sec   | 0d 00h:00m:00.02s |
 +---------------------------+------------------------+----------------------------------------+-------------------+
-| TX IPv4 LIE Packets       | 28 Packets, 4312 Bytes | 56.82 Packets/Sec, 9078.06 Bytes/Sec   | 0d 00h:00m:00.01s |
+| TX IPv4 LIE Packets       | 28 Packets, 4312 Bytes | 60.16 Packets/Sec, 9612.22 Bytes/Sec   | 0d 00h:00m:00.03s |
 +---------------------------+------------------------+----------------------------------------+-------------------+
 | RX IPv4 TIE Packets       | 0 Packets, 0 Bytes     |                                        |                   |
 +---------------------------+------------------------+----------------------------------------+-------------------+
@@ -396,7 +400,7 @@ All Interface LIE FSMs:
 | Description                                               | Value          | Last Rate              | Last Change       |
 |                                                           |                | Over Last 10 Changes   |                   |
 +-----------------------------------------------------------+----------------+------------------------+-------------------+
-| Events TIMER_TICK                                         | 28 Events      | 57.51 Events/Sec       | 0d 00h:00m:00.02s |
+| Events TIMER_TICK                                         | 28 Events      | 59.83 Events/Sec       | 0d 00h:00m:00.03s |
 +-----------------------------------------------------------+----------------+------------------------+-------------------+
 | Events LEVEL_CHANGED                                      | 0 Events       |                        |                   |
 +-----------------------------------------------------------+----------------+------------------------+-------------------+
@@ -407,7 +411,7 @@ All Interface LIE FSMs:
 .                                                           .                .                        .                   .
 .                                                           .                .                        .                   .
 +-----------------------------------------------------------+----------------+------------------------+-------------------+
-| Event-Transitions ONE_WAY -[SEND_LIE]-&gt; ONE_WAY           | 4 Transitions  | 21.30 Transitions/Sec  | 0d 00h:00m:00.18s |
+| Event-Transitions ONE_WAY -[SEND_LIE]-&gt; ONE_WAY           | 4 Transitions  | 20.90 Transitions/Sec  | 0d 00h:00m:00.19s |
 +-----------------------------------------------------------+----------------+------------------------+-------------------+
 </pre>
 <!-- OUTPUT-END -->
@@ -427,9 +431,9 @@ All Node ZTP FSMs:
 | Description                                                                              | Value          | Last Rate              | Last Change       |
 |                                                                                          |                | Over Last 10 Changes   |                   |
 +------------------------------------------------------------------------------------------+----------------+------------------------+-------------------+
-| Events CHANGE_LOCAL_CONFIGURED_LEVEL                                                     | 1 Event        |                        | 0d 00h:00m:00.38s |
+| Events CHANGE_LOCAL_CONFIGURED_LEVEL                                                     | 1 Event        |                        | 0d 00h:00m:00.37s |
 +------------------------------------------------------------------------------------------+----------------+------------------------+-------------------+
-| Events NEIGHBOR_OFFER                                                                    | 48 Events      | 100.90 Events/Sec      | 0d 00h:00m:00.12s |
+| Events NEIGHBOR_OFFER                                                                    | 48 Events      | 131.75 Events/Sec      | 0d 00h:00m:00.15s |
 +------------------------------------------------------------------------------------------+----------------+------------------------+-------------------+
 | Events COMPUTATION_DONE                                                                  | 1 Event        |                        | 0d 00h:00m:00.37s |
 +------------------------------------------------------------------------------------------+----------------+------------------------+-------------------+
@@ -446,18 +450,18 @@ All Interfaces Traffic:
 | Description           | Value                  | Last Rate                              | Last Change       |
 |                       |                        | Over Last 10 Changes                   |                   |
 +-----------------------+------------------------+----------------------------------------+-------------------+
-| RX IPv4 LIE Packets   | 24 Packets, 3780 Bytes | 56.69 Packets/Sec, 9057.38 Bytes/Sec   | 0d 00h:00m:00.15s |
+| RX IPv4 LIE Packets   | 24 Packets, 3780 Bytes | 59.88 Packets/Sec, 9567.35 Bytes/Sec   | 0d 00h:00m:00.16s |
 +-----------------------+------------------------+----------------------------------------+-------------------+
-| TX IPv4 LIE Packets   | 28 Packets, 4312 Bytes | 56.82 Packets/Sec, 9078.06 Bytes/Sec   | 0d 00h:00m:00.15s |
+| TX IPv4 LIE Packets   | 28 Packets, 4312 Bytes | 60.16 Packets/Sec, 9612.22 Bytes/Sec   | 0d 00h:00m:00.16s |
 +-----------------------+------------------------+----------------------------------------+-------------------+
-| RX IPv6 LIE Packets   | 24 Packets, 3780 Bytes | 56.66 Packets/Sec, 9053.19 Bytes/Sec   | 0d 00h:00m:00.15s |
+| RX IPv6 LIE Packets   | 24 Packets, 3780 Bytes | 59.88 Packets/Sec, 9566.80 Bytes/Sec   | 0d 00h:00m:00.16s |
 +-----------------------+------------------------+----------------------------------------+-------------------+
-| TX IPv6 LIE Packets   | 28 Packets, 4312 Bytes | 56.79 Packets/Sec, 9073.62 Bytes/Sec   | 0d 00h:00m:00.15s |
+| TX IPv6 LIE Packets   | 28 Packets, 4312 Bytes | 60.16 Packets/Sec, 9612.83 Bytes/Sec   | 0d 00h:00m:00.16s |
 +-----------------------+------------------------+----------------------------------------+-------------------+
 .                       .                        .                                        .                   .
 .                       .                        .                                        .                   .
 +-----------------------+------------------------+----------------------------------------+-------------------+
-| Total TX Packets      | 56 Packets, 8624 Bytes | 123.50 Packets/Sec, 19760.05 Bytes/Sec | 0d 00h:00m:00.15s |
+| Total TX Packets      | 56 Packets, 8624 Bytes | 128.39 Packets/Sec, 20542.48 Bytes/Sec | 0d 00h:00m:00.16s |
 +-----------------------+------------------------+----------------------------------------+-------------------+
 
 All Interface LIE FSMs:
@@ -465,18 +469,18 @@ All Interface LIE FSMs:
 | Description                                             | Value          | Last Rate              | Last Change       |
 |                                                         |                | Over Last 10 Changes   |                   |
 +---------------------------------------------------------+----------------+------------------------+-------------------+
-| Events TIMER_TICK                                       | 28 Events      | 57.51 Events/Sec       | 0d 00h:00m:00.16s |
+| Events TIMER_TICK                                       | 28 Events      | 59.83 Events/Sec       | 0d 00h:00m:00.17s |
 +---------------------------------------------------------+----------------+------------------------+-------------------+
-| Events LIE_RECEIVED                                     | 48 Events      | 100.71 Events/Sec      | 0d 00h:00m:00.13s |
+| Events LIE_RECEIVED                                     | 48 Events      | 131.20 Events/Sec      | 0d 00h:00m:00.16s |
 +---------------------------------------------------------+----------------+------------------------+-------------------+
-| Events SEND_LIE                                         | 28 Events      | 57.46 Events/Sec       | 0d 00h:00m:00.16s |
+| Events SEND_LIE                                         | 28 Events      | 59.99 Events/Sec       | 0d 00h:00m:00.17s |
 +---------------------------------------------------------+----------------+------------------------+-------------------+
-| Transitions ONE_WAY -&gt; ONE_WAY                          | 8 Transitions  | 48.79 Transitions/Sec  | 0d 00h:00m:00.32s |
+| Transitions ONE_WAY -&gt; ONE_WAY                          | 8 Transitions  | 47.72 Transitions/Sec  | 0d 00h:00m:00.32s |
 +---------------------------------------------------------+----------------+------------------------+-------------------+
 .                                                         .                .                        .                   .
 .                                                         .                .                        .                   .
 +---------------------------------------------------------+----------------+------------------------+-------------------+
-| Event-Transitions ONE_WAY -[SEND_LIE]-&gt; ONE_WAY         | 4 Transitions  | 21.30 Transitions/Sec  | 0d 00h:00m:00.32s |
+| Event-Transitions ONE_WAY -[SEND_LIE]-&gt; ONE_WAY         | 4 Transitions  | 20.90 Transitions/Sec  | 0d 00h:00m:00.32s |
 +---------------------------------------------------------+----------------+------------------------+-------------------+
 </pre>
 <!-- OUTPUT-END -->
@@ -560,6 +564,39 @@ IPv6 Routes:
 +--------+-----------+-------------------------------+
 | ::/0   | North SPF | if_101_1 fe80::42:acff:fe11:3 |
 +--------+-----------+-------------------------------+
+</pre>
+<!-- OUTPUT-END -->
+
+### show forwarding family <i>family</i>
+
+The "<b>show forwarding family</b> <i>family</i>" command shows the routes of a given address family
+in the Forwarding Information Base (FIB) of the current node.
+
+The <i>family</i> parameter can be "<b>ipv4</b>" or "<b>ipv6</b>"
+
+Example:
+
+<!-- OUTPUT-START: agg_101> show forwarding family ipv4 -->
+<pre>
+agg_101> <b>show forwarding family ipv4</b>
+IPv4 Routes:
++---------------+-----------+------------------------+
+| Prefix        | Owner     | Next-hops              |
++---------------+-----------+------------------------+
+| 0.0.0.0/0     | North SPF | if_101_1 172.17.0.3    |
++---------------+-----------+------------------------+
+| 1.1.1.0/24    | South SPF | if_101_1001 172.17.0.3 |
++---------------+-----------+------------------------+
+| 1.1.2.0/24    | South SPF | if_101_1001 172.17.0.3 |
++---------------+-----------+------------------------+
+| 1.1.3.0/24    | South SPF | if_101_1001 172.17.0.3 |
++---------------+-----------+------------------------+
+.               .           .                        .
+.               .           .                        .
++---------------+-----------+------------------------+
+| 99.99.99.0/24 | South SPF | if_101_1001 172.17.0.3 |
+|               |           | if_101_1002 172.17.0.3 |
++---------------+-----------+------------------------+
 </pre>
 <!-- OUTPUT-END -->
 
@@ -738,7 +775,7 @@ Interface:
 | Advertised Name                      | agg_101:if_101_1                                         |
 | Interface IPv4 Address               | 172.17.0.3                                               |
 | Interface IPv6 Address               | 2001:db8:1::242:ac11:3                                   |
-| Interface Index                      | 12                                                       |
+| Interface Index                      | 16                                                       |
 | Metric                               | 1                                                        |
 | LIE Recieve IPv4 Multicast Address   | 224.0.0.81                                               |
 | LIE Receive IPv6 Multicast Address   | FF02::0078                                               |
@@ -764,7 +801,7 @@ Neighbor:
 | System ID              | 1                         |
 | IPv4 Address           | 172.17.0.3                |
 | IPv6 Address           | fe80::42:acff:fe11:3%eth0 |
-| LIE UDP Source Port    | 38546                     |
+| LIE UDP Source Port    | 52393                     |
 | Link ID                | 1                         |
 | Level                  | 2                         |
 | Flood UDP Port         | 20003                     |
@@ -798,11 +835,11 @@ agg_101> <b>show interface if_101_1001 fsm history</b>
 | Sequence | Time     | Verbose | From    | Event            | Actions and    | To        | Implicit |
 | Nr       | Delta    | Skipped | State   |                  | Pushed Events  | State     |          |
 +----------+----------+---------+---------+------------------+----------------+-----------+----------+
-| 236      | 9.631276 | 3       | TWO_WAY | VALID_REFLECTION | start_flooding | THREE_WAY | False    |
+| 236      | 9.671386 | 3       | TWO_WAY | VALID_REFLECTION | start_flooding | THREE_WAY | False    |
 +----------+----------+---------+---------+------------------+----------------+-----------+----------+
-| 66       | 0.339630 | 1       | ONE_WAY | NEW_NEIGHBOR     | SEND_LIE       | TWO_WAY   | False    |
+| 66       | 0.392953 | 1       | ONE_WAY | NEW_NEIGHBOR     | SEND_LIE       | TWO_WAY   | False    |
 +----------+----------+---------+---------+------------------+----------------+-----------+----------+
-| 9        | 0.365437 | 0       | None    | None             | cleanup        | ONE_WAY   | False    |
+| 9        | 0.372557 | 0       | None    | None             | cleanup        | ONE_WAY   | False    |
 |          |          |         |         |                  | send_lie       |           |          |
 +----------+----------+---------+---------+------------------+----------------+-----------+----------+
 </pre>
@@ -829,19 +866,19 @@ agg_101> <b>show interface if_101_1001 fsm verbose-history</b>
 | Sequence | Time     | Verbose | From      | Event        | Actions and             | To    | Implicit |
 | Nr       | Delta    | Skipped | State     |              | Pushed Events           | State |          |
 +----------+----------+---------+-----------+--------------+-------------------------+-------+----------+
-| 1778     | 0.274000 | 0       | THREE_WAY | LIE_RECEIVED | process_lie             | None  | False    |
+| 1778     | 0.371922 | 0       | THREE_WAY | LIE_RECEIVED | process_lie             | None  | False    |
 +----------+----------+---------+-----------+--------------+-------------------------+-------+----------+
-| 1777     | 0.000199 | 0       | THREE_WAY | LIE_RECEIVED | process_lie             | None  | False    |
+| 1777     | 0.000364 | 0       | THREE_WAY | LIE_RECEIVED | process_lie             | None  | False    |
 +----------+----------+---------+-----------+--------------+-------------------------+-------+----------+
-| 1702     | 0.173429 | 0       | THREE_WAY | SEND_LIE     | send_lie                | None  | False    |
+| 1704     | 0.182383 | 0       | THREE_WAY | SEND_LIE     | send_lie                | None  | False    |
 +----------+----------+---------+-----------+--------------+-------------------------+-------+----------+
-| 1701     | 0.001153 | 0       | THREE_WAY | TIMER_TICK   | check_hold_time_expired | None  | False    |
+| 1703     | 0.000296 | 0       | THREE_WAY | TIMER_TICK   | check_hold_time_expired | None  | False    |
 |          |          |         |           |              | SEND_LIE                |       |          |
 +----------+----------+---------+-----------+--------------+-------------------------+-------+----------+
 .          .          .         .           .              .                         .       .          .
 .          .          .         .           .              .                         .       .          .
 +----------+----------+---------+-----------+--------------+-------------------------+-------+----------+
-| 866      | 0.808692 | 0       | THREE_WAY | LIE_RECEIVED | process_lie             | None  | False    |
+| 866      | 0.799372 | 0       | THREE_WAY | LIE_RECEIVED | process_lie             | None  | False    |
 +----------+----------+---------+-----------+--------------+-------------------------+-------+----------+
 </pre>
 <!-- OUTPUT-END -->
@@ -908,14 +945,14 @@ agg_101> <b>show interface if_101_1 sockets</b>
 +----------+-----------+--------+---------------------------+------------+----------------+-------------+
 | LIEs     | Receive   | IPv6   | ff02::78%eth0             | 20001      | Any            | Any         |
 +----------+-----------+--------+---------------------------+------------+----------------+-------------+
-| LIEs     | Send      | IPv4   | 172.17.0.3                | 58543      | 224.0.0.71     | 20002       |
+| LIEs     | Send      | IPv4   | 172.17.0.3                | 47723      | 224.0.0.71     | 20002       |
 +----------+-----------+--------+---------------------------+------------+----------------+-------------+
-| LIEs     | Send      | IPv6   | fe80::42:acff:fe11:3%eth0 | 56542      | ff02::78%eth0  | 20002       |
+| LIEs     | Send      | IPv6   | fe80::42:acff:fe11:3%eth0 | 34548      | ff02::78%eth0  | 20002       |
 +----------+-----------+--------+---------------------------+------------+----------------+-------------+
 .          .           .        .                           .            .                .             .
 .          .           .        .                           .            .                .             .
 +----------+-----------+--------+---------------------------+------------+----------------+-------------+
-| Flooding | Send      | IPv4   | 172.17.0.3                | 35781      | 172.17.0.3     | 20003       |
+| Flooding | Send      | IPv4   | 172.17.0.3                | 39412      | 172.17.0.3     | 20003       |
 +----------+-----------+--------+---------------------------+------------+----------------+-------------+
 </pre>
 <!-- OUTPUT-END -->
@@ -931,42 +968,42 @@ Example:
 <pre>
 agg_101> <b>show interface if_101_1 statistics</b>
 Traffic:
-+---------------------------+-----------------------+-------------------------------------+-------------------+
-| Description               | Value                 | Last Rate                           | Last Change       |
-|                           |                       | Over Last 10 Changes                |                   |
-+---------------------------+-----------------------+-------------------------------------+-------------------+
-| RX IPv4 LIE Packets       | 2 Packets, 308 Bytes  | 1.00 Packets/Sec, 154.18 Bytes/Sec  | 0d 00h:00m:00.88s |
-+---------------------------+-----------------------+-------------------------------------+-------------------+
-| TX IPv4 LIE Packets       | 2 Packets, 310 Bytes  | 0.99 Packets/Sec, 152.68 Bytes/Sec  | 0d 00h:00m:00.80s |
-+---------------------------+-----------------------+-------------------------------------+-------------------+
-| RX IPv4 TIE Packets       | 0 Packets, 0 Bytes    |                                     |                   |
-+---------------------------+-----------------------+-------------------------------------+-------------------+
-| TX IPv4 TIE Packets       | 0 Packets, 0 Bytes    |                                     |                   |
-+---------------------------+-----------------------+-------------------------------------+-------------------+
-.                           .                       .                                     .                   .
-.                           .                       .                                     .                   .
-+---------------------------+-----------------------+-------------------------------------+-------------------+
-| Total TX Errors           | 0 Packets, 0 Bytes    |                                     |                   |
-+---------------------------+-----------------------+-------------------------------------+-------------------+
++---------------------------+-----------------------+------------------------------------+-------------------+
+| Description               | Value                 | Last Rate                          | Last Change       |
+|                           |                       | Over Last 10 Changes               |                   |
++---------------------------+-----------------------+------------------------------------+-------------------+
+| RX IPv4 LIE Packets       | 3 Packets, 462 Bytes  | 1.00 Packets/Sec, 154.18 Bytes/Sec | 0d 00h:00m:00.02s |
++---------------------------+-----------------------+------------------------------------+-------------------+
+| TX IPv4 LIE Packets       | 2 Packets, 310 Bytes  | 1.00 Packets/Sec, 154.72 Bytes/Sec | 0d 00h:00m:00.94s |
++---------------------------+-----------------------+------------------------------------+-------------------+
+| RX IPv4 TIE Packets       | 0 Packets, 0 Bytes    |                                    |                   |
++---------------------------+-----------------------+------------------------------------+-------------------+
+| TX IPv4 TIE Packets       | 0 Packets, 0 Bytes    |                                    |                   |
++---------------------------+-----------------------+------------------------------------+-------------------+
+.                           .                       .                                    .                   .
+.                           .                       .                                    .                   .
++---------------------------+-----------------------+------------------------------------+-------------------+
+| Total TX Errors           | 0 Packets, 0 Bytes    |                                    |                   |
++---------------------------+-----------------------+------------------------------------+-------------------+
 
 LIE FSM:
-+-----------------------------------------------------------+---------------+----------------------+-------------------+
-| Description                                               | Value         | Last Rate            | Last Change       |
-|                                                           |               | Over Last 10 Changes |                   |
-+-----------------------------------------------------------+---------------+----------------------+-------------------+
-| Event-Transitions None -[None]-&gt; ONE_WAY                  | 0 Transitions |                      |                   |
-+-----------------------------------------------------------+---------------+----------------------+-------------------+
-| Event-Transitions ONE_WAY -[LIE_RECEIVED]-&gt; ONE_WAY       | 0 Transitions |                      |                   |
-+-----------------------------------------------------------+---------------+----------------------+-------------------+
-| Event-Transitions ONE_WAY -[NEW_NEIGHBOR]-&gt; TWO_WAY       | 0 Transitions |                      |                   |
-+-----------------------------------------------------------+---------------+----------------------+-------------------+
-| Event-Transitions THREE_WAY -[LIE_RECEIVED]-&gt; THREE_WAY   | 4 Transitions | 3.00 Transitions/Sec | 0d 00h:00m:00.89s |
-+-----------------------------------------------------------+---------------+----------------------+-------------------+
-.                                                           .               .                      .                   .
-.                                                           .               .                      .                   .
-+-----------------------------------------------------------+---------------+----------------------+-------------------+
-| Transitions TWO_WAY -&gt; TWO_WAY                            | 0 Transitions |                      |                   |
-+-----------------------------------------------------------+---------------+----------------------+-------------------+
++-----------------------------------------------------------+----------------+----------------------+-------------------+
+| Description                                               | Value          | Last Rate            | Last Change       |
+|                                                           |                | Over Last 10 Changes |                   |
++-----------------------------------------------------------+----------------+----------------------+-------------------+
+| Event-Transitions None -[None]-&gt; ONE_WAY                  | 0 Transitions  |                      |                   |
++-----------------------------------------------------------+----------------+----------------------+-------------------+
+| Event-Transitions ONE_WAY -[LIE_RECEIVED]-&gt; ONE_WAY       | 0 Transitions  |                      |                   |
++-----------------------------------------------------------+----------------+----------------------+-------------------+
+| Event-Transitions ONE_WAY -[NEW_NEIGHBOR]-&gt; TWO_WAY       | 0 Transitions  |                      |                   |
++-----------------------------------------------------------+----------------+----------------------+-------------------+
+| Event-Transitions THREE_WAY -[LIE_RECEIVED]-&gt; THREE_WAY   | 6 Transitions  | 2.50 Transitions/Sec | 0d 00h:00m:00.03s |
++-----------------------------------------------------------+----------------+----------------------+-------------------+
+.                                                           .                .                      .                   .
+.                                                           .                .                      .                   .
++-----------------------------------------------------------+----------------+----------------------+-------------------+
+| Transitions TWO_WAY -&gt; TWO_WAY                            | 0 Transitions  |                      |                   |
++-----------------------------------------------------------+----------------+----------------------+-------------------+
 </pre>
 <!-- OUTPUT-END -->
 
@@ -985,18 +1022,18 @@ Traffic:
 | Description               | Value                 | Last Rate                          | Last Change       |
 |                           |                       | Over Last 10 Changes               |                   |
 +---------------------------+-----------------------+------------------------------------+-------------------+
-| RX IPv4 LIE Packets       | 3 Packets, 462 Bytes  | 1.00 Packets/Sec, 154.18 Bytes/Sec | 0d 00h:00m:00.03s |
+| RX IPv4 LIE Packets       | 3 Packets, 462 Bytes  | 1.00 Packets/Sec, 154.18 Bytes/Sec | 0d 00h:00m:00.16s |
 +---------------------------+-----------------------+------------------------------------+-------------------+
-| TX IPv4 LIE Packets       | 2 Packets, 310 Bytes  | 0.99 Packets/Sec, 152.68 Bytes/Sec | 0d 00h:00m:00.94s |
+| TX IPv4 LIE Packets       | 3 Packets, 465 Bytes  | 1.00 Packets/Sec, 154.96 Bytes/Sec | 0d 00h:00m:00.08s |
 +---------------------------+-----------------------+------------------------------------+-------------------+
-| RX IPv4 TIDE Packets      | 1 Packet, 884 Bytes   |                                    | 0d 00h:00m:00.96s |
+| RX IPv4 TIDE Packets      | 1 Packet, 884 Bytes   |                                    | 0d 00h:00m:01.09s |
 +---------------------------+-----------------------+------------------------------------+-------------------+
-| TX IPv4 TIDE Packets      | 1 Packet, 476 Bytes   |                                    | 0d 00h:00m:00.92s |
+| TX IPv4 TIDE Packets      | 1 Packet, 476 Bytes   |                                    | 0d 00h:00m:01.04s |
 +---------------------------+-----------------------+------------------------------------+-------------------+
 .                           .                       .                                    .                   .
 .                           .                       .                                    .                   .
 +---------------------------+-----------------------+------------------------------------+-------------------+
-| Total TX Packets          | 5 Packets, 1096 Bytes | 3.85 Packets/Sec, 906.04 Bytes/Sec | 0d 00h:00m:00.92s |
+| Total TX Packets          | 7 Packets, 1406 Bytes | 3.00 Packets/Sec, 625.13 Bytes/Sec | 0d 00h:00m:00.08s |
 +---------------------------+-----------------------+------------------------------------+-------------------+
 
 LIE FSM:
@@ -1004,18 +1041,18 @@ LIE FSM:
 | Description                                             | Value          | Last Rate            | Last Change       |
 |                                                         |                | Over Last 10 Changes |                   |
 +---------------------------------------------------------+----------------+----------------------+-------------------+
-| Event-Transitions THREE_WAY -[LIE_RECEIVED]-&gt; THREE_WAY | 6 Transitions  | 2.50 Transitions/Sec | 0d 00h:00m:00.03s |
+| Event-Transitions THREE_WAY -[LIE_RECEIVED]-&gt; THREE_WAY | 6 Transitions  | 2.50 Transitions/Sec | 0d 00h:00m:00.16s |
 +---------------------------------------------------------+----------------+----------------------+-------------------+
-| Event-Transitions THREE_WAY -[SEND_LIE]-&gt; THREE_WAY     | 2 Transitions  | 0.99 Transitions/Sec | 0d 00h:00m:00.94s |
+| Event-Transitions THREE_WAY -[SEND_LIE]-&gt; THREE_WAY     | 3 Transitions  | 1.00 Transitions/Sec | 0d 00h:00m:00.08s |
 +---------------------------------------------------------+----------------+----------------------+-------------------+
-| Event-Transitions THREE_WAY -[TIMER_TICK]-&gt; THREE_WAY   | 2 Transitions  | 0.98 Transitions/Sec | 0d 00h:00m:00.95s |
+| Event-Transitions THREE_WAY -[TIMER_TICK]-&gt; THREE_WAY   | 3 Transitions  | 1.00 Transitions/Sec | 0d 00h:00m:00.09s |
 +---------------------------------------------------------+----------------+----------------------+-------------------+
-| Events LIE_RECEIVED                                     | 6 Events       | 2.50 Events/Sec      | 0d 00h:00m:00.03s |
+| Events LIE_RECEIVED                                     | 6 Events       | 2.50 Events/Sec      | 0d 00h:00m:00.16s |
 +---------------------------------------------------------+----------------+----------------------+-------------------+
 .                                                         .                .                      .                   .
 .                                                         .                .                      .                   .
 +---------------------------------------------------------+----------------+----------------------+-------------------+
-| Transitions THREE_WAY -&gt; THREE_WAY                      | 10 Transitions | 4.51 Transitions/Sec | 0d 00h:00m:00.03s |
+| Transitions THREE_WAY -&gt; THREE_WAY                      | 12 Transitions | 4.49 Transitions/Sec | 0d 00h:00m:00.08s |
 +---------------------------------------------------------+----------------+----------------------+-------------------+
 </pre>
 <!-- OUTPUT-END -->
@@ -1130,7 +1167,7 @@ Kernel Links:
 +-----------+-----------+-------------------+-------------------+-----------+-------+-----------+
 | ip6tnl0   | 3         | 00:00:00:00:00:00 | 00:00:00:00:00:00 | 0         | 1452  | NOARP     |
 +-----------+-----------+-------------------+-------------------+-----------+-------+-----------+
-| eth0      | 12        | 02:42:ac:11:00:03 | ff:ff:ff:ff:ff:ff | 13        | 1500  | UP        |
+| eth0      | 16        | 02:42:ac:11:00:03 | ff:ff:ff:ff:ff:ff | 17        | 1500  | UP        |
 |           |           |                   |                   |           |       | BROADCAST |
 |           |           |                   |                   |           |       | RUNNING   |
 |           |           |                   |                   |           |       | MULTICAST |
@@ -1288,7 +1325,7 @@ Node:
 | Flooding Reduction Enabled            | True             |
 | Flooding Reduction Redundancy         | 2                |
 | Flooding Reduction Similarity         | 2                |
-| Flooding Reduction Node Random        | 47912            |
+| Flooding Reduction Node Random        | 21850            |
 +---------------------------------------+------------------+
 
 Received Offers:
@@ -1336,23 +1373,23 @@ agg_101> <b>show node fsm history</b>
 | Sequence | Time     | Verbose | From               | Event                         | Actions and          | To                 | Implicit |
 | Nr       | Delta    | Skipped | State              |                               | Pushed Events        | State              |          |
 +----------+----------+---------+--------------------+-------------------------------+----------------------+--------------------+----------+
-| 1582     | 3.474973 | 0       | COMPUTE_BEST_OFFER | COMPUTATION_DONE              | update_all_lie_fsms  | UPDATING_CLIENTS   | False    |
+| 1582     | 3.126512 | 0       | COMPUTE_BEST_OFFER | COMPUTATION_DONE              | update_all_lie_fsms  | UPDATING_CLIENTS   | False    |
 +----------+----------+---------+--------------------+-------------------------------+----------------------+--------------------+----------+
-| 1581     | 0.003461 | 49      | UPDATING_CLIENTS   | CHANGE_LOCAL_CONFIGURED_LEVEL | store_level          | COMPUTE_BEST_OFFER | False    |
+| 1581     | 0.002825 | 49      | UPDATING_CLIENTS   | CHANGE_LOCAL_CONFIGURED_LEVEL | store_level          | COMPUTE_BEST_OFFER | False    |
 |          |          |         |                    |                               | stop_hold_down_timer |                    |          |
 |          |          |         |                    |                               | level_compute        |                    |          |
 |          |          |         |                    |                               | COMPUTATION_DONE     |                    |          |
 +----------+----------+---------+--------------------+-------------------------------+----------------------+--------------------+----------+
-| 303      | 8.091830 | 0       | COMPUTE_BEST_OFFER | COMPUTATION_DONE              | update_all_lie_fsms  | UPDATING_CLIENTS   | False    |
+| 303      | 8.108099 | 0       | COMPUTE_BEST_OFFER | COMPUTATION_DONE              | update_all_lie_fsms  | UPDATING_CLIENTS   | False    |
 +----------+----------+---------+--------------------+-------------------------------+----------------------+--------------------+----------+
-| 302      | 0.001209 | 6       | UPDATING_CLIENTS   | BETTER_HAT                    | stop_hold_down_timer | COMPUTE_BEST_OFFER | False    |
+| 302      | 0.001282 | 6       | UPDATING_CLIENTS   | BETTER_HAT                    | stop_hold_down_timer | COMPUTE_BEST_OFFER | False    |
 |          |          |         |                    |                               | level_compute        |                    |          |
 |          |          |         |                    |                               | COMPUTATION_DONE     |                    |          |
 +----------+----------+---------+--------------------+-------------------------------+----------------------+--------------------+----------+
 .          .          .         .                    .                               .                      .                    .          .
 .          .          .         .                    .                               .                      .                    .          .
 +----------+----------+---------+--------------------+-------------------------------+----------------------+--------------------+----------+
-| 11       | 0.299237 | 0       | None               | None                          | stop_hold_down_timer | COMPUTE_BEST_OFFER | False    |
+| 11       | 0.282187 | 0       | None               | None                          | stop_hold_down_timer | COMPUTE_BEST_OFFER | False    |
 |          |          |         |                    |                               | level_compute        |                    |          |
 |          |          |         |                    |                               | COMPUTATION_DONE     |                    |          |
 +----------+----------+---------+--------------------+-------------------------------+----------------------+--------------------+----------+
@@ -1380,18 +1417,18 @@ agg_101> <b>show node fsm verbose-history</b>
 | Sequence | Time     | Verbose | From               | Event                         | Actions and            | To                 | Implicit |
 | Nr       | Delta    | Skipped | State              |                               | Pushed Events          | State              |          |
 +----------+----------+---------+--------------------+-------------------------------+------------------------+--------------------+----------+
-| 2098     | 0.442372 | 0       | UPDATING_CLIENTS   | NEIGHBOR_OFFER                | update_or_remove_offer | None               | False    |
+| 2096     | 0.109178 | 0       | UPDATING_CLIENTS   | NEIGHBOR_OFFER                | update_or_remove_offer | None               | False    |
 +----------+----------+---------+--------------------+-------------------------------+------------------------+--------------------+----------+
-| 2097     | 0.000124 | 0       | UPDATING_CLIENTS   | NEIGHBOR_OFFER                | update_or_remove_offer | None               | False    |
+| 2095     | 0.000250 | 0       | UPDATING_CLIENTS   | NEIGHBOR_OFFER                | update_or_remove_offer | None               | False    |
 +----------+----------+---------+--------------------+-------------------------------+------------------------+--------------------+----------+
-| 2088     | 0.010341 | 0       | UPDATING_CLIENTS   | NEIGHBOR_OFFER                | update_or_remove_offer | None               | False    |
+| 2086     | 0.035420 | 0       | UPDATING_CLIENTS   | NEIGHBOR_OFFER                | update_or_remove_offer | None               | False    |
 +----------+----------+---------+--------------------+-------------------------------+------------------------+--------------------+----------+
-| 2087     | 0.000173 | 0       | UPDATING_CLIENTS   | NEIGHBOR_OFFER                | update_or_remove_offer | None               | False    |
+| 2085     | 0.000283 | 0       | UPDATING_CLIENTS   | NEIGHBOR_OFFER                | update_or_remove_offer | None               | False    |
 +----------+----------+---------+--------------------+-------------------------------+------------------------+--------------------+----------+
 .          .          .         .                    .                               .                        .                    .          .
 .          .          .         .                    .                               .                        .                    .          .
 +----------+----------+---------+--------------------+-------------------------------+------------------------+--------------------+----------+
-| 1524     | 0.156738 | 0       | UPDATING_CLIENTS   | NEIGHBOR_OFFER                | update_or_remove_offer | None               | False    |
+| 1524     | 0.167823 | 0       | UPDATING_CLIENTS   | NEIGHBOR_OFFER                | update_or_remove_offer | None               | False    |
 +----------+----------+---------+--------------------+-------------------------------+------------------------+--------------------+----------+
 </pre>
 <!-- OUTPUT-END -->
@@ -1410,7 +1447,7 @@ Node ZTP FSM:
 | Description                                                                              | Value          | Last Rate            | Last Change       |
 |                                                                                          |                | Over Last 10 Changes |                   |
 +------------------------------------------------------------------------------------------+----------------+----------------------+-------------------+
-| Event-Transitions COMPUTE_BEST_OFFER -[COMPUTATION_DONE]-&gt; UPDATING_CLIENTS              | 1 Transition   |                      | 0d 00h:00m:03.72s |
+| Event-Transitions COMPUTE_BEST_OFFER -[COMPUTATION_DONE]-&gt; UPDATING_CLIENTS              | 1 Transition   |                      | 0d 00h:00m:03.38s |
 +------------------------------------------------------------------------------------------+----------------+----------------------+-------------------+
 | Event-Transitions None -[None]-&gt; COMPUTE_BEST_OFFER                                      | 0 Transitions  |                      |                   |
 +------------------------------------------------------------------------------------------+----------------+----------------------+-------------------+
@@ -1421,7 +1458,7 @@ Node ZTP FSM:
 .                                                                                          .                .                      .                   .
 .                                                                                          .                .                      .                   .
 +------------------------------------------------------------------------------------------+----------------+----------------------+-------------------+
-| Transitions UPDATING_CLIENTS -&gt; UPDATING_CLIENTS                                         | 24 Transitions | 8.56 Transitions/Sec | 0d 00h:00m:00.57s |
+| Transitions UPDATING_CLIENTS -&gt; UPDATING_CLIENTS                                         | 24 Transitions | 8.65 Transitions/Sec | 0d 00h:00m:00.24s |
 +------------------------------------------------------------------------------------------+----------------+----------------------+-------------------+
 
 Node Interfaces Traffic:
@@ -1429,9 +1466,9 @@ Node Interfaces Traffic:
 | Description               | Value                  | Last Rate                              | Last Change       |
 |                           |                        | Over Last 10 Changes                   |                   |
 +---------------------------+------------------------+----------------------------------------+-------------------+
-| RX IPv4 LIE Packets       | 12 Packets, 1896 Bytes | 3.00 Packets/Sec, 473.53 Bytes/Sec     | 0d 00h:00m:00.58s |
+| RX IPv4 LIE Packets       | 12 Packets, 1896 Bytes | 3.00 Packets/Sec, 473.61 Bytes/Sec     | 0d 00h:00m:00.25s |
 +---------------------------+------------------------+----------------------------------------+-------------------+
-| TX IPv4 LIE Packets       | 16 Packets, 2416 Bytes | 4.50 Packets/Sec, 683.10 Bytes/Sec     | 0d 00h:00m:00.79s |
+| TX IPv4 LIE Packets       | 16 Packets, 2416 Bytes | 4.47 Packets/Sec, 677.83 Bytes/Sec     | 0d 00h:00m:00.45s |
 +---------------------------+------------------------+----------------------------------------+-------------------+
 | RX IPv4 TIE Packets       | 0 Packets, 0 Bytes     |                                        |                   |
 +---------------------------+------------------------+----------------------------------------+-------------------+
@@ -1454,7 +1491,7 @@ Node Interface LIE FSMs:
 +-----------------------------------------------------------+----------------+-----------------------+-------------------+
 | Event-Transitions ONE_WAY -[NEW_NEIGHBOR]-&gt; TWO_WAY       | 0 Transitions  |                       |                   |
 +-----------------------------------------------------------+----------------+-----------------------+-------------------+
-| Event-Transitions ONE_WAY -[SEND_LIE]-&gt; ONE_WAY           | 4 Transitions  | 1.00 Transitions/Sec  | 0d 00h:00m:00.82s |
+| Event-Transitions ONE_WAY -[SEND_LIE]-&gt; ONE_WAY           | 4 Transitions  | 1.00 Transitions/Sec  | 0d 00h:00m:00.48s |
 +-----------------------------------------------------------+----------------+-----------------------+-------------------+
 .                                                           .                .                       .                   .
 .                                                           .                .                       .                   .
@@ -1479,18 +1516,18 @@ Node ZTP FSM:
 | Description                                                                              | Value          | Last Rate            | Last Change       |
 |                                                                                          |                | Over Last 10 Changes |                   |
 +------------------------------------------------------------------------------------------+----------------+----------------------+-------------------+
-| Event-Transitions COMPUTE_BEST_OFFER -[COMPUTATION_DONE]-&gt; UPDATING_CLIENTS              | 1 Transition   |                      | 0d 00h:00m:03.86s |
+| Event-Transitions COMPUTE_BEST_OFFER -[COMPUTATION_DONE]-&gt; UPDATING_CLIENTS              | 1 Transition   |                      | 0d 00h:00m:03.53s |
 +------------------------------------------------------------------------------------------+----------------+----------------------+-------------------+
-| Event-Transitions UPDATING_CLIENTS -[CHANGE_LOCAL_CONFIGURED_LEVEL]-&gt; COMPUTE_BEST_OFFER | 1 Transition   |                      | 0d 00h:00m:03.86s |
+| Event-Transitions UPDATING_CLIENTS -[CHANGE_LOCAL_CONFIGURED_LEVEL]-&gt; COMPUTE_BEST_OFFER | 1 Transition   |                      | 0d 00h:00m:03.53s |
 +------------------------------------------------------------------------------------------+----------------+----------------------+-------------------+
-| Event-Transitions UPDATING_CLIENTS -[NEIGHBOR_OFFER]-&gt; UPDATING_CLIENTS                  | 26 Transitions | 5.33 Transitions/Sec | 0d 00h:00m:00.03s |
+| Event-Transitions UPDATING_CLIENTS -[NEIGHBOR_OFFER]-&gt; UPDATING_CLIENTS                  | 24 Transitions | 8.65 Transitions/Sec | 0d 00h:00m:00.39s |
 +------------------------------------------------------------------------------------------+----------------+----------------------+-------------------+
-| Events CHANGE_LOCAL_CONFIGURED_LEVEL                                                     | 1 Event        |                      | 0d 00h:00m:03.87s |
+| Events CHANGE_LOCAL_CONFIGURED_LEVEL                                                     | 1 Event        |                      | 0d 00h:00m:03.53s |
 +------------------------------------------------------------------------------------------+----------------+----------------------+-------------------+
 .                                                                                          .                .                      .                   .
 .                                                                                          .                .                      .                   .
 +------------------------------------------------------------------------------------------+----------------+----------------------+-------------------+
-| Transitions UPDATING_CLIENTS -&gt; UPDATING_CLIENTS                                         | 26 Transitions | 5.33 Transitions/Sec | 0d 00h:00m:00.03s |
+| Transitions UPDATING_CLIENTS -&gt; UPDATING_CLIENTS                                         | 24 Transitions | 8.65 Transitions/Sec | 0d 00h:00m:00.39s |
 +------------------------------------------------------------------------------------------+----------------+----------------------+-------------------+
 
 Node Interfaces Traffic:
@@ -1498,38 +1535,38 @@ Node Interfaces Traffic:
 | Description               | Value                  | Last Rate                              | Last Change       |
 |                           |                        | Over Last 10 Changes                   |                   |
 +---------------------------+------------------------+----------------------------------------+-------------------+
-| RX IPv4 LIE Packets       | 13 Packets, 2050 Bytes | 3.00 Packets/Sec, 473.93 Bytes/Sec     | 0d 00h:00m:00.03s |
+| RX IPv4 LIE Packets       | 12 Packets, 1896 Bytes | 3.00 Packets/Sec, 473.61 Bytes/Sec     | 0d 00h:00m:00.39s |
 +---------------------------+------------------------+----------------------------------------+-------------------+
-| TX IPv4 LIE Packets       | 16 Packets, 2416 Bytes | 4.50 Packets/Sec, 683.10 Bytes/Sec     | 0d 00h:00m:00.93s |
+| TX IPv4 LIE Packets       | 16 Packets, 2416 Bytes | 4.47 Packets/Sec, 677.83 Bytes/Sec     | 0d 00h:00m:00.60s |
 +---------------------------+------------------------+----------------------------------------+-------------------+
-| RX IPv4 TIDE Packets      | 6 Packets, 3264 Bytes  | 2.20 Packets/Sec, 1046.48 Bytes/Sec    | 0d 00h:00m:00.68s |
+| RX IPv4 TIDE Packets      | 6 Packets, 3264 Bytes  | 2.20 Packets/Sec, 1046.73 Bytes/Sec    | 0d 00h:00m:00.37s |
 +---------------------------+------------------------+----------------------------------------+-------------------+
-| TX IPv4 TIDE Packets      | 6 Packets, 3264 Bytes  | 2.49 Packets/Sec, 1387.36 Bytes/Sec    | 0d 00h:00m:00.91s |
+| TX IPv4 TIDE Packets      | 6 Packets, 3264 Bytes  | 2.49 Packets/Sec, 1387.57 Bytes/Sec    | 0d 00h:00m:00.58s |
 +---------------------------+------------------------+----------------------------------------+-------------------+
 .                           .                        .                                        .                   .
 .                           .                        .                                        .                   .
 +---------------------------+------------------------+----------------------------------------+-------------------+
-| Total TX Packets          | 38 Packets, 8096 Bytes | 185.07 Packets/Sec, 52024.99 Bytes/Sec | 0d 00h:00m:00.91s |
+| Total TX Packets          | 38 Packets, 8096 Bytes | 246.07 Packets/Sec, 69173.23 Bytes/Sec | 0d 00h:00m:00.58s |
 +---------------------------+------------------------+----------------------------------------+-------------------+
 
 Node Interface LIE FSMs:
-+---------------------------------------------------------+----------------+----------------------+-------------------+
-| Description                                             | Value          | Last Rate            | Last Change       |
-|                                                         |                | Over Last 10 Changes |                   |
-+---------------------------------------------------------+----------------+----------------------+-------------------+
-| Event-Transitions ONE_WAY -[SEND_LIE]-&gt; ONE_WAY         | 4 Transitions  | 1.00 Transitions/Sec | 0d 00h:00m:00.95s |
-+---------------------------------------------------------+----------------+----------------------+-------------------+
-| Event-Transitions ONE_WAY -[TIMER_TICK]-&gt; ONE_WAY       | 4 Transitions  | 1.00 Transitions/Sec | 0d 00h:00m:00.95s |
-+---------------------------------------------------------+----------------+----------------------+-------------------+
-| Event-Transitions THREE_WAY -[LIE_RECEIVED]-&gt; THREE_WAY | 26 Transitions | 5.33 Transitions/Sec | 0d 00h:00m:00.03s |
-+---------------------------------------------------------+----------------+----------------------+-------------------+
-| Event-Transitions THREE_WAY -[SEND_LIE]-&gt; THREE_WAY     | 12 Transitions | 3.00 Transitions/Sec | 0d 00h:00m:00.94s |
-+---------------------------------------------------------+----------------+----------------------+-------------------+
-.                                                         .                .                      .                   .
-.                                                         .                .                      .                   .
-+---------------------------------------------------------+----------------+----------------------+-------------------+
-| Transitions THREE_WAY -&gt; THREE_WAY                      | 50 Transitions | 9.87 Transitions/Sec | 0d 00h:00m:00.03s |
-+---------------------------------------------------------+----------------+----------------------+-------------------+
++---------------------------------------------------------+----------------+-----------------------+-------------------+
+| Description                                             | Value          | Last Rate             | Last Change       |
+|                                                         |                | Over Last 10 Changes  |                   |
++---------------------------------------------------------+----------------+-----------------------+-------------------+
+| Event-Transitions ONE_WAY -[SEND_LIE]-&gt; ONE_WAY         | 4 Transitions  | 1.00 Transitions/Sec  | 0d 00h:00m:00.62s |
++---------------------------------------------------------+----------------+-----------------------+-------------------+
+| Event-Transitions ONE_WAY -[TIMER_TICK]-&gt; ONE_WAY       | 4 Transitions  | 1.00 Transitions/Sec  | 0d 00h:00m:00.62s |
++---------------------------------------------------------+----------------+-----------------------+-------------------+
+| Event-Transitions THREE_WAY -[LIE_RECEIVED]-&gt; THREE_WAY | 24 Transitions | 8.65 Transitions/Sec  | 0d 00h:00m:00.40s |
++---------------------------------------------------------+----------------+-----------------------+-------------------+
+| Event-Transitions THREE_WAY -[SEND_LIE]-&gt; THREE_WAY     | 12 Transitions | 3.00 Transitions/Sec  | 0d 00h:00m:00.60s |
++---------------------------------------------------------+----------------+-----------------------+-------------------+
+.                                                         .                .                       .                   .
+.                                                         .                .                       .                   .
++---------------------------------------------------------+----------------+-----------------------+-------------------+
+| Transitions THREE_WAY -&gt; THREE_WAY                      | 48 Transitions | 39.95 Transitions/Sec | 0d 00h:00m:00.40s |
++---------------------------------------------------------+----------------+-----------------------+-------------------+
 </pre>
 <!-- OUTPUT-END -->
 
@@ -1594,6 +1631,77 @@ agg_101> <b>show nodes level</b>
 </pre>
 <!-- OUTPUT-END -->
 
+### show routes
+
+The "<b>show routes</b>" command shows all routes in the Routing Information Base (RIB) of the
+current node. It shows both the IPv4 RIB and the IPv6 RIB.
+
+Example:
+
+<!-- OUTPUT-START: agg_101> show routes -->
+<pre>
+agg_101> <b>show routes</b>
+IPv4 Routes:
++---------------+-----------+------------------------+
+| Prefix        | Owner     | Next-hops              |
++---------------+-----------+------------------------+
+| 0.0.0.0/0     | North SPF | if_101_1 172.17.0.3    |
++---------------+-----------+------------------------+
+| 1.1.1.0/24    | South SPF | if_101_1001 172.17.0.3 |
++---------------+-----------+------------------------+
+| 1.1.2.0/24    | South SPF | if_101_1001 172.17.0.3 |
++---------------+-----------+------------------------+
+| 1.1.3.0/24    | South SPF | if_101_1001 172.17.0.3 |
++---------------+-----------+------------------------+
+.               .           .                        .
+.               .           .                        .
++---------------+-----------+------------------------+
+| 99.99.99.0/24 | South SPF | if_101_1001 172.17.0.3 |
+|               |           | if_101_1002 172.17.0.3 |
++---------------+-----------+------------------------+
+
+IPv6 Routes:
++--------+-----------+-------------------------------+
+| Prefix | Owner     | Next-hops                     |
++--------+-----------+-------------------------------+
+| ::/0   | North SPF | if_101_1 fe80::42:acff:fe11:3 |
++--------+-----------+-------------------------------+
+</pre>
+<!-- OUTPUT-END -->
+
+### show routes family <i>family</i>
+
+The "<b>show routes family</b> <i>family</i>" command shows the routes of a given address family in
+the Routing Information Base (RIB) of the current node.
+
+The <i>family</i> parameter can be "<b>ipv4</b>" or "<b>ipv6</b>"
+
+Example:
+
+<!-- OUTPUT-START: agg_101> show routes family ipv4 -->
+<pre>
+agg_101> <b>show routes family ipv4</b>
+IPv4 Routes:
++---------------+-----------+------------------------+
+| Prefix        | Owner     | Next-hops              |
++---------------+-----------+------------------------+
+| 0.0.0.0/0     | North SPF | if_101_1 172.17.0.3    |
++---------------+-----------+------------------------+
+| 1.1.1.0/24    | South SPF | if_101_1001 172.17.0.3 |
++---------------+-----------+------------------------+
+| 1.1.2.0/24    | South SPF | if_101_1001 172.17.0.3 |
++---------------+-----------+------------------------+
+| 1.1.3.0/24    | South SPF | if_101_1001 172.17.0.3 |
++---------------+-----------+------------------------+
+.               .           .                        .
+.               .           .                        .
++---------------+-----------+------------------------+
+| 99.99.99.0/24 | South SPF | if_101_1001 172.17.0.3 |
+|               |           | if_101_1002 172.17.0.3 |
++---------------+-----------+------------------------+
+</pre>
+<!-- OUTPUT-END -->
+
 ### show routes prefix <i>prefix</i>
 
 The "<b>show routes prefix</b> <i>prefix</i>" command shows the routes for a given prefix in the
@@ -1628,44 +1736,6 @@ Example:
 <!-- OUTPUT-START: agg_101> show routes prefix ::/0 owner north-spf -->
 <pre>
 agg_101> <b>show routes prefix ::/0 owner north-spf</b>
-+--------+-----------+-------------------------------+
-| Prefix | Owner     | Next-hops                     |
-+--------+-----------+-------------------------------+
-| ::/0   | North SPF | if_101_1 fe80::42:acff:fe11:3 |
-+--------+-----------+-------------------------------+
-</pre>
-<!-- OUTPUT-END -->
-
-### show routes
-
-The "<b>show routes</b>" command shows all routes in the Routing Information Base (RIB) of the
-current node. It shows both the IPv4 RIB and the IPv6 RIB.
-
-Example:
-
-<!-- OUTPUT-START: agg_101> show routes -->
-<pre>
-agg_101> <b>show routes</b>
-IPv4 Routes:
-+---------------+-----------+------------------------+
-| Prefix        | Owner     | Next-hops              |
-+---------------+-----------+------------------------+
-| 0.0.0.0/0     | North SPF | if_101_1 172.17.0.3    |
-+---------------+-----------+------------------------+
-| 1.1.1.0/24    | South SPF | if_101_1001 172.17.0.3 |
-+---------------+-----------+------------------------+
-| 1.1.2.0/24    | South SPF | if_101_1001 172.17.0.3 |
-+---------------+-----------+------------------------+
-| 1.1.3.0/24    | South SPF | if_101_1001 172.17.0.3 |
-+---------------+-----------+------------------------+
-.               .           .                        .
-.               .           .                        .
-+---------------+-----------+------------------------+
-| 99.99.99.0/24 | South SPF | if_101_1001 172.17.0.3 |
-|               |           | if_101_1002 172.17.0.3 |
-+---------------+-----------+------------------------+
-
-IPv6 Routes:
 +--------+-----------+-------------------------------+
 | Prefix | Owner     | Next-hops                     |
 +--------+-----------+-------------------------------+
@@ -1805,7 +1875,7 @@ agg_101> <b>show tie-db</b>
 +-----------+------------+--------+--------+--------+----------+-----------------------+
 | Direction | Originator | Type   | TIE Nr | Seq Nr | Lifetime | Contents              |
 +-----------+------------+--------+--------+--------+----------+-----------------------+
-| South     | 1          | Node   | 1      | 5      | 604786   | Name: core_1          |
+| South     | 1          | Node   | 1      | 5      | 604787   | Name: core_1          |
 |           |            |        |        |        |          | Level: 2              |
 |           |            |        |        |        |          | Neighbor: 101         |
 |           |            |        |        |        |          |   Level: 1            |
@@ -1828,12 +1898,12 @@ agg_101> <b>show tie-db</b>
 |           |            |        |        |        |          |   Bandwidth: 100 Mbps |
 |           |            |        |        |        |          |   Link: 4-1           |
 +-----------+------------+--------+--------+--------+----------+-----------------------+
-| South     | 1          | Prefix | 1      | 1      | 604786   | Prefix: 0.0.0.0/0     |
+| South     | 1          | Prefix | 1      | 1      | 604787   | Prefix: 0.0.0.0/0     |
 |           |            |        |        |        |          |   Metric: 1           |
 |           |            |        |        |        |          | Prefix: ::/0          |
 |           |            |        |        |        |          |   Metric: 1           |
 +-----------+------------+--------+--------+--------+----------+-----------------------+
-| South     | 101        | Node   | 1      | 4      | 604786   | Name: agg_101         |
+| South     | 101        | Node   | 1      | 4      | 604787   | Name: agg_101         |
 |           |            |        |        |        |          | Level: 1              |
 |           |            |        |        |        |          | Neighbor: 1           |
 |           |            |        |        |        |          |   Level: 2            |
@@ -1851,7 +1921,7 @@ agg_101> <b>show tie-db</b>
 |           |            |        |        |        |          |   Bandwidth: 100 Mbps |
 |           |            |        |        |        |          |   Link: 4-1           |
 +-----------+------------+--------+--------+--------+----------+-----------------------+
-| South     | 101        | Prefix | 1      | 1      | 604786   | Prefix: 0.0.0.0/0     |
+| South     | 101        | Prefix | 1      | 1      | 604787   | Prefix: 0.0.0.0/0     |
 |           |            |        |        |        |          |   Metric: 1           |
 |           |            |        |        |        |          | Prefix: ::/0          |
 |           |            |        |        |        |          |   Metric: 1           |
@@ -1859,7 +1929,7 @@ agg_101> <b>show tie-db</b>
 .           .            .        .        .        .          .                       .
 .           .            .        .        .        .          .                       .
 +-----------+------------+--------+--------+--------+----------+-----------------------+
-| North     | 1002       | Prefix | 1      | 1      | 604786   | Prefix: 1.2.1.0/24    |
+| North     | 1002       | Prefix | 1      | 1      | 604787   | Prefix: 1.2.1.0/24    |
 |           |            |        |        |        |          |   Metric: 1           |
 |           |            |        |        |        |          | Prefix: 1.2.2.0/24    |
 |           |            |        |        |        |          |   Metric: 1           |
