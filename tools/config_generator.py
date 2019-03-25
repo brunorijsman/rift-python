@@ -24,9 +24,10 @@ META_CONFIG = None
 ARGS = None
 
 DEFAULT_NR_IPV4_LOOPBACKS = 1
-DEFAULT_CHAOS_NR_LINK_EVENTS = 10
-DEFAULT_CHAOS_NR_NODE_EVENTS = 3
-DEFAULT_CHAOS_EVENT_INTERVAL = 5.0  # seconds
+DEFAULT_CHAOS_NR_LINK_EVENTS = 20
+DEFAULT_CHAOS_NR_NODE_EVENTS = 5
+DEFAULT_CHAOS_EVENT_INTERVAL = 3.0  # seconds
+DEFAULT_CHAOS_MAX_CONCURRENT_EVENTS = 5
 
 SEPARATOR = '-'
 NETNS_PREFIX = 'netns' + SEPARATOR
@@ -58,6 +59,8 @@ SCHEMA = {
                                'default': DEFAULT_CHAOS_NR_NODE_EVENTS},
             'event-interval': {'type': 'float', 'min': 0.0,
                                'default': DEFAULT_CHAOS_EVENT_INTERVAL},
+            'max-concurrent-events': {'type': 'integer', 'min': 1,
+                                      'default': DEFAULT_CHAOS_MAX_CONCURRENT_EVENTS},
         }
     }
 }
@@ -558,33 +561,41 @@ class Node:
             print("ip netns exec {} ip addr add {} dev {}".format(self.ns_name, addr, veth),
                   file=file)
 
-    def write_netns_start_scr_to_file_2(self, file):
-        progress = ("Start RIFT-Python engine for node {}".format(self.name))
-        print('echo "{}"'.format(progress), file=file)
+    def write_netns_start_scr_to_file_2(self, file, progress_msg=None):
+        if not progress_msg:
+            progress_msg = "Start RIFT-Python engine for node {}"
+        progress_msg = progress_msg.format(self.name)
+        print('echo "{}"'.format(progress_msg), file=file)
         ns_name = NETNS_PREFIX + str(self.global_node_id)
         port_file = "/tmp/rift-python-telnet-port-" + self.name
         print("ip netns exec {} python3 rift "
               "--ipv4-multicast-loopback-disable "
               "--ipv6-multicast-loopback-disable "
-              "--telnet-port-file {} {} < /dev/null &"
+              "--telnet-port-file {} {} >/dev/null 2>&1 &"
               .format(ns_name, port_file, self.config_file_name), file=file)
 
     def write_netns_stop_scr_to_file_1(self, file):
         progress = ("Stop RIFT-Python engine for node {}".format(self.name))
         print('echo "{}"'.format(progress), file=file)
         # We use a big hammer: we kill -9 all processes in the the namespace
-        ns_name = NETNS_PREFIX + str(self.global_node_id)
-        print("kill -9 $(ip netns pids {}) >/dev/null 2>&1".format(ns_name), file=file)
+        self.write_kill_rift_to_file(file)
         # Also clean up the port file
         port_file = "/tmp/rift-python-telnet-port-" + self.name
         print("rm -f {}".format(port_file), file=file)
         # Delete all interfaces for the node
+        ns_name = NETNS_PREFIX + str(self.global_node_id)
         for intf in self.interfaces:
             veth = intf.veth_name()
             progress = ("Delete interface {} for node {}".format(veth, self.name))
             print('echo "{}"'.format(progress), file=file)
             print("ip netns exec {} ip link del dev {} >/dev/null 2>&1".format(ns_name, veth),
                   file=file)
+
+    def write_kill_rift_to_file(self, file):
+        ns_name = NETNS_PREFIX + str(self.global_node_id)
+        print("RIFT_PIDS=$(ip netns pids {})".format(ns_name), file=file)
+        print("kill -9 $RIFT_PIDS >/dev/null 2>&1", file=file)
+        print("wait $RIFT_PIDS >/dev/null 2>&1", file=file)
 
     def write_netns_stop_scr_to_file_2(self, file):
         ns_name = NETNS_PREFIX + str(self.global_node_id)
@@ -777,7 +788,7 @@ class Node:
                 if sorted_nexthops == sorted_rib_nexthops:
                     return True
                 else:
-                    error = ("Nexthops mismatch: expected {} but RIB has {}"
+                    error = ("Nexthops mismatch; expected {} but RIB has {}"
                              .format(sorted_nexthops, sorted_rib_nexthops))
                     self.report_check_result(substep, False, error)
                     return False
@@ -1013,7 +1024,9 @@ class LinkDownEvent:
         self.link = link
 
     def write_break_script(self, file):
-        description = "Bring link {} down (bi-directional failure)".format(self.link.description())
+        description = (
+            RED + "Break  " + DEFAULT + "Link  " +
+            "{} (bi-directional failure)".format(self.link.description()))
         print("#" * 80, file=file)
         print("# {}".format(description), file=file)
         print("#" * 80, file=file)
@@ -1030,7 +1043,7 @@ class LinkDownEvent:
         print(file=file)
 
     def write_fix_script(self, file):
-        description = "Bring link {} up".format(self.link.description())
+        description = GREEN + "Fix    " + DEFAULT + "Link  " + self.link.description()
         print("#" * 80, file=file)
         print("# {}".format(description), file=file)
         print("#" * 80, file=file)
@@ -1046,29 +1059,29 @@ class LinkDownEvent:
         print("{}".format(script), file=file)
         print(file=file)
 
-
 class NodeDownEvent:
 
     def __init__(self, node):
         self.node = node
 
     def write_break_script(self, file):
-        description = "Bring node {} down ".format(self.node.name)
+        description = RED + "Break  " + DEFAULT + "Node  " + self.node.name
         print("#" * 80, file=file)
         print("# {}".format(description), file=file)
         print("#" * 80, file=file)
         print(file=file)
         print("echo '{}'".format(description), file=file)
-        ns_name = NETNS_PREFIX + str(self.node.global_node_id)
-        print("kill -9 $(ip netns pids {}) >/dev/null 2>&1".format(ns_name), file=file)
+        self.node.write_kill_rift_to_file(file)
+        print(file=file)
 
     def write_fix_script(self, file):
-        description = "Bring node {} up".format(self.node.name)
+        description = GREEN + "Fix    " + DEFAULT + "Node  {}"
         print("#" * 80, file=file)
-        print("# {}".format(description), file=file)
+        print("# {}".format(description.format(self.node.name)), file=file)
         print("#" * 80, file=file)
         print(file=file)
-        self.node.write_netns_start_scr_to_file_2(file)
+        self.node.write_netns_start_scr_to_file_2(file, description)
+        print(file=file)
 
 class Fabric:
 
@@ -1214,7 +1227,6 @@ class Fabric:
             for leaf_node in pod.nodes_by_level[LEAF_LEVEL]:
                 all_leaf_nodes.append(leaf_node)
         self.write_netns_ping_all_pairs(file, all_leaf_nodes)
-        self.write_netns_trace_all_pairs(file, all_leaf_nodes)
         print("echo", file=file)
         print("echo Number of failures: $FAILURE_COUNT", file=file)
         print("if [ $FAILURE_COUNT -ne 0 ]; then\n"
@@ -1233,17 +1245,6 @@ class Fabric:
                             print("echo", file=file)
                             self.write_netns_ping_to_file(file, from_node, from_address, to_node,
                                                           to_address)
-
-    def write_netns_trace_all_pairs(self, file, nodes):
-        print("echo '\n*** traceroute ***'", file=file)
-        for from_node in nodes:
-            for to_node in nodes:
-                if from_node != to_node:
-                    for from_address in from_node.lo_addresses:
-                        for to_address in to_node.lo_addresses:
-                            print("echo", file=file)
-                            self.write_netns_trace_to_file(file, from_node, from_address, to_node,
-                                                           to_address)
 
     def write_netns_ping_to_file(self, file, from_node, from_address, to_node, to_address):
         description = ("ping {} {} -> {} {}"
@@ -1277,81 +1278,69 @@ class Fabric:
     def write_netns_chaos_scr_to_file(self, file):
         # pylint:disable=too-many-locals
         # pylint:disable=too-many-statements
-        clean_links = []        # List of links
-        affected_links = {}     # Break events, indexed by link
+        # Keep track of the links and the nodes which are currently 'clean' i.e. not affected by any
+        # failure event.
+        clean_links = []
         clean_nodes = []
-        affected_nodes = {}
         for pod in self.pods:
             clean_links.extend(pod.links)
             clean_nodes.extend(pod.nodes)
         for plane in self.planes:
             clean_links.extend(plane.links)
             clean_nodes.extend(plane.nodes)
-        nr_link_events = self.get_chaos_config('nr-link-events', DEFAULT_CHAOS_NR_LINK_EVENTS)
-        nr_node_events = self.get_chaos_config('nr-node-events', DEFAULT_CHAOS_NR_NODE_EVENTS)
+        # Prepare a script for failure events and repair events.
+        more_link_events = self.get_chaos_config('nr-link-events', DEFAULT_CHAOS_NR_LINK_EVENTS)
+        more_node_events = self.get_chaos_config('nr-node-events', DEFAULT_CHAOS_NR_NODE_EVENTS)
         event_interval = self.get_chaos_config('event-interval', DEFAULT_CHAOS_EVENT_INTERVAL)
-        for _event_nr in range(1, nr_link_events + 1):
-            break_something = self.choose_break_or_fix_link(clean_links, affected_links)
-            if break_something:
-                link = random.choice(clean_links)
-                event = LinkDownEvent(link)
-                event.write_break_script(file)
-                clean_links.remove(link)
-                affected_links[link] = event
-            else:
-                link = random.choice(list(affected_links.keys()))
-                event = affected_links[link]
+        max_concurrent_events = self.get_chaos_config('max-concurrent-events',
+                                                      DEFAULT_CHAOS_MAX_CONCURRENT_EVENTS)
+        current_events = []
+        while more_link_events > 0 or more_node_events > 0:
+            # Choose whether to break something or fix something (depends on the number of things
+            # currently broken)
+            if random.randint(0, max_concurrent_events - 1) < len(current_events):
+                # Fix something. Randomly pick a current event, and fix it.
+                event = random.choice(current_events)
+                current_events.remove(event)
                 event.write_fix_script(file)
-                del affected_links[link]
-                clean_links.append(link)
-            print("sleep {}".format(event_interval), file=file)
-            print(file=file)
-        for _event_nr in range(1, nr_node_events + 1):
-            break_something = self.choose_break_or_fix_node(clean_nodes, affected_nodes)
-            if break_something:
-                node = random.choice(clean_nodes)
-                event = NodeDownEvent(node)
-                event.write_break_script(file)
-                clean_nodes.remove(node)
-                affected_nodes[node] = event
+                if isinstance(event, LinkDownEvent):
+                    clean_links.append(event.link)
+                elif isinstance(event, NodeDownEvent):
+                    clean_nodes.append(event.node)
+                else:
+                    assert False
             else:
-                node = random.choice(list(affected_nodes.keys()))
-                event = affected_nodes[node]
-                event.write_fix_script(file)
-                del affected_nodes[node]
-                clean_nodes.append(node)
+                # Break something. What are we going to break, a link or a node?
+                if random.randint(0, more_link_events + more_node_events - 1) < more_link_events:
+                    # Break a link (if there is a clean link remaining)
+                    if not clean_links:
+                        continue
+                    link = random.choice(clean_links)
+                    event = LinkDownEvent(link)
+                    event.write_break_script(file)
+                    clean_links.remove(link)
+                    current_events.append(event)
+                    more_link_events -= 1
+                else:
+                    # Break a node
+                    if not clean_nodes:
+                        continue
+                    node = random.choice(clean_nodes)
+                    event = NodeDownEvent(node)
+                    event.write_break_script(file)
+                    clean_nodes.remove(node)
+                    current_events.append(event)
+                    more_node_events -= 1
+            # Delay between events
             print("sleep {}".format(event_interval), file=file)
             print(file=file)
         # Fix everything that is still broken, without delays in between
-        while affected_links:
-            link = random.choice(list(affected_links.keys()))
-            event = affected_links[link]
+        while current_events:
+            event = current_events.pop()
             event.write_fix_script(file)
-            del affected_links[link]
-            clean_links.append(link)
-        while affected_nodes:
-            node = random.choice(list(affected_nodes.keys()))
-            event = affected_nodes[node]
-            event.write_fix_script(file)
-            del affected_nodes[node]
-            clean_nodes.append(node)
         # One final delay to let everything reconverge
         print("sleep {}".format(event_interval), file=file)
         print(file=file)
-
-    def choose_break_or_fix_link(self, clean_links, affected_links):
-        # Returns True for break, False for fix
-        nr_clean_links = len(clean_links)
-        nr_affected_links = len(affected_links)
-        nr_links = nr_clean_links + nr_affected_links
-        assert nr_links > 1
-        # pylint: disable=simplifiable-if-statement
-        if random.randint(1, nr_links) <= nr_clean_links:
-            # Break something
-            return True
-        else:
-            # Fix something
-            return False
 
     def choose_break_or_fix_node(self, clean_nodes, affected_nodes):
         # Returns True for break, False for fix
