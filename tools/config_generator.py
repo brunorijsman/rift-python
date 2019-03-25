@@ -17,6 +17,7 @@ import yaml
 sys.path.append("rift")
 
 # pylint:disable=wrong-import-position
+import constants
 import table
 
 META_CONFIG = None
@@ -649,7 +650,9 @@ class Node:
             return False
         self.check_engine()
         self.check_interfaces_3way()
-        self.check_rib_north_default_route()
+        if not self.top_of_fabric:
+            self.check_rib_north_default_route()
+        self.check_rib_south_specific_routes()
         self.check_rib_fib_consistency()
         self.check_fib_kernel_consistency()
         return True
@@ -675,51 +678,115 @@ class Node:
                 self.report_check_result(step, False)
 
     def check_rib_north_default_route(self):
-        ###@@@
-        self.check_rib_route("0.0.0.0/0", "North", True)
-        self.check_rib_route("::/0", "North", False)
+        step = "North-bound default routes"
+        okay = True
+        direction = constants.DIR_NORTH
+        ipv4_nexthops = self.gather_nexthops(direction, True)
+        parsed_rib_ipv4_routes = self.telnet_session.parse_show_output("show routes family ipv4")
+        okay = self.check_route_in_rib("0.0.0.0/0", direction, ipv4_nexthops,
+                                       parsed_rib_ipv4_routes) and okay
+        ipv6_nexthops = self.gather_nexthops(direction, False)
+        parsed_rib_ipv6_routes = self.telnet_session.parse_show_output("show routes family ipv6")
+        okay = self.check_route_in_rib("::/0", direction, ipv6_nexthops,
+                                       parsed_rib_ipv6_routes) and okay
+        self.report_check_result(step, okay)
 
-    def check_rib_route(self, route, direction, check_nexthop_by_address):
-        if self.top_of_fabric:
-            return
-        step = direction + " " + route + " route is present in RIB"
-        cmd = "show routes prefix " + route
-        self.telnet_session.send_line(cmd)
-        if self.telnet_session.table_expect(route + " | " + direction + " SPF"):
-            self.report_check_result(step)
+    def check_rib_south_specific_routes(self):
+        # TODO: Once we add support for IPv6 loopbacks, also check those
+        step = "South-bound specific routes"
+        okay = True
+        direction = constants.DIR_SOUTH
+        ipv4_lo_addresses = self.gather_southern_loopbacks()
+        parsed_rib_ipv4_routes = self.telnet_session.parse_show_output("show routes family ipv4")
+        for ipv4_lo_address in ipv4_lo_addresses:
+            ipv4_nexthops = self.southern_loopback_nexthops(ipv4_lo_address, True)
+            ipv4_prefix = ipv4_lo_address + "/32"
+            okay = self.check_route_in_rib(ipv4_prefix, direction, ipv4_nexthops,
+                                           parsed_rib_ipv4_routes) and okay
+        self.report_check_result(step, okay)
+
+    def gather_southern_loopbacks(self, include_own_loopbacks=False):
+        # Recursively walk all nodes south of this node and collect their loopback prefixes.
+        if include_own_loopbacks:
+            ipv4_loopback_prefixes = self.lo_addresses
         else:
-            self.report_check_result(step, False)
+            ipv4_loopback_prefixes = []
         for intf in self.interfaces:
-            # North-bound interface?
-            if direction == "North" and intf.peer_intf.node.level > self.level:
-                intf_name = intf.veth_name()
-                if check_nexthop_by_address:
-                    next_hop_address = intf.peer_intf.addr.split('/')[0]   # Strip off /prefix-len
-                    next_hop = "{} {}".format(intf_name, next_hop_address)
-                    step = (direction + " " + route + " in RIB includes next-hop {}"
-                            .format(next_hop))
-                    self.telnet_session.send_line(cmd)
-                    if self.telnet_session.table_expect(next_hop):
-                        self.report_check_result(step)
-                    else:
-                        self.report_check_result(step, False)
+            if self.interface_direction(intf) == constants.DIR_SOUTH:
+                south_node = intf.peer_intf.node
+                ipv4_loopback_prefixes += south_node.lo_addresses
+                ipv4_loopback_prefixes += south_node.gather_southern_loopbacks()
+        ipv4_loopback_prefixes = list(set(ipv4_loopback_prefixes))   # Remove duplicates
+        return ipv4_loopback_prefixes
+
+    def southern_loopback_nexthops(self, loopback_address, include_ipv4_address):
+        nexthops = []
+        for intf in self.interfaces:
+            if self.interface_direction(intf) == constants.DIR_SOUTH:
+                south_node = intf.peer_intf.node
+                intf_southern_loopbacks = south_node.gather_southern_loopbacks(True)
+                if loopback_address in intf_southern_loopbacks:
+                    nexthops.append(self.interface_nexthop(intf, include_ipv4_address))
+        return nexthops
+
+    def interface_direction(self, interface):
+        if self.level > interface.peer_intf.node.level:
+            return constants.DIR_SOUTH
+        elif self.level < interface.peer_intf.node.level:
+            return constants.DIR_NORTH
+        else:
+            return constants.DIR_EAST_WEST
+
+    def gather_nexthops(self, direction, include_ipv4_address):
+        nexthops = []
+        for intf in self.interfaces:
+            if self.interface_direction(intf) == direction:
+                nexthops.append(self.interface_nexthop(intf, include_ipv4_address))
+        nexthops = list(set(nexthops))   # Remove duplicates
+        return nexthops
+
+    def interface_nexthop(self, intf, include_ipv4_address):
+        nexthop_intf = intf.veth_name()
+        if include_ipv4_address:
+            nexthop_ipv4_address = intf.peer_intf.addr.split('/')[0] # Strip off /prefix-len
+            nexthop = "{} {}".format(nexthop_intf, nexthop_ipv4_address)
+        else:
+            nexthop = "{}".format(nexthop_intf)
+        return nexthop
+
+    def check_route_in_rib(self, prefix, direction, nexthops, parsed_rib_routes):
+        if direction == constants.DIR_SOUTH:
+            owner = "South SPF"
+        else:
+            assert direction == constants.DIR_NORTH
+            owner = "North SPF"
+        substep = "Route prefix {} owner {} nexthops {} in RIB".format(prefix, owner, nexthops)
+        sorted_nexthops = sorted(nexthops)
+        for rib_route in parsed_rib_routes[0]['rows'][1:]:
+            rib_prefix = rib_route[0][0]
+            rib_owner = rib_route[1][0]
+            if prefix == rib_prefix and owner == rib_owner:
+                rib_nexthops = rib_route[2]
+                if ':' in prefix:
+                    # For IPv6 routes, we only check the nexthop interface and not the link-local
+                    # nexthop address
+                    rib_nexthops = [nh.split(' ')[0] for nh in rib_nexthops]
+                sorted_rib_nexthops = sorted(rib_nexthops)
+                if sorted_nexthops == sorted_rib_nexthops:
+                    return True
                 else:
-                    # For IPv6 we don't check the next-hop address since it is some unpredictable
-                    # link-local address
-                    next_hop = intf_name
-                    step = (direction + " " + route + " in RIB includes next-hop {}"
-                            .format(next_hop))
-                    self.telnet_session.send_line(cmd)
-                    if self.telnet_session.table_expect(next_hop):
-                        self.report_check_result(step)
-                    else:
-                        self.report_check_result(step, False)
+                    error = ("Nexthops mismatch: expected {} but RIB has {}"
+                             .format(sorted_nexthops, sorted_rib_nexthops))
+                    self.report_check_result(substep, False, error)
+                    return False
+        self.report_check_result(substep, False, "Route missing")
+        return False
 
     def check_rib_fib_consistency(self):
         # None of our tests involve a scenario where we have both a North-SPF route and also a
         # South-SPF route for the same prefix. So, we can simply check that the forwarding table
         # (FIB) is identical to the route table (RIB).
-        step = "Checking RIB/FIB consistency"
+        step = "RIB / FIB consistency"
         try:
             parsed_rib = self.telnet_session.parse_show_output("show routes")
             parsed_fib = self.telnet_session.parse_show_output("show forwarding")
@@ -731,35 +798,37 @@ class Node:
             self.report_check_result(step, False, str(err))
 
     def check_fib_kernel_consistency(self):
-        step = "Checking FIB/Kernel consistency"
-        fib = self.telnet_session.parse_show_output("show forwarding")
-        kernel = self.telnet_session.parse_show_output("show kernel routes table main")
+        step = "FIB / Kernel consistency"
+        parsed_fib_routes = self.telnet_session.parse_show_output("show forwarding")
+        parsed_kernel_routes = \
+            self.telnet_session.parse_show_output("show kernel routes table main")
         all_ok = True
-        for fib_fam in fib:
+        for fib_fam in parsed_fib_routes:
             for fib_route in fib_fam['rows'][1:]:
                 fib_prefix = fib_route[0][0]
                 fib_nexthops = fib_route[2]
-                if not self.check_fib_route_in_kernel(step, fib_prefix, fib_nexthops, kernel):
+                if not self.check_route_in_kernel(step, fib_prefix, fib_nexthops,
+                                                  parsed_kernel_routes):
                     all_ok = False
         if all_ok:
             self.report_check_result(step)
 
-    def check_fib_route_in_kernel(self, step, fib_prefix, fib_nexthops, kernel):
+    def check_route_in_kernel(self, step, prefix, nexthops, parsed_kernel_routes):
         # pylint:disable=too-many-locals
         # In the FIB, and ECMP route is one row with multiple nexthops. In the kernel, an ECMP route
         # may be one row with multuple nexthops or may be multiple rows with the same prefix (the
         # former appears to be the case for IPv4 and the latter appears to be the case for IPv6)
         partial_match = False
-        remaining_fib_nexthops = fib_nexthops
-        for kernel_route in kernel[0]['rows'][1:]:
+        remaining_fib_nexthops = nexthops
+        for kernel_route in parsed_kernel_routes[0]['rows'][1:]:
             kernel_prefix = kernel_route[2][0]
             kernel_nexthop_intfs = kernel_route[5]
             kernel_nexthop_addrs = kernel_route[6]
             kernel_nexthops = [intf + ' ' + addr for (intf, addr) in zip(kernel_nexthop_intfs,
                                                                          kernel_nexthop_addrs)]
-            if kernel_prefix == fib_prefix:
+            if kernel_prefix == prefix:
                 sorted_kernel_nexthops = sorted(kernel_nexthops)
-                sorted_fib_nexthops = sorted(fib_nexthops)
+                sorted_fib_nexthops = sorted(nexthops)
                 if len(kernel_nexthops) == 1:
                     # If the kernel has a single nexthop, look for a partial match
                     kernel_nexthop = kernel_nexthops[0]
@@ -771,7 +840,7 @@ class Node:
                             partial_match = True
                     else:
                         err = ("Route {} has nexthop {} in kernel but not in FIB"
-                               .format(fib_prefix, kernel_nexthop))
+                               .format(prefix, kernel_nexthop))
                         self.report_check_result(step, False, err)
                         return False
                 elif sorted_kernel_nexthops == sorted_fib_nexthops:
@@ -779,14 +848,14 @@ class Node:
                     return True
                 else:
                     err = ("Route {} has nexthops {} in kernel but {} in FIB"
-                           .format(fib_prefix, kernel_nexthops, fib_nexthops))
+                           .format(prefix, kernel_nexthops, nexthops))
                     self.report_check_result(step, False, err)
                     return False
         if partial_match:
             err = ("Route {} in FIB has extra nexthops {} which are missing in kernel"
-                   .format(fib_prefix, remaining_fib_nexthops))
+                   .format(prefix, remaining_fib_nexthops))
         else:
-            err = "Route {} is in FIB but not in kernel".format(fib_prefix)
+            err = "Route {} is in FIB but not in kernel".format(prefix)
         self.report_check_result(step, False, err)
         return False
 
@@ -1361,43 +1430,13 @@ class Fabric:
         print(tab.to_string(), file=file)
 
     def check(self):
-
         okay = True
-
-        hostroutespernode = {}
-        for pod in self.pods:
-            for node in pod.nodes:
-                level = node.level
-                hostroutes = []
-                for lowernode in pod.nodes:
-                    if lowernode.level < level:
-                        hostroutes = hostroutes + lowernode.lo_addresses
-
-                hostroutespernode[node.global_node_id] = hostroutes
-
-        for plane in self.planes:
-            union = list(set.union(*[set(v) for v in hostroutespernode.values()]))
-            for node in plane.nodes:
-                hostroutespernode[node.global_node_id] = union
-
         for pod in self.pods:
             for node in pod.nodes:
                 okay = node.check() and okay
-                routes = hostroutespernode[node.global_node_id]
-                # print("checking node: %d for south routes %s" % ( node.global_node_id, routes))
-                for route in routes:
-                    okay = node.check_rib_route(route+"/32", "South", True) and okay
-
         for plane in self.planes:
             for node in plane.nodes:
                 okay = node.check() and okay
-
-            routes = hostroutespernode[node.global_node_id]
-
-            # print("checking node: %d for south routes %s" % ( node.global_node_id, routes))
-            for route in routes:
-                okay = node.check_rib_route(route+"/32", "South", True) and okay
-
         return okay
 
     def pods_total_x_size(self):
@@ -1456,7 +1495,6 @@ class TelnetSession:
         self._expect_session.sendline(line)
 
     def read_line(self):
-        ###@@@ handle encode consistently
         line = self._expect_session.readline()
         return line.decode('utf-8').strip()
 
