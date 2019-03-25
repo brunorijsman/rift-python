@@ -658,7 +658,7 @@ class Node:
         return True
 
     def check_engine(self):
-        step = "Show engine"
+        step = "RIFT engine is responsive"
         self.telnet_session.send_line("show engine")
         if not self.telnet_session.table_expect("Stand-alone | True"):
             error = 'Show engine reported unexpected result for stand-alone'
@@ -667,18 +667,20 @@ class Node:
         self.report_check_result(step)
 
     def check_interfaces_3way(self):
-        for intf in self.interfaces:
-            intf_name = intf.veth_name()
-            step = "Interface {} in state THREE_WAY".format(intf_name)
-            cmd = "show interface {}".format(intf_name)
-            self.telnet_session.send_line(cmd)
-            if self.telnet_session.table_expect("State | THREE_WAY"):
-                self.report_check_result(step)
-            else:
-                self.report_check_result(step, False)
+        step = "Interfaces are up"
+        okay = True
+        parsed_intfs = self.telnet_session.parse_show_output("show interfaces")
+        for parsed_intf in parsed_intfs[0]['rows'][1:]:
+            intf_name = parsed_intf[0][0]
+            intf_state = parsed_intf[3][0]
+            if intf_state != "THREE_WAY":
+                error = "Interface {} in state {}".format(intf_name, intf_state)
+                self.report_check_result(step, False, error)
+                okay = False
+        self.report_check_result(step, okay)
 
     def check_rib_north_default_route(self):
-        step = "North-bound default routes"
+        step = "North-bound default routes are present"
         okay = True
         direction = constants.DIR_NORTH
         ipv4_nexthops = self.gather_nexthops(direction, True)
@@ -693,7 +695,7 @@ class Node:
 
     def check_rib_south_specific_routes(self):
         # TODO: Once we add support for IPv6 loopbacks, also check those
-        step = "South-bound specific routes"
+        step = "South-bound specific routes are present"
         okay = True
         direction = constants.DIR_SOUTH
         ipv4_lo_addresses = self.gather_southern_loopbacks()
@@ -786,7 +788,7 @@ class Node:
         # None of our tests involve a scenario where we have both a North-SPF route and also a
         # South-SPF route for the same prefix. So, we can simply check that the forwarding table
         # (FIB) is identical to the route table (RIB).
-        step = "RIB / FIB consistency"
+        step = "RIB and FIB are consistent"
         try:
             parsed_rib = self.telnet_session.parse_show_output("show routes")
             parsed_fib = self.telnet_session.parse_show_output("show forwarding")
@@ -798,7 +800,7 @@ class Node:
             self.report_check_result(step, False, str(err))
 
     def check_fib_kernel_consistency(self):
-        step = "FIB / Kernel consistency"
+        step = "FIB and Kernel are consistent"
         parsed_fib_routes = self.telnet_session.parse_show_output("show forwarding")
         parsed_kernel_routes = \
             self.telnet_session.parse_show_output("show kernel routes table main")
@@ -868,7 +870,7 @@ class Node:
             print(RED + "FAIL" + DEFAULT + "  {}".format(step))
 
     def connect_telnet(self):
-        step = "Telnet to node"
+        step = "Can Telnet to RIFT process"
         try:
             with open(self.port_file, 'r') as file:
                 telnet_port = int(file.read())
