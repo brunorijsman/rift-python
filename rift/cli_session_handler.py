@@ -109,8 +109,16 @@ class CliSessionHandler:
             fixed_message = message
         os.write(self._tx_fd, fixed_message.encode('utf-8'))
 
-    def print_help(self, parse_subtree):
-        self.print_help_recursion("", parse_subtree)
+    def print_help(self, parse_subtree, prefix=''):
+        self.print_help_recursion("", parse_subtree, prefix)
+
+    def print_ambiguous_help(self, parse_subsubtrees):
+        for (match_token, match_parse_subtree) in parse_subsubtrees:
+            if match_token[0] == '$':
+                prefix = match_token[1:] + ' <' + match_token[1:] + '> '
+            else:
+                prefix = match_token + ' '
+            self.print_help_recursion("", match_parse_subtree, prefix)
 
     @staticmethod
     def token_key(item):
@@ -122,9 +130,9 @@ class CliSessionHandler:
 
     # TODO: Mention parameter name for "show interface help"
     # TODO: Handle "show interfaces help" in a better way
-    def print_help_recursion(self, command_str, parse_subtree):
+    def print_help_recursion(self, command_str, parse_subtree, prefix):
         if callable(parse_subtree):
-            self.print(command_str)
+            self.print(prefix + command_str)
         else:
             for match_str, new_parse_subtree in sorted(parse_subtree.items(), key=self.token_key):
                 if match_str == '':
@@ -133,7 +141,7 @@ class CliSessionHandler:
                     new_command_str = command_str + "{0} <{0}> ".format(match_str[1:])
                 else:
                     new_command_str = command_str + match_str + " "
-                self.print_help_recursion(new_command_str, new_parse_subtree)
+                self.print_help_recursion(new_command_str, new_parse_subtree, prefix)
 
     def parse_command(self, command):
         tokens = command.split()
@@ -179,23 +187,52 @@ class CliSessionHandler:
                 self.print_help(parse_subtree)
                 return
             if token in parse_subtree:
-                # Token is a keyword. Keep going.
-                parse_subtree = parse_subtree[token]
+                # Exact match on keyword, don't consider anything else
+                keyword_subsubtrees = [(token, parse_subtree[token])]
+                param_subsubtrees = []
             elif '$' + token in parse_subtree:
-                # Token is a parameter. Store parameter and keep going.
-                parse_subtree = parse_subtree['$' + token]
-                parameter_name = token
+                # Exact match on parameter, don't consider anything else
+                keyword_subsubtrees = []
+                param_subsubtrees = [(token, parse_subtree['$' + token])]
+            else:
+                # No exact match. Look for partial matches.
+                keyword_subsubtrees = self.lookup_token_in_parse_subtree(token, parse_subtree)
+                param_subsubtrees = self.lookup_token_in_parse_subtree('$' + token, parse_subtree)
+            all_subsubtrees = keyword_subsubtrees + param_subsubtrees
+            if len(all_subsubtrees) > 1:
+                # Token matches more than one keyword and/or parameter. Ambiguous token error.
+                self.print('Ambiguous input "{}", candidates:'.format(token))
+                self.print_ambiguous_help(all_subsubtrees)
+                return
+            if len(keyword_subsubtrees) == 1:
+                # Token matches exactly one keyword. Recursively continue parsing.
+                parse_subtree = keyword_subsubtrees[0][1]
+                self.parse_tokens(tokens, parse_subtree, parameters)
+                return
+            if len(param_subsubtrees) == 1:
+                # Token matches exactly one parameter. Store parameter and continue parsing.
+                parameter_name = param_subsubtrees[0][0]
+                parse_subtree = param_subsubtrees[0][1]
                 (token, tokens) = self.consume_token(tokens)
                 if token is None:
                     self.print("Missing value for parameter {}".format(parameter_name))
                     return
+                if parameter_name[0] == '$':
+                    parameter_name = parameter_name[1:]
                 parameters[parameter_name] = token
-            else:
-                # Token is neither a keyword nor a parameter. Generate an error.
-                self.print("Unrecognized input {}, expected:".format(token))
-                self.print_help(parse_subtree)
+                self.parse_tokens(tokens, parse_subtree, parameters)
                 return
-            self.parse_tokens(tokens, parse_subtree, parameters)
+            # Token is neither a keyword nor a parameter. Generate an error.
+            self.print('Unrecognized input "{}", expected:'.format(token))
+            self.print_help(parse_subtree)
+
+    def lookup_token_in_parse_subtree(self, token, parse_subtree):
+        # Return the (possibly empty) list of parse sub-sub-trees that match the token
+        parse_subsubtrees = []
+        for match_token, match_parse_subtree in parse_subtree.items():
+            if match_token.startswith(token):
+                parse_subsubtrees.append((match_token, match_parse_subtree))
+        return parse_subsubtrees
 
     def current_node_name(self):
         if self._current_node:

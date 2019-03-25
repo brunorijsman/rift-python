@@ -193,7 +193,7 @@ def check_missing_keyword(session):
 def check_unknown_keyword(session):
     session.checkpoint("check_unknown_keyword")
     session.send("show nonsense\n")
-    session.expect("Unrecognized input nonsense, expected")
+    session.expect('Unrecognized input "nonsense", expected')
     session.wait_prompt()
 
 def check_extra_keyword(session):
@@ -208,6 +208,36 @@ def check_missing_parameter(session):
     session.expect("Missing value for parameter interface")
     session.wait_prompt()
 
+def check_partial_keyword(session):
+    session.checkpoint("check_partial_keyword")
+    session.send("sh ro\n")
+    session.expect("IPv4 Routes:")
+    session.wait_prompt()
+
+def check_partial_paremeter(session):
+    session.checkpoint("check_partial_paremeter")
+    session.send("sh fo fa ipv4\n")
+    session.expect("IPv4 Routes:")
+    session.wait_prompt()
+
+def check_ambiguous_keyword(session):
+    session.checkpoint("check_ambiguous_keyword")
+    session.send("sh f\n")
+    session.expect('Ambiguous input "f", candidates:')
+    session.expect('flooding-reduction')
+    session.expect('forwarding')
+    session.expect('forwarding family <family> ')
+    session.wait_prompt()
+
+def check_ambiguous_keyw_or_param(session):
+    session.checkpoint("check_ambiguous_keyword_or_param")
+    session.send("sh in\n")
+    session.expect('Ambiguous input "in", candidates:')
+    # TODO: This should be sorted
+    session.expect('interfaces')
+    session.expect('interface <interface>')
+    session.wait_prompt()
+
 def test_telnet_commands():
     session = TelnetSession()
     check_telnet_negotiation(session)
@@ -220,6 +250,10 @@ def test_telnet_commands():
     check_unknown_keyword(session)
     check_extra_keyword(session)
     check_missing_parameter(session)
+    check_partial_keyword(session)
+    check_partial_paremeter(session)
+    check_ambiguous_keyword(session)
+    check_ambiguous_keyw_or_param(session)
     session.checkpoint("stop")
     session.stop()
 
