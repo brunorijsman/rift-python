@@ -678,7 +678,7 @@ class Node:
         self.report_check_result(step)
 
     def check_interfaces_3way(self):
-        step = "Interfaces are up"
+        step = "Adjacencies are 3-way"
         okay = True
         parsed_intfs = self.telnet_session.parse_show_output("show interfaces")
         for parsed_intf in parsed_intfs[0]['rows'][1:]:
