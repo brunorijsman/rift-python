@@ -70,7 +70,10 @@ class CliSessionHandler:
 
     def peername(self):
         if self._sock:
-            return self._sock.getpeername()[0] + ":" + str(self._sock.getpeername()[1])
+            try:
+                return self._sock.getpeername()[0] + ":" + str(self._sock.getpeername()[1])
+            except OSError:
+                return "?:?"
         else:
             return "local"
 
