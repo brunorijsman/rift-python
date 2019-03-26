@@ -2237,6 +2237,9 @@ class Node:
             # as a new ECMP path for an existing candidate.
             if isinstance(dest_key, int):
                 self.spf_add_candidates_from_node(dest_key, dest_cost, candidates, spf_direction)
+        # For south-bound SPF runs only, decide which prefixes need to be positively disaggregated
+        if spf_direction == constants.DIR_SOUTH:
+            self.spf_mark_pos_disagg_prefixes()
         # SPF run is done. Install the computed routes into the route table (RIB)
         self.spf_install_routes_in_rib(spf_direction)
 
@@ -2332,6 +2335,20 @@ class Node:
         destination.add_predecessor(predecessor_system_id)
         dest_table = self._spf_destinations[spf_direction]
         destination.inherit_next_hops(dest_table[predecessor_system_id])
+
+    def spf_mark_pos_disagg_prefixes(self):
+        for dest in self._spf_destinations[constants.DIR_SOUTH].values():
+            if dest.dest_type != spf_dest.DEST_TYPE_PREFIX:
+                continue
+            if dest.prefix.ipv4prefix:
+                nexthops = dest.ipv4_next_hops
+            else:
+                assert dest.prefix.ipv6prefix
+                nexthops = dest.ipv6_next_hops
+            for nexthop in nexthops:
+                intf = self.interfaces_by_name[nexthop.interface]
+                if intf.partially_connected:
+                    dest.positively_disaggregate = True
 
     def interface_id_to_ipv4_next_hop(self, interface_id):
         if interface_id not in self.interfaces_by_id:

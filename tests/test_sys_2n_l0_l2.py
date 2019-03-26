@@ -42,8 +42,8 @@ def check_rift_node1_intf_up(res):
         interface="if1",
         reason="This node is not leaf and neighbor is leaf")
     expect_south_spf = [
-        r"| 1 \(node1\) | 0 |   |  |  |",
-        r"| 2 \(node2\) | 1 | 1 |  | if1",
+        r"| 1 \(node1\) | 0 |   |  |  |  |",
+        r"| 2 \(node2\) | 1 | 1 |  |  | if1",
     ]
     expect_north_spf = [
         r"| 1 \(node1\) | 0 |   |  |",
@@ -81,7 +81,7 @@ def check_rift_node1_intf_down(res):
         hat="None",
         level_value=2)
     expect_south_spf = [
-        r"| 1 \(node1\) | 0 |   |  |  |",
+        r"| 1 \(node1\) | 0 |   |  |  |  |",
     ]
     expect_north_spf = [
         r"| 1 \(node1\) | 0 |   |  |",
@@ -124,13 +124,13 @@ def check_rift_node2_intf_up(res):
         interface="if1",
         reason="This node is leaf and HAT not greater than remote level")
     expect_south_spf = [
-        r"| 2 \(node2\) | 0 |   |  |  |",
+        r"| 2 \(node2\) | 0 |   |  |  |  |",
     ]
     expect_north_spf = [
-        r"| 1 \(node1\) | 1 | 2 |  | if1",
-        r"| 2 \(node2\) | 0 |   |  |  |",
-        r"| 0.0.0.0/0   | 2 | 1 |  | if1",
-        r"| ::/0        | 2 | 1 |  | if1",
+        r"| 1 \(node1\) | 1 | 2 |  |  | if1",
+        r"| 2 \(node2\) | 0 |   |  |  |  |",
+        r"| 0.0.0.0/0   | 2 | 1 |  |  | if1",
+        r"| ::/0        | 2 | 1 |  |  | if1",
     ]
     res.check_spf("node2", expect_south_spf, expect_north_spf)
     expect_rib = [

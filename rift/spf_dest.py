@@ -39,6 +39,8 @@ class SPFDest:
         # (if_name, addr) of direct next-hop from source node towards this destination (*)
         self.ipv4_next_hops = []
         self.ipv6_next_hops = []
+        # This is a prefix that needs to be positively disaggregated
+        self.positively_disaggregate = False
 
     def key(self):
         if self.dest_type == DEST_TYPE_NODE:
@@ -89,6 +91,7 @@ class SPFDest:
             "Cost",
             ["Predecessor", "System IDs"],
             ["Tags"],
+            "Disaggregate",
             "IPv4 Next-hops",
             "IPv6 Next-hops"
         ]
@@ -104,11 +107,16 @@ class SPFDest:
             tags_str = list(self.tags)
         else:
             tags_str = ""
+        if self.positively_disaggregate:
+            disaggregate_str = 'Positive'
+        else:
+            disaggregate_str = ''
         return [
             destination_str,
             self.cost,
             sorted(self.predecessors),
             tags_str,
+            disaggregate_str,
             [str(next_hop) for next_hop in sorted(self.ipv4_next_hops)],
             [str(next_hop) for next_hop in sorted(self.ipv6_next_hops)]
         ]
