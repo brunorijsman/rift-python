@@ -224,17 +224,12 @@ def check_ambiguous_keyword(session):
     session.checkpoint("check_ambiguous_keyword")
     session.send("sh interface if1 s\n")
     session.expect('Ambiguous input "s", candidates:')
-    session.expect('sockets')
-    session.expect('statistics')
     session.wait_prompt()
 
 def check_ambiguous_keyw_or_param(session):
     session.checkpoint("check_ambiguous_keyword_or_param")
     session.send("sh in\n")
     session.expect('Ambiguous input "in", candidates:')
-    # TODO: This should be sorted
-    session.expect('interfaces')
-    session.expect('interface <interface>')
     session.wait_prompt()
 
 def test_telnet_commands():
