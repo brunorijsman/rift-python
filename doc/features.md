@@ -7,7 +7,7 @@
 | Link Information Element (LIE) Packet | Yes |
 | Link Information Element (LIE) Finite State Machine (FSM) | Yes |
 | Adjacencies using IPv4 Link and Multicast Addresses | Yes |
-| Adjacencies using IPv6 Link and Multicast Addresses | No |
+| Adjacencies using IPv6 Link and Multicast Addresses | Yes |
 
 ## Zero Touch Provisioning (ZTP)
 
@@ -51,7 +51,7 @@
 | Apply flooding scope rules when sending TIDE packets | Yes |
 | Apply flooding scope rules when sending TIRE packets | Yes |
 | Southbound Default Route Origination  | Yes |
-| Northbound TIE Flooding Reduction  | No |
+| Northbound TIE Flooding Reduction  | Yes |
 | Ingress Filtering  | No |
 | Applying Policy  | No |
 | Store Policy-Guided Prefix for Route Computation and Regeneration  | No |
