@@ -204,6 +204,30 @@ class Interface:
         # Update the south prefix TIE: we may have to start or stop originating a default route
         self.node.regenerate_my_south_prefix_tie(interface_going_down=self)
 
+    def action_init_partially_conn(self):
+        self.update_partially_connected()
+
+    def action_clear_partially_conn(self):
+        self.partially_connected = None
+        self.partially_connected_causes = None
+
+    def update_partially_connected(self):
+        if self.neighbor_direction() != constants.DIR_SOUTH:
+            return
+        old_partially_connected = self.partially_connected
+        if self.neighbor:
+            (part_conn, part_conn_causes) = \
+                self.node.check_sysid_partially_connected(self.neighbor.system_id)
+            self.partially_connected = part_conn
+            self.partially_connected_causes = part_conn_causes
+        else:
+            self.partially_connected = None
+            self.partially_connected_causes = None
+        if not old_partially_connected and self.partially_connected:
+            self.warning("Neighbor became partially connected")
+        if old_partially_connected and not self.partially_connected:
+            self.info("Neighbor is no longer partially connected")
+
     def log_tx_protocol_packet(self, level, sock, prelude, protocol_packet):
         if not self._tx_log.isEnabledFor(level):
             return
@@ -731,7 +755,8 @@ class Interface:
 
     _state_actions = {
         State.ONE_WAY  : ([action_cleanup, action_send_lie], []),
-        State.THREE_WAY: ([action_start_flooding], [action_stop_flooding])
+        State.THREE_WAY: ([action_start_flooding, action_init_partially_conn],
+                          [action_stop_flooding, action_clear_partially_conn])
     }
 
     fsm_definition = fsm.FsmDefinition(
@@ -835,6 +860,8 @@ class Interface:
         self._ties_req = collections.OrderedDict()
         self._ties_ack = collections.OrderedDict()
         self.floodred_nbr_is_fr = self.NbrIsFRState.NOT_APPLICABLE
+        self.partially_connected = None
+        self.partially_connected_causes = None
         self._traffic_stats_group = stats.Group(self.node.intf_traffic_stats_group)
         pab = ["Packet", "Byte"]
         stg = self._traffic_stats_group
@@ -1498,6 +1525,24 @@ class Interface:
 
     def cli_details_table(self):
         tab = table.Table(separators=False)
+        if self.partially_connected is None:
+            partially_connected_str = 'N/A'
+            partially_connected_causes_str = ''
+        elif self.partially_connected:
+            partially_connected_str = 'True'
+            partially_connected_causes_str = ''
+            count = 0
+            for sysid in self.partially_connected_causes:
+                count += 1
+                if count > 1:
+                    partially_connected_causes_str += ', '
+                if count <= 3:
+                    partially_connected_causes_str += utils.system_id_str(sysid)
+            if count > 3:
+                partially_connected_causes_str += " and {} more".format(count - 3)
+        else:
+            partially_connected_str = 'False'
+            partially_connected_causes_str = ''
         tab.add_rows([
             ["Interface Name", self.name],
             ["Physical Interface Name", self.physical_interface_name],
@@ -1521,7 +1566,9 @@ class Interface:
             ["State", self.state_name],
             ["Received LIE Accepted or Rejected", self._lie_accept_or_reject],
             ["Received LIE Accept or Reject Reason", self._lie_accept_or_reject_rule],
-            ["Neighbor is Flood Repeater", self.nbr_is_fr_str(self.floodred_nbr_is_fr)]
+            ["Neighbor is Flood Repeater", self.nbr_is_fr_str(self.floodred_nbr_is_fr)],
+            ["Neighbor is Partially Connected", partially_connected_str],
+            ["Nodes Causing Partial Connectivity", partially_connected_causes_str]
         ])
         return tab
 

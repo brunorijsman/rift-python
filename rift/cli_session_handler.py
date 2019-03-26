@@ -328,7 +328,6 @@ class CliSessionHandler:
             # Remote side closed session
             self.close()
             return
-        ###@@@ print("*** new_input_bytes =", new_input_bytes)  ###@@@
         self._input_bytes_buffer += new_input_bytes
         self.parse_input_bytes()
 

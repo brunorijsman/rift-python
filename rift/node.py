@@ -730,19 +730,17 @@ class Node:
 
     # TODO: Need to re-evaluate other_node_tie_metas_my_level when the level of this node changes
 
-    def store_tie_in_db(self, tie_meta):
-        self.store_tie_meta(tie_meta)
-        tie_packet = tie_meta.tie_packet
-        if ((tie_packet.header.tieid.tietype == common.ttypes.TIETypeType.NodeTIEType) and
-                (tie_packet.element.node.level == self.level_value())):
-            self.other_node_tie_metas_my_level[tie_packet.header.tieid] = tie_meta
-            self.regenerate_my_south_prefix_tie()
-
-    def remove_tie_from_db(self, tie_id):
-        self.remove_tie(tie_id)
-        if tie_id in self.other_node_tie_metas_my_level:
-            del self.other_node_tie_metas_my_level[tie_id]
-            self.regenerate_my_south_prefix_tie()
+    def is_same_level_tie(self, tie_packet):
+        if tie_packet.header.tieid.tietype != common.ttypes.TIETypeType.NodeTIEType:
+            # Not a node TIE
+            return False
+        if tie_packet.element.node.level != self.level_value():
+            # Not from a node at the same level
+            return False
+        if tie_packet.header.tieid.originator == self.system_id:
+            # From myself, i.e. not from another node
+            return False
+        return True
 
     def up_interfaces(self, interface_going_down):
         for intf in self.interfaces_by_name.values():
@@ -784,7 +782,7 @@ class Node:
             node_tie_packet.element.node.neighbors[intf.neighbor.system_id] = node_neighbor
         node_tie_meta = TIEMeta(node_tie_packet, rx_intf=None)
         self.my_node_tie_metas[direction] = node_tie_meta
-        self.store_tie_in_db(node_tie_meta)
+        self.store_tie_meta(node_tie_meta)
         self.info("Regenerated node TIE for direction %s: %s",
                   packet_common.direction_str(direction), node_tie_packet)
 
@@ -831,9 +829,9 @@ class Node:
                 originator=self.system_id,
                 tie_type=common.ttypes.TIETypeType.PrefixTIEType,
                 tie_nr=MY_TIE_NR)
-            self.remove_tie_from_db(tie_id)
+            self.remove_tie(tie_id)
         else:
-            self.store_tie_in_db(self._my_north_prefix_tie_meta)
+            self.store_tie_meta(self._my_north_prefix_tie_meta)
             self.info("Regenerated north prefix TIE: %s",
                       self._my_north_prefix_tie_meta.tie_packet)
 
@@ -925,7 +923,7 @@ class Node:
                     self._my_south_prefix_tie_meta.tie_packet,
                     "::0/0",
                     metric)
-            self.store_tie_in_db(self._my_south_prefix_tie_meta)
+            self.store_tie_meta(self._my_south_prefix_tie_meta)
             self.info("Regenerated south prefix TIE because %s: %s", reason,
                       self._my_south_prefix_tie_meta.tie_packet)
 
@@ -934,7 +932,7 @@ class Node:
                           common.ttypes.TieDirectionType.North]:
             node_tie_meta = self.my_node_tie_metas[direction]
             if node_tie_meta is not None:
-                self.remove_tie_from_db(node_tie_meta.tie_packet.header)
+                self.remove_tie(node_tie_meta.tie_packet.header)
                 self.my_node_tie_metas[direction] = None
 
     def send_tides(self):
@@ -1492,6 +1490,10 @@ class Node:
         tie_meta = TIEMeta(tie_packet, rx_intf)
         self.store_tie_meta(tie_meta)
 
+    def update_partially_conn_all_intfs(self):
+        for intf in self.interfaces_by_name.values():
+            intf.update_partially_connected()
+
     def store_tie_meta(self, tie_meta):
         tie_packet = tie_meta.tie_packet
         tie_id = tie_packet.header.tieid
@@ -1504,6 +1506,10 @@ class Node:
             trigger_spf = True
             reason = "TIE " + packet_common.tie_id_str(tie_id) + " added"
         self.tie_metas[tie_id] = tie_meta
+        if self.is_same_level_tie(tie_packet):
+            self.other_node_tie_metas_my_level[tie_packet.header.tieid] = tie_meta
+            self.update_partially_conn_all_intfs()
+            self.regenerate_my_south_prefix_tie()
         if trigger_spf:
             self.trigger_spf(reason)
 
@@ -1513,6 +1519,10 @@ class Node:
             del self.tie_metas[tie_id]
             reason = "TIE " + packet_common.tie_id_str(tie_id) + " removed"
             self.trigger_spf(reason)
+        if tie_id in self.other_node_tie_metas_my_level:
+            del self.other_node_tie_metas_my_level[tie_id]
+            self.update_partially_conn_all_intfs()
+            self.regenerate_my_south_prefix_tie()
 
     def find_tie_meta(self, tie_id):
         # Returns None if tie_id is not in database
@@ -1965,12 +1975,39 @@ class Node:
                           "%s (perspective neighbor to us)", tie_header, reason1, reason2)
         return tide_packet
 
+
+    def check_sysid_partially_connected(self, look_for_sysid):
+        # Check every other node and the same level, and if there is at least one other node that
+        # that does not have the sysid as a south-bound adjacencies, then declare the sysid as
+        # partially connected. Note: if there are no other nodes at the same level, then the sysid
+        # is not partially connected.
+        node_adj_with_look_for_sysid = {}    # Indexed by sysid of other node at same level
+        for node_tie_meta in self.other_node_tie_metas_my_level.values():
+            node_sysid = node_tie_meta.tie_packet.header.tieid.originator
+            node_level = node_tie_meta.tie_packet.element.node.level
+            if node_sysid not in node_adj_with_look_for_sysid:
+                node_adj_with_look_for_sysid[node_sysid] = False
+            for nbr_sysid, nbr_info in node_tie_meta.tie_packet.element.node.neighbors.items():
+                nbr_level = nbr_info.level
+                if nbr_level < node_level and nbr_sysid == look_for_sysid:
+                    node_adj_with_look_for_sysid[node_sysid] = True
+        partially_connected = False
+        partially_connected_causes = []
+        for node_sysid, adjacent in node_adj_with_look_for_sysid.items():
+            if not adjacent:
+                partially_connected = True
+                partially_connected_causes.append(node_sysid)
+        partially_connected_causes = sorted(list(set(partially_connected_causes)))
+        return (partially_connected, partially_connected_causes)
+
     def same_level_nodes_table(self):
+        # pylint:disable=too-many-locals
         tab = table.Table()
         tab.add_row([
             ["Node", "System ID"],
             ["North-bound", "Adjacencies"],
-            ["South-bound", "Adjacencies"]])
+            ["South-bound", "Adjacencies"],
+            ["Missing", "South-bound", "Adjacencies"]])
         # If there are no other nodes at my level; return empty table.
         if not self.other_node_tie_metas_my_level:
             return tab
@@ -1990,9 +2027,25 @@ class Node:
         # Format collected information into table
         sorted_node_sysids = sorted(list(nodes.keys()))
         for node_sysid in sorted_node_sysids:
+            # Sort adjacencies and remove duplicates
             north_adjacencies = sorted(list(set(nodes[node_sysid][0])))
             south_adjacencies = sorted(list(set(nodes[node_sysid][1])))
-            tab.add_row([node_sysid, north_adjacencies, south_adjacencies])
+            # Determine missing adjacencies
+            missing_adjacencies = []
+            for intf in self.interfaces_by_name.values():
+                if intf.fsm.state != intf.State.THREE_WAY:
+                    continue
+                if intf.neighbor_direction() != constants.DIR_SOUTH:
+                    continue
+                missing = True
+                for adj_sysid in south_adjacencies:
+                    if intf.neighbor.system_id == adj_sysid:
+                        missing = False
+                        break
+                if missing:
+                    missing_adjacencies.append(intf.neighbor.system_id)
+            missing_adjacencies = sorted(list(set(missing_adjacencies)))
+            tab.add_row([node_sysid, north_adjacencies, south_adjacencies, missing_adjacencies])
         return tab
 
     def spf_statistics_table(self):
