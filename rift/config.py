@@ -324,16 +324,24 @@ def intf_infer_att_from_neighbor(intf_config, intf_attribute, neighbor_intf_conf
 
 def parse_configuration(filename):
     if filename:
-        with open(filename, 'r') as stream:
-            try:
-                config = yaml.safe_load(stream)
-            except yaml.YAMLError as exception:
-                raise exception
+        try:
+            file = open(filename, 'r')
+        except (OSError, IOError) as err:
+            print("Could not open configuration file {} ({})".format(filename, err),
+                  file=sys.stderr)
+            sys.exit(1)
+        try:
+            config = yaml.safe_load(file)
+        except yaml.YAMLError as err:
+            print("Could not load configuration file {}:".format(filename), file=sys.stderr)
+            file.close()
+            sys.exit(1)
+        file.close()
     else:
         config = DEFAULT_CONFIG
     validator = RiftValidator(SCHEMA)
     if not validator.validate(config, SCHEMA):
-        # TODO: Better error handling (report in human-readable format and don't just exit)
+        print("Could not parse configuration file {}:".format(filename), file=sys.stderr)
         pretty_printer = pprint.PrettyPrinter()
         pretty_printer.pprint(validator.errors)
         exit(1)
