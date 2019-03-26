@@ -222,11 +222,10 @@ def check_partial_paremeter(session):
 
 def check_ambiguous_keyword(session):
     session.checkpoint("check_ambiguous_keyword")
-    session.send("sh f\n")
-    session.expect('Ambiguous input "f", candidates:')
-    session.expect('flooding-reduction')
-    session.expect('forwarding')
-    session.expect('forwarding family <family> ')
+    session.send("sh interface if1 s\n")
+    session.expect('Ambiguous input "s", candidates:')
+    session.expect('sockets')
+    session.expect('statistics')
     session.wait_prompt()
 
 def check_ambiguous_keyw_or_param(session):
