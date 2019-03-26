@@ -729,7 +729,6 @@ class Node:
         return interface_id
 
     # TODO: Need to re-evaluate other_node_tie_metas_my_level when the level of this node changes
-    # TODO: Have a show comman to report other_node_tie_metas_my_level
 
     def store_tie_in_db(self, tie_meta):
         self.store_tie_meta(tie_meta)
@@ -1286,11 +1285,15 @@ class Node:
 
     def command_show_forwarding_af(self, cli_session, address_family):
         cli_session.print(constants.address_family_str(address_family) + " Routes:")
-        if address_family == constants.ADDRESS_FAMILY_IPV4:   ###@@@
+        if address_family == constants.ADDRESS_FAMILY_IPV4:
             tab = self._ipv4_fib.cli_table()
         else:
             assert address_family == constants.ADDRESS_FAMILY_IPV6
             tab = self._ipv6_fib.cli_table()
+        cli_session.print(tab.to_string())
+
+    def command_show_same_level_nodes(self, cli_session):
+        tab = self.same_level_nodes_table()
         cli_session.print(tab.to_string())
 
     def command_show_spf(self, cli_session):
@@ -1397,6 +1400,8 @@ class Node:
                 cli_session.print('Invalid table "{}" (valid values: "local", "main", '
                                   '"default", "unspecified", or number)'.format(table_str))
                 return None
+
+
 
     def command_show_spf_dir(self, cli_session, parameters):
         direction = self.get_direction_param(cli_session, parameters)
@@ -1959,6 +1964,36 @@ class Node:
             self.db_debug("Exclude TIE %s from TIDE because %s (perspective us to neighbor) and "
                           "%s (perspective neighbor to us)", tie_header, reason1, reason2)
         return tide_packet
+
+    def same_level_nodes_table(self):
+        tab = table.Table()
+        tab.add_row([
+            ["Node", "System ID"],
+            ["North-bound", "Adjacencies"],
+            ["South-bound", "Adjacencies"]])
+        # If there are no other nodes at my level; return empty table.
+        if not self.other_node_tie_metas_my_level:
+            return tab
+        # Collect all north- and south-bound adjacencies of nodes at the same level
+        nodes = {}
+        for node_tie_meta in self.other_node_tie_metas_my_level.values():
+            node_sysid = node_tie_meta.tie_packet.header.tieid.originator
+            node_level = node_tie_meta.tie_packet.element.node.level
+            if node_sysid not in nodes:
+                nodes[node_sysid] = ([], [])   # List of south-bound and north-bound adjacencies
+            for nbr_sysid, nbr_info in node_tie_meta.tie_packet.element.node.neighbors.items():
+                nbr_level = nbr_info.level
+                if nbr_level > node_level:
+                    nodes[node_sysid][0].append(nbr_sysid)  # Add north-bound adjacency
+                elif nbr_level < node_level:
+                    nodes[node_sysid][1].append(nbr_sysid)  # Add south-bound adjacency
+        # Format collected information into table
+        sorted_node_sysids = sorted(list(nodes.keys()))
+        for node_sysid in sorted_node_sysids:
+            north_adjacencies = sorted(list(set(nodes[node_sysid][0])))
+            south_adjacencies = sorted(list(set(nodes[node_sysid][1])))
+            tab.add_row([node_sysid, north_adjacencies, south_adjacencies])
+        return tab
 
     def spf_statistics_table(self):
         tab = table.Table()

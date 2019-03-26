@@ -312,6 +312,9 @@ class Engine:
     def command_show_forwarding_family(self, cli_session, parameters):
         cli_session.current_node.command_show_forwarding_family(cli_session, parameters)
 
+    def command_show_same_level_nodes(self, cli_session):
+        cli_session.current_node.command_show_same_level_nodes(cli_session)
+
     def command_show_spf(self, cli_session):
         cli_session.current_node.command_show_spf(cli_session)
 
@@ -438,6 +441,7 @@ class Engine:
                 },
                 "$family": command_show_routes_family,
             },
+            "same-level-nodes": command_show_same_level_nodes,
             "spf": {
                 "": command_show_spf,
                 "$direction" : {
