@@ -1,7 +1,9 @@
+import atexit
 import logging
 import random
 import os
 import sys
+import termios
 
 import sortedcontainers
 
@@ -16,6 +18,27 @@ import stats
 import table
 
 # TODO: Make sure that there is always at least one node (and hence always a current node)
+
+OLD_TERMINAL_SETTINGS = None
+
+def make_terminal_unbuffered():
+    # Based on https://stackoverflow.com/questions/21791621/taking-input-from-sys-stdin-non-blocking
+    # pylint:disable=global-statement
+    global OLD_TERMINAL_SETTINGS
+    OLD_TERMINAL_SETTINGS = termios.tcgetattr(sys.stdin)
+    new_settings = termios.tcgetattr(sys.stdin)
+    new_settings[3] = new_settings[3] & ~(termios.ECHO | termios.ICANON) # lflags
+    new_settings[6][termios.VMIN] = 0  # cc
+    new_settings[6][termios.VTIME] = 0 # cc
+    termios.tcsetattr(sys.stdin, termios.TCSADRAIN, new_settings)
+
+@atexit.register
+def restore_terminal():
+    # pylint:disable=global-statement
+    global OLD_TERMINAL_SETTINGS
+    if OLD_TERMINAL_SETTINGS:
+        termios.tcsetattr(sys.stdin, termios.TCSADRAIN, OLD_TERMINAL_SETTINGS)
+        OLD_TERMINAL_SETTINGS = None
 
 class Engine:
 
@@ -64,6 +87,7 @@ class Engine:
         else:
             first_node = None
         if self._interactive:
+            make_terminal_unbuffered()
             self._cli_listen_handler = None
             self._interactive_cli_session_handler = cli_session_handler.CliSessionHandler(
                 sock=None,

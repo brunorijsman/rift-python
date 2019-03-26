@@ -70,6 +70,14 @@ def insert_command_output(out_file, res, node, command):
     if not ARGS.check_only:
         print("Process:", command)
     output = gather_output(res, node, command)
+    if output:
+        output[0] = output[0].strip(' \r\n')
+        if output[0] == '':
+            del output[0]
+    if output:
+        output[-1] = output[-1].rstrip(' \r\n')
+        if output[-1] == '':
+            del output[-1]
     print("<pre>", file=out_file)
     print("{}> <b>{}</b>".format(node, command), file=out_file)
     summarize_tables(output, out_file)
@@ -97,7 +105,10 @@ def gather_output(res, node, command):
 def check_missing_commands(all_commands, processed_commands):
     something_missing = False
     for command in all_commands:
-        pattern = "^{}$".format(command.strip().rstrip())
+        command = command.strip(' \r\n').rstrip(' \r\n')
+        if command == '':
+            continue
+        pattern = "^{}$".format(command)
         pattern = re.sub(r"<.*?>", ".*", pattern)
         covered = False
         for processed_command in processed_commands:
@@ -105,7 +116,7 @@ def check_missing_commands(all_commands, processed_commands):
                 covered = True
                 break
         if not covered:
-            print("MISSING:", command)
+            print("MISSING: {}".format(command))
             something_missing = True
     return something_missing
 

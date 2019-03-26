@@ -83,13 +83,15 @@ class CliSessionHandler:
     def close(self):
         self.info("Close CLI session")
         scheduler.SCHEDULER.unregister_handler(self)
-        os.close(self._rx_fd)
-        if self._tx_fd != self._rx_fd:
-            os.close(self._tx_fd)
-        self._rx_fd = None
-        self._tx_fd = None
-        # If this was the interactive (stdin/stdout) CLI session, exit the RIFT engine as well
-        if self._sock is None:
+        if self._telnet:
+            # Telnet session, close the file descriptors and keep running
+            os.close(self._rx_fd)
+            if self._tx_fd != self._rx_fd:
+                os.close(self._tx_fd)
+            self._rx_fd = None
+            self._tx_fd = None
+        else:
+            # Interactive (stdin/stdout) CLI session, exit the RIFT engine
             sys.exit(0)
 
     def rx_fd(self):
@@ -103,7 +105,7 @@ class CliSessionHandler:
             return
         if add_newline:
             message += '\n'
-        if self._telnet_echo:
+        if self.must_echo():
             fixed_message = message.replace('\n', '\r\n')
         else:
             fixed_message = message
@@ -295,12 +297,22 @@ class CliSessionHandler:
             return
         os.write(self._tx_fd, msg)
 
+    def must_echo(self):
+        # In interactive mode, always echo
+        if not self._telnet:
+            return True
+        # In Telnet mode, echo if negotiated
+        elif self._telnet_echo:
+            return True
+        else:
+            return False
+
     def echo_byte(self, byte):
-        if self._telnet_echo:
+        if self.must_echo():
             self.send_bytes(bytes([byte]))
 
     def echo_bytes(self, byte_list):
-        if self._telnet_echo:
+        if self.must_echo():
             self.send_bytes(bytes(byte_list))
 
     def set_current_node(self, node):
@@ -316,6 +328,7 @@ class CliSessionHandler:
             # Remote side closed session
             self.close()
             return
+        ###@@@ print("*** new_input_bytes =", new_input_bytes)  ###@@@
         self._input_bytes_buffer += new_input_bytes
         self.parse_input_bytes()
 
