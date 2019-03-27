@@ -2212,10 +2212,6 @@ class Node:
         # Return an ordered list of all node TIEs from the given node and in the given direction
         return self.ties_of_type(direction, system_id, common.ttypes.TIETypeType.NodeTIEType)
 
-    def prefix_ties(self, direction, system_id):
-        # Return an ordered list of all prefix TIEs from the given node and in the given direction
-        return self.ties_of_type(direction, system_id, common.ttypes.TIETypeType.PrefixTIEType)
-
     def node_neighbors(self, node_ties, neighbor_direction):
         # A generator that yields (nbr_system_id, nbr_tie_element) tuples for all neighbors in the
         # specified direction of the nodes in the node_ties list.
@@ -2313,7 +2309,8 @@ class Node:
         self.spf_add_neighbor_candidates(node_system_id, node_cost, node_ties, candidates,
                                          spf_direction)
         # Add the prefixes of this node as candidates
-        self.spf_add_prefix_candidates(node_system_id, node_cost, candidates, spf_direction)
+        self.spf_add_prefixes(node_system_id, node_cost, candidates, spf_direction)
+        self.spf_add_pos_disagg_prefixes(node_system_id, node_cost, candidates, spf_direction)
 
     def spf_add_neighbor_candidates(self, node_system_id, node_cost, node_ties, candidates,
                                     spf_direction):
@@ -2333,19 +2330,33 @@ class Node:
                 self.spf_consider_candidate_dest(destination, nbr_tie_element, node_system_id,
                                                  candidates, spf_direction)
 
-    def spf_add_prefix_candidates(self, node_system_id, node_cost, candidates, spf_direction):
-        prefix_ties = self.prefix_ties(self.spf_use_tie_direction(node_system_id, spf_direction),
-                                       node_system_id)
+    def spf_add_prefixes(self, node_sysid, node_cost, candidates, spf_direction):
+        prefix_ties = self.ties_of_type(
+            direction=self.spf_use_tie_direction(node_sysid, spf_direction),
+            system_id=node_sysid,
+            prefix_type=common.ttypes.TIETypeType.PrefixTIEType)
         for prefix_tie in prefix_ties:
-            prefixes = prefix_tie.element.prefixes.prefixes
-            if prefixes:
-                for prefix, attributes in prefixes.items():
-                    # We have found a feasible path to the prefix; is the best path?
-                    tags = attributes.tags
-                    cost = node_cost + attributes.metric
-                    destination = spf_dest.make_prefix_destintation(prefix, tags, cost)
-                    self.spf_consider_candidate_dest(destination, None, node_system_id, candidates,
-                                                     spf_direction)
+            self.spf_add_prefixes_common(
+                node_sysid, node_cost, candidates, spf_direction,
+                prefix_tie.element.prefixes.prefixes)
+
+    def spf_add_pos_disagg_prefixes(self, node_sysid, node_cost, candidates, spf_direction):
+        prefix_ties = self.ties_of_type(
+            direction=self.spf_use_tie_direction(node_sysid, spf_direction),
+            system_id=node_sysid,
+            prefix_type=common.ttypes.TIETypeType.PositiveDisaggregationPrefixTIEType)
+        for prefix_tie in prefix_ties:
+            self.spf_add_prefixes_common(
+                node_sysid, node_cost, candidates, spf_direction,
+                prefix_tie.element.positive_disaggregation_prefixes.prefixes)
+
+    def spf_add_prefixes_common(self, node_sysid, node_cost, candidates, spf_direction, prefixes):
+        if prefixes:
+            for prefix, attributes in prefixes.items():
+                tags = attributes.tags
+                cost = node_cost + attributes.metric
+                dest = spf_dest.make_prefix_destintation(prefix, tags, cost)
+                self.spf_consider_candidate_dest(dest, None, node_sysid, candidates, spf_direction)
 
     def spf_consider_candidate_dest(self, destination, nbr_tie_element, predecessor_system_id,
                                     candidates, spf_direction):
