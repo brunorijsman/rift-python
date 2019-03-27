@@ -165,15 +165,15 @@ def normalize_tie_ids(msg_str):
         elif tietype == "3":
             tietype = "Prefix"
         elif tietype == "4":
-            tietype = "PositiveDisaggregationPrefix"
+            tietype = "Pos-Dis-Prefix"
         elif tietype == "5":
-            tietype = "NegativeDisaggregationPrefix"
+            tietype = "Neg-Dis-Prefix"
         elif tietype == "6":
-            tietype = "PolicyGuidedPrefix"
+            tietype = "PG-Prefix"
         elif tietype == "7":
-            tietype = "External"
+            tietype = "Ext-Prefix"
         elif tietype == "8":
-            tietype = "KeyValue"
+            tietype = "Key-Value"
         tie_nr = re.search(r"TIEID\(.*tie_nr=([-0-9]+).*?\)", old_tie_str).group(1)
         new_tie_str = ("TIEID<direction={}, originator={}, tietype={}, tie_nr={}>"
                        .format(direction, originator, tietype, tie_nr))

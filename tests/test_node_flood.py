@@ -125,8 +125,16 @@ def test_add_prefix_tie():
         tie_nr=333,
         seq_nr=444,
         lifetime=555)
-    packet_common.add_ipv4_prefix_to_prefix_tie(prefix_tie_packet_1, "1.2.3.0/24", 2, [77, 88], 12345)
-    packet_common.add_ipv6_prefix_to_prefix_tie(prefix_tie_packet_1, "1234:abcd::/64", 3)
+    packet_common.add_ipv4_prefix_to_prefix_tie(
+        prefix_tie_packet_1,
+        packet_common.make_ipv4_prefix("1.2.3.0/24"),
+        2,
+        [77, 88],
+        12345)
+    packet_common.add_ipv6_prefix_to_prefix_tie(
+        prefix_tie_packet_1,
+        packet_common.make_ipv6_prefix("1234:abcd::/64"),
+        3)
     test_node.store_tie_packet(prefix_tie_packet_1)
     prefix_tie_packet_2 = packet_common.make_prefix_tie_packet(
         direction=common.ttypes.TieDirectionType.North,
@@ -134,7 +142,10 @@ def test_add_prefix_tie():
         tie_nr=888,
         seq_nr=999,
         lifetime=0)
-    packet_common.add_ipv4_prefix_to_prefix_tie(prefix_tie_packet_2, "0.0.0.0/0", 10)
+    packet_common.add_ipv4_prefix_to_prefix_tie(
+        prefix_tie_packet_2,
+        packet_common.make_ipv4_prefix("0.0.0.0/0"),
+        10)
     test_node.store_tie_packet(prefix_tie_packet_2)
     assert test_node.find_tie_meta(prefix_tie_packet_1.header.tieid).tie_packet == prefix_tie_packet_1
     assert test_node.find_tie_meta(prefix_tie_packet_2.header.tieid).tie_packet == prefix_tie_packet_2

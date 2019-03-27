@@ -402,9 +402,8 @@ def make_ipv6_prefix(prefix_str):
     prefix = common.ttypes.IPPrefixType(ipv6prefix=ipv6_prefix)
     return prefix
 
-def add_ipv4_prefix_to_prefix_tie(prefix_tie_packet, ipv4_prefix_string, metric, tags=None,
+def add_ipv4_prefix_to_prefix_tie(prefix_tie_packet, prefix, metric, tags=None,
                                   monotonic_clock=None):
-    prefix = make_ipv4_prefix(ipv4_prefix_string)
     attributes = encoding.ttypes.PrefixAttributes(metric, tags, monotonic_clock)
     prefix_tie_packet.element.prefixes.prefixes[prefix] = attributes
 
@@ -480,11 +479,11 @@ def ip_prefix_str(ip_prefix):
 TIETYPE_TO_STR = {
     common.ttypes.TIETypeType.NodeTIEType: "Node",
     common.ttypes.TIETypeType.PrefixTIEType: "Prefix",
-    common.ttypes.TIETypeType.PositiveDisaggregationPrefixTIEType: "PositiveDisaggregationPrefix",
-    common.ttypes.TIETypeType.NegativeDisaggregationPrefixTIEType: "NegativeDisaggregationPrefix",
-    common.ttypes.TIETypeType.ExternalPrefixTIEType: "ExternalPrefix",
-    common.ttypes.TIETypeType.PGPrefixTIEType: "PolicyGuidedPrefix",
-    common.ttypes.TIETypeType.KeyValueTIEType: "KeyValue"
+    common.ttypes.TIETypeType.PositiveDisaggregationPrefixTIEType: "Pos-Dis-Prefix",
+    common.ttypes.TIETypeType.NegativeDisaggregationPrefixTIEType: "Neg-Dis-Prefix",
+    common.ttypes.TIETypeType.ExternalPrefixTIEType: "Ext-Prefix",
+    common.ttypes.TIETypeType.PGPrefixTIEType: "PG-Prefix",
+    common.ttypes.TIETypeType.KeyValueTIEType: "Key-Value"
 }
 
 def tietype_str(tietype):
@@ -547,11 +546,11 @@ def node_element_str(element):
                 lines.append("  Link: " + link_id_pair_str(link_id_pair))
     return lines
 
-def prefix_element_str(element):
+def prefixes_str(label_str, prefixes):
     lines = []
-    sorted_prefixes = sortedcontainers.SortedDict(element.prefixes)
+    sorted_prefixes = sortedcontainers.SortedDict(prefixes.prefixes)
     for prefix, attributes in sorted_prefixes.items():
-        line = "Prefix: " + ip_prefix_str(prefix)
+        line = label_str + ' ' + ip_prefix_str(prefix)
         lines.append(line)
         if attributes:
             if attributes.metric:
@@ -565,10 +564,6 @@ def prefix_element_str(element):
                 line = "  Monotonic-clock: " + str(attributes.monotonic_clock)
                 lines.append(line)
     return lines
-
-def transitive_prefix_element_str(_element):
-    # TODO: Implement this
-    return "TODO"
 
 def pg_prefix_element_str(_element):
     # TODO: Implement this
@@ -586,13 +581,18 @@ def element_str(tietype, element):
     if tietype == common.ttypes.TIETypeType.NodeTIEType:
         return node_element_str(element.node)
     elif tietype == common.ttypes.TIETypeType.PrefixTIEType:
-        return prefix_element_str(element.prefixes)
+        return prefixes_str("Prefix:", element.prefixes)
     elif tietype == common.ttypes.TIETypeType.PositiveDisaggregationPrefixTIEType:
-        return transitive_prefix_element_str(element.transitive_prefixes)
+        return prefixes_str("Pos-Dis-Prefix:", element.positive_disaggregation_prefixes)
+    elif tietype == common.ttypes.TIETypeType.NegativeDisaggregationPrefixTIEType:
+        return prefixes_str("Neg-Dis-Prefix:", element.negative_disaggregation_prefixes)
     elif tietype == common.ttypes.TIETypeType.PGPrefixTIEType:
-        return pg_prefix_element_str(element)   # TODO
+        # TODO: PG Prefixes not yet in model
+        return unknown_element_str(element)
     elif tietype == common.ttypes.TIETypeType.KeyValueTIEType:
         return key_value_element_str(element.keyvalues)
+    elif tietype == common.ttypes.TIETypeType.ExternalPrefixTIEType:
+        return prefixes_str("Ext-Prefix:", element.external_prefixes)
     else:
         return unknown_element_str(element)
 

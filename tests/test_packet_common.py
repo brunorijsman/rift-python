@@ -15,11 +15,9 @@ def test_tietype_str():
     assert packet_common.tietype_str(common.ttypes.TIETypeType.NodeTIEType) == "Node"
     assert packet_common.tietype_str(common.ttypes.TIETypeType.PrefixTIEType) == "Prefix"
     assert (packet_common.tietype_str(
-        common.ttypes.TIETypeType.PositiveDisaggregationPrefixTIEType) ==
-            "PositiveDisaggregationPrefix")
-    assert (packet_common.tietype_str(common.ttypes.TIETypeType.PGPrefixTIEType) ==
-            "PolicyGuidedPrefix")
-    assert packet_common.tietype_str(common.ttypes.TIETypeType.KeyValueTIEType) == "KeyValue"
+        common.ttypes.TIETypeType.PositiveDisaggregationPrefixTIEType) == "Pos-Dis-Prefix")
+    assert packet_common.tietype_str(common.ttypes.TIETypeType.PGPrefixTIEType) == "PG-Prefix"
+    assert packet_common.tietype_str(common.ttypes.TIETypeType.KeyValueTIEType) == "Key-Value"
     assert packet_common.tietype_str(888) == "888"
 
 def max_system_id(fudge=0):

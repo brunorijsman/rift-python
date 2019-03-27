@@ -29,7 +29,9 @@ import table
 import timer
 import utils
 
-MY_TIE_NR = 1
+MY_NODE_TIE_NR = 1
+MY_PREFIX_TIE_NR = 2
+MY_POS_DISAGG_TIE_NR = 3
 
 FLUSH_LIFETIME = 60
 
@@ -476,6 +478,7 @@ class Node:
         self._originating_default = False
         self._my_south_prefix_tie_meta = None
         self._my_north_prefix_tie_meta = None
+        self._my_pos_disagg_tie_meta = None
         self.tie_metas = sortedcontainers.SortedDict()  # TIEMeta objects indexed by TIEID
         self._last_received_tide_end = self.MIN_TIE_ID
         self._defer_spf_timer = None
@@ -749,7 +752,7 @@ class Node:
                 yield intf
 
     def regenerate_node_tie(self, direction, interface_going_down=None):
-        tie_nr = MY_TIE_NR
+        tie_nr = MY_NODE_TIE_NR
         self.my_node_tie_seq_nrs[direction] += 1
         seq_nr = self.my_node_tie_seq_nrs[direction]
         node_tie_packet = packet_common.make_node_tie_packet(
@@ -797,7 +800,7 @@ class Node:
             tie_packet = packet_common.make_prefix_tie_packet(
                 direction=common.ttypes.TieDirectionType.North,
                 originator=self.system_id,
-                tie_nr=MY_TIE_NR,
+                tie_nr=MY_PREFIX_TIE_NR,
                 seq_nr=1,
                 lifetime=common.constants.default_lifetime)
             self._my_north_prefix_tie_meta = TIEMeta(tie_packet, rx_intf=None)
@@ -806,21 +809,23 @@ class Node:
         if 'v4prefixes' in config:
             for v4prefix in config['v4prefixes']:
                 prefix_str = v4prefix['address'] + "/" + str(v4prefix['mask'])
+                prefix = packet_common.make_ipv4_prefix(prefix_str)
                 metric = v4prefix['metric']
                 tags = set(v4prefix.get('tags', []))
                 packet_common.add_ipv4_prefix_to_prefix_tie(
                     self._my_north_prefix_tie_meta.tie_packet,
-                    prefix_str,
+                    prefix,
                     metric,
                     tags)
         if 'v6prefixes' in config:
             for v6prefix in config['v6prefixes']:
                 prefix_str = v6prefix['address'] + "/" + str(v6prefix['mask'])
+                prefix = packet_common.make_ipv6_prefix(prefix_str)
                 metric = v6prefix['metric']
                 tags = set(v6prefix.get('tags', []))
                 packet_common.add_ipv6_prefix_to_prefix_tie(
                     self._my_north_prefix_tie_meta.tie_packet,
-                    prefix_str,
+                    prefix,
                     metric,
                     tags)
         if self._my_north_prefix_tie_meta is None:
@@ -828,12 +833,63 @@ class Node:
                 direction=common.ttypes.TieDirectionType.North,
                 originator=self.system_id,
                 tie_type=common.ttypes.TIETypeType.PrefixTIEType,
-                tie_nr=MY_TIE_NR)
+                tie_nr=MY_PREFIX_TIE_NR)
             self.remove_tie(tie_id)
         else:
             self.store_tie_meta(self._my_north_prefix_tie_meta)
             self.info("Regenerated north prefix TIE: %s",
                       self._my_north_prefix_tie_meta.tie_packet)
+
+    def regenerate_my_pos_disagg_tie(self):
+        # Gather the set of (prefix, metric, tags) containing all prefixes which we should currently
+        # advertise in our TIE.
+        should_adv_disagg = {}
+        for dest in self._spf_destinations[constants.DIR_SOUTH].values():
+            if dest.positively_disaggregate:
+                attr = encoding.ttypes.PrefixAttributes(dest.cost, dest.tags, None)
+                should_adv_disagg[dest.prefix] = attr
+        # Gather the set of (prefix, metric, tags) containing all prefixes which we currently
+        # actually do advertise.
+        do_adv_disagg = {}
+        if self._my_pos_disagg_tie_meta:
+            element = self._my_pos_disagg_tie_meta.tie_packet.element
+            prefixes = element.positive_disaggregation_prefixes.prefixes
+            for prefix, attr in prefixes.items():
+                do_adv_disagg[prefix] = attr
+        # If what we actually advertise is equal to what we should advertise, we are done.
+        if do_adv_disagg == should_adv_disagg:
+            return
+        # Something changed; we need regenerate a new prefix TIE for the positively disaggregated
+        # prefixes.
+        # Determine the sequence number.
+        if self._my_pos_disagg_tie_meta:
+            new_seq_nr = self._my_pos_disagg_tie_meta.tie_packet.header.seq_nr + 1
+        else:
+            new_seq_nr = 1
+        # Buid the new prefix TIE.
+        tie_header = packet_common.make_tie_header(
+            direction=common.ttypes.TieDirectionType.South,
+            originator=self.system_id,
+            tie_type=common.ttypes.TIETypeType.PositiveDisaggregationPrefixTIEType,
+            tie_nr=MY_POS_DISAGG_TIE_NR,
+            seq_nr=new_seq_nr,
+            lifetime=common.constants.default_lifetime)
+        prefix_tie_element = encoding.ttypes.PrefixTIEElement(
+            prefixes=should_adv_disagg)
+        tie_element = encoding.ttypes.TIEElement(
+            positive_disaggregation_prefixes=prefix_tie_element)
+        tie_packet = encoding.ttypes.TIEPacket(header=tie_header, element=tie_element)
+        tie_meta = TIEMeta(tie_packet, rx_intf=None)
+        # If the new TIE is empty and we were not already advertising a positive disaggration TIE,
+        # then don't start now.
+        if (not tie_packet.element.positive_disaggregation_prefixes.prefixes
+                and not self._my_pos_disagg_tie_meta):
+            return
+        # Make the newly constructed TIE the current positive disaggregation TIE and update the
+        # database.
+        self._my_pos_disagg_tie_meta = tie_meta
+        self.store_tie_meta(tie_meta)
+        self.info("Regenerated positive disaggregation TIE: %s", tie_packet)
 
     def is_overloaded(self):
         # Is this node overloaded?
@@ -906,7 +962,7 @@ class Node:
             tie_packet = packet_common.make_prefix_tie_packet(
                 direction=common.ttypes.TieDirectionType.South,
                 originator=self.system_id,
-                tie_nr=MY_TIE_NR,
+                tie_nr=MY_PREFIX_TIE_NR,
                 seq_nr=next_seq_nr,
                 lifetime=common.constants.default_lifetime)
             self._my_south_prefix_tie_meta = TIEMeta(tie_packet, rx_intf=None)
@@ -917,11 +973,11 @@ class Node:
                 metric = 1
                 packet_common.add_ipv4_prefix_to_prefix_tie(
                     self._my_south_prefix_tie_meta.tie_packet,
-                    "0.0.0.0/0",
+                    packet_common.make_ipv4_prefix("0.0.0.0/0"),
                     metric)
                 packet_common.add_ipv6_prefix_to_prefix_tie(
                     self._my_south_prefix_tie_meta.tie_packet,
-                    "::0/0",
+                    packet_common.make_ipv6_prefix("::/0"),
                     metric)
             self.store_tie_meta(self._my_south_prefix_tie_meta)
             self.info("Regenerated south prefix TIE because %s: %s", reason,
@@ -1630,12 +1686,12 @@ class Node:
                     acked_tie_headers.append(db_tie_packet.header)
         return (request_tie_headers, start_sending_tie_headers, acked_tie_headers)
 
-    def find_according_tie_meta(self, rx_tie_header):
+    def find_according_node_tie_meta(self, rx_tie_header):
         # We have to originate an empty node TIE for the purpose of flushing it. Use the same
         # contents as the real node TIE that we actually originated, except don't report any
         # neighbors.
         real_node_tie_id = copy.deepcopy(rx_tie_header.tieid)
-        real_node_tie_id.tie_nr = MY_TIE_NR
+        real_node_tie_id.tie_nr = MY_NODE_TIE_NR
         real_node_tie_meta = self.find_tie_meta(real_node_tie_id)
         assert real_node_tie_meta is not None
         return real_node_tie_meta
@@ -1650,7 +1706,7 @@ class Node:
             FLUSH_LIFETIME)                     # Short remaining life time
         tietype = rx_tie_header.tieid.tietype
         if tietype == common.ttypes.TIETypeType.NodeTIEType:
-            real_node_tie_meta = self.find_according_tie_meta(rx_tie_header)
+            real_node_tie_meta = self.find_according_node_tie_meta(rx_tie_header)
             real_node_tie_packet = real_node_tie_meta.tie_packet
             new_element = copy.deepcopy(real_node_tie_packet.element)
             new_element.node.neighbors = {}
@@ -1670,6 +1726,7 @@ class Node:
         elif tietype == common.ttypes.TIETypeType.KeyValueTIEType:
             empty_keyvalues = encoding.ttypes.KeyValueTIEElement()
             new_element = encoding.ttypes.TIEElement(keyvalues=empty_keyvalues)
+            # TODO: External
         else:
             assert False
         according_empty_tie = encoding.ttypes.TIEPacket(
@@ -2184,6 +2241,7 @@ class Node:
         self.spf_run_direction(constants.DIR_SOUTH)
         self.spf_run_direction(constants.DIR_NORTH)
         self.floodred_elect_repeaters()
+        self.regenerate_my_pos_disagg_tie()
 
     def spf_run_direction(self, spf_direction):
         # Shortest Path First (SPF) uses the Dijkstra algorithm to compute the shortest path to
