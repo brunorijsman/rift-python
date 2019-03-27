@@ -362,7 +362,7 @@ only mentioned for debugging; it does not influence the SPF calculation.
 
 I have to point out something to avoid confusion:
 
- * If the prefix in the destination column is marked with "(Disag)", it means that the prefix was
+ * If the prefix in the destination column is marked with "(Disagg)", it means that the prefix was
    disaggregated with a node north of this node.
 
  * If the column "Disaggregate" has the work "Positive" in it, it means that this node will
