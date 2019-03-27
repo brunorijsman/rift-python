@@ -225,8 +225,12 @@ class Interface:
             self.partially_connected_causes = None
         if not old_partially_connected and self.partially_connected:
             self.warning("Neighbor became partially connected")
+            reason = "Neighbor {} became partially connected".format(self._log_id)
+            self.node.trigger_spf(reason)
         if old_partially_connected and not self.partially_connected:
             self.info("Neighbor is no longer partially connected")
+            reason = "Neighbor {} is no longer partially connected".format(self._log_id)
+            self.node.trigger_spf(reason)
 
     def log_tx_protocol_packet(self, level, sock, prelude, protocol_packet):
         if not self._tx_log.isEnabledFor(level):
