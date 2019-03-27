@@ -185,8 +185,8 @@ system ID 101 and one with system ID 103.
  namely the adjacency with system ID 1001 (which is leaf-1-1). This reflects the fact that
  the link between spine-1-1 and leaf-1-1 is broken.
 
-Based on this information, spine-1-2 knows that leaf-1-1 (which has system ID 1001) what we call
-partially connected. "Partially connected" means that leaf-1-1 is connected to spine-1-2 itself,
+Based on this information, spine-1-2 knows that leaf-1-1 (which has system ID 1001) is what we call
+"partially connected". Partially connected means that leaf-1-1 is connected to spine-1-2 itself,
 but not to at least one other node at the same level (spine-1-1, which has system ID 101,
 in this case).
 
