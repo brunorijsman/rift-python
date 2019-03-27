@@ -19,7 +19,7 @@ The code is currently still a work in progress (see Feature List below for the s
 
 * [Command Line Interface (CLI)](doc/command-line-interface.md)
 
-* [Positive Disaggregation](doc/positive_disaggregation.md)
+* [Positive Disaggregation](doc/positive-disaggregation.md)
 
 * [Logging](doc/logging.md)
 
