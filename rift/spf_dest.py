@@ -3,12 +3,16 @@ import utils
 
 DEST_TYPE_NODE = 1
 DEST_TYPE_PREFIX = 2
+DEST_TYPE_POS_DISAGG_PREFIX = 3
 
-def make_node_destination(system_id, name, cost):
+def make_node_dest(system_id, name, cost):
     return SPFDest(DEST_TYPE_NODE, system_id, name, None, set(), cost)
 
-def make_prefix_destintation(prefix, tags, cost):
-    return SPFDest(DEST_TYPE_PREFIX, None, None, prefix, tags, cost)
+def make_prefix_dest(prefix, tags, cost, is_pos_disagg):
+    if is_pos_disagg:
+        return SPFDest(DEST_TYPE_POS_DISAGG_PREFIX, None, None, prefix, tags, cost)
+    else:
+        return SPFDest(DEST_TYPE_PREFIX, None, None, prefix, tags, cost)
 
 class SPFDest:
 
@@ -18,15 +22,15 @@ class SPFDest:
     # TODO: Add support for Non-Equal Cost Multi-Path (NECMP)
 
     def __init__(self, dest_type, system_id, name, prefix, tags, cost):
-        # Type of the SPFDest: DEST_TYPE_NODE or DEST_TYPE_PREFIX
+        # Type of the SPFDest: DEST_TYPE_xxx
         self.dest_type = dest_type
-        # System-id of the node for TYPE_NODE, None for TYPE_PREFIX
+        # System-id of the node for TYPE_NODE, None for TYPE_PREFIX/DEST_TYPE_POS_DISAGG_PREFIX
         self.system_id = system_id
-        # Name of the node for TYPE_NODE, None for TYPE_PREFIX
+        # Name of the node for TYPE_NODE, None for TYPE_PREFIX/DEST_TYPE_POS_DISAGG_PREFIX
         self.name = name
-        # Destination prefix for TYPE_PREFIX, None for TYPE_NODE
+        # Destination prefix for TYPE_PREFIX/DEST_TYPE_POS_DISAGG_PREFIX, None for TYPE_NODE
         self.prefix = prefix
-        # Prefix  tags for TYPE_PREFIX, None for TYPE_NODE
+        # Prefix  tags for TYPE_PREFIX/DEST_TYPE_POS_DISAGG_PREFIX, None for TYPE_NODE
         self.tags = tags
         # Cost of best-known path to this destination (is always a single cost, even in the case of
         # ECMP)
@@ -46,7 +50,7 @@ class SPFDest:
         if self.dest_type == DEST_TYPE_NODE:
             return self.system_id
         else:
-            assert self.dest_type == DEST_TYPE_PREFIX
+            assert self.dest_type in [DEST_TYPE_PREFIX, DEST_TYPE_POS_DISAGG_PREFIX]
             return self.prefix
 
     def __eq__(self, other):
@@ -87,7 +91,7 @@ class SPFDest:
     @staticmethod
     def cli_summary_headers():
         return [
-            ["Destination"],
+            "Destination",
             "Cost",
             ["Predecessor", "System IDs"],
             ["Tags"],
@@ -101,8 +105,12 @@ class SPFDest:
             destination_str = utils.system_id_str(self.system_id)
             if self.name:
                 destination_str += " (" + self.name + ")"
-        else:
+        elif self.dest_type == DEST_TYPE_PREFIX:
             destination_str = packet_common.ip_prefix_str(self.prefix)
+        elif self.dest_type == DEST_TYPE_POS_DISAGG_PREFIX:
+            destination_str = packet_common.ip_prefix_str(self.prefix) + " (Disagg)"
+        else:
+            assert False
         if self.tags:
             tags_str = list(self.tags)
         else:

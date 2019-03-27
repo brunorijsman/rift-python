@@ -2259,7 +2259,7 @@ class Node:
         self._spf_destinations[spf_direction] = {}
         dest_table = self._spf_destinations[spf_direction]
         # Initially, there is only one known destination, namely this node.
-        self_destination = spf_dest.make_node_destination(self.system_id, self.name, 0)
+        self_destination = spf_dest.make_node_dest(self.system_id, self.name, 0)
         dest_table[self.system_id] = self_destination
         # The variable "candidates" contains the set of destinations (nodes and prefixes) for which
         # we have already determined some feasible path (which may be an ECMP path) but for which
@@ -2326,7 +2326,7 @@ class Node:
                                               spf_direction):
                 # We have found a feasible path to the neighbor node; is the best path?
                 cost = node_cost + nbr_tie_element.cost
-                destination = spf_dest.make_node_destination(nbr_system_id, None, cost)
+                destination = spf_dest.make_node_dest(nbr_system_id, None, cost)
                 self.spf_consider_candidate_dest(destination, nbr_tie_element, node_system_id,
                                                  candidates, spf_direction)
 
@@ -2338,7 +2338,7 @@ class Node:
         for prefix_tie in prefix_ties:
             self.spf_add_prefixes_common(
                 node_sysid, node_cost, candidates, spf_direction,
-                prefix_tie.element.prefixes.prefixes)
+                prefix_tie.element.prefixes.prefixes, False)
 
     def spf_add_pos_disagg_prefixes(self, node_sysid, node_cost, candidates, spf_direction):
         prefix_ties = self.ties_of_type(
@@ -2348,14 +2348,15 @@ class Node:
         for prefix_tie in prefix_ties:
             self.spf_add_prefixes_common(
                 node_sysid, node_cost, candidates, spf_direction,
-                prefix_tie.element.positive_disaggregation_prefixes.prefixes)
+                prefix_tie.element.positive_disaggregation_prefixes.prefixes, True)
 
-    def spf_add_prefixes_common(self, node_sysid, node_cost, candidates, spf_direction, prefixes):
+    def spf_add_prefixes_common(self, node_sysid, node_cost, candidates, spf_direction, prefixes,
+                                is_pos_disagg):
         if prefixes:
             for prefix, attributes in prefixes.items():
                 tags = attributes.tags
                 cost = node_cost + attributes.metric
-                dest = spf_dest.make_prefix_destintation(prefix, tags, cost)
+                dest = spf_dest.make_prefix_dest(prefix, tags, cost, is_pos_disagg)
                 self.spf_consider_candidate_dest(dest, None, node_sysid, candidates, spf_direction)
 
     def spf_consider_candidate_dest(self, destination, nbr_tie_element, predecessor_system_id,
@@ -2406,6 +2407,9 @@ class Node:
         destination.inherit_next_hops(dest_table[predecessor_system_id])
 
     def spf_mark_pos_disagg_prefixes(self):
+        # Mark the prefixes in the SPF table for which this router wants to do positive aggregation
+        # (not to be confused with prefixes in this SPF tables which were received because some
+        # north-bound router did positive disaggregation)
         for dest in self._spf_destinations[constants.DIR_SOUTH].values():
             if dest.dest_type != spf_dest.DEST_TYPE_PREFIX:
                 continue
