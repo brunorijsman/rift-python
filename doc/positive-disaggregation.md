@@ -395,6 +395,15 @@ IPv6 Routes:
 +--------+-----------+-------------------------------------------+
 </pre>
 
+These more specific /32 routes fix the blackholing of the traffic to leaf-1-1:
+
+ * When leaf-1-3 sends a packet to leaf-1-1 (destination address 80.0.1.1), it uses the more
+   specific route 80.0.1.1/32. That route has ECMP next-hops spine-1-2 and spine-1-3. However,
+   spine-1-1 is not a next-hop, so we avoid the spine that would blackhole the traffic.
+
+ * When leaf-1-3 sends packets to any other destination, it uses the default route which still
+   ECMPs the traffic over all three spines.
+
 And there you have it, I present you: positive disaggregation! 
 
 As an execercise for the reader: repair the red link and verify that the positive disaggreggation
