@@ -125,12 +125,14 @@ def test_add_prefix_tie():
         tie_nr=333,
         seq_nr=444,
         lifetime=555)
+    timestamp = common.ttypes.IEEE802_1ASTimeStampType(AS_sec=12345)
+    monotonic_clock = common.ttypes.PrefixSequenceType(timestamp=timestamp)
     packet_common.add_ipv4_prefix_to_prefix_tie(
         prefix_tie_packet_1,
         packet_common.make_ipv4_prefix("1.2.3.0/24"),
         2,
         [77, 88],
-        12345)
+        monotonic_clock)
     packet_common.add_ipv6_prefix_to_prefix_tie(
         prefix_tie_packet_1,
         packet_common.make_ipv6_prefix("1234:abcd::/64"),
@@ -147,31 +149,36 @@ def test_add_prefix_tie():
         packet_common.make_ipv4_prefix("0.0.0.0/0"),
         10)
     test_node.store_tie_packet(prefix_tie_packet_2)
-    assert test_node.find_tie_meta(prefix_tie_packet_1.header.tieid).tie_packet == prefix_tie_packet_1
-    assert test_node.find_tie_meta(prefix_tie_packet_2.header.tieid).tie_packet == prefix_tie_packet_2
+    db_packet_info = test_node.find_tie_packet_info(prefix_tie_packet_1.header.tieid)
+    db_tie_packet = db_packet_info.protocol_packet.content.tie
+    assert db_tie_packet == prefix_tie_packet_1
+    db_packet_info = test_node.find_tie_packet_info(prefix_tie_packet_2.header.tieid)
+    db_tie_packet = db_packet_info.protocol_packet.content.tie
+    assert db_tie_packet == prefix_tie_packet_2
     missing_tie_id = encoding.ttypes.TIEID(
         direction=common.ttypes.TieDirectionType.South,
         originator=321,
         tietype=common.ttypes.TIETypeType.PrefixTIEType,
         tie_nr=654)
-    assert test_node.find_tie_meta(missing_tie_id) is None
+    assert test_node.find_tie_packet_info(missing_tie_id) is None
     tab = test_node.tie_db_table()
     tab_str = tab.to_string()
     assert (tab_str ==
-            "+-----------+------------+--------+--------+--------+----------+--------------------------+\n"
-            "| Direction | Originator | Type   | TIE Nr | Seq Nr | Lifetime | Contents                 |\n"
-            "+-----------+------------+--------+--------+--------+----------+--------------------------+\n"
-            "| South     | 222        | Prefix | 333    | 444    | 555      | Prefix: 1.2.3.0/24       |\n"
-            "|           |            |        |        |        |          |   Metric: 2              |\n"
-            "|           |            |        |        |        |          |   Tag: 77                |\n"
-            "|           |            |        |        |        |          |   Tag: 88                |\n"
-            "|           |            |        |        |        |          |   Monotonic-clock: 12345 |\n"
-            "|           |            |        |        |        |          | Prefix: 1234:abcd::/64   |\n"
-            "|           |            |        |        |        |          |   Metric: 3              |\n"
-            "+-----------+------------+--------+--------+--------+----------+--------------------------+\n"
-            "| North     | 777        | Prefix | 888    | 999    | 0        | Prefix: 0.0.0.0/0        |\n"
-            "|           |            |        |        |        |          |   Metric: 10             |\n"
-            "+-----------+------------+--------+--------+--------+----------+--------------------------+\n")
+            "+-----------+------------+--------+--------+--------+----------+------------------------+\n"
+            "| Direction | Originator | Type   | TIE Nr | Seq Nr | Lifetime | Contents               |\n"
+            "+-----------+------------+--------+--------+--------+----------+------------------------+\n"
+            "| South     | 222        | Prefix | 333    | 444    | 555      | Prefix: 1.2.3.0/24     |\n"
+            "|           |            |        |        |        |          |   Metric: 2            |\n"
+            "|           |            |        |        |        |          |   Tag: 77              |\n"
+            "|           |            |        |        |        |          |   Tag: 88              |\n"
+            "|           |            |        |        |        |          |   Monotonic-clock:     |\n"
+            "|           |            |        |        |        |          |     Timestamp: 12345   |\n"
+            "|           |            |        |        |        |          | Prefix: 1234:abcd::/64 |\n"
+            "|           |            |        |        |        |          |   Metric: 3            |\n"
+            "+-----------+------------+--------+--------+--------+----------+------------------------+\n"
+            "| North     | 777        | Prefix | 888    | 999    | 0        | Prefix: 0.0.0.0/0      |\n"
+            "|           |            |        |        |        |          |   Metric: 10           |\n"
+            "+-----------+------------+--------+--------+--------+----------+------------------------+\n")
 
 def tie_headers_with_disposition(test_node, header_info_list, filter_dispositions):
     tie_headers = []
@@ -180,8 +187,9 @@ def tie_headers_with_disposition(test_node, header_info_list, filter_disposition
         if disposition in filter_dispositions:
             if disposition in [START_EXTRA, START_NEWER]:
                 tie_id = packet_common.make_tie_id(direction, originator, PREFIX, tie_nr)
-                seq_nr = test_node.tie_metas[tie_id].tie_packet.header.seq_nr
-                lifetime = test_node.tie_metas[tie_id].tie_packet.header.remaining_lifetime
+                tie_packet = test_node.tie_packet_infos[tie_id].protocol_packet.content.tie
+                seq_nr = tie_packet.header.seq_nr
+                lifetime = tie_packet.header.remaining_lifetime
             elif disposition == REQUEST_MISSING:
                 seq_nr = 0
                 lifetime = 0
@@ -191,7 +199,6 @@ def tie_headers_with_disposition(test_node, header_info_list, filter_disposition
     return tie_headers
 
 def check_process_tide_common(test_node, start_range, end_range, header_info_list):
-    # pylint:disable=too-many-locals
     # Prepare the TIDE packet
     tide_packet = packet_common.make_tide_packet(start_range, end_range)
     for header_info in header_info_list:
@@ -203,7 +210,7 @@ def check_process_tide_common(test_node, start_range, end_range, header_info_lis
                                                        seq_nr, lifetime)
             packet_common.add_tie_header_to_tide(tide_packet, tie_header)
     # Process the TIDE packet
-    result = test_node.process_received_tide_packet(tide_packet)
+    result = test_node.process_rx_tide_packet(tide_packet)
     (request_tie_headers, start_sending_tie_headers, stop_sending_tie_headers) = result
     # Check results
     compare_header_lists(
@@ -308,7 +315,6 @@ def make_rx_tie_packet(header_info):
     return rx_tie_packet
 
 def test_process_tide():
-    # pylint:disable=too-many-locals
     # TODO: Also have other TIEs than prefix TIEs
     packet_common.add_missing_methods_to_thrift()
     db_tie_info_list = [
@@ -343,7 +349,6 @@ def compare_header_lists(headers1, headers2):
         assert header in headers1
 
 def check_process_tire_common(test_node, header_info_list):
-    # pylint:disable=too-many-locals
     # Prepare the TIRE packet
     tire = packet_common.make_tire_packet()
     for header_info in header_info_list:
@@ -352,7 +357,7 @@ def check_process_tire_common(test_node, header_info_list):
                                                    seq_nr, lifetime)
         packet_common.add_tie_header_to_tire(tire, tie_header)
     # Process the TIRE packet
-    result = test_node.process_received_tire_packet(tire)
+    result = test_node.process_rx_tire_packet(tire)
     (request_tie_headers, start_sending_tie_headers, acked_tie_headers) = result
     # Check results
     compare_header_lists(tie_headers_with_disposition(test_node, header_info_list, [REQUEST_OLDER]),
@@ -391,64 +396,65 @@ TIE_MISSING = 5        # DB TIE does not yet contain RX TIE (not self-originated
 TIE_MISSING_SELF = 6   # DB TIE does not yet contain RX TIE (not self-originated)
 
 def check_process_tie_common(test_node, rx_tie_info_list):
-    # pylint:disable=too-many-locals
+    # pylint:disable=too-many-statements
     for rx_tie_info in rx_tie_info_list:
         rx_tie_packet = make_rx_tie_packet(rx_tie_info)
         rx_tie_id = rx_tie_packet.header.tieid
-        old_db_tie_meta = test_node.find_tie_meta(rx_tie_id)
-        # TODO: Setting rx_inf to None makes it self-originated, which means unsolicited flodding
-        # wont' happen.
-        rx_tie_meta = node.TIEMeta(rx_tie_packet, rx_intf=None)
-        result = test_node.process_received_tie_packet(rx_tie_meta)
+        old_db_tie_packet_info = test_node.find_tie_packet_info(rx_tie_id)
+        header = encoding.ttypes.PacketHeader(sender=MY_SYSTEM_ID, level=MY_LEVEL)
+        content = encoding.ttypes.PacketContent(tie=rx_tie_packet)
+        protocol_packet = encoding.ttypes.ProtocolPacket(header=header, content=content)
+        rx_tie_packet_info = packet_common.encode_protocol_packet(protocol_packet)
+        result = test_node.process_rx_tie_packet_info(rx_tie_packet_info)
         (start_sending_tie_header, ack_tie_header) = result
         disposition = rx_tie_info[6]
         if disposition == TIE_SAME:
             # Acknowledge the TX TIE which is the "same" as the DB TIE
             # Note: the age in the DB TIE and the RX TIE could be slightly different; the ACK should
             # contain the DB TIE header.
-            new_db_tie_meta = test_node.find_tie_meta(rx_tie_id)
-            assert new_db_tie_meta is not None
-            assert new_db_tie_meta == old_db_tie_meta
-            assert ack_tie_header == new_db_tie_meta.tie_packet.header
+            new_db_tie_packet_info = test_node.find_tie_packet_info(rx_tie_id)
+            assert new_db_tie_packet_info is not None
+            assert new_db_tie_packet_info == old_db_tie_packet_info
+            assert ack_tie_header == new_db_tie_packet_info.protocol_packet.content.tie.header
             assert start_sending_tie_header is None
         elif disposition == TIE_NEWER:
             # Start sending the DB TIE
-            new_db_tie_meta = test_node.find_tie_meta(rx_tie_id)
-            assert new_db_tie_meta is not None
-            assert new_db_tie_meta == old_db_tie_meta
-            assert start_sending_tie_header == new_db_tie_meta.tie_packet.header
+            new_db_tie_packet_info = test_node.find_tie_packet_info(rx_tie_id)
+            assert new_db_tie_packet_info is not None
+            assert new_db_tie_packet_info == old_db_tie_packet_info
+            assert start_sending_tie_header == new_db_tie_packet_info.protocol_packet.content.tie.header
             assert ack_tie_header is None
         elif disposition == TIE_OLDER:
             # Store the RX TIE in the DB and ACK it
-            new_db_tie_meta = test_node.find_tie_meta(rx_tie_id)
-            assert old_db_tie_meta is not None
-            assert new_db_tie_meta is not None
-            assert new_db_tie_meta != old_db_tie_meta
-            assert new_db_tie_meta.tie_packet.header == rx_tie_packet.header
-            assert ack_tie_header == new_db_tie_meta.tie_packet.header
+            new_db_tie_packet_info = test_node.find_tie_packet_info(rx_tie_id)
+            assert old_db_tie_packet_info is not None
+            assert new_db_tie_packet_info is not None
+            assert new_db_tie_packet_info != old_db_tie_packet_info
+            assert new_db_tie_packet_info.protocol_packet.content.tie.header == rx_tie_packet.header
+            assert ack_tie_header == new_db_tie_packet_info.protocol_packet.content.tie.header
             assert start_sending_tie_header is None
         elif disposition == TIE_OLDER_SELF:
             # Re-originate the DB TIE by bumping up the version to RX TIE version plus one
-            new_db_tie_meta = test_node.find_tie_meta(rx_tie_id)
-            assert new_db_tie_meta is not None
-            assert new_db_tie_meta.tie_packet.header.seq_nr == rx_tie_packet.header.seq_nr + 1
-            assert start_sending_tie_header == new_db_tie_meta.tie_packet.header
+            new_db_tie_packet_info = test_node.find_tie_packet_info(rx_tie_id)
+            assert new_db_tie_packet_info is not None
+            assert new_db_tie_packet_info.protocol_packet.content.tie.header.seq_nr == rx_tie_packet.header.seq_nr + 1
+            assert start_sending_tie_header == new_db_tie_packet_info.protocol_packet.content.tie.header
             assert ack_tie_header is None
         elif disposition == TIE_MISSING:
             # Store the RX TIE in the DB and ACK it
-            new_db_tie_meta = test_node.find_tie_meta(rx_tie_id)
-            assert old_db_tie_meta is None
-            assert new_db_tie_meta is not None
-            assert new_db_tie_meta.tie_packet.header == rx_tie_packet.header
-            assert ack_tie_header == new_db_tie_meta.tie_packet.header
+            new_db_tie_packet_info = test_node.find_tie_packet_info(rx_tie_id)
+            assert old_db_tie_packet_info is None
+            assert new_db_tie_packet_info is not None
+            assert new_db_tie_packet_info.protocol_packet.content.tie.header == rx_tie_packet.header
+            assert ack_tie_header == new_db_tie_packet_info.protocol_packet.content.tie.header
             assert start_sending_tie_header is None
         elif disposition == TIE_MISSING_SELF:
             # Re-originate an empty version of the RX TIE with a higher version than the RX TIE
-            new_db_tie_meta = test_node.find_tie_meta(rx_tie_id)
-            assert old_db_tie_meta is None
-            assert new_db_tie_meta is not None
-            assert new_db_tie_meta.tie_packet.header.seq_nr == rx_tie_packet.header.seq_nr + 1
-            assert start_sending_tie_header == new_db_tie_meta.tie_packet.header
+            new_db_tie_packet_info = test_node.find_tie_packet_info(rx_tie_id)
+            assert old_db_tie_packet_info is None
+            assert new_db_tie_packet_info is not None
+            assert new_db_tie_packet_info.protocol_packet.content.tie.header.seq_nr == rx_tie_packet.header.seq_nr + 1
+            assert start_sending_tie_header == new_db_tie_packet_info.protocol_packet.content.tie.header
             assert ack_tie_header is None
         else:
             assert False
@@ -485,7 +491,6 @@ def test_process_tie():
     check_process_tie(test_node)
 
 def test_is_flood_allowed():
-    # pylint:disable=too-many-locals
     packet_common.add_missing_methods_to_thrift()
     test_node = make_test_node()
     # Node 66 is same level as me
@@ -591,14 +596,14 @@ def test_age_ties():
     test_node = make_test_node(db_tie_info_list)
     tie_id_1 = packet_common.make_tie_id(SOUTH, 55, NODE, 2)
     tie_id_2 = packet_common.make_tie_id(SOUTH, MY_SYSTEM_ID, PREFIX, 18)
-    assert test_node.find_tie_meta(tie_id_1) is not None
-    assert test_node.find_tie_meta(tie_id_2) is not None
+    assert test_node.find_tie_packet_info(tie_id_1) is not None
+    assert test_node.find_tie_packet_info(tie_id_2) is not None
     test_node.age_ties()
-    tie_meta_1 = test_node.find_tie_meta(tie_id_1)
-    assert tie_meta_1 is not None
-    assert tie_meta_1.tie_packet.header.seq_nr == 4
-    assert tie_meta_1.tie_packet.header.remaining_lifetime == 599
-    assert test_node.find_tie_meta(tie_id_2) is None
+    tie_packet_info_1 = test_node.find_tie_packet_info(tie_id_1)
+    assert tie_packet_info_1 is not None
+    assert tie_packet_info_1.protocol_packet.content.tie.header.seq_nr == 4
+    assert tie_packet_info_1.protocol_packet.content.tie.header.remaining_lifetime == 599
+    assert test_node.find_tie_packet_info(tie_id_2) is None
 
 def test_trigger_spf():
     # Make sure there are no timers running from previous tests

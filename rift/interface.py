@@ -9,7 +9,6 @@ import socket
 import constants
 import fsm
 import neighbor
-import node       # TODO: Put TIEMeta in separate module to avoid this
 import offer
 import packet_common
 import stats
@@ -251,9 +250,10 @@ class Interface:
             return
         if protocol_packet:
             packet_str = str(protocol_packet)
+            type_str = self.protocol_packet_type(protocol_packet)
         else:
             packet_str = "?"
-        type_str = self.protocol_packet_type(protocol_packet)
+            type_str = "?"
         if len(from_info) == 2:
             fam_str = "IPv4"
         else:
@@ -280,6 +280,12 @@ class Interface:
             return "No-Content"
 
     def send_protocol_packet(self, protocol_packet, flood):
+        packet_info = packet_common.encode_protocol_packet(protocol_packet)
+        self.send_packet_info(packet_info, flood)
+
+    def send_packet_info(self, packet_info, flood):
+        ### TODO: Refresh outer header here?
+        protocol_packet = packet_info.protocol_packet
         if flood:
             if self._flood_tx_ipv4_socket:
                 socks = [self._flood_tx_ipv4_socket]
@@ -291,8 +297,7 @@ class Interface:
                 return
         else:
             socks = [self._lie_tx_ipv4_socket, self._lie_tx_ipv6_socket]
-        encoded_protocol_packet = packet_common.encode_protocol_packet(protocol_packet)
-        nr_bytes = len(encoded_protocol_packet)
+        nr_bytes = len(packet_info.encoded_message)
         for sock in socks:
             if sock is not None:
                 if self._tx_fail:
@@ -302,7 +307,7 @@ class Interface:
                 else:
                     try:
                         self.log_tx_protocol_packet(logging.DEBUG, sock, "Send", protocol_packet)
-                        sock.send(encoded_protocol_packet)
+                        sock.send(packet_info.encoded_message)
                         self.bump_tx_counters(protocol_packet, sock, nr_bytes)
                     except socket.error as error:
                         prelude = "Error {} sending".format(str(error))
@@ -1057,13 +1062,15 @@ class Interface:
         return True
 
     def receive_message_common(self, message, from_info, sock):
-        protocol_packet = packet_common.decode_protocol_packet(message)
+        packet_info = packet_common.decode_protocol_packet(rx_intf=self,
+                                                           encoded_message=message)
         nr_bytes = len(message)
-        if protocol_packet is None:
-            # TODO: Decode error counter
-            self.log_rx_protocol_packet(logging.ERROR, from_info,
-                                        "Could not decode", protocol_packet)
+        ### TODO: Report more specific error
+        if packet_info is None:
+            # TODO: Decode error counter (not here - done separately for LIEs and flood msgs)
+            self.log_rx_protocol_packet(logging.ERROR, from_info, "Could not decode", None)
             return None
+        protocol_packet = packet_info.protocol_packet
         if self._rx_fail:
             self.log_rx_protocol_packet(logging.DEBUG, from_info,
                                         "Simulated failure receiving", protocol_packet)
@@ -1083,13 +1090,14 @@ class Interface:
                           "remote version %d)", from_info, constants.RIFT_MAJOR_VERSION,
                           protocol_packet.header.major_version)
             return None
-        return protocol_packet
+        return packet_info
 
     def receive_lie_message(self, message, from_info, sock):
-        protocol_packet = self.receive_message_common(message, from_info, sock)
-        if protocol_packet is None:
+        packet_info = self.receive_message_common(message, from_info, sock)
+        if packet_info is None:
             # TODO: Bump decode errors counter
             return
+        protocol_packet = packet_info.protocol_packet
         if protocol_packet.content.lie:
             event_data = (protocol_packet, from_info)
             self.fsm.push_event(self.Event.LIE_RECEIVED, event_data)
@@ -1106,19 +1114,20 @@ class Interface:
         self.bump_rx_counters(protocol_packet, sock, len(message))
 
     def receive_flood_message(self, message, from_info, sock):
-        protocol_packet = self.receive_message_common(message, from_info, sock)
-        if protocol_packet is None:
+        packet_info = self.receive_message_common(message, from_info, sock)
+        if packet_info is None:
             # TODO: Bump decode errors counter
             return
+        protocol_packet = packet_info.protocol_packet
         flood_content = False
         if protocol_packet.content.tie is not None:
-            self.process_received_tie_packet(protocol_packet.content.tie)
+            self.process_rx_tie_packet_info(packet_info)
             flood_content = True
         if protocol_packet.content.tide:
-            self.process_received_tide_packet(protocol_packet.content.tide)
+            self.process_rx_tide_packet(protocol_packet.content.tide)
             flood_content = True
         if protocol_packet.content.tire:
-            self.process_received_tire_packet(protocol_packet.content.tire)
+            self.process_rx_tire_packet(protocol_packet.content.tire)
             flood_content = True
         if protocol_packet.content.lie:
             # TODO: Wrong contents for port counter
@@ -1146,18 +1155,18 @@ class Interface:
             else:
                 return "ok"
 
-    def process_received_tie_packet(self, tie_packet):
+    def process_rx_tie_packet_info(self, tie_packet_info):
+        tie_packet = tie_packet_info.protocol_packet.content.tie
         self.rx_debug("Receive TIE packet %s", tie_packet)
-        tie_meta = node.TIEMeta(tie_packet, rx_intf=self)
-        result = self.node.process_received_tie_packet(tie_meta)
+        result = self.node.process_rx_tie_packet_info(tie_packet_info)
         (start_sending_tie_header, ack_tie_header) = result
         if start_sending_tie_header is not None:
             self.try_to_transmit_tie(start_sending_tie_header)
         if ack_tie_header is not None:
             self.ack_tie(ack_tie_header)
 
-    def process_received_tide_packet(self, tide_packet):
-        result = self.node.process_received_tide_packet(tide_packet)
+    def process_rx_tide_packet(self, tide_packet):
+        result = self.node.process_rx_tide_packet(tide_packet)
         (request_tie_headers, start_sending_tie_headers, stop_sending_tie_headers) = result
         for tie_header in start_sending_tie_headers:
             self.try_to_transmit_tie(tie_header)
@@ -1166,9 +1175,9 @@ class Interface:
         for tie_header in stop_sending_tie_headers:
             self.remove_from_all_queues(tie_header)
 
-    def process_received_tire_packet(self, tire_packet):
+    def process_rx_tire_packet(self, tire_packet):
         self.rx_debug("Receive TIRE packet %s", tire_packet)
-        result = self.node.process_received_tire_packet(tire_packet)
+        result = self.node.process_rx_tire_packet(tire_packet)
         (request_tie_headers, start_sending_tie_headers, acked_tie_headers) = result
         for tie_header in start_sending_tie_headers:
             self.try_to_transmit_tie(tie_header)
@@ -1277,10 +1286,7 @@ class Interface:
         filtered = not allowed
         return (filtered, reason)
 
-    def add_tie_meta_to_ties_tx(self, tie_meta):
-        self.add_tie_header_to_ties_tx(tie_meta.tie_packet.header, tie_meta)
-
-    def add_tie_header_to_ties_tx(self, tie_header, tie_meta=None):
+    def add_tie_header_to_ties_tx(self, tie_header, tie_packet_info=None):
         # If the TIE is not already on the send queue or if the TIE is a newer version than what's
         # already on the send queue, then send it immediately instead of (in addition to, really)
         # waiting for the next service timer.
@@ -1292,19 +1298,10 @@ class Interface:
             send_now = False
         self._ties_tx[tie_header.tieid] = tie_header
         if send_now:
-            if tie_meta is None:
-                tie_meta = self.node.find_tie_meta(tie_header.tieid)
-            if tie_meta is not None:
-                # TODO: Put already encoded TIEProtocol packet in tie_meta, and send that
-                packet_header = encoding.ttypes.PacketHeader(
-                    sender=self.node.system_id,
-                    level=self.node.level_value())
-                packet_content = encoding.ttypes.PacketContent()
-                protocol_packet = encoding.ttypes.ProtocolPacket(
-                    header=packet_header,
-                    content=packet_content)
-                protocol_packet.content.tie = tie_meta.tie_packet
-                self.send_protocol_packet(protocol_packet, flood=True)
+            if tie_packet_info is None:
+                tie_packet_info = self.node.find_tie_packet_info(tie_header.tieid)
+            if tie_packet_info is not None:
+                self.send_packet_info(tie_packet_info, flood=True)
 
     def try_to_transmit_tie(self, tie_header):
         (filtered, reason) = self.is_flood_filtered(tie_header)
@@ -1443,18 +1440,10 @@ class Interface:
     def service_ties_queue(self, queue):
         # Note: we only look at the TIE-ID in the queue and not at the header. If we have a more
         # recent version of the TIE in the TIE-DB than the one requested, we send the one we have.
-        packet_header = encoding.ttypes.PacketHeader(
-            sender=self.node.system_id,
-            level=self.node.level_value())
-        packet_content = encoding.ttypes.PacketContent()
-        protocol_packet = encoding.ttypes.ProtocolPacket(
-            header=packet_header,
-            content=packet_content)
         for tie_id in queue.keys():
-            db_tie_meta = self.node.find_tie_meta(tie_id)
-            if db_tie_meta is not None:
-                protocol_packet.content.tie = db_tie_meta.tie_packet
-                self.send_protocol_packet(protocol_packet, flood=True)
+            db_tie_packet_info = self.node.find_tie_packet_info(tie_id)
+            if db_tie_packet_info is not None:
+                self.send_packet_info(db_tie_packet_info, flood=True)
 
     def service_ties_tx(self):
         self.service_ties_queue(self._ties_tx)

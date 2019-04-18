@@ -148,9 +148,9 @@ def test_fix_lie_packet():
             tie=None
         )
     )
-    encoded_packet = packet_common.encode_protocol_packet(lie_protocol_packet)
-    decoded_lie_protocol_packet = packet_common.decode_protocol_packet(encoded_packet)
-    assert lie_protocol_packet == decoded_lie_protocol_packet
+    packet_info = packet_common.encode_protocol_packet(lie_protocol_packet)
+    decoded_packet_info = packet_common.decode_protocol_packet(None, packet_info.encoded_message)
+    assert packet_info.protocol_packet == decoded_packet_info.protocol_packet
 
 def test_fix_tide_packet():
     packet_common.add_missing_methods_to_thrift()
@@ -176,9 +176,9 @@ def test_fix_tide_packet():
             tie=None
         )
     )
-    encoded_packet = packet_common.encode_protocol_packet(tide_protocol_packet)
-    decoded_tide_protocol_packet = packet_common.decode_protocol_packet(encoded_packet)
-    assert tide_protocol_packet == decoded_tide_protocol_packet
+    packet_info = packet_common.encode_protocol_packet(tide_protocol_packet)
+    decoded_packet_info = packet_common.decode_protocol_packet(None, packet_info.encoded_message)
+    assert packet_info.protocol_packet == decoded_packet_info.protocol_packet
 
 def test_fix_tire_packet():
     packet_common.add_missing_methods_to_thrift()
@@ -202,9 +202,9 @@ def test_fix_tire_packet():
             tie=None
         )
     )
-    encoded_packet = packet_common.encode_protocol_packet(tire_protocol_packet)
-    decoded_tire_protocol_packet = packet_common.decode_protocol_packet(encoded_packet)
-    assert tire_protocol_packet == decoded_tire_protocol_packet
+    packet_info = packet_common.encode_protocol_packet(tire_protocol_packet)
+    decoded_packet_info = packet_common.decode_protocol_packet(None, packet_info.encoded_message)
+    assert packet_info.protocol_packet == decoded_packet_info.protocol_packet
 
 def test_fix_node_tie_packet():
     packet_common.add_missing_methods_to_thrift()
@@ -247,9 +247,9 @@ def test_fix_node_tie_packet():
             )
         )
     )
-    encoded_packet = packet_common.encode_protocol_packet(tie_protocol_packet)
-    decoded_tie_protocol_packet = packet_common.decode_protocol_packet(encoded_packet)
-    assert tie_protocol_packet == decoded_tie_protocol_packet
+    packet_info = packet_common.encode_protocol_packet(tie_protocol_packet)
+    decoded_packet_info = packet_common.decode_protocol_packet(None, packet_info.encoded_message)
+    assert packet_info.protocol_packet == decoded_packet_info.protocol_packet
 
 def test_fix_prefixes_tie_packet():
     packet_common.add_missing_methods_to_thrift()
@@ -277,9 +277,9 @@ def test_fix_prefixes_tie_packet():
             )
         )
     )
-    encoded_packet = packet_common.encode_protocol_packet(tie_protocol_packet)
-    decoded_tie_protocol_packet = packet_common.decode_protocol_packet(encoded_packet)
-    assert tie_protocol_packet == decoded_tie_protocol_packet
+    packet_info = packet_common.encode_protocol_packet(tie_protocol_packet)
+    decoded_packet_info = packet_common.decode_protocol_packet(None, packet_info.encoded_message)
+    assert packet_info.protocol_packet == decoded_packet_info.protocol_packet
 
 def test_fix_positive_disaggregation_prefixes_tie_packet():
     packet_common.add_missing_methods_to_thrift()
@@ -307,9 +307,9 @@ def test_fix_positive_disaggregation_prefixes_tie_packet():
             )
         )
     )
-    encoded_packet = packet_common.encode_protocol_packet(tie_protocol_packet)
-    decoded_tie_protocol_packet = packet_common.decode_protocol_packet(encoded_packet)
-    assert tie_protocol_packet == decoded_tie_protocol_packet
+    packet_info = packet_common.encode_protocol_packet(tie_protocol_packet)
+    decoded_packet_info = packet_common.decode_protocol_packet(None, packet_info.encoded_message)
+    assert packet_info.protocol_packet == decoded_packet_info.protocol_packet
 
 def test_fix_negative_disaggregation_prefixes_tie_packet():
     packet_common.add_missing_methods_to_thrift()
@@ -337,9 +337,9 @@ def test_fix_negative_disaggregation_prefixes_tie_packet():
             )
         )
     )
-    encoded_packet = packet_common.encode_protocol_packet(tie_protocol_packet)
-    decoded_tie_protocol_packet = packet_common.decode_protocol_packet(encoded_packet)
-    assert tie_protocol_packet == decoded_tie_protocol_packet
+    packet_info = packet_common.encode_protocol_packet(tie_protocol_packet)
+    decoded_packet_info = packet_common.decode_protocol_packet(None, packet_info.encoded_message)
+    assert packet_info.protocol_packet == decoded_packet_info.protocol_packet
 
 def test_fix_external_prefixes_tie_packet():
     packet_common.add_missing_methods_to_thrift()
@@ -367,9 +367,9 @@ def test_fix_external_prefixes_tie_packet():
             )
         )
     )
-    encoded_packet = packet_common.encode_protocol_packet(tie_protocol_packet)
-    decoded_tie_protocol_packet = packet_common.decode_protocol_packet(encoded_packet)
-    assert tie_protocol_packet == decoded_tie_protocol_packet
+    packet_info = packet_common.encode_protocol_packet(tie_protocol_packet)
+    decoded_packet_info = packet_common.decode_protocol_packet(None, packet_info.encoded_message)
+    assert packet_info.protocol_packet == decoded_packet_info.protocol_packet
 
 def test_fix_key_value_tie_packet():
     packet_common.add_missing_methods_to_thrift()
@@ -402,6 +402,6 @@ def test_fix_key_value_tie_packet():
             )
         )
     )
-    encoded_packet = packet_common.encode_protocol_packet(tie_protocol_packet)
-    decoded_tie_protocol_packet = packet_common.decode_protocol_packet(encoded_packet)
-    assert tie_protocol_packet == decoded_tie_protocol_packet
+    packet_info = packet_common.encode_protocol_packet(tie_protocol_packet)
+    decoded_packet_info = packet_common.decode_protocol_packet(None, packet_info.encoded_message)
+    assert packet_info.protocol_packet == decoded_packet_info.protocol_packet

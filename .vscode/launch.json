@@ -26,11 +26,11 @@
             "args": [""] 
         },
         {
-            "name": "pytest test_stats",
+            "name": "pytest test_sys_2n_l0_l1",
             "type": "python",
             "request": "launch",
             "program": "${workspaceFolder}/env/bin/pytest",
-            "args": ["-vvv", "-s", "tests/test_stats.py"] 
+            "args": ["-vvv", "-s", "tests/test_sys_2n_l0_l1.py"] 
         },
         {
             "name": "RIFT two_by_two_by_two",

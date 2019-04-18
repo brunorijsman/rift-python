@@ -18,6 +18,7 @@ disable=
     no-self-use,                        # Matter of taste
     no-else-return,                     # Matter of taste
     duplicate-code,                     # Matter of taste
+    too-many-locals,                    # Matter of taste
     no-member                           # python 3.6 moved APIs from 3.5
 
 extension-pkg-whitelist=netifaces

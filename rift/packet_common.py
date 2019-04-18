@@ -11,6 +11,20 @@ import encoding.ttypes
 import encoding.constants
 import utils
 
+class PacketInfo:
+
+    def __init__(self, rx_intf, encoded_message, protocol_packet):
+        # Interface on which message was received, None for self originated packets
+        self.rx_intf = rx_intf
+        # Encoded on-the-wire message, including envelope
+        self.encoded_message = encoded_message
+        # Decoded RIFT model object, excluding envelope
+        self.protocol_packet = protocol_packet
+
+    def refresh_outer_envelope(self):
+        ### TODO
+        pass
+
 def ipv4_prefix_tup(ipv4_prefix):
     return (ipv4_prefix.address, ipv4_prefix.prefixlen)
 
@@ -95,11 +109,14 @@ def encode_protocol_packet(protocol_packet):
     transport_out = thrift.transport.TTransport.TMemoryBuffer()
     protocol_out = thrift.protocol.TBinaryProtocol.TBinaryProtocol(transport_out)
     fixed_protocol_packet.write(protocol_out)
-    encoded_protocol_packet = transport_out.getvalue()
-    return encoded_protocol_packet
+    encoded_message = transport_out.getvalue()
+    packet_info = PacketInfo(rx_intf=None,
+                             encoded_message=encoded_message,
+                             protocol_packet=protocol_packet)
+    return packet_info
 
-def decode_protocol_packet(encoded_protocol_packet):
-    transport_in = thrift.transport.TTransport.TMemoryBuffer(encoded_protocol_packet)
+def decode_protocol_packet(rx_intf, encoded_message):
+    transport_in = thrift.transport.TTransport.TMemoryBuffer(encoded_message)
     protocol_in = thrift.protocol.TBinaryProtocol.TBinaryProtocol(transport_in)
     protocol_packet = encoding.ttypes.ProtocolPacket()
     # Thrift is prone to throw any unpredictable exception if the decode fails,
@@ -109,9 +126,13 @@ def decode_protocol_packet(encoded_protocol_packet):
         protocol_packet.read(protocol_in)
     except:
         # Decoding error
+        ### TODO: Return non-null PacketInfo with error code inside
         return None
     fix_prot_packet_after_decode(protocol_packet)
-    return protocol_packet
+    packet_info = PacketInfo(rx_intf=rx_intf,
+                             encoded_message=encoded_message,
+                             protocol_packet=protocol_packet)
+    return packet_info
 
 # What follows are some horrible hacks to deal with the fact that Thrift only support signed 8, 16,
 # 32, and 64 bit numbers and not unsigned 8, 16, 32, and 64 bit numbers. The RIFT specification has
@@ -359,7 +380,6 @@ def make_tie_header(direction, originator, tie_type, tie_nr, seq_nr, lifetime,
     return tie_header
 
 def make_prefix_tie_packet(direction, originator, tie_nr, seq_nr, lifetime):
-    # pylint:disable=too-many-locals
     tie_type = common.ttypes.TIETypeType.PrefixTIEType
     tie_header = make_tie_header(direction, originator, tie_type, tie_nr, seq_nr, lifetime)
     prefixes = {}
@@ -416,7 +436,6 @@ def add_ipv6_prefix_to_prefix_tie(prefix_tie_packet, ipv6_prefix_string, metric,
     prefix_tie_packet.element.prefixes.prefixes[prefix] = attributes
 
 def make_node_tie_packet(name, level, direction, originator, tie_nr, seq_nr, lifetime):
-    # pylint:disable=too-many-locals
     tie_type = common.ttypes.TIETypeType.NodeTIEType
     tie_header = make_tie_header(direction, originator, tie_type, tie_nr, seq_nr, lifetime)
     node_tie_element = encoding.ttypes.NodeTIEElement(
@@ -561,8 +580,18 @@ def prefixes_str(label_str, prefixes):
                     line = "  Tag: " + str(tag)
                     lines.append(line)
             if attributes.monotonic_clock:
-                line = "  Monotonic-clock: " + str(attributes.monotonic_clock)
+                line = "  Monotonic-clock:"
                 lines.append(line)
+                if attributes.monotonic_clock.timestamp:
+                    line = "    Timestamp: "
+                    line += str(attributes.monotonic_clock.timestamp.AS_sec)
+                    if attributes.monotonic_clock.timestamp.AS_nsec:
+                        nsec_str = "{:06d}".format(attributes.monotonic_clock.timestamp.AS_nsec)
+                        line += "." + nsec_str
+                    lines.append(line)
+                if attributes.monotonic_clock.transactionid:
+                    line = "    Transaction-ID: " + str(attributes.monotonic_clock.transactionid)
+                    lines.append(line)
     return lines
 
 def pg_prefix_element_str(_element):

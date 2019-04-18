@@ -827,7 +827,6 @@ class Node:
             self.report_check_result(step)
 
     def check_route_in_kernel(self, step, prefix, nexthops, parsed_kernel_routes):
-        # pylint:disable=too-many-locals
         # In the FIB, and ECMP route is one row with multiple nexthops. In the kernel, an ECMP route
         # may be one row with multuple nexthops or may be multiple rows with the same prefix (the
         # former appears to be the case for IPv4 and the latter appears to be the case for IPv6)
@@ -1086,7 +1085,6 @@ class NodeDownEvent:
 class Fabric:
 
     def __init__(self):
-        # pylint: disable=too-many-locals
         self.nr_pods = META_CONFIG['nr-pods']
         self.pods = []
         self.planes = []
@@ -1277,7 +1275,6 @@ class Fabric:
         print(command, file=file)
 
     def write_netns_chaos_scr_to_file(self, file):
-        # pylint:disable=too-many-locals
         # pylint:disable=too-many-statements
         # Keep track of the links and the nodes which are currently 'clean' i.e. not affected by any
         # failure event.

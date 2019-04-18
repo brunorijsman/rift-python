@@ -366,7 +366,6 @@ class Kernel:
         return next_hops
 
     def cli_routes_table(self, table_nr):
-        # pylint:disable=too-many-locals
         links = self.ipr.get_links()
         rows = []
         for route in self.ipr.get_routes():

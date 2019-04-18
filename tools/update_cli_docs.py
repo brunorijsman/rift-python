@@ -23,7 +23,6 @@ def parse_command_line_arguments():
     return args
 
 def process_file():
-    # pylint:disable=too-many-locals
     doc_file = "doc/command-line-interface.md"
     tmp_file = "doc/command-line-interface.md.new"
     backup_file = "doc/command-line-interface.md.bak"
