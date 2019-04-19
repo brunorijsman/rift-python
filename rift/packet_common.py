@@ -14,8 +14,6 @@ import utils
 
 RIFT_MAGIC = 0xA1F7
 
-ENV_HEADER_LEN = 4
-
 class PacketInfo:
 
     def __init__(self):
@@ -27,6 +25,7 @@ class PacketInfo:
         self.encoded_protocol_packet = None
         # Decode error string (None if decode was successful)
         self.decode_error = None
+        self.decode_error_details = None
         # Envelope header (magic and packet number)
         self.env_header = None
         self.packet_nr = None
@@ -44,10 +43,13 @@ class PacketInfo:
         self.origin_fingerprint_len = None
         self.origin_fingerprint = None
 
-    def compose_complete_message(self):
+    def message_parts(self):
         assert self.env_header
+        assert self.outer_sec_env_header
         assert self.encoded_protocol_packet
-        return self.env_header + self.encoded_protocol_packet
+        return [self.env_header,
+                self.outer_sec_env_header,
+                self.encoded_protocol_packet]
 
     def update_env_header(self, packet_nr):
         self.packet_nr = packet_nr
@@ -55,11 +57,19 @@ class PacketInfo:
 
     def update_outer_sec_env_header(self, key_id, nonce_local, nonce_remote,
                                     remaining_tie_lifetime):
+        fingerprint = b""     ### TODO
+        fingerprint_len = 0   ### TODO
+        reserved = 0
+        major_version = encoding.constants.protocol_major_version
+        pre = struct.pack("!BBBB", reserved, major_version, key_id, fingerprint_len)
+        post = struct.pack("!HHL", nonce_local, nonce_remote, remaining_tie_lifetime)
         self.outer_key_id = key_id
         self.nonce_local = nonce_local
         self.nonce_remote = nonce_remote
         self.remaining_tie_lifetime = remaining_tie_lifetime
-        ### TODO recompute fingerprint
+        self.outer_fingerprint_len = fingerprint_len
+        self.outer_fingerprint = fingerprint
+        self.outer_sec_env_header = pre + fingerprint + post
 
     def update_origin_sec_env_header(self, key_id):
         self.origin_key_id = key_id
@@ -158,39 +168,98 @@ def encode_protocol_packet(protocol_packet):
 def decode_message(rx_intf, message):
     packet_info = PacketInfo()
     packet_info.rx_intf = rx_intf
-    message_len = len(message)
-    # Decode envelope header (magic and packet number)
-    if message_len < ENV_HEADER_LEN:
-        packet_info.decode_error = "Envelope header too short"
+    continue_offset = decode_envelope_header(packet_info, message)
+    if continue_offset == -1:
         return packet_info
-    packet_info.env_header = message[0:ENV_HEADER_LEN]
-    unpacked = struct.unpack("!HH", packet_info.env_header)
-    magic = unpacked[0]
+    continue_offset = decode_outer_security_header(packet_info, message, continue_offset)
+    if continue_offset == -1:
+        return packet_info
+    continue_offset = decode_origin_security_header(packet_info, message, continue_offset)
+    if continue_offset == -1:
+        return packet_info
+    continue_offset = decode_protocol_packet(packet_info, message, continue_offset)
+    if continue_offset == -1:
+        return packet_info
+    ###!!!
+    return packet_info
+
+def decode_envelope_header(packet_info, message):
+    if len(message) < 4:
+        packet_info.decode_error = "Message too short"
+        packet_info.decode_error_details = "Missing magic and packet number"
+        return -1
+    (magic, packet_nr) = struct.unpack("!HH", message[0:4])
     if magic != RIFT_MAGIC:
-        packet_info.decode_error = "Wrong RIFT MAGIC value"
-        return packet_info
-    packet_info.packet_nr = unpacked[1]
-    # Decode outer security envelope header
-    ### TODO
-    # Decode origin security envelope header (if present)
-    ### TODO
-    # Decode serialized RIFT model object
-    offset = ENV_HEADER_LEN
-    packet_info.encoded_protocol_packet = message[offset:]
-    transport_in = thrift.transport.TTransport.TMemoryBuffer(packet_info.encoded_protocol_packet)
+        packet_info.decode_error = "Wrong magic value"
+        packet_info.decode_error_details = "Expected 0x{:x}, got 0x{:x}".format(RIFT_MAGIC, magic)
+        return -1
+    packet_info.env_header = message[0:4]
+    packet_info.packet_nr = packet_nr
+    return 4
+
+def decode_outer_security_header(packet_info, message, offset):
+    start_header_offset = offset
+    message_len = len(message) - offset
+    if offset + 4 > message_len:
+        packet_info.decode_error = "Message too short"
+        packet_info.decode_error_details = \
+            "Missing major version, outer key id and fingerprint length"
+        return -1
+    (_reserved, major_version, outer_key_id, outer_fingerprint_len) = \
+        struct.unpack("!BBBB", message[offset:offset+4])
+    offset += 4
+    expected_major_version = encoding.constants.protocol_major_version
+    if major_version != expected_major_version:
+        packet_info.decode_error = "Wrong major version"
+        packet_info.decode_error_details = ("Expected {}, got {}"
+                                            .format(expected_major_version, major_version))
+        return -1
+    assert outer_key_id == 0    ### TODO: Support non-zero keys
+    outer_fingerprint_len *= 4
+    if offset + outer_fingerprint_len > message_len:
+        packet_info.decode_error = "Message too short"
+        packet_info.decode_error_details = "Missing outer fingerprint"
+        return -1
+    outer_fingerprint = message[offset:offset+outer_fingerprint_len]
+    offset += outer_fingerprint_len
+    if offset + 8 > message_len:
+        packet_info.decode_error = "Message too short"
+        packet_info.decode_error_details = \
+            "Missing nonce local, nonce remote and remaining tie lifetime"
+        return -1
+    (nonce_local, nonce_remote, remaining_tie_lifetime) = \
+        struct.unpack("!HHL", message[offset:offset+8])
+    offset += 8
+    packet_info.outer_sec_env_header = message[start_header_offset:offset]
+    packet_info.outer_key_id = outer_key_id
+    packet_info.nonce_local = nonce_local
+    packet_info.nonce_remote = nonce_remote
+    packet_info.remaining_tie_lifetime = remaining_tie_lifetime
+    packet_info.outer_fingerprint_len = outer_fingerprint_len
+    packet_info.outer_fingerprint = outer_fingerprint
+    return offset
+
+def decode_origin_security_header(_packet_info, _message, offset):
+    ### TODO: Implement this
+    return offset
+
+def decode_protocol_packet(packet_info, message, offset):
+    encoded_protocol_packet = message[offset:]
+    transport_in = thrift.transport.TTransport.TMemoryBuffer(encoded_protocol_packet)
     protocol_in = thrift.protocol.TBinaryProtocol.TBinaryProtocol(transport_in)
     protocol_packet = encoding.ttypes.ProtocolPacket()
-    # Thrift is prone to throw any unpredictable exception if the decode fails
-    # pylint: disable=bare-except
     try:
         protocol_packet.read(protocol_in)
-    except:
-        # Decoding error
-        ### TODO: Return non-null PacketInfo with error code inside
-        return None
+    # We don't know what exception Thrift might throw
+    # pylint: disable=broad-except
+    except Exception as err:
+        packet_info.decode_error = "Thrift decode error"
+        packet_info.decode_error_details = str(err)
+        return -1
     fix_prot_packet_after_decode(protocol_packet)
+    packet_info.encoded_protocol_packet = encoded_protocol_packet
     packet_info.protocol_packet = protocol_packet
-    return packet_info
+    return len(message)
 
 # What follows are some horrible hacks to deal with the fact that Thrift only support signed 8, 16,
 # 32, and 64 bit numbers and not unsigned 8, 16, 32, and 64 bit numbers. The RIFT specification has

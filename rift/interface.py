@@ -245,22 +245,23 @@ class Interface:
         self._tx_log.log(level, "[%s] %s %s %s %s to %s" %
                          (self._log_id, prelude, fam_str, type_str, packet_str, to_str))
 
+    ### TODO: Make this look prettier for errors and ok
     def log_rx_protocol_packet(self, level, from_info, prelude, protocol_packet):
         if not self._rx_log.isEnabledFor(level):
             return
         if protocol_packet:
-            packet_str = str(protocol_packet)
-            type_str = self.protocol_packet_type(protocol_packet)
+            packet_str = str(protocol_packet) + " "
+            type_str = self.protocol_packet_type(protocol_packet) + " "
         else:
-            packet_str = "?"
-            type_str = "?"
+            packet_str = ""
+            type_str = ""
         if len(from_info) == 2:
             fam_str = "IPv4"
         else:
             assert len(from_info) == 4
             fam_str = "IPv6"
         from_str = str(from_info)
-        self._rx_log.log(level, "[%s] %s %s %s %s from %s" %
+        self._rx_log.log(level, "[%s] %s %s %s%sfrom %s" %
                          (self._log_id, prelude, fam_str, type_str, packet_str, from_str))
 
     @staticmethod
@@ -285,6 +286,13 @@ class Interface:
 
     def send_packet_info(self, packet_info, flood):
         packet_info.update_env_header(self._next_send_packet_nr)
+        ### TODO: don't do this for every single send
+        ### TODO: plug in real values
+        packet_info.update_outer_sec_env_header(
+            key_id=0,
+            nonce_local=111,
+            nonce_remote=222,
+            remaining_tie_lifetime=333)
         self._next_send_packet_nr += 1
         protocol_packet = packet_info.protocol_packet
         if flood:
@@ -298,8 +306,10 @@ class Interface:
                 return
         else:
             socks = [self._lie_tx_ipv4_socket, self._lie_tx_ipv6_socket]
-        message = packet_info.compose_complete_message()
-        nr_bytes = len(message)
+        message_parts = packet_info.message_parts()
+        nr_bytes = 0
+        for part in message_parts:
+            nr_bytes += len(part)
         for sock in socks:
             if sock is not None:
                 if self._tx_fail:
@@ -311,7 +321,7 @@ class Interface:
                         ### TODO: Add envelope fields in log message (in all places)
                         ### TODO: Only if will log
                         self.log_tx_protocol_packet(logging.DEBUG, sock, "Send", protocol_packet)
-                        sock.send(message)
+                        sock.sendmsg(message_parts)
                         self.bump_tx_counters(protocol_packet, sock, nr_bytes)
                     except socket.error as error:
                         prelude = "Error {} sending".format(str(error))
@@ -1070,7 +1080,11 @@ class Interface:
         nr_bytes = len(message)
         packet_info = packet_common.decode_message(rx_intf=self, message=message)
         if packet_info.decode_error:
-            self.log_rx_protocol_packet(logging.ERROR, from_info, packet_info.decode_error, None)
+            msg = packet_info.decode_error
+            if packet_info.decode_error_details:
+                msg += " (" + packet_info.decode_error_details + ")"
+            self.log_rx_protocol_packet(logging.ERROR, from_info, msg, None)
+            ### TODO: Stats on this
             return None
         protocol_packet = packet_info.protocol_packet
         if self._rx_fail:
