@@ -284,7 +284,8 @@ class Interface:
         self.send_packet_info(packet_info, flood)
 
     def send_packet_info(self, packet_info, flood):
-        ### TODO: Refresh outer header here?
+        packet_info.update_env_header(self._next_send_packet_nr)
+        self._next_send_packet_nr += 1
         protocol_packet = packet_info.protocol_packet
         if flood:
             if self._flood_tx_ipv4_socket:
@@ -297,7 +298,8 @@ class Interface:
                 return
         else:
             socks = [self._lie_tx_ipv4_socket, self._lie_tx_ipv6_socket]
-        nr_bytes = len(packet_info.encoded_message)
+        message = packet_info.compose_complete_message()
+        nr_bytes = len(message)
         for sock in socks:
             if sock is not None:
                 if self._tx_fail:
@@ -306,8 +308,10 @@ class Interface:
                     self.bump_tx_sim_errors_counter(sock, nr_bytes)
                 else:
                     try:
+                        ### TODO: Add envelope fields in log message (in all places)
+                        ### TODO: Only if will log
                         self.log_tx_protocol_packet(logging.DEBUG, sock, "Send", protocol_packet)
-                        sock.send(packet_info.encoded_message)
+                        sock.send(message)
                         self.bump_tx_counters(protocol_packet, sock, nr_bytes)
                     except socket.error as error:
                         prelude = "Error {} sending".format(str(error))
@@ -848,6 +852,7 @@ class Interface:
         self._mtu = self.get_mtu()
         self._pod = self.UNDEFINED_OR_ANY_POD
         self.neighbor = None
+        self._next_send_packet_nr = 1
         self._time_ticks_since_lie_received = None
         self._lie_accept_or_reject = "No LIE Received"
         self._lie_accept_or_reject_rule = "-"
@@ -1062,13 +1067,10 @@ class Interface:
         return True
 
     def receive_message_common(self, message, from_info, sock):
-        packet_info = packet_common.decode_protocol_packet(rx_intf=self,
-                                                           encoded_message=message)
         nr_bytes = len(message)
-        ### TODO: Report more specific error
-        if packet_info is None:
-            # TODO: Decode error counter (not here - done separately for LIEs and flood msgs)
-            self.log_rx_protocol_packet(logging.ERROR, from_info, "Could not decode", None)
+        packet_info = packet_common.decode_message(rx_intf=self, message=message)
+        if packet_info.decode_error:
+            self.log_rx_protocol_packet(logging.ERROR, from_info, packet_info.decode_error, None)
             return None
         protocol_packet = packet_info.protocol_packet
         if self._rx_fail:

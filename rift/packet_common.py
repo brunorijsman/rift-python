@@ -1,7 +1,8 @@
 import copy
 import ipaddress
-import sortedcontainers
+import struct
 
+import sortedcontainers
 import thrift.protocol.TBinaryProtocol
 import thrift.transport.TTransport
 
@@ -11,19 +12,58 @@ import encoding.ttypes
 import encoding.constants
 import utils
 
+RIFT_MAGIC = 0xA1F7
+
+ENV_HEADER_LEN = 4
+
 class PacketInfo:
 
-    def __init__(self, rx_intf, encoded_message, protocol_packet):
+    def __init__(self):
         # Interface on which message was received, None for self originated packets
-        self.rx_intf = rx_intf
-        # Encoded on-the-wire message, including envelope
-        self.encoded_message = encoded_message
-        # Decoded RIFT model object, excluding envelope
-        self.protocol_packet = protocol_packet
+        self.rx_intf = None
+        # Decoded RIFT model object
+        self.protocol_packet = None
+        # Encoded RIFT model object, excluding envelope
+        self.encoded_protocol_packet = None
+        # Decode error string (None if decode was successful)
+        self.decode_error = None
+        # Envelope header (magic and packet number)
+        self.env_header = None
+        self.packet_nr = None
+        # Outer security envelope header
+        self.outer_sec_env_header = None
+        self.outer_key_id = None
+        self.nonce_local = None
+        self.nonce_remote = None
+        self.remaining_tie_lifetime = None
+        self.outer_fingerprint_len = None
+        self.outer_fingerprint = None
+        # Origin security envelope header
+        self.origin_sec_env_header = None
+        self.origin_key_id = None
+        self.origin_fingerprint_len = None
+        self.origin_fingerprint = None
 
-    def refresh_outer_envelope(self):
-        ### TODO
-        pass
+    def compose_complete_message(self):
+        assert self.env_header
+        assert self.encoded_protocol_packet
+        return self.env_header + self.encoded_protocol_packet
+
+    def update_env_header(self, packet_nr):
+        self.packet_nr = packet_nr
+        self.env_header = struct.pack("!HH", RIFT_MAGIC, packet_nr)
+
+    def update_outer_sec_env_header(self, key_id, nonce_local, nonce_remote,
+                                    remaining_tie_lifetime):
+        self.outer_key_id = key_id
+        self.nonce_local = nonce_local
+        self.nonce_remote = nonce_remote
+        self.remaining_tie_lifetime = remaining_tie_lifetime
+        ### TODO recompute fingerprint
+
+    def update_origin_sec_env_header(self, key_id):
+        self.origin_key_id = key_id
+        ### TODO recompute fingerprint
 
 def ipv4_prefix_tup(ipv4_prefix):
     return (ipv4_prefix.address, ipv4_prefix.prefixlen)
@@ -109,19 +149,39 @@ def encode_protocol_packet(protocol_packet):
     transport_out = thrift.transport.TTransport.TMemoryBuffer()
     protocol_out = thrift.protocol.TBinaryProtocol.TBinaryProtocol(transport_out)
     fixed_protocol_packet.write(protocol_out)
-    encoded_message = transport_out.getvalue()
-    packet_info = PacketInfo(rx_intf=None,
-                             encoded_message=encoded_message,
-                             protocol_packet=protocol_packet)
+    encoded_protocol_packet = transport_out.getvalue()
+    packet_info = PacketInfo()
+    packet_info.protocol_packet = protocol_packet
+    packet_info.encoded_protocol_packet = encoded_protocol_packet
     return packet_info
 
-def decode_protocol_packet(rx_intf, encoded_message):
-    transport_in = thrift.transport.TTransport.TMemoryBuffer(encoded_message)
+def decode_message(rx_intf, message):
+    packet_info = PacketInfo()
+    packet_info.rx_intf = rx_intf
+    message_len = len(message)
+    # Decode envelope header (magic and packet number)
+    if message_len < ENV_HEADER_LEN:
+        packet_info.decode_error = "Envelope header too short"
+        return packet_info
+    packet_info.env_header = message[0:ENV_HEADER_LEN]
+    unpacked = struct.unpack("!HH", packet_info.env_header)
+    magic = unpacked[0]
+    if magic != RIFT_MAGIC:
+        packet_info.decode_error = "Wrong RIFT MAGIC value"
+        return packet_info
+    packet_info.packet_nr = unpacked[1]
+    # Decode outer security envelope header
+    ### TODO
+    # Decode origin security envelope header (if present)
+    ### TODO
+    # Decode serialized RIFT model object
+    offset = ENV_HEADER_LEN
+    packet_info.encoded_protocol_packet = message[offset:]
+    transport_in = thrift.transport.TTransport.TMemoryBuffer(packet_info.encoded_protocol_packet)
     protocol_in = thrift.protocol.TBinaryProtocol.TBinaryProtocol(transport_in)
     protocol_packet = encoding.ttypes.ProtocolPacket()
-    # Thrift is prone to throw any unpredictable exception if the decode fails,
-    # so disable pylint warning "No exception type(s) specified"
-    # pylint: disable=W0702
+    # Thrift is prone to throw any unpredictable exception if the decode fails
+    # pylint: disable=bare-except
     try:
         protocol_packet.read(protocol_in)
     except:
@@ -129,9 +189,7 @@ def decode_protocol_packet(rx_intf, encoded_message):
         ### TODO: Return non-null PacketInfo with error code inside
         return None
     fix_prot_packet_after_decode(protocol_packet)
-    packet_info = PacketInfo(rx_intf=rx_intf,
-                             encoded_message=encoded_message,
-                             protocol_packet=protocol_packet)
+    packet_info.protocol_packet = protocol_packet
     return packet_info
 
 # What follows are some horrible hacks to deal with the fact that Thrift only support signed 8, 16,
@@ -212,15 +270,15 @@ def fix_dict(old_dict, dict_fixes, encode):
         new_dict[new_key] = new_value
     return new_dict
 
-def fix_struct(struct, fixes, encode):
+def fix_struct(fixed_struct, fixes, encode):
     for fix in fixes:
         (field_name, field_fix) = fix
-        if field_name in vars(struct):
-            field_value = getattr(struct, field_name)
+        if field_name in vars(fixed_struct):
+            field_value = getattr(fixed_struct, field_name)
             if field_value is not None:
                 new_value = fix_value(field_value, field_fix, encode)
-                setattr(struct, field_name, new_value)
-    return struct
+                setattr(fixed_struct, field_name, new_value)
+    return fixed_struct
 
 def fix_set(old_set, fix, encode):
     new_set = set()
