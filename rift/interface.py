@@ -291,8 +291,7 @@ class Interface:
         packet_info.update_outer_sec_env_header(
             key_id=0,
             nonce_local=111,
-            nonce_remote=222,
-            remaining_tie_lifetime=333)
+            nonce_remote=222)
         self._next_send_packet_nr += 1
         protocol_packet = packet_info.protocol_packet
         if flood:

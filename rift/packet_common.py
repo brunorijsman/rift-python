@@ -47,21 +47,31 @@ class PacketInfo:
         assert self.env_header
         assert self.outer_sec_env_header
         assert self.encoded_protocol_packet
-        return [self.env_header,
-                self.outer_sec_env_header,
-                self.encoded_protocol_packet]
+        if self.origin_sec_env_header:
+            return [self.env_header,
+                    self.outer_sec_env_header,
+                    self.origin_sec_env_header,
+                    self.encoded_protocol_packet]
+        else:
+            return [self.env_header,
+                    self.outer_sec_env_header,
+                    self.encoded_protocol_packet]
 
     def update_env_header(self, packet_nr):
         self.packet_nr = packet_nr
         self.env_header = struct.pack("!HH", RIFT_MAGIC, packet_nr)
 
-    def update_outer_sec_env_header(self, key_id, nonce_local, nonce_remote,
-                                    remaining_tie_lifetime):
+    def update_outer_sec_env_header(self, key_id, nonce_local, nonce_remote):
+        ### TODO: ponder "The value in the serialized model object MUST be ignored.""
         fingerprint = b""     ### TODO
         fingerprint_len = 0   ### TODO
         reserved = 0
         major_version = encoding.constants.protocol_major_version
         pre = struct.pack("!BBBB", reserved, major_version, key_id, fingerprint_len)
+        if self.protocol_packet.content.tie:
+            remaining_tie_lifetime = self.protocol_packet.content.tie.header.remaining_lifetime
+        else:
+            remaining_tie_lifetime = 0xffffffff
         post = struct.pack("!HHL", nonce_local, nonce_remote, remaining_tie_lifetime)
         self.outer_key_id = key_id
         self.nonce_local = nonce_local
@@ -72,8 +82,14 @@ class PacketInfo:
         self.outer_sec_env_header = pre + fingerprint + post
 
     def update_origin_sec_env_header(self, key_id):
+        fingerprint = b""     ### TODO
+        fingerprint_len = 0   ### TODO
+        # We only support 8-bit key ids. Network order is big endian, so it goes into the 3rd byte.
+        pre = struct.pack("!BBBB", 0, 0, key_id, fingerprint_len)
         self.origin_key_id = key_id
-        ### TODO recompute fingerprint
+        self.origin_fingerprint_len = fingerprint_len
+        self.origin_fingerprint = fingerprint
+        self.origin_sec_env_header = pre + fingerprint
 
 def ipv4_prefix_tup(ipv4_prefix):
     return (ipv4_prefix.address, ipv4_prefix.prefixlen)
@@ -163,6 +179,15 @@ def encode_protocol_packet(protocol_packet):
     packet_info = PacketInfo()
     packet_info.protocol_packet = protocol_packet
     packet_info.encoded_protocol_packet = encoded_protocol_packet
+    # If it is a TIE, update the origin security header. We do this here since it only needs to be
+    # done once when the packet is encoded. However, for the envelope header and for the outer
+    # security header it is up to the caller to call the corresponding update function before
+    # sending out the encoded message:
+    # * The envelope header must be updated each time the packet number changes
+    # * The outer security header must be updated each time a nonce or the remaining TIE lifetime
+    #   changes.
+    if protocol_packet.content.tie:
+        packet_info.update_origin_sec_env_header(key_id=0)   ### TODO: Support configured key-id
     return packet_info
 
 def decode_message(rx_intf, message):
@@ -174,13 +199,13 @@ def decode_message(rx_intf, message):
     continue_offset = decode_outer_security_header(packet_info, message, continue_offset)
     if continue_offset == -1:
         return packet_info
-    continue_offset = decode_origin_security_header(packet_info, message, continue_offset)
-    if continue_offset == -1:
-        return packet_info
+    if packet_info.remaining_tie_lifetime != 0xffffffff:
+        continue_offset = decode_origin_security_header(packet_info, message, continue_offset)
+        if continue_offset == -1:
+            return packet_info
     continue_offset = decode_protocol_packet(packet_info, message, continue_offset)
     if continue_offset == -1:
         return packet_info
-    ###!!!
     return packet_info
 
 def decode_envelope_header(packet_info, message):
@@ -199,11 +224,11 @@ def decode_envelope_header(packet_info, message):
 
 def decode_outer_security_header(packet_info, message, offset):
     start_header_offset = offset
-    message_len = len(message) - offset
+    message_len = len(message)
     if offset + 4 > message_len:
         packet_info.decode_error = "Message too short"
         packet_info.decode_error_details = \
-            "Missing major version, outer key id and fingerprint length"
+            "Missing major version, outer key id and outer fingerprint length"
         return -1
     (_reserved, major_version, outer_key_id, outer_fingerprint_len) = \
         struct.unpack("!BBBB", message[offset:offset+4])
@@ -214,7 +239,7 @@ def decode_outer_security_header(packet_info, message, offset):
         packet_info.decode_error_details = ("Expected {}, got {}"
                                             .format(expected_major_version, major_version))
         return -1
-    assert outer_key_id == 0    ### TODO: Support non-zero keys
+    assert outer_key_id == 0    ### TODO: Add support fro non-zero keys
     outer_fingerprint_len *= 4
     if offset + outer_fingerprint_len > message_len:
         packet_info.decode_error = "Message too short"
@@ -239,8 +264,34 @@ def decode_outer_security_header(packet_info, message, offset):
     packet_info.outer_fingerprint = outer_fingerprint
     return offset
 
-def decode_origin_security_header(_packet_info, _message, offset):
-    ### TODO: Implement this
+def decode_origin_security_header(packet_info, message, offset):
+    start_header_offset = offset
+    message_len = len(message)
+    if offset + 4 > message_len:
+        packet_info.decode_error = "Message too short"
+        packet_info.decode_error_details = \
+            "Missing TIE origin key id and TIE origin fingerprint length"
+        return -1
+    (should_be_zero_1, should_be_zero_2, origin_key_id, origin_fingerprint_len) = \
+        struct.unpack("!BBBB", message[offset:offset+4])
+    offset += 4
+    if should_be_zero_1 != 0 or should_be_zero_2 != 0:
+        got_key_id = should_be_zero_1 << 16 + should_be_zero_2 << 8 + origin_key_id
+        packet_info.decode_error = "Unsupported TIE origin key id"
+        packet_info.decode_error_details = ("Only support <= 255, got {}".format(got_key_id))
+        return -1
+    assert origin_key_id == 0    ### TODO: Add support for non-zero keys
+    origin_fingerprint_len *= 4
+    if offset + origin_fingerprint_len > message_len:
+        packet_info.decode_error = "Message too short"
+        packet_info.decode_error_details = "Missing TIE origin fingerprint"
+        return -1
+    origin_fingerprint = message[offset:offset+origin_fingerprint_len]
+    offset += origin_fingerprint_len
+    packet_info.origin_sec_env_header = message[start_header_offset:offset]
+    packet_info.origin_key_id = origin_key_id
+    packet_info.origin_fingerprint_len = origin_fingerprint_len
+    packet_info.origin_fingerprint = origin_fingerprint
     return offset
 
 def decode_protocol_packet(packet_info, message, offset):
