@@ -231,38 +231,39 @@ class Interface:
             reason = "Neighbor {} is no longer partially connected".format(self._log_id)
             self.node.trigger_spf(reason)
 
-    def log_tx_protocol_packet(self, level, sock, prelude, protocol_packet):
+    def log_tx_protocol_packet(self, level, sock, prelude, packet_info):
         if not self._tx_log.isEnabledFor(level):
             return
-        packet_str = str(protocol_packet)
-        type_str = self.protocol_packet_type(protocol_packet)
         if sock.family == socket.AF_INET:
             fam_str = "IPv4"
+            to_str = "to {}:{}".format(sock.getpeername()[0], sock.getpeername()[1])
         else:
             assert sock.family == socket.AF_INET6
             fam_str = "IPv6"
-        to_str = str(sock.getpeername())
-        self._tx_log.log(level, "[%s] %s %s %s %s to %s" %
-                         (self._log_id, prelude, fam_str, type_str, packet_str, to_str))
+            to_str = "to [{}]:{}".format(sock.getpeername()[0], sock.getpeername()[1])
+        type_str = self.protocol_packet_type(packet_info.protocol_packet)
+        packet_str = str(packet_info)
+        self._tx_log.log(level, "[%s] %s %s %s %s %s" %
+                         (self._log_id, prelude, fam_str, type_str, to_str, packet_str))
 
     ### TODO: Make this look prettier for errors and ok
-    def log_rx_protocol_packet(self, level, from_info, prelude, protocol_packet):
+    def log_rx_protocol_packet(self, level, from_info, prelude, packet_info):
         if not self._rx_log.isEnabledFor(level):
             return
-        if protocol_packet:
-            packet_str = str(protocol_packet) + " "
-            type_str = self.protocol_packet_type(protocol_packet) + " "
-        else:
-            packet_str = ""
-            type_str = ""
         if len(from_info) == 2:
             fam_str = "IPv4"
+            from_str = "from {}:{}".format(from_info[0], from_info[1])
         else:
             assert len(from_info) == 4
             fam_str = "IPv6"
-        from_str = str(from_info)
-        self._rx_log.log(level, "[%s] %s %s %s%sfrom %s" %
-                         (self._log_id, prelude, fam_str, type_str, packet_str, from_str))
+            from_str = "from [{}]:{}".format(from_info[0], from_info[1])
+        if packet_info.protocol_packet:
+            type_str = self.protocol_packet_type(packet_info.protocol_packet) + " "
+        else:
+            type_str = ""
+        packet_str = str(packet_info)
+        self._rx_log.log(level, "[%s] %s %s %s%s %s" %
+                         (self._log_id, prelude, fam_str, type_str, from_str, packet_str))
 
     @staticmethod
     def protocol_packet_type(protocol_packet):
@@ -313,18 +314,16 @@ class Interface:
             if sock is not None:
                 if self._tx_fail:
                     self.log_tx_protocol_packet(logging.DEBUG, sock,
-                                                "Simulated failure sending", protocol_packet)
+                                                "Simulated failure sending", packet_info)
                     self.bump_tx_sim_errors_counter(sock, nr_bytes)
                 else:
                     try:
-                        ### TODO: Add envelope fields in log message (in all places)
-                        ### TODO: Only if will log
-                        self.log_tx_protocol_packet(logging.DEBUG, sock, "Send", protocol_packet)
                         sock.sendmsg(message_parts)
+                        self.log_tx_protocol_packet(logging.DEBUG, sock, "Send", packet_info)
                         self.bump_tx_counters(protocol_packet, sock, nr_bytes)
                     except socket.error as error:
                         prelude = "Error {} sending".format(str(error))
-                        self.log_tx_protocol_packet(logging.ERROR, sock, prelude, protocol_packet)
+                        self.log_tx_protocol_packet(logging.ERROR, sock, prelude, packet_info)
                         self.bump_tx_real_errors_counter(sock, nr_bytes)
 
     @staticmethod
@@ -1082,24 +1081,24 @@ class Interface:
             msg = packet_info.decode_error
             if packet_info.decode_error_details:
                 msg += " (" + packet_info.decode_error_details + ")"
-            self.log_rx_protocol_packet(logging.ERROR, from_info, msg, None)
+            self.log_rx_protocol_packet(logging.ERROR, from_info, msg, packet_info)
             ### TODO: Stats on this
             return None
         protocol_packet = packet_info.protocol_packet
         if self._rx_fail:
             self.log_rx_protocol_packet(logging.DEBUG, from_info,
-                                        "Simulated failure receiving", protocol_packet)
+                                        "Simulated failure receiving", packet_info)
             self.bump_rx_sim_errors_counter(sock, nr_bytes)
             return None
         if protocol_packet.header.sender == self.node.system_id:
             self.log_rx_protocol_packet(logging.DEBUG, from_info,
-                                        "Ignore looped receive", protocol_packet)
+                                        "Ignore looped receive", packet_info)
             return None
-        self.log_rx_protocol_packet(logging.DEBUG, from_info, "Receive", protocol_packet)
         if not protocol_packet.content:
             self.log_rx_protocol_packet(logging.WARNING, from_info,
-                                        "Received contentless", protocol_packet)
+                                        "Received contentless", packet_info)
             return None
+        self.log_rx_protocol_packet(logging.DEBUG, from_info, "Receive", packet_info)
         if protocol_packet.header.major_version != constants.RIFT_MAJOR_VERSION:
             self.rx_error("Received different major protocol version from %s (local version %d, "
                           "remote version %d)", from_info, constants.RIFT_MAJOR_VERSION,

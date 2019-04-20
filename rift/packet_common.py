@@ -43,6 +43,31 @@ class PacketInfo:
         self.origin_fingerprint_len = None
         self.origin_fingerprint = None
 
+    def __str__(self):
+        result_str = ""
+        if self.packet_nr is not None:
+            result_str += "packet-nr={} ".format(self.packet_nr)
+        if self.outer_key_id is not None:
+            result_str += "outer-key-id={} ".format(self.outer_key_id)
+        if self.nonce_local is not None:
+            result_str += "nonce-local={} ".format(self.nonce_local)
+        if self.nonce_remote is not None:
+            result_str += "nonce-remote={} ".format(self.nonce_remote)
+        if self.remaining_tie_lifetime is not None:
+            if self.remaining_tie_lifetime == 0xffffffff:
+                result_str += "remaining-lie-lifetime=all-ones "
+            else:
+                result_str += "remaining-lie-lifetime={} ".format(self.remaining_tie_lifetime)
+        if self.outer_fingerprint_len is not None:
+            result_str += "outer-fingerprint-len={} ".format(self.outer_fingerprint_len)
+        if self.origin_key_id is not None:
+            result_str += "origin-key-id={} ".format(self.origin_key_id)
+        if self.origin_fingerprint_len is not None:
+            result_str += "origin-fingerprint-len={} ".format(self.origin_fingerprint_len)
+        if self.protocol_packet is not None:
+            result_str += "protocol-packet={}".format(self.protocol_packet)
+        return result_str
+
     def message_parts(self):
         assert self.env_header
         assert self.outer_sec_env_header
