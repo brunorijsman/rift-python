@@ -1,0 +1,99 @@
+# Topology: keys
+#
+# Intended for testing the outer and origin security envelopes
+#
+#  +-------+    +-------+
+#  | 1     |    | 2     |   level 2
+#  +-------+    +-------+
+#   if1| if2\  /if1 |if2
+#      |     \/     |
+#      |     /\     |
+#   if1| if2/  \if1 |if2
+#  +-------+    +-------+
+#  | 11    |    | 12    |   level 1
+#  +-------+    +-------+
+#   if3| if4\  /if3 |if4
+#      |     \/     |
+#      |     /\     |
+#   if1| if2/  \if1 |if2
+#  +-------+    +-------+
+#  | 101   |    | 102   |   level 0
+#  +-------+    +-------+
+#
+#                                
+#  Node  Active-key  Accept-keys
+#  ----  ----------  -----------
+#  1     1
+#  2     2           1
+#  11    1           1, 2
+#  12    2           3, 4
+#  101   4           5, 2
+#  102   3           1, 2
+#
+# Adjacency   State          Why?
+# ---------   -----          -----------------------------------------------------------------------
+# 1 - 11      Up             Same active key
+# 1 - 12      Down (bidir)   Different active keys, and neither has any accept keys
+# 2 - 11      Up             Different active keys, both accept other's key
+# 2 - 12      Up             Same active key
+# 11 - 101    Down (bidir)   Different active keys, and accept keys don't match bi-directionally
+# 11 - 102    Down (unidir)  Different active keys, and accept keys don't match uni-directionally
+# 12 - 101    Up             Different active keys, both accept other's key
+# 12 - 102    Up             Different active keys, both accept other's key
+# 
+# Flooder   Acceptors          Rejectors
+# -------   ----------------   ------------------
+# 1         11, 102            2, 12, 101
+# 2         11, 12, 101, 102   1
+# 11        1, 2, 102          12, 101
+# 12        2, 11, 101, 102    1
+# 101       12                 1, 2, 11, 102
+# 102       12                 1, 2, 11, 101
+
+keys:
+  - id: 1
+    algorithm: md5
+    secret: this-is-the-secret-for-key-1
+  - id: 2
+    algorithm: sha256
+    secret: this-is-the-secret-for-key-2
+  - id: 3
+    algorithm: sha512
+    secret: this-is-the-secret-for-key-3
+  - id: 4
+    algorithm: md5
+    secret: this-is-the-secret-for-key-4
+  - id: 5
+    algorithm: md5
+    secret: this-is-the-secret-for-key-5
+shards:
+  - id: 0
+    nodes:
+      - name: node-1
+        level: 2
+        systemid: 1
+        rx_lie_mcast_address: 224.0.1.1
+        interfaces:
+          - name: if1 # Connected to node-11:if1
+            rx_tie_port: 10001
+            rx_lie_port: 20001
+            tx_lie_port: 999
+        interfaces:
+          - name: if2 # Connected to node-12:if1
+            rx_tie_port: 10002
+            rx_lie_port: 20002
+            tx_lie_port: 999
+      - name: node-2
+        level: 2
+        systemid: 2
+        rx_lie_mcast_address: 224.0.1.2
+        rx_lie_port: 20002
+        interfaces:
+          - name: if1 # Connected to node-11:if2
+            rx_tie_port: 10003
+            rx_lie_port: 20003
+            tx_lie_port: 999
+          - name: if1 # Connected to node-12:if2
+            rx_tie_port: 10004
+            rx_lie_port: 20004
+            tx_lie_port: 999

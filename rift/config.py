@@ -21,6 +21,17 @@ SCHEMA = {
             'flooding_reduction_similarity': {'type': 'integer', 'min': 0}
         },
     },
+    'keys': {
+        'type': 'list',
+        'schema': {
+            'type': 'dict',
+            'schema': {
+                'id': {'required': True, 'type': 'integer', 'min': 1, 'max': 255},
+                'algorithm': {'required': True, 'type': 'keyalgorithm'},
+                'secret': {'required': True, 'type': 'string'}
+            }
+        }
+    },
     'shards': {
         'type': 'list',
         'schema': {
@@ -197,6 +208,9 @@ class RiftValidator(cerberus.Validator):
             return False
         else:
             return 0 <= table_nr <= 255
+
+    def _validate_type_keyalgorithm(self, value):
+        return isinstance(value, str) and value.lower() in ['md5', 'sha256', 'sha512']
 
 def apply_global_defaults(config):
     if 'const' in config:
