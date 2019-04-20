@@ -236,15 +236,17 @@ class Interface:
             return
         if sock.family == socket.AF_INET:
             fam_str = "IPv4"
+            from_str = "from {}:{}".format(sock.getsockname()[0], sock.getsockname()[1])
             to_str = "to {}:{}".format(sock.getpeername()[0], sock.getpeername()[1])
         else:
             assert sock.family == socket.AF_INET6
             fam_str = "IPv6"
+            from_str = "from [{}]:{}".format(sock.getsockname()[0], sock.getsockname()[1])
             to_str = "to [{}]:{}".format(sock.getpeername()[0], sock.getpeername()[1])
         type_str = self.protocol_packet_type(packet_info.protocol_packet)
         packet_str = str(packet_info)
-        self._tx_log.log(level, "[%s] %s %s %s %s %s" %
-                         (self._log_id, prelude, fam_str, type_str, to_str, packet_str))
+        self._tx_log.log(level, "[%s] %s %s %s %s %s %s" %
+                         (self._log_id, prelude, fam_str, type_str, from_str, to_str, packet_str))
 
     ### TODO: Make this look prettier for errors and ok
     def log_rx_protocol_packet(self, level, from_info, prelude, packet_info):
