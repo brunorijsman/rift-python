@@ -11,6 +11,7 @@ import cli_listen_handler
 import cli_session_handler
 import constants
 import interface
+import key
 import netifaces
 import node
 import scheduler
@@ -79,6 +80,7 @@ class Engine:
         self.intf_traffic_stats_group = stats.Group()
         self.intf_lie_fsm_stats_group = stats.Group()
         self.node_ztp_fsm_stats_group = stats.Group()
+        self._keys = {}    # Indexed by key-id
         self._nodes = sortedcontainers.SortedDict()
         self.create_configuration(passive_nodes)
         cli_log = logging.getLogger('cli')
@@ -149,9 +151,18 @@ class Engine:
             return default
 
     def create_configuration(self, passive_nodes):
+        if 'keys' in self._config:
+            for key_config in self._config['keys']:
+                self.create_key(key_config)
         if 'shards' in self._config:
             for shard_config in self._config['shards']:
                 self.create_shard(shard_config, passive_nodes)
+
+    def create_key(self, key_config):
+        key_id = key_config["id"]
+        algorithm = key_config["algorithm"]
+        secret = key_config["secret"]
+        self._keys[key_id] = key.Key(key_id, algorithm, secret)
 
     def create_shard(self, shard_config, passive_nodes):
         if 'nodes' in shard_config:

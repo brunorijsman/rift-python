@@ -6,6 +6,7 @@ import yaml
 import cerberus
 
 import constants
+import key
 
 SCHEMA = {
     'const': {
@@ -125,7 +126,7 @@ SCHEMA = {
 }
 
 def default_interface_name():
-    # TODO: use eth0 on Linux
+    # TODO: dynamically discover interface name
     return 'en0'
 
 DEFAULT_CONFIG = {
@@ -210,7 +211,7 @@ class RiftValidator(cerberus.Validator):
             return 0 <= table_nr <= 255
 
     def _validate_type_keyalgorithm(self, value):
-        return isinstance(value, str) and value.lower() in ['md5', 'sha256', 'sha512']
+        return isinstance(value, str) and value.lower() in key.ALGORITHMS
 
 def apply_global_defaults(config):
     if 'const' in config:
