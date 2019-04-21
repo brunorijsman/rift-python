@@ -106,15 +106,18 @@ class PacketInfo:
         self.outer_fingerprint = fingerprint
         self.outer_sec_env_header = pre + fingerprint + post
 
-    def update_origin_sec_env_header(self, key_id):
-        fingerprint = b""     ### TODO
-        fingerprint_len = 0   ### TODO
+    def update_origin_sec_env_header(self, origin_key):
+        if origin_key:
+            self.origin_key_id = origin_key.key_id
+            self.origin_fingerprint = origin_key.padded_digest([self.encoded_protocol_packet])
+            self.origin_fingerprint_len = len(self.origin_fingerprint) // 4
+        else:
+            self.origin_key_id = 0
+            self.origin_fingerprint = b''
+            self.origin_fingerprint_len = 0
         # We only support 8-bit key ids. Network order is big endian, so it goes into the 3rd byte.
-        pre = struct.pack("!BBBB", 0, 0, key_id, fingerprint_len)
-        self.origin_key_id = key_id
-        self.origin_fingerprint_len = fingerprint_len
-        self.origin_fingerprint = fingerprint
-        self.origin_sec_env_header = pre + fingerprint
+        pre = struct.pack("!BBBB", 0, 0, self.origin_key_id, self.origin_fingerprint_len)
+        self.origin_sec_env_header = pre + self.origin_fingerprint
 
 def ipv4_prefix_tup(ipv4_prefix):
     return (ipv4_prefix.address, ipv4_prefix.prefixlen)
@@ -182,7 +185,7 @@ def add_missing_methods_to_thrift():
     encoding.ttypes.LinkIDPair.__lt__ = (
         lambda self, other: link_id_pair_tup(self) < link_id_pair_tup(other))
 
-def encode_protocol_packet(protocol_packet):
+def encode_protocol_packet(protocol_packet, origin_key):
     # Since Thrift does not support unsigned integer, we need to "fix" unsigned integers to be
     # encoded as signed integers.
     # We have to make a deep copy of the non-encoded packet, but this "fixing" involves changing
@@ -212,10 +215,10 @@ def encode_protocol_packet(protocol_packet):
     # * The outer security header must be updated each time a nonce or the remaining TIE lifetime
     #   changes.
     if protocol_packet.content.tie:
-        packet_info.update_origin_sec_env_header(key_id=0)   ### TODO: Support configured key-id
+        packet_info.update_origin_sec_env_header(origin_key)
     return packet_info
 
-def decode_message(rx_intf, message):
+def decode_message(rx_intf, message, active_key, accept_keys):
     packet_info = PacketInfo()
     packet_info.rx_intf = rx_intf
     continue_offset = decode_envelope_header(packet_info, message)
@@ -231,6 +234,9 @@ def decode_message(rx_intf, message):
     continue_offset = decode_protocol_packet(packet_info, message, continue_offset)
     if continue_offset == -1:
         return packet_info
+    if packet_info.origin_sec_env_header:
+        if not check_origin_fingerprint(packet_info, active_key, accept_keys):
+            return packet_info
     return packet_info
 
 def decode_envelope_header(packet_info, message):
@@ -305,7 +311,12 @@ def decode_origin_security_header(packet_info, message, offset):
         packet_info.decode_error = "Unsupported TIE origin key id"
         packet_info.decode_error_details = ("Only support <= 255, got {}".format(got_key_id))
         return -1
-    assert origin_key_id == 0    ### TODO: Add support for non-zero keys
+    if origin_key_id == 0 and origin_fingerprint_len != 0:
+        packet_info.decode_error = "Origin key id is zero and origin fingerprint len is non-zero"
+        return -1
+    if origin_key_id != 0 and origin_fingerprint_len == 0:
+        packet_info.decode_error = "Origin key id is non-zero and origin fingerprint len is zero"
+        return -1
     origin_fingerprint_len *= 4
     if offset + origin_fingerprint_len > message_len:
         packet_info.decode_error = "Message too short"
@@ -332,10 +343,36 @@ def decode_protocol_packet(packet_info, message, offset):
         packet_info.decode_error = "Thrift decode error"
         packet_info.decode_error_details = str(err)
         return -1
+    try:
+        protocol_packet.validate()
+    except thrift.protocol.TProtocol.TProtocolException as err:
+        packet_info.decode_error = "Thrift validation error"
+        packet_info.decode_error_details = str(err)
+        return -1
     fix_prot_packet_after_decode(protocol_packet)
     packet_info.encoded_protocol_packet = encoded_protocol_packet
     packet_info.protocol_packet = protocol_packet
     return len(message)
+
+def check_origin_fingerprint(packet_info, active_key, accept_keys):
+    if packet_info.origin_key_id == 0:
+        return True
+    use_key = find_key_id(packet_info.origin_key_id, active_key, accept_keys)
+    if not use_key:
+        packet_info.decode_error = "Unknown origin key id"
+        packet_info.decode_error_details = "Origin key id is " + str(packet_info.origin_key_id)
+        return False
+    expected = use_key.padded_digest([packet_info.encoded_protocol_packet])
+    good_fingerprint = packet_info.origin_fingerprint == expected
+    return good_fingerprint
+
+def find_key_id(key_id, active_key, accept_keys):
+    if active_key and active_key.key_id == key_id:
+        return active_key
+    for accept_key in accept_keys:
+        if accept_key.key_id == key_id:
+            return accept_key
+    return None
 
 # What follows are some horrible hacks to deal with the fact that Thrift only support signed 8, 16,
 # 32, and 64 bit numbers and not unsigned 8, 16, 32, and 64 bit numbers. The RIFT specification has

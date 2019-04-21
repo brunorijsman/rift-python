@@ -284,7 +284,7 @@ class Interface:
             return "No-Content"
 
     def send_protocol_packet(self, protocol_packet, flood):
-        packet_info = packet_common.encode_protocol_packet(protocol_packet)
+        packet_info = packet_common.encode_protocol_packet(protocol_packet, self.node.active_key)
         self.send_packet_info(packet_info, flood)
 
     def send_packet_info(self, packet_info, flood):
@@ -1078,7 +1078,11 @@ class Interface:
 
     def receive_message_common(self, message, from_info, sock):
         nr_bytes = len(message)
-        packet_info = packet_common.decode_message(rx_intf=self, message=message)
+        packet_info = packet_common.decode_message(
+            rx_intf=self,
+            message=message,
+            active_key=self.node.active_key,
+            accept_keys=self.node.accept_keys)
         if packet_info.decode_error:
             msg = packet_info.decode_error
             if packet_info.decode_error_details:

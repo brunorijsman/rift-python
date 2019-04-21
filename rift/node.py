@@ -442,8 +442,13 @@ class Node:
         self.floodred_node_random = self.generate_node_random(system_random, self.system_id)
         self.floodred_parents = []
         self.floodred_grandparents = {}
-        self._active_key_id = self.get_config_attribute('active_key', 0)
+        self.active_key_id = self.get_config_attribute('active_key', None)
+        if self.active_key_id is None or self.active_key_id == 0:
+            self.active_key = None
+        else:
+            self.active_key = self.engine.keys[self.active_key_id]
         self._accept_key_ids = self.get_config_attribute('accept_keys', [])
+        self.accept_keys = [self.engine.keys[key_id] for key_id in self._accept_key_ids]
         self._derived_level = None
         self._rx_offers = {}     # Indexed by interface name
         self._tx_offers = {}     # Indexed by interface name
@@ -791,7 +796,7 @@ class Node:
                 link_ids=link_ids,
                 bandwidth=100)  # TODO: Take this from config file or interface
             tie_packet.element.node.neighbors[intf.neighbor.system_id] = node_neighbor
-        packet_info = packet_common.encode_protocol_packet(protocol_packet)
+        packet_info = packet_common.encode_protocol_packet(protocol_packet, self.active_key)
         self.my_node_tie_packet_infos[direction] = packet_info
         self.store_tie_packet_info(packet_info)
         self.info("Regenerated node TIE for direction %s: %s",
@@ -848,7 +853,7 @@ class Node:
                 metric = v6prefix['metric']
                 tags = set(v6prefix.get('tags', []))
                 packet_common.add_ipv6_prefix_to_prefix_tie(tie_packet, prefix, metric, tags)
-        packet_info = packet_common.encode_protocol_packet(protocol_packet)
+        packet_info = packet_common.encode_protocol_packet(protocol_packet, self.active_key)
         self._my_north_prefix_tie_packet_info = packet_info
         self.store_tie_packet_info(self._my_north_prefix_tie_packet_info)
         self.info("Regenerated north prefix TIE: %s", tie_packet)
@@ -906,7 +911,7 @@ class Node:
             header=packet_header,
             content=packet_content)
         protocol_packet.content.tie = tie_packet
-        packet_info = packet_common.encode_protocol_packet(protocol_packet)
+        packet_info = packet_common.encode_protocol_packet(protocol_packet, self.active_key)
         # Make the newly constructed TIE the current positive disaggregation TIE and update the
         # database.
         self._my_pos_disagg_tie_packet_info = packet_info
@@ -1002,7 +1007,8 @@ class Node:
                     new_tie_packet,
                     packet_common.make_ipv6_prefix("::/0"),
                     metric)
-            new_packet_info = packet_common.encode_protocol_packet(new_protocol_packet)
+            new_packet_info = packet_common.encode_protocol_packet(new_protocol_packet,
+                                                                   self.active_key)
             self._my_south_prefix_tie_packet_info = new_packet_info
             self.store_tie_packet_info(self._my_south_prefix_tie_packet_info)
             self.info("Regenerated south prefix TIE because %s: %s", reason, new_tie_packet)
@@ -1580,7 +1586,7 @@ class Node:
         header = encoding.ttypes.PacketHeader(sender=self.system_id, level=self.level_value())
         content = encoding.ttypes.PacketContent(tie=tie_packet)
         protocol_packet = encoding.ttypes.ProtocolPacket(header=header, content=content)
-        packet_info = packet_common.encode_protocol_packet(protocol_packet)
+        packet_info = packet_common.encode_protocol_packet(protocol_packet, self.active_key)
         packet_info.rx_intf = rx_intf
         self.store_tie_packet_info(packet_info)
 
@@ -2151,7 +2157,7 @@ class Node:
         tab = table.Table()
         tab.add_row(["Key ID", "Algorithm", "Secret", "Active", "Accept"])
         for configured_key in self.engine.keys.values():
-            if configured_key.key_id == self._active_key_id:
+            if configured_key.key_id == self.active_key_id:
                 active_str = 'Active'
             else:
                 active_str = ''

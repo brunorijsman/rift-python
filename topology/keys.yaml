@@ -52,19 +52,19 @@
 
 keys:
   - id: 1
-    algorithm: md5
+    algorithm: hmac-sha-1
     secret: this-is-the-secret-for-key-1
   - id: 2
-    algorithm: sha256
+    algorithm: hmac-sha-1
     secret: this-is-the-secret-for-key-2
   - id: 3
-    algorithm: sha512
+    algorithm: hmac-sha-1
     secret: this-is-the-secret-for-key-3
   - id: 4
-    algorithm: md5
+    algorithm: hmac-sha-256
     secret: this-is-the-secret-for-key-4
   - id: 5
-    algorithm: md5
+    algorithm: hmac-sha-256
     secret: this-is-the-secret-for-key-5
 shards:
   - id: 0
@@ -78,12 +78,12 @@ shards:
           - name: if1 # Connected to node-11:if1
             rx_tie_port: 10001
             rx_lie_port: 20001
-            tx_lie_port: 999
+            tx_lie_port: 20005
         interfaces:
           - name: if2 # Connected to node-12:if1
             rx_tie_port: 10002
             rx_lie_port: 20002
-            tx_lie_port: 999
+            tx_lie_port: 20009
       - name: node-2
         level: 2
         systemid: 2
@@ -93,11 +93,11 @@ shards:
           - name: if1 # Connected to node-11:if2
             rx_tie_port: 10003
             rx_lie_port: 20003
-            tx_lie_port: 999
+            tx_lie_port: 20006
           - name: if2 # Connected to node-12:if2
             rx_tie_port: 10004
             rx_lie_port: 20004
-            tx_lie_port: 999
+            tx_lie_port: 20010
       - name: node-11
         level: 1
         systemid: 11
@@ -108,19 +108,19 @@ shards:
           - name: if1 # Connected to node-1:if1
             rx_tie_port: 10005
             rx_lie_port: 20005
-            tx_lie_port: 999
+            tx_lie_port: 20001
           - name: if2 # Connected to node-2:if1
             rx_tie_port: 10006
             rx_lie_port: 20006
-            tx_lie_port: 999
+            tx_lie_port: 20003
           - name: if3 # Connected to node-101:if1
             rx_tie_port: 10007
             rx_lie_port: 20007
-            tx_lie_port: 999
+            tx_lie_port: 20013
           - name: if4 # Connected to node-102:if1
             rx_tie_port: 10008
             rx_lie_port: 20008
-            tx_lie_port: 999
+            tx_lie_port: 20015
       - name: node-12
         level: 1
         systemid: 12
@@ -131,48 +131,48 @@ shards:
           - name: if1 # Connected to node-1:if2
             rx_tie_port: 10009
             rx_lie_port: 20009
-            tx_lie_port: 999
+            tx_lie_port: 20002
           - name: if2 # Connected to node-2:if2
             rx_tie_port: 10010
             rx_lie_port: 20010
-            tx_lie_port: 999
+            tx_lie_port: 20004
           - name: if3 # Connected to node-101:if2
             rx_tie_port: 10011
             rx_lie_port: 20011
-            tx_lie_port: 999
+            tx_lie_port: 20014
           - name: if4 # Connected to node-102:if2
             rx_tie_port: 10012
             rx_lie_port: 20012
-            tx_lie_port: 999
+            tx_lie_port: 20016
       - name: node-101
         level: 0
         systemid: 101
         rx_lie_mcast_address: 224.0.1.101
         active_key: 4
-        accept_key: [5, 2]
+        accept_keys: [5, 2]
         interfaces:
           - name: if1 # Connected to node-11:if3
             rx_tie_port: 10013
             rx_lie_port: 20013
-            tx_lie_port: 999
+            tx_lie_port: 20007
         interfaces:
           - name: if2 # Connected to node-12:if3
             rx_tie_port: 10014
             rx_lie_port: 20014
-            tx_lie_port: 999
+            tx_lie_port: 20011
       - name: node-102
         level: 0
         systemid: 101
         rx_lie_mcast_address: 224.0.1.102
         active_key: 3
-        accept_key: [1, 2]
+        accept_keys: [1, 2]
         interfaces:
           - name: if1 # Connected to node-11:if4
             rx_tie_port: 10015
             rx_lie_port: 20015
-            tx_lie_port: 999
+            tx_lie_port: 20008
         interfaces:
           - name: if2 # Connected to node-12:if4
             rx_tie_port: 10016
             rx_lie_port: 20016
-            tx_lie_port: 999
+            tx_lie_port: 20012

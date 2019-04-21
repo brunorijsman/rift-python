@@ -404,7 +404,7 @@ def check_process_tie_common(test_node, rx_tie_info_list):
         header = encoding.ttypes.PacketHeader(sender=MY_SYSTEM_ID, level=MY_LEVEL)
         content = encoding.ttypes.PacketContent(tie=rx_tie_packet)
         protocol_packet = encoding.ttypes.ProtocolPacket(header=header, content=content)
-        rx_tie_packet_info = packet_common.encode_protocol_packet(protocol_packet)
+        rx_tie_packet_info = packet_common.encode_protocol_packet(protocol_packet, None)
         result = test_node.process_rx_tie_packet_info(rx_tie_packet_info)
         (start_sending_tie_header, ack_tie_header) = result
         disposition = rx_tie_info[6]

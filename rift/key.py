@@ -1,4 +1,6 @@
-ALGORITHMS = ["md5", "sha256", "sha512"]
+import hmac
+
+ALGORITHMS = ["hmac-sha-1", "hmac-sha-256"]
 
 class Key:
 
@@ -7,3 +9,22 @@ class Key:
         self.key_id = key_id
         self.algorithm = algorithm
         self.secret = secret
+
+    def digest(self, message_parts):
+        if self.algorithm == "hmac-sha-1":
+            digestmod = "sha1"
+        elif self.algorithm == "hmac-sha-256":
+            digestmod = "sha256"
+        else:
+            assert False
+        the_hmac = hmac.new(self.secret.encode(), digestmod=digestmod)
+        for message_part in message_parts:
+            the_hmac.update(message_part)
+        return the_hmac.digest()
+
+    def padded_digest(self, message_parts):
+        dig = self.digest(message_parts)
+        if len(dig) % 4 != 0:
+            dig += b'\x00' * (4 - len(dig) % 4)
+        assert len(dig) % 4 == 0    ###!!!
+        return dig
