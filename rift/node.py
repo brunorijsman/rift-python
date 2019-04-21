@@ -442,6 +442,8 @@ class Node:
         self.floodred_node_random = self.generate_node_random(system_random, self.system_id)
         self.floodred_parents = []
         self.floodred_grandparents = {}
+        self._active_key_id = self.get_config_attribute('active_key', None)
+        self._accepts_key_ids = self.get_config_attribute('accept_keys', [])
         self._derived_level = None
         self._rx_offers = {}     # Indexed by interface name
         self._tx_offers = {}     # Indexed by interface name

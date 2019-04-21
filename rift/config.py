@@ -61,6 +61,11 @@ SCHEMA = {
                             'state_thrift_services_port': {'type': 'port'},
                             'config_thrift_services_port': {'type': 'port'},
                             'kernel_route_table': {'type': 'kernel_route_table'},
+                            'active_key': {'type': 'integer', 'min': 1, 'max': 255},
+                            'accept_keys': {
+                                'type': 'list',
+                                'schema': {'type': 'integer', 'min': 1, 'max': 255}
+                            },
                             'v4prefixes': {
                                 'type': 'list',
                                 'schema': {

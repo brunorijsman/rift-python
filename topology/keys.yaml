@@ -73,6 +73,7 @@ shards:
         level: 2
         systemid: 1
         rx_lie_mcast_address: 224.0.1.1
+        active_key: 1
         interfaces:
           - name: if1 # Connected to node-11:if1
             rx_tie_port: 10001
@@ -87,7 +88,7 @@ shards:
         level: 2
         systemid: 2
         rx_lie_mcast_address: 224.0.1.2
-        rx_lie_port: 20002
+        active_key: 2
         interfaces:
           - name: if1 # Connected to node-11:if2
             rx_tie_port: 10003
@@ -96,4 +97,19 @@ shards:
           - name: if1 # Connected to node-12:if2
             rx_tie_port: 10004
             rx_lie_port: 20004
+            tx_lie_port: 999
+      - name: node-11
+        level: 1
+        systemid: 11
+        rx_lie_mcast_address: 224.0.1.11
+        active_key: 1
+        accept_keys: [1, 2]
+        interfaces:
+          - name: if1 # Connected to node-11:if2
+            rx_tie_port: 10005
+            rx_lie_port: 20005
+            tx_lie_port: 999
+          - name: if1 # Connected to node-12:if2
+            rx_tie_port: 10006
+            rx_lie_port: 20006
             tx_lie_port: 999
