@@ -21,6 +21,9 @@ class PacketInfo:
     ERR_WRONG_MAJOR_VERSION = "Wrong major version"
     ERR_TRIFT_DECODE = "Thrift decode error"
     ERR_TRIFT_VALIDATE = "Thrift validate error"
+    ERR_MISSING_ORIGIN_SEC_ENV = "Missing TIE origin security envelope"
+    ERR_ZERO_KEY_ID_NOT_ACCEPTED = "Zero TIE origin key id not accepted"
+    ERR_UNEXPECTED_ORIGIN_SEC_ENV = "Unexpected TIE origin security envelope"
     ERR_UNSUPPORTED_ORIGIN_KEY_ID = "Unsupported TIE origin key id"
     ERR_INCONSISTENT_ORIGIN_KEY_ID = "Inconsistent TIE origin key id and fingerprint"
     ERR_UNKNOWN_ORIGIN_KEY_ID = "Unknown TIE origin key id"
@@ -34,6 +37,9 @@ class PacketInfo:
         ERR_TRIFT_VALIDATE]
 
     AUTHENTICATION_ERRORS = [
+        ERR_MISSING_ORIGIN_SEC_ENV,
+        ERR_ZERO_KEY_ID_NOT_ACCEPTED,
+        ERR_UNEXPECTED_ORIGIN_SEC_ENV,
         ERR_UNSUPPORTED_ORIGIN_KEY_ID,
         ERR_INCONSISTENT_ORIGIN_KEY_ID,
         ERR_UNKNOWN_ORIGIN_KEY_ID,
@@ -261,9 +267,8 @@ def decode_message(rx_intf, message, active_key, accept_keys):
     continue_offset = decode_protocol_packet(packet_info, message, continue_offset)
     if continue_offset == -1:
         return packet_info
-    if packet_info.origin_sec_env_header:
-        if not check_origin_fingerprint(packet_info, active_key, accept_keys):
-            return packet_info
+    if not check_origin_fingerprint(packet_info, active_key, accept_keys):
+        return packet_info
     return packet_info
 
 def decode_envelope_header(packet_info, message):
@@ -379,8 +384,23 @@ def decode_protocol_packet(packet_info, message, offset):
     return len(message)
 
 def check_origin_fingerprint(packet_info, active_key, accept_keys):
-    if packet_info.origin_key_id == 0:
+    if packet_info.protocol_packet:
+        if packet_info.protocol_packet.content.tie:
+            if not packet_info.origin_sec_env_header:
+                packet_info.decode_error = packet_info.ERR_MISSING_ORIGIN_SEC_ENV
+                return packet_info
+        else:
+            if packet_info.origin_sec_env_header:
+                packet_info.decode_error = packet_info.ERR_UNEXPECTED_ORIGIN_SEC_ENV
+                return packet_info
+    if not packet_info.origin_sec_env_header:
         return True
+    if packet_info.origin_key_id == 0:
+        if active_key is None or 0 in accept_keys:
+            return True
+        else:
+            packet_info.decode_error = packet_info.ERR_ZERO_KEY_ID_NOT_ACCEPTED
+            return False
     use_key = find_key_id(packet_info.origin_key_id, active_key, accept_keys)
     if not use_key:
         packet_info.decode_error = packet_info.ERR_UNKNOWN_ORIGIN_KEY_ID

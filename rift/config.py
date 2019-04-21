@@ -64,7 +64,7 @@ SCHEMA = {
                             'active_key': {'type': 'integer', 'min': 1, 'max': 255},
                             'accept_keys': {
                                 'type': 'list',
-                                'schema': {'type': 'integer', 'min': 1, 'max': 255}
+                                'schema': {'type': 'integer', 'min': 0, 'max': 255}
                             },
                             'v4prefixes': {
                                 'type': 'list',
