@@ -26,6 +26,7 @@ class PacketInfo:
         # Decode error string (None if decode was successful)
         self.decode_error = None
         self.decode_error_details = None
+        self.authentication_error = False
         # Envelope header (magic and packet number)
         self.env_header = None
         self.packet_nr = None
@@ -311,11 +312,9 @@ def decode_origin_security_header(packet_info, message, offset):
         packet_info.decode_error = "Unsupported TIE origin key id"
         packet_info.decode_error_details = ("Only support <= 255, got {}".format(got_key_id))
         return -1
-    if origin_key_id == 0 and origin_fingerprint_len != 0:
-        packet_info.decode_error = "Origin key id is zero and origin fingerprint len is non-zero"
-        return -1
-    if origin_key_id != 0 and origin_fingerprint_len == 0:
-        packet_info.decode_error = "Origin key id is non-zero and origin fingerprint len is zero"
+    if ((origin_key_id == 0 and origin_fingerprint_len != 0) or
+            (origin_key_id != 0 and origin_fingerprint_len == 0)):
+        packet_info.decode_error = "Inconsistent origin key id and fingerprint len"
         return -1
     origin_fingerprint_len *= 4
     if offset + origin_fingerprint_len > message_len:
@@ -361,10 +360,14 @@ def check_origin_fingerprint(packet_info, active_key, accept_keys):
     if not use_key:
         packet_info.decode_error = "Unknown origin key id"
         packet_info.decode_error_details = "Origin key id is " + str(packet_info.origin_key_id)
+        packet_info.authentication_error = True
         return False
     expected = use_key.padded_digest([packet_info.encoded_protocol_packet])
-    good_fingerprint = packet_info.origin_fingerprint == expected
-    return good_fingerprint
+    if packet_info.origin_fingerprint != expected:
+        packet_info.decode_error = "Incorrect origin fingerprint"
+        packet_info.authentication_error = True
+        return False
+    return True
 
 def find_key_id(key_id, active_key, accept_keys):
     if active_key and active_key.key_id == key_id:

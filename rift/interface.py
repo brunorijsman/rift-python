@@ -891,6 +891,8 @@ class Interface:
         stg = self._traffic_stats_group
         self._tx_errors_counter = stats.MultiCounter(None, "Total TX Errors", pab)
         self._rx_errors_counter = stats.MultiCounter(None, "Total RX Errors", pab)
+        self._decode_errors_counter = stats.MultiCounter(None, "Total RX Decode Errors", pab)
+        self._auth_errors_counter = stats.MultiCounter(None, "Total RX Authentication Errors", pab)
         self._tx_packets_counter = stats.MultiCounter(None, "Total TX Packets", pab)
         self._rx_packets_counter = stats.MultiCounter(None, "Total RX Packets", pab)
         self._tx_ipv6_counter = stats.MultiCounter(None, "Total TX IPv6 Packets", pab)
@@ -1017,6 +1019,8 @@ class Interface:
         self._tx_packets_counter.add_to_group(stg)
         self._rx_errors_counter.add_to_group(stg)
         self._tx_errors_counter.add_to_group(stg)
+        self._decode_errors_counter.add_to_group(stg)
+        self._auth_errors_counter.add_to_group(stg)
         self.fsm = fsm.Fsm(
             definition=self.fsm_definition,
             action_handler=self,
@@ -1088,7 +1092,11 @@ class Interface:
             if packet_info.decode_error_details:
                 msg += " (" + packet_info.decode_error_details + ")"
             self.log_rx_protocol_packet(logging.ERROR, from_info, msg, packet_info)
-            ### TODO: Stats on this
+            if packet_info.authentication_error:
+                self._auth_errors_counter.add([1, nr_bytes])
+            else:
+                self._decode_errors_counter.add([1, nr_bytes])
+            ### TODO: Stats on detailed reason
             return None
         protocol_packet = packet_info.protocol_packet
         if self._rx_fail:
