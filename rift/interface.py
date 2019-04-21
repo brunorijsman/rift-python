@@ -289,13 +289,17 @@ class Interface:
 
     def send_packet_info(self, packet_info, flood):
         packet_info.update_env_header(self._next_send_packet_nr)
-        ### TODO: don't do this for every single send
-        ### TODO: plug in real values
+        # The current implementation increases the local nonce on every sent packet, because if
+        # an attacker is able to replay even a single packet, that is suffient for the attacher to
+        # prevent the adjacency from reaching state 3-way. For ease of debugging, we make the local
+        # nonce equal to the packet_nr.
         packet_info.update_outer_sec_env_header(
-            key_id=0,
-            nonce_local=111,
-            nonce_remote=222)
+            outer_key=self.node.active_key,
+            nonce_local=self._next_send_packet_nr,
+            nonce_remote=222)    ### TODO: reflect values
         self._next_send_packet_nr += 1
+        if self._next_send_packet_nr > 0xffff:
+            self._next_send_packet_nr = 1
         protocol_packet = packet_info.protocol_packet
         if flood:
             if self._flood_tx_ipv4_socket:
@@ -892,6 +896,7 @@ class Interface:
         self._tx_errors_counter = stats.MultiCounter(None, "Total TX Errors", pab)
         self._rx_errors_counter = stats.MultiCounter(None, "Total RX Errors", pab)
         self._decode_errors_counter = stats.MultiCounter(None, "Total RX Decode Errors", pab)
+        self._decode_error_to_counter = {}
         self._auth_errors_counter = stats.MultiCounter(None, "Total RX Authentication Errors", pab)
         self._tx_packets_counter = stats.MultiCounter(None, "Total TX Packets", pab)
         self._rx_packets_counter = stats.MultiCounter(None, "Total RX Packets", pab)
@@ -1019,7 +1024,15 @@ class Interface:
         self._tx_packets_counter.add_to_group(stg)
         self._rx_errors_counter.add_to_group(stg)
         self._tx_errors_counter.add_to_group(stg)
+        for decode_error in packet_common.PacketInfo.DECODE_ERRORS:
+            counter = stats.MultiCounter(stg, "RX " + decode_error, pab,
+                                         sum_counters=[self._decode_errors_counter])
+            self._decode_error_to_counter[decode_error] = counter
         self._decode_errors_counter.add_to_group(stg)
+        for auth_error in packet_common.PacketInfo.AUTHENTICATION_ERRORS:
+            counter = stats.MultiCounter(stg, "RX " + auth_error, pab,
+                                         sum_counters=[self._auth_errors_counter])
+            self._decode_error_to_counter[auth_error] = counter
         self._auth_errors_counter.add_to_group(stg)
         self.fsm = fsm.Fsm(
             definition=self.fsm_definition,
@@ -1092,11 +1105,9 @@ class Interface:
             if packet_info.decode_error_details:
                 msg += " (" + packet_info.decode_error_details + ")"
             self.log_rx_protocol_packet(logging.ERROR, from_info, msg, packet_info)
-            if packet_info.authentication_error:
-                self._auth_errors_counter.add([1, nr_bytes])
-            else:
-                self._decode_errors_counter.add([1, nr_bytes])
-            ### TODO: Stats on detailed reason
+            counter = self._decode_error_to_counter.get(packet_info.decode_error)
+            if counter:
+                counter.add([1, nr_bytes])
             return None
         protocol_packet = packet_info.protocol_packet
         if self._rx_fail:

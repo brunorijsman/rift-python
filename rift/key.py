@@ -19,7 +19,8 @@ class Key:
             assert False
         the_hmac = hmac.new(self.secret.encode(), digestmod=digestmod)
         for message_part in message_parts:
-            the_hmac.update(message_part)
+            if message_part is not None:
+                the_hmac.update(message_part)
         return the_hmac.digest()
 
     def padded_digest(self, message_parts):

@@ -150,7 +150,7 @@ def test_fix_lie_packet():
     )
     packet_info = packet_common.encode_protocol_packet(lie_protocol_packet, None)
     packet_info.update_env_header(0)
-    packet_info.update_outer_sec_env_header(0, 111, 222)
+    packet_info.update_outer_sec_env_header(None, 111, 222)
     message = b''.join(packet_info.message_parts())
     decoded_packet_info = packet_common.decode_message(None, message, None, None)
     assert not decoded_packet_info.decode_error
@@ -182,7 +182,7 @@ def test_fix_tide_packet():
     )
     packet_info = packet_common.encode_protocol_packet(tide_protocol_packet, None)
     packet_info.update_env_header(0)
-    packet_info.update_outer_sec_env_header(0, 111, 222)
+    packet_info.update_outer_sec_env_header(None, 111, 222)
     message = b''.join(packet_info.message_parts())
     decoded_packet_info = packet_common.decode_message(None, message, None, None)
     assert not decoded_packet_info.decode_error
@@ -212,7 +212,7 @@ def test_fix_tire_packet():
     )
     packet_info = packet_common.encode_protocol_packet(tire_protocol_packet, None)
     packet_info.update_env_header(0)
-    packet_info.update_outer_sec_env_header(0, 111, 222)
+    packet_info.update_outer_sec_env_header(None, 111, 222)
     message = b''.join(packet_info.message_parts())
     decoded_packet_info = packet_common.decode_message(None, message, None, None)
     assert not decoded_packet_info.decode_error
@@ -261,7 +261,7 @@ def test_fix_node_tie_packet():
     )
     packet_info = packet_common.encode_protocol_packet(tie_protocol_packet, None)
     packet_info.update_env_header(0)
-    packet_info.update_outer_sec_env_header(0, 111, 222)
+    packet_info.update_outer_sec_env_header(None, 111, 222)
     message = b''.join(packet_info.message_parts())
     decoded_packet_info = packet_common.decode_message(None, message, None, None)
     assert not decoded_packet_info.decode_error
@@ -295,7 +295,7 @@ def test_fix_prefixes_tie_packet():
     )
     packet_info = packet_common.encode_protocol_packet(tie_protocol_packet, None)
     packet_info.update_env_header(0)
-    packet_info.update_outer_sec_env_header(0, 111, 222)
+    packet_info.update_outer_sec_env_header(None, 111, 222)
     message = b''.join(packet_info.message_parts())
     decoded_packet_info = packet_common.decode_message(None, message, None, None)
     assert not decoded_packet_info.decode_error
@@ -329,7 +329,7 @@ def test_fix_positive_disaggregation_prefixes_tie_packet():
     )
     packet_info = packet_common.encode_protocol_packet(tie_protocol_packet, None)
     packet_info.update_env_header(0)
-    packet_info.update_outer_sec_env_header(0, 111, 222)
+    packet_info.update_outer_sec_env_header(None, 111, 222)
     message = b''.join(packet_info.message_parts())
     decoded_packet_info = packet_common.decode_message(None, message, None, None)
     assert not decoded_packet_info.decode_error
@@ -363,7 +363,7 @@ def test_fix_negative_disaggregation_prefixes_tie_packet():
     )
     packet_info = packet_common.encode_protocol_packet(tie_protocol_packet, None)
     packet_info.update_env_header(0)
-    packet_info.update_outer_sec_env_header(0, 111, 222)
+    packet_info.update_outer_sec_env_header(None, 111, 222)
     message = b''.join(packet_info.message_parts())
     decoded_packet_info = packet_common.decode_message(None, message, None, None)
     assert not decoded_packet_info.decode_error
@@ -397,7 +397,7 @@ def test_fix_external_prefixes_tie_packet():
     )
     packet_info = packet_common.encode_protocol_packet(tie_protocol_packet, None)
     packet_info.update_env_header(0)
-    packet_info.update_outer_sec_env_header(0, 111, 222)
+    packet_info.update_outer_sec_env_header(None, 111, 222)
     message = b''.join(packet_info.message_parts())
     decoded_packet_info = packet_common.decode_message(None, message, None, None)
     assert not decoded_packet_info.decode_error
@@ -436,7 +436,7 @@ def test_fix_key_value_tie_packet():
     )
     packet_info = packet_common.encode_protocol_packet(tie_protocol_packet, None)
     packet_info.update_env_header(0)
-    packet_info.update_outer_sec_env_header(0, 111, 222)
+    packet_info.update_outer_sec_env_header(None, 111, 222)
     message = b''.join(packet_info.message_parts())
     decoded_packet_info = packet_common.decode_message(None, message, None, None)
     assert not decoded_packet_info.decode_error
