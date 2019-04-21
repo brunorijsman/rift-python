@@ -94,7 +94,7 @@ shards:
             rx_tie_port: 10003
             rx_lie_port: 20003
             tx_lie_port: 999
-          - name: if1 # Connected to node-12:if2
+          - name: if2 # Connected to node-12:if2
             rx_tie_port: 10004
             rx_lie_port: 20004
             tx_lie_port: 999
@@ -105,11 +105,74 @@ shards:
         active_key: 1
         accept_keys: [1, 2]
         interfaces:
-          - name: if1 # Connected to node-11:if2
+          - name: if1 # Connected to node-1:if1
             rx_tie_port: 10005
             rx_lie_port: 20005
             tx_lie_port: 999
-          - name: if1 # Connected to node-12:if2
+          - name: if2 # Connected to node-2:if1
             rx_tie_port: 10006
             rx_lie_port: 20006
+            tx_lie_port: 999
+          - name: if3 # Connected to node-101:if1
+            rx_tie_port: 10007
+            rx_lie_port: 20007
+            tx_lie_port: 999
+          - name: if4 # Connected to node-102:if1
+            rx_tie_port: 10008
+            rx_lie_port: 20008
+            tx_lie_port: 999
+      - name: node-12
+        level: 1
+        systemid: 12
+        rx_lie_mcast_address: 224.0.1.12
+        active_key: 2
+        accept_keys: [3, 4]
+        interfaces:
+          - name: if1 # Connected to node-1:if2
+            rx_tie_port: 10009
+            rx_lie_port: 20009
+            tx_lie_port: 999
+          - name: if2 # Connected to node-2:if2
+            rx_tie_port: 10010
+            rx_lie_port: 20010
+            tx_lie_port: 999
+          - name: if3 # Connected to node-101:if2
+            rx_tie_port: 10011
+            rx_lie_port: 20011
+            tx_lie_port: 999
+          - name: if4 # Connected to node-102:if2
+            rx_tie_port: 10012
+            rx_lie_port: 20012
+            tx_lie_port: 999
+      - name: node-101
+        level: 0
+        systemid: 101
+        rx_lie_mcast_address: 224.0.1.101
+        active_key: 4
+        accept_key: [5, 2]
+        interfaces:
+          - name: if1 # Connected to node-11:if3
+            rx_tie_port: 10013
+            rx_lie_port: 20013
+            tx_lie_port: 999
+        interfaces:
+          - name: if2 # Connected to node-12:if3
+            rx_tie_port: 10014
+            rx_lie_port: 20014
+            tx_lie_port: 999
+      - name: node-102
+        level: 0
+        systemid: 101
+        rx_lie_mcast_address: 224.0.1.102
+        active_key: 3
+        accept_key: [1, 2]
+        interfaces:
+          - name: if1 # Connected to node-11:if4
+            rx_tie_port: 10015
+            rx_lie_port: 20015
+            tx_lie_port: 999
+        interfaces:
+          - name: if2 # Connected to node-12:if4
+            rx_tie_port: 10016
+            rx_lie_port: 20016
             tx_lie_port: 999

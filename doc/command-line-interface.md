@@ -1773,6 +1773,15 @@ agg_101> <b>show same-level-nodes</b>
 </pre>
 <!-- OUTPUT-END -->
 
+### show security
+
+The "<b>show security</b>" shows the configuration and statistics for security:
+
+ * The list of configured keys, the active key, and the accepted keys.
+
+<!-- OUTPUT-START: agg_101> show security -->
+<!-- OUTPUT-END -->
+
 ### show spf
 
 The "<b>show spf</b>" command shows the results of the most recent Shortest Path First (SPF) execution for the current node.

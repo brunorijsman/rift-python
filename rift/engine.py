@@ -80,7 +80,7 @@ class Engine:
         self.intf_traffic_stats_group = stats.Group()
         self.intf_lie_fsm_stats_group = stats.Group()
         self.node_ztp_fsm_stats_group = stats.Group()
-        self._keys = {}    # Indexed by key-id
+        self.keys = {}    # Indexed by key-id
         self._nodes = sortedcontainers.SortedDict()
         self.create_configuration(passive_nodes)
         cli_log = logging.getLogger('cli')
@@ -162,7 +162,7 @@ class Engine:
         key_id = key_config["id"]
         algorithm = key_config["algorithm"]
         secret = key_config["secret"]
-        self._keys[key_id] = key.Key(key_id, algorithm, secret)
+        self.keys[key_id] = key.Key(key_id, algorithm, secret)
 
     def create_shard(self, shard_config, passive_nodes):
         if 'nodes' in shard_config:
@@ -326,6 +326,9 @@ class Engine:
     def command_show_same_level_nodes(self, cli_session):
         cli_session.current_node.command_show_same_level_nodes(cli_session)
 
+    def command_show_security(self, cli_session):
+        cli_session.current_node.command_show_security(cli_session)
+
     def command_show_spf(self, cli_session):
         cli_session.current_node.command_show_spf(cli_session)
 
@@ -453,6 +456,7 @@ class Engine:
                 "$family": command_show_routes_family,
             },
             "same-level-nodes": command_show_same_level_nodes,
+            "security": command_show_security,
             "spf": {
                 "": command_show_spf,
                 "$direction" : {

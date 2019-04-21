@@ -442,8 +442,8 @@ class Node:
         self.floodred_node_random = self.generate_node_random(system_random, self.system_id)
         self.floodred_parents = []
         self.floodred_grandparents = {}
-        self._active_key_id = self.get_config_attribute('active_key', None)
-        self._accepts_key_ids = self.get_config_attribute('accept_keys', [])
+        self._active_key_id = self.get_config_attribute('active_key', 0)
+        self._accept_key_ids = self.get_config_attribute('accept_keys', [])
         self._derived_level = None
         self._rx_offers = {}     # Indexed by interface name
         self._tx_offers = {}     # Indexed by interface name
@@ -1375,6 +1375,11 @@ class Node:
         tab = self.same_level_nodes_table()
         cli_session.print(tab.to_string())
 
+    def command_show_security(self, cli_session):
+        cli_session.print("Security Keys:")
+        tab = self.keys_table()
+        cli_session.print(tab.to_string())
+
     def command_show_spf(self, cli_session):
         cli_session.print("SPF Statistics:")
         tab = self.spf_statistics_table()
@@ -2140,6 +2145,26 @@ class Node:
                     missing_adjacencies.append(intf.neighbor.system_id)
             missing_adjacencies = sorted(list(set(missing_adjacencies)))
             tab.add_row([node_sysid, north_adjacencies, south_adjacencies, missing_adjacencies])
+        return tab
+
+    def keys_table(self):
+        tab = table.Table()
+        tab.add_row(["Key ID", "Algorithm", "Secret", "Active", "Accept"])
+        for configured_key in self.engine.keys.values():
+            if configured_key.key_id == self._active_key_id:
+                active_str = 'Active'
+            else:
+                active_str = ''
+            if configured_key.key_id in self._accept_key_ids:
+                accept_str = 'Accept'
+            else:
+                accept_str = ''
+            tab.add_row([
+                configured_key.key_id,
+                configured_key.algorithm,
+                configured_key.secret,
+                active_str,
+                accept_str])
         return tab
 
     def spf_statistics_table(self):
