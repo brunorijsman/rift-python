@@ -2013,3 +2013,9 @@ class Interface:
         self.floodred_check_switchover_done()
         still_pending = (self.floodred_nbr_is_fr == self.NbrIsFRState.PENDING_FALSE)
         return still_pending
+
+    def auth_error_counters(self):
+        counters = []
+        for auth_error in packet_common.PacketInfo.AUTHENTICATION_ERRORS:
+            counters.append(self._error_to_counter[auth_error])
+        return counters

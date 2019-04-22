@@ -1,6 +1,14 @@
 import hmac
 
-ALGORITHMS = ["hmac-sha-1", "hmac-sha-256"]
+ALGORITHM_TO_DIGESTMOD = {
+    "hmac-sha-1": "sha1",
+    "hmac-sha-224": "sha224",
+    "hmac-sha-256": "sha256",
+    "hmac-sha-384": "sha384",
+    "hmac-sha-512": "sha512",
+}
+
+ALGORITHMS = list(ALGORITHM_TO_DIGESTMOD.keys())
 
 class Key:
 
@@ -11,12 +19,8 @@ class Key:
         self.secret = secret
 
     def digest(self, message_parts):
-        if self.algorithm == "hmac-sha-1":
-            digestmod = "sha1"
-        elif self.algorithm == "hmac-sha-256":
-            digestmod = "sha256"
-        else:
-            assert False
+        assert self.algorithm in ALGORITHMS
+        digestmod = ALGORITHM_TO_DIGESTMOD[self.algorithm]
         the_hmac = hmac.new(self.secret.encode(), digestmod=digestmod)
         for message_part in message_parts:
             if message_part is not None:

@@ -1385,6 +1385,9 @@ class Node:
         cli_session.print("Security Keys:")
         tab = self.keys_table()
         cli_session.print(tab.to_string())
+        cli_session.print("Authentication Errors:")
+        tab = self.auth_errors_table()
+        cli_session.print(tab.to_string())
 
     def command_show_spf(self, cli_session):
         cli_session.print("SPF Statistics:")
@@ -2171,6 +2174,27 @@ class Node:
                 configured_key.secret,
                 active_str,
                 accept_str])
+        return tab
+
+    def auth_errors_table(self):
+        tab = table.Table()
+        tab.add_row([
+            "Interface",
+            ["Authentication", "Errors"],
+            ["Error", "Count"],
+            ["Error", "Rate"],
+            ["Last Change"]
+        ])
+        for intf in self.interfaces_by_name.values():
+            for counter in intf.auth_error_counters():
+                if not counter.is_zero():
+                    tab.add_row([
+                        intf.name,
+                        counter.description(),
+                        counter.value_display_str(),
+                        counter.rate_display_str(),
+                        counter.last_change_display_str()
+                    ])
         return tab
 
     def spf_statistics_table(self):
