@@ -19,7 +19,11 @@ The code is currently still a work in progress (see Feature List below for the s
 
 * [Command Line Interface (CLI)](doc/command-line-interface.md)
 
-* [Positive Disaggregation](doc/positive-disaggregation.md)
+* Feature Guides:
+
+  * [Positive Disaggregation Feature Guide](doc/positive-disaggregation-feature-guide.md)
+
+  * [Security Feature Guide](doc/security-feature-guide.md) feature guide
 
 * [Logging](doc/logging.md)
 
