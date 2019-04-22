@@ -255,6 +255,27 @@ Authentication Errors:
 +-----------+--------------------------------+--------------------------+------------------------------------+-------------------+
 </pre>
 
+## Key roll-overs
+
+The following proceduce is suggested to perform a roll-over from key A to key B:
+
+* On each node, add key B to the list of keys, and add keys A and B to the accept keys. At this
+  point, each node is still using key A as the active key, but is prepared to accept either key A or
+  key B from other nodes.
+
+* On each node, change the active key from key A to key B. At this point, the nodes that are still
+  using key A as the active key are willing to accept key B from the nodes that have already been
+  switched over. And the nodes that have already switched over to key B are willing to accept key A
+  from the nodes that have not yet been switched over. Note that we need to worry also about nodes
+  that are more than one hop away (because of the TIE origin fingerprint), and not just about
+  neighbor nodes.
+
+* After all nodes have been switched over, the accept keys configuration can be removed.
+
+Note: currently RIFT-Python does not support run-time configuration changes. To change the
+configuration, you must edit the configuration file (also known as the topology file) and restart
+the RIFT-Python process.
+
 ## Nonces
 
 RIFT-Python generates increasing local nonces for all sent packets.
