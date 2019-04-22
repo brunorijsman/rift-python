@@ -101,3 +101,36 @@ file and in the output of show commands. Obfuscation of secrets is not yet suppo
 Configuring a set of keys in itself and by itself does not cause any fingerprints to be generated
 of checked. You must use the active-key element and optionally the accept-keys element (both
 documented below) to enable to actual generation and checking of fingerprints.
+
+## Configure the active key
+
+The "active key" for a node is the key that the node uses to generate *all* fingerprints:
+
+ * All outer fingerprints on all interfaces.
+
+ * All TIE origin fingerprints.
+
+For the sake of simplicity, RIFT-Python does currently not support using different outer keys on
+different interfaces, nor does it support using a different outer key and TIE origin key.
+
+As a consequence, RIFT-Python currently only supports the Fabric Association Model (FAM), and not
+the the Node Association Model (NAM) or Port Association Model (PAM).
+
+You can configure the active key at the node level in the configuration file (also known
+as the topology file) as follows:
+
+<pre>
+shards:
+  - id: 0
+    nodes:
+      - name: node-1
+        level: 2
+        systemid: 1
+        <b>active_key: 1</b>
+        interfaces:
+          - name: if1
+            [...]
+</pre>
+
+The active key must match one of the key IDs in the keys section (see 
+[the previous section](configure-keys)).
