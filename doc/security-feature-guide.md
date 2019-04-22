@@ -396,3 +396,43 @@ does not throttle flooding when misordered packets are observed.
 
 The [log visualization tool](doc/log-visualization.md) uses the packet-nrs to associate a sent
 message on one node with a received message on a neighbor node.
+
+## Show security
+
+The CLI command "show security" reports configured keys and detected authentication errors on all
+interfaces:
+
+<pre>
+node-1> show security
+Security Keys:
++--------+--------------+------------------------------+--------+--------+
+| Key ID | Algorithm    | Secret                       | Active | Accept |
++--------+--------------+------------------------------+--------+--------+
+| 1      | hmac-sha-1   | this-is-the-secret-for-key-1 | Active |        |
++--------+--------------+------------------------------+--------+--------+
+| 2      | hmac-sha-1   | this-is-the-secret-for-key-2 |        |        |
++--------+--------------+------------------------------+--------+--------+
+| 3      | hmac-sha-1   | this-is-the-secret-for-key-3 |        |        |
++--------+--------------+------------------------------+--------+--------+
+| 4      | hmac-sha-256 | this-is-the-secret-for-key-4 |        |        |
++--------+--------------+------------------------------+--------+--------+
+| 5      | hmac-sha-256 | this-is-the-secret-for-key-5 |        |        |
++--------+--------------+------------------------------+--------+--------+
+
+Authentication Errors:
++-----------+--------------------------------+------------------------+------------------------------------+-------------------+
+| Interface | Authentication                 | Error                  | Error                              | Last Change       |
+|           | Errors                         | Count                  | Rate                               |                   |
++-----------+--------------------------------+------------------------+------------------------------------+-------------------+
+| if1       | RX Reflected nonce out of sync | 10 Packets, 1640 Bytes | 2.30 Packets/Sec, 376.98 Bytes/Sec | 0d 00h:00m:00.92s |
++-----------+--------------------------------+------------------------+------------------------------------+-------------------+
+| if2       | RX Unknown outer key id        | 10 Packets, 1640 Bytes | 2.28 Packets/Sec, 374.26 Bytes/Sec | 0d 00h:00m:00.89s |
++-----------+--------------------------------+------------------------+------------------------------------+-------------------+
+</pre>
+
+Currently, they key secrets are shown in plain text in both the configuration and in the output
+of "show security". Obfuscation of key secrets is not yet supported.
+
+The authentication error statistics reported by "show security" are exactly the same as those
+that are reported by "show interface ... statistics". However, in the latter case they are easily
+overlooked because they are hidden in a sea of other statistics.
