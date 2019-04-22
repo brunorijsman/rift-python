@@ -27,5 +27,4 @@ class Key:
         dig = self.digest(message_parts)
         if len(dig) % 4 != 0:
             dig += b'\x00' * (4 - len(dig) % 4)
-        assert len(dig) % 4 == 0    ###!!!
         return dig

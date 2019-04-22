@@ -32,6 +32,7 @@ class PacketInfo:
     ERR_INCONSISTENT_ORIGIN_KEY_ID = "Inconsistent TIE origin key id and fingerprint"
     ERR_UNKNOWN_ORIGIN_KEY_ID = "Unknown TIE origin key id"
     ERR_INCORRECT_ORIGIN_FINGERPRINT = "Incorrect TIE origin fingerprint"
+    ERR_REFLECTED_NONCE_OUT_OF_SYNC = "Reflected nonce out of sync"
 
     DECODE_ERRORS = [
         ERR_MSG_TOO_SHORT,
@@ -51,7 +52,8 @@ class PacketInfo:
         ERR_UNSUPPORTED_ORIGIN_KEY_ID,
         ERR_INCONSISTENT_ORIGIN_KEY_ID,
         ERR_UNKNOWN_ORIGIN_KEY_ID,
-        ERR_INCORRECT_ORIGIN_FINGERPRINT]
+        ERR_INCORRECT_ORIGIN_FINGERPRINT,
+        ERR_REFLECTED_NONCE_OUT_OF_SYNC]
 
     def __init__(self):
         # Where was the message received from?
@@ -62,9 +64,9 @@ class PacketInfo:
         self.protocol_packet = None
         self.encoded_protocol_packet = None
         self.packet_type = None
-        # Decode error string (None if decode was successful)
-        self.decode_error = None
-        self.decode_error_details = None
+        # Error string (None if decode was successful)
+        self.error = None
+        self.error_details = None
         # Envelope header (magic and packet number)
         self.env_header = None
         self.packet_nr = None
@@ -304,13 +306,13 @@ def record_source_info(packet_info, rx_intf, from_info):
 
 def decode_envelope_header(packet_info, message):
     if len(message) < 4:
-        packet_info.decode_error = packet_info.ERR_MSG_TOO_SHORT
-        packet_info.decode_error_details = "Missing magic and packet number"
+        packet_info.error = packet_info.ERR_MSG_TOO_SHORT
+        packet_info.error_details = "Missing magic and packet number"
         return -1
     (magic, packet_nr) = struct.unpack("!HH", message[0:4])
     if magic != RIFT_MAGIC:
-        packet_info.decode_error = packet_info.ERR_WRONG_MAGIC
-        packet_info.decode_error_details = "Expected 0x{:x}, got 0x{:x}".format(RIFT_MAGIC, magic)
+        packet_info.error = packet_info.ERR_WRONG_MAGIC
+        packet_info.error_details = "Expected 0x{:x}, got 0x{:x}".format(RIFT_MAGIC, magic)
         return -1
     packet_info.env_header = message[0:4]
     packet_info.packet_nr = packet_nr
@@ -320,8 +322,8 @@ def decode_outer_security_header(packet_info, message, offset):
     start_header_offset = offset
     message_len = len(message)
     if offset + 4 > message_len:
-        packet_info.decode_error = packet_info.ERR_MSG_TOO_SHORT
-        packet_info.decode_error_details = \
+        packet_info.error = packet_info.ERR_MSG_TOO_SHORT
+        packet_info.error_details = \
             "Missing major version, outer key id and outer fingerprint length"
         return -1
     (_reserved, major_version, outer_key_id, outer_fingerprint_len) = \
@@ -329,20 +331,20 @@ def decode_outer_security_header(packet_info, message, offset):
     offset += 4
     expected_major_version = encoding.constants.protocol_major_version
     if major_version != expected_major_version:
-        packet_info.decode_error = packet_info.ERR_WRONG_MAJOR_VERSION
-        packet_info.decode_error_details = ("Expected {}, got {}"
-                                            .format(expected_major_version, major_version))
+        packet_info.error = packet_info.ERR_WRONG_MAJOR_VERSION
+        packet_info.error_details = ("Expected {}, got {}"
+                                     .format(expected_major_version, major_version))
         return -1
     outer_fingerprint_len *= 4
     if offset + outer_fingerprint_len > message_len:
-        packet_info.decode_error = packet_info.ERR_MSG_TOO_SHORT
-        packet_info.decode_error_details = "Missing outer fingerprint"
+        packet_info.error = packet_info.ERR_MSG_TOO_SHORT
+        packet_info.error_details = "Missing outer fingerprint"
         return -1
     outer_fingerprint = message[offset:offset+outer_fingerprint_len]
     offset += outer_fingerprint_len
     if offset + 8 > message_len:
-        packet_info.decode_error = packet_info.ERR_MSG_TOO_SHORT
-        packet_info.decode_error_details = \
+        packet_info.error = packet_info.ERR_MSG_TOO_SHORT
+        packet_info.error_details = \
             "Missing nonce local, nonce remote and remaining tie lifetime"
         return -1
     (nonce_local, nonce_remote, remaining_tie_lifetime) = \
@@ -361,8 +363,8 @@ def decode_origin_security_header(packet_info, message, offset):
     start_header_offset = offset
     message_len = len(message)
     if offset + 4 > message_len:
-        packet_info.decode_error = packet_info.ERR_MSG_TOO_SHORT
-        packet_info.decode_error_details = \
+        packet_info.error = packet_info.ERR_MSG_TOO_SHORT
+        packet_info.error_details = \
             "Missing TIE origin key id and TIE origin fingerprint length"
         return -1
     (should_be_zero_1, should_be_zero_2, origin_key_id, origin_fingerprint_len) = \
@@ -370,17 +372,17 @@ def decode_origin_security_header(packet_info, message, offset):
     offset += 4
     if should_be_zero_1 != 0 or should_be_zero_2 != 0:
         got_key_id = should_be_zero_1 << 16 + should_be_zero_2 << 8 + origin_key_id
-        packet_info.decode_error = packet_info.ERR_UNSUPPORTED_ORIGIN_KEY_ID
-        packet_info.decode_error_details = ("Only support <= 255, got {}".format(got_key_id))
+        packet_info.error = packet_info.ERR_UNSUPPORTED_ORIGIN_KEY_ID
+        packet_info.error_details = ("Only support <= 255, got {}".format(got_key_id))
         return -1
     if ((origin_key_id == 0 and origin_fingerprint_len != 0) or
             (origin_key_id != 0 and origin_fingerprint_len == 0)):
-        packet_info.decode_error = packet_info.ERR_INCONSISTENT_ORIGIN_KEY_ID
+        packet_info.error = packet_info.ERR_INCONSISTENT_ORIGIN_KEY_ID
         return -1
     origin_fingerprint_len *= 4
     if offset + origin_fingerprint_len > message_len:
-        packet_info.decode_error = packet_info.ERR_MSG_TOO_SHORT
-        packet_info.decode_error_details = "Missing TIE origin fingerprint"
+        packet_info.error = packet_info.ERR_MSG_TOO_SHORT
+        packet_info.error_details = "Missing TIE origin fingerprint"
         return -1
     origin_fingerprint = message[offset:offset+origin_fingerprint_len]
     offset += origin_fingerprint_len
@@ -400,14 +402,14 @@ def decode_protocol_packet(packet_info, message, offset):
     # We don't know what exception Thrift might throw
     # pylint: disable=broad-except
     except Exception as err:
-        packet_info.decode_error = packet_info.ERR_TRIFT_DECODE
-        packet_info.decode_error_details = str(err)
+        packet_info.error = packet_info.ERR_TRIFT_DECODE
+        packet_info.error_details = str(err)
         return -1
     try:
         protocol_packet.validate()
     except thrift.protocol.TProtocol.TProtocolException as err:
-        packet_info.decode_error = packet_info.THRIFT_VALIDATE
-        packet_info.decode_error_details = str(err)
+        packet_info.error = packet_info.THRIFT_VALIDATE
+        packet_info.error_details = str(err)
         return -1
     fix_prot_packet_after_decode(protocol_packet)
     packet_info.encoded_protocol_packet = encoded_protocol_packet
@@ -424,24 +426,24 @@ def decode_protocol_packet(packet_info, message, offset):
 
 def check_outer_fingerprint(packet_info, active_key, accept_keys):
     if not packet_info.outer_sec_env_header:
-        packet_info.decode_error = packet_info.ERR_MISSING_OUTER_SEC_ENV
+        packet_info.error = packet_info.ERR_MISSING_OUTER_SEC_ENV
         return packet_info
     if packet_info.outer_key_id == 0:
         if active_key is None or 0 in accept_keys:
             return True
         else:
-            packet_info.decode_error = packet_info.ERR_ZERO_OUTER_KEY_ID_NOT_ACCEPTED
+            packet_info.error = packet_info.ERR_ZERO_OUTER_KEY_ID_NOT_ACCEPTED
             return False
     use_key = find_key_id(packet_info.outer_key_id, active_key, accept_keys)
     if not use_key:
-        packet_info.decode_error = packet_info.ERR_UNKNOWN_OUTER_KEY_ID
-        packet_info.decode_error_details = "Outer key id is " + str(packet_info.outer_key_id)
+        packet_info.error = packet_info.ERR_UNKNOWN_OUTER_KEY_ID
+        packet_info.error_details = "Outer key id is " + str(packet_info.outer_key_id)
         return False
     post = packet_info.outer_sec_env_header[-8:]
     expected = use_key.padded_digest([post, packet_info.origin_sec_env_header,
                                       packet_info.encoded_protocol_packet])
     if packet_info.outer_fingerprint != expected:
-        packet_info.decode_error = packet_info.ERR_INCORRECT_OUTER_FINGERPRINT
+        packet_info.error = packet_info.ERR_INCORRECT_OUTER_FINGERPRINT
         return False
     return True
 
@@ -449,11 +451,11 @@ def check_origin_fingerprint(packet_info, active_key, accept_keys):
     if packet_info.protocol_packet:
         if packet_info.protocol_packet.content.tie:
             if not packet_info.origin_sec_env_header:
-                packet_info.decode_error = packet_info.ERR_MISSING_ORIGIN_SEC_ENV
+                packet_info.error = packet_info.ERR_MISSING_ORIGIN_SEC_ENV
                 return packet_info
         else:
             if packet_info.origin_sec_env_header:
-                packet_info.decode_error = packet_info.ERR_UNEXPECTED_ORIGIN_SEC_ENV
+                packet_info.error = packet_info.ERR_UNEXPECTED_ORIGIN_SEC_ENV
                 return packet_info
     if not packet_info.origin_sec_env_header:
         return True
@@ -461,16 +463,16 @@ def check_origin_fingerprint(packet_info, active_key, accept_keys):
         if active_key is None or 0 in accept_keys:
             return True
         else:
-            packet_info.decode_error = packet_info.ERR_ZERO_ORIGIN_KEY_ID_NOT_ACCEPTED
+            packet_info.error = packet_info.ERR_ZERO_ORIGIN_KEY_ID_NOT_ACCEPTED
             return False
     use_key = find_key_id(packet_info.origin_key_id, active_key, accept_keys)
     if not use_key:
-        packet_info.decode_error = packet_info.ERR_UNKNOWN_ORIGIN_KEY_ID
-        packet_info.decode_error_details = "TIE origin key id is " + str(packet_info.origin_key_id)
+        packet_info.error = packet_info.ERR_UNKNOWN_ORIGIN_KEY_ID
+        packet_info.error_details = "TIE origin key id is " + str(packet_info.origin_key_id)
         return False
     expected = use_key.padded_digest([packet_info.encoded_protocol_packet])
     if packet_info.origin_fingerprint != expected:
-        packet_info.decode_error = packet_info.ERR_INCORRECT_ORIGIN_FINGERPRINT
+        packet_info.error = packet_info.ERR_INCORRECT_ORIGIN_FINGERPRINT
         return False
     return True
 

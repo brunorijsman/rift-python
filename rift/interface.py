@@ -349,8 +349,9 @@ class Interface:
         self._next_tx_nonce_local += 1
         if self._next_tx_nonce_local > 0xffff:
             self._next_tx_nonce_local = 1
+            self._tx_nonce_local_wrapped = True
+        self._last_tx_nonce_local = nonce_local
         return nonce_local
-
 
     @staticmethod
     def bump_family_counter(sock, ipv4_counter, ipv6_counter, nr_bytes):
@@ -893,6 +894,8 @@ class Interface:
                 self._next_tx_packet_nr[index] = 1
         self._last_rx_packet_nr = {}    # Indexed by (address-family, packet-type)
         self._next_tx_nonce_local = 1
+        self._last_tx_nonce_local = None
+        self._tx_nonce_local_wrapped = False
         self._last_rx_lie_nonce_local = 0
         self._time_ticks_since_lie_received = None
         self._lie_accept_or_reject = "No LIE Received"
@@ -922,8 +925,8 @@ class Interface:
         stg = self._traffic_stats_group
         self._tx_errors_counter = stats.MultiCounter(None, "Total TX Errors", pab)
         self._rx_errors_counter = stats.MultiCounter(None, "Total RX Errors", pab)
-        self._decode_errors_counter = stats.MultiCounter(None, "Total RX Decode Errors", pab)
-        self._decode_error_to_counter = {}
+        self._errors_counter = stats.MultiCounter(None, "Total RX Decode Errors", pab)
+        self._error_to_counter = {}
         self._auth_errors_counter = stats.MultiCounter(None, "Total RX Authentication Errors", pab)
         self._tx_packets_counter = stats.MultiCounter(None, "Total TX Packets", pab)
         self._rx_packets_counter = stats.MultiCounter(None, "Total RX Packets", pab)
@@ -1054,14 +1057,14 @@ class Interface:
         # Counters for rx message decoding errors
         for decode_error in packet_common.PacketInfo.DECODE_ERRORS:
             counter = stats.MultiCounter(stg, "RX " + decode_error, pab,
-                                         sum_counters=[self._decode_errors_counter])
-            self._decode_error_to_counter[decode_error] = counter
-        self._decode_errors_counter.add_to_group(stg)
+                                         sum_counters=[self._errors_counter])
+            self._error_to_counter[decode_error] = counter
+        self._errors_counter.add_to_group(stg)
         # Counters for rx message authentication errors
         for auth_error in packet_common.PacketInfo.AUTHENTICATION_ERRORS:
             counter = stats.MultiCounter(stg, "RX " + auth_error, pab,
                                          sum_counters=[self._auth_errors_counter])
-            self._decode_error_to_counter[auth_error] = counter
+            self._error_to_counter[auth_error] = counter
         self._auth_errors_counter.add_to_group(stg)
         # Counters for received packets with wrong packet-nr
         self._total_misorders_counter = stats.Counter(None, "Total RX Misorders", "Packet")
@@ -1151,14 +1154,8 @@ class Interface:
             message=message,
             active_key=self.node.active_key,
             accept_keys=self.node.accept_keys)
-        if packet_info.decode_error:
-            msg = packet_info.decode_error
-            if packet_info.decode_error_details:
-                msg += " (" + packet_info.decode_error_details + ")"
-            self.log_rx_protocol_packet(logging.ERROR, msg, packet_info)
-            counter = self._decode_error_to_counter.get(packet_info.decode_error)
-            if counter:
-                counter.add([1, nr_bytes])
+        if packet_info.error:
+            self.log_and_count_error(packet_info, nr_bytes)
             return None
         protocol_packet = packet_info.protocol_packet
         if self._rx_fail:
@@ -1167,6 +1164,14 @@ class Interface:
             return None
         if protocol_packet.header.sender == self.node.system_id:
             self.log_rx_protocol_packet(logging.DEBUG, "Ignore looped receive", packet_info)
+            return None
+        # Note: we must update the last RX nonce local, even if we reject the packet because the
+        # reflected nonce is too far out of sync. If not, we will never get back into sync after
+        # a temporary loss of connectivy in which the nonces drift out of sync.
+        self.update_last_rx_lie_nonce_local(packet_info)
+        self.check_reflected_nonce(packet_info)
+        if packet_info.error:
+            self.log_and_count_error(packet_info, nr_bytes)
             return None
         if not protocol_packet.content:
             self.log_rx_protocol_packet(logging.WARNING, "Received contentless", packet_info)
@@ -1179,6 +1184,46 @@ class Interface:
             return None
         self.check_rx_packet_nr(packet_info)
         return packet_info
+
+    def log_and_count_error(self, packet_info, nr_bytes):
+        msg = packet_info.error
+        if packet_info.error_details:
+            msg += " (" + packet_info.error_details + ")"
+        self.log_rx_protocol_packet(logging.ERROR, msg, packet_info)
+        counter = self._error_to_counter.get(packet_info.error)
+        if counter:
+            counter.add([1, nr_bytes])
+
+    def update_last_rx_lie_nonce_local(self, packet_info):
+        if packet_info.protocol_packet and packet_info.protocol_packet.content.lie:
+            self._last_rx_lie_nonce_local = packet_info.nonce_local
+
+    def check_reflected_nonce(self, packet_info):
+        max_delta = common.constants.maximum_valid_nonce_delta
+        sent_nonce = self._last_tx_nonce_local
+        reflected_nonce = packet_info.nonce_remote
+        if reflected_nonce == 0:
+            # Neighbor did not reflect anything yet. This is only allowed in the beginning (first
+            # maximum_valid_nonce_delta sent nonces)
+            if self._tx_nonce_local_wrapped:
+                accepted = False
+            else:
+                accepted = sent_nonce <= max_delta
+        elif reflected_nonce <= sent_nonce:
+            delta = sent_nonce - reflected_nonce
+            accepted = delta <= max_delta
+        else:
+            # Reflected nonce is greater than sent nonce. Could still be okay in case of wrap-around
+            if self._tx_nonce_local_wrapped:
+                unwrapped_sent_nonce = sent_nonce + 0xffff
+                delta = unwrapped_sent_nonce - reflected_nonce
+                accepted = 0 <= delta <= max_delta
+            else:
+                accepted = False
+        if not accepted:
+            packet_info.error = packet_common.PacketInfo.ERR_REFLECTED_NONCE_OUT_OF_SYNC
+            packet_info.error_details = "Last sent nonce is {}, reflected nonce is {}".format(
+                sent_nonce, reflected_nonce)
 
     def check_rx_packet_nr(self, packet_info):
         if packet_info.packet_nr == 0:
@@ -1200,7 +1245,6 @@ class Interface:
         protocol_packet = packet_info.protocol_packet
         if protocol_packet.content.lie:
             ### TODO: Verify inner nonce is outer nonce
-            self._last_rx_lie_nonce_local = packet_info.nonce_local
             event_data = (protocol_packet, from_info)
             self.fsm.push_event(self.Event.LIE_RECEIVED, event_data)
         else:
