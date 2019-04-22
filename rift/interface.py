@@ -300,8 +300,8 @@ class Interface:
         # nonce equal to the packet_nr.
         packet_info.update_outer_sec_env_header(
             outer_key=self.node.active_key,
-            nonce_local=self.choose_tx_local_nonce(),
-            nonce_remote=222)    ### TODO: reflect values
+            nonce_local=self.choose_tx_nonce_local(),
+            nonce_remote=self._last_rx_lie_nonce_local)
         protocol_packet = packet_info.protocol_packet
         if flood:
             if self._flood_tx_ipv4_socket:
@@ -353,12 +353,12 @@ class Interface:
             self._next_tx_packet_nr[packet_type] = 1
         return packet_nr
 
-    def choose_tx_local_nonce(self):
-        local_nonce = self._next_tx_local_nonce
-        self._next_tx_local_nonce += 1
-        if self._next_tx_local_nonce > 0xffff:
-            self._next_tx_local_nonce = 1
-        return local_nonce
+    def choose_tx_nonce_local(self):
+        nonce_local = self._next_tx_nonce_local
+        self._next_tx_nonce_local += 1
+        if self._next_tx_nonce_local > 0xffff:
+            self._next_tx_nonce_local = 1
+        return nonce_local
 
 
     @staticmethod
@@ -900,7 +900,8 @@ class Interface:
         self._next_tx_packet_nr[self.PACKET_TYPE_TIE] = 1
         self._next_tx_packet_nr[self.PACKET_TYPE_TIDE] = 1
         self._next_tx_packet_nr[self.PACKET_TYPE_TIRE] = 1
-        self._next_tx_local_nonce = 1
+        self._next_tx_nonce_local = 1
+        self._last_rx_lie_nonce_local = 0
         self._time_ticks_since_lie_received = None
         self._lie_accept_or_reject = "No LIE Received"
         self._lie_accept_or_reject_rule = "-"
@@ -1168,10 +1169,11 @@ class Interface:
     def receive_lie_message(self, message, from_info, sock):
         packet_info = self.receive_message_common(message, from_info, sock)
         if packet_info is None:
-            # TODO: Bump decode errors counter
             return
         protocol_packet = packet_info.protocol_packet
         if protocol_packet.content.lie:
+            ### TODO: Verify inner nonce is outer nonce
+            self._last_rx_lie_nonce_local = packet_info.nonce_local
             event_data = (protocol_packet, from_info)
             self.fsm.push_event(self.Event.LIE_RECEIVED, event_data)
         else:
