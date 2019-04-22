@@ -66,3 +66,38 @@ RIFT-Python supports the following security features:
 
  * CLI command "show security" reports configured keys and detected authentication errors on all
    interfaces.
+
+## Configure keys
+
+You can configure the set of security keys at the top-level in the configuration file (also known
+as the topology file) as follows:
+
+<pre>
+keys:
+  - id: 1
+    algorithm: hmac-sha-1
+    secret: this-is-the-secret-for-key-1
+  - id: 2
+    algorithm: hmac-sha-256
+    secret: this-is-the-secret-for-key-2
+  - id: 3
+    algorithm: hmac-sha-512
+    secret: this-is-the-secret-for-key-3
+</pre>
+
+Each key is defined by:
+
+ * A unique key ID. This is a number between 1 and 255.
+
+ * The key algorithm. This is the algorithm used to calculate the fingerprint. The currently
+   supported algorithms are: hmac-sha-1, hmac-sha-224, hmac-sha-256, hmac-sha-384, hmac-sha-512.
+   These algorithms are defined in [RFC2104](https://tools.ietf.org/html/rfc2104).
+
+ * The key secret. This is a string.
+
+Note: in the current implementation the key secret is shown in plain text in both the configuration
+file and in the output of show commands. Obfuscation of secrets is not yet supported.
+
+Configuring a set of keys in itself and by itself does not cause any fingerprints to be generated
+of checked. You must use the active-key element and optionally the accept-keys element (both
+documented below) to enable to actual generation and checking of fingerprints.
