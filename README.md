@@ -23,7 +23,7 @@ The code is currently still a work in progress (see Feature List below for the s
 
   * [Positive Disaggregation Feature Guide](doc/positive-disaggregation-feature-guide.md)
 
-  * [Security Feature Guide](doc/security-feature-guide.md) feature guide
+  * [Security Feature Guide](doc/security-feature-guide.md)
 
 * [Logging](doc/logging.md)
 
