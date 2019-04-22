@@ -168,3 +168,80 @@ Each accept key must match one of the key IDs in the keys section (see
 the ["configure keys"](configure-keys) section.)
 
 See section TODO for more details on how to do key roll-overs.
+
+## Packet numbers
+
+RIFT-Python generates packet numbers (packet-nrs) for each sent packet.
+
+The packet-nr is unique within the scope of the packet-type and the address family of the UDP
+packet. For example:
+
+ * All the IPv4 TIE packets that a give node sends, have increasing packet-nrs: 1, 2, 3, 4, ...
+
+ * The IPv4 TIE packets and the IPv4 TIDE packets sent by a given node each have their own
+   independent sequence of increasing packet-nrs.
+
+ * The IPv4 TIE packets and the IPv6 TIE packets sent by a given node each have their own
+   independent sequence of increasing packet-nrs.
+
+The reason for this is to avoid false positives of reordering for packets that are sent on different
+sockets or by different threads.
+
+If debug logging is turned on (command line option "--log-level debug"), the packet-nrs are reported
+in the logs for sent and received messages, for example:
+
+<pre>
+2019-04-22 19:22:55,179:DEBUG:node.if.tx:[node-1:if1] Send IPv4 TIE from 192.168.0.100:49307 to 192.168.0.100:10005 <b>packet-nr=2</b> outer-key-id=1 nonce-local=7 nonce-remote=5 remaining-lie-lifetime=604799 outer-fingerprint-len=5 origin-key-id=1 origin-fingerprint-len=5 protocol-packet=ProtocolPacket(...
+</pre>
+
+RIFT-Python uses the packet-nr to detect packet misordering: if the packet-nr of a received packet
+is not equal to the packet-nr plus one of the previously received packet (of the same packet-type 
+and the same address-family), then the packet is declared to be misordered. 
+
+Note that we use the generic term misordering, but in reality it could indicate re-ordered,
+dropped or dupplicated packets.
+
+Misordered packets are reported in the output of "show ... statistics" for example:
+
+<pre>
+node-1> <b>show interface if1 statistics</b>
+Traffic:
++---------------------------------------------------+------------------------+------------------------------------+-------------------+
+| Description                                       | Value                  | Last Rate                          | Last Change       |
+|                                                   |                        | Over Last 10 Changes               |                   |
++---------------------------------------------------+------------------------+------------------------------------+-------------------+
+.                                                   .                        .                                    .                   .
+.                                                   .                        .                                    .                   .
+.                                                   .                        .                                    .                   .
++---------------------------------------------------+------------------------+------------------------------------+-------------------+
+| RX IPv4 LIE Misorders                             | 6 Packets              | 1.03 Packets/Sec                   | 0d 00h:00m:00.56s |
++---------------------------------------------------+------------------------+------------------------------------+-------------------+
+| RX IPv6 LIE Misorders                             | 6 Packets              | 1.03 Packets/Sec                   | 0d 00h:00m:00.56s |
++---------------------------------------------------+------------------------+------------------------------------+-------------------+
+| RX IPv4 TIE Misorders                             | 0 Packets              |                                    |                   |
++---------------------------------------------------+------------------------+------------------------------------+-------------------+
+| RX IPv6 TIE Misorders                             | 0 Packets              |                                    |                   |
++---------------------------------------------------+------------------------+------------------------------------+-------------------+
+| RX IPv4 TIDE Misorders                            | 1 Packet               |                                    | 0d 00h:00m:01.54s |
++---------------------------------------------------+------------------------+------------------------------------+-------------------+
+| RX IPv6 TIDE Misorders                            | 0 Packets              |                                    |                   |
++---------------------------------------------------+------------------------+------------------------------------+-------------------+
+| RX IPv4 TIRE Misorders                            | 2 Packets              | 1.00 Packets/Sec                   | 0d 00h:00m:02.45s |
++---------------------------------------------------+------------------------+------------------------------------+-------------------+
+| RX IPv6 TIRE Misorders                            | 0 Packets              |                                    |                   |
++---------------------------------------------------+------------------------+------------------------------------+-------------------+
+| Total RX IPv4 Misorders                           | 9 Packets              | 1.65 Packets/Sec                   | 0d 00h:00m:00.56s |
++---------------------------------------------------+------------------------+------------------------------------+-------------------+
+| Total RX IPv6 Misorders                           | 6 Packets              | 1.03 Packets/Sec                   | 0d 00h:00m:00.56s |
++---------------------------------------------------+------------------------+------------------------------------+-------------------+
+| Total RX Misorders                                | 15 Packets             | 3.00 Packets/Sec                   | 0d 00h:00m:00.56s |
++---------------------------------------------------+------------------------+------------------------------------+-------------------+
+</pre>
+
+No log message is generate when a misordered packet is detected.
+
+RIFT-Python currently does not take any action when it observed misordered packets. For example, it
+does not throttle flooding when misordered packets are observed.
+
+The [log visualization tool](doc/log-visualization.md) uses the packet-nrs to associate a sent
+message on one node with a received message on a neighbor node.
