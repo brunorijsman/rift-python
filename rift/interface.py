@@ -35,6 +35,11 @@ class Interface:
 
     SERVICE_QUEUES_INTERVAL = 1.0
 
+    PACKET_TYPE_LIE = 1
+    PACKET_TYPE_TIE = 2
+    PACKET_TYPE_TIDE = 3
+    PACKET_TYPE_TIRE = 4
+
     def generate_advertised_name(self):
         return self.node.name + ':' + self.name
 
@@ -288,18 +293,15 @@ class Interface:
         self.send_packet_info(packet_info, flood)
 
     def send_packet_info(self, packet_info, flood):
-        packet_info.update_env_header(self._next_send_packet_nr)
+        packet_info.update_env_header(self.choose_tx_packet_nr(packet_info))
         # The current implementation increases the local nonce on every sent packet, because if
         # an attacker is able to replay even a single packet, that is suffient for the attacher to
         # prevent the adjacency from reaching state 3-way. For ease of debugging, we make the local
         # nonce equal to the packet_nr.
         packet_info.update_outer_sec_env_header(
             outer_key=self.node.active_key,
-            nonce_local=self._next_send_packet_nr,
+            nonce_local=self.choose_tx_local_nonce(),
             nonce_remote=222)    ### TODO: reflect values
-        self._next_send_packet_nr += 1
-        if self._next_send_packet_nr > 0xffff:
-            self._next_send_packet_nr = 1
         protocol_packet = packet_info.protocol_packet
         if flood:
             if self._flood_tx_ipv4_socket:
@@ -331,6 +333,33 @@ class Interface:
                         prelude = "Error {} sending".format(str(error))
                         self.log_tx_protocol_packet(logging.ERROR, sock, prelude, packet_info)
                         self.bump_tx_real_errors_counter(sock, nr_bytes)
+
+    def choose_tx_packet_nr(self, packet_info):
+        if not packet_info.protocol_packet:
+            return 0
+        if packet_info.protocol_packet.content.lie:
+            packet_type = self.PACKET_TYPE_LIE
+        elif packet_info.protocol_packet.content.tie:
+            packet_type = self.PACKET_TYPE_TIE
+        elif packet_info.protocol_packet.content.tide:
+            packet_type = self.PACKET_TYPE_TIDE
+        elif packet_info.protocol_packet.content.tire:
+            packet_type = self.PACKET_TYPE_TIRE
+        else:
+            return 0
+        packet_nr = self._next_tx_packet_nr[packet_type]
+        self._next_tx_packet_nr[packet_type] += 1
+        if self._next_tx_packet_nr[packet_type] > 0xffff:
+            self._next_tx_packet_nr[packet_type] = 1
+        return packet_nr
+
+    def choose_tx_local_nonce(self):
+        local_nonce = self._next_tx_local_nonce
+        self._next_tx_local_nonce += 1
+        if self._next_tx_local_nonce > 0xffff:
+            self._next_tx_local_nonce = 1
+        return local_nonce
+
 
     @staticmethod
     def bump_family_counter(sock, ipv4_counter, ipv6_counter, nr_bytes):
@@ -866,7 +895,12 @@ class Interface:
         self._mtu = self.get_mtu()
         self._pod = self.UNDEFINED_OR_ANY_POD
         self.neighbor = None
-        self._next_send_packet_nr = 1
+        self._next_tx_packet_nr = {}
+        self._next_tx_packet_nr[self.PACKET_TYPE_LIE] = 1
+        self._next_tx_packet_nr[self.PACKET_TYPE_TIE] = 1
+        self._next_tx_packet_nr[self.PACKET_TYPE_TIDE] = 1
+        self._next_tx_packet_nr[self.PACKET_TYPE_TIRE] = 1
+        self._next_tx_local_nonce = 1
         self._time_ticks_since_lie_received = None
         self._lie_accept_or_reject = "No LIE Received"
         self._lie_accept_or_reject_rule = "-"
