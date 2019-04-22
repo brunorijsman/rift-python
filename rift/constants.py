@@ -48,6 +48,7 @@ def direction_str(direction):
 
 ADDRESS_FAMILY_IPV4 = 1
 ADDRESS_FAMILY_IPV6 = 2
+ADDRESS_FAMILIES = [ADDRESS_FAMILY_IPV4, ADDRESS_FAMILY_IPV6]
 
 def address_family_str(address_family):
     if address_family == ADDRESS_FAMILY_IPV4:
@@ -55,6 +56,23 @@ def address_family_str(address_family):
     else:
         assert address_family == ADDRESS_FAMILY_IPV6
         return "IPv6"
+
+PACKET_TYPE_LIE = 1
+PACKET_TYPE_TIE = 2
+PACKET_TYPE_TIDE = 3
+PACKET_TYPE_TIRE = 4
+PACKET_TYPES = [PACKET_TYPE_LIE, PACKET_TYPE_TIE, PACKET_TYPE_TIDE, PACKET_TYPE_TIRE]
+
+def packet_type_str(packet_type):
+    if packet_type == PACKET_TYPE_LIE:
+        return "LIE"
+    elif packet_type == PACKET_TYPE_TIE:
+        return "TIE"
+    elif packet_type == PACKET_TYPE_TIDE:
+        return "TIDE"
+    else:
+        assert packet_type == PACKET_TYPE_TIRE
+        return "TIRE"
 
 OWNER_S_SPF = 2
 OWNER_N_SPF = 1

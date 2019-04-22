@@ -35,11 +35,6 @@ class Interface:
 
     SERVICE_QUEUES_INTERVAL = 1.0
 
-    PACKET_TYPE_LIE = 1
-    PACKET_TYPE_TIE = 2
-    PACKET_TYPE_TIDE = 3
-    PACKET_TYPE_TIRE = 4
-
     def generate_advertised_name(self):
         return self.node.name + ':' + self.name
 
@@ -253,23 +248,17 @@ class Interface:
         self._tx_log.log(level, "[%s] %s %s %s %s %s %s" %
                          (self._log_id, prelude, fam_str, type_str, from_str, to_str, packet_str))
 
-    ### TODO: Make this look prettier for errors and ok
-    def log_rx_protocol_packet(self, level, from_info, prelude, packet_info):
-        if not self._rx_log.isEnabledFor(level):
+    def log_rx_protocol_packet(self, log_level, prelude, packet_info):
+        if not self._rx_log.isEnabledFor(log_level):
             return
-        if len(from_info) == 2:
-            fam_str = "IPv4"
-            from_str = "from {}:{}".format(from_info[0], from_info[1])
-        else:
-            assert len(from_info) == 4
-            fam_str = "IPv6"
-            from_str = "from [{}]:{}".format(from_info[0], from_info[1])
-        if packet_info.protocol_packet:
-            type_str = self.protocol_packet_type(packet_info.protocol_packet) + " "
-        else:
+        fam_str = constants.address_family_str(packet_info.address_family)
+        from_str = packet_info.from_addr_port_str
+        if packet_info.packet_type is None:
             type_str = ""
+        else:
+            type_str = constants.packet_type_str(packet_info.packet_type)
         packet_str = str(packet_info)
-        self._rx_log.log(level, "[%s] %s %s %s%s %s" %
+        self._rx_log.log(log_level, "[%s] %s %s %s%s %s" %
                          (self._log_id, prelude, fam_str, type_str, from_str, packet_str))
 
     @staticmethod
@@ -293,7 +282,6 @@ class Interface:
         self.send_packet_info(packet_info, flood)
 
     def send_packet_info(self, packet_info, flood):
-        packet_info.update_env_header(self.choose_tx_packet_nr(packet_info))
         # The current implementation increases the local nonce on every sent packet, because if
         # an attacker is able to replay even a single packet, that is suffient for the attacher to
         # prevent the adjacency from reaching state 3-way. For ease of debugging, we make the local
@@ -313,12 +301,22 @@ class Interface:
                                 "nor IPv6 TX flood socket")
                 return
         else:
-            socks = [self._lie_tx_ipv4_socket, self._lie_tx_ipv6_socket]
-        message_parts = packet_info.message_parts()
-        nr_bytes = 0
-        for part in message_parts:
-            nr_bytes += len(part)
+            socks = []
+            if self._lie_tx_ipv4_socket:
+                socks.append(self._lie_tx_ipv4_socket)
+            if self._lie_tx_ipv6_socket:
+                socks.append(self._lie_tx_ipv6_socket)
         for sock in socks:
+            if sock.family == socket.AF_INET:
+                address_family = constants.ADDRESS_FAMILY_IPV4
+            else:
+                address_family = constants.ADDRESS_FAMILY_IPV6
+            packet_nr = self.choose_tx_packet_nr(address_family, packet_info)
+            packet_info.update_env_header(packet_nr)
+            message_parts = packet_info.message_parts()
+            nr_bytes = 0
+            for part in message_parts:
+                nr_bytes += len(part)
             if sock is not None:
                 if self._tx_fail:
                     self.log_tx_protocol_packet(logging.DEBUG, sock,
@@ -334,23 +332,16 @@ class Interface:
                         self.log_tx_protocol_packet(logging.ERROR, sock, prelude, packet_info)
                         self.bump_tx_real_errors_counter(sock, nr_bytes)
 
-    def choose_tx_packet_nr(self, packet_info):
+    def choose_tx_packet_nr(self, address_family, packet_info):
         if not packet_info.protocol_packet:
             return 0
-        if packet_info.protocol_packet.content.lie:
-            packet_type = self.PACKET_TYPE_LIE
-        elif packet_info.protocol_packet.content.tie:
-            packet_type = self.PACKET_TYPE_TIE
-        elif packet_info.protocol_packet.content.tide:
-            packet_type = self.PACKET_TYPE_TIDE
-        elif packet_info.protocol_packet.content.tire:
-            packet_type = self.PACKET_TYPE_TIRE
-        else:
+        if packet_info.packet_type is None:
             return 0
-        packet_nr = self._next_tx_packet_nr[packet_type]
-        self._next_tx_packet_nr[packet_type] += 1
-        if self._next_tx_packet_nr[packet_type] > 0xffff:
-            self._next_tx_packet_nr[packet_type] = 1
+        index = (address_family, packet_info.packet_type)
+        packet_nr = self._next_tx_packet_nr[index]
+        self._next_tx_packet_nr[index] += 1
+        if self._next_tx_packet_nr[index] > 0xffff:
+            self._next_tx_packet_nr[index] = 1
         return packet_nr
 
     def choose_tx_nonce_local(self):
@@ -895,11 +886,12 @@ class Interface:
         self._mtu = self.get_mtu()
         self._pod = self.UNDEFINED_OR_ANY_POD
         self.neighbor = None
-        self._next_tx_packet_nr = {}
-        self._next_tx_packet_nr[self.PACKET_TYPE_LIE] = 1
-        self._next_tx_packet_nr[self.PACKET_TYPE_TIE] = 1
-        self._next_tx_packet_nr[self.PACKET_TYPE_TIDE] = 1
-        self._next_tx_packet_nr[self.PACKET_TYPE_TIRE] = 1
+        self._next_tx_packet_nr = {}    # Indexed (address-family, packet-type)
+        for address_family in constants.ADDRESS_FAMILIES:
+            for packet_type in constants.PACKET_TYPES:
+                index = (address_family, packet_type)
+                self._next_tx_packet_nr[index] = 1
+        self._last_rx_packet_nr = {}    # Indexed by (address-family, packet-type)
         self._next_tx_nonce_local = 1
         self._last_rx_lie_nonce_local = 0
         self._time_ticks_since_lie_received = None
@@ -1059,16 +1051,39 @@ class Interface:
         self._tx_packets_counter.add_to_group(stg)
         self._rx_errors_counter.add_to_group(stg)
         self._tx_errors_counter.add_to_group(stg)
+        # Counters for rx message decoding errors
         for decode_error in packet_common.PacketInfo.DECODE_ERRORS:
             counter = stats.MultiCounter(stg, "RX " + decode_error, pab,
                                          sum_counters=[self._decode_errors_counter])
             self._decode_error_to_counter[decode_error] = counter
         self._decode_errors_counter.add_to_group(stg)
+        # Counters for rx message authentication errors
         for auth_error in packet_common.PacketInfo.AUTHENTICATION_ERRORS:
             counter = stats.MultiCounter(stg, "RX " + auth_error, pab,
                                          sum_counters=[self._auth_errors_counter])
             self._decode_error_to_counter[auth_error] = counter
         self._auth_errors_counter.add_to_group(stg)
+        # Counters for received packets with wrong packet-nr
+        self._total_misorders_counter = stats.Counter(None, "Total RX Misorders", "Packet")
+        self._ipv4_misorders_counter = stats.Counter(None, "Total RX IPv4 Misorders", "Packet")
+        self._ipv6_misorders_counter = stats.Counter(None, "Total RX IPv6 Misorders", "Packet")
+        self._misorder_counters = {}
+        for packet_type in constants.PACKET_TYPES:
+            for address_family in constants.ADDRESS_FAMILIES:
+                index = (address_family, packet_type)
+                counter_name = "RX {} {} Misorders".format(
+                    constants.address_family_str(address_family),
+                    constants.packet_type_str(packet_type))
+                if address_family == constants.ADDRESS_FAMILY_IPV4:
+                    af_sum_counter = self._ipv4_misorders_counter
+                else:
+                    af_sum_counter = self._ipv6_misorders_counter
+                self._misorder_counters[index] = stats.Counter(
+                    stg, counter_name, "Packet",
+                    sum_counters=[af_sum_counter, self._total_misorders_counter])
+        self._ipv4_misorders_counter.add_to_group(stg)
+        self._ipv6_misorders_counter.add_to_group(stg)
+        self._total_misorders_counter.add_to_group(stg)
         self.fsm = fsm.Fsm(
             definition=self.fsm_definition,
             action_handler=self,
@@ -1132,6 +1147,7 @@ class Interface:
         nr_bytes = len(message)
         packet_info = packet_common.decode_message(
             rx_intf=self,
+            from_info=from_info,
             message=message,
             active_key=self.node.active_key,
             accept_keys=self.node.accept_keys)
@@ -1139,32 +1155,43 @@ class Interface:
             msg = packet_info.decode_error
             if packet_info.decode_error_details:
                 msg += " (" + packet_info.decode_error_details + ")"
-            self.log_rx_protocol_packet(logging.ERROR, from_info, msg, packet_info)
+            self.log_rx_protocol_packet(logging.ERROR, msg, packet_info)
             counter = self._decode_error_to_counter.get(packet_info.decode_error)
             if counter:
                 counter.add([1, nr_bytes])
             return None
         protocol_packet = packet_info.protocol_packet
         if self._rx_fail:
-            self.log_rx_protocol_packet(logging.DEBUG, from_info,
-                                        "Simulated failure receiving", packet_info)
+            self.log_rx_protocol_packet(logging.DEBUG, "Simulated failure receiving", packet_info)
             self.bump_rx_sim_errors_counter(sock, nr_bytes)
             return None
         if protocol_packet.header.sender == self.node.system_id:
-            self.log_rx_protocol_packet(logging.DEBUG, from_info,
-                                        "Ignore looped receive", packet_info)
+            self.log_rx_protocol_packet(logging.DEBUG, "Ignore looped receive", packet_info)
             return None
         if not protocol_packet.content:
-            self.log_rx_protocol_packet(logging.WARNING, from_info,
-                                        "Received contentless", packet_info)
+            self.log_rx_protocol_packet(logging.WARNING, "Received contentless", packet_info)
             return None
-        self.log_rx_protocol_packet(logging.DEBUG, from_info, "Receive", packet_info)
+        self.log_rx_protocol_packet(logging.DEBUG, "Receive", packet_info)
         if protocol_packet.header.major_version != constants.RIFT_MAJOR_VERSION:
             self.rx_error("Received different major protocol version from %s (local version %d, "
                           "remote version %d)", from_info, constants.RIFT_MAJOR_VERSION,
                           protocol_packet.header.major_version)
             return None
+        self.check_rx_packet_nr(packet_info)
         return packet_info
+
+    def check_rx_packet_nr(self, packet_info):
+        if packet_info.packet_nr == 0:
+            return
+        index = (packet_info.address_family, packet_info.packet_type)
+        if index in self._last_rx_packet_nr:
+            last_rx_packet_nr = self._last_rx_packet_nr[index]
+            expected_rx_packet_nr = last_rx_packet_nr + 1
+            if expected_rx_packet_nr > 0xffff:
+                expected_rx_packet_nr = 1
+            if packet_info.packet_nr != expected_rx_packet_nr:
+                self._misorder_counters[index].increase()
+        self._last_rx_packet_nr[index] = packet_info.packet_nr
 
     def receive_lie_message(self, message, from_info, sock):
         packet_info = self.receive_message_common(message, from_info, sock)
@@ -1191,7 +1218,6 @@ class Interface:
     def receive_flood_message(self, message, from_info, sock):
         packet_info = self.receive_message_common(message, from_info, sock)
         if packet_info is None:
-            # TODO: Bump decode errors counter
             return
         protocol_packet = packet_info.protocol_packet
         flood_content = False

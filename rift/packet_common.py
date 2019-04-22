@@ -54,12 +54,14 @@ class PacketInfo:
         ERR_INCORRECT_ORIGIN_FINGERPRINT]
 
     def __init__(self):
-        # Interface on which message was received, None for self originated packets
+        # Where was the message received from?
         self.rx_intf = None
-        # Decoded RIFT model object
+        self.address_family = None
+        self.from_addr_port_str = None
+        # RIFT model object
         self.protocol_packet = None
-        # Encoded RIFT model object, excluding envelope
         self.encoded_protocol_packet = None
+        self.packet_type = None
         # Decode error string (None if decode was successful)
         self.decode_error = None
         self.decode_error_details = None
@@ -248,6 +250,14 @@ def encode_protocol_packet(protocol_packet, origin_key):
     packet_info = PacketInfo()
     packet_info.protocol_packet = protocol_packet
     packet_info.encoded_protocol_packet = encoded_protocol_packet
+    if protocol_packet.content.lie:
+        packet_info.packet_type = constants.PACKET_TYPE_LIE
+    elif protocol_packet.content.tie:
+        packet_info.packet_type = constants.PACKET_TYPE_TIE
+    elif protocol_packet.content.tide:
+        packet_info.packet_type = constants.PACKET_TYPE_TIDE
+    elif protocol_packet.content.tire:
+        packet_info.packet_type = constants.PACKET_TYPE_TIRE
     # If it is a TIE, update the origin security header. We do this here since it only needs to be
     # done once when the packet is encoded. However, for the envelope header and for the outer
     # security header it is up to the caller to call the corresponding update function before
@@ -259,9 +269,9 @@ def encode_protocol_packet(protocol_packet, origin_key):
         packet_info.update_origin_sec_env_header(origin_key)
     return packet_info
 
-def decode_message(rx_intf, message, active_key, accept_keys):
+def decode_message(rx_intf, from_info, message, active_key, accept_keys):
     packet_info = PacketInfo()
-    packet_info.rx_intf = rx_intf
+    record_source_info(packet_info, rx_intf, from_info)
     continue_offset = decode_envelope_header(packet_info, message)
     if continue_offset == -1:
         return packet_info
@@ -280,6 +290,17 @@ def decode_message(rx_intf, message, active_key, accept_keys):
     if not check_origin_fingerprint(packet_info, active_key, accept_keys):
         return packet_info
     return packet_info
+
+def record_source_info(packet_info, rx_intf, from_info):
+    packet_info.rx_intf = rx_intf
+    if from_info:
+        if len(from_info) == 2:
+            packet_info.address_family = constants.ADDRESS_FAMILY_IPV4
+            packet_info.from_addr_port_str = "from {}:{}".format(from_info[0], from_info[1])
+        else:
+            assert len(from_info) == 4
+            packet_info.address_family = constants.ADDRESS_FAMILY_IPV6
+            packet_info.from_addr_port_str = "from [{}]:{}".format(from_info[0], from_info[1])
 
 def decode_envelope_header(packet_info, message):
     if len(message) < 4:
@@ -391,6 +412,14 @@ def decode_protocol_packet(packet_info, message, offset):
     fix_prot_packet_after_decode(protocol_packet)
     packet_info.encoded_protocol_packet = encoded_protocol_packet
     packet_info.protocol_packet = protocol_packet
+    if protocol_packet.content.lie:
+        packet_info.packet_type = constants.PACKET_TYPE_LIE
+    elif protocol_packet.content.tie:
+        packet_info.packet_type = constants.PACKET_TYPE_TIE
+    elif protocol_packet.content.tide:
+        packet_info.packet_type = constants.PACKET_TYPE_TIDE
+    elif protocol_packet.content.tire:
+        packet_info.packet_type = constants.PACKET_TYPE_TIRE
     return len(message)
 
 def check_outer_fingerprint(packet_info, active_key, accept_keys):
