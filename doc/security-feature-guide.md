@@ -132,11 +132,17 @@ shards:
             [...]
 </pre>
 
+The active key must be a key ID in the range 1 - 255.
+
+It is not allowed to set the active key to zero. If you wish to use null authentication on sent
+packets you must omit the active key from the configuration.
+
 The active key must match one of the key IDs in the keys section (see 
 the ["configure keys"](configure-keys) section.)
 
 If the active_key is not configured, then null authentication is used: the sent key-id is zero,
 and the sent fingerprint is empty.
+
 
 ## Configure accept keys
 
@@ -164,10 +170,90 @@ shards:
             [...]
 </pre>
 
-Each accept key must match one of the key IDs in the keys section (see 
+Each accept key must be a key ID in the range 0 - 255.
+
+It is allowed to include key ID zero in the accept keys. This means that you are willing to accept
+packets with null authentication.
+
+Each non-zero accept key must match one of the key IDs in the keys section (see 
 the ["configure keys"](configure-keys) section.)
 
 See section TODO for more details on how to do key roll-overs.
+
+## Fingerprints
+
+RIFT-Python uses the configured active key to generate the key-id and the fingerprint in both the
+outer security header for all sent packets, and in the TIE origin security header for TIE packets.
+
+If no active key has been configured, RIFT-Python uses null authentication: it sets the key-id
+to zero and it sets the fingerprint to an empty fingerprint.
+
+For received packets, RIFT-Python compares the received key-id against both the active key
+and the list of accept keys. It does this independently for the outer key-id and the TIE origin
+key-id (if present). In other words, although RIFT-Python always sets the outer key-id and the
+TIE origin key-id to the same value for all sent packets, it can handle different key-ids in the
+outer security envelope and the TIE origin security envelope for received packets.
+
+If no matching key is found, an "Unknown key id" authentication error is declared.
+
+If a matching key is found, it is used to validate the fingerprint. If the fingerprint does
+not match, an "Incorrect fingerprint" authentication error is declared.
+
+There are also some less common other types of authentication errors. You can see a full list
+in the output of "show interface ... statistics".
+
+Whenever an authentication error occurs, the received packet is not processed any further and
+ignored for further processing.
+
+All authentication errors are logged as an ERROR, are counted in the statistics
+("show ... statistics"), and are reported in "show security", for example:
+
+<pre>
+node-1> show interface if1 statistics
+Traffic:
++---------------------------------------------------+------------------------+------------------------------------+-------------------+
+| Description                                       | Value                  | Last Rate                          | Last Change       |
+|                                                   |                        | Over Last 10 Changes               |                   |
++---------------------------------------------------+------------------------+------------------------------------+-------------------+
+.                                                   .                        .                                    .                   .
+.                                                   .                        .                                    .                   .
++---------------------------------------------------+------------------------+------------------------------------+-------------------+
+| RX Incorrect outer fingerprint                    | 16 Packets, 2624 Bytes | 2.25 Packets/Sec, 368.91 Bytes/Sec | 0d 00h:00m:00.33s |
++---------------------------------------------------+------------------------+------------------------------------+-------------------+
+.                                                   .                        .                                    .                   .
+.                                                   .                        .                                    .                   .
++---------------------------------------------------+------------------------+------------------------------------+-------------------+
+| Total RX Authentication Errors                    | 16 Packets, 2624 Bytes | 2.25 Packets/Sec, 368.91 Bytes/Sec | 0d 00h:00m:00.33s |
++---------------------------------------------------+------------------------+------------------------------------+-------------------+
+</pre>
+
+<pre>
+node-1> show security
+Security Keys:
++--------+--------------+------------------------------+--------+--------+
+| Key ID | Algorithm    | Secret                       | Active | Accept |
++--------+--------------+------------------------------+--------+--------+
+| 1      | hmac-sha-1   | this-is-the-secret-for-key-1 | Active |        |
++--------+--------------+------------------------------+--------+--------+
+| 2      | hmac-sha-1   | this-is-the-secret-for-key-2 |        |        |
++--------+--------------+------------------------------+--------+--------+
+| 3      | hmac-sha-1   | this-is-the-secret-for-key-3 |        |        |
++--------+--------------+------------------------------+--------+--------+
+| 4      | hmac-sha-256 | this-is-the-secret-for-key-4 |        |        |
++--------+--------------+------------------------------+--------+--------+
+| 5      | hmac-sha-256 | this-is-the-secret-for-key-5 |        |        |
++--------+--------------+------------------------------+--------+--------+
+
+Authentication Errors:
++-----------+--------------------------------+--------------------------+------------------------------------+-------------------+
+| Interface | Authentication                 | Error                    | Error                              | Last Change       |
+|           | Errors                         | Count                    | Rate                               |                   |
++-----------+--------------------------------+--------------------------+------------------------------------+-------------------+
+| if1       | RX Incorrect outer fingerprint | 188 Packets, 30832 Bytes | 2.25 Packets/Sec, 368.91 Bytes/Sec | 0d 00h:00m:00.67s |
++-----------+--------------------------------+--------------------------+------------------------------------+-------------------+
+| if2       | RX Unknown outer key id        | 188 Packets, 30832 Bytes | 2.25 Packets/Sec, 368.80 Bytes/Sec | 0d 00h:00m:00.65s |
++-----------+--------------------------------+--------------------------+------------------------------------+-------------------+
+</pre>
 
 ## Packet numbers
 
