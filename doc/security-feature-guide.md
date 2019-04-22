@@ -133,4 +133,38 @@ shards:
 </pre>
 
 The active key must match one of the key IDs in the keys section (see 
-[the previous section](configure-keys)).
+the ["configure keys"](configure-keys) section.)
+
+If the active_key is not configured, then null authentication is used: the sent key-id is zero,
+and the sent fingerprint is empty.
+
+## Configure accept keys
+
+For key roll-over scenarios you can configure a list of accept keys.
+
+Nodes always end packets with a key-id and fingerprint that is determined by the active key.
+But when a node receives a packet with a non-zero key-id and a non-empty fingerprint, it will
+validate and accept the received packet if the received key-id matches the active key *or* any one
+of the accept keys.
+
+You can configure the list of accept keys at the node level in the configuration file (also known
+as the topology file) as follows:
+
+<pre>
+shards:
+  - id: 0
+    nodes:
+      - name: node-1
+        level: 2
+        systemid: 1
+        active_key: 1
+        <b>accept_keys: [2, 3]</b>
+        interfaces:
+          - name: if1
+            [...]
+</pre>
+
+Each accept key must match one of the key IDs in the keys section (see 
+the ["configure keys"](configure-keys) section.)
+
+See section TODO for more details on how to do key roll-overs.
