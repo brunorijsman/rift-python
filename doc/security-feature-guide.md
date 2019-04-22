@@ -255,6 +255,50 @@ Authentication Errors:
 +-----------+--------------------------------+--------------------------+------------------------------------+-------------------+
 </pre>
 
+## Nonces
+
+RIFT-Python generates increasing local nonces for all sent packets.
+
+The current implementation increases the local nonce by one for every sent packet. It does not
+attempt to reduce the number of local nonce changes (and hence the number of times that the outer
+fingerprint needs to be computed) by only changing the local nonce periodically, e.g. every minute
+(plus every FSM state change).
+
+RIFT-Python takes the local nonce from the most recently recieved LIE packet, and reflects it in
+the remote nonce in all sent packets to that same node.
+
+If debug logging is turned on (command line option "--log-level debug"), both the local nonce and
+the remote nonce are reported in the logs for sent and received messages, for example:
+
+<pre>
+2019-04-22 19:22:55,179:DEBUG:node.if.tx:[node-1:if1] Send IPv4 TIE from 192.168.0.100:49307 to 192.168.0.100:10005 packet-nr=2 outer-key-id=1 <b>nonce-local=7 nonce-remote=5</b> remaining-lie-lifetime=604799 outer-fingerprint-len=5 origin-key-id=1 origin-fingerprint-len=5 protocol-packet=ProtocolPacket(...
+</pre>
+
+RIFT-Python checks whether its neighbor is reflecting nonces that are sufficiently close to the
+most recently sent local noce: the received remote must be in the range [sent local nonce - 5 ... 
+sent local nonce] (taking into account wrap-arounds).
+
+If the received remote nonce is not in the expected range, a "Reflected nonce out of sync"
+authentication error is declared.
+
+
+As with any type of authentication error, the received packet is not processed any further and
+ignored for further processing, the error is logged as an ERROR, is counted in the statistics
+("show ... statistics"), and is reported in "show security", for example:
+
+<pre>
+node-1> show security
+[...]
+
+Authentication Errors:
++-----------+--------------------------------+------------------------+------------------------------------+-------------------+
+| Interface | Authentication                 | Error                  | Error                              | Last Change       |
+|           | Errors                         | Count                  | Rate                               |                   |
++-----------+--------------------------------+------------------------+------------------------------------+-------------------+
+| if1       | RX Reflected nonce out of sync | 10 Packets, 1640 Bytes | 2.30 Packets/Sec, 376.98 Bytes/Sec | 0d 00h:00m:00.92s |
++-----------+--------------------------------+------------------------+------------------------------------+-------------------+
+</pre>
+
 ## Packet numbers
 
 RIFT-Python generates packet numbers (packet-nrs) for each sent packet.
