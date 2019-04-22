@@ -1,13 +1,13 @@
 # Positive Disaggregation Feature Guide
 
-# Example network
+## Example network
 
 The examples in this chapter are based on the following topology. We will cause routes to be 
 positively disaggregated in pod-1 by breaking the red link.
 
 ![Topology Diagram](https://s3-us-west-2.amazonaws.com/brunorijsman-public/diagram_clos_3pod_3leaf_3spine_4super.png)
 
-# Before breaking the link: no positive disaggregation occurs
+## Before breaking the link: no positive disaggregation occurs
 
 Let us first look at the network before we break the red link and before any positive disaggregation
 happens.
@@ -55,7 +55,7 @@ IPv6 Routes:
 
 We do not see any /32 routes on leaf-1-2 because there is no disaggregation happening.
 
-# After breaking the link: positive disaggregation occurs
+## After breaking the link: positive disaggregation occurs
 
 We break the link marked in red in the above diagram.
 
