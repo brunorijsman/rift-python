@@ -99,7 +99,7 @@ Note: in the current implementation the key secret is shown in plain text in bot
 file and in the output of show commands. Obfuscation of secrets is not yet supported.
 
 Configuring a set of keys in itself and by itself does not cause any fingerprints to be generated
-of checked. You must use the active-key element and optionally the accept-keys element (both
+or checked. You must use the active-key element and optionally the accept-keys element (both
 documented below) to enable to actual generation and checking of fingerprints.
 
 ## Configure the active key
