@@ -3,7 +3,6 @@ import sys
 
 import scheduler
 
-# TODO: Implement SSH server
 # TODO: Add context sensitive help, immediately when ? is pressed
 # TODO: Add tab and space completion
 # TODO: Add control right/left arrow for end/start of line (VT100 escape sequence)
