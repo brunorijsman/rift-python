@@ -205,7 +205,7 @@ def check_extra_keyword(session):
 def check_missing_parameter(session):
     session.checkpoint("check_missing_parameter")
     session.send("show interface\n")
-    session.expect("Missing value for parameter interface")
+    session.expect("Missing value for parameter <interface>")
     session.wait_prompt()
 
 def check_partial_keyword(session):

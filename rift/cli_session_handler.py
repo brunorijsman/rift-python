@@ -21,6 +21,7 @@ CARRIAGE_RETURN = 13
 ESCAPE = 27
 SPACE = 32
 DELETE = 127
+QUESTION_MARK = 63
 
 TELNET_NULL = 0
 TELNET_OPTION_ECHO = 1
@@ -110,15 +111,19 @@ class CliSessionHandler:
             fixed_message = message
         os.write(self._tx_fd, fixed_message.encode('utf-8'))
 
-    def print_help(self, parse_subtree, prefix=''):
-        self.print_help_recursion("", parse_subtree, prefix)
+    def help(self):
+        self.print_help("", self._parse_tree)
 
-    def print_ambiguous_help(self, parse_subsubtrees):
+    def print_help(self, normalized_parsed, parse_subtree):
+        self.print_help_recursion("", parse_subtree, normalized_parsed)
+
+    def print_ambiguous_help(self, normalized_parsed, parse_subsubtrees):
+        prefix = normalized_parsed
         for (match_token, match_parse_subtree) in parse_subsubtrees:
             if match_token[0] == '$':
-                prefix = match_token[1:] + ' <' + match_token[1:] + '> '
+                prefix += match_token[1:] + ' <' + match_token[1:] + '> '
             else:
-                prefix = match_token + ' '
+                prefix += match_token + ' '
             self.print_help_recursion("", match_parse_subtree, prefix)
 
     @staticmethod
@@ -144,10 +149,10 @@ class CliSessionHandler:
                     new_command_str = command_str + match_str + " "
                 self.print_help_recursion(new_command_str, new_parse_subtree, prefix)
 
-    def parse_command(self, command):
+    def parse_command(self, command, context_help=False):
         tokens = command.split()
-        if tokens:
-            self.parse_tokens(tokens, self._parse_tree, {})
+        if tokens or context_help:
+            self.parse_tokens(tokens, self._parse_tree, "", {}, context_help)
 
     def consume_token(self, tokens):
         if tokens:
@@ -157,24 +162,33 @@ class CliSessionHandler:
             token = None
         return (token, tokens)
 
-    def parse_tokens(self, tokens, parse_subtree, parameters):
+    def parse_tokens(self, tokens, parse_subtree, normalized_parsed, parameters, context_help):
+        # pylint:disable=too-many-statements
         if tokens == []:
             # We have consumed all tokens in the command.
             if callable(parse_subtree):
-                # We have also reached a leaf in the parse tree. Call the command handler function.
-                command_function = parse_subtree
-                if parameters:
-                    command_function(self._command_handler, self, parameters)
-                else:
-                    command_function(self._command_handler, self)
+                # We have also reached a leaf in the parse tree.
+                if not context_help:
+                    # Call the command handler function (but not when giving context-senstive help)
+                    command_function = parse_subtree
+                    if parameters:
+                        command_function(self._command_handler, self, parameters)
+                    else:
+                        command_function(self._command_handler, self)
             elif '' in parse_subtree:
-                # There is a branch in parse tree for "no more input". Follow that branch.
-                new_parse_subtree = parse_subtree['']
-                self.parse_tokens(tokens, new_parse_subtree, parameters)
+                # There is a branch in parse tree for "no more input".
+                if context_help:
+                    self.print("Possible completions:")
+                    self.print_help(normalized_parsed, parse_subtree)
+                else:
+                    # Follow that branch.
+                    new_parse_subtree = parse_subtree['']
+                    self.parse_tokens(tokens, new_parse_subtree, normalized_parsed, parameters,
+                                      context_help)
             else:
                 # There should have been more to parse. Generate an error
                 self.print("Missing input, possible completions:")
-                self.print_help(parse_subtree)
+                self.print_help(normalized_parsed, parse_subtree)
                 return
         else:
             # Parse the next token
@@ -182,10 +196,6 @@ class CliSessionHandler:
             if (token is not None) and callable(parse_subtree):
                 # We have more tokens, but we have reached a leaf of the parse tree. Report error.
                 self.print("Unexpected extra input: {}".format(token))
-                return
-            if (token in ["help", "?"]):
-                # Token is context-sensitive help. Show help and stop.
-                self.print_help(parse_subtree)
                 return
             if token in parse_subtree:
                 # Exact match on keyword, don't consider anything else
@@ -203,12 +213,15 @@ class CliSessionHandler:
             if len(all_subsubtrees) > 1:
                 # Token matches more than one keyword and/or parameter. Ambiguous token error.
                 self.print('Ambiguous input "{}", candidates:'.format(token))
-                self.print_ambiguous_help(all_subsubtrees)
+                self.print_ambiguous_help(normalized_parsed, all_subsubtrees)
                 return
             if len(keyword_subsubtrees) == 1:
                 # Token matches exactly one keyword. Recursively continue parsing.
+                keyword = keyword_subsubtrees[0][0]
+                normalized_parsed += keyword + " "
                 parse_subtree = keyword_subsubtrees[0][1]
-                self.parse_tokens(tokens, parse_subtree, parameters)
+                self.parse_tokens(tokens, parse_subtree, normalized_parsed, parameters,
+                                  context_help)
                 return
             if len(param_subsubtrees) == 1:
                 # Token matches exactly one parameter. Store parameter and continue parsing.
@@ -216,16 +229,20 @@ class CliSessionHandler:
                 parse_subtree = param_subsubtrees[0][1]
                 (token, tokens) = self.consume_token(tokens)
                 if token is None:
-                    self.print("Missing value for parameter {}".format(parameter_name))
+                    if context_help:
+                        self.print(normalized_parsed + parameter_name + " <" + parameter_name + ">")
+                    self.print("Missing value for parameter <{}>".format(parameter_name))
                     return
                 if parameter_name[0] == '$':
                     parameter_name = parameter_name[1:]
+                normalized_parsed += token + " "
                 parameters[parameter_name] = token
-                self.parse_tokens(tokens, parse_subtree, parameters)
+                self.parse_tokens(tokens, parse_subtree, normalized_parsed, parameters,
+                                  context_help)
                 return
             # Token is neither a keyword nor a parameter. Generate an error.
             self.print('Unrecognized input "{}", expected:'.format(token))
-            self.print_help(parse_subtree)
+            self.print_help(normalized_parsed, parse_subtree)
 
     def lookup_token_in_parse_subtree(self, token, parse_subtree):
         # Return the (possibly empty) list of parse sub-sub-trees that match the token
@@ -355,6 +372,8 @@ class CliSessionHandler:
                 need_more_input = self.process_delete()
             elif byte == ESCAPE:
                 need_more_input = self.process_escape()
+            elif byte == QUESTION_MARK:
+                self.process_question_mark()
             else:
                 need_more_input = self.process_other(byte)
             if need_more_input:
@@ -496,6 +515,18 @@ class CliSessionHandler:
             self.replace_command(bytes())
         else:
             self.replace_command(self._command_history[self._command_history_pos])
+
+    def process_question_mark(self):
+        self.print("")
+        try:
+            command = self._command_buffer.decode("utf-8", "ignore")
+        except UnicodeDecodeError:
+            self.print("UTF-8 decode of command failed")
+        else:
+            self.parse_command(command, context_help=True)
+        self.print_prompt()
+        self.send_bytes(self._command_buffer)
+        self.send_cursor_left(len(self._command_buffer) - self._command_buffer_pos)
 
     def process_other(self, byte):
         if self._command_buffer_pos >= len(self._command_buffer):

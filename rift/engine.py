@@ -364,6 +364,9 @@ class Engine:
     def command_exit(self, cli_session):
         cli_session.close()
 
+    def command_help(self, cli_session):
+        cli_session.help()
+
     def command_stop(self, cli_session):
         cli_session.close()
         sys.exit(0)
@@ -381,6 +384,7 @@ class Engine:
             }
         },
         "exit": command_exit,
+        "help": command_help,
         "set": {
             "$interface": {
                 "$failure": command_set_interface_failure

@@ -165,13 +165,11 @@ If you are connected to the CLI using Telnet, you can use the following keys for
 
 * Control-E: Move cursor to the end of the line.
 
-The CLI does not yet support any of the following features:
+* Question mark: Context-sensitive help.
 
-* Command completion: you must manually enter the complete command; you cannot enter partial commands or use
-tab to complete commands.
+The CLI does not yet support the following features:
 
-* Interactive context-sensitive help: you can enter "help" or "?" and press enter at the end of a partial command
-line to get context-sensitive help. But after reading the help text, you must manually re-enter the command line. 
+* Tab to complete commands.
 
 ## Command Line Interface Commands
 
