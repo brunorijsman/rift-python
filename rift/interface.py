@@ -9,7 +9,6 @@ import socket
 import constants
 import fsm
 import neighbor
-import node       # TODO: Put TIEMeta in separate module to avoid this
 import offer
 import packet_common
 import stats
@@ -129,20 +128,11 @@ class Interface:
         # Start sending TIE, TIRE, and TIDE packets to this neighbor
         rx_flood_port = self._rx_flood_port
         tx_flood_port = self.neighbor.flood_port
-        # Use whatever IPv4 or IPv6 address we see first for the neighbor, preferring the IPv4
-        # address if we know both.
+        # For sending flooding packets, use whatever IPv4 or IPv6 address we see first for the
+        # neighbor, preferring the IPv4 address if we know both.
         if self.neighbor.ipv4_address is not None:
-            self.rx_info("Start IPv4 flooding: receive on port %d, send to address %s port %d",
-                         rx_flood_port, self.neighbor.ipv4_address, tx_flood_port)
-            self._flood_rx_ipv4_handler = udp_rx_handler.UdpRxHandler(
-                interface_name=self.physical_interface_name,
-                local_port=rx_flood_port,
-                ipv4=True,
-                multicast_address=None,
-                remote_address="0.0.0.0",  # TODO: Permissive... use neighbor address?
-                receive_function=self.receive_flood_message,
-                log=self._rx_log,
-                log_id=self._log_id)
+            self.rx_info("Start IPv4 flooding: send to address %s port %d",
+                         self.neighbor.ipv4_address, tx_flood_port)
             self._flood_tx_ipv4_socket = self.create_socket_ipv4_tx_ucast(
                 remote_address=self.neighbor.ipv4_address,
                 port=tx_flood_port)
@@ -151,20 +141,33 @@ class Interface:
             scoped_ipv6_address = self.neighbor.ipv6_address
             if "%" not in self.neighbor.ipv6_address:
                 scoped_ipv6_address += "%" + self.physical_interface_name
-            self.rx_info("Start IPv6 flooding: receive on port %d, send to address %s port %d",
-                         rx_flood_port, scoped_ipv6_address, tx_flood_port)
-            self._flood_rx_ipv6_handler = udp_rx_handler.UdpRxHandler(
-                interface_name=self.physical_interface_name,
-                local_port=rx_flood_port,
-                ipv4=False,
-                multicast_address=None,
-                remote_address="::",
-                receive_function=self.receive_flood_message,
-                log=self._rx_log,
-                log_id=self._log_id)
+            self.rx_info("Start IPv6 flooding: send to address %s port %d",
+                         scoped_ipv6_address, tx_flood_port)
             self._flood_tx_ipv6_socket = self.create_socket_ipv6_tx_ucast(
                 remote_address=scoped_ipv6_address,
                 port=tx_flood_port)
+        # For *receiving* flooding packets, always listen on both IPv4 and also on IPv6 since we
+        # don't know whether the same will choose to send on IPv4 or on IPv6
+        self.rx_info("Start IPv4 flooding: receive on port %d", rx_flood_port)
+        self._flood_rx_ipv4_handler = udp_rx_handler.UdpRxHandler(
+            interface_name=self.physical_interface_name,
+            local_port=rx_flood_port,
+            ipv4=True,
+            multicast_address=None,
+            remote_address="0.0.0.0",  # TODO: Permissive... use neighbor address?
+            receive_function=self.receive_flood_message,
+            log=self._rx_log,
+            log_id=self._log_id)
+        self.rx_info("Start IPv6 flooding: receive on port %d", rx_flood_port)
+        self._flood_rx_ipv6_handler = udp_rx_handler.UdpRxHandler(
+            interface_name=self.physical_interface_name,
+            local_port=rx_flood_port,
+            ipv4=False,
+            multicast_address=None,
+            remote_address="::",
+            receive_function=self.receive_flood_message,
+            log=self._rx_log,
+            log_id=self._log_id)
         # Periodically start sending TIE packets and TIRE packets
         self._service_queues_timer.start()
         # Update the node TIEs originated by this node to include this neighbor
@@ -200,36 +203,63 @@ class Interface:
         # Update the south prefix TIE: we may have to start or stop originating a default route
         self.node.regenerate_my_south_prefix_tie(interface_going_down=self)
 
-    def log_tx_protocol_packet(self, level, sock, prelude, protocol_packet):
+    def action_init_partially_conn(self):
+        self.update_partially_connected()
+
+    def action_clear_partially_conn(self):
+        self.partially_connected = None
+        self.partially_connected_causes = None
+
+    def update_partially_connected(self):
+        if self.neighbor_direction() != constants.DIR_SOUTH:
+            return
+        old_partially_connected = self.partially_connected
+        if self.neighbor:
+            (part_conn, part_conn_causes) = \
+                self.node.check_sysid_partially_connected(self.neighbor.system_id)
+            self.partially_connected = part_conn
+            self.partially_connected_causes = part_conn_causes
+        else:
+            self.partially_connected = None
+            self.partially_connected_causes = None
+        if not old_partially_connected and self.partially_connected:
+            self.warning("Neighbor became partially connected")
+            reason = "Neighbor {} became partially connected".format(self._log_id)
+            self.node.trigger_spf(reason)
+        if old_partially_connected and not self.partially_connected:
+            self.info("Neighbor is no longer partially connected")
+            reason = "Neighbor {} is no longer partially connected".format(self._log_id)
+            self.node.trigger_spf(reason)
+
+    def log_tx_protocol_packet(self, level, sock, prelude, packet_info):
         if not self._tx_log.isEnabledFor(level):
             return
-        packet_str = str(protocol_packet)
-        type_str = self.protocol_packet_type(protocol_packet)
         if sock.family == socket.AF_INET:
             fam_str = "IPv4"
+            from_str = "from {}:{}".format(sock.getsockname()[0], sock.getsockname()[1])
+            to_str = "to {}:{}".format(sock.getpeername()[0], sock.getpeername()[1])
         else:
             assert sock.family == socket.AF_INET6
             fam_str = "IPv6"
-        to_str = str(sock.getpeername())
-        self._tx_log.log(level, "[%s] %s %s %s %s to %s" %
-                         (self._log_id, prelude, fam_str, type_str, packet_str, to_str))
+            from_str = "from [{}]:{}".format(sock.getsockname()[0], sock.getsockname()[1])
+            to_str = "to [{}]:{}".format(sock.getpeername()[0], sock.getpeername()[1])
+        type_str = self.protocol_packet_type(packet_info.protocol_packet)
+        packet_str = str(packet_info)
+        self._tx_log.log(level, "[%s] %s %s %s %s %s %s" %
+                         (self._log_id, prelude, fam_str, type_str, from_str, to_str, packet_str))
 
-    def log_rx_protocol_packet(self, level, from_info, prelude, protocol_packet):
-        if not self._rx_log.isEnabledFor(level):
+    def log_rx_protocol_packet(self, log_level, prelude, packet_info):
+        if not self._rx_log.isEnabledFor(log_level):
             return
-        if protocol_packet:
-            packet_str = str(protocol_packet)
+        fam_str = constants.address_family_str(packet_info.address_family)
+        from_str = packet_info.from_addr_port_str
+        if packet_info.packet_type is None:
+            type_str = ""
         else:
-            packet_str = "?"
-        type_str = self.protocol_packet_type(protocol_packet)
-        if len(from_info) == 2:
-            fam_str = "IPv4"
-        else:
-            assert len(from_info) == 4
-            fam_str = "IPv6"
-        from_str = str(from_info)
-        self._rx_log.log(level, "[%s] %s %s %s %s from %s" %
-                         (self._log_id, prelude, fam_str, type_str, packet_str, from_str))
+            type_str = constants.packet_type_str(packet_info.packet_type)
+        packet_str = str(packet_info)
+        self._rx_log.log(log_level, "[%s] %s %s %s%s %s" %
+                         (self._log_id, prelude, fam_str, type_str, from_str, packet_str))
 
     @staticmethod
     def protocol_packet_type(protocol_packet):
@@ -248,6 +278,19 @@ class Interface:
             return "No-Content"
 
     def send_protocol_packet(self, protocol_packet, flood):
+        packet_info = packet_common.encode_protocol_packet(protocol_packet, self.node.active_key)
+        self.send_packet_info(packet_info, flood)
+
+    def send_packet_info(self, packet_info, flood):
+        # The current implementation increases the local nonce on every sent packet, because if
+        # an attacker is able to replay even a single packet, that is suffient for the attacher to
+        # prevent the adjacency from reaching state 3-way. For ease of debugging, we make the local
+        # nonce equal to the packet_nr.
+        packet_info.update_outer_sec_env_header(
+            outer_key=self.node.active_key,
+            nonce_local=self.choose_tx_nonce_local(),
+            nonce_remote=self._last_rx_lie_nonce_local)
+        protocol_packet = packet_info.protocol_packet
         if flood:
             if self._flood_tx_ipv4_socket:
                 socks = [self._flood_tx_ipv4_socket]
@@ -258,24 +301,57 @@ class Interface:
                                 "nor IPv6 TX flood socket")
                 return
         else:
-            socks = [self._lie_tx_ipv4_socket, self._lie_tx_ipv6_socket]
-        encoded_protocol_packet = packet_common.encode_protocol_packet(protocol_packet)
-        nr_bytes = len(encoded_protocol_packet)
+            socks = []
+            if self._lie_tx_ipv4_socket:
+                socks.append(self._lie_tx_ipv4_socket)
+            if self._lie_tx_ipv6_socket:
+                socks.append(self._lie_tx_ipv6_socket)
         for sock in socks:
+            if sock.family == socket.AF_INET:
+                address_family = constants.ADDRESS_FAMILY_IPV4
+            else:
+                address_family = constants.ADDRESS_FAMILY_IPV6
+            packet_nr = self.choose_tx_packet_nr(address_family, packet_info)
+            packet_info.update_env_header(packet_nr)
+            message_parts = packet_info.message_parts()
+            nr_bytes = 0
+            for part in message_parts:
+                nr_bytes += len(part)
             if sock is not None:
                 if self._tx_fail:
                     self.log_tx_protocol_packet(logging.DEBUG, sock,
-                                                "Simulated failure sending", protocol_packet)
+                                                "Simulated failure sending", packet_info)
                     self.bump_tx_sim_errors_counter(sock, nr_bytes)
                 else:
                     try:
-                        self.log_tx_protocol_packet(logging.DEBUG, sock, "Send", protocol_packet)
-                        sock.send(encoded_protocol_packet)
+                        sock.sendmsg(message_parts)
+                        self.log_tx_protocol_packet(logging.DEBUG, sock, "Send", packet_info)
                         self.bump_tx_counters(protocol_packet, sock, nr_bytes)
                     except socket.error as error:
                         prelude = "Error {} sending".format(str(error))
-                        self.log_tx_protocol_packet(logging.ERROR, sock, prelude, protocol_packet)
+                        self.log_tx_protocol_packet(logging.ERROR, sock, prelude, packet_info)
                         self.bump_tx_real_errors_counter(sock, nr_bytes)
+
+    def choose_tx_packet_nr(self, address_family, packet_info):
+        if not packet_info.protocol_packet:
+            return 0
+        if packet_info.packet_type is None:
+            return 0
+        index = (address_family, packet_info.packet_type)
+        packet_nr = self._next_tx_packet_nr[index]
+        self._next_tx_packet_nr[index] += 1
+        if self._next_tx_packet_nr[index] > 0xffff:
+            self._next_tx_packet_nr[index] = 1
+        return packet_nr
+
+    def choose_tx_nonce_local(self):
+        nonce_local = self._next_tx_nonce_local
+        self._next_tx_nonce_local += 1
+        if self._next_tx_nonce_local > 0xffff:
+            self._next_tx_nonce_local = 1
+            self._tx_nonce_local_wrapped = True
+        self._last_tx_nonce_local = nonce_local
+        return nonce_local
 
     @staticmethod
     def bump_family_counter(sock, ipv4_counter, ipv6_counter, nr_bytes):
@@ -727,7 +803,8 @@ class Interface:
 
     _state_actions = {
         State.ONE_WAY  : ([action_cleanup, action_send_lie], []),
-        State.THREE_WAY: ([action_start_flooding], [action_stop_flooding])
+        State.THREE_WAY: ([action_start_flooding, action_init_partially_conn],
+                          [action_stop_flooding, action_clear_partially_conn])
     }
 
     fsm_definition = fsm.FsmDefinition(
@@ -810,6 +887,16 @@ class Interface:
         self._mtu = self.get_mtu()
         self._pod = self.UNDEFINED_OR_ANY_POD
         self.neighbor = None
+        self._next_tx_packet_nr = {}    # Indexed (address-family, packet-type)
+        for address_family in constants.ADDRESS_FAMILIES:
+            for packet_type in constants.PACKET_TYPES:
+                index = (address_family, packet_type)
+                self._next_tx_packet_nr[index] = 1
+        self._last_rx_packet_nr = {}    # Indexed by (address-family, packet-type)
+        self._next_tx_nonce_local = 1
+        self._last_tx_nonce_local = None
+        self._tx_nonce_local_wrapped = False
+        self._last_rx_lie_nonce_local = 0
         self._time_ticks_since_lie_received = None
         self._lie_accept_or_reject = "No LIE Received"
         self._lie_accept_or_reject_rule = "-"
@@ -831,11 +918,16 @@ class Interface:
         self._ties_req = collections.OrderedDict()
         self._ties_ack = collections.OrderedDict()
         self.floodred_nbr_is_fr = self.NbrIsFRState.NOT_APPLICABLE
+        self.partially_connected = None
+        self.partially_connected_causes = None
         self._traffic_stats_group = stats.Group(self.node.intf_traffic_stats_group)
         pab = ["Packet", "Byte"]
         stg = self._traffic_stats_group
         self._tx_errors_counter = stats.MultiCounter(None, "Total TX Errors", pab)
         self._rx_errors_counter = stats.MultiCounter(None, "Total RX Errors", pab)
+        self._errors_counter = stats.MultiCounter(None, "Total RX Decode Errors", pab)
+        self._error_to_counter = {}
+        self._auth_errors_counter = stats.MultiCounter(None, "Total RX Authentication Errors", pab)
         self._tx_packets_counter = stats.MultiCounter(None, "Total TX Packets", pab)
         self._rx_packets_counter = stats.MultiCounter(None, "Total RX Packets", pab)
         self._tx_ipv6_counter = stats.MultiCounter(None, "Total TX IPv6 Packets", pab)
@@ -962,6 +1054,39 @@ class Interface:
         self._tx_packets_counter.add_to_group(stg)
         self._rx_errors_counter.add_to_group(stg)
         self._tx_errors_counter.add_to_group(stg)
+        # Counters for rx message decoding errors
+        for decode_error in packet_common.PacketInfo.DECODE_ERRORS:
+            counter = stats.MultiCounter(stg, "RX " + decode_error, pab,
+                                         sum_counters=[self._errors_counter])
+            self._error_to_counter[decode_error] = counter
+        self._errors_counter.add_to_group(stg)
+        # Counters for rx message authentication errors
+        for auth_error in packet_common.PacketInfo.AUTHENTICATION_ERRORS:
+            counter = stats.MultiCounter(stg, "RX " + auth_error, pab,
+                                         sum_counters=[self._auth_errors_counter])
+            self._error_to_counter[auth_error] = counter
+        self._auth_errors_counter.add_to_group(stg)
+        # Counters for received packets with wrong packet-nr
+        self._total_misorders_counter = stats.Counter(None, "Total RX Misorders", "Packet")
+        self._ipv4_misorders_counter = stats.Counter(None, "Total RX IPv4 Misorders", "Packet")
+        self._ipv6_misorders_counter = stats.Counter(None, "Total RX IPv6 Misorders", "Packet")
+        self._misorder_counters = {}
+        for packet_type in constants.PACKET_TYPES:
+            for address_family in constants.ADDRESS_FAMILIES:
+                index = (address_family, packet_type)
+                counter_name = "RX {} {} Misorders".format(
+                    constants.address_family_str(address_family),
+                    constants.packet_type_str(packet_type))
+                if address_family == constants.ADDRESS_FAMILY_IPV4:
+                    af_sum_counter = self._ipv4_misorders_counter
+                else:
+                    af_sum_counter = self._ipv6_misorders_counter
+                self._misorder_counters[index] = stats.Counter(
+                    stg, counter_name, "Packet",
+                    sum_counters=[af_sum_counter, self._total_misorders_counter])
+        self._ipv4_misorders_counter.add_to_group(stg)
+        self._ipv6_misorders_counter.add_to_group(stg)
+        self._total_misorders_counter.add_to_group(stg)
         self.fsm = fsm.Fsm(
             definition=self.fsm_definition,
             action_handler=self,
@@ -1022,40 +1147,104 @@ class Interface:
         return True
 
     def receive_message_common(self, message, from_info, sock):
-        protocol_packet = packet_common.decode_protocol_packet(message)
         nr_bytes = len(message)
-        if protocol_packet is None:
-            # TODO: Decode error counter
-            self.log_rx_protocol_packet(logging.ERROR, from_info,
-                                        "Could not decode", protocol_packet)
+        packet_info = packet_common.decode_message(
+            rx_intf=self,
+            from_info=from_info,
+            message=message,
+            active_key=self.node.active_key,
+            accept_keys=self.node.accept_keys)
+        if packet_info.error:
+            self.log_and_count_error(packet_info, nr_bytes)
             return None
+        protocol_packet = packet_info.protocol_packet
         if self._rx_fail:
-            self.log_rx_protocol_packet(logging.DEBUG, from_info,
-                                        "Simulated failure receiving", protocol_packet)
+            self.log_rx_protocol_packet(logging.DEBUG, "Simulated failure receiving", packet_info)
             self.bump_rx_sim_errors_counter(sock, nr_bytes)
             return None
         if protocol_packet.header.sender == self.node.system_id:
-            self.log_rx_protocol_packet(logging.DEBUG, from_info,
-                                        "Ignore looped receive", protocol_packet)
+            self.log_rx_protocol_packet(logging.DEBUG, "Ignore looped receive", packet_info)
             return None
-        self.log_rx_protocol_packet(logging.DEBUG, from_info, "Receive", protocol_packet)
+        # Note: we must update the last RX nonce local, even if we reject the packet because the
+        # reflected nonce is too far out of sync. If not, we will never get back into sync after
+        # a temporary loss of connectivy in which the nonces drift out of sync.
+        self.update_last_rx_lie_nonce_local(packet_info)
+        self.check_reflected_nonce(packet_info)
+        if packet_info.error:
+            self.log_and_count_error(packet_info, nr_bytes)
+            return None
         if not protocol_packet.content:
-            self.log_rx_protocol_packet(logging.WARNING, from_info,
-                                        "Received contentless", protocol_packet)
+            self.log_rx_protocol_packet(logging.WARNING, "Received contentless", packet_info)
             return None
+        self.log_rx_protocol_packet(logging.DEBUG, "Receive", packet_info)
         if protocol_packet.header.major_version != constants.RIFT_MAJOR_VERSION:
             self.rx_error("Received different major protocol version from %s (local version %d, "
                           "remote version %d)", from_info, constants.RIFT_MAJOR_VERSION,
                           protocol_packet.header.major_version)
             return None
-        return protocol_packet
+        self.check_rx_packet_nr(packet_info)
+        return packet_info
+
+    def log_and_count_error(self, packet_info, nr_bytes):
+        msg = packet_info.error
+        if packet_info.error_details:
+            msg += " (" + packet_info.error_details + ")"
+        self.log_rx_protocol_packet(logging.ERROR, msg, packet_info)
+        counter = self._error_to_counter.get(packet_info.error)
+        if counter:
+            counter.add([1, nr_bytes])
+
+    def update_last_rx_lie_nonce_local(self, packet_info):
+        if packet_info.protocol_packet and packet_info.protocol_packet.content.lie:
+            self._last_rx_lie_nonce_local = packet_info.nonce_local
+
+    def check_reflected_nonce(self, packet_info):
+        max_delta = common.constants.maximum_valid_nonce_delta
+        sent_nonce = self._last_tx_nonce_local
+        reflected_nonce = packet_info.nonce_remote
+        if reflected_nonce == 0:
+            # Neighbor did not reflect anything yet. This is only allowed in the beginning (first
+            # maximum_valid_nonce_delta sent nonces)
+            if self._tx_nonce_local_wrapped:
+                accepted = False
+            else:
+                accepted = sent_nonce <= max_delta
+        elif reflected_nonce <= sent_nonce:
+            delta = sent_nonce - reflected_nonce
+            accepted = delta <= max_delta
+        else:
+            # Reflected nonce is greater than sent nonce. Could still be okay in case of wrap-around
+            if self._tx_nonce_local_wrapped:
+                unwrapped_sent_nonce = sent_nonce + 0xffff
+                delta = unwrapped_sent_nonce - reflected_nonce
+                accepted = 0 <= delta <= max_delta
+            else:
+                accepted = False
+        if not accepted:
+            packet_info.error = packet_common.PacketInfo.ERR_REFLECTED_NONCE_OUT_OF_SYNC
+            packet_info.error_details = "Last sent nonce is {}, reflected nonce is {}".format(
+                sent_nonce, reflected_nonce)
+
+    def check_rx_packet_nr(self, packet_info):
+        if packet_info.packet_nr == 0:
+            return
+        index = (packet_info.address_family, packet_info.packet_type)
+        if index in self._last_rx_packet_nr:
+            last_rx_packet_nr = self._last_rx_packet_nr[index]
+            expected_rx_packet_nr = last_rx_packet_nr + 1
+            if expected_rx_packet_nr > 0xffff:
+                expected_rx_packet_nr = 1
+            if packet_info.packet_nr != expected_rx_packet_nr:
+                self._misorder_counters[index].increase()
+        self._last_rx_packet_nr[index] = packet_info.packet_nr
 
     def receive_lie_message(self, message, from_info, sock):
-        protocol_packet = self.receive_message_common(message, from_info, sock)
-        if protocol_packet is None:
-            # TODO: Bump decode errors counter
+        packet_info = self.receive_message_common(message, from_info, sock)
+        if packet_info is None:
             return
+        protocol_packet = packet_info.protocol_packet
         if protocol_packet.content.lie:
+            ### TODO: Verify inner nonce is outer nonce
             event_data = (protocol_packet, from_info)
             self.fsm.push_event(self.Event.LIE_RECEIVED, event_data)
         else:
@@ -1071,19 +1260,19 @@ class Interface:
         self.bump_rx_counters(protocol_packet, sock, len(message))
 
     def receive_flood_message(self, message, from_info, sock):
-        protocol_packet = self.receive_message_common(message, from_info, sock)
-        if protocol_packet is None:
-            # TODO: Bump decode errors counter
+        packet_info = self.receive_message_common(message, from_info, sock)
+        if packet_info is None:
             return
+        protocol_packet = packet_info.protocol_packet
         flood_content = False
         if protocol_packet.content.tie is not None:
-            self.process_received_tie_packet(protocol_packet.content.tie)
+            self.process_rx_tie_packet_info(packet_info)
             flood_content = True
         if protocol_packet.content.tide:
-            self.process_received_tide_packet(protocol_packet.content.tide)
+            self.process_rx_tide_packet(protocol_packet.content.tide)
             flood_content = True
         if protocol_packet.content.tire:
-            self.process_received_tire_packet(protocol_packet.content.tire)
+            self.process_rx_tire_packet(protocol_packet.content.tire)
             flood_content = True
         if protocol_packet.content.lie:
             # TODO: Wrong contents for port counter
@@ -1111,18 +1300,18 @@ class Interface:
             else:
                 return "ok"
 
-    def process_received_tie_packet(self, tie_packet):
+    def process_rx_tie_packet_info(self, tie_packet_info):
+        tie_packet = tie_packet_info.protocol_packet.content.tie
         self.rx_debug("Receive TIE packet %s", tie_packet)
-        tie_meta = node.TIEMeta(tie_packet, rx_intf=self)
-        result = self.node.process_received_tie_packet(tie_meta)
+        result = self.node.process_rx_tie_packet_info(tie_packet_info)
         (start_sending_tie_header, ack_tie_header) = result
         if start_sending_tie_header is not None:
             self.try_to_transmit_tie(start_sending_tie_header)
         if ack_tie_header is not None:
             self.ack_tie(ack_tie_header)
 
-    def process_received_tide_packet(self, tide_packet):
-        result = self.node.process_received_tide_packet(tide_packet)
+    def process_rx_tide_packet(self, tide_packet):
+        result = self.node.process_rx_tide_packet(tide_packet)
         (request_tie_headers, start_sending_tie_headers, stop_sending_tie_headers) = result
         for tie_header in start_sending_tie_headers:
             self.try_to_transmit_tie(tie_header)
@@ -1131,9 +1320,9 @@ class Interface:
         for tie_header in stop_sending_tie_headers:
             self.remove_from_all_queues(tie_header)
 
-    def process_received_tire_packet(self, tire_packet):
+    def process_rx_tire_packet(self, tire_packet):
         self.rx_debug("Receive TIRE packet %s", tire_packet)
-        result = self.node.process_received_tire_packet(tire_packet)
+        result = self.node.process_rx_tire_packet(tire_packet)
         (request_tie_headers, start_sending_tie_headers, acked_tie_headers) = result
         for tie_header in start_sending_tie_headers:
             self.try_to_transmit_tie(tie_header)
@@ -1242,10 +1431,7 @@ class Interface:
         filtered = not allowed
         return (filtered, reason)
 
-    def add_tie_meta_to_ties_tx(self, tie_meta):
-        self.add_tie_header_to_ties_tx(tie_meta.tie_packet.header, tie_meta)
-
-    def add_tie_header_to_ties_tx(self, tie_header, tie_meta=None):
+    def add_tie_header_to_ties_tx(self, tie_header, tie_packet_info=None):
         # If the TIE is not already on the send queue or if the TIE is a newer version than what's
         # already on the send queue, then send it immediately instead of (in addition to, really)
         # waiting for the next service timer.
@@ -1257,19 +1443,10 @@ class Interface:
             send_now = False
         self._ties_tx[tie_header.tieid] = tie_header
         if send_now:
-            if tie_meta is None:
-                tie_meta = self.node.find_tie_meta(tie_header.tieid)
-            if tie_meta is not None:
-                # TODO: Put already encoded TIEProtocol packet in tie_meta, and send that
-                packet_header = encoding.ttypes.PacketHeader(
-                    sender=self.node.system_id,
-                    level=self.node.level_value())
-                packet_content = encoding.ttypes.PacketContent()
-                protocol_packet = encoding.ttypes.ProtocolPacket(
-                    header=packet_header,
-                    content=packet_content)
-                protocol_packet.content.tie = tie_meta.tie_packet
-                self.send_protocol_packet(protocol_packet, flood=True)
+            if tie_packet_info is None:
+                tie_packet_info = self.node.find_tie_packet_info(tie_header.tieid)
+            if tie_packet_info is not None:
+                self.send_packet_info(tie_packet_info, flood=True)
 
     def try_to_transmit_tie(self, tie_header):
         (filtered, reason) = self.is_flood_filtered(tie_header)
@@ -1408,18 +1585,10 @@ class Interface:
     def service_ties_queue(self, queue):
         # Note: we only look at the TIE-ID in the queue and not at the header. If we have a more
         # recent version of the TIE in the TIE-DB than the one requested, we send the one we have.
-        packet_header = encoding.ttypes.PacketHeader(
-            sender=self.node.system_id,
-            level=self.node.level_value())
-        packet_content = encoding.ttypes.PacketContent()
-        protocol_packet = encoding.ttypes.ProtocolPacket(
-            header=packet_header,
-            content=packet_content)
         for tie_id in queue.keys():
-            db_tie_meta = self.node.find_tie_meta(tie_id)
-            if db_tie_meta is not None:
-                protocol_packet.content.tie = db_tie_meta.tie_packet
-                self.send_protocol_packet(protocol_packet, flood=True)
+            db_tie_packet_info = self.node.find_tie_packet_info(tie_id)
+            if db_tie_packet_info is not None:
+                self.send_packet_info(db_tie_packet_info, flood=True)
 
     def service_ties_tx(self):
         self.service_ties_queue(self._ties_tx)
@@ -1494,6 +1663,24 @@ class Interface:
 
     def cli_details_table(self):
         tab = table.Table(separators=False)
+        if self.partially_connected is None:
+            partially_connected_str = 'N/A'
+            partially_connected_causes_str = ''
+        elif self.partially_connected:
+            partially_connected_str = 'True'
+            partially_connected_causes_str = ''
+            count = 0
+            for sysid in self.partially_connected_causes:
+                count += 1
+                if count > 1:
+                    partially_connected_causes_str += ', '
+                if count <= 3:
+                    partially_connected_causes_str += utils.system_id_str(sysid)
+            if count > 3:
+                partially_connected_causes_str += " and {} more".format(count - 3)
+        else:
+            partially_connected_str = 'False'
+            partially_connected_causes_str = ''
         tab.add_rows([
             ["Interface Name", self.name],
             ["Physical Interface Name", self.physical_interface_name],
@@ -1517,7 +1704,9 @@ class Interface:
             ["State", self.state_name],
             ["Received LIE Accepted or Rejected", self._lie_accept_or_reject],
             ["Received LIE Accept or Reject Reason", self._lie_accept_or_reject_rule],
-            ["Neighbor is Flood Repeater", self.nbr_is_fr_str(self.floodred_nbr_is_fr)]
+            ["Neighbor is Flood Repeater", self.nbr_is_fr_str(self.floodred_nbr_is_fr)],
+            ["Neighbor is Partially Connected", partially_connected_str],
+            ["Nodes Causing Partial Connectivity", partially_connected_causes_str]
         ])
         return tab
 
@@ -1588,6 +1777,61 @@ class Interface:
     def clear_stats(self):
         self._traffic_stats_group.clear()
         self.fsm.clear_stats()
+
+    def send_tides_table(self):
+        tab = table.Table()
+        tab.add_row(self.cli_tides_summary_headers())
+        # TODO: Make this code common with Node.send_tides_on_interface (avoid code duplication)
+        if self.fsm.state == self.State.THREE_WAY:
+            tide_packet = self.node.generate_tide_packet(
+                neighbor_direction=self.neighbor_direction(),
+                neighbor_system_id=self.neighbor.system_id,
+                neighbor_level=self.neighbor.level,
+                neighbor_is_top_of_fabric=self.neighbor.top_of_fabric(),
+                my_level=self.node.level_value(),
+                i_am_top_of_fabric=self.node.top_of_fabric())
+            tab.add_row(self.cli_tides_summary_attributes(tide_packet))
+        return tab
+
+    @staticmethod
+    def cli_tides_summary_headers():
+        return [
+            ["Start", "Range"],
+            ["End", "Range"],
+            "Direction",
+            "Originator",
+            "Type",
+            "TIE Nr",
+            "Seq Nr",
+            ["Remaining", "Lifetime"],
+            ["Origination", "Time"]]
+
+    def cli_tides_summary_attributes(self, tide_packet):
+        directions = []
+        originators = []
+        types = []
+        tie_nrs = []
+        seq_nrs = []
+        remaining_lifetimes = []
+        origination_times = []
+        for header in tide_packet.headers:
+            directions.append(packet_common.direction_str(header.tieid.direction))
+            originators.append(header.tieid.originator)
+            types.append(packet_common.tietype_str(header.tieid.tietype))
+            tie_nrs.append(header.tieid.tie_nr)
+            seq_nrs.append(header.seq_nr)
+            remaining_lifetimes.append(header.remaining_lifetime)
+            origination_times.append('-')   # TODO: Report origination_time
+        return [
+            packet_common.tie_id_str(tide_packet.start_range),
+            packet_common.tie_id_str(tide_packet.end_range),
+            directions,
+            originators,
+            types,
+            tie_nrs,
+            seq_nrs,
+            remaining_lifetimes,
+            origination_times]
 
     def tie_headers_table_common(self, tie_headers):
         tab = table.Table()
@@ -1769,3 +2013,9 @@ class Interface:
         self.floodred_check_switchover_done()
         still_pending = (self.floodred_nbr_is_fr == self.NbrIsFRState.PENDING_FALSE)
         return still_pending
+
+    def auth_error_counters(self):
+        counters = []
+        for auth_error in packet_common.PacketInfo.AUTHENTICATION_ERRORS:
+            counters.append(self._error_to_counter[auth_error])
+        return counters

@@ -17,15 +17,17 @@ import yaml
 sys.path.append("rift")
 
 # pylint:disable=wrong-import-position
+import constants
 import table
 
 META_CONFIG = None
 ARGS = None
 
 DEFAULT_NR_IPV4_LOOPBACKS = 1
-DEFAULT_CHAOS_NR_LINK_EVENTS = 10
-DEFAULT_CHAOS_NR_NODE_EVENTS = 3
-DEFAULT_CHAOS_EVENT_INTERVAL = 5.0  # seconds
+DEFAULT_CHAOS_NR_LINK_EVENTS = 20
+DEFAULT_CHAOS_NR_NODE_EVENTS = 5
+DEFAULT_CHAOS_EVENT_INTERVAL = 3.0  # seconds
+DEFAULT_CHAOS_MAX_CONCURRENT_EVENTS = 5
 
 SEPARATOR = '-'
 NETNS_PREFIX = 'netns' + SEPARATOR
@@ -57,6 +59,8 @@ SCHEMA = {
                                'default': DEFAULT_CHAOS_NR_NODE_EVENTS},
             'event-interval': {'type': 'float', 'min': 0.0,
                                'default': DEFAULT_CHAOS_EVENT_INTERVAL},
+            'max-concurrent-events': {'type': 'integer', 'min': 1,
+                                      'default': DEFAULT_CHAOS_MAX_CONCURRENT_EVENTS},
         }
     }
 }
@@ -557,33 +561,41 @@ class Node:
             print("ip netns exec {} ip addr add {} dev {}".format(self.ns_name, addr, veth),
                   file=file)
 
-    def write_netns_start_scr_to_file_2(self, file):
-        progress = ("Start RIFT-Python engine for node {}".format(self.name))
-        print('echo "{}"'.format(progress), file=file)
+    def write_netns_start_scr_to_file_2(self, file, progress_msg=None):
+        if not progress_msg:
+            progress_msg = "Start RIFT-Python engine for node {}"
+        progress_msg = progress_msg.format(self.name)
+        print('echo "{}"'.format(progress_msg), file=file)
         ns_name = NETNS_PREFIX + str(self.global_node_id)
         port_file = "/tmp/rift-python-telnet-port-" + self.name
-        print("ip netns exec {} python3 rift "
+        print("ip netns exec {} env/bin/python3 rift "
               "--ipv4-multicast-loopback-disable "
               "--ipv6-multicast-loopback-disable "
-              "--telnet-port-file {} {} < /dev/null &"
+              "--telnet-port-file {} {} >/dev/null 2>&1 &"
               .format(ns_name, port_file, self.config_file_name), file=file)
 
     def write_netns_stop_scr_to_file_1(self, file):
         progress = ("Stop RIFT-Python engine for node {}".format(self.name))
         print('echo "{}"'.format(progress), file=file)
         # We use a big hammer: we kill -9 all processes in the the namespace
-        ns_name = NETNS_PREFIX + str(self.global_node_id)
-        print("kill -9 $(ip netns pids {}) >/dev/null 2>&1".format(ns_name), file=file)
+        self.write_kill_rift_to_file(file)
         # Also clean up the port file
         port_file = "/tmp/rift-python-telnet-port-" + self.name
         print("rm -f {}".format(port_file), file=file)
         # Delete all interfaces for the node
+        ns_name = NETNS_PREFIX + str(self.global_node_id)
         for intf in self.interfaces:
             veth = intf.veth_name()
             progress = ("Delete interface {} for node {}".format(veth, self.name))
             print('echo "{}"'.format(progress), file=file)
             print("ip netns exec {} ip link del dev {} >/dev/null 2>&1".format(ns_name, veth),
                   file=file)
+
+    def write_kill_rift_to_file(self, file):
+        ns_name = NETNS_PREFIX + str(self.global_node_id)
+        print("RIFT_PIDS=$(ip netns pids {})".format(ns_name), file=file)
+        print("kill -9 $RIFT_PIDS >/dev/null 2>&1", file=file)
+        print("wait $RIFT_PIDS >/dev/null 2>&1", file=file)
 
     def write_netns_stop_scr_to_file_2(self, file):
         ns_name = NETNS_PREFIX + str(self.global_node_id)
@@ -649,12 +661,16 @@ class Node:
             return False
         self.check_engine()
         self.check_interfaces_3way()
-        self.check_rib_north_default_route()
+        if not self.top_of_fabric:
+            self.check_rib_north_default_route()
+        self.check_rib_south_specific_routes()
+        self.check_rib_fib_consistency()
+        self.check_fib_kernel_consistency()
         return True
 
     def check_engine(self):
-        step = "Show engine"
-        self.telnet_session.sendline("show engine")
+        step = "RIFT engine is responsive"
+        self.telnet_session.send_line("show engine")
         if not self.telnet_session.table_expect("Stand-alone | True"):
             error = 'Show engine reported unexpected result for stand-alone'
             self.report_check_result(step, False, error)
@@ -662,58 +678,198 @@ class Node:
         self.report_check_result(step)
 
     def check_interfaces_3way(self):
-        for intf in self.interfaces:
-            intf_name = intf.veth_name()
-            step = "Interface {} in state THREE_WAY".format(intf_name)
-            cmd = "show interface {}".format(intf_name)
-            self.telnet_session.sendline(cmd)
-            if self.telnet_session.table_expect("State | THREE_WAY"):
-                self.report_check_result(step)
-            else:
-                self.report_check_result(step, False)
-
-    # checks for presence of a route in RIB, route is ASCII prefix to check
-    # direction is either "North" or "South"
-    def check_rib_route(self, route, direction, check_nexthop_by_address):
-        if self.top_of_fabric:
-            return
-        step = direction + " " + route + " route is present in RIB"
-        cmd = "show routes prefix " + route
-        self.telnet_session.sendline(cmd)
-        if self.telnet_session.table_expect(route + " | " + direction + " SPF"):
-            self.report_check_result(step)
-        else:
-            self.report_check_result(step, False)
-        ###@@@
-        for intf in self.interfaces:
-            # North-bound interface?
-            if direction == "North" and intf.peer_intf.node.level > self.level:
-                intf_name = intf.veth_name()
-                if check_nexthop_by_address:
-                    next_hop_address = intf.peer_intf.addr.split('/')[0]   # Strip off /prefix-len
-                    next_hop = "{} {}".format(intf_name, next_hop_address)
-                    step = (direction + " " + route + " in RIB includes next-hop {}"
-                            .format(next_hop))
-                    self.telnet_session.sendline(cmd)
-                    if self.telnet_session.table_expect(next_hop):
-                        self.report_check_result(step)
-                    else:
-                        self.report_check_result(step, False)
-                else:
-                    # For IPv6 we don't check the next-hop address since it is some unpredictable
-                    # link-local address
-                    next_hop = intf_name
-                    step = (direction + " " + route + " in RIB includes next-hop {}"
-                            .format(next_hop))
-                    self.telnet_session.sendline(cmd)
-                    if self.telnet_session.table_expect(next_hop):
-                        self.report_check_result(step)
-                    else:
-                        self.report_check_result(step, False)
+        step = "Adjacencies are 3-way"
+        okay = True
+        parsed_intfs = self.telnet_session.parse_show_output("show interfaces")
+        for parsed_intf in parsed_intfs[0]['rows'][1:]:
+            intf_name = parsed_intf[0][0]
+            intf_state = parsed_intf[3][0]
+            if intf_state != "THREE_WAY":
+                error = "Interface {} in state {}".format(intf_name, intf_state)
+                self.report_check_result(step, False, error)
+                okay = False
+        self.report_check_result(step, okay)
 
     def check_rib_north_default_route(self):
-        self.check_rib_route("0.0.0.0/0", "North", True)
-        self.check_rib_route("::/0", "North", False)
+        step = "North-bound default routes are present"
+        okay = True
+        direction = constants.DIR_NORTH
+        ipv4_nexthops = self.gather_nexthops(direction, True)
+        parsed_rib_ipv4_routes = self.telnet_session.parse_show_output("show routes family ipv4")
+        okay = self.check_route_in_rib("0.0.0.0/0", direction, ipv4_nexthops,
+                                       parsed_rib_ipv4_routes) and okay
+        ipv6_nexthops = self.gather_nexthops(direction, False)
+        parsed_rib_ipv6_routes = self.telnet_session.parse_show_output("show routes family ipv6")
+        okay = self.check_route_in_rib("::/0", direction, ipv6_nexthops,
+                                       parsed_rib_ipv6_routes) and okay
+        self.report_check_result(step, okay)
+
+    def check_rib_south_specific_routes(self):
+        # TODO: Once we add support for IPv6 loopbacks, also check those
+        step = "South-bound specific routes are present"
+        okay = True
+        direction = constants.DIR_SOUTH
+        ipv4_lo_addresses = self.gather_southern_loopbacks()
+        parsed_rib_ipv4_routes = self.telnet_session.parse_show_output("show routes family ipv4")
+        for ipv4_lo_address in ipv4_lo_addresses:
+            ipv4_nexthops = self.southern_loopback_nexthops(ipv4_lo_address, True)
+            ipv4_prefix = ipv4_lo_address + "/32"
+            okay = self.check_route_in_rib(ipv4_prefix, direction, ipv4_nexthops,
+                                           parsed_rib_ipv4_routes) and okay
+        self.report_check_result(step, okay)
+
+    def gather_southern_loopbacks(self, include_own_loopbacks=False):
+        # Recursively walk all nodes south of this node and collect their loopback prefixes.
+        if include_own_loopbacks:
+            ipv4_loopback_prefixes = self.lo_addresses
+        else:
+            ipv4_loopback_prefixes = []
+        for intf in self.interfaces:
+            if self.interface_direction(intf) == constants.DIR_SOUTH:
+                south_node = intf.peer_intf.node
+                ipv4_loopback_prefixes += south_node.lo_addresses
+                ipv4_loopback_prefixes += south_node.gather_southern_loopbacks()
+        ipv4_loopback_prefixes = list(set(ipv4_loopback_prefixes))   # Remove duplicates
+        return ipv4_loopback_prefixes
+
+    def southern_loopback_nexthops(self, loopback_address, include_ipv4_address):
+        nexthops = []
+        for intf in self.interfaces:
+            if self.interface_direction(intf) == constants.DIR_SOUTH:
+                south_node = intf.peer_intf.node
+                intf_southern_loopbacks = south_node.gather_southern_loopbacks(True)
+                if loopback_address in intf_southern_loopbacks:
+                    nexthops.append(self.interface_nexthop(intf, include_ipv4_address))
+        return nexthops
+
+    def interface_direction(self, interface):
+        if self.level > interface.peer_intf.node.level:
+            return constants.DIR_SOUTH
+        elif self.level < interface.peer_intf.node.level:
+            return constants.DIR_NORTH
+        else:
+            return constants.DIR_EAST_WEST
+
+    def gather_nexthops(self, direction, include_ipv4_address):
+        nexthops = []
+        for intf in self.interfaces:
+            if self.interface_direction(intf) == direction:
+                nexthops.append(self.interface_nexthop(intf, include_ipv4_address))
+        nexthops = list(set(nexthops))   # Remove duplicates
+        return nexthops
+
+    def interface_nexthop(self, intf, include_ipv4_address):
+        nexthop_intf = intf.veth_name()
+        if include_ipv4_address:
+            nexthop_ipv4_address = intf.peer_intf.addr.split('/')[0] # Strip off /prefix-len
+            nexthop = "{} {}".format(nexthop_intf, nexthop_ipv4_address)
+        else:
+            nexthop = "{}".format(nexthop_intf)
+        return nexthop
+
+    def check_route_in_rib(self, prefix, direction, nexthops, parsed_rib_routes):
+        if direction == constants.DIR_SOUTH:
+            owner = "South SPF"
+        else:
+            assert direction == constants.DIR_NORTH
+            owner = "North SPF"
+        substep = "Route prefix {} owner {} nexthops {} in RIB".format(prefix, owner, nexthops)
+        sorted_nexthops = sorted(nexthops)
+        for rib_route in parsed_rib_routes[0]['rows'][1:]:
+            rib_prefix = rib_route[0][0]
+            rib_owner = rib_route[1][0]
+            if prefix == rib_prefix and owner == rib_owner:
+                rib_nexthops = rib_route[2]
+                if ':' in prefix:
+                    # For IPv6 routes, we only check the nexthop interface and not the link-local
+                    # nexthop address
+                    rib_nexthops = [nh.split(' ')[0] for nh in rib_nexthops]
+                sorted_rib_nexthops = sorted(rib_nexthops)
+                if sorted_nexthops == sorted_rib_nexthops:
+                    return True
+                else:
+                    error = ("Nexthops mismatch; expected {} but RIB has {}"
+                             .format(sorted_nexthops, sorted_rib_nexthops))
+                    self.report_check_result(substep, False, error)
+                    return False
+        self.report_check_result(substep, False, "Route missing")
+        return False
+
+    def check_rib_fib_consistency(self):
+        # None of our tests involve a scenario where we have both a North-SPF route and also a
+        # South-SPF route for the same prefix. So, we can simply check that the forwarding table
+        # (FIB) is identical to the route table (RIB).
+        step = "RIB and FIB are consistent"
+        try:
+            parsed_rib = self.telnet_session.parse_show_output("show routes")
+            parsed_fib = self.telnet_session.parse_show_output("show forwarding")
+            if parsed_rib == parsed_fib:
+                self.report_check_result(step)
+            else:
+                self.report_check_result(step, False, "FIB is different than RIB")
+        except RuntimeError as err:
+            self.report_check_result(step, False, str(err))
+
+    def check_fib_kernel_consistency(self):
+        step = "FIB and Kernel are consistent"
+        parsed_fib_routes = self.telnet_session.parse_show_output("show forwarding")
+        parsed_kernel_routes = \
+            self.telnet_session.parse_show_output("show kernel routes table main")
+        all_ok = True
+        for fib_fam in parsed_fib_routes:
+            for fib_route in fib_fam['rows'][1:]:
+                fib_prefix = fib_route[0][0]
+                fib_nexthops = fib_route[2]
+                if not self.check_route_in_kernel(step, fib_prefix, fib_nexthops,
+                                                  parsed_kernel_routes):
+                    all_ok = False
+        if all_ok:
+            self.report_check_result(step)
+
+    def check_route_in_kernel(self, step, prefix, nexthops, parsed_kernel_routes):
+        # In the FIB, and ECMP route is one row with multiple nexthops. In the kernel, an ECMP route
+        # may be one row with multuple nexthops or may be multiple rows with the same prefix (the
+        # former appears to be the case for IPv4 and the latter appears to be the case for IPv6)
+        partial_match = False
+        remaining_fib_nexthops = nexthops
+        for kernel_route in parsed_kernel_routes[0]['rows'][1:]:
+            kernel_prefix = kernel_route[2][0]
+            kernel_nexthop_intfs = kernel_route[5]
+            kernel_nexthop_addrs = kernel_route[6]
+            kernel_nexthops = [intf + ' ' + addr for (intf, addr) in zip(kernel_nexthop_intfs,
+                                                                         kernel_nexthop_addrs)]
+            if kernel_prefix == prefix:
+                sorted_kernel_nexthops = sorted(kernel_nexthops)
+                sorted_fib_nexthops = sorted(nexthops)
+                if len(kernel_nexthops) == 1:
+                    # If the kernel has a single nexthop, look for a partial match
+                    kernel_nexthop = kernel_nexthops[0]
+                    if kernel_nexthop in remaining_fib_nexthops:
+                        remaining_fib_nexthops.remove(kernel_nexthop)
+                        if remaining_fib_nexthops == []:
+                            return True
+                        else:
+                            partial_match = True
+                    else:
+                        err = ("Route {} has nexthop {} in kernel but not in FIB"
+                               .format(prefix, kernel_nexthop))
+                        self.report_check_result(step, False, err)
+                        return False
+                elif sorted_kernel_nexthops == sorted_fib_nexthops:
+                    # If the kernel has a multiple nexthops, look for an exact match
+                    return True
+                else:
+                    err = ("Route {} has nexthops {} in kernel but {} in FIB"
+                           .format(prefix, kernel_nexthops, nexthops))
+                    self.report_check_result(step, False, err)
+                    return False
+        if partial_match:
+            err = ("Route {} in FIB has extra nexthops {} which are missing in kernel"
+                   .format(prefix, remaining_fib_nexthops))
+        else:
+            err = "Route {} is in FIB but not in kernel".format(prefix)
+        self.report_check_result(step, False, err)
+        return False
 
     def report_check_result(self, step, okay=True, error=None):
         if okay:
@@ -724,7 +880,7 @@ class Node:
             print(RED + "FAIL" + DEFAULT + "  {}".format(step))
 
     def connect_telnet(self):
-        step = "Telnet to node"
+        step = "Can Telnet to RIFT process"
         try:
             with open(self.port_file, 'r') as file:
                 telnet_port = int(file.read())
@@ -867,7 +1023,9 @@ class LinkDownEvent:
         self.link = link
 
     def write_break_script(self, file):
-        description = "Bring link {} down (bi-directional failure)".format(self.link.description())
+        description = (
+            RED + "Break  " + DEFAULT + "Link  " +
+            "{} (bi-directional failure)".format(self.link.description()))
         print("#" * 80, file=file)
         print("# {}".format(description), file=file)
         print("#" * 80, file=file)
@@ -884,7 +1042,7 @@ class LinkDownEvent:
         print(file=file)
 
     def write_fix_script(self, file):
-        description = "Bring link {} up".format(self.link.description())
+        description = GREEN + "Fix    " + DEFAULT + "Link  " + self.link.description()
         print("#" * 80, file=file)
         print("# {}".format(description), file=file)
         print("#" * 80, file=file)
@@ -900,34 +1058,33 @@ class LinkDownEvent:
         print("{}".format(script), file=file)
         print(file=file)
 
-
 class NodeDownEvent:
 
     def __init__(self, node):
         self.node = node
 
     def write_break_script(self, file):
-        description = "Bring node {} down ".format(self.node.name)
+        description = RED + "Break  " + DEFAULT + "Node  " + self.node.name
         print("#" * 80, file=file)
         print("# {}".format(description), file=file)
         print("#" * 80, file=file)
         print(file=file)
         print("echo '{}'".format(description), file=file)
-        ns_name = NETNS_PREFIX + str(self.node.global_node_id)
-        print("kill -9 $(ip netns pids {}) >/dev/null 2>&1".format(ns_name), file=file)
+        self.node.write_kill_rift_to_file(file)
+        print(file=file)
 
     def write_fix_script(self, file):
-        description = "Bring node {} up".format(self.node.name)
+        description = GREEN + "Fix    " + DEFAULT + "Node  {}"
         print("#" * 80, file=file)
-        print("# {}".format(description), file=file)
+        print("# {}".format(description.format(self.node.name)), file=file)
         print("#" * 80, file=file)
         print(file=file)
-        self.node.write_netns_start_scr_to_file_2(file)
+        self.node.write_netns_start_scr_to_file_2(file, description)
+        print(file=file)
 
 class Fabric:
 
     def __init__(self):
-        # pylint: disable=too-many-locals
         self.nr_pods = META_CONFIG['nr-pods']
         self.pods = []
         self.planes = []
@@ -1015,6 +1172,7 @@ class Fabric:
         file_name = dir_name + '/' + script_file_name
         try:
             with open(file_name, 'w') as file:
+                print("#!/bin/bash", file=file)
                 write_script_function(file)
         except IOError:
             fatal_error('Could not open script file "{}"'.format(file_name))
@@ -1068,7 +1226,6 @@ class Fabric:
             for leaf_node in pod.nodes_by_level[LEAF_LEVEL]:
                 all_leaf_nodes.append(leaf_node)
         self.write_netns_ping_all_pairs(file, all_leaf_nodes)
-        self.write_netns_trace_all_pairs(file, all_leaf_nodes)
         print("echo", file=file)
         print("echo Number of failures: $FAILURE_COUNT", file=file)
         print("if [ $FAILURE_COUNT -ne 0 ]; then\n"
@@ -1087,17 +1244,6 @@ class Fabric:
                             print("echo", file=file)
                             self.write_netns_ping_to_file(file, from_node, from_address, to_node,
                                                           to_address)
-
-    def write_netns_trace_all_pairs(self, file, nodes):
-        print("echo '\n*** traceroute ***'", file=file)
-        for from_node in nodes:
-            for to_node in nodes:
-                if from_node != to_node:
-                    for from_address in from_node.lo_addresses:
-                        for to_address in to_node.lo_addresses:
-                            print("echo", file=file)
-                            self.write_netns_trace_to_file(file, from_node, from_address, to_node,
-                                                           to_address)
 
     def write_netns_ping_to_file(self, file, from_node, from_address, to_node, to_address):
         description = ("ping {} {} -> {} {}"
@@ -1129,90 +1275,72 @@ class Fabric:
         print(command, file=file)
 
     def write_netns_chaos_scr_to_file(self, file):
-        clean_links = []        # List of link
-        affected_links = {}     # Break events, indexed by link
+        # pylint:disable=too-many-statements
+        # Keep track of the links and the nodes which are currently 'clean' i.e. not affected by any
+        # failure event.
+        clean_links = []
         clean_nodes = []
-        affected_nodes = {}
         for pod in self.pods:
             clean_links.extend(pod.links)
             clean_nodes.extend(pod.nodes)
         for plane in self.planes:
             clean_links.extend(plane.links)
             clean_nodes.extend(plane.nodes)
-        nr_link_events = self.get_chaos_config('nr-link-events', DEFAULT_CHAOS_NR_LINK_EVENTS)
-        nr_node_events = self.get_chaos_config('nr-node-events', DEFAULT_CHAOS_NR_NODE_EVENTS)
+        # Prepare a script for failure events and repair events.
+        more_link_events = self.get_chaos_config('nr-link-events', DEFAULT_CHAOS_NR_LINK_EVENTS)
+        more_node_events = self.get_chaos_config('nr-node-events', DEFAULT_CHAOS_NR_NODE_EVENTS)
         event_interval = self.get_chaos_config('event-interval', DEFAULT_CHAOS_EVENT_INTERVAL)
-
-        for _event_nr in range(1, nr_link_events + 1):
-            break_something = self.choose_break_or_fix_link(clean_links, affected_links)
-            if break_something:
-                link = random.choice(clean_links)
-                event = LinkDownEvent(link)
-                event.write_break_script(file)
-                clean_links.remove(link)
-                affected_links[link] = event
-            else:
-                link = random.choice(list(affected_links.keys()))
-                event = affected_links[link]
+        max_concurrent_events = self.get_chaos_config('max-concurrent-events',
+                                                      DEFAULT_CHAOS_MAX_CONCURRENT_EVENTS)
+        current_events = []
+        while more_link_events > 0 or more_node_events > 0:
+            # Choose whether to break something or fix something (depends on the number of things
+            # currently broken)
+            if random.randint(0, max_concurrent_events - 1) < len(current_events):
+                # Fix something. Randomly pick a current event, and fix it.
+                event = random.choice(current_events)
+                current_events.remove(event)
                 event.write_fix_script(file)
-                del affected_links[link]
-                clean_links.append(link)
-
+                if isinstance(event, LinkDownEvent):
+                    clean_links.append(event.link)
+                elif isinstance(event, NodeDownEvent):
+                    clean_nodes.append(event.node)
+                else:
+                    assert False
+            else:
+                # Break something. What are we going to break, a link or a node?
+                if random.randint(0, more_link_events + more_node_events - 1) < more_link_events:
+                    # Break a link (if there is a clean link remaining)
+                    if not clean_links:
+                        continue
+                    link = random.choice(clean_links)
+                    event = LinkDownEvent(link)
+                    event.write_break_script(file)
+                    clean_links.remove(link)
+                    current_events.append(event)
+                    more_link_events -= 1
+                else:
+                    # Break a node
+                    if not clean_nodes:
+                        continue
+                    node = random.choice(clean_nodes)
+                    event = NodeDownEvent(node)
+                    event.write_break_script(file)
+                    clean_nodes.remove(node)
+                    current_events.append(event)
+                    more_node_events -= 1
+            # Delay between events
             print("sleep {}".format(event_interval), file=file)
             print(file=file)
-            
-        for _event_nr in range(1, nr_node_events + 1):
-            break_something = self.choose_break_or_fix_node(clean_nodes, affected_nodes)
-            if break_something:
-                node = random.choice(clean_nodes)
-                event = NodeDownEvent(node)
-                event.write_break_script(file)
-                clean_nodes.remove(node)
-                affected_nodes[node] = event
-            else:
-                node = random.choice(list(affected_nodes.keys()))
-                event = affected_nodes[node.global_node_id]
-                event.write_fix_script(file)
-                del affected_nodes[node]
-                clean_nodes.append(node)
-
-            print("sleep {}".format(event_interval), file=file)
-            print(file=file)
-            
         # Fix everything that is still broken, without delays in between
-        while affected_links:
-            link = random.choice(list(affected_links.keys()))
-            event = affected_links[link]
+        while current_events:
+            event = current_events.pop()
             event.write_fix_script(file)
-            del affected_links[link]
-            clean_links.append(link)
-            
-        while affected_nodes:
-            node = random.choice(list(affected_nodes.keys()))
-            event = affected_nodes[node]
-            event.write_fix_script(file)
-            del affected_nodes[node]
-            clean_nodes.append(node)
-
         # One final delay to let everything reconverge
         print("sleep {}".format(event_interval), file=file)
         print(file=file)
 
-    def choose_break_or_fix_link(self, clean_links, affected_links):
-        # Returns True for break, False for fix
-        nr_clean_links = len(clean_links)
-        nr_affected_links = len(affected_links)
-        nr_links = nr_clean_links + nr_affected_links
-        assert nr_links > 1
-        # pylint: disable=simplifiable-if-statement
-        if random.randint(1, nr_links) <= nr_clean_links:
-            # Break something
-            return True
-        else:
-            # Fix something
-            return False
-
-    def choose_break_or_fix_node(selfself, clean_nodes, affected_nodes):
+    def choose_break_or_fix_node(self, clean_nodes, affected_nodes):
         # Returns True for break, False for fix
         nr_clean_nodes = len(clean_nodes)
         nr_affected_nodes = len(affected_nodes)
@@ -1291,43 +1419,13 @@ class Fabric:
         print(tab.to_string(), file=file)
 
     def check(self):
-
         okay = True
-
-        hostroutespernode = {}
-        for pod in self.pods:
-            for node in pod.nodes:
-                level = node.level
-                hostroutes = []
-                for lowernode in pod.nodes:
-                    if lowernode.level < level:
-                        hostroutes = hostroutes + lowernode.lo_addresses
-
-                hostroutespernode[node.global_node_id] = hostroutes
-
-        for plane in self.planes:
-            union = list(set.union(*[set(v) for v in hostroutespernode.values()]))
-            for node in plane.nodes:
-                hostroutespernode[node.global_node_id] = union
-
         for pod in self.pods:
             for node in pod.nodes:
                 okay = node.check() and okay
-                routes = hostroutespernode[node.global_node_id]
-                # print("checking node: %d for south routes %s" % ( node.global_node_id, routes))
-                for route in routes:
-                    okay = node.check_rib_route(route+"/32", "South", True) and okay
-
         for plane in self.planes:
             for node in plane.nodes:
                 okay = node.check() and okay
-
-            routes = hostroutespernode[node.global_node_id]
-
-            # print("checking node: %d for south routes %s" % ( node.global_node_id, routes))
-            for route in routes:
-                okay = node.check_rib_route(route+"/32", "South", True) and okay
-
         return okay
 
     def pods_total_x_size(self):
@@ -1377,13 +1475,17 @@ class TelnetSession:
 
     def stop(self):
         # Attempt graceful exit
-        self._expect_session.sendline("exit")
+        self._expect_session.send_line("exit")
         # Terminate it forcefully, in case the graceful exit did not work for some reason
         self._expect_session.terminate(force=True)
         self.write_result("\n\n*** End session to {}:{}\n\n".format(self._netns, self._port))
 
-    def sendline(self, line):
+    def send_line(self, line):
         self._expect_session.sendline(line)
+
+    def read_line(self):
+        line = self._expect_session.readline()
+        return line.decode('utf-8').strip()
 
     def log_expect_failure(self):
         self.write_result("\n\n*** Did not find expected pattern\n\n")
@@ -1419,6 +1521,74 @@ class TelnetSession:
 
     def wait_prompt(self, timeout=1.0):
         return self.expect(".*> ", timeout)
+
+    def parse_show_output(self, show_command):
+        # Send a marker (which will cause a command syntax error) and look for the echo. This is to
+        # avoid accidentally parsing output from some previous show command.
+        marker = "show PARSE_SHOW_OUTPUT_MARKER"
+        self.send_line(marker)
+        while True:
+            line = self.read_line()
+            if marker in line:
+                break
+        # Send the command whose output we want to collect
+        self.send_line(show_command)
+        # Send a blank line to make sure we have a prompt followed by a newline at the end
+        self.send_line('')
+        # Look for echo of show command in output
+        while True:
+            line = self.read_line()
+            if show_command in line:
+                break
+        parsed_tables = []
+        table_title = None
+        while True:
+            line = self.read_line()
+            if line == '':
+                # Skip blank lines
+                continue
+            elif '+' in line:
+                # Table contents starts
+                parsed_table = self.parse_table(table_title)
+                table_title = None
+                parsed_tables.append(parsed_table)
+            elif ':' in line:
+                # Table title (there should only be one line of table title)
+                if table_title is not None:
+                    raise RuntimeError("Table title is more than one line")
+                table_title = line.strip(':')
+            elif '>' in line:
+                # Reached prompt for next command; we are done
+                return parsed_tables
+            else:
+                raise RuntimeError("Unrecognized format of show command output")
+
+    def parse_table(self, table_title):
+        parsed_table = {}
+        parsed_table['title'] = table_title
+        parsed_table['rows'] = []
+        row = None
+        while True:
+            line = self.read_line()
+            if line == '':
+                # Every table is followed by a blank line, so we have reached the end of the table
+                return parsed_table
+            elif '+-' in line:
+                # Row seperator
+                if row:
+                    parsed_table['rows'].append(row)
+                    row = None
+            elif '|' in line:
+                # Row contents
+                add_to_row = line.split('|')
+                add_to_row = add_to_row[1:-1]
+                add_to_row = [[cell.strip()] for cell in add_to_row]
+                if row:
+                    row = [cell + new_cell for (cell, new_cell) in zip(row, add_to_row)]
+                else:
+                    row = add_to_row
+            else:
+                raise RuntimeError("Unrecognized format of table")
 
 def parse_meta_configuration(file_name):
     try:

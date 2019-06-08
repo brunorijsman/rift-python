@@ -14,6 +14,8 @@ rm -f rift.log
 rm -f rift.log.html
 rm -f rift_expect.log
 rm -f rift_telnet_expect.log
+rm -f config_generator_check.log
+rm -f test_telnet_expect.log
 rm -f log_expect.log
 rm -rf htmlcov
 rm -rf interop-results-*

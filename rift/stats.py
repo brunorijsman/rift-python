@@ -143,7 +143,6 @@ class StatBase:
         return ", ".join(value_strs)
 
     def rate_display_str(self):
-        # pylint:disable=too-many-locals
         nr_samples = len(self._samples)
         if nr_samples < 2:
             return ''

@@ -1,7 +1,8 @@
 import copy
 import ipaddress
-import sortedcontainers
+import struct
 
+import sortedcontainers
 import thrift.protocol.TBinaryProtocol
 import thrift.transport.TTransport
 
@@ -10,6 +11,158 @@ import constants
 import encoding.ttypes
 import encoding.constants
 import utils
+
+RIFT_MAGIC = 0xA1F7
+
+class PacketInfo:
+
+    ERR_MSG_TOO_SHORT = "Message too short"
+    ERR_WRONG_MAGIC = "Wrong magic value"
+    ERR_WRONG_MAJOR_VERSION = "Wrong major version"
+    ERR_TRIFT_DECODE = "Thrift decode error"
+    ERR_TRIFT_VALIDATE = "Thrift validate error"
+    ERR_MISSING_OUTER_SEC_ENV = "Missing outer security envelope"
+    ERR_ZERO_OUTER_KEY_ID_NOT_ACCEPTED = "Zero outer key id not accepted"
+    ERR_UNKNOWN_OUTER_KEY_ID = "Unknown outer key id"
+    ERR_INCORRECT_OUTER_FINGERPRINT = "Incorrect outer fingerprint"
+    ERR_MISSING_ORIGIN_SEC_ENV = "Missing TIE origin security envelope"
+    ERR_ZERO_ORIGIN_KEY_ID_NOT_ACCEPTED = "Zero TIE origin key id not accepted"
+    ERR_UNEXPECTED_ORIGIN_SEC_ENV = "Unexpected TIE origin security envelope"
+    ERR_UNSUPPORTED_ORIGIN_KEY_ID = "Unsupported TIE origin key id"
+    ERR_INCONSISTENT_ORIGIN_KEY_ID = "Inconsistent TIE origin key id and fingerprint"
+    ERR_UNKNOWN_ORIGIN_KEY_ID = "Unknown TIE origin key id"
+    ERR_INCORRECT_ORIGIN_FINGERPRINT = "Incorrect TIE origin fingerprint"
+    ERR_REFLECTED_NONCE_OUT_OF_SYNC = "Reflected nonce out of sync"
+
+    DECODE_ERRORS = [
+        ERR_MSG_TOO_SHORT,
+        ERR_WRONG_MAGIC,
+        ERR_WRONG_MAJOR_VERSION,
+        ERR_TRIFT_DECODE,
+        ERR_TRIFT_VALIDATE]
+
+    AUTHENTICATION_ERRORS = [
+        ERR_MISSING_OUTER_SEC_ENV,
+        ERR_ZERO_OUTER_KEY_ID_NOT_ACCEPTED,
+        ERR_UNKNOWN_OUTER_KEY_ID,
+        ERR_INCORRECT_OUTER_FINGERPRINT,
+        ERR_MISSING_ORIGIN_SEC_ENV,
+        ERR_ZERO_ORIGIN_KEY_ID_NOT_ACCEPTED,
+        ERR_UNEXPECTED_ORIGIN_SEC_ENV,
+        ERR_UNSUPPORTED_ORIGIN_KEY_ID,
+        ERR_INCONSISTENT_ORIGIN_KEY_ID,
+        ERR_UNKNOWN_ORIGIN_KEY_ID,
+        ERR_INCORRECT_ORIGIN_FINGERPRINT,
+        ERR_REFLECTED_NONCE_OUT_OF_SYNC]
+
+    def __init__(self):
+        # Where was the message received from?
+        self.rx_intf = None
+        self.address_family = None
+        self.from_addr_port_str = None
+        # RIFT model object
+        self.protocol_packet = None
+        self.encoded_protocol_packet = None
+        self.packet_type = None
+        # Error string (None if decode was successful)
+        self.error = None
+        self.error_details = None
+        # Envelope header (magic and packet number)
+        self.env_header = None
+        self.packet_nr = None
+        # Outer security envelope header
+        self.outer_sec_env_header = None
+        self.outer_key_id = None
+        self.nonce_local = None
+        self.nonce_remote = None
+        self.remaining_tie_lifetime = None
+        self.outer_fingerprint_len = None
+        self.outer_fingerprint = None
+        # Origin security envelope header
+        self.origin_sec_env_header = None
+        self.origin_key_id = None
+        self.origin_fingerprint_len = None
+        self.origin_fingerprint = None
+
+    def __str__(self):
+        result_str = ""
+        if self.packet_nr is not None:
+            result_str += "packet-nr={} ".format(self.packet_nr)
+        if self.outer_key_id is not None:
+            result_str += "outer-key-id={} ".format(self.outer_key_id)
+        if self.nonce_local is not None:
+            result_str += "nonce-local={} ".format(self.nonce_local)
+        if self.nonce_remote is not None:
+            result_str += "nonce-remote={} ".format(self.nonce_remote)
+        if self.remaining_tie_lifetime is not None:
+            if self.remaining_tie_lifetime == 0xffffffff:
+                result_str += "remaining-lie-lifetime=all-ones "
+            else:
+                result_str += "remaining-lie-lifetime={} ".format(self.remaining_tie_lifetime)
+        if self.outer_fingerprint_len is not None:
+            result_str += "outer-fingerprint-len={} ".format(self.outer_fingerprint_len)
+        if self.origin_key_id is not None:
+            result_str += "origin-key-id={} ".format(self.origin_key_id)
+        if self.origin_fingerprint_len is not None:
+            result_str += "origin-fingerprint-len={} ".format(self.origin_fingerprint_len)
+        if self.protocol_packet is not None:
+            result_str += "protocol-packet={}".format(self.protocol_packet)
+        return result_str
+
+    def message_parts(self):
+        assert self.env_header
+        assert self.outer_sec_env_header
+        assert self.encoded_protocol_packet
+        if self.origin_sec_env_header:
+            return [self.env_header,
+                    self.outer_sec_env_header,
+                    self.origin_sec_env_header,
+                    self.encoded_protocol_packet]
+        else:
+            return [self.env_header,
+                    self.outer_sec_env_header,
+                    self.encoded_protocol_packet]
+
+    def update_env_header(self, packet_nr):
+        self.packet_nr = packet_nr
+        self.env_header = struct.pack("!HH", RIFT_MAGIC, packet_nr)
+
+    def update_outer_sec_env_header(self, outer_key, nonce_local, nonce_remote):
+        if self.protocol_packet.content.tie:
+            remaining_tie_lifetime = self.protocol_packet.content.tie.header.remaining_lifetime
+        else:
+            remaining_tie_lifetime = 0xffffffff
+        post = struct.pack("!HHL", nonce_local, nonce_remote, remaining_tie_lifetime)
+        if outer_key:
+            self.outer_key_id = outer_key.key_id
+            self.outer_fingerprint = outer_key.padded_digest(
+                [post, self.origin_sec_env_header, self.encoded_protocol_packet])
+            self.outer_fingerprint_len = len(self.outer_fingerprint) // 4
+        else:
+            self.outer_key_id = 0
+            self.outer_fingerprint = b''
+            self.outer_fingerprint_len = 0
+        self.nonce_local = nonce_local
+        self.nonce_remote = nonce_remote
+        self.remaining_tie_lifetime = remaining_tie_lifetime
+        reserved = 0
+        major_version = encoding.constants.protocol_major_version
+        pre = struct.pack("!BBBB", reserved, major_version, self.outer_key_id,
+                          self.outer_fingerprint_len)
+        self.outer_sec_env_header = pre + self.outer_fingerprint + post
+
+    def update_origin_sec_env_header(self, origin_key):
+        if origin_key:
+            self.origin_key_id = origin_key.key_id
+            self.origin_fingerprint = origin_key.padded_digest([self.encoded_protocol_packet])
+            self.origin_fingerprint_len = len(self.origin_fingerprint) // 4
+        else:
+            self.origin_key_id = 0
+            self.origin_fingerprint = b''
+            self.origin_fingerprint_len = 0
+        # We only support 8-bit key ids. Network order is big endian, so it goes into the 3rd byte.
+        pre = struct.pack("!BBBB", 0, 0, self.origin_key_id, self.origin_fingerprint_len)
+        self.origin_sec_env_header = pre + self.origin_fingerprint
 
 def ipv4_prefix_tup(ipv4_prefix):
     return (ipv4_prefix.address, ipv4_prefix.prefixlen)
@@ -77,7 +230,7 @@ def add_missing_methods_to_thrift():
     encoding.ttypes.LinkIDPair.__lt__ = (
         lambda self, other: link_id_pair_tup(self) < link_id_pair_tup(other))
 
-def encode_protocol_packet(protocol_packet):
+def encode_protocol_packet(protocol_packet, origin_key):
     # Since Thrift does not support unsigned integer, we need to "fix" unsigned integers to be
     # encoded as signed integers.
     # We have to make a deep copy of the non-encoded packet, but this "fixing" involves changing
@@ -96,22 +249,240 @@ def encode_protocol_packet(protocol_packet):
     protocol_out = thrift.protocol.TBinaryProtocol.TBinaryProtocol(transport_out)
     fixed_protocol_packet.write(protocol_out)
     encoded_protocol_packet = transport_out.getvalue()
-    return encoded_protocol_packet
+    packet_info = PacketInfo()
+    packet_info.protocol_packet = protocol_packet
+    packet_info.encoded_protocol_packet = encoded_protocol_packet
+    if protocol_packet.content.lie:
+        packet_info.packet_type = constants.PACKET_TYPE_LIE
+    elif protocol_packet.content.tie:
+        packet_info.packet_type = constants.PACKET_TYPE_TIE
+    elif protocol_packet.content.tide:
+        packet_info.packet_type = constants.PACKET_TYPE_TIDE
+    elif protocol_packet.content.tire:
+        packet_info.packet_type = constants.PACKET_TYPE_TIRE
+    # If it is a TIE, update the origin security header. We do this here since it only needs to be
+    # done once when the packet is encoded. However, for the envelope header and for the outer
+    # security header it is up to the caller to call the corresponding update function before
+    # sending out the encoded message:
+    # * The envelope header must be updated each time the packet number changes
+    # * The outer security header must be updated each time a nonce or the remaining TIE lifetime
+    #   changes.
+    if protocol_packet.content.tie:
+        packet_info.update_origin_sec_env_header(origin_key)
+    return packet_info
 
-def decode_protocol_packet(encoded_protocol_packet):
+def decode_message(rx_intf, from_info, message, active_key, accept_keys):
+    packet_info = PacketInfo()
+    record_source_info(packet_info, rx_intf, from_info)
+    continue_offset = decode_envelope_header(packet_info, message)
+    if continue_offset == -1:
+        return packet_info
+    continue_offset = decode_outer_security_header(packet_info, message, continue_offset)
+    if continue_offset == -1:
+        return packet_info
+    if packet_info.remaining_tie_lifetime != 0xffffffff:
+        continue_offset = decode_origin_security_header(packet_info, message, continue_offset)
+        if continue_offset == -1:
+            return packet_info
+    continue_offset = decode_protocol_packet(packet_info, message, continue_offset)
+    if continue_offset == -1:
+        return packet_info
+    if not check_outer_fingerprint(packet_info, active_key, accept_keys):
+        return packet_info
+    if not check_origin_fingerprint(packet_info, active_key, accept_keys):
+        return packet_info
+    return packet_info
+
+def record_source_info(packet_info, rx_intf, from_info):
+    packet_info.rx_intf = rx_intf
+    if from_info:
+        if len(from_info) == 2:
+            packet_info.address_family = constants.ADDRESS_FAMILY_IPV4
+            packet_info.from_addr_port_str = "from {}:{}".format(from_info[0], from_info[1])
+        else:
+            assert len(from_info) == 4
+            packet_info.address_family = constants.ADDRESS_FAMILY_IPV6
+            packet_info.from_addr_port_str = "from [{}]:{}".format(from_info[0], from_info[1])
+
+def decode_envelope_header(packet_info, message):
+    if len(message) < 4:
+        packet_info.error = packet_info.ERR_MSG_TOO_SHORT
+        packet_info.error_details = "Missing magic and packet number"
+        return -1
+    (magic, packet_nr) = struct.unpack("!HH", message[0:4])
+    if magic != RIFT_MAGIC:
+        packet_info.error = packet_info.ERR_WRONG_MAGIC
+        packet_info.error_details = "Expected 0x{:x}, got 0x{:x}".format(RIFT_MAGIC, magic)
+        return -1
+    packet_info.env_header = message[0:4]
+    packet_info.packet_nr = packet_nr
+    return 4
+
+def decode_outer_security_header(packet_info, message, offset):
+    start_header_offset = offset
+    message_len = len(message)
+    if offset + 4 > message_len:
+        packet_info.error = packet_info.ERR_MSG_TOO_SHORT
+        packet_info.error_details = \
+            "Missing major version, outer key id and outer fingerprint length"
+        return -1
+    (_reserved, major_version, outer_key_id, outer_fingerprint_len) = \
+        struct.unpack("!BBBB", message[offset:offset+4])
+    offset += 4
+    expected_major_version = encoding.constants.protocol_major_version
+    if major_version != expected_major_version:
+        packet_info.error = packet_info.ERR_WRONG_MAJOR_VERSION
+        packet_info.error_details = ("Expected {}, got {}"
+                                     .format(expected_major_version, major_version))
+        return -1
+    outer_fingerprint_len *= 4
+    if offset + outer_fingerprint_len > message_len:
+        packet_info.error = packet_info.ERR_MSG_TOO_SHORT
+        packet_info.error_details = "Missing outer fingerprint"
+        return -1
+    outer_fingerprint = message[offset:offset+outer_fingerprint_len]
+    offset += outer_fingerprint_len
+    if offset + 8 > message_len:
+        packet_info.error = packet_info.ERR_MSG_TOO_SHORT
+        packet_info.error_details = \
+            "Missing nonce local, nonce remote and remaining tie lifetime"
+        return -1
+    (nonce_local, nonce_remote, remaining_tie_lifetime) = \
+        struct.unpack("!HHL", message[offset:offset+8])
+    offset += 8
+    packet_info.outer_sec_env_header = message[start_header_offset:offset]
+    packet_info.outer_key_id = outer_key_id
+    packet_info.nonce_local = nonce_local
+    packet_info.nonce_remote = nonce_remote
+    packet_info.remaining_tie_lifetime = remaining_tie_lifetime
+    packet_info.outer_fingerprint_len = outer_fingerprint_len
+    packet_info.outer_fingerprint = outer_fingerprint
+    return offset
+
+def decode_origin_security_header(packet_info, message, offset):
+    start_header_offset = offset
+    message_len = len(message)
+    if offset + 4 > message_len:
+        packet_info.error = packet_info.ERR_MSG_TOO_SHORT
+        packet_info.error_details = \
+            "Missing TIE origin key id and TIE origin fingerprint length"
+        return -1
+    (should_be_zero_1, should_be_zero_2, origin_key_id, origin_fingerprint_len) = \
+        struct.unpack("!BBBB", message[offset:offset+4])
+    offset += 4
+    if should_be_zero_1 != 0 or should_be_zero_2 != 0:
+        got_key_id = should_be_zero_1 << 16 + should_be_zero_2 << 8 + origin_key_id
+        packet_info.error = packet_info.ERR_UNSUPPORTED_ORIGIN_KEY_ID
+        packet_info.error_details = ("Only support <= 255, got {}".format(got_key_id))
+        return -1
+    if ((origin_key_id == 0 and origin_fingerprint_len != 0) or
+            (origin_key_id != 0 and origin_fingerprint_len == 0)):
+        packet_info.error = packet_info.ERR_INCONSISTENT_ORIGIN_KEY_ID
+        return -1
+    origin_fingerprint_len *= 4
+    if offset + origin_fingerprint_len > message_len:
+        packet_info.error = packet_info.ERR_MSG_TOO_SHORT
+        packet_info.error_details = "Missing TIE origin fingerprint"
+        return -1
+    origin_fingerprint = message[offset:offset+origin_fingerprint_len]
+    offset += origin_fingerprint_len
+    packet_info.origin_sec_env_header = message[start_header_offset:offset]
+    packet_info.origin_key_id = origin_key_id
+    packet_info.origin_fingerprint_len = origin_fingerprint_len
+    packet_info.origin_fingerprint = origin_fingerprint
+    return offset
+
+def decode_protocol_packet(packet_info, message, offset):
+    encoded_protocol_packet = message[offset:]
     transport_in = thrift.transport.TTransport.TMemoryBuffer(encoded_protocol_packet)
     protocol_in = thrift.protocol.TBinaryProtocol.TBinaryProtocol(transport_in)
     protocol_packet = encoding.ttypes.ProtocolPacket()
-    # Thrift is prone to throw any unpredictable exception if the decode fails,
-    # so disable pylint warning "No exception type(s) specified"
-    # pylint: disable=W0702
     try:
         protocol_packet.read(protocol_in)
-    except:
-        # Decoding error
-        return None
+    # We don't know what exception Thrift might throw
+    # pylint: disable=broad-except
+    except Exception as err:
+        packet_info.error = packet_info.ERR_TRIFT_DECODE
+        packet_info.error_details = str(err)
+        return -1
+    try:
+        protocol_packet.validate()
+    except thrift.protocol.TProtocol.TProtocolException as err:
+        packet_info.error = packet_info.THRIFT_VALIDATE
+        packet_info.error_details = str(err)
+        return -1
     fix_prot_packet_after_decode(protocol_packet)
-    return protocol_packet
+    packet_info.encoded_protocol_packet = encoded_protocol_packet
+    packet_info.protocol_packet = protocol_packet
+    if protocol_packet.content.lie:
+        packet_info.packet_type = constants.PACKET_TYPE_LIE
+    elif protocol_packet.content.tie:
+        packet_info.packet_type = constants.PACKET_TYPE_TIE
+    elif protocol_packet.content.tide:
+        packet_info.packet_type = constants.PACKET_TYPE_TIDE
+    elif protocol_packet.content.tire:
+        packet_info.packet_type = constants.PACKET_TYPE_TIRE
+    return len(message)
+
+def check_outer_fingerprint(packet_info, active_key, accept_keys):
+    if not packet_info.outer_sec_env_header:
+        packet_info.error = packet_info.ERR_MISSING_OUTER_SEC_ENV
+        return packet_info
+    if packet_info.outer_key_id == 0:
+        if active_key is None or 0 in accept_keys:
+            return True
+        else:
+            packet_info.error = packet_info.ERR_ZERO_OUTER_KEY_ID_NOT_ACCEPTED
+            return False
+    use_key = find_key_id(packet_info.outer_key_id, active_key, accept_keys)
+    if not use_key:
+        packet_info.error = packet_info.ERR_UNKNOWN_OUTER_KEY_ID
+        packet_info.error_details = "Outer key id is " + str(packet_info.outer_key_id)
+        return False
+    post = packet_info.outer_sec_env_header[-8:]
+    expected = use_key.padded_digest([post, packet_info.origin_sec_env_header,
+                                      packet_info.encoded_protocol_packet])
+    if packet_info.outer_fingerprint != expected:
+        packet_info.error = packet_info.ERR_INCORRECT_OUTER_FINGERPRINT
+        return False
+    return True
+
+def check_origin_fingerprint(packet_info, active_key, accept_keys):
+    if packet_info.protocol_packet:
+        if packet_info.protocol_packet.content.tie:
+            if not packet_info.origin_sec_env_header:
+                packet_info.error = packet_info.ERR_MISSING_ORIGIN_SEC_ENV
+                return packet_info
+        else:
+            if packet_info.origin_sec_env_header:
+                packet_info.error = packet_info.ERR_UNEXPECTED_ORIGIN_SEC_ENV
+                return packet_info
+    if not packet_info.origin_sec_env_header:
+        return True
+    if packet_info.origin_key_id == 0:
+        if active_key is None or 0 in accept_keys:
+            return True
+        else:
+            packet_info.error = packet_info.ERR_ZERO_ORIGIN_KEY_ID_NOT_ACCEPTED
+            return False
+    use_key = find_key_id(packet_info.origin_key_id, active_key, accept_keys)
+    if not use_key:
+        packet_info.error = packet_info.ERR_UNKNOWN_ORIGIN_KEY_ID
+        packet_info.error_details = "TIE origin key id is " + str(packet_info.origin_key_id)
+        return False
+    expected = use_key.padded_digest([packet_info.encoded_protocol_packet])
+    if packet_info.origin_fingerprint != expected:
+        packet_info.error = packet_info.ERR_INCORRECT_ORIGIN_FINGERPRINT
+        return False
+    return True
+
+def find_key_id(key_id, active_key, accept_keys):
+    if active_key and active_key.key_id == key_id:
+        return active_key
+    for accept_key in accept_keys:
+        if accept_key.key_id == key_id:
+            return accept_key
+    return None
 
 # What follows are some horrible hacks to deal with the fact that Thrift only support signed 8, 16,
 # 32, and 64 bit numbers and not unsigned 8, 16, 32, and 64 bit numbers. The RIFT specification has
@@ -191,15 +562,15 @@ def fix_dict(old_dict, dict_fixes, encode):
         new_dict[new_key] = new_value
     return new_dict
 
-def fix_struct(struct, fixes, encode):
+def fix_struct(fixed_struct, fixes, encode):
     for fix in fixes:
         (field_name, field_fix) = fix
-        if field_name in vars(struct):
-            field_value = getattr(struct, field_name)
+        if field_name in vars(fixed_struct):
+            field_value = getattr(fixed_struct, field_name)
             if field_value is not None:
                 new_value = fix_value(field_value, field_fix, encode)
-                setattr(struct, field_name, new_value)
-    return struct
+                setattr(fixed_struct, field_name, new_value)
+    return fixed_struct
 
 def fix_set(old_set, fix, encode):
     new_set = set()
@@ -359,7 +730,6 @@ def make_tie_header(direction, originator, tie_type, tie_nr, seq_nr, lifetime,
     return tie_header
 
 def make_prefix_tie_packet(direction, originator, tie_nr, seq_nr, lifetime):
-    # pylint:disable=too-many-locals
     tie_type = common.ttypes.TIETypeType.PrefixTIEType
     tie_header = make_tie_header(direction, originator, tie_type, tie_nr, seq_nr, lifetime)
     prefixes = {}
@@ -402,9 +772,8 @@ def make_ipv6_prefix(prefix_str):
     prefix = common.ttypes.IPPrefixType(ipv6prefix=ipv6_prefix)
     return prefix
 
-def add_ipv4_prefix_to_prefix_tie(prefix_tie_packet, ipv4_prefix_string, metric, tags=None,
+def add_ipv4_prefix_to_prefix_tie(prefix_tie_packet, prefix, metric, tags=None,
                                   monotonic_clock=None):
-    prefix = make_ipv4_prefix(ipv4_prefix_string)
     attributes = encoding.ttypes.PrefixAttributes(metric, tags, monotonic_clock)
     prefix_tie_packet.element.prefixes.prefixes[prefix] = attributes
 
@@ -417,7 +786,6 @@ def add_ipv6_prefix_to_prefix_tie(prefix_tie_packet, ipv6_prefix_string, metric,
     prefix_tie_packet.element.prefixes.prefixes[prefix] = attributes
 
 def make_node_tie_packet(name, level, direction, originator, tie_nr, seq_nr, lifetime):
-    # pylint:disable=too-many-locals
     tie_type = common.ttypes.TIETypeType.NodeTIEType
     tie_header = make_tie_header(direction, originator, tie_type, tie_nr, seq_nr, lifetime)
     node_tie_element = encoding.ttypes.NodeTIEElement(
@@ -480,11 +848,11 @@ def ip_prefix_str(ip_prefix):
 TIETYPE_TO_STR = {
     common.ttypes.TIETypeType.NodeTIEType: "Node",
     common.ttypes.TIETypeType.PrefixTIEType: "Prefix",
-    common.ttypes.TIETypeType.PositiveDisaggregationPrefixTIEType: "PositiveDisaggregationPrefix",
-    common.ttypes.TIETypeType.NegativeDisaggregationPrefixTIEType: "NegativeDisaggregationPrefix",
-    common.ttypes.TIETypeType.ExternalPrefixTIEType: "ExternalPrefix",
-    common.ttypes.TIETypeType.PGPrefixTIEType: "PolicyGuidedPrefix",
-    common.ttypes.TIETypeType.KeyValueTIEType: "KeyValue"
+    common.ttypes.TIETypeType.PositiveDisaggregationPrefixTIEType: "Pos-Dis-Prefix",
+    common.ttypes.TIETypeType.NegativeDisaggregationPrefixTIEType: "Neg-Dis-Prefix",
+    common.ttypes.TIETypeType.ExternalPrefixTIEType: "Ext-Prefix",
+    common.ttypes.TIETypeType.PGPrefixTIEType: "PG-Prefix",
+    common.ttypes.TIETypeType.KeyValueTIEType: "Key-Value"
 }
 
 def tietype_str(tietype):
@@ -547,11 +915,11 @@ def node_element_str(element):
                 lines.append("  Link: " + link_id_pair_str(link_id_pair))
     return lines
 
-def prefix_element_str(element):
+def prefixes_str(label_str, prefixes):
     lines = []
-    sorted_prefixes = sortedcontainers.SortedDict(element.prefixes)
+    sorted_prefixes = sortedcontainers.SortedDict(prefixes.prefixes)
     for prefix, attributes in sorted_prefixes.items():
-        line = "Prefix: " + ip_prefix_str(prefix)
+        line = label_str + ' ' + ip_prefix_str(prefix)
         lines.append(line)
         if attributes:
             if attributes.metric:
@@ -562,13 +930,19 @@ def prefix_element_str(element):
                     line = "  Tag: " + str(tag)
                     lines.append(line)
             if attributes.monotonic_clock:
-                line = "  Monotonic-clock: " + str(attributes.monotonic_clock)
+                line = "  Monotonic-clock:"
                 lines.append(line)
+                if attributes.monotonic_clock.timestamp:
+                    line = "    Timestamp: "
+                    line += str(attributes.monotonic_clock.timestamp.AS_sec)
+                    if attributes.monotonic_clock.timestamp.AS_nsec:
+                        nsec_str = "{:06d}".format(attributes.monotonic_clock.timestamp.AS_nsec)
+                        line += "." + nsec_str
+                    lines.append(line)
+                if attributes.monotonic_clock.transactionid:
+                    line = "    Transaction-ID: " + str(attributes.monotonic_clock.transactionid)
+                    lines.append(line)
     return lines
-
-def transitive_prefix_element_str(_element):
-    # TODO: Implement this
-    return "TODO"
 
 def pg_prefix_element_str(_element):
     # TODO: Implement this
@@ -586,13 +960,18 @@ def element_str(tietype, element):
     if tietype == common.ttypes.TIETypeType.NodeTIEType:
         return node_element_str(element.node)
     elif tietype == common.ttypes.TIETypeType.PrefixTIEType:
-        return prefix_element_str(element.prefixes)
+        return prefixes_str("Prefix:", element.prefixes)
     elif tietype == common.ttypes.TIETypeType.PositiveDisaggregationPrefixTIEType:
-        return transitive_prefix_element_str(element.transitive_prefixes)
+        return prefixes_str("Pos-Dis-Prefix:", element.positive_disaggregation_prefixes)
+    elif tietype == common.ttypes.TIETypeType.NegativeDisaggregationPrefixTIEType:
+        return prefixes_str("Neg-Dis-Prefix:", element.negative_disaggregation_prefixes)
     elif tietype == common.ttypes.TIETypeType.PGPrefixTIEType:
-        return pg_prefix_element_str(element)   # TODO
+        # TODO: PG Prefixes not yet in model
+        return unknown_element_str(element)
     elif tietype == common.ttypes.TIETypeType.KeyValueTIEType:
         return key_value_element_str(element.keyvalues)
+    elif tietype == common.ttypes.TIETypeType.ExternalPrefixTIEType:
+        return prefixes_str("Ext-Prefix:", element.external_prefixes)
     else:
         return unknown_element_str(element)
 

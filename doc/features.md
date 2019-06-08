@@ -7,7 +7,7 @@
 | Link Information Element (LIE) Packet | Yes |
 | Link Information Element (LIE) Finite State Machine (FSM) | Yes |
 | Adjacencies using IPv4 Link and Multicast Addresses | Yes |
-| Adjacencies using IPv6 Link and Multicast Addresses | No |
+| Adjacencies using IPv6 Link and Multicast Addresses | Yes |
 
 ## Zero Touch Provisioning (ZTP)
 
@@ -30,13 +30,13 @@
 | Re-transmit TIEs if they are not acknowledged | Yes |
 | Periodically serve all queues (TX, RTX, REQ, ACK) | Yes |
 | Propagate TIE packets without decoding and re-encoding | No |
-| Originate Node TIE packets | Yes |
-| Originate North Prefix TIE packets (configured prefixes)  | Yes |
-| Originate South Prefix TIE packets (default prefixes)  | Yes |
-| Originate Positive Disaggregation TIE packets | No |
-| Originate Negative Disaggregation TIE packets | No |
-| Originate Policy Guided Prefix TIE packets | No |
-| Originate Key Value TIE packets | No |
+| Send / Process Node TIE packets | Yes |
+| Send / Process North Prefix TIE packets (configured prefixes)  | Yes |
+| Send / Process South Prefix TIE packets (default prefixes)  | Yes |
+| Send / Process Positive Disaggregation TIE packets | Yes |
+| Send / Process Negative Disaggregation TIE packets | No |
+| Send / Process Policy Guided Prefix TIE packets | No |
+| Send / Process Key Value TIE packets | No |
 | Process received TIDE packets | Yes |
 | Request missing TIEs based on received TIDE packets | Yes |
 | Send newer TIEs based on received TIDE packets | Yes |
@@ -51,12 +51,13 @@
 | Apply flooding scope rules when sending TIDE packets | Yes |
 | Apply flooding scope rules when sending TIRE packets | Yes |
 | Southbound Default Route Origination  | Yes |
-| Northbound TIE Flooding Reduction  | No |
+| Northbound TIE Flooding Reduction  | Yes |
 | Ingress Filtering  | No |
 | Applying Policy  | No |
 | Store Policy-Guided Prefix for Route Computation and Regeneration  | No |
 | Re-origination | Yes |
 | Overlap with Disaggregated Prefixes  | No |
+| Multicast Routing  | No |
 
 ## Route Calculation
 
@@ -69,6 +70,8 @@
 | Equal-Cost Multi-Path (ECMP) | Yes |
 | Non-Equal-Cost Multi-Path (NECMP) | No |
 | Use non-best paths (Eppstein k-shortest) | No |
+| Route Calculation for Positive Disaggregation | Yes |
+| Route Calculation for Negative Disaggregation | No |
 | Routing Information Base (RIB) | Yes |
 | Forwarding Information Base (FIB) abstraction | Yes |
 | Store FIB routes into kernel route table (on Linux only) | Yes |
@@ -79,7 +82,8 @@
 | --- | --- |
 | Attaching Prefixes  | Yes |
 | Attaching Policy-Guided Prefixes  | No |
-| Automatic Disaggregation on Link & Node Failures  | No |
+| Positive Disaggregation on Link & Node Failures  | Yes |
+| Negative Disaggregation on Link & Node Failures  | No |
 | Stability Considerations  | No |
 | Further Mechanisms  | No |
 | Overload Bit  | No |

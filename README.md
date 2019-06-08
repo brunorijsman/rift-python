@@ -19,6 +19,12 @@ The code is currently still a work in progress (see Feature List below for the s
 
 * [Command Line Interface (CLI)](doc/command-line-interface.md)
 
+* Feature Guides:
+
+  * [Positive Disaggregation Feature Guide](doc/positive-disaggregation-feature-guide.md)
+
+  * [Security Feature Guide](doc/security-feature-guide.md)
+
 * [Logging](doc/logging.md)
 
 * [Log Visualization](doc/log-visualization.md)
@@ -56,3 +62,17 @@ A version of this code (tag ietf-102-rift-hackathon) was used to conduct interop
 * [IETF 103 Background Information: Flooding Oscillation (PDF)](ietf-103/ietf-103---flooding-oscillations.pdf)
 
 * [Video of IETF 103 Presentation "RIFT Open Source Implementation: Status Update, Lessons Learned, and Interop Testing"](https://youtu.be/YbBlhd-ePWs?t=1897)
+
+## IETF 104 (Prague)
+
+* [IETF 104 Working Group Presentation: Open Source Update (PDF)](ietf-104/ietf-104---rift-wg---open-source-update.pdf)
+
+* [IETF 104 Working Group Presentation: Open Source Update (YouTube)](https://youtu.be/0OkDLqH4wck?t=3273)
+
+* [IETF 104 Hackathon Presentation: Chaos Monkey Testing (PDF)](ietf-104/ietf-104---rift-hackathon---chaos-monkey-testing.pdf)
+
+* [IETF 104 Hackathon Presentation: Chaos Monkey Testing (YouTube)](https://youtu.be/0OkDLqH4wck?t=3788)
+
+* [IETF 104 Hackathon Instructions Document (PDF)](http://bit.ly/rift-hackathon-ietf-104)
+
+* [IETF 104 Hackathon Instructions Video (YouTube)](https://www.youtube.com/watch?v=GqebgPmA4Xc)

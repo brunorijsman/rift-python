@@ -6,6 +6,7 @@ import yaml
 import cerberus
 
 import constants
+import key
 
 SCHEMA = {
     'const': {
@@ -20,6 +21,17 @@ SCHEMA = {
             'flooding_reduction_redundancy': {'type': 'integer', 'min': 1},
             'flooding_reduction_similarity': {'type': 'integer', 'min': 0}
         },
+    },
+    'keys': {
+        'type': 'list',
+        'schema': {
+            'type': 'dict',
+            'schema': {
+                'id': {'required': True, 'type': 'integer', 'min': 1, 'max': 255},
+                'algorithm': {'required': True, 'type': 'keyalgorithm'},
+                'secret': {'required': True, 'type': 'string'}
+            }
+        }
     },
     'shards': {
         'type': 'list',
@@ -49,6 +61,11 @@ SCHEMA = {
                             'state_thrift_services_port': {'type': 'port'},
                             'config_thrift_services_port': {'type': 'port'},
                             'kernel_route_table': {'type': 'kernel_route_table'},
+                            'active_key': {'type': 'integer', 'min': 1, 'max': 255},
+                            'accept_keys': {
+                                'type': 'list',
+                                'schema': {'type': 'integer', 'min': 0, 'max': 255}
+                            },
                             'v4prefixes': {
                                 'type': 'list',
                                 'schema': {
@@ -114,7 +131,7 @@ SCHEMA = {
 }
 
 def default_interface_name():
-    # TODO: use eth0 on Linux
+    # TODO: dynamically discover interface name
     return 'en0'
 
 DEFAULT_CONFIG = {
@@ -197,6 +214,9 @@ class RiftValidator(cerberus.Validator):
             return False
         else:
             return 0 <= table_nr <= 255
+
+    def _validate_type_keyalgorithm(self, value):
+        return isinstance(value, str) and value.lower() in key.ALGORITHMS
 
 def apply_global_defaults(config):
     if 'const' in config:
@@ -324,16 +344,24 @@ def intf_infer_att_from_neighbor(intf_config, intf_attribute, neighbor_intf_conf
 
 def parse_configuration(filename):
     if filename:
-        with open(filename, 'r') as stream:
-            try:
-                config = yaml.safe_load(stream)
-            except yaml.YAMLError as exception:
-                raise exception
+        try:
+            file = open(filename, 'r')
+        except (OSError, IOError) as err:
+            print("Could not open configuration file {} ({})".format(filename, err),
+                  file=sys.stderr)
+            sys.exit(1)
+        try:
+            config = yaml.safe_load(file)
+        except yaml.YAMLError as err:
+            print("Could not load configuration file {}:".format(filename), file=sys.stderr)
+            file.close()
+            sys.exit(1)
+        file.close()
     else:
         config = DEFAULT_CONFIG
     validator = RiftValidator(SCHEMA)
     if not validator.validate(config, SCHEMA):
-        # TODO: Better error handling (report in human-readable format and don't just exit)
+        print("Could not parse configuration file {}:".format(filename), file=sys.stderr)
         pretty_printer = pprint.PrettyPrinter()
         pretty_printer.pprint(validator.errors)
         exit(1)

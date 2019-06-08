@@ -1,7 +1,9 @@
+import atexit
 import logging
 import random
 import os
 import sys
+import termios
 
 import sortedcontainers
 
@@ -9,6 +11,7 @@ import cli_listen_handler
 import cli_session_handler
 import constants
 import interface
+import key
 import netifaces
 import node
 import scheduler
@@ -16,6 +19,27 @@ import stats
 import table
 
 # TODO: Make sure that there is always at least one node (and hence always a current node)
+
+OLD_TERMINAL_SETTINGS = None
+
+def make_terminal_unbuffered():
+    # Based on https://stackoverflow.com/questions/21791621/taking-input-from-sys-stdin-non-blocking
+    # pylint:disable=global-statement
+    global OLD_TERMINAL_SETTINGS
+    OLD_TERMINAL_SETTINGS = termios.tcgetattr(sys.stdin)
+    new_settings = termios.tcgetattr(sys.stdin)
+    new_settings[3] = new_settings[3] & ~(termios.ECHO | termios.ICANON) # lflags
+    new_settings[6][termios.VMIN] = 0  # cc
+    new_settings[6][termios.VTIME] = 0 # cc
+    termios.tcsetattr(sys.stdin, termios.TCSADRAIN, new_settings)
+
+@atexit.register
+def restore_terminal():
+    # pylint:disable=global-statement
+    global OLD_TERMINAL_SETTINGS
+    if OLD_TERMINAL_SETTINGS:
+        termios.tcsetattr(sys.stdin, termios.TCSADRAIN, OLD_TERMINAL_SETTINGS)
+        OLD_TERMINAL_SETTINGS = None
 
 class Engine:
 
@@ -56,6 +80,7 @@ class Engine:
         self.intf_traffic_stats_group = stats.Group()
         self.intf_lie_fsm_stats_group = stats.Group()
         self.node_ztp_fsm_stats_group = stats.Group()
+        self.keys = {}    # Indexed by key-id
         self._nodes = sortedcontainers.SortedDict()
         self.create_configuration(passive_nodes)
         cli_log = logging.getLogger('cli')
@@ -64,6 +89,7 @@ class Engine:
         else:
             first_node = None
         if self._interactive:
+            make_terminal_unbuffered()
             self._cli_listen_handler = None
             self._interactive_cli_session_handler = cli_session_handler.CliSessionHandler(
                 sock=None,
@@ -125,9 +151,18 @@ class Engine:
             return default
 
     def create_configuration(self, passive_nodes):
+        if 'keys' in self._config:
+            for key_config in self._config['keys']:
+                self.create_key(key_config)
         if 'shards' in self._config:
             for shard_config in self._config['shards']:
                 self.create_shard(shard_config, passive_nodes)
+
+    def create_key(self, key_config):
+        key_id = key_config["id"]
+        algorithm = key_config["algorithm"]
+        secret = key_config["secret"]
+        self.keys[key_id] = key.Key(key_id, algorithm, secret)
 
     def create_shard(self, shard_config, passive_nodes):
         if 'nodes' in shard_config:
@@ -208,6 +243,9 @@ class Engine:
     def command_show_intf_stats_ex_zero(self, cli_session, parameters):
         cli_session.current_node.command_show_intf_stats(cli_session, parameters, True)
 
+    def command_show_intf_tides(self, cli_session, parameters):
+        cli_session.current_node.command_show_intf_tides(cli_session, parameters)
+
     def command_show_interface(self, cli_session, parameters):
         cli_session.current_node.command_show_interface(cli_session, parameters)
 
@@ -273,11 +311,23 @@ class Engine:
     def command_show_routes(self, cli_session):
         cli_session.current_node.command_show_routes(cli_session)
 
+    def command_show_routes_family(self, cli_session, parameters):
+        cli_session.current_node.command_show_routes_family(cli_session, parameters)
+
     def command_show_forwarding(self, cli_session):
         cli_session.current_node.command_show_forwarding(cli_session)
 
     def command_show_forwarding_prefix(self, cli_session, parameters):
         cli_session.current_node.command_show_forwarding_prefix(cli_session, parameters)
+
+    def command_show_forwarding_family(self, cli_session, parameters):
+        cli_session.current_node.command_show_forwarding_family(cli_session, parameters)
+
+    def command_show_same_level_nodes(self, cli_session):
+        cli_session.current_node.command_show_same_level_nodes(cli_session)
+
+    def command_show_security(self, cli_session):
+        cli_session.current_node.command_show_security(cli_session)
 
     def command_show_spf(self, cli_session):
         cli_session.current_node.command_show_spf(cli_session)
@@ -314,6 +364,9 @@ class Engine:
     def command_exit(self, cli_session):
         cli_session.close()
 
+    def command_help(self, cli_session):
+        cli_session.help()
+
     def command_stop(self, cli_session):
         cli_session.close()
         sys.exit(0)
@@ -331,12 +384,13 @@ class Engine:
             }
         },
         "exit": command_exit,
+        "help": command_help,
         "set": {
             "$interface": {
                 "$failure": command_set_interface_failure
             },
             "$node": command_set_node,
-            "$level": command_set_level,
+            "$level": command_set_level
         },
         "show": {
             "engine": {
@@ -350,6 +404,7 @@ class Engine:
             "forwarding": {
                 "": command_show_forwarding,
                 "$prefix": command_show_forwarding_prefix,
+                "$family": command_show_forwarding_family,
             },
             "fsm": {
                 "lie": command_show_lie_fsm,
@@ -366,7 +421,8 @@ class Engine:
                 "statistics": {
                     "": command_show_intf_stats,
                     "exclude-zero": command_show_intf_stats_ex_zero
-                }
+                },
+                "tides": command_show_intf_tides
             },
             "interfaces": command_show_interfaces,
             "kernel": {
@@ -401,7 +457,10 @@ class Engine:
                     "": command_show_route_prefix,
                     "$owner": command_show_route_prefix_owner,
                 },
+                "$family": command_show_routes_family,
             },
+            "same-level-nodes": command_show_same_level_nodes,
+            "security": command_show_security,
             "spf": {
                 "": command_show_spf,
                 "$direction" : {

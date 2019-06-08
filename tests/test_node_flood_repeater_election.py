@@ -9,7 +9,6 @@ import neighbor
 import node
 import packet_common
 
-# pylint:disable=too-many-locals
 # pylint:disable=invalid-name
 # pylint:disable=line-too-long
 # pylint:disable=too-many-lines
@@ -54,7 +53,7 @@ def make_test_node(parents, additional_node_config=None):
 def update_test_node(test_node, parents):
     grandparents = compute_grandparents_connectivity(parents)
     # Empty the TIE-DB (we are going to re-build it from scratch)
-    test_node.tie_metas.clear()
+    test_node.tie_packet_infos.clear()
     # Add self-originated Node-TIE for node to TIE-DB
     neighbors = []
     for parent_sysid, _grandparent_sysids in parents.items():
