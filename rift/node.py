@@ -797,6 +797,7 @@ class Node:
                 bandwidth=100)  # TODO: Take this from config file or interface
             tie_packet.element.node.neighbors[intf.neighbor.system_id] = node_neighbor
         packet_info = packet_common.encode_protocol_packet(protocol_packet, self.active_key)
+        packet_common.set_lifetime(packet_info, common.constants.default_lifetime)
         self.my_node_tie_packet_infos[direction] = packet_info
         self.store_tie_packet_info(packet_info)
         self.info("Regenerated node TIE for direction %s: %s",
@@ -854,6 +855,7 @@ class Node:
                 tags = set(v6prefix.get('tags', []))
                 packet_common.add_ipv6_prefix_to_prefix_tie(tie_packet, prefix, metric, tags)
         packet_info = packet_common.encode_protocol_packet(protocol_packet, self.active_key)
+        packet_common.set_lifetime(packet_info, common.constants.default_lifetime)
         self._my_north_prefix_tie_packet_info = packet_info
         self.store_tie_packet_info(self._my_north_prefix_tie_packet_info)
         self.info("Regenerated north prefix TIE: %s", tie_packet)
@@ -1008,6 +1010,7 @@ class Node:
                     metric)
             new_packet_info = packet_common.encode_protocol_packet(new_protocol_packet,
                                                                    self.active_key)
+            packet_common.set_lifetime(new_packet_info, common.constants.default_lifetime)
             self._my_south_prefix_tie_packet_info = new_packet_info
             self.store_tie_packet_info(self._my_south_prefix_tie_packet_info)
             self.info("Regenerated south prefix TIE because %s: %s", reason, new_tie_packet)
