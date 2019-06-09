@@ -38,4 +38,5 @@ default_tie_udp_flood_port = 912
 default_mtu_size = 1400
 bfd_default = True
 undefined_nonce = 0
+undefined_securitykey_id = 0
 maximum_valid_nonce_delta = 5
