@@ -32,14 +32,14 @@ ACK = 6              # TIE-DB has same version of TIE-ID than in TIRE. Treat it 
 
 def test_compare_tie_header():
     # Exactly same
-    header1 = packet_common.make_tie_header(
+    header1 = packet_common.make_tie_header_with_lifetime(
         direction=NORTH,
         originator=1,
         tie_type=PREFIX,
         tie_nr=6,
         seq_nr=7,
         lifetime=500)
-    header2 = packet_common.make_tie_header(
+    header2 = packet_common.make_tie_header_with_lifetime(
         direction=NORTH,
         originator=1,
         tie_type=PREFIX,
@@ -48,14 +48,14 @@ def test_compare_tie_header():
         lifetime=500)
     assert node.compare_tie_header_age(header1, header2) == 0
     # Almost same, lifetime is different but close enough to call it same (within 300 seconds)
-    header1 = packet_common.make_tie_header(
+    header1 = packet_common.make_tie_header_with_lifetime(
         direction=NORTH,
         originator=1,
         tie_type=PREFIX,
         tie_nr=6,
         seq_nr=7,
         lifetime=1)
-    header2 = packet_common.make_tie_header(
+    header2 = packet_common.make_tie_header_with_lifetime(
         direction=NORTH,
         originator=1,
         tie_type=PREFIX,
@@ -64,14 +64,14 @@ def test_compare_tie_header():
         lifetime=300)
     assert node.compare_tie_header_age(header1, header2) == 0
     # Different: lifetime is the tie breaker (more than 300 seconds difference)
-    header1 = packet_common.make_tie_header(
+    header1 = packet_common.make_tie_header_with_lifetime(
         direction=NORTH,
         originator=1,
         tie_type=PREFIX,
         tie_nr=6,
         seq_nr=7,
         lifetime=1)
-    header2 = packet_common.make_tie_header(
+    header2 = packet_common.make_tie_header_with_lifetime(
         direction=NORTH,
         originator=1,
         tie_type=PREFIX,
@@ -82,14 +82,14 @@ def test_compare_tie_header():
     assert node.compare_tie_header_age(header2, header1) == 1
     # Different: lifetime is the tie breaker; the difference is less than 300 but one is zero and
     # the other is non-zero. The one with zero lifetime is considered older.
-    header1 = packet_common.make_tie_header(
+    header1 = packet_common.make_tie_header_with_lifetime(
         direction=NORTH,
         originator=1,
         tie_type=PREFIX,
         tie_nr=6,
         seq_nr=7,
         lifetime=0)
-    header2 = packet_common.make_tie_header(
+    header2 = packet_common.make_tie_header_with_lifetime(
         direction=NORTH,
         originator=1,
         tie_type=PREFIX,
@@ -99,14 +99,14 @@ def test_compare_tie_header():
     assert node.compare_tie_header_age(header1, header2) == -1
     assert node.compare_tie_header_age(header2, header1) == 1
     # Different: seq_nr is the tie breaker.
-    header1 = packet_common.make_tie_header(
+    header1 = packet_common.make_tie_header_with_lifetime(
         direction=NORTH,
         originator=1,
         tie_type=PREFIX,
         tie_nr=6,
         seq_nr=20,
         lifetime=1)
-    header2 = packet_common.make_tie_header(
+    header2 = packet_common.make_tie_header_with_lifetime(
         direction=NORTH,
         originator=1,
         tie_type=PREFIX,
@@ -193,8 +193,8 @@ def tie_headers_with_disposition(test_node, header_info_list, filter_disposition
             elif disposition == REQUEST_MISSING:
                 seq_nr = 0
                 lifetime = 0
-            tie_header = packet_common.make_tie_header(direction, originator, PREFIX, tie_nr,
-                                                       seq_nr, lifetime)
+            tie_header = packet_common.make_tie_header_with_lifetime(direction, originator, PREFIX, tie_nr,
+                                                                     seq_nr, lifetime)
             tie_headers.append(tie_header)
     return tie_headers
 
@@ -206,8 +206,8 @@ def check_process_tide_common(test_node, start_range, end_range, header_info_lis
         # START_EXTRA refers to a TIE-ID which is only in the TIE-DB and not in the TIDE, so don't
         # add those.
         if disposition != START_EXTRA:
-            tie_header = packet_common.make_tie_header(direction, originator, PREFIX, tie_nr,
-                                                       seq_nr, lifetime)
+            tie_header = packet_common.make_tie_header_with_lifetime(direction, originator, PREFIX, tie_nr,
+                                                                     seq_nr, lifetime)
             packet_common.add_tie_header_to_tide(tide_packet, tie_header)
     # Process the TIDE packet
     result = test_node.process_rx_tide_packet(tide_packet)
@@ -353,8 +353,8 @@ def check_process_tire_common(test_node, header_info_list):
     tire = packet_common.make_tire_packet()
     for header_info in header_info_list:
         (direction, originator, _prefixtype, tie_nr, seq_nr, lifetime, _disposition) = header_info
-        tie_header = packet_common.make_tie_header(direction, originator, PREFIX, tie_nr,
-                                                   seq_nr, lifetime)
+        tie_header = packet_common.make_tie_header_with_lifetime(direction, originator, PREFIX, tie_nr,
+                                                                 seq_nr, lifetime)
         packet_common.add_tie_header_to_tire(tire, tie_header)
     # Process the TIRE packet
     result = test_node.process_rx_tire_packet(tire)
@@ -554,7 +554,7 @@ def test_is_flood_allowed():
     for tx_tie_info in tx_tie_info_list:
         (direction, originator, tietype, tie_nr, seq_nr, lifetime, neighbor_direction,
          neighbor_system_id, i_am_top_of_fabric, expected_allowed, expected_reason) = tx_tie_info
-        tie_header = packet_common.make_tie_header(direction, originator, tietype, tie_nr, seq_nr, lifetime)
+        tie_header = packet_common.make_tie_header_with_lifetime(direction, originator, tietype, tie_nr, seq_nr, lifetime)
         (allowed, reason) = test_node.is_flood_allowed(
             tie_header=tie_header,
             to_node_direction=neighbor_direction,
@@ -583,7 +583,7 @@ def test_generate_tide_packet():
     assert tide_packet.start_range == node.Node.MIN_TIE_ID
     assert tide_packet.end_range == node.Node.MAX_TIE_ID
     assert len(tide_packet.headers) == 1
-    expected_header = packet_common.make_tie_header(SOUTH, MY_SYSTEM_ID, PREFIX, 18, 903, 400)
+    expected_header = packet_common.make_tie_header_with_lifetime(SOUTH, MY_SYSTEM_ID, PREFIX, 18, 903, 400)
     assert tide_packet.headers[0] == expected_header
 
 def test_age_ties():

@@ -428,7 +428,7 @@ class Interface:
             link_mtu_size=self._mtu,
             neighbor=lie_neighbor,
             pod=self._pod,
-            nonce=Interface.generate_nonce(),
+            # nonce=Interface.generate_nonce(),
             node_capabilities=node_capabilities,
             holdtime=3,
             not_a_ztp_offer=self.node.send_not_a_ztp_offer_on_intf(self.name),

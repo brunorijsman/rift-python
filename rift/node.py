@@ -890,8 +890,7 @@ class Node:
             originator=self.system_id,
             tie_type=common.ttypes.TIETypeType.PositiveDisaggregationPrefixTIEType,
             tie_nr=MY_POS_DISAGG_TIE_NR,
-            seq_nr=new_seq_nr,
-            lifetime=common.constants.default_lifetime)
+            seq_nr=new_seq_nr)
         prefix_tie_element = encoding.ttypes.PrefixTIEElement(
             prefixes=should_adv_disagg)
         tie_element = encoding.ttypes.TIEElement(
@@ -1750,7 +1749,7 @@ class Node:
             rx_tie_header.tieid.tietype,
             rx_tie_header.tieid.tie_nr,
             rx_tie_header.seq_nr + 1,           # Higher sequence number
-            FLUSH_LIFETIME)                     # Short remaining life time
+        )
         tietype = rx_tie_header.tieid.tietype
         if tietype == common.ttypes.TIETypeType.NodeTIEType:
             real_node_tie_packet_info = self.find_according_node_tie(rx_tie_header)

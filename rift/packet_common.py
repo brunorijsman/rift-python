@@ -719,15 +719,24 @@ def make_tie_id(direction, originator, tie_type, tie_nr):
         tie_nr=tie_nr)
     return tie_id
 
-def make_tie_header(direction, originator, tie_type, tie_nr, seq_nr, lifetime,
+def make_tie_header(direction, originator, tie_type, tie_nr, seq_nr,
                     origination_time=None):
     tie_id = make_tie_id(direction, originator, tie_type, tie_nr)
     tie_header = encoding.ttypes.TIEHeader(
         tieid=tie_id,
         seq_nr=seq_nr,
-        remaining_lifetime=lifetime,
         origination_time=origination_time)
     return tie_header
+
+def make_tie_header_with_lifetime(direction, originator,
+                                  tie_type, tie_nr, seq_nr,
+                                  lifetime,
+                                  origination_time=None):
+    tie_header_with_lifetime = encoding.ttypes.TIEHeaderWithLifeTime(
+        header=make_tie_header(direction, originator, tie_type, tie_nr, seq_nr, origination_time),
+        remaining_lifetime=lifetime)
+    return tie_header_with_lifetime
+
 
 def make_prefix_tie_packet(direction, originator, tie_nr, seq_nr, lifetime):
     tie_type = common.ttypes.TIETypeType.PrefixTIEType
