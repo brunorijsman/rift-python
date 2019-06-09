@@ -35,7 +35,7 @@ def max_tie_header(fudge=0):
     return encoding.ttypes.TIEHeader(
         tieid=max_tieid(),
         seq_nr=packet_common.MAX_U32 - fudge,
-        remaining_lifetime=packet_common.MAX_U32 - 1,    # Actual max is not allowed
+        # remaining_lifetime=packet_common.MAX_U32 - 1,    # Actual max is not allowed
         origination_time=common.ttypes.IEEE802_1ASTimeStampType(
             AS_sec=packet_common.MAX_U64,
             AS_nsec=packet_common.MAX_U32
@@ -129,8 +129,8 @@ def test_fix_lie_packet():
                     remote_id=packet_common.MAX_U32
                 ),
                 pod=packet_common.MAX_U32,
-                nonce=packet_common.MAX_U16,
-                last_neighbor_nonce=packet_common.MAX_U16,
+                # nonce=packet_common.MAX_U16,
+                # last_neighbor_nonce=packet_common.MAX_U16,
                 node_capabilities=encoding.ttypes.NodeCapabilities(
                     flood_reduction=True,
                     hierarchy_indications=common.ttypes.HierarchyIndications.leaf_only

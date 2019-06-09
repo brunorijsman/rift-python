@@ -117,7 +117,7 @@ def make_parent_interface(test_node, parent_sysid):
         link_mtu_size=1500,
         neighbor=lie_neighbor,
         pod=0,
-        nonce=0,
+        # nonce=0,
         node_capabilities=None,
         holdtime=3,
         not_a_ztp_offer=False,
