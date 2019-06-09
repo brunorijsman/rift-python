@@ -618,16 +618,19 @@ TIEID_FIXES = [
 ]
 
 TIMESTAMP_FIXES = [
-    ('AS_sec', 64),
-    ('AS_nsec', 32)
+    ('AS_sec', 64), ('AS_nsec', 32)
 ]
 
 TIE_HEADER_FIXES = [
     ('tieid', TIEID_FIXES),
     ('seq_nr', 32),
-    ('remaining_lifetime', 32),
     ('origination_time', TIMESTAMP_FIXES),
     ('origination_lifetime', 32)
+]
+
+TIE_HEADER_WITH_LIFETIME_FIXES = [
+    ('header', TIE_HEADER_FIXES),
+    ('remaining_lifetime', 32),
 ]
 
 LINK_ID_PAIR_FIXES = [
@@ -674,25 +677,21 @@ PROTOCOL_PACKET_FIXES = [
     ('content', [
         ('lie', [
             ('local_id', 32),              # Draft doesn't mention this needs to treated as unsigned
-            ('flood_port', 16),
-            ('link_mtu_size', 32),
-            ('link_bandwidth', 32),
+            ('flood_port', 16), ('link_mtu_size', 32), ('link_bandwidth', 32),
             ('neighbor', [
                 ('originator', 64),
                 ('remote_id', 32)          # Draft doesn't mention this needs to treated as unsigned
             ]),
             ('pod', 32),
-            ('nonce', 16),                 # Draft doesn't mention this needs to treated as unsigned
-            ('last_neighbor_nonce', 16),   # Draft doesn't mention this needs to treated as unsigned
             ('holdtime', 16),              # Draft doesn't mention this needs to treated as unsigned
             ('label', 32)]),
         ('tide', [
             ('start_range', TIEID_FIXES),
             ('end_range', TIEID_FIXES),
-            ('headers', TIE_HEADER_FIXES)
+            ('headers', TIE_HEADER_WITH_LIFETIME_FIXES)
         ]),
         ('tire', [
-            ('headers', TIE_HEADER_FIXES)
+            ('headers', TIE_HEADER_WITH_LIFETIME_FIXES)
         ]),
         ('tie', [
             ('header', TIE_HEADER_FIXES),
