@@ -56,18 +56,23 @@ def compare_tie_header_age(header_with_lifetime_1, header_with_lifetime_2):
     # When a node advertises remaining_lifetime 0 in a TIRE, it means a request (I don't have
     # that TIRE, please send it). Thus, if one header has remaining_lifetime 0 and the other
     # does not, then the one with non-zero remaining_lifetime is always newer.
-    if (header_with_lifetime_1.remaining_lifetime == 0) and (header_with_lifetime_2.remaining_lifetime != 0):
+    if (header_with_lifetime_1.remaining_lifetime == 0) and \
+	(header_with_lifetime_2.remaining_lifetime != 0):
         return -1
-    if (header_with_lifetime_1.remaining_lifetime != 0) and (header_with_lifetime_2.remaining_lifetime == 0):
+    if (header_with_lifetime_1.remaining_lifetime != 0) and \
+	(header_with_lifetime_2.remaining_lifetime == 0):
         return 1
     # The header with the longest remaining lifetime is considered newer. However, if the
     # difference in remaining lifetime is less than 5 minutes (300 seconds), they are considered
     # to be the same age.
-    age_diff = abs(header_with_lifetime_1.remaining_lifetime - header_with_lifetime_2.remaining_lifetime)
+    age_diff = abs(header_with_lifetime_1.remaining_lifetime -
+                   header_with_lifetime_2.remaining_lifetime)
     if age_diff > common.constants.lifetime_diff2ignore:
-        if header_with_lifetime_1.remaining_lifetime < header_with_lifetime_2.remaining_lifetime:
+        if header_with_lifetime_1.remaining_lifetime < \
+	   header_with_lifetime_2.remaining_lifetime:
             return -1
-        if header_with_lifetime_1.remaining_lifetime > header_with_lifetime_2.remaining_lifetime:
+        if header_with_lifetime_1.remaining_lifetime > \
+           header_with_lifetime_2.remaining_lifetime:
             return 1
     # TODO: Figure out what to do with origination_time
     # If we get this far, we have a tie (same age)
@@ -758,8 +763,7 @@ class Node:
             direction=direction,
             originator=self.system_id,
             tie_nr=tie_nr,
-            seq_nr=seq_nr,
-            lifetime=common.constants.default_lifetime)
+            seq_nr=seq_nr)
         packet_header = encoding.ttypes.PacketHeader(
             sender=self.system_id,
             level=self.level_value())
@@ -812,8 +816,7 @@ class Node:
             direction=direction,
             originator=self.system_id,
             tie_nr=MY_PREFIX_TIE_NR,
-            seq_nr=seq_nr,
-            lifetime=common.constants.default_lifetime)
+            seq_nr=seq_nr)
         packet_header = encoding.ttypes.PacketHeader(
             sender=self.system_id,
             level=self.level_value())
@@ -1571,9 +1574,11 @@ class Node:
         if old_tie.header.seq_nr != new_tie.header.seq_nr:
             return True
         # All remaining_lifetime values are the same, except zero, for the purpose of running SPF
-        if (old_tie_info.remaining_tie_lifetime == 0) and (new_tie_info.remaining_tie_lifetime != 0):
+        if (old_tie_info.remaining_tie_lifetime == 0) and \
+	   (new_tie_info.remaining_tie_lifetime != 0):
             return True
-        if (old_tie_info.remaining_tie_lifetime != 0) and (new_tie_info.remaining_tie_lifetime == 0):
+        if (old_tie_info.remaining_tie_lifetime != 0) and \
+	   (new_tie_info.remaining_tie_lifetime == 0):
             return True
         # Ignore any changes in origination_lifetime for the purpose of running SPF (TODO: really?)
         # Any change in the element contents (node, prefixes, etc.) trigger an SPF
