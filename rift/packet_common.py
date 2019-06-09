@@ -128,7 +128,7 @@ class PacketInfo:
         self.env_header = struct.pack("!HH", RIFT_MAGIC, packet_nr)
 
     def update_outer_sec_env_header(self, outer_key, nonce_local, nonce_remote,
-                                    remaining_lifetime = None):
+                                    remaining_lifetime=None):
         if remaining_lifetime:
             remaining_tie_lifetime = remaining_lifetime
         else:
@@ -226,7 +226,7 @@ def add_missing_methods_to_thrift():
         lambda self: hash((tie_header_tup(self.header), self.remaining_lifetime)))
     encoding.ttypes.TIEHeaderWithLifeTime.__eq__ = (
         lambda self, other: (tie_header_tup(self.header) == tie_header_tup(other.header)) and
-                self.remaining_lifetime == other.remaining_lifetime)
+        self.remaining_lifetime == other.remaining_lifetime)
     encoding.ttypes.LinkIDPair.__hash__ = (
         lambda self: hash(link_id_pair_tup(self)))
     encoding.ttypes.LinkIDPair.__eq__ = (
@@ -623,8 +623,7 @@ TIMESTAMP_FIXES = [
 ]
 
 TIE_HEADER_FIXES = [
-    ('tieid', TIEID_FIXES),
-    ('seq_nr', 32),
+    ('tieid', TIEID_FIXES), ('seq_nr', 32),
     ('origination_time', TIMESTAMP_FIXES),
     ('origination_lifetime', 32)
 ]
@@ -640,10 +639,7 @@ LINK_ID_PAIR_FIXES = [
 ]
 
 NODE_NEIGHBORS_TIE_ELEMENT_FIXES = [
-    ('level', 16),
-    ('cost', 32),
-    ('link_ids', LINK_ID_PAIR_FIXES),
-    ('bandwidth', 32)
+    ('level', 16), ('cost', 32), ('link_ids', LINK_ID_PAIR_FIXES), ('bandwidth', 32)
 ]
 
 IP_PREFIX_FIXES = [
