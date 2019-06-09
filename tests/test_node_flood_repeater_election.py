@@ -60,7 +60,7 @@ def update_test_node(test_node, parents):
         neighbor_info = (PARENT_LEVEL, parent_sysid)
         neighbors.append(neighbor_info)
     node_tie_packet = make_node_tie_packet(NODE_SYSID, NODE_LEVEL, neighbors)
-    test_node.store_tie_packet(node_tie_packet)
+    test_node.store_tie_packet(node_tie_packet, 100)
     # Add Node-TIEs for parents to TIE-DB
     for parent_sysid, grandparent_sysids in parents.items():
         neighbors = []
@@ -70,7 +70,7 @@ def update_test_node(test_node, parents):
             neighbor_info = (GRANDPARENT_LEVEL, grandparent_sysid)
             neighbors.append(neighbor_info)
         node_tie_packet = make_node_tie_packet(parent_sysid, PARENT_LEVEL, neighbors)
-        test_node.store_tie_packet(node_tie_packet)
+        test_node.store_tie_packet(node_tie_packet, 100)
     # Add Node-TIEs for grandparents to TIE-DB
     for grandparent_sysid, parent_sysids in grandparents.items():
         neighbors = []
@@ -78,7 +78,7 @@ def update_test_node(test_node, parents):
             neighbor_info = (PARENT_LEVEL, parent_sysid)
             neighbors.append(neighbor_info)
         node_tie_packet = make_node_tie_packet(grandparent_sysid, GRANDPARENT_LEVEL, neighbors)
-        test_node.store_tie_packet(node_tie_packet)
+        test_node.store_tie_packet(node_tie_packet, 100)
 
 def make_node_tie_packet(sysid, level, neighbors):
     node_tie = packet_common.make_node_tie_packet(
@@ -87,8 +87,7 @@ def make_node_tie_packet(sysid, level, neighbors):
         direction=SOUTH,
         originator=sysid,
         tie_nr=1,
-        seq_nr=1,
-        lifetime=100)
+        seq_nr=1)
     for neighbor_info in neighbors:
         neighbor_level, neighbor_sysid = neighbor_info
         local_link_id = neighbor_sysid

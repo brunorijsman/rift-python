@@ -123,8 +123,7 @@ def test_add_prefix_tie():
         direction=common.ttypes.TieDirectionType.South,
         originator=222,
         tie_nr=333,
-        seq_nr=444,
-        lifetime=555)
+        seq_nr=444)
     timestamp = common.ttypes.IEEE802_1ASTimeStampType(AS_sec=12345)
     monotonic_clock = common.ttypes.PrefixSequenceType(timestamp=timestamp)
     packet_common.add_ipv4_prefix_to_prefix_tie(
@@ -137,18 +136,17 @@ def test_add_prefix_tie():
         prefix_tie_packet_1,
         packet_common.make_ipv6_prefix("1234:abcd::/64"),
         3)
-    test_node.store_tie_packet(prefix_tie_packet_1)
+    test_node.store_tie_packet(prefix_tie_packet_1, 555)
     prefix_tie_packet_2 = packet_common.make_prefix_tie_packet(
         direction=common.ttypes.TieDirectionType.North,
         originator=777,
         tie_nr=888,
-        seq_nr=999,
-        lifetime=0)
+        seq_nr=999)
     packet_common.add_ipv4_prefix_to_prefix_tie(
         prefix_tie_packet_2,
         packet_common.make_ipv4_prefix("0.0.0.0/0"),
         10)
-    test_node.store_tie_packet(prefix_tie_packet_2)
+    test_node.store_tie_packet(prefix_tie_packet_2, 0)
     db_packet_info = test_node.find_tie_packet_info(prefix_tie_packet_1.header.tieid)
     db_tie_packet = db_packet_info.protocol_packet.content.tie
     assert db_tie_packet == prefix_tie_packet_1
@@ -189,7 +187,7 @@ def tie_headers_with_disposition(test_node, header_info_list, filter_disposition
                 tie_id = packet_common.make_tie_id(direction, originator, PREFIX, tie_nr)
                 tie_packet = test_node.tie_packet_infos[tie_id].protocol_packet.content.tie
                 seq_nr = tie_packet.header.seq_nr
-                lifetime = tie_packet.header.remaining_lifetime
+                # lifetime = tie_packet.remaining_tie_lifetime
             elif disposition == REQUEST_MISSING:
                 seq_nr = 0
                 lifetime = 0
@@ -206,7 +204,8 @@ def check_process_tide_common(test_node, start_range, end_range, header_info_lis
         # START_EXTRA refers to a TIE-ID which is only in the TIE-DB and not in the TIDE, so don't
         # add those.
         if disposition != START_EXTRA:
-            tie_header = packet_common.make_tie_header_with_lifetime(direction, originator, PREFIX, tie_nr,
+            tie_header = packet_common.make_tie_header_with_lifetime(direction, originator, PREFIX,
+                                                                     tie_nr,
                                                                      seq_nr, lifetime)
             packet_common.add_tie_header_to_tide(tide_packet, tie_header)
     # Process the TIDE packet
@@ -216,11 +215,20 @@ def check_process_tide_common(test_node, start_range, end_range, header_info_lis
     compare_header_lists(
         tie_headers_with_disposition(test_node, header_info_list, [REQUEST_MISSING, REQUEST_OLDER]),
         request_tie_headers)
+    disposition = [e.header for e in
+                   tie_headers_with_disposition(test_node,
+                                                header_info_list,
+                                                [START_EXTRA, START_NEWER])]
     compare_header_lists(
-        tie_headers_with_disposition(test_node, header_info_list, [START_EXTRA, START_NEWER]),
+        disposition,
         start_sending_tie_headers)
+    disposition = [e.header for e in
+                   tie_headers_with_disposition(test_node,
+                                                header_info_list,
+                                                [STOP_SAME])
+                   ]
     compare_header_lists(
-        tie_headers_with_disposition(test_node, header_info_list, [STOP_SAME]),
+        disposition,
         stop_sending_tie_headers)
 
 def check_process_tide_1(test_node):
@@ -278,18 +286,16 @@ def make_test_node(db_tie_info_list=None):
                 direction=direction,
                 originator=origin,
                 tie_nr=tie_nr,
-                seq_nr=seq_nr,
-                lifetime=lifetime)
+                seq_nr=seq_nr)
         elif tietype == PREFIX:
             db_tie_packet = packet_common.make_prefix_tie_packet(
                 direction,
                 origin,
                 tie_nr,
-                seq_nr,
-                lifetime)
+                seq_nr)
         else:
             assert False
-        test_node.store_tie_packet(db_tie_packet)
+        test_node.store_tie_packet(db_tie_packet, lifetime)
     return test_node
 
 def make_rx_tie_packet(header_info):
@@ -301,15 +307,13 @@ def make_rx_tie_packet(header_info):
             direction=direction,
             originator=origin,
             tie_nr=tie_nr,
-            seq_nr=seq_nr,
-            lifetime=lifetime)
+            seq_nr=seq_nr)
     elif prefixtype == PREFIX:
         rx_tie_packet = packet_common.make_prefix_tie_packet(
             direction,
             origin,
             tie_nr,
-            seq_nr,
-            lifetime)
+            seq_nr)
     else:
         assert False
     return rx_tie_packet
@@ -362,10 +366,12 @@ def check_process_tire_common(test_node, header_info_list):
     # Check results
     compare_header_lists(tie_headers_with_disposition(test_node, header_info_list, [REQUEST_OLDER]),
                          request_tie_headers)
-    compare_header_lists(tie_headers_with_disposition(test_node, header_info_list, [START_NEWER]),
-                         start_sending_tie_headers)
-    compare_header_lists(tie_headers_with_disposition(test_node, header_info_list, [ACK]),
-                         acked_tie_headers)
+    disposition = [ e.header for e in
+                   tie_headers_with_disposition(test_node, header_info_list, [START_NEWER]) ]
+    compare_header_lists(disposition, start_sending_tie_headers)
+    disposition = [ e.header for e in
+                    tie_headers_with_disposition(test_node, header_info_list, [ACK]) ]
+    compare_header_lists(disposition, acked_tie_headers)
 
 def check_process_tire(test_node):
     header_info_list = [
@@ -405,6 +411,7 @@ def check_process_tie_common(test_node, rx_tie_info_list):
         content = encoding.ttypes.PacketContent(tie=rx_tie_packet)
         protocol_packet = encoding.ttypes.ProtocolPacket(header=header, content=content)
         rx_tie_packet_info = packet_common.encode_protocol_packet(protocol_packet, None)
+        packet_common.set_lifetime(rx_tie_packet_info, rx_tie_info[5])
         result = test_node.process_rx_tie_packet_info(rx_tie_packet_info)
         (start_sending_tie_header, ack_tie_header) = result
         disposition = rx_tie_info[6]
@@ -500,9 +507,8 @@ def test_is_flood_allowed():
         direction=SOUTH,
         originator=66,
         tie_nr=5,
-        seq_nr=7,
-        lifetime=300)
-    test_node.store_tie_packet(node_66_tie_packet)
+        seq_nr=7)
+    test_node.store_tie_packet(node_66_tie_packet, 300)
     # Node 77 has higher level than me
     node_77_tie_packet = packet_common.make_node_tie_packet(
         name="node77",
@@ -510,9 +516,8 @@ def test_is_flood_allowed():
         direction=SOUTH,
         originator=77,
         tie_nr=3,
-        seq_nr=2,
-        lifetime=400)
-    test_node.store_tie_packet(node_77_tie_packet)
+        seq_nr=2)
+    test_node.store_tie_packet(node_77_tie_packet, 400)
     # Node 88 has lower level than me
     node_88_tie_packet = packet_common.make_node_tie_packet(
         name="node88",
@@ -520,9 +525,8 @@ def test_is_flood_allowed():
         direction=SOUTH,
         originator=88,
         tie_nr=7,
-        seq_nr=3,
-        lifetime=400)
-    test_node.store_tie_packet(node_88_tie_packet)
+        seq_nr=3)
+    test_node.store_tie_packet(node_88_tie_packet, 400)
     tx_tie_info_list = [
         # pylint:disable=bad-whitespace
         #                                                              Neighbor   Neighbor   I am    Allowed  Reason
@@ -556,7 +560,7 @@ def test_is_flood_allowed():
          neighbor_system_id, i_am_top_of_fabric, expected_allowed, expected_reason) = tx_tie_info
         tie_header = packet_common.make_tie_header_with_lifetime(direction, originator, tietype, tie_nr, seq_nr, lifetime)
         (allowed, reason) = test_node.is_flood_allowed(
-            tie_header=tie_header,
+            tie_header=tie_header.header,
             to_node_direction=neighbor_direction,
             to_node_system_id=neighbor_system_id,
             from_node_system_id=MY_SYSTEM_ID,
@@ -602,7 +606,7 @@ def test_age_ties():
     tie_packet_info_1 = test_node.find_tie_packet_info(tie_id_1)
     assert tie_packet_info_1 is not None
     assert tie_packet_info_1.protocol_packet.content.tie.header.seq_nr == 4
-    assert tie_packet_info_1.protocol_packet.content.tie.header.remaining_lifetime == 599
+    assert tie_packet_info_1.remaining_tie_lifetime == 599
     assert test_node.find_tie_packet_info(tie_id_2) is None
 
 def test_trigger_spf():

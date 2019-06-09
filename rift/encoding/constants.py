@@ -10,5 +10,5 @@ from thrift.Thrift import TType, TMessageType, TFrozenDict, TException, TApplica
 from thrift.protocol.TProtocol import TProtocolException
 import sys
 from .ttypes import *
-protocol_major_version = 24
+protocol_major_version = 1
 protocol_minor_version = 0

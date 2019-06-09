@@ -299,6 +299,9 @@ def decode_message(rx_intf, from_info, message, active_key, accept_keys):
         return packet_info
     return packet_info
 
+def set_lifetime(packet_info, lifetime):
+    packet_info.remaining_tie_lifetime = lifetime
+
 def record_source_info(packet_info, rx_intf, from_info):
     packet_info.rx_intf = rx_intf
     if from_info:
@@ -738,10 +741,12 @@ def make_tie_header_with_lifetime(direction, originator,
         remaining_lifetime=lifetime)
     return tie_header_with_lifetime
 
+def expand_tie_header_with_lifetime(tie_header, lifetime):
+    return encoding.ttypes.TIEHeaderWithLifeTime(header = tie_header, remaining_lifetime=lifetime)
 
-def make_prefix_tie_packet(direction, originator, tie_nr, seq_nr, lifetime):
+def make_prefix_tie_packet(direction, originator, tie_nr, seq_nr):
     tie_type = common.ttypes.TIETypeType.PrefixTIEType
-    tie_header = make_tie_header(direction, originator, tie_type, tie_nr, seq_nr, lifetime)
+    tie_header = make_tie_header(direction, originator, tie_type, tie_nr, seq_nr)
     prefixes = {}
     prefix_tie_element = encoding.ttypes.PrefixTIEElement(prefixes=prefixes)
     tie_element = encoding.ttypes.TIEElement(prefixes=prefix_tie_element)
@@ -795,9 +800,9 @@ def add_ipv6_prefix_to_prefix_tie(prefix_tie_packet, ipv6_prefix_string, metric,
                                                   monotonic_clock=monotonic_clock)
     prefix_tie_packet.element.prefixes.prefixes[prefix] = attributes
 
-def make_node_tie_packet(name, level, direction, originator, tie_nr, seq_nr, lifetime):
+def make_node_tie_packet(name, level, direction, originator, tie_nr, seq_nr):
     tie_type = common.ttypes.TIETypeType.NodeTIEType
-    tie_header = make_tie_header(direction, originator, tie_type, tie_nr, seq_nr, lifetime)
+    tie_header = make_tie_header(direction, originator, tie_type, tie_nr, seq_nr)
     node_tie_element = encoding.ttypes.NodeTIEElement(
         level=level,
         neighbors={},
