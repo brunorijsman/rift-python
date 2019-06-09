@@ -127,9 +127,10 @@ class PacketInfo:
         self.packet_nr = packet_nr
         self.env_header = struct.pack("!HH", RIFT_MAGIC, packet_nr)
 
-    def update_outer_sec_env_header(self, outer_key, nonce_local, nonce_remote):
-        if self.protocol_packet.content.tie:
-            remaining_tie_lifetime = self.protocol_packet.content.tie.header.remaining_lifetime
+    def update_outer_sec_env_header(self, outer_key, nonce_local, nonce_remote,
+                                    remaining_lifetime = None):
+        if remaining_lifetime:
+            remaining_tie_lifetime = remaining_lifetime
         else:
             remaining_tie_lifetime = 0xffffffff
         post = struct.pack("!HHL", nonce_local, nonce_remote, remaining_tie_lifetime)
@@ -222,10 +223,10 @@ def add_missing_methods_to_thrift():
     encoding.ttypes.TIEHeader.__eq__ = (
         lambda self, other: tie_header_tup(self) == tie_header_tup(other))
     encoding.ttypes.TIEHeaderWithLifeTime.__hash__ = (
-        lambda self: hash((tie_header_tup(self.header), self.remaining_tie_lifetime)))
+        lambda self: hash((tie_header_tup(self.header), self.remaining_lifetime)))
     encoding.ttypes.TIEHeaderWithLifeTime.__eq__ = (
         lambda self, other: (tie_header_tup(self.header) == tie_header_tup(other.header)) and
-                self.remaining_tie_lifetime == other.remaining_tie_lifetime)
+                self.remaining_lifetime == other.remaining_lifetime)
     encoding.ttypes.LinkIDPair.__hash__ = (
         lambda self: hash(link_id_pair_tup(self)))
     encoding.ttypes.LinkIDPair.__eq__ = (
