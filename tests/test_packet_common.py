@@ -43,6 +43,12 @@ def max_tie_header(fudge=0):
         origination_lifetime=packet_common.MAX_U32
     )
 
+def max_tie_header_with_lifetime(fudge=0):
+    return encoding.ttypes.TIEHeaderWithLifeTime(
+        header=max_tie_header(fudge),
+        remaining_lifetime=packet_common.MAX_U32 - 1,    # Actual max is not allowed
+    )
+
 def max_link_id(fudge=0):
     return packet_common.MAX_U32 - fudge
 
@@ -171,9 +177,9 @@ def test_fix_tide_packet():
                 start_range=max_tieid(),
                 end_range=max_tieid(),
                 headers=[
-                    max_tie_header(),
-                    max_tie_header(),
-                    max_tie_header()
+                    max_tie_header_with_lifetime(),
+                    max_tie_header_with_lifetime(),
+                    max_tie_header_with_lifetime()
                 ]
             ),
             tire=None,

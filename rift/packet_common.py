@@ -181,7 +181,7 @@ def tie_id_tup(tie_id):
     return (tie_id.direction, tie_id.originator, tie_id.tietype, tie_id.tie_nr)
 
 def tie_header_tup(tie_header):
-    return (tie_header.tieid, tie_header.seq_nr, tie_header.remaining_lifetime,
+    return (tie_header.tieid, tie_header.seq_nr,
             tie_header.origination_time)
 
 def link_id_pair_tup(link_id_pair):
@@ -221,6 +221,11 @@ def add_missing_methods_to_thrift():
         lambda self: hash(tie_header_tup(self)))
     encoding.ttypes.TIEHeader.__eq__ = (
         lambda self, other: tie_header_tup(self) == tie_header_tup(other))
+    encoding.ttypes.TIEHeaderWithLifeTime.__hash__ = (
+        lambda self: hash((tie_header_tup(self.header), self.remaining_tie_lifetime)))
+    encoding.ttypes.TIEHeaderWithLifeTime.__eq__ = (
+        lambda self, other: (tie_header_tup(self.header) == tie_header_tup(other.header)) and
+                self.remaining_tie_lifetime == other.remaining_tie_lifetime)
     encoding.ttypes.LinkIDPair.__hash__ = (
         lambda self: hash(link_id_pair_tup(self)))
     encoding.ttypes.LinkIDPair.__eq__ = (
