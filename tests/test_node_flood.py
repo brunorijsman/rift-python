@@ -299,7 +299,7 @@ def make_test_node(db_tie_info_list=None):
     return test_node
 
 def make_rx_tie_packet(header_info):
-    (direction, origin, prefixtype, tie_nr, seq_nr, lifetime, _disposition) = header_info
+    (direction, origin, prefixtype, tie_nr, seq_nr, _lifetime, _disposition) = header_info
     if prefixtype == NODE:
         rx_tie_packet = packet_common.make_node_tie_packet(
             name=MY_NAME,
@@ -366,11 +366,11 @@ def check_process_tire_common(test_node, header_info_list):
     # Check results
     compare_header_lists(tie_headers_with_disposition(test_node, header_info_list, [REQUEST_OLDER]),
                          request_tie_headers)
-    disposition = [ e.header for e in
-                   tie_headers_with_disposition(test_node, header_info_list, [START_NEWER]) ]
+    disposition = [e.header for e in
+                   tie_headers_with_disposition(test_node, header_info_list, [START_NEWER])]
     compare_header_lists(disposition, start_sending_tie_headers)
-    disposition = [ e.header for e in
-                    tie_headers_with_disposition(test_node, header_info_list, [ACK]) ]
+    disposition = [e.header for e in
+                   tie_headers_with_disposition(test_node, header_info_list, [ACK])]
     compare_header_lists(disposition, acked_tie_headers)
 
 def check_process_tire(test_node):

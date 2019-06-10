@@ -1608,7 +1608,6 @@ class Node:
         tie_id = tie_packet.header.tieid
         if tie_id in self.tie_packet_infos:
             old_tie_packet_info = self.tie_packet_infos[tie_id]
-            old_tie_packet = old_tie_packet_info.protocol_packet.content.tie
             trigger_spf = self.ties_differ_enough_for_spf(old_tie_packet_info, tie_packet_info)
             if trigger_spf:
                 reason = "TIE " + packet_common.tie_id_str(tie_id) + " changed"

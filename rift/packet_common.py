@@ -617,8 +617,7 @@ def fix_packet_after_decode(packet, fixes):
     fix_struct(packet, fixes, False)
 
 TIEID_FIXES = [
-    ('originator', 64),
-    ('tie_nr', 32)
+    ('originator', 64), ('tie_nr', 32)
 ]
 
 TIMESTAMP_FIXES = [
@@ -632,8 +631,7 @@ TIE_HEADER_FIXES = [
 ]
 
 TIE_HEADER_WITH_LIFETIME_FIXES = [
-    ('header', TIE_HEADER_FIXES),
-    ('remaining_lifetime', 32),
+    ('header', TIE_HEADER_FIXES), ('remaining_lifetime', 32),
 ]
 
 LINK_ID_PAIR_FIXES = [
@@ -656,8 +654,7 @@ IP_PREFIX_FIXES = [
 ]
 
 PREFIX_ATTRIBUTES_FIXES = [
-    ('metric', 32),
-    ('tags', 64),
+    ('metric', 32), ('tags', 64),
     ('monotonic_clock', [
         ('timestamp', TIMESTAMP_FIXES),
         ('transactionid', 8)
@@ -742,7 +739,7 @@ def make_tie_header_with_lifetime(direction, originator,
     return tie_header_with_lifetime
 
 def expand_tie_header_with_lifetime(tie_header, lifetime):
-    return encoding.ttypes.TIEHeaderWithLifeTime(header = tie_header, remaining_lifetime=lifetime)
+    return encoding.ttypes.TIEHeaderWithLifeTime(header=tie_header, remaining_lifetime=lifetime)
 
 def make_prefix_tie_packet(direction, originator, tie_nr, seq_nr):
     tie_type = common.ttypes.TIETypeType.PrefixTIEType
