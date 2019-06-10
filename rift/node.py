@@ -1882,7 +1882,7 @@ class Node:
             return db_tie_packet.element.node.level
 
     def is_flood_allowed(self,
-                         tie_header,
+                         tie_header_lifetime,
                          to_node_direction,
                          to_node_system_id,
                          from_node_system_id,
@@ -1898,20 +1898,20 @@ class Node:
         # better understood (correctness first, performance later).
         # See https://www.dropbox.com/s/b07dnhbxawaizpi/zoom_0.mp4?dl=0 for a video recording of a
         # discussion where these complications were discussed in detail.
-        if tie_header.tieid.direction == constants.DIR_SOUTH:
+        if tie_header_lifetime.header.tieid.direction == constants.DIR_SOUTH:
             # S-TIE
-            if tie_header.tieid.tietype == common.ttypes.TIETypeType.NodeTIEType:
+            if tie_header_lifetime.header.tieid.tietype == common.ttypes.TIETypeType.NodeTIEType:
                 # Node S-TIE
                 if to_node_direction == constants.DIR_SOUTH:
                     # Node S-TIE to S: Flood if level of originator is same as level of this node
-                    if self.tie_originator_level(tie_header) == from_node_level:
+                    if self.tie_originator_level(tie_header_lifetime.header) == from_node_level:
                         return (True, "Node S-TIE to S: originator level is same as from-node")
                     else:
                         return (False, "Node S-TIE to S: originator level is not same as from-node")
                 elif to_node_direction == constants.DIR_NORTH:
                     # Node S-TIE to N: flood if level of originator is higher than level of this
                     # node
-                    originator_level = self.tie_originator_level(tie_header)
+                    originator_level = self.tie_originator_level(tie_header_lifetime.header)
                     if originator_level is None:
                         return (False, "Node S-TIE to N: could not determine originator level")
                     elif originator_level > from_node_level:
@@ -1933,14 +1933,14 @@ class Node:
                 # Non-Node S-TIE
                 if to_node_direction == constants.DIR_SOUTH:
                     # Non-Node S-TIE to S: Flood self-originated only
-                    if self.tie_is_originated_by_node(tie_header, from_node_system_id):
+                    if self.tie_is_originated_by_node(tie_header_lifetime.header, from_node_system_id):
                         return (True, "Non-node S-TIE to S: self-originated")
                     else:
                         return (False, "Non-node S-TIE to S: not self-originated")
                 elif to_node_direction == constants.DIR_NORTH:
                     # [*] Non-Node S-TIE to N: Flood only if the neighbor is the originator of
                     # the TIE
-                    if to_node_system_id == tie_header.tieid.originator:
+                    if to_node_system_id == tie_header_lifetime.header.tieid.originator:
                         return (True, "Non-node S-TIE to N: to-node is originator of TIE")
                     else:
                         return (False, "Non-node S-TIE to N: to-node is not originator of TIE")
@@ -1949,7 +1949,7 @@ class Node:
                     # ToF
                     if from_node_is_top_of_fabric:
                         return (False, "Non-node S-TIE to EW: this top of fabric")
-                    elif self.tie_is_originated_by_node(tie_header, from_node_system_id):
+                    elif self.tie_is_originated_by_node(tie_header_lifetime.header, from_node_system_id):
                         return (True, "Non-node S-TIE to EW: self-originated and not top of fabric")
                     else:
                         return (False, "Non-node S-TIE to EW: not self-originated")
@@ -1959,7 +1959,7 @@ class Node:
                     return (False, "None-node S-TIE to ?: never flood")
         else:
             # S-TIE
-            assert tie_header.tieid.direction == constants.DIR_NORTH
+            assert tie_header_lifetime.header.tieid.direction == constants.DIR_NORTH
             if to_node_direction == constants.DIR_SOUTH:
                 # S-TIE to S: Never flood
                 return (False, "N-TIE to S: never flood")
@@ -1978,14 +1978,14 @@ class Node:
                 return (False, "N-TIE to ?: never flood")
 
     def flood_allowed_from_node_to_nbr(self,
-                                       tie_header,
+                                       tie_header_lifetime,
                                        neighbor_direction,
                                        neighbor_system_id,
                                        node_system_id,
                                        node_level,
                                        node_is_top_of_fabric):
         return self.is_flood_allowed(
-            tie_header=tie_header,
+            tie_header_lifetime=tie_header_lifetime,
             to_node_direction=neighbor_direction,
             to_node_system_id=neighbor_system_id,
             from_node_system_id=node_system_id,
@@ -1993,7 +1993,7 @@ class Node:
             from_node_is_top_of_fabric=node_is_top_of_fabric)
 
     def flood_allowed_from_nbr_to_node(self,
-                                       tie_header,
+                                       tie_header_lifetime,
                                        neighbor_direction,
                                        neighbor_system_id,
                                        neighbor_level,
@@ -2006,7 +2006,7 @@ class Node:
         else:
             neighbor_reverse_direction = neighbor_direction
         return self.is_flood_allowed(
-            tie_header=tie_header,
+            tie_header_lifetime=tie_header_lifetime,
             to_node_direction=neighbor_reverse_direction,
             to_node_system_id=node_system_id,
             from_node_system_id=neighbor_system_id,
