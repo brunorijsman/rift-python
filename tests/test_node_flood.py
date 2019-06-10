@@ -560,7 +560,7 @@ def test_is_flood_allowed():
          neighbor_system_id, i_am_top_of_fabric, expected_allowed, expected_reason) = tx_tie_info
         tie_header = packet_common.make_tie_header_with_lifetime(direction, originator, tietype, tie_nr, seq_nr, lifetime)
         (allowed, reason) = test_node.is_flood_allowed(
-            tie_header=tie_header.header,
+            tie_header_lifetime=tie_header.header,
             to_node_direction=neighbor_direction,
             to_node_system_id=neighbor_system_id,
             from_node_system_id=MY_SYSTEM_ID,

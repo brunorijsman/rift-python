@@ -1422,7 +1422,7 @@ class Interface:
 
     def is_flood_filtered(self, tie_header):
         (allowed, reason) = self.node.is_flood_allowed(
-            tie_header=tie_header,
+            tie_header_lifetime=tie_header,
             to_node_direction=self.neighbor_direction(),
             to_node_system_id=self.neighbor.system_id,
             from_node_system_id=self.node.system_id,
