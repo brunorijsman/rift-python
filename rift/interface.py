@@ -1520,7 +1520,8 @@ class Interface:
         assert tie_header_lifetime.__class__ == encoding.ttypes.TIEHeaderWithLifeTime
         (filtered, reason) = self.is_request_filtered(tie_header_lifetime.header)
         outcome = "excluded" if filtered else "included"
-        self.tx_debug("Request TIE %s is %s in TIRE because %s", tie_header_lifetime, outcome, reason)
+        self.tx_debug("Request TIE %s is %s in TIRE because %s",
+                      tie_header_lifetime, outcome, reason)
         if not filtered:
             self.remove_from_all_queues(tie_header_lifetime.header)
             self._ties_req[tie_header_lifetime.header.tieid] = tie_header_lifetime

@@ -656,8 +656,7 @@ IP_PREFIX_FIXES = [
 PREFIX_ATTRIBUTES_FIXES = [
     ('metric', 32), ('tags', 64),
     ('monotonic_clock', [
-        ('timestamp', TIMESTAMP_FIXES),
-        ('transactionid', 8)
+        ('timestamp', TIMESTAMP_FIXES), ('transactionid', 8)
     ])
 ]
 
@@ -667,10 +666,8 @@ PREFIX_TIE_ELEMENT_FIXES = [
 
 PROTOCOL_PACKET_FIXES = [
     ('header', [
-        ('major_version', 16),
-        ('minor_version', 16),
-        ('sender', 64),
-        ('level', 16)]),
+        ('major_version', 16), ('minor_version', 16),
+        ('sender', 64), ('level', 16)]),
     ('content', [
         ('lie', [
             ('local_id', 32),              # Draft doesn't mention this needs to treated as unsigned
