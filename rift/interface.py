@@ -289,7 +289,8 @@ class Interface:
         packet_info.update_outer_sec_env_header(
             outer_key=self.node.active_key,
             nonce_local=self.choose_tx_nonce_local(),
-            nonce_remote=self._last_rx_lie_nonce_local)
+            nonce_remote=self._last_rx_lie_nonce_local,
+            remaining_lifetime=packet_info.remaining_tie_lifetime)
         protocol_packet = packet_info.protocol_packet
         if flood:
             if self._flood_tx_ipv4_socket:
@@ -1308,7 +1309,10 @@ class Interface:
         if start_sending_tie_header is not None:
             self.try_to_transmit_tie(start_sending_tie_header)
         if ack_tie_header is not None:
-            self.ack_tie(ack_tie_header)
+            lifeheader = packet_common.expand_tie_header_with_lifetime(
+                ack_tie_header,
+                tie_packet_info.remaining_tie_lifetime)
+            self.ack_tie(lifeheader)
 
     def process_rx_tide_packet(self, tide_packet):
         result = self.node.process_rx_tide_packet(tide_packet)
@@ -1422,7 +1426,7 @@ class Interface:
 
     def is_flood_filtered(self, tie_header):
         (allowed, reason) = self.node.is_flood_allowed(
-            tie_header_lifetime=tie_header,
+            tie_header=tie_header,
             to_node_direction=self.neighbor_direction(),
             to_node_system_id=self.neighbor.system_id,
             from_node_system_id=self.node.system_id,
@@ -1467,14 +1471,16 @@ class Interface:
                 # No ACK in queue, send this TIE
                 self.add_tie_header_to_ties_tx(tie_header)
 
-    def ack_tie(self, tie_header):
-        self.remove_from_all_queues(tie_header)
-        self._ties_ack[tie_header.tieid] = tie_header
+    def ack_tie(self, tie_header_lifetime):
+        assert tie_header_lifetime.__class__ == encoding.ttypes.TIEHeaderWithLifeTime
+        self.remove_from_all_queues(tie_header_lifetime.header)
+        self._ties_ack[tie_header_lifetime.header.tieid] = tie_header_lifetime
 
     def tie_been_acked(self, tie_header):
         self.remove_from_all_queues(tie_header)
 
     def remove_from_all_queues(self, tie_header):
+        assert tie_header.__class__ == encoding.ttypes.TIEHeader
         self.remove_from_ties_tx(tie_header)
         self.remove_from_ties_rtx(tie_header)
         self.remove_from_ties_req(tie_header)
@@ -1510,13 +1516,14 @@ class Interface:
         except KeyError:
             pass
 
-    def request_tie(self, tie_header):
-        (filtered, reason) = self.is_request_filtered(tie_header)
+    def request_tie(self, tie_header_lifetime):
+        assert tie_header_lifetime.__class__ == encoding.ttypes.TIEHeaderWithLifeTime
+        (filtered, reason) = self.is_request_filtered(tie_header_lifetime.header)
         outcome = "excluded" if filtered else "included"
-        self.tx_debug("Request TIE %s is %s in TIRE because %s", tie_header, outcome, reason)
+        self.tx_debug("Request TIE %s is %s in TIRE because %s", tie_header_lifetime, outcome, reason)
         if not filtered:
-            self.remove_from_all_queues(tie_header)
-            self._ties_req[tie_header.tieid] = tie_header
+            self.remove_from_all_queues(tie_header_lifetime.header)
+            self._ties_req[tie_header_lifetime.header.tieid] = tie_header_lifetime
 
     # TODO: Defined in spec, but never invoked
     def move_to_rtx_queue(self, tie_header):
@@ -1556,20 +1563,20 @@ class Interface:
 
     def service_ties_req(self):
         tire_packet = packet_common.make_tire_packet()
-        for tie_header in self._ties_req.values():
+        for tie_header_lifetime in self._ties_req.values():
             # We don't request a TIE from our neighbor if the flooding scope rules say that the
             # neighbor is not allowed to flood the TIE to us. Why? Because the neighbor is allowed
             # to advertise extra TIEs in the TIDE, and if we request them we will get an
             # oscillation.
             (allowed, _reason) = self.node.flood_allowed_from_nbr_to_node(
-                tie_header,
+                tie_header_lifetime.header,
                 self.neighbor_direction(),
                 self.neighbor.system_id,
                 self.neighbor.level,
                 self.neighbor.top_of_fabric(),
                 self.node.system_id)
             if allowed:
-                packet_common.add_tie_header_to_tire(tire_packet, tie_header)
+                packet_common.add_tie_header_to_tire(tire_packet, tie_header_lifetime)
             else:
                 # TODO: log message
                 pass
@@ -1815,11 +1822,11 @@ class Interface:
         remaining_lifetimes = []
         origination_times = []
         for header in tide_packet.headers:
-            directions.append(packet_common.direction_str(header.tieid.direction))
-            originators.append(header.tieid.originator)
-            types.append(packet_common.tietype_str(header.tieid.tietype))
-            tie_nrs.append(header.tieid.tie_nr)
-            seq_nrs.append(header.seq_nr)
+            directions.append(packet_common.direction_str(header.header.tieid.direction))
+            originators.append(header.header.tieid.originator)
+            types.append(packet_common.tietype_str(header.header.tieid.tietype))
+            tie_nrs.append(header.header.tieid.tie_nr)
+            seq_nrs.append(header.header.seq_nr)
             remaining_lifetimes.append(header.remaining_lifetime)
             origination_times.append('-')   # TODO: Report origination_time
         return [

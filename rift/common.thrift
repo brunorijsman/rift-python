@@ -2,8 +2,6 @@
     Thrift file with common definitions for RIFT
 */
 
-namespace py common
-namespace rs models
 
 /** @note MUST be interpreted in implementation as unsigned 64 bits.
  *        The implementation SHOULD NOT use the MSB.
@@ -63,6 +61,10 @@ struct IEEE802_1ASTimeStampType {
     1: required     i64     AS_sec;
     2: optional     i32     AS_nsec;
 }
+/** generic counter type */
+typedef i64 CounterType
+/** Platform Interface Index type, i.e. index of interface on hardware */
+typedef i32 PlatformInterfaceIndex
 
 /** Flags indicating nodes behavior in case of ZTP and support
     for special optimization procedures. It will force level to `leaf_level` or
@@ -111,9 +113,6 @@ const set<SystemIDType> empty_set_of_nodeids = {}
 const LifeTimeInSecType default_lifetime      = 604800
 /** default lifetime when TIEs are purged is 5 minutes */
 const LifeTimeInSecType purge_lifetime        = 300
-/** round down interval when TIEs are sent with security hashes
-    to prevent excessive computation. **/
-const LifeTimeInSecType rounddown_lifetime_interval = 60
 /** any `TieHeader` that has a smaller lifetime difference
     than this constant is equal (if other fields equal). This
     constant MUST be larger than `purge_lifetime` to avoid
@@ -170,6 +169,12 @@ union IPAddressType {
     2: optional IPv6Address   ipv6address;
 }
 
+/** Prefix representing reachablity. Observe that for interface
+    addresses the protocol can propagate the address part beyond
+    the subnet mask and on reachability computation that has to
+    be normalized. The non-significant bits can be used for operational
+    purposes.
+*/
 union IPPrefixType {
     1: optional IPv4PrefixType   ipv4prefix;
     2: optional IPv6PrefixType   ipv6prefix;

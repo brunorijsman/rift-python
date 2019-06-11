@@ -417,7 +417,7 @@ def decode_protocol_packet(packet_info, message, offset):
     try:
         protocol_packet.validate()
     except thrift.protocol.TProtocol.TProtocolException as err:
-        packet_info.error = packet_info.THRIFT_VALIDATE
+        packet_info.error = packet_info.ERR_TRIFT_VALIDATE
         packet_info.error_details = str(err)
         return -1
     fix_prot_packet_after_decode(protocol_packet)
@@ -817,6 +817,7 @@ def make_tide_packet(start_range, end_range):
     return tide_packet
 
 def add_tie_header_to_tide(tide_packet, tie_header):
+    assert tie_header.__class__ == encoding.ttypes.TIEHeaderWithLifeTime
     tide_packet.headers.append(tie_header)
 
 def make_tire_packet():
@@ -824,6 +825,7 @@ def make_tire_packet():
     return tire_packet
 
 def add_tie_header_to_tire(tire_packet, tie_header):
+    assert tie_header.__class__ == encoding.ttypes.TIEHeaderWithLifeTime
     tire_packet.headers.add(tie_header)
 
 DIRECTION_TO_STR = {

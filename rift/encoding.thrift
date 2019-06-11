@@ -4,13 +4,10 @@
 
 include "common.thrift"
 
-namespace rs models
-namespace py encoding
-
 /** represents protocol encoding schema major version */
 const i32 protocol_major_version = 24
 /** represents protocol encoding schema minor version */
-const i32 protocol_minor_version =  0
+const i32 protocol_minor_version =  2
 
 /** common RIFT packet header */
 struct PacketHeader {
@@ -121,6 +118,11 @@ struct LinkIDPair {
     1: required common.LinkIDType      local_id;
     /** received remote link ID for this link */
     2: required common.LinkIDType      remote_id;
+
+    /** optionally describes the local interface index of the link */
+   10: optional common.PlatformInterfaceIndex       platform_interface_index;
+    /** optionally describes the local interface name */
+   11: optional string                              platform_interface_name;
     /** more properties of the link can go in here */
 }
 
@@ -235,6 +237,10 @@ struct NodeTIEElement {
     4: optional NodeFlags                   flags;
     /** optional node name for easier operations */
     5: optional string                      name;
+
+    /** if any local links are miscabled, the indication
+        is flooded. */
+   10: optional set<common.LinkIDType>      miscabled_links;
 }
 
 struct PrefixAttributes {
@@ -244,6 +250,10 @@ struct PrefixAttributes {
     3: optional set<common.RouteTagType>     tags;
     /** optional monotonic clock for mobile addresses */
     4: optional common.PrefixSequenceType    monotonic_clock;
+
+    /** in case of locally originated prefixes, i.e. interface addresses this can
+        describe which link the address belongs to. */
+   10: optional common.LinkIDType            from_link;
 }
 
 /** multiple prefixes */
