@@ -127,9 +127,10 @@ class PacketInfo:
         self.packet_nr = packet_nr
         self.env_header = struct.pack("!HH", RIFT_MAGIC, packet_nr)
 
-    def update_outer_sec_env_header(self, outer_key, nonce_local, nonce_remote):
-        if self.protocol_packet.content.tie:
-            remaining_tie_lifetime = self.protocol_packet.content.tie.header.remaining_lifetime
+    def update_outer_sec_env_header(self, outer_key, nonce_local, nonce_remote,
+                                    remaining_lifetime=None):
+        if remaining_lifetime:
+            remaining_tie_lifetime = remaining_lifetime
         else:
             remaining_tie_lifetime = 0xffffffff
         post = struct.pack("!HHL", nonce_local, nonce_remote, remaining_tie_lifetime)
@@ -181,7 +182,7 @@ def tie_id_tup(tie_id):
     return (tie_id.direction, tie_id.originator, tie_id.tietype, tie_id.tie_nr)
 
 def tie_header_tup(tie_header):
-    return (tie_header.tieid, tie_header.seq_nr, tie_header.remaining_lifetime,
+    return (tie_header.tieid, tie_header.seq_nr,
             tie_header.origination_time)
 
 def link_id_pair_tup(link_id_pair):
@@ -221,6 +222,11 @@ def add_missing_methods_to_thrift():
         lambda self: hash(tie_header_tup(self)))
     encoding.ttypes.TIEHeader.__eq__ = (
         lambda self, other: tie_header_tup(self) == tie_header_tup(other))
+    encoding.ttypes.TIEHeaderWithLifeTime.__hash__ = (
+        lambda self: hash((tie_header_tup(self.header), self.remaining_lifetime)))
+    encoding.ttypes.TIEHeaderWithLifeTime.__eq__ = (
+        lambda self, other: (tie_header_tup(self.header) == tie_header_tup(other.header)) and
+        self.remaining_lifetime == other.remaining_lifetime)
     encoding.ttypes.LinkIDPair.__hash__ = (
         lambda self: hash(link_id_pair_tup(self)))
     encoding.ttypes.LinkIDPair.__eq__ = (
@@ -292,6 +298,9 @@ def decode_message(rx_intf, from_info, message, active_key, accept_keys):
     if not check_origin_fingerprint(packet_info, active_key, accept_keys):
         return packet_info
     return packet_info
+
+def set_lifetime(packet_info, lifetime):
+    packet_info.remaining_tie_lifetime = lifetime
 
 def record_source_info(packet_info, rx_intf, from_info):
     packet_info.rx_intf = rx_intf
@@ -408,7 +417,7 @@ def decode_protocol_packet(packet_info, message, offset):
     try:
         protocol_packet.validate()
     except thrift.protocol.TProtocol.TProtocolException as err:
-        packet_info.error = packet_info.THRIFT_VALIDATE
+        packet_info.error = packet_info.ERR_TRIFT_VALIDATE
         packet_info.error_details = str(err)
         return -1
     fix_prot_packet_after_decode(protocol_packet)
@@ -608,21 +617,21 @@ def fix_packet_after_decode(packet, fixes):
     fix_struct(packet, fixes, False)
 
 TIEID_FIXES = [
-    ('originator', 64),
-    ('tie_nr', 32)
+    ('originator', 64), ('tie_nr', 32)
 ]
 
 TIMESTAMP_FIXES = [
-    ('AS_sec', 64),
-    ('AS_nsec', 32)
+    ('AS_sec', 64), ('AS_nsec', 32)
 ]
 
 TIE_HEADER_FIXES = [
-    ('tieid', TIEID_FIXES),
-    ('seq_nr', 32),
-    ('remaining_lifetime', 32),
+    ('tieid', TIEID_FIXES), ('seq_nr', 32),
     ('origination_time', TIMESTAMP_FIXES),
     ('origination_lifetime', 32)
+]
+
+TIE_HEADER_WITH_LIFETIME_FIXES = [
+    ('header', TIE_HEADER_FIXES), ('remaining_lifetime', 32),
 ]
 
 LINK_ID_PAIR_FIXES = [
@@ -631,10 +640,7 @@ LINK_ID_PAIR_FIXES = [
 ]
 
 NODE_NEIGHBORS_TIE_ELEMENT_FIXES = [
-    ('level', 16),
-    ('cost', 32),
-    ('link_ids', LINK_ID_PAIR_FIXES),
-    ('bandwidth', 32)
+    ('level', 16), ('cost', 32), ('link_ids', LINK_ID_PAIR_FIXES), ('bandwidth', 32)
 ]
 
 IP_PREFIX_FIXES = [
@@ -648,11 +654,9 @@ IP_PREFIX_FIXES = [
 ]
 
 PREFIX_ATTRIBUTES_FIXES = [
-    ('metric', 32),
-    ('tags', 64),
+    ('metric', 32), ('tags', 64),
     ('monotonic_clock', [
-        ('timestamp', TIMESTAMP_FIXES),
-        ('transactionid', 8)
+        ('timestamp', TIMESTAMP_FIXES), ('transactionid', 8)
     ])
 ]
 
@@ -662,32 +666,26 @@ PREFIX_TIE_ELEMENT_FIXES = [
 
 PROTOCOL_PACKET_FIXES = [
     ('header', [
-        ('major_version', 16),
-        ('minor_version', 16),
-        ('sender', 64),
-        ('level', 16)]),
+        ('major_version', 16), ('minor_version', 16),
+        ('sender', 64), ('level', 16)]),
     ('content', [
         ('lie', [
             ('local_id', 32),              # Draft doesn't mention this needs to treated as unsigned
-            ('flood_port', 16),
-            ('link_mtu_size', 32),
-            ('link_bandwidth', 32),
+            ('flood_port', 16), ('link_mtu_size', 32), ('link_bandwidth', 32),
             ('neighbor', [
                 ('originator', 64),
                 ('remote_id', 32)          # Draft doesn't mention this needs to treated as unsigned
             ]),
             ('pod', 32),
-            ('nonce', 16),                 # Draft doesn't mention this needs to treated as unsigned
-            ('last_neighbor_nonce', 16),   # Draft doesn't mention this needs to treated as unsigned
             ('holdtime', 16),              # Draft doesn't mention this needs to treated as unsigned
             ('label', 32)]),
         ('tide', [
             ('start_range', TIEID_FIXES),
             ('end_range', TIEID_FIXES),
-            ('headers', TIE_HEADER_FIXES)
+            ('headers', TIE_HEADER_WITH_LIFETIME_FIXES)
         ]),
         ('tire', [
-            ('headers', TIE_HEADER_FIXES)
+            ('headers', TIE_HEADER_WITH_LIFETIME_FIXES)
         ]),
         ('tie', [
             ('header', TIE_HEADER_FIXES),
@@ -719,19 +717,30 @@ def make_tie_id(direction, originator, tie_type, tie_nr):
         tie_nr=tie_nr)
     return tie_id
 
-def make_tie_header(direction, originator, tie_type, tie_nr, seq_nr, lifetime,
+def make_tie_header(direction, originator, tie_type, tie_nr, seq_nr,
                     origination_time=None):
     tie_id = make_tie_id(direction, originator, tie_type, tie_nr)
     tie_header = encoding.ttypes.TIEHeader(
         tieid=tie_id,
         seq_nr=seq_nr,
-        remaining_lifetime=lifetime,
         origination_time=origination_time)
     return tie_header
 
-def make_prefix_tie_packet(direction, originator, tie_nr, seq_nr, lifetime):
+def make_tie_header_with_lifetime(direction, originator,
+                                  tie_type, tie_nr, seq_nr,
+                                  lifetime,
+                                  origination_time=None):
+    tie_header_with_lifetime = encoding.ttypes.TIEHeaderWithLifeTime(
+        header=make_tie_header(direction, originator, tie_type, tie_nr, seq_nr, origination_time),
+        remaining_lifetime=lifetime)
+    return tie_header_with_lifetime
+
+def expand_tie_header_with_lifetime(tie_header, lifetime):
+    return encoding.ttypes.TIEHeaderWithLifeTime(header=tie_header, remaining_lifetime=lifetime)
+
+def make_prefix_tie_packet(direction, originator, tie_nr, seq_nr):
     tie_type = common.ttypes.TIETypeType.PrefixTIEType
-    tie_header = make_tie_header(direction, originator, tie_type, tie_nr, seq_nr, lifetime)
+    tie_header = make_tie_header(direction, originator, tie_type, tie_nr, seq_nr)
     prefixes = {}
     prefix_tie_element = encoding.ttypes.PrefixTIEElement(prefixes=prefixes)
     tie_element = encoding.ttypes.TIEElement(prefixes=prefix_tie_element)
@@ -785,9 +794,9 @@ def add_ipv6_prefix_to_prefix_tie(prefix_tie_packet, ipv6_prefix_string, metric,
                                                   monotonic_clock=monotonic_clock)
     prefix_tie_packet.element.prefixes.prefixes[prefix] = attributes
 
-def make_node_tie_packet(name, level, direction, originator, tie_nr, seq_nr, lifetime):
+def make_node_tie_packet(name, level, direction, originator, tie_nr, seq_nr):
     tie_type = common.ttypes.TIETypeType.NodeTIEType
-    tie_header = make_tie_header(direction, originator, tie_type, tie_nr, seq_nr, lifetime)
+    tie_header = make_tie_header(direction, originator, tie_type, tie_nr, seq_nr)
     node_tie_element = encoding.ttypes.NodeTIEElement(
         level=level,
         neighbors={},
@@ -805,6 +814,7 @@ def make_tide_packet(start_range, end_range):
     return tide_packet
 
 def add_tie_header_to_tide(tide_packet, tie_header):
+    assert tie_header.__class__ == encoding.ttypes.TIEHeaderWithLifeTime
     tide_packet.headers.append(tie_header)
 
 def make_tire_packet():
@@ -812,6 +822,7 @@ def make_tire_packet():
     return tire_packet
 
 def add_tie_header_to_tire(tire_packet, tie_header):
+    assert tie_header.__class__ == encoding.ttypes.TIEHeaderWithLifeTime
     tire_packet.headers.add(tie_header)
 
 DIRECTION_TO_STR = {

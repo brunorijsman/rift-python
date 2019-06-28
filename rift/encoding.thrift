@@ -1,16 +1,14 @@
 /**
     Thrift file for packet encodings for RIFT
+
 */
 
 include "common.thrift"
 
-namespace rs models
-namespace py encoding
-
 /** represents protocol encoding schema major version */
-const i32 protocol_major_version = 24
+const common.VersionType protocol_major_version = 2
 /** represents protocol encoding schema minor version */
-const i32 protocol_minor_version =  0
+const common.MinorVersionType protocol_minor_version =  0
 
 /** common RIFT packet header */
 struct PacketHeader {
@@ -24,7 +22,6 @@ struct PacketHeader {
       * in ZTP procedures.
      */
     4: optional common.LevelType            level;
-   10: optional common.PacketNumberType     packet_number;
 }
 
 /** Community serves as community for PGP purposes */
@@ -86,10 +83,6 @@ struct LIEPacket {
     6: optional Neighbor                      neighbor;
     7: optional common.PodType                pod =
             common.default_pod;
-    /** optional local nonce used for security computations */
-    8: optional common.NonceType              nonce = common.undefined_nonce;
-    /** optional neighbor's reflected nonce for security purposes. */
-    9: optional common.NonceType              last_neighbor_nonce = common.undefined_nonce;
     /** optional node capabilities shown in the LIE. The capabilies
         MUST match the capabilities shown in the Node TIEs, otherwise
         the behavior is unspecified. A node detecting the mismatch
@@ -113,6 +106,13 @@ struct LIEPacket {
        northbound adjacency */
    22: optional bool                          you_are_flood_repeater =
              common.default_you_are_flood_repeater;
+   /** can be optionally set to indicate to neighbor that packet losses are seen on
+       reception based on packet numbers or the rate is too high. The receiver SHOULD
+       temporarily slow down flooding rates.
+    */
+   23: optional bool                          you_are_sending_too_quickly =
+             false;
+
 }
 
 /** LinkID pair describes one of parallel links between two nodes */
@@ -121,6 +121,14 @@ struct LinkIDPair {
     1: required common.LinkIDType      local_id;
     /** received remote link ID for this link */
     2: required common.LinkIDType      remote_id;
+
+    /** optionally describes the local interface index of the link */
+   10: optional common.PlatformInterfaceIndex       platform_interface_index;
+   /** optionally describes the local interface name */
+   11: optional string                              platform_interface_name;
+   /** optional indication whether the link is secured, i.e. protected by outer key, absence
+       of this element means no indication, undefined outer key means not secured */
+   12: optional common.OuterSecurityKeyID           trusted_outer_security_key;
     /** more properties of the link can go in here */
 }
 
@@ -143,22 +151,19 @@ struct TIEID {
 
    @note: TIEID space is a total order achieved by comparing the elements
               in sequence defined and comparing each value as an
-              unsigned integer of according length. `origination_time` and
-              `origination_lifetime` are disregarded for comparison purposes
-              and carried purely for debugging/security purposes if present.
+              unsigned integer of according length.
+
+              After sequence number the lifetime received on the envelope
+              must be used for comparison before further fields.
+
+              `origination_time` and `origination_lifetime` are disregarded
+              for comparison purposes and carried purely for debugging/security
+              purposes if present.
 */
 struct TIEHeader {
     2: required TIEID                             tieid;
     3: required common.SeqNrType                  seq_nr;
-    /** remaining lifetime that expires down to 0 just like in ISIS.
-        TIEs with lifetimes differing by less than `lifetime_diff2ignore` MUST
-        be considered EQUAL.
 
-        When using security envelope,
-        this is just a model placeholder for convienence
-        that is never being modified during flooding. The real remaining lifetime
-        is contained on the security envelope. */
-    4: required common.LifeTimeInSecType          remaining_lifetime;
     /** optional absolute timestamp when the TIE
         was generated. This can be used on fabrics with
         synchronized clock to prevent lifetime modification attacks. */
@@ -169,19 +174,29 @@ struct TIEHeader {
    12: optional common.LifeTimeInSecType          origination_lifetime;
 }
 
+/** Header of a TIE as described in TIRE/TIDE.
+*/
+struct TIEHeaderWithLifeTime {
+    1: required     TIEHeader                         header;
+    /** remaining lifetime that expires down to 0 just like in ISIS.
+        TIEs with lifetimes differing by less than `lifetime_diff2ignore` MUST
+        be considered EQUAL. */
+    2: required     common.LifeTimeInSecType          remaining_lifetime;
+}
+
 /** A TIDE with sorted TIE headers, if headers unsorted, behavior is undefined */
 struct TIDEPacket {
     /** all 00s marks starts */
-    1: required TIEID           start_range;
+    1: required TIEID                       start_range;
     /** all FFs mark end */
-    2: required TIEID           end_range;
+    2: required TIEID                       end_range;
     /** _sorted_ list of headers */
-    3: required list<TIEHeader> headers;
+    3: required list<TIEHeaderWithLifeTime> headers;
 }
 
 /** A TIRE packet */
 struct TIREPacket {
-    1: required set<TIEHeader> headers;
+    1: required set<TIEHeaderWithLifeTime>  headers;
 }
 
 /** Neighbor of a node */
@@ -216,18 +231,18 @@ struct NodeFlags {
     It may occur multiple times in different TIEs but if either
         * capabilities values do not match or
         * flags values do not match or
-        * neighbors repeat with different values or
-        * visible in same level/having partition upper do not match
+        * neighbors repeat with different values
+
     the behavior is undefined and a warning SHOULD be generated.
     Neighbors can be distributed across multiple TIEs however if
-    the sets are disjoint.
+    the sets are disjoint. Miscablings SHOULD be repeated in every
+    node TIE, otherwise the behavior is undefined.
 
     @note: observe that absence of fields implies defined defaults
 */
 struct NodeTIEElement {
     1: required common.LevelType            level;
-    /** _All_ of the node's neighbors.
-    *   If neighbor systemID repeats in other node TIEs of same node
+    /** If neighbor systemID repeats in other node TIEs of same node
         the behavior is undefined. */
     2: required map<common.SystemIDType,
                 NodeNeighborsTIEElement>    neighbors;
@@ -235,6 +250,12 @@ struct NodeTIEElement {
     4: optional NodeFlags                   flags;
     /** optional node name for easier operations */
     5: optional string                      name;
+    /** PoD to which the node belongs */
+    6: optional common.PodType              pod;
+
+    /** if any local links are miscabled, the indication is flooded. */
+   10: optional set<common.LinkIDType>      miscabled_links;
+
 }
 
 struct PrefixAttributes {
@@ -244,6 +265,15 @@ struct PrefixAttributes {
     3: optional set<common.RouteTagType>     tags;
     /** optional monotonic clock for mobile addresses */
     4: optional common.PrefixSequenceType    monotonic_clock;
+    /** optionally indicates the interface is a node loopback */
+    6: optional bool                         loopback = false;
+    /** indicates that the prefix is directly attached, i.e. should be routed to even if
+        the node is in overload. **/
+    7: optional bool                         directly_attached = true;
+
+    /** in case of locally originated prefixes, i.e. interface addresses this can
+        describe which link the address belongs to. */
+   10: optional common.LinkIDType            from_link;
 }
 
 /** multiple prefixes */
@@ -261,12 +291,18 @@ struct KeyValueTIEElement {
     1: required map<common.KeyIDType,string>    keyvalues;
 }
 
-/** single element in a TIE. enum common.TIETypeType
+/** single element in a TIE. enum `common.TIETypeType`
     in TIEID indicates which elements MUST be present
     in the TIEElement. In case of mismatch the unexpected
     elements MUST be ignored. In case of lack of expected
     element the TIE an error MUST be reported and the TIE
     MUST be ignored.
+
+    This type can be extended with new optional elements
+    for new `common.TIETypeType` values without breaking
+    the major but if it is necessary to understand whether
+    all nodes support the new type a node capability must
+    be added as well.
  */
 union TIEElement {
     /** in case of enum common.TIETypeType.NodeTIEType */
@@ -293,9 +329,6 @@ union TIEElement {
     /** @todo: policy guided prefixes */
 }
 
-/** @todo: flood header separately in UDP to allow changing lifetime and SHA without reserialization
-
- */
 struct TIEPacket {
     1: required TIEHeader  header;
     2: required TIEElement element;
