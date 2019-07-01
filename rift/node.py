@@ -1665,21 +1665,22 @@ class Node:
         last_processed_tie_id = tide_packet.start_range
         minimum_inclusive = True
         # Process the TIDE
-        for header_in_tide in tide_packet.headers:
+        for header_lifetime_in_tide in tide_packet.headers:
+            header_in_tide = header_lifetime_in_tide.header
             # Make sure all tie_ids in the TIDE in the range advertised by the TIDE
-            if header_in_tide.header.tieid < last_processed_tie_id:
+            if header_in_tide.tieid < last_processed_tie_id:
                 # TODO: Handle error (not sorted)
                 assert False
             # Start/mid-gap processing: send TIEs that are in our TIE DB but missing in TIDE
             self.start_sending_db_ties_in_range(start_sending_tie_headers,
                                                 last_processed_tie_id, minimum_inclusive,
-                                                header_in_tide.header.tieid, False)
-            last_processed_tie_id = header_in_tide.header.tieid
+                                                header_in_tide.tieid, False)
+            last_processed_tie_id = header_in_tide.tieid
             minimum_inclusive = False
             # Process all tie_ids in the TIDE
-            db_tie_packet_info = self.find_tie_packet_info(header_in_tide.header.tieid)
+            db_tie_packet_info = self.find_tie_packet_info(header_in_tide.tieid)
             if db_tie_packet_info is None:
-                if header_in_tide.header.tieid.originator == self.system_id:
+                if header_in_tide.tieid.originator == self.system_id:
                     # Self-originate an empty TIE with a higher sequence number.
                     bumped_own_tie_header = self.bump_own_tie(None, header_in_tide)
                     start_sending_tie_headers.append(bumped_own_tie_header)
@@ -1688,7 +1689,7 @@ class Node:
                     # To request a a missing TIE, we have to set the seq_nr to 0. This is not
                     # mentioned in the RIFT draft, but it is described in ISIS ISO/IEC 10589:1992
                     # section 7.3.15.2 bullet b.4
-                    request_header = header_in_tide
+                    request_header = header_lifetime_in_tide
                     request_header.header.seq_nr = 0
                     request_header.header.origination_time = None
                     request_header.remaining_lifetime = 0
@@ -1696,21 +1697,20 @@ class Node:
             else:
                 db_tie_packet = db_tie_packet_info.protocol_packet.content.tie
                 db_tie_header = db_tie_packet.header
-                db_tie_with_lifetime = \
-                    packet_common.expand_tie_header_with_lifetime(
-                        db_tie_header,
-                        db_tie_packet_info.remaining_tie_lifetime)
-
-                comparison = compare_tie_header_lifetime_age(db_tie_with_lifetime, header_in_tide)
+                db_tie_header_lifetime = packet_common.expand_tie_header_with_lifetime(
+                    db_tie_header,
+                    db_tie_packet_info.remaining_tie_lifetime)
+                comparison = compare_tie_header_lifetime_age(db_tie_header_lifetime,
+                                                             header_lifetime_in_tide)
                 if comparison < 0:
-                    if header_in_tide.header.tieid.originator == self.system_id:
+                    if header_in_tide.tieid.originator == self.system_id:
                         # Re-originate DB TIE with higher sequence number than the one in TIDE
                         bumped_own_tie_header = self.bump_own_tie(db_tie_packet_info,
                                                                   header_in_tide)
                         start_sending_tie_headers.append(bumped_own_tie_header)
                     else:
                         # We have an older version of the TIE, request the newer version
-                        request_tie_headers_lifetime.append(header_in_tide)
+                        request_tie_headers_lifetime.append(header_lifetime_in_tide)
                 elif comparison > 0:
                     # We have a newer version of the TIE, send it
                     start_sending_tie_headers.append(db_tie_packet.header)
