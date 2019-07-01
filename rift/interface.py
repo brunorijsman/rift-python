@@ -282,6 +282,11 @@ class Interface:
         self.send_packet_info(packet_info, flood)
 
     def send_packet_info(self, packet_info, flood):
+        # In state oneway, send the undefined nonce as the reflected nonce
+        if self.fsm.state == self.State.ONE_WAY:
+            nonce_remote = 0
+        else:
+            nonce_remote = self._last_rx_lie_nonce_local
         # The current implementation increases the local nonce on every sent packet, because if
         # an attacker is able to replay even a single packet, that is suffient for the attacher to
         # prevent the adjacency from reaching state 3-way. For ease of debugging, we make the local
@@ -289,7 +294,7 @@ class Interface:
         packet_info.update_outer_sec_env_header(
             outer_key=self.node.active_key,
             nonce_local=self.choose_tx_nonce_local(),
-            nonce_remote=self._last_rx_lie_nonce_local,
+            nonce_remote=nonce_remote,
             remaining_lifetime=packet_info.remaining_tie_lifetime)
         protocol_packet = packet_info.protocol_packet
         if flood:
@@ -1204,9 +1209,12 @@ class Interface:
         sent_nonce = self._last_tx_nonce_local
         reflected_nonce = packet_info.nonce_remote
         if reflected_nonce == 0:
-            # Neighbor did not reflect anything yet. This is only allowed in the beginning (first
-            # maximum_valid_nonce_delta sent nonces)
-            if self._tx_nonce_local_wrapped:
+            # Neighbor did not reflect a valid nonce.
+            # This is allowed if we are not in state three-way
+            # This also allowed in the beginning (first maximum_valid_nonce_delta sent nonces)
+            if self.fsm.state != self.State.THREE_WAY:
+                accepted = True
+            elif self._tx_nonce_local_wrapped:
                 accepted = False
             else:
                 accepted = sent_nonce <= max_delta
