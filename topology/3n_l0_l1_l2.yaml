@@ -32,6 +32,7 @@ shards:
         level: 2
         systemid: 1
         rx_lie_mcast_address: 224.0.1.1
+        rx_lie_v6_mcast_address: ff02::abcd:1
         interfaces:
           - name: if1 # Connected to node2-if1
             rx_lie_port: 20012
@@ -49,6 +50,7 @@ shards:
         level: 1
         systemid: 2
         rx_lie_mcast_address: 224.0.1.2
+        rx_lie_v6_mcast_address: ff02::abcd:2
         interfaces:
           - name: if1 # Connected to node1-if1
             rx_lie_port: 20021
@@ -70,6 +72,7 @@ shards:
         level: 0
         systemid: 3
         rx_lie_mcast_address: 224.0.1.3
+        rx_lie_v6_mcast_address: ff02::abcd:3
         interfaces:
           - name: if1 # Connected to node2-if1
             rx_lie_port: 20032
