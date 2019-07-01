@@ -44,35 +44,32 @@ FLUSH_LIFETIME = 60
 # sender)
 
 # TODO: Make static method of Node
-def compare_tie_header_age(header_with_lifetime_1, header_with_lifetime_2):
+def compare_tie_header_lifetime_age(header_lifetime_1, header_lifetime_2):
     # Returns -1 is header1 is older, returns +1 if header1 is newer, 0 if "same" age
     # It is not allowed to call this function with headers with different TIE-IDs.
-    assert header_with_lifetime_1.header.tieid == header_with_lifetime_2.header.tieid
+    assert header_lifetime_1.header.tieid == header_lifetime_2.header.tieid
     # Highest sequence number is newer
-    if header_with_lifetime_1.header.seq_nr < header_with_lifetime_2.header.seq_nr:
+    if header_lifetime_1.header.seq_nr < header_lifetime_2.header.seq_nr:
         return -1
-    if header_with_lifetime_1.header.seq_nr > header_with_lifetime_2.header.seq_nr:
+    if header_lifetime_1.header.seq_nr > header_lifetime_2.header.seq_nr:
         return 1
     # When a node advertises remaining_lifetime 0 in a TIRE, it means a request (I don't have
     # that TIRE, please send it). Thus, if one header has remaining_lifetime 0 and the other
     # does not, then the one with non-zero remaining_lifetime is always newer.
-    if (header_with_lifetime_1.remaining_lifetime == 0) and \
-	(header_with_lifetime_2.remaining_lifetime != 0):
+    remaining_lifetime_1 = header_lifetime_1.remaining_lifetime
+    remaining_lifetime_2 = header_lifetime_2.remaining_lifetime
+    if remaining_lifetime_1 == 0 and remaining_lifetime_2 != 0:
         return -1
-    if (header_with_lifetime_1.remaining_lifetime != 0) and \
-	(header_with_lifetime_2.remaining_lifetime == 0):
+    if remaining_lifetime_1 != 0 and remaining_lifetime_2 == 0:
         return 1
     # The header with the longest remaining lifetime is considered newer. However, if the
     # difference in remaining lifetime is less than 5 minutes (300 seconds), they are considered
     # to be the same age.
-    age_diff = abs(header_with_lifetime_1.remaining_lifetime -
-                   header_with_lifetime_2.remaining_lifetime)
+    age_diff = abs(remaining_lifetime_1 - remaining_lifetime_2)
     if age_diff > common.constants.lifetime_diff2ignore:
-        if header_with_lifetime_1.remaining_lifetime < \
-	   header_with_lifetime_2.remaining_lifetime:
+        if remaining_lifetime_1 < remaining_lifetime_2:
             return -1
-        if header_with_lifetime_1.remaining_lifetime > \
-           header_with_lifetime_2.remaining_lifetime:
+        if remaining_lifetime_1 > remaining_lifetime_2:
             return 1
     # TODO: Figure out what to do with origination_time
     # If we get this far, we have a tie (same age)
@@ -1577,11 +1574,9 @@ class Node:
         if old_tie.header.seq_nr != new_tie.header.seq_nr:
             return True
         # All remaining_lifetime values are the same, except zero, for the purpose of running SPF
-        if (old_tie_info.remaining_tie_lifetime == 0) and \
-	   (new_tie_info.remaining_tie_lifetime != 0):
+        if old_tie_info.remaining_tie_lifetime == 0 and new_tie_info.remaining_tie_lifetime != 0:
             return True
-        if (old_tie_info.remaining_tie_lifetime != 0) and \
-	   (new_tie_info.remaining_tie_lifetime == 0):
+        if old_tie_info.remaining_tie_lifetime != 0 and new_tie_info.remaining_tie_lifetime == 0:
             return True
         # Ignore any changes in origination_lifetime for the purpose of running SPF (TODO: really?)
         # Any change in the element contents (node, prefixes, etc.) trigger an SPF
@@ -1648,7 +1643,7 @@ class Node:
             start_sending_tie_headers.append(db_tie_packet.header)
 
     def process_rx_tide_packet(self, tide_packet):
-        request_tie_headers = []
+        request_tie_headers_lifetime = []
         start_sending_tie_headers = []
         stop_sending_tie_headers = []
         # It is assumed TIDEs are sent and received in increasing order or range. If we observe
@@ -1697,7 +1692,7 @@ class Node:
                     request_header.header.seq_nr = 0
                     request_header.header.origination_time = None
                     request_header.remaining_lifetime = 0
-                    request_tie_headers.append(request_header)
+                    request_tie_headers_lifetime.append(request_header)
             else:
                 db_tie_packet = db_tie_packet_info.protocol_packet.content.tie
                 db_tie_header = db_tie_packet.header
@@ -1706,7 +1701,7 @@ class Node:
                         db_tie_header,
                         db_tie_packet_info.remaining_tie_lifetime)
 
-                comparison = compare_tie_header_age(db_tie_with_lifetime, header_in_tide)
+                comparison = compare_tie_header_lifetime_age(db_tie_with_lifetime, header_in_tide)
                 if comparison < 0:
                     if header_in_tide.header.tieid.originator == self.system_id:
                         # Re-originate DB TIE with higher sequence number than the one in TIDE
@@ -1715,7 +1710,7 @@ class Node:
                         start_sending_tie_headers.append(bumped_own_tie_header)
                     else:
                         # We have an older version of the TIE, request the newer version
-                        request_tie_headers.append(header_in_tide)
+                        request_tie_headers_lifetime.append(header_in_tide)
                 elif comparison > 0:
                     # We have a newer version of the TIE, send it
                     start_sending_tie_headers.append(db_tie_packet.header)
@@ -1726,7 +1721,7 @@ class Node:
         self.start_sending_db_ties_in_range(start_sending_tie_headers,
                                             last_processed_tie_id, minimum_inclusive,
                                             tide_packet.end_range, True)
-        return (request_tie_headers, start_sending_tie_headers, stop_sending_tie_headers)
+        return (request_tie_headers_lifetime, start_sending_tie_headers, stop_sending_tie_headers)
 
     def process_rx_tire_packet(self, tire_packet):
         request_tie_headers = []
@@ -1741,7 +1736,7 @@ class Node:
                     packet_common.expand_tie_header_with_lifetime(
                         db_tie_header,
                         db_tie_packet_info.remaining_tie_lifetime)
-                comparison = compare_tie_header_age(db_tie_with_lifetime, header_in_tire)
+                comparison = compare_tie_header_lifetime_age(db_tie_with_lifetime, header_in_tire)
                 if comparison < 0:
                     # We have an older version of the TIE, request the newer version
                     request_tie_headers.append(header_in_tire)
@@ -1842,7 +1837,7 @@ class Node:
             rx_tie_lifetime = packet_common.expand_tie_header_with_lifetime(
                 rx_tie_header,
                 rx_tie_packet_info.remaining_tie_lifetime)
-            comparison = compare_tie_header_age(db_tie_lifetime, rx_tie_lifetime)
+            comparison = compare_tie_header_lifetime_age(db_tie_lifetime, rx_tie_lifetime)
             if comparison < 0:
                 # We have an older version of the TIE, ...
                 if rx_tie_id.originator == self.system_id:

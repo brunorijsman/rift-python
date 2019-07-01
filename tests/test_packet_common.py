@@ -35,7 +35,6 @@ def max_tie_header(fudge=0):
     return encoding.ttypes.TIEHeader(
         tieid=max_tieid(),
         seq_nr=packet_common.MAX_U32 - fudge,
-        # remaining_lifetime=packet_common.MAX_U32 - 1,    # Actual max is not allowed
         origination_time=common.ttypes.IEEE802_1ASTimeStampType(
             AS_sec=packet_common.MAX_U64,
             AS_nsec=packet_common.MAX_U32
@@ -43,7 +42,7 @@ def max_tie_header(fudge=0):
         origination_lifetime=packet_common.MAX_U32
     )
 
-def max_tie_header_with_lifetime(fudge=0):
+def max_tie_header_lifetime(fudge=0):
     return encoding.ttypes.TIEHeaderWithLifeTime(
         header=max_tie_header(fudge),
         remaining_lifetime=packet_common.MAX_U32 - 1,    # Actual max is not allowed
@@ -177,9 +176,9 @@ def test_fix_tide_packet():
                 start_range=max_tieid(),
                 end_range=max_tieid(),
                 headers=[
-                    max_tie_header_with_lifetime(),
-                    max_tie_header_with_lifetime(),
-                    max_tie_header_with_lifetime()
+                    max_tie_header_lifetime(),
+                    max_tie_header_lifetime(),
+                    max_tie_header_lifetime()
                 ]
             ),
             tire=None,
@@ -208,9 +207,9 @@ def test_fix_tire_packet():
             tide=None,
             tire=encoding.ttypes.TIREPacket(
                 headers=set([
-                    max_tie_header_with_lifetime(0),
-                    max_tie_header_with_lifetime(1),
-                    max_tie_header_with_lifetime(2)
+                    max_tie_header_lifetime(0),
+                    max_tie_header_lifetime(1),
+                    max_tie_header_lifetime(2)
                 ])
             ),
             tie=None

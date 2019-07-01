@@ -1309,29 +1309,29 @@ class Interface:
         if start_sending_tie_header is not None:
             self.try_to_transmit_tie(start_sending_tie_header)
         if ack_tie_header is not None:
-            lifeheader = packet_common.expand_tie_header_with_lifetime(
+            tie_header_lifetime = packet_common.expand_tie_header_with_lifetime(
                 ack_tie_header,
                 tie_packet_info.remaining_tie_lifetime)
-            self.ack_tie(lifeheader)
+            self.ack_tie(tie_header_lifetime)
 
     def process_rx_tide_packet(self, tide_packet):
         result = self.node.process_rx_tide_packet(tide_packet)
-        (request_tie_headers, start_sending_tie_headers, stop_sending_tie_headers) = result
+        (request_tie_headers_lifetime, start_sending_tie_headers, stop_sending_tie_headers) = result
         for tie_header in start_sending_tie_headers:
             self.try_to_transmit_tie(tie_header)
-        for tie_header in request_tie_headers:
-            self.request_tie(tie_header)
+        for tie_header_lifetime in request_tie_headers_lifetime:
+            self.request_tie(tie_header_lifetime)
         for tie_header in stop_sending_tie_headers:
             self.remove_from_all_queues(tie_header)
 
     def process_rx_tire_packet(self, tire_packet):
         self.rx_debug("Receive TIRE packet %s", tire_packet)
         result = self.node.process_rx_tire_packet(tire_packet)
-        (request_tie_headers, start_sending_tie_headers, acked_tie_headers) = result
+        (request_tie_headers_lifetime, start_sending_tie_headers, acked_tie_headers) = result
         for tie_header in start_sending_tie_headers:
             self.try_to_transmit_tie(tie_header)
-        for tie_header in request_tie_headers:
-            self.request_tie(tie_header)
+        for tie_header_lifetime in request_tie_headers_lifetime:
+            self.request_tie(tie_header_lifetime)
         for tie_header in acked_tie_headers:
             self.tie_been_acked(tie_header)
 
@@ -1822,13 +1822,14 @@ class Interface:
         seq_nrs = []
         remaining_lifetimes = []
         origination_times = []
-        for header in tide_packet.headers:
-            directions.append(packet_common.direction_str(header.header.tieid.direction))
-            originators.append(header.header.tieid.originator)
-            types.append(packet_common.tietype_str(header.header.tieid.tietype))
-            tie_nrs.append(header.header.tieid.tie_nr)
-            seq_nrs.append(header.header.seq_nr)
-            remaining_lifetimes.append(header.remaining_lifetime)
+        for header_lifetime in tide_packet.headers:
+            header = header_lifetime.header
+            directions.append(packet_common.direction_str(header.tieid.direction))
+            originators.append(header.tieid.originator)
+            types.append(packet_common.tietype_str(header.tieid.tietype))
+            tie_nrs.append(header.tieid.tie_nr)
+            seq_nrs.append(header.seq_nr)
+            remaining_lifetimes.append(header_lifetime.remaining_lifetime)
             origination_times.append('-')   # TODO: Report origination_time
         return [
             packet_common.tie_id_str(tide_packet.start_range),
@@ -1849,7 +1850,7 @@ class Interface:
             "Type",
             "TIE Nr",
             "Seq Nr",
-            ["Remaining", "Lifetime"],
+            ["Remaining", "Lifetime"],   ###@@@ probably remove
             ["Origination", "Time"]])
         for tie_header in tie_headers.values():
             # TODO: Move direction_str etc. to packet_common
@@ -1858,7 +1859,7 @@ class Interface:
                          packet_common.tietype_str(tie_header.tieid.tietype),
                          tie_header.tieid.tie_nr,
                          tie_header.seq_nr,
-                         tie_header.remaining_lifetime,
+                         tie_header.remaining_lifetime,   ###@@@ Probably wrong
                          "-"])   # TODO: Report origination_time
         return tab
 
