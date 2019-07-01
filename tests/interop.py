@@ -94,7 +94,7 @@ def check_juniper_rift_in_path():
     output = subprocess.check_output(["rift-environ",
                                       "--version"], universal_newlines=True)
     # print (output)
-    regex = re.compile(r"^.*ersion: *(\d+)\.(\d+).*",
+    regex = re.compile(r"^.hrift encoding schema: *(\d+)\.(\d+).*",
                        re.RegexFlag.IGNORECASE  | re.RegexFlag.MULTILINE)
     major = re.search(regex, output)
 
