@@ -105,7 +105,7 @@ def check_juniper_rift_in_path():
     major = major.group(1)
 
     expected_minor = 0
-    expected_major = 19
+    expected_major = 2
 
     if int(major) != expected_major or int(minor) != expected_minor:
         fatal_error("Wrong Major/Minor version of Juniper RIFT: (expected {}.{}, got {}.{})"
