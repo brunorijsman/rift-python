@@ -101,11 +101,16 @@ def check_juniper_rift_in_path():
     if not major or not major.group(1):
         fatal_error("Cannot detect major version of Juniper RIFT")
 
-    minor = major.group(2)
     major = major.group(1)
+    minor = major.group(2)
 
-    if int(major) != 0 or int(minor) != 9:
-        fatal_error("Wrong Major/Minor version of Juniper RIFT")
+    # pylint:disable=unused-variable
+    expected_major = 19
+    expected_minor = 0
+
+    if int(major) != expected_major or int(minor) != expected_minor:
+        fatal_error(f"Wrong Major/Minor version of Juniper RIFT: "
+                     "(expected {expected_major}.{expected_minor}, got {major}.{minor})")
 
 
 def check_pytest_in_path():
