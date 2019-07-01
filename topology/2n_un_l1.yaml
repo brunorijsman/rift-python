@@ -19,6 +19,7 @@ shards:
         level: 1
         systemid: 1
         rx_lie_mcast_address: 224.0.1.1
+        rx_lie_v6_mcast_address: ff02::abcd:1
         rx_lie_port: 20001
         interfaces:
           - name: if1 # Connected to node2-if1
@@ -28,6 +29,7 @@ shards:
         level: undefined
         systemid: 2
         rx_lie_mcast_address: 224.0.1.2
+        rx_lie_v6_mcast_address: ff02::abcd:2
         rx_lie_port: 20002
         interfaces:
           - name: if1 # Connected to node1-if1
