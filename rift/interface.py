@@ -914,10 +914,10 @@ class Interface:
         # same TIE-ID in the queue. The ordering is needed because we want to service the entries
         # in the queue in the same order in which they were added (FIFO).
         # TODO: For _ties_rtx, add time to retransmit to retransmit queue
-        self._ties_tx = collections.OrderedDict()
-        self._ties_rtx = collections.OrderedDict()
-        self._ties_req = collections.OrderedDict()
-        self._ties_ack = collections.OrderedDict()
+        self._ties_tx = collections.OrderedDict()   # Dict of TIEHeader
+        self._ties_rtx = collections.OrderedDict()  # Dict of TIEHeader
+        self._ties_req = collections.OrderedDict()  # Dict of TIEHeaderWithLifeTime
+        self._ties_ack = collections.OrderedDict()  # Dict of TIEHeaderWithLifeTime
         self.floodred_nbr_is_fr = self.NbrIsFRState.NOT_APPLICABLE
         self.partially_connected = None
         self.partially_connected_causes = None
@@ -1459,10 +1459,10 @@ class Interface:
         if not filtered:
             self.remove_from_ties_rtx(tie_header)
             if tie_header.tieid in self._ties_ack:
-                ack_header = self._ties_ack[tie_header.tieid]
-                if ack_header.seq_nr < tie_header.seq_nr:
+                ack_header_lifetime = self._ties_ack[tie_header.tieid]
+                if ack_header_lifetime.header.seq_nr < tie_header.seq_nr:
                     # ACK for older TIE is in queue, remove ACK from queue and send newer TIE
-                    self.remove_from_ties_ack(ack_header)
+                    self.remove_from_ties_ack(ack_header_lifetime)
                     self.add_tie_header_to_ties_tx(tie_header)
                 else:
                     # ACK for newer TIE in in queue, keep ACK and don't send this older TIE
@@ -1551,8 +1551,8 @@ class Interface:
         tire_packet = packet_common.make_tire_packet()
         # We always send an ACK for every TIE header on the ACK queue. I.e. we always ACK the TIEs
         # that we received and accepted.
-        for tie_header in self._ties_ack.values():
-            packet_common.add_tie_header_to_tire(tire_packet, tie_header)
+        for tie_header_lifetime in self._ties_ack.values():
+            packet_common.add_tie_header_to_tire(tire_packet, tie_header_lifetime)
         packet_content = encoding.ttypes.PacketContent(tire=tire_packet)
         packet_header = encoding.ttypes.PacketHeader(
             sender=self.node.system_id,
@@ -1842,7 +1842,7 @@ class Interface:
             remaining_lifetimes,
             origination_times]
 
-    def tie_headers_table_common(self, tie_headers):
+    def tie_headers_table_cmn(self, tie_headers):
         tab = table.Table()
         tab.add_row([
             "Direction",
@@ -1850,7 +1850,6 @@ class Interface:
             "Type",
             "TIE Nr",
             "Seq Nr",
-            ["Remaining", "Lifetime"],   ###@@@ probably remove
             ["Origination", "Time"]])
         for tie_header in tie_headers.values():
             # TODO: Move direction_str etc. to packet_common
@@ -1859,21 +1858,41 @@ class Interface:
                          packet_common.tietype_str(tie_header.tieid.tietype),
                          tie_header.tieid.tie_nr,
                          tie_header.seq_nr,
-                         tie_header.remaining_lifetime,   ###@@@ Probably wrong
+                         "-"])   # TODO: Report origination_time
+        return tab
+
+    def tie_headers_lifetime_table_cmn(self, tie_headers):
+        tab = table.Table()
+        tab.add_row([
+            "Direction",
+            "Originator",
+            "Type",
+            "TIE Nr",
+            "Seq Nr",
+            ["Remaining", "Lifetime"],
+            ["Origination", "Time"]])
+        for tie_header in tie_headers.values():
+            # TODO: Move direction_str etc. to packet_common
+            tab.add_row([packet_common.direction_str(tie_header.tieid.direction),
+                         tie_header.tieid.originator,
+                         packet_common.tietype_str(tie_header.tieid.tietype),
+                         tie_header.tieid.tie_nr,
+                         tie_header.seq_nr,
+                         tie_header.remaining_lifetime,
                          "-"])   # TODO: Report origination_time
         return tab
 
     def ties_tx_table(self):
-        return self.tie_headers_table_common(self._ties_tx)
+        return self.tie_headers_table_cmn(self._ties_tx)
 
     def ties_rtx_table(self):
-        return self.tie_headers_table_common(self._ties_rtx)
+        return self.tie_headers_table_cmn(self._ties_rtx)
 
     def ties_req_table(self):
-        return self.tie_headers_table_common(self._ties_req)
+        return self.tie_headers_lifetime_table_cmn(self._ties_req)
 
     def ties_ack_table(self):
-        return self.tie_headers_table_common(self._ties_ack)
+        return self.tie_headers_lifetime_table_cmn(self._ties_ack)
 
     # TODO: Set TTL as follows:
     # ttl_bin = struct.pack('@i', MYTTL)
