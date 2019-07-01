@@ -1724,29 +1724,29 @@ class Node:
         return (request_tie_headers_lifetime, start_sending_tie_headers, stop_sending_tie_headers)
 
     def process_rx_tire_packet(self, tire_packet):
-        request_tie_headers = []
+        request_tie_headers_lifetime = []
         start_sending_tie_headers = []
         acked_tie_headers = []
-        for header_in_tire in tire_packet.headers:
-            db_tie_packet_info = self.find_tie_packet_info(header_in_tire.header.tieid)
+        for header_lifetime_in_tire in tire_packet.headers:
+            db_tie_packet_info = self.find_tie_packet_info(header_lifetime_in_tire.header.tieid)
             if db_tie_packet_info is not None:
                 db_tie_packet = db_tie_packet_info.protocol_packet.content.tie
                 db_tie_header = db_tie_packet.header
-                db_tie_with_lifetime = \
-                    packet_common.expand_tie_header_with_lifetime(
-                        db_tie_header,
-                        db_tie_packet_info.remaining_tie_lifetime)
-                comparison = compare_tie_header_lifetime_age(db_tie_with_lifetime, header_in_tire)
+                db_tie_header_lifetime = packet_common.expand_tie_header_with_lifetime(
+                    db_tie_header,
+                    db_tie_packet_info.remaining_tie_lifetime)
+                comparison = compare_tie_header_lifetime_age(db_tie_header_lifetime,
+                                                             header_lifetime_in_tire)
                 if comparison < 0:
                     # We have an older version of the TIE, request the newer version
-                    request_tie_headers.append(header_in_tire)
+                    request_tie_headers_lifetime.append(header_lifetime_in_tire)
                 elif comparison > 0:
                     # We have a newer version of the TIE, send it
                     start_sending_tie_headers.append(db_tie_packet.header)
                 else:
                     # We have the same version of the TIE, treat it as an ACK
                     acked_tie_headers.append(db_tie_packet.header)
-        return (request_tie_headers, start_sending_tie_headers, acked_tie_headers)
+        return (request_tie_headers_lifetime, start_sending_tie_headers, acked_tie_headers)
 
     def find_according_node_tie(self, rx_tie_header):
         # We have to originate an empty node TIE for the purpose of flushing it. Use the same
