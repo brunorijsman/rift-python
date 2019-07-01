@@ -258,7 +258,7 @@ class Interface:
         else:
             type_str = constants.packet_type_str(packet_info.packet_type)
         packet_str = str(packet_info)
-        self._rx_log.log(log_level, "[%s] %s %s %s%s %s" %
+        self._rx_log.log(log_level, "[%s] %s %s %s %s %s" %
                          (self._log_id, prelude, fam_str, type_str, from_str, packet_str))
 
     @staticmethod
