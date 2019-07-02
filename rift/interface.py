@@ -3,7 +3,6 @@
 import collections
 import enum
 import logging
-import random
 import socket
 
 import constants
