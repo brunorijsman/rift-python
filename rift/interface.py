@@ -45,12 +45,6 @@ class Interface:
         mtu = 1400
         return mtu
 
-    @staticmethod
-    def generate_nonce():
-        # 15 bits instead of 16 because nonce field is a signed i64
-        nonce = random.getrandbits(15)
-        return nonce
-
     class State(enum.Enum):
         ONE_WAY = 1
         TWO_WAY = 2
@@ -434,7 +428,6 @@ class Interface:
             link_mtu_size=self._mtu,
             neighbor=lie_neighbor,
             pod=self._pod,
-            # nonce=Interface.generate_nonce(),
             node_capabilities=node_capabilities,
             holdtime=3,
             not_a_ztp_offer=self.node.send_not_a_ztp_offer_on_intf(self.name),
