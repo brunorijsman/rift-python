@@ -34,6 +34,8 @@ class Interface:
 
     SERVICE_QUEUES_INTERVAL = 1.0
 
+    INCREASE_TX_NONCE_LOCAL_HOLDDOWN_TIME = 60.0
+
     def generate_advertised_name(self):
         return self.node.name + ':' + self.name
 
@@ -343,13 +345,18 @@ class Interface:
             self._next_tx_packet_nr[index] = 1
         return packet_nr
 
-    def choose_tx_nonce_local(self):
-        nonce_local = self._next_tx_nonce_local
+    def increase_tx_nonce_local(self):
         self._next_tx_nonce_local += 1
         if self._next_tx_nonce_local > 0xffff:
             self._next_tx_nonce_local = 1
             self._tx_nonce_local_wrapped = True
+
+    def choose_tx_nonce_local(self):
+        nonce_local = self._next_tx_nonce_local
         self._last_tx_nonce_local = nonce_local
+        if not self._increase_tx_nonce_local_holddown_timer.running():
+            self.increase_tx_nonce_local()
+            self._increase_tx_nonce_local_holddown_timer.start()
         return nonce_local
 
     @staticmethod
@@ -893,6 +900,11 @@ class Interface:
         self._last_rx_packet_nr = {}    # Indexed by (address-family, packet-type)
         self._next_tx_nonce_local = 1
         self._last_tx_nonce_local = None
+        self._increase_tx_nonce_local_holddown_timer = timer.Timer(
+            interval=self.INCREASE_TX_NONCE_LOCAL_HOLDDOWN_TIME,
+            expire_function=None,
+            periodic=False,
+            start=False)
         self._tx_nonce_local_wrapped = False
         self._last_rx_lie_nonce_local = 0
         self._time_ticks_since_lie_received = None

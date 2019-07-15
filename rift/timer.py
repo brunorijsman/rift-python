@@ -95,7 +95,8 @@ class Timer:
             self._expire_time = None
 
     def trigger_expire(self):
-        self._expire_function()
+        if self._expire_function is not None:
+            self._expire_function()
         if self._periodic:
             # Next expire is not now + interval but current expire_time + interval because the
             # expire function may be called too late when the system is busy, in which case we
