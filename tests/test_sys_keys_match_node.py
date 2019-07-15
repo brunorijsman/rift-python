@@ -24,6 +24,8 @@ def check_rift_node1(res):
         r"| Outer Key Source                | Node |",
         r"| Active Outer Key ID             | 1    |",
         r"| Additional Accept Outer Key IDs | 2    |",
+        r"| Last Received LIE Nonce         | [0-9]*[1-9][0-9]* |",   # non-zero value
+        r"| Last Sent Nonce                 | [0-9]*[1-9][0-9]* |",   # non-zero value
     ]
     res.check_intf_security("node1", "if1", expect_intf_security)
 
@@ -51,6 +53,8 @@ def check_rift_node2(res):
         r"| Outer Key Source                | Node |",
         r"| Active Outer Key ID             | 1    |",
         r"| Additional Accept Outer Key IDs | 2    |",
+        r"| Last Received LIE Nonce         | [0-9]*[1-9][0-9]* |",   # non-zero value
+        r"| Last Sent Nonce                 | [0-9]*[1-9][0-9]* |",   # non-zero value
     ]
     res.check_intf_security("node2", "if1", expect_intf_security)
     res.check_intf_security("node2", "if2", expect_intf_security)
@@ -75,6 +79,8 @@ def check_rift_node3(res):
         r"| Outer Key Source                | Node |",
         r"| Active Outer Key ID             | 2    |",
         r"| Additional Accept Outer Key IDs | 3, 1 |",
+        r"| Last Received LIE Nonce         | [0-9]*[1-9][0-9]* |",   # non-zero value
+        r"| Last Sent Nonce                 | [0-9]*[1-9][0-9]* |",   # non-zero value
     ]
     res.check_intf_security("node3", "if1", expect_intf_security)
 

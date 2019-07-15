@@ -1784,6 +1784,13 @@ class Interface:
         else:
             key_ids = "None"
         tab.add_row(["Additional Accept Outer Key IDs", key_ids])
+        tab.add_row(["Last Received LIE Nonce", self._last_rx_lie_nonce_local])
+        tab.add_row(["Last Sent Nonce", self._last_tx_nonce_local])
+        if self._increase_tx_nonce_local_holddown_timer.running():
+            next_inc = self._increase_tx_nonce_local_holddown_timer.remaining_time_str()
+        else:
+            next_inc = "Next Packet"
+        tab.add_row(["Next Sent Nonce Increase", next_inc])
         return tab
 
     def sockets_table(self):
