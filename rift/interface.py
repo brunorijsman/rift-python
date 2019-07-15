@@ -453,6 +453,9 @@ class Interface:
             # This was the first time we send you_are_flood_repeater=True to the neighbor
             self.floodred_mark_sent_you_are_fr()
 
+    def action_increase_tx_nonce_local(self):
+        self.increase_tx_nonce_local()
+
     def floodred_mark_sent_you_are_fr(self):
         self.floodred_nbr_is_fr = self.NbrIsFRState.TRUE
         self.floodred_check_switchover_done()
@@ -807,9 +810,19 @@ class Interface:
     }
 
     _state_actions = {
-        State.ONE_WAY  : ([action_cleanup, action_send_lie], []),
-        State.THREE_WAY: ([action_start_flooding, action_init_partially_conn],
-                          [action_stop_flooding, action_clear_partially_conn])
+        State.ONE_WAY  : (
+            [action_cleanup,                        # State 1way entry actions
+             action_send_lie],
+            [action_increase_tx_nonce_local]),      # State 1way exit actions
+        State.TWO_WAY  : (
+            [],                                     # State 2way entry actions
+            [action_increase_tx_nonce_local]),      # State 2way exit actions
+        State.THREE_WAY: (
+            [action_start_flooding,                 # State 3way entry actions
+             action_init_partially_conn],
+            [action_increase_tx_nonce_local,        # State 3way exit actions
+             action_stop_flooding,
+             action_clear_partially_conn])
     }
 
     fsm_definition = fsm.FsmDefinition(
