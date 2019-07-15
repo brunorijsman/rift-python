@@ -174,7 +174,7 @@ class Engine:
 
     def key_ids_to_keys(self, key_ids):
         if key_ids is None:
-            return None
+            return []
         return [self.key_id_to_key(key_id) for key_id in key_ids]
 
     def create_shard(self, shard_config, passive_nodes):

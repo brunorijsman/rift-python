@@ -23,14 +23,14 @@ class PacketInfo:
     ERR_TRIFT_VALIDATE = "Thrift validate error"
     ERR_MISSING_OUTER_SEC_ENV = "Missing outer security envelope"
     ERR_ZERO_OUTER_KEY_ID_NOT_ACCEPTED = "Zero outer key id not accepted"
-    ERR_UNKNOWN_OUTER_KEY_ID = "Unknown outer key id"
+    ERR_NON_ZERO_OUTER_KEY_ID_NOT_ACCEPTED = "Non-zero outer key id not accepted"
     ERR_INCORRECT_OUTER_FINGERPRINT = "Incorrect outer fingerprint"
     ERR_MISSING_ORIGIN_SEC_ENV = "Missing TIE origin security envelope"
     ERR_ZERO_ORIGIN_KEY_ID_NOT_ACCEPTED = "Zero TIE origin key id not accepted"
+    ERR_NON_ZERO_ORIGIN_KEY_ID_NOT_ACCEPTED = "Non-zero TIE origin key id not accepted"
     ERR_UNEXPECTED_ORIGIN_SEC_ENV = "Unexpected TIE origin security envelope"
     ERR_UNSUPPORTED_ORIGIN_KEY_ID = "Unsupported TIE origin key id"
     ERR_INCONSISTENT_ORIGIN_KEY_ID = "Inconsistent TIE origin key id and fingerprint"
-    ERR_UNKNOWN_ORIGIN_KEY_ID = "Unknown TIE origin key id"
     ERR_INCORRECT_ORIGIN_FINGERPRINT = "Incorrect TIE origin fingerprint"
     ERR_REFLECTED_NONCE_OUT_OF_SYNC = "Reflected nonce out of sync"
 
@@ -44,14 +44,14 @@ class PacketInfo:
     AUTHENTICATION_ERRORS = [
         ERR_MISSING_OUTER_SEC_ENV,
         ERR_ZERO_OUTER_KEY_ID_NOT_ACCEPTED,
-        ERR_UNKNOWN_OUTER_KEY_ID,
+        ERR_NON_ZERO_OUTER_KEY_ID_NOT_ACCEPTED,
         ERR_INCORRECT_OUTER_FINGERPRINT,
         ERR_MISSING_ORIGIN_SEC_ENV,
         ERR_ZERO_ORIGIN_KEY_ID_NOT_ACCEPTED,
+        ERR_NON_ZERO_ORIGIN_KEY_ID_NOT_ACCEPTED,
         ERR_UNEXPECTED_ORIGIN_SEC_ENV,
         ERR_UNSUPPORTED_ORIGIN_KEY_ID,
         ERR_INCONSISTENT_ORIGIN_KEY_ID,
-        ERR_UNKNOWN_ORIGIN_KEY_ID,
         ERR_INCORRECT_ORIGIN_FINGERPRINT,
         ERR_REFLECTED_NONCE_OUT_OF_SYNC]
 
@@ -446,7 +446,7 @@ def check_outer_fingerprint(packet_info, active_outer_key, accept_outer_keys):
             return False
     use_key = find_key_id(packet_info.outer_key_id, active_outer_key, accept_outer_keys)
     if not use_key:
-        packet_info.error = packet_info.ERR_UNKNOWN_OUTER_KEY_ID
+        packet_info.error = packet_info.ERR_NON_ZERO_OUTER_KEY_ID_NOT_ACCEPTED
         packet_info.error_details = "Outer key id is " + str(packet_info.outer_key_id)
         return False
     post = packet_info.outer_sec_env_header[-8:]
@@ -477,7 +477,7 @@ def check_origin_fingerprint(packet_info, active_origin_key, accept_origin_keys)
             return False
     use_key = find_key_id(packet_info.origin_key_id, active_origin_key, accept_origin_keys)
     if not use_key:
-        packet_info.error = packet_info.ERR_UNKNOWN_ORIGIN_KEY_ID
+        packet_info.error = packet_info.ERR_NON_ZERO_ORIGIN_KEY_ID_NOT_ACCEPTED
         packet_info.error_details = "TIE origin key id is " + str(packet_info.origin_key_id)
         return False
     expected = use_key.padded_digest([packet_info.encoded_protocol_packet])
