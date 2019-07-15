@@ -964,8 +964,7 @@ class Interface:
         self._rx_errors_counter = stats.MultiCounter(None, "Total RX Errors", pab)
         self._errors_counter = stats.MultiCounter(None, "Total RX Decode Errors", pab)
         self._error_to_counter = {}
-        self._security_errors_counter = stats.MultiCounter(None, "Total RX Authentication Errors",
-                                                           pab)
+        self._security_errors_counter = stats.MultiCounter(None, "Total Authentication Errors", pab)
         self._tx_packets_counter = stats.MultiCounter(None, "Total TX Packets", pab)
         self._rx_packets_counter = stats.MultiCounter(None, "Total RX Packets", pab)
         self._tx_ipv6_counter = stats.MultiCounter(None, "Total TX IPv6 Packets", pab)
@@ -1126,7 +1125,14 @@ class Interface:
             counter = stats.MultiCounter(stg, auth_error, pab,
                                          sum_counters=[self._security_errors_counter])
             self._error_to_counter[auth_error] = counter
-        self._security_errors_counter.add_to_group(stg)   ###@@@
+        self._security_errors_counter.add_to_group(stg)
+        self._outer_auth_ok_counter = stats.MultiCounter(stg, "Outer fingerprint okay", pab)
+        self._origin_auth_ok_counter = stats.MultiCounter(stg, "Origin fingerprint okay", pab)
+        self._outer_empty_auth_ok_counter = stats.MultiCounter(
+            stg, "Empty outer fingerprint accepted", pab)
+        self._origin_empty_auth_ok_counter = stats.MultiCounter(
+            stg, "Empty origin fingerprint accepted", pab)
+
         self.fsm = fsm.Fsm(
             definition=self.fsm_definition,
             action_handler=self,
@@ -1199,6 +1205,7 @@ class Interface:
         if packet_info.error:
             self.log_and_count_error(packet_info, nr_bytes)
             return None
+        self.count_auth_okay(packet_info, nr_bytes)
         protocol_packet = packet_info.protocol_packet
         if self._rx_fail:
             self.log_rx_protocol_packet(logging.DEBUG, "Simulated failure receiving", packet_info)
@@ -1234,6 +1241,19 @@ class Interface:
         self.log_rx_protocol_packet(logging.ERROR, msg, packet_info)
         counter = self._error_to_counter.get(packet_info.error)
         if counter:
+            counter.add([1, nr_bytes])
+
+    def count_auth_okay(self, packet_info, nr_bytes):
+        if packet_info.outer_key_id == 0:
+            counter = self._outer_empty_auth_ok_counter
+        else:
+            counter = self._outer_auth_ok_counter
+        counter.add([1, nr_bytes])
+        if packet_info.origin_sec_env_header:
+            if packet_info.origin_key_id == 0:
+                counter = self._origin_empty_auth_ok_counter
+            else:
+                counter = self._origin_auth_ok_counter
             counter.add([1, nr_bytes])
 
     def update_last_rx_lie_nonce_local(self, packet_info):
