@@ -35,11 +35,11 @@ keys:
     algorithm: hmac-sha-256
     secret: this-is-the-secret-for-key-3
   - id: 4
-    algorithm: hmac-sha-256
+    algorithm: hmac-sha-224
     secret: this-is-the-secret-for-key-4
   - id: 5
-    algorithm: hmac-sha-256
-    secret: this-is-the-secret-for-key-4
+    algorithm: hmac-sha-512
+    secret: this-is-the-secret-for-key-5
 shards:
   - id: 0
     nodes:
