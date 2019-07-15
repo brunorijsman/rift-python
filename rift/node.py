@@ -444,13 +444,26 @@ class Node:
         self.floodred_node_random = self.generate_node_random(system_random, self.system_id)
         self.floodred_parents = []
         self.floodred_grandparents = {}
-        self.active_key_id = self.get_config_attribute('active_key', None)
-        if self.active_key_id is None or self.active_key_id == 0:
-            self.active_key = None
+        key_id = self.get_config_attribute('active_key', None)
+        self.active_outer_key = self.key_id_to_key(key_id)   ###@@@
+        self.active_outer_key_src = "Node Active Key"
+        key_ids = self.get_config_attribute('accept_keys', None)
+        self.accept_outer_keys = self.key_ids_to_keys(key_ids)
+        self.accept_outer_keys_src = "Node Accept Keys"
+        key_id = self.get_config_attribute('active_origin_key', None)
+        if key_id is None:
+            self.active_origin_key = self.active_outer_key
+            self.active_origin_key_src = "Node Active Key"
         else:
-            self.active_key = self.engine.keys[self.active_key_id]
-        self._accept_key_ids = self.get_config_attribute('accept_keys', [])
-        self.accept_keys = [self.engine.keys[key_id] for key_id in self._accept_key_ids]
+            self.active_origin_key = self.key_id_to_key(key_id)
+            self.active_origin_key_src = "Node Active Origin Key"
+        key_ids = self.get_config_attribute('accept_origin_keys', None)
+        if key_ids is None:
+            self.accept_origin_keys = self.accept_outer_keys
+            self.accept_origin_keys_src = "Node Accept Keys"
+        else:
+            self.accept_origin_keys = self.key_ids_to_keys(key_ids)
+            self.accept_origin_keys_src = "Node Accept Origin Keys"
         self._derived_level = None
         self._rx_offers = {}     # Indexed by interface name
         self._tx_offers = {}     # Indexed by interface name
@@ -538,6 +551,18 @@ class Node:
             periodic=True,
             start=True)
         self.fsm.start()
+
+    def key_id_to_key(self, key_id):
+        if self.engine:
+            return self.engine.key_id_to_key(key_id)
+        else:
+            return None
+
+    def key_ids_to_keys(self, key_ids):
+        if self.engine:
+            return self.engine.key_ids_to_keys(key_ids)
+        else:
+            return []
 
     def generate_system_id(self):
         mac_address = uuid.getnode()
@@ -797,7 +822,7 @@ class Node:
                 link_ids=link_ids,
                 bandwidth=100)  # TODO: Take this from config file or interface
             tie_packet.element.node.neighbors[intf.neighbor.system_id] = node_neighbor
-        packet_info = packet_common.encode_protocol_packet(protocol_packet, self.active_key)
+        packet_info = packet_common.encode_protocol_packet(protocol_packet, self.active_origin_key)
         packet_common.set_lifetime(packet_info, common.constants.default_lifetime)
         self.my_node_tie_packet_infos[direction] = packet_info
         self.store_tie_packet_info(packet_info)
@@ -854,7 +879,7 @@ class Node:
                 metric = v6prefix['metric']
                 tags = set(v6prefix.get('tags', []))
                 packet_common.add_ipv6_prefix_to_prefix_tie(tie_packet, prefix, metric, tags)
-        packet_info = packet_common.encode_protocol_packet(protocol_packet, self.active_key)
+        packet_info = packet_common.encode_protocol_packet(protocol_packet, self.active_origin_key)
         packet_common.set_lifetime(packet_info, common.constants.default_lifetime)
         self._my_north_prefix_tie_packet_info = packet_info
         self.store_tie_packet_info(self._my_north_prefix_tie_packet_info)
@@ -912,7 +937,7 @@ class Node:
             header=packet_header,
             content=packet_content)
         protocol_packet.content.tie = tie_packet
-        packet_info = packet_common.encode_protocol_packet(protocol_packet, self.active_key)
+        packet_info = packet_common.encode_protocol_packet(protocol_packet, self.active_origin_key)
         # Make the newly constructed TIE the current positive disaggregation TIE and update the
         # database.
         self._my_pos_disagg_tie_packet_info = packet_info
@@ -1009,7 +1034,7 @@ class Node:
                     packet_common.make_ipv6_prefix("::/0"),
                     metric)
             new_packet_info = packet_common.encode_protocol_packet(new_protocol_packet,
-                                                                   self.active_key)
+                                                                   self.active_origin_key)
             packet_common.set_lifetime(new_packet_info, common.constants.default_lifetime)
             self._my_south_prefix_tie_packet_info = new_packet_info
             self.store_tie_packet_info(self._my_south_prefix_tie_packet_info)
@@ -1137,7 +1162,11 @@ class Node:
             cli_session.print("Error: interface {} not present".format(interface_name))
             return
         intf = self.interfaces_by_name[interface_name]
-        tab = intf.security_table()
+        cli_session.print("Active And Accept Keys:")
+        tab = intf.act_and_acc_intf_keys_table()
+        cli_session.print(tab.to_string())
+        cli_session.print("Security Statistics:")
+        tab = intf.security_stats_table()
         cli_session.print(tab.to_string())
 
     def command_show_intf_sockets(self, cli_session, parameters):
@@ -1394,7 +1423,10 @@ class Node:
 
     def command_show_security(self, cli_session):
         cli_session.print("Security Keys:")
-        tab = self.keys_table()
+        tab = self.security_keys_table()
+        cli_session.print(tab.to_string())
+        cli_session.print("Active And Accept Keys:")
+        tab = self.act_and_acc_node_keys_table()
         cli_session.print(tab.to_string())
         cli_session.print("Authentication Errors:")
         tab = self.auth_errors_table()
@@ -1602,7 +1634,7 @@ class Node:
         header = encoding.ttypes.PacketHeader(sender=self.system_id, level=self.level_value())
         content = encoding.ttypes.PacketContent(tie=tie_packet)
         protocol_packet = encoding.ttypes.ProtocolPacket(header=header, content=content)
-        packet_info = packet_common.encode_protocol_packet(protocol_packet, self.active_key)
+        packet_info = packet_common.encode_protocol_packet(protocol_packet, self.active_origin_key)
         packet_info.rx_intf = rx_intf
         packet_info.remaining_tie_lifetime = lifetime
         self.store_tie_packet_info(packet_info)
@@ -2196,24 +2228,47 @@ class Node:
             tab.add_row([node_sysid, north_adjacencies, south_adjacencies, missing_adjacencies])
         return tab
 
-    def keys_table(self):
+    def security_keys_table(self):
         tab = table.Table()
-        tab.add_row(["Key ID", "Algorithm", "Secret", "Active", "Accept"])
+        tab.add_row(["Key ID", "Algorithm", "Secret"])
         for configured_key in self.engine.keys.values():
-            if configured_key.key_id == self.active_key_id:
-                active_str = 'Active'
-            else:
-                active_str = ''
-            if configured_key.key_id in self._accept_key_ids:
-                accept_str = 'Accept'
-            else:
-                accept_str = ''
             tab.add_row([
                 configured_key.key_id,
                 configured_key.algorithm,
-                configured_key.secret,
-                active_str,
-                accept_str])
+                configured_key.secret])
+        return tab
+
+    @staticmethod
+    def key_str(key):
+        if key is None:
+            return "None"
+        else:
+            return key.key_id
+
+    @staticmethod
+    def keys_str(keys):
+        if keys is None:
+            return "None"
+        else:
+            return ", ".join([str(key.key_id) for key in keys])
+
+    def act_and_acc_node_keys_table(self):
+        tab = table.Table()
+        tab.add_row(["Key",
+                     "Key ID(s)",
+                     "Configuration Source"])
+        tab.add_row(["Active Outer Key",
+                     self.key_str(self.active_outer_key),
+                     self.active_outer_key_src])
+        tab.add_row(["Accept Outer Keys",
+                     self.keys_str(self.accept_outer_keys),
+                     self.accept_outer_keys_src])
+        tab.add_row(["Active Origin Key",
+                     self.key_str(self.active_origin_key),
+                     self.active_origin_key_src])
+        tab.add_row(["Accept Origin Keys",
+                     self.keys_str(self.accept_origin_keys),
+                     self.accept_origin_keys_src])
         return tab
 
     def auth_errors_table(self):

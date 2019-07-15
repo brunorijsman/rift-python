@@ -277,7 +277,8 @@ def encode_protocol_packet(protocol_packet, origin_key):
         packet_info.update_origin_sec_env_header(origin_key)
     return packet_info
 
-def decode_message(rx_intf, from_info, message, active_key, accept_keys):
+def decode_message(rx_intf, from_info, message, active_outer_key, accept_outer_keys,
+                   active_origin_key, accept_origin_keys):
     packet_info = PacketInfo()
     record_source_info(packet_info, rx_intf, from_info)
     continue_offset = decode_envelope_header(packet_info, message)
@@ -293,9 +294,9 @@ def decode_message(rx_intf, from_info, message, active_key, accept_keys):
     continue_offset = decode_protocol_packet(packet_info, message, continue_offset)
     if continue_offset == -1:
         return packet_info
-    if not check_outer_fingerprint(packet_info, active_key, accept_keys):
+    if not check_outer_fingerprint(packet_info, active_outer_key, accept_outer_keys):
         return packet_info
-    if not check_origin_fingerprint(packet_info, active_key, accept_keys):
+    if not check_origin_fingerprint(packet_info, active_origin_key, accept_origin_keys):
         return packet_info
     return packet_info
 
@@ -433,17 +434,17 @@ def decode_protocol_packet(packet_info, message, offset):
         packet_info.packet_type = constants.PACKET_TYPE_TIRE
     return len(message)
 
-def check_outer_fingerprint(packet_info, active_key, accept_keys):
+def check_outer_fingerprint(packet_info, active_outer_key, accept_outer_keys):
     if not packet_info.outer_sec_env_header:
         packet_info.error = packet_info.ERR_MISSING_OUTER_SEC_ENV
         return packet_info
     if packet_info.outer_key_id == 0:
-        if active_key is None or 0 in accept_keys:
+        if active_outer_key is None or 0 in accept_outer_keys:
             return True
         else:
             packet_info.error = packet_info.ERR_ZERO_OUTER_KEY_ID_NOT_ACCEPTED
             return False
-    use_key = find_key_id(packet_info.outer_key_id, active_key, accept_keys)
+    use_key = find_key_id(packet_info.outer_key_id, active_outer_key, accept_outer_keys)
     if not use_key:
         packet_info.error = packet_info.ERR_UNKNOWN_OUTER_KEY_ID
         packet_info.error_details = "Outer key id is " + str(packet_info.outer_key_id)
@@ -456,7 +457,7 @@ def check_outer_fingerprint(packet_info, active_key, accept_keys):
         return False
     return True
 
-def check_origin_fingerprint(packet_info, active_key, accept_keys):
+def check_origin_fingerprint(packet_info, active_origin_key, accept_origin_keys):
     if packet_info.protocol_packet:
         if packet_info.protocol_packet.content.tie:
             if not packet_info.origin_sec_env_header:
@@ -469,12 +470,12 @@ def check_origin_fingerprint(packet_info, active_key, accept_keys):
     if not packet_info.origin_sec_env_header:
         return True
     if packet_info.origin_key_id == 0:
-        if active_key is None or 0 in accept_keys:
+        if active_origin_key is None or 0 in accept_origin_keys:
             return True
         else:
             packet_info.error = packet_info.ERR_ZERO_ORIGIN_KEY_ID_NOT_ACCEPTED
             return False
-    use_key = find_key_id(packet_info.origin_key_id, active_key, accept_keys)
+    use_key = find_key_id(packet_info.origin_key_id, active_origin_key, accept_origin_keys)
     if not use_key:
         packet_info.error = packet_info.ERR_UNKNOWN_ORIGIN_KEY_ID
         packet_info.error_details = "TIE origin key id is " + str(packet_info.origin_key_id)

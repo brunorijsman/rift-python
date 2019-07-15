@@ -54,12 +54,17 @@ def check_rift_node1_intf_up(res):
     res.check_spf("node1", expect_south_spf, expect_north_spf)
     res.check_rib_absent("node1", "0.0.0.0/0", "north-spf")
     res.check_rib_absent("node1", "::/0", "north-spf")
-    expect_security = [
-        r"| Outer Key Source                | Node |",
-        r"| Active Outer Key ID             | None |",
-        r"| Additional Accept Outer Key IDs | None |",
+    expect_node_security = [
+        r"Security Keys:",
+        r"| Key ID | Algorithm | Secret |",
+        r"| 0      | null      |        |",
+        r"Active And Accept Keys:",
+        r"| Active Outer Key   | None | Node Active Key  |",
+        r"| Accept Outer Keys  | None | Node Accept Keys |",
+        r"| Active Origin Key  | None | Node Active Key  |",
+        r"| Accept Origin Keys | None | Node Accept Keys |",
     ]
-    res.check_intf_security("node1", "if1", expect_security)
+    res.check_node_security("node1", expect_node_security)
 
 def check_rift_node1_intf_down(res):
     res.check_adjacency_1way(

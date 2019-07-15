@@ -272,8 +272,15 @@ class Interface:
         else:
             return "No-Content"
 
+    def effective_active_outer_key(self):
+        return self.node.active_outer_key
+
+    def effective_active_origin_key(self):
+        return self.node.active_origin_key
+
     def send_protocol_packet(self, protocol_packet, flood):
-        packet_info = packet_common.encode_protocol_packet(protocol_packet, self.node.active_key)
+        packet_info = packet_common.encode_protocol_packet(protocol_packet,
+                                                           self.effective_active_origin_key())
         self.send_packet_info(packet_info, flood)
 
     def send_packet_info(self, packet_info, flood):
@@ -287,7 +294,7 @@ class Interface:
         # prevent the adjacency from reaching state 3-way. For ease of debugging, we make the local
         # nonce equal to the packet_nr.
         packet_info.update_outer_sec_env_header(
-            outer_key=self.node.active_key,
+            outer_key=self.node.active_outer_key,
             nonce_local=self.choose_tx_nonce_local(),
             nonce_remote=nonce_remote,
             remaining_lifetime=packet_info.remaining_tie_lifetime)
@@ -1175,8 +1182,10 @@ class Interface:
             rx_intf=self,
             from_info=from_info,
             message=message,
-            active_key=self.node.active_key,
-            accept_keys=self.node.accept_keys)
+            active_outer_key=self.node.active_outer_key,
+            accept_outer_keys=self.node.accept_outer_keys,
+            active_origin_key=self.node.active_origin_key,
+            accept_origin_keys=self.node.accept_origin_keys)
         if packet_info.error:
             self.log_and_count_error(packet_info, nr_bytes)
             return None
@@ -1771,19 +1780,36 @@ class Interface:
                      remote_port])
         return tab
 
-    def security_table(self):
+    @staticmethod
+    def key_id_str(key):
+        if key is None:
+            return "None"
+        if key.key_id is None:
+            return "None"
+        return str(key.key_id)
+
+    def act_and_acc_intf_keys_table(self):
         tab = table.Table()
-        tab.add_row(["Outer Key Source", "Node"])
-        if self.node.active_key:
-            key_id = self.node.active_key.key_id
-        else:
-            key_id = "None"
-        tab.add_row(["Active Outer Key ID", key_id])
-        if self.node.accept_keys:
-            key_ids = ", ".join([str(key.key_id) for key in self.node.accept_keys])
-        else:
-            key_ids = "None"
-        tab.add_row(["Additional Accept Outer Key IDs", key_ids])
+        ###@@@ implement per-interface inheritance override
+        tab.add_row(["Key",
+                     "Key ID(s)",
+                     "Configuration Source"])
+        tab.add_row(["Active Outer Key",
+                     self.node.key_str(self.node.active_outer_key),
+                     self.node.active_outer_key_src])
+        tab.add_row(["Accept Outer Keys",
+                     self.node.keys_str(self.node.accept_outer_keys),
+                     self.node.accept_outer_keys_src])
+        tab.add_row(["Active Origin Key",
+                     self.node.key_str(self.node.active_origin_key),
+                     self.node.active_origin_key_src])
+        tab.add_row(["Accept Origin Keys",
+                     self.node.keys_str(self.node.accept_origin_keys),
+                     self.node.accept_origin_keys_src])
+        return tab
+
+    def security_stats_table(self):
+        tab = table.Table()
         tab.add_row(["Last Received LIE Nonce", self._last_rx_lie_nonce_local])
         tab.add_row(["Last Sent Nonce", self._last_tx_nonce_local])
         if self._increase_tx_nonce_local_holddown_timer.running():

@@ -1,6 +1,7 @@
 import hmac
 
 ALGORITHM_TO_DIGESTMOD = {
+    "null": "null",                 # Returns an empty digest; used for special key-id 0
     "hmac-sha-1": "sha1",
     "hmac-sha-224": "sha224",
     "hmac-sha-256": "sha256",
@@ -19,13 +20,17 @@ class Key:
         self.secret = secret
 
     def digest(self, message_parts):
-        assert self.algorithm in ALGORITHMS
-        digestmod = ALGORITHM_TO_DIGESTMOD[self.algorithm]
-        the_hmac = hmac.new(self.secret.encode(), digestmod=digestmod)
-        for message_part in message_parts:
-            if message_part is not None:
-                the_hmac.update(message_part)
-        return the_hmac.digest()
+        if self.key_id == 0:
+            assert self.algorithm == "null"
+            return b''
+        else:
+            assert self.algorithm in ALGORITHMS
+            digestmod = ALGORITHM_TO_DIGESTMOD[self.algorithm]
+            the_hmac = hmac.new(self.secret.encode(), digestmod=digestmod)
+            for message_part in message_parts:
+                if message_part is not None:
+                    the_hmac.update(message_part)
+            return the_hmac.digest()
 
     def padded_digest(self, message_parts):
         dig = self.digest(message_parts)

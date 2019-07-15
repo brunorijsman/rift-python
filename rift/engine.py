@@ -45,6 +45,7 @@ class Engine:
 
     def __init__(self, passive_nodes, run_which_nodes, interactive, telnet_port_file,
                  ipv4_multicast_loopback, ipv6_multicast_loopback, log_level, config):
+        # pylint:disable=too-many-statements
         log_file_name = "rift.log"  # TODO: Make this configurable
         if "RIFT_TEST_RESULTS_DIR" in os.environ:
             log_file_name = os.environ["RIFT_TEST_RESULTS_DIR"] + "/" + log_file_name
@@ -81,6 +82,7 @@ class Engine:
         self.intf_lie_fsm_stats_group = stats.Group()
         self.node_ztp_fsm_stats_group = stats.Group()
         self.keys = {}    # Indexed by key-id
+        self.keys[0] = key.Key(key_id=0, algorithm="null", secret="")
         self._nodes = sortedcontainers.SortedDict()
         self.create_configuration(passive_nodes)
         cli_log = logging.getLogger('cli')
@@ -163,6 +165,16 @@ class Engine:
         algorithm = key_config["algorithm"]
         secret = key_config["secret"]
         self.keys[key_id] = key.Key(key_id, algorithm, secret)
+
+    def key_id_to_key(self, key_id):
+        if key_id in [None, 0]:
+            return None
+        return self.keys[key_id]
+
+    def key_ids_to_keys(self, key_ids):
+        if key_ids is None:
+            return None
+        return [self.key_id_to_key(key_id) for key_id in key_ids]
 
     def create_shard(self, shard_config, passive_nodes):
         if 'nodes' in shard_config:

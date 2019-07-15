@@ -66,6 +66,11 @@ SCHEMA = {
                                 'type': 'list',
                                 'schema': {'type': 'integer', 'min': 0, 'max': 255}
                             },
+                            'active_origin_key': {'type': 'integer', 'min': 1, 'max': 255},
+                            'accept_origin_keys': {
+                                'type': 'list',
+                                'schema': {'type': 'integer', 'min': 0, 'max': 255}
+                            },
                             'v4prefixes': {
                                 'type': 'list',
                                 'schema': {
