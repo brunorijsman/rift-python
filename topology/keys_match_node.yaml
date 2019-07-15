@@ -7,21 +7,21 @@
 #              Outer     Outer     Origin    Origin
 #              Key       Keys      Key       Keys
 #  +-------+
-#  | 1     |   1         []        same      same
+#  | 1     |   1         [2]       same      same
 #  +-------+
 #   if1|
 #      |
 #      |
 #   if1|
 #  +-------+
-#  | 11    |   1         [2]       same      same
+#  | 2     |   1         [2]       same      same
 #  +-------+
 #   if2|
 #      |
 #      |
 #   if1|
 #  +-------+
-#  | 101   |   2         [3, 1]    same      same
+#  | 3     |   2         [3, 1]    same      same
 #  +-------+
 #
 keys:
@@ -37,17 +37,22 @@ keys:
 shards:
   - id: 0
     nodes:
-      - name: node-1
+      - name: node1
         level: 2
         systemid: 1
         rx_lie_mcast_address: 224.0.1.1
         active_key: 1
+        accept_keys: [2]
         interfaces:
           - name: if1 # Connected to node-11:if1
             rx_tie_port: 10001
             rx_lie_port: 20001
             tx_lie_port: 20002
-      - name: node-11
+        v4prefixes:
+          - address: 1.1.1.1
+            mask: 32
+            metric: 1
+      - name: node2
         level: 1
         systemid: 11
         rx_lie_mcast_address: 224.0.1.11
@@ -62,7 +67,11 @@ shards:
             rx_tie_port: 10003
             rx_lie_port: 20003
             tx_lie_port: 20004
-      - name: node-101
+        v4prefixes:
+          - address: 2.2.2.2
+            mask: 32
+            metric: 1
+      - name: node3
         level: 0
         systemid: 101
         rx_lie_mcast_address: 224.0.1.101
@@ -73,3 +82,7 @@ shards:
             rx_tie_port: 10004
             rx_lie_port: 20004
             tx_lie_port: 20003
+        v4prefixes:
+          - address: 3.3.3.3
+            mask: 32
+            metric: 1

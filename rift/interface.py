@@ -1771,6 +1771,21 @@ class Interface:
                      remote_port])
         return tab
 
+    def security_table(self):
+        tab = table.Table()
+        tab.add_row(["Outer Key Source", "Node"])
+        if self.node.active_key:
+            key_id = self.node.active_key.key_id
+        else:
+            key_id = "None"
+        tab.add_row(["Active Outer Key", key_id])
+        if self.node.accept_keys:
+            key_ids = ", ".join([str(key.key_id) for key in self.node.accept_keys])
+        else:
+            key_ids = "None"
+        tab.add_row(["Additional Accept Outer Keys", key_ids])
+        return tab
+
     def sockets_table(self):
         tab = table.Table()
         tab.add_row([

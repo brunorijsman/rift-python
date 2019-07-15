@@ -234,6 +234,9 @@ class Engine:
     def command_show_intf_queues(self, cli_session, parameters):
         cli_session.current_node.command_show_intf_queues(cli_session, parameters)
 
+    def command_show_intf_security(self, cli_session, parameters):
+        cli_session.current_node.command_show_intf_security(cli_session, parameters)
+
     def command_show_intf_sockets(self, cli_session, parameters):
         cli_session.current_node.command_show_intf_sockets(cli_session, parameters)
 
@@ -417,6 +420,7 @@ class Engine:
                     "verbose-history": command_show_intf_fsm_vhis,
                 },
                 "queues": command_show_intf_queues,
+                "security": command_show_intf_security,
                 "sockets": command_show_intf_sockets,
                 "statistics": {
                     "": command_show_intf_stats,

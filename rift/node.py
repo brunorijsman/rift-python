@@ -1131,6 +1131,15 @@ class Node:
         cli_session.print("Acknowledge queue:")
         cli_session.print(tab.to_string())
 
+    def command_show_intf_security(self, cli_session, parameters):
+        interface_name = parameters['interface']
+        if not interface_name in self.interfaces_by_name:
+            cli_session.print("Error: interface {} not present".format(interface_name))
+            return
+        intf = self.interfaces_by_name[interface_name]
+        tab = intf.security_table()
+        cli_session.print(tab.to_string())
+
     def command_show_intf_sockets(self, cli_session, parameters):
         interface_name = parameters['interface']
         if not interface_name in self.interfaces_by_name:
