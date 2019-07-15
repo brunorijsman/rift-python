@@ -79,7 +79,7 @@ def check_rift_node2(res):
         r"Outer Keys:",
         r"| Key | Key ID\(s\) | Configuration Source |",
         r"| Active Outer Key  | 4 | Node Active Key  |",
-        r"| Accept Outer Keys | None | Node Accept Keys |",
+        r"| Accept Outer Keys |   | Node Accept Keys |",
         r"Nonces:",
         r"| Last Received LIE Nonce  | [0-9]*[1-9][0-9]* |",   # non-zero value
         r"| Last Sent Nonce          | [0-9]*[1-9][0-9]* |",   # non-zero value

@@ -60,7 +60,7 @@ def check_rift_node1_intf_up(res):
         r"| 0      | null      |        |",
         r"Origin Keys:",
         r"| Active Origin Key  | None | Node Active Key  |",
-        r"| Accept Origin Keys | None | Node Accept Keys |",
+        r"| Accept Origin Keys |      | Node Accept Keys |",
     ]
     res.check_node_security("node1", expect_node_security)
 

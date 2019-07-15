@@ -168,7 +168,7 @@ class Engine:
         self.keys[key_id] = key.Key(key_id, algorithm, secret)
 
     def key_id_to_key(self, key_id):
-        if key_id in [None, 0]:
+        if key_id is None:
             return None
         return self.keys[key_id]
 
