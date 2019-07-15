@@ -949,13 +949,13 @@ Example:
 <!-- OUTPUT-START: agg_101> show interface if_101_1 security -->
 <pre>
 agg_101> <b>show interface if_101_1 security</b>
-+------------------------------+------+
-| Outer Key Source             | Node |
-+------------------------------+------+
-| Active Outer Key             | None |
-+------------------------------+------+
-| Additional Accept Outer Keys | None |
-+------------------------------+------+
++---------------------------------+------+
+| Outer Key Source                | Node |
++---------------------------------+------+
+| Active Outer Key ID             | None |
++---------------------------------+------+
+| Additional Accept Outer Key IDs | None |
++---------------------------------+------+
 </pre>
 <!-- OUTPUT-END -->
 

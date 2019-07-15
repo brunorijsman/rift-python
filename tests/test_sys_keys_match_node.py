@@ -21,9 +21,9 @@ def check_rift_node1(res):
     ]
     res.check_node_security("node1", expect_node_security)
     expect_intf_security = [
-        r"| Outer Key Source             | Node |",
-        r"| Active Outer Key             | 1    |",
-        r"| Additional Accept Outer Keys | 2    |",
+        r"| Outer Key Source                | Node |",
+        r"| Active Outer Key ID             | 1    |",
+        r"| Additional Accept Outer Key IDs | 2    |",
     ]
     res.check_intf_security("node1", "if1", expect_intf_security)
 
@@ -48,9 +48,9 @@ def check_rift_node2(res):
     ]
     res.check_node_security("node2", expect_node_security)
     expect_intf_security = [
-        r"| Outer Key Source             | Node |",
-        r"| Active Outer Key             | 1    |",
-        r"| Additional Accept Outer Keys | 2    |",
+        r"| Outer Key Source                | Node |",
+        r"| Active Outer Key ID             | 1    |",
+        r"| Additional Accept Outer Key IDs | 2    |",
     ]
     res.check_intf_security("node2", "if1", expect_intf_security)
     res.check_intf_security("node2", "if2", expect_intf_security)
@@ -72,9 +72,9 @@ def check_rift_node3(res):
     ]
     res.check_node_security("node3", expect_node_security)
     expect_intf_security = [
-        r"| Outer Key Source             | Node |",
-        r"| Active Outer Key             | 2    |",
-        r"| Additional Accept Outer Keys | 3, 1 |",
+        r"| Outer Key Source                | Node |",
+        r"| Active Outer Key ID             | 2    |",
+        r"| Additional Accept Outer Key IDs | 3, 1 |",
     ]
     res.check_intf_security("node3", "if1", expect_intf_security)
 

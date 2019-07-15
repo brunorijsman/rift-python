@@ -55,9 +55,9 @@ def check_rift_node1_intf_up(res):
     res.check_rib_absent("node1", "0.0.0.0/0", "north-spf")
     res.check_rib_absent("node1", "::/0", "north-spf")
     expect_security = [
-        r"| Outer Key Source             | Node |",
-        r"| Active Outer Key             | None |",
-        r"| Additional Accept Outer Keys | None |",
+        r"| Outer Key Source                | Node |",
+        r"| Active Outer Key ID             | None |",
+        r"| Additional Accept Outer Key IDs | None |",
     ]
     res.check_intf_security("node1", "if1", expect_security)
 
