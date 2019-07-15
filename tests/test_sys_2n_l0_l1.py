@@ -58,9 +58,7 @@ def check_rift_node1_intf_up(res):
         r"Security Keys:",
         r"| Key ID | Algorithm | Secret |",
         r"| 0      | null      |        |",
-        r"Active And Accept Keys:",
-        r"| Active Outer Key   | None | Node Active Key  |",
-        r"| Accept Outer Keys  | None | Node Accept Keys |",
+        r"Origin Keys:",
         r"| Active Origin Key  | None | Node Active Key  |",
         r"| Accept Origin Keys | None | Node Accept Keys |",
     ]

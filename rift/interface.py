@@ -1788,7 +1788,7 @@ class Interface:
             return "None"
         return str(key.key_id)
 
-    def act_and_acc_intf_keys_table(self):
+    def intf_outer_keys_table(self):
         tab = table.Table()
         ###@@@ implement per-interface inheritance override
         tab.add_row(["Key",
@@ -1800,12 +1800,6 @@ class Interface:
         tab.add_row(["Accept Outer Keys",
                      self.node.keys_str(self.node.accept_outer_keys),
                      self.node.accept_outer_keys_src])
-        tab.add_row(["Active Origin Key",
-                     self.node.key_str(self.node.active_origin_key),
-                     self.node.active_origin_key_src])
-        tab.add_row(["Accept Origin Keys",
-                     self.node.keys_str(self.node.accept_origin_keys),
-                     self.node.accept_origin_keys_src])
         return tab
 
     def security_stats_table(self):

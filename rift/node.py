@@ -1162,8 +1162,8 @@ class Node:
             cli_session.print("Error: interface {} not present".format(interface_name))
             return
         intf = self.interfaces_by_name[interface_name]
-        cli_session.print("Active And Accept Keys:")
-        tab = intf.act_and_acc_intf_keys_table()
+        cli_session.print("Outer Keys:")
+        tab = intf.intf_outer_keys_table()
         cli_session.print(tab.to_string())
         cli_session.print("Security Statistics:")
         tab = intf.security_stats_table()
@@ -1425,8 +1425,8 @@ class Node:
         cli_session.print("Security Keys:")
         tab = self.security_keys_table()
         cli_session.print(tab.to_string())
-        cli_session.print("Active And Accept Keys:")
-        tab = self.act_and_acc_node_keys_table()
+        cli_session.print("Origin Keys:")
+        tab = self.node_origin_keys_table()
         cli_session.print(tab.to_string())
         cli_session.print("Authentication Errors:")
         tab = self.auth_errors_table()
@@ -2252,17 +2252,11 @@ class Node:
         else:
             return ", ".join([str(key.key_id) for key in keys])
 
-    def act_and_acc_node_keys_table(self):
+    def node_origin_keys_table(self):
         tab = table.Table()
         tab.add_row(["Key",
                      "Key ID(s)",
                      "Configuration Source"])
-        tab.add_row(["Active Outer Key",
-                     self.key_str(self.active_outer_key),
-                     self.active_outer_key_src])
-        tab.add_row(["Accept Outer Keys",
-                     self.keys_str(self.accept_outer_keys),
-                     self.accept_outer_keys_src])
         tab.add_row(["Active Origin Key",
                      self.key_str(self.active_origin_key),
                      self.active_origin_key_src])

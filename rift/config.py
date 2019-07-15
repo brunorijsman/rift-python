@@ -124,6 +124,11 @@ SCHEMA = {
                                         'rx_lie_port': {'type': 'port'},
                                         'tx_lie_port': {'type': 'port'},
                                         'rx_tie_port': {'type': 'port'},
+                                        'active_key': {'type': 'integer', 'min': 1, 'max': 255},
+                                        'accept_keys': {
+                                            'type': 'list',
+                                            'schema': {'type': 'integer', 'min': 0, 'max': 255}
+                                        }
                                     }
                                 }
                             }

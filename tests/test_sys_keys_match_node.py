@@ -19,20 +19,16 @@ def check_rift_node1(res):
         r"| 1      | hmac-sha-256 | this-is-the-secret-for-key-1 |",
         r"| 2      | hmac-sha-256 | this-is-the-secret-for-key-2 |",
         r"| 3      | hmac-sha-256 | this-is-the-secret-for-key-3 |",
-        r"Active And Accept Keys:",
-        r"| Active Outer Key   | 1 | Node Active Key  |",
-        r"| Accept Outer Keys  | 2 | Node Accept Keys |",
+        r"Origin Keys:",
         r"| Active Origin Key  | 1 | Node Active Key  |",
         r"| Accept Origin Keys | 2 | Node Accept Keys |",
     ]
     res.check_node_security("node1", expect_node_security)
     expect_intf_security = [
-        r"Active And Accept Keys:",
+        r"Outer Keys:",
         r"| Key | Key ID\(s\) | Configuration Source |",
-        r"| Active Outer Key   | 1 | Node Active Key  |",
-        r"| Accept Outer Keys  | 2 | Node Accept Keys |",
-        r"| Active Origin Key  | 1 | Node Active Key  |",
-        r"| Accept Origin Keys | 2 | Node Accept Keys |",
+        r"| Active Outer Key  | 1 | Node Active Key  |",
+        r"| Accept Outer Keys | 2 | Node Accept Keys |",
         r"Security Statistics:",
         r"| Last Received LIE Nonce  | [0-9]*[1-9][0-9]* |",   # non-zero value
         r"| Last Sent Nonce          | [0-9]*[1-9][0-9]* |",   # non-zero value
@@ -59,20 +55,16 @@ def check_rift_node2(res):
         r"| 1      | hmac-sha-256 | this-is-the-secret-for-key-1 |",
         r"| 2      | hmac-sha-256 | this-is-the-secret-for-key-2 |",
         r"| 3      | hmac-sha-256 | this-is-the-secret-for-key-3 |",
-        r"Active And Accept Keys:",
-        r"| Active Outer Key   | 1 | Node Active Key  |",
-        r"| Accept Outer Keys  | 2 | Node Accept Keys |",
+        r"Origin Keys:",
         r"| Active Origin Key  | 1 | Node Active Key  |",
         r"| Accept Origin Keys | 2 | Node Accept Keys |",
     ]
     res.check_node_security("node2", expect_node_security)
     expect_intf_security = [
-        r"Active And Accept Keys:",
+        r"Outer Keys:",
         r"| Key | Key ID\(s\) | Configuration Source |",
-        r"| Active Outer Key   | 1 | Node Active Key  |",
-        r"| Accept Outer Keys  | 2 | Node Accept Keys |",
-        r"| Active Origin Key  | 1 | Node Active Key  |",
-        r"| Accept Origin Keys | 2 | Node Accept Keys |",
+        r"| Active Outer Key  | 1 | Node Active Key  |",
+        r"| Accept Outer Keys | 2 | Node Accept Keys |",
         r"Security Statistics:",
         r"| Last Received LIE Nonce  | [0-9]*[1-9][0-9]* |",   # non-zero value
         r"| Last Sent Nonce          | [0-9]*[1-9][0-9]* |",   # non-zero value
@@ -96,20 +88,16 @@ def check_rift_node3(res):
         r"| 1      | hmac-sha-256 | this-is-the-secret-for-key-1 |",
         r"| 2      | hmac-sha-256 | this-is-the-secret-for-key-2 |",
         r"| 3      | hmac-sha-256 | this-is-the-secret-for-key-3 |",
-        r"Active And Accept Keys:",
-        r"| Active Outer Key   | 2         | Node Active Key  |",
-        r"| Accept Outer Keys  | 3, 1      | Node Accept Keys |",
+        r"Origin Keys:",
         r"| Active Origin Key  | 2         | Node Active Key  |",
         r"| Accept Origin Keys | 3, 1      | Node Accept Keys |",
     ]
     res.check_node_security("node3", expect_node_security)
     expect_intf_security = [
-        r"Active And Accept Keys:",
+        r"Outer Keys:",
         r"| Key | Key ID\(s\) | Configuration Source |",
-        r"| Active Outer Key   | 2    | Node Active Key      |",
-        r"| Accept Outer Keys  | 3, 1 | Node Accept Keys     |",
-        r"| Active Origin Key  | 2    | Node Active Key      |",
-        r"| Accept Origin Keys | 3, 1 | Node Accept Keys     |",
+        r"| Active Outer Key  | 2    | Node Active Key  |",
+        r"| Accept Outer Keys | 3, 1 | Node Accept Keys |",
         r"Security Statistics:",
         r"| Last Received LIE Nonce  | [0-9]*[1-9][0-9]* |",   # non-zero value
         r"| Last Sent Nonce          | [0-9]*[1-9][0-9]* |",   # non-zero value
