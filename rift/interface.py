@@ -272,15 +272,8 @@ class Interface:
         else:
             return "No-Content"
 
-    def effective_active_outer_key(self):
-        return self.node.active_outer_key
-
-    def effective_active_origin_key(self):
-        return self.node.active_origin_key
-
     def send_protocol_packet(self, protocol_packet, flood):
-        packet_info = packet_common.encode_protocol_packet(protocol_packet,
-                                                           self.effective_active_origin_key())
+        packet_info = packet_common.encode_protocol_packet(protocol_packet, self.active_outer_key)
         self.send_packet_info(packet_info, flood)
 
     def send_packet_info(self, packet_info, flood):
@@ -294,7 +287,7 @@ class Interface:
         # prevent the adjacency from reaching state 3-way. For ease of debugging, we make the local
         # nonce equal to the packet_nr.
         packet_info.update_outer_sec_env_header(
-            outer_key=self.node.active_outer_key,
+            outer_key=self.active_outer_key,
             nonce_local=self.choose_tx_nonce_local(),
             nonce_remote=nonce_remote,
             remaining_lifetime=packet_info.remaining_tie_lifetime)
@@ -950,6 +943,20 @@ class Interface:
         self.floodred_nbr_is_fr = self.NbrIsFRState.NOT_APPLICABLE
         self.partially_connected = None
         self.partially_connected_causes = None
+        key_id = self.get_config_attribute(config, 'active_key', None)
+        if key_id is None:
+            self.active_outer_key = self.node.active_outer_key
+            self.active_outer_key_src = self.node.active_outer_key_src
+        else:
+            self.active_outer_key = self.node.key_id_to_key(key_id)
+            self.active_outer_key_src = "Interface Active Key"
+        key_ids = self.get_config_attribute(config, 'accept_keys', None)
+        if key_ids is None:
+            self.accept_outer_keys = self.node.accept_outer_keys
+            self.accept_outer_keys_src = self.node.accept_outer_keys_src
+        else:
+            self.accept_outer_keys = self.node.key_ids_to_keys(key_ids)
+            self.accept_outer_keys_src = "Interface Accept Keys"
         self._traffic_stats_group = stats.Group(self.node.intf_traffic_stats_group)
         pab = ["Packet", "Byte"]
         stg = self._traffic_stats_group
@@ -1182,8 +1189,8 @@ class Interface:
             rx_intf=self,
             from_info=from_info,
             message=message,
-            active_outer_key=self.node.active_outer_key,
-            accept_outer_keys=self.node.accept_outer_keys,
+            active_outer_key=self.active_outer_key,
+            accept_outer_keys=self.accept_outer_keys,
             active_origin_key=self.node.active_origin_key,
             accept_origin_keys=self.node.accept_origin_keys)
         if packet_info.error:
@@ -1795,11 +1802,11 @@ class Interface:
                      "Key ID(s)",
                      "Configuration Source"])
         tab.add_row(["Active Outer Key",
-                     self.node.key_str(self.node.active_outer_key),
-                     self.node.active_outer_key_src])
+                     self.node.key_str(self.active_outer_key),
+                     self.active_outer_key_src])
         tab.add_row(["Accept Outer Keys",
-                     self.node.keys_str(self.node.accept_outer_keys),
-                     self.node.accept_outer_keys_src])
+                     self.node.keys_str(self.accept_outer_keys),
+                     self.accept_outer_keys_src])
         return tab
 
     def security_stats_table(self):
