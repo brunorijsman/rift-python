@@ -1,4 +1,4 @@
-# Topology: node_keys_match
+# Topology: node_keys_match_inherit
 #
 # Intended for testing the outer and origin security envelopes, various scenarios where the keys
 # do match, using keys configured per node.
