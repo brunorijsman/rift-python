@@ -1,0 +1,75 @@
+# Topology: node_keys_match
+#
+# Intended for testing the outer and origin security envelopes, various scenarios where the keys
+# do match, using keys configured per node.
+#
+#              Active    Accept    Active    Accept
+#              Outer     Outer     Origin    Origin
+#              Key       Keys      Key       Keys
+#  +-------+
+#  | 1     |   1         []        same      same
+#  +-------+
+#   if1|
+#      |
+#      |
+#   if1|
+#  +-------+
+#  | 11    |   1         [2]       same      same
+#  +-------+
+#   if2|
+#      |
+#      |
+#   if1|
+#  +-------+
+#  | 101   |   2         [3, 1]    same      same
+#  +-------+
+#
+keys:
+  - id: 1
+    algorithm: hmac-sha-256
+    secret: this-is-the-secret-for-key-1
+  - id: 2
+    algorithm: hmac-sha-256
+    secret: this-is-the-secret-for-key-2
+  - id: 3
+    algorithm: hmac-sha-256
+    secret: this-is-the-secret-for-key-3
+shards:
+  - id: 0
+    nodes:
+      - name: node-1
+        level: 2
+        systemid: 1
+        rx_lie_mcast_address: 224.0.1.1
+        active_key: 1
+        interfaces:
+          - name: if1 # Connected to node-11:if1
+            rx_tie_port: 10001
+            rx_lie_port: 20001
+            tx_lie_port: 20002
+      - name: node-11
+        level: 1
+        systemid: 11
+        rx_lie_mcast_address: 224.0.1.11
+        active_key: 1
+        accept_keys: [2]
+        interfaces:
+          - name: if1 # Connected to node-1:if1
+            rx_tie_port: 10002
+            rx_lie_port: 20002
+            tx_lie_port: 20001
+          - name: if2 # Connected to node-101:if1
+            rx_tie_port: 10003
+            rx_lie_port: 20003
+            tx_lie_port: 20004
+      - name: node-101
+        level: 0
+        systemid: 101
+        rx_lie_mcast_address: 224.0.1.101
+        active_key: 2
+        accept_keys: [3, 1]
+        interfaces:
+          - name: if1 # Connected to node-11:if3
+            rx_tie_port: 10004
+            rx_lie_port: 20004
+            tx_lie_port: 20003
