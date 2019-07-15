@@ -29,7 +29,7 @@ def check_rift_node1(res):
         r"| Key | Key ID\(s\) | Configuration Source |",
         r"| Active Outer Key  | 1 | Node Active Key  |",
         r"| Accept Outer Keys | 2 | Node Accept Keys |",
-        r"Security Statistics:",
+        r"Nonces:",
         r"| Last Received LIE Nonce  | [0-9]*[1-9][0-9]* |",   # non-zero value
         r"| Last Sent Nonce          | [0-9]*[1-9][0-9]* |",   # non-zero value
         r"| Next Sent Nonce Increase | .* |",
@@ -65,7 +65,7 @@ def check_rift_node2(res):
         r"| Key | Key ID\(s\) | Configuration Source |",
         r"| Active Outer Key  | 1 | Node Active Key  |",
         r"| Accept Outer Keys | 2 | Node Accept Keys |",
-        r"Security Statistics:",
+        r"Nonces:",
         r"| Last Received LIE Nonce  | [0-9]*[1-9][0-9]* |",   # non-zero value
         r"| Last Sent Nonce          | [0-9]*[1-9][0-9]* |",   # non-zero value
         r"| Next Sent Nonce Increase | .* |",
@@ -98,7 +98,7 @@ def check_rift_node3(res):
         r"| Key | Key ID\(s\) | Configuration Source |",
         r"| Active Outer Key  | 2    | Node Active Key  |",
         r"| Accept Outer Keys | 3, 1 | Node Accept Keys |",
-        r"Security Statistics:",
+        r"Nonces:",
         r"| Last Received LIE Nonce  | [0-9]*[1-9][0-9]* |",   # non-zero value
         r"| Last Sent Nonce          | [0-9]*[1-9][0-9]* |",   # non-zero value
         r"| Next Sent Nonce Increase | .* |",

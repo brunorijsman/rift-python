@@ -964,7 +964,8 @@ class Interface:
         self._rx_errors_counter = stats.MultiCounter(None, "Total RX Errors", pab)
         self._errors_counter = stats.MultiCounter(None, "Total RX Decode Errors", pab)
         self._error_to_counter = {}
-        self._auth_errors_counter = stats.MultiCounter(None, "Total RX Authentication Errors", pab)
+        self._security_errors_counter = stats.MultiCounter(None, "Total RX Authentication Errors",
+                                                           pab)
         self._tx_packets_counter = stats.MultiCounter(None, "Total TX Packets", pab)
         self._rx_packets_counter = stats.MultiCounter(None, "Total RX Packets", pab)
         self._tx_ipv6_counter = stats.MultiCounter(None, "Total TX IPv6 Packets", pab)
@@ -1097,12 +1098,6 @@ class Interface:
                                          sum_counters=[self._errors_counter])
             self._error_to_counter[decode_error] = counter
         self._errors_counter.add_to_group(stg)
-        # Counters for rx message authentication errors
-        for auth_error in packet_common.PacketInfo.AUTHENTICATION_ERRORS:
-            counter = stats.MultiCounter(stg, "RX " + auth_error, pab,
-                                         sum_counters=[self._auth_errors_counter])
-            self._error_to_counter[auth_error] = counter
-        self._auth_errors_counter.add_to_group(stg)
         # Counters for received packets with wrong packet-nr
         self._total_misorders_counter = stats.Counter(None, "Total RX Misorders", "Packet")
         self._ipv4_misorders_counter = stats.Counter(None, "Total RX IPv4 Misorders", "Packet")
@@ -1124,6 +1119,14 @@ class Interface:
         self._ipv4_misorders_counter.add_to_group(stg)
         self._ipv6_misorders_counter.add_to_group(stg)
         self._total_misorders_counter.add_to_group(stg)
+        # Counters for security errors
+        self._security_stats_group = stats.Group(self.node.intf_security_stats_group)
+        stg = self._security_stats_group
+        for auth_error in packet_common.PacketInfo.AUTHENTICATION_ERRORS:
+            counter = stats.MultiCounter(stg, auth_error, pab,
+                                         sum_counters=[self._security_errors_counter])
+            self._error_to_counter[auth_error] = counter
+        self._security_errors_counter.add_to_group(stg)   ###@@@
         self.fsm = fsm.Fsm(
             definition=self.fsm_definition,
             action_handler=self,
@@ -1797,7 +1800,6 @@ class Interface:
 
     def intf_outer_keys_table(self):
         tab = table.Table()
-        ###@@@ implement per-interface inheritance override
         tab.add_row(["Key",
                      "Key ID(s)",
                      "Configuration Source"])
@@ -1809,7 +1811,7 @@ class Interface:
                      self.accept_outer_keys_src])
         return tab
 
-    def security_stats_table(self):
+    def nonces_table(self):
         tab = table.Table()
         tab.add_row(["Last Received LIE Nonce", self._last_rx_lie_nonce_local])
         tab.add_row(["Last Sent Nonce", self._last_tx_nonce_local])
@@ -1852,6 +1854,9 @@ class Interface:
 
     def traffic_stats_table(self, exclude_zero):
         return self._traffic_stats_group.table(exclude_zero)
+
+    def security_stats_table(self, exclude_zero):
+        return self._security_stats_group.table(exclude_zero)
 
     def lie_fsm_stats_table(self, exclude_zero):
         return self.fsm.stats_table(exclude_zero)

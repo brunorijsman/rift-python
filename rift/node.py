@@ -445,7 +445,7 @@ class Node:
         self.floodred_parents = []
         self.floodred_grandparents = {}
         key_id = self.get_config_attribute('active_key', None)
-        self.active_outer_key = self.key_id_to_key(key_id)   ###@@@
+        self.active_outer_key = self.key_id_to_key(key_id)
         self.active_outer_key_src = "Node Active Key"
         key_ids = self.get_config_attribute('accept_keys', None)
         self.accept_outer_keys = self.key_ids_to_keys(key_ids)
@@ -473,13 +473,16 @@ class Node:
         if self.engine:
             node_ztp_fsm_stats_sum_group = self.engine.node_ztp_fsm_stats_group
             intf_traffic_stats_sum_group = self.engine.intf_traffic_stats_group
+            intf_security_stats_sum_group = self.engine.intf_security_stats_group
             intf_lie_fsm_stats_sum_group = self.engine.intf_lie_fsm_stats_group
         else:
             node_ztp_fsm_stats_sum_group = None
             intf_traffic_stats_sum_group = None
+            intf_security_stats_sum_group = None
             intf_lie_fsm_stats_sum_group = None
         self.node_ztp_fsm_stats_group = stats.Group(node_ztp_fsm_stats_sum_group)
         self.intf_traffic_stats_group = stats.Group(intf_traffic_stats_sum_group)
+        self.intf_security_stats_group = stats.Group(intf_security_stats_sum_group)
         self.intf_lie_fsm_stats_group = stats.Group(intf_lie_fsm_stats_sum_group)
         self._next_interface_id = 1
         if 'interfaces' in config:
@@ -1126,6 +1129,7 @@ class Node:
     def command_clear_node_stats(self, _cli_session):
         self.node_ztp_fsm_stats_group.clear()
         self.intf_traffic_stats_group.clear()
+        self.intf_security_stats_group.clear()
         self.intf_lie_fsm_stats_group.clear()
 
     def command_show_intf_fsm_hist(self, cli_session, parameters, verbose):
@@ -1165,8 +1169,11 @@ class Node:
         cli_session.print("Outer Keys:")
         tab = intf.intf_outer_keys_table()
         cli_session.print(tab.to_string())
+        cli_session.print("Nonces:")
+        tab = intf.nonces_table()
+        cli_session.print(tab.to_string())
         cli_session.print("Security Statistics:")
-        tab = intf.security_stats_table()
+        tab = intf.security_stats_table(exclude_zero=False)
         cli_session.print(tab.to_string())
 
     def command_show_intf_sockets(self, cli_session, parameters):
@@ -1186,6 +1193,9 @@ class Node:
         intf = self.interfaces_by_name[interface_name]
         cli_session.print("Traffic:")
         tab = intf.traffic_stats_table(exclude_zero)
+        cli_session.print(tab.to_string())
+        cli_session.print("Security:")
+        tab = intf.security_stats_table(exclude_zero)
         cli_session.print(tab.to_string())
         cli_session.print("LIE FSM:")
         tab = intf.lie_fsm_stats_table(exclude_zero)
@@ -1302,6 +1312,9 @@ class Node:
         cli_session.print(tab.to_string())
         cli_session.print("Node Interfaces Traffic:")
         tab = self.intf_traffic_stats_group.table(exclude_zero)
+        cli_session.print(tab.to_string())
+        cli_session.print("Node Interfaces Security:")
+        tab = self.intf_security_stats_group.table(exclude_zero)
         cli_session.print(tab.to_string())
         cli_session.print("Node Interface LIE FSMs:")
         tab = self.intf_lie_fsm_stats_group.table(exclude_zero, sort_by_description=True)
@@ -1428,8 +1441,8 @@ class Node:
         cli_session.print("Origin Keys:")
         tab = self.node_origin_keys_table()
         cli_session.print(tab.to_string())
-        cli_session.print("Authentication Errors:")
-        tab = self.auth_errors_table()
+        cli_session.print("Security Statistics:")
+        tab = self.intf_security_stats_group.table(exclude_zero=False)
         cli_session.print(tab.to_string())
 
     def command_show_spf(self, cli_session):
