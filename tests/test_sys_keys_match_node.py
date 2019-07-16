@@ -32,7 +32,6 @@ def check_rift_node1(res):
         r"Nonces:",
         r"| Last Received LIE Nonce  | [0-9]*[1-9][0-9]* |",   # non-zero value
         r"| Last Sent Nonce          | [0-9]*[1-9][0-9]* |",   # non-zero value
-        r"| Next Sent Nonce Increase | .* |",
     ]
     res.check_intf_security("node1", "if1", expect_intf_security)
 
@@ -68,7 +67,6 @@ def check_rift_node2(res):
         r"Nonces:",
         r"| Last Received LIE Nonce  | [0-9]*[1-9][0-9]* |",   # non-zero value
         r"| Last Sent Nonce          | [0-9]*[1-9][0-9]* |",   # non-zero value
-        r"| Next Sent Nonce Increase | .* |",
     ]
     res.check_intf_security("node2", "if1", expect_intf_security)
     res.check_intf_security("node2", "if2", expect_intf_security)
@@ -101,7 +99,6 @@ def check_rift_node3(res):
         r"Nonces:",
         r"| Last Received LIE Nonce  | [0-9]*[1-9][0-9]* |",   # non-zero value
         r"| Last Sent Nonce          | [0-9]*[1-9][0-9]* |",   # non-zero value
-        r"| Next Sent Nonce Increase | .* |",
     ]
     res.check_intf_security("node3", "if1", expect_intf_security)
 
