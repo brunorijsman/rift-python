@@ -24,7 +24,7 @@
 #  | 3     |   2                   3                     << node config
 #  +-------+
 #
-keys:
+authentication_keys:
   - id: 1
     algorithm: sha-256
     secret: this-is-the-secret-for-key-1
@@ -41,8 +41,8 @@ shards:
         level: 2
         systemid: 1
         rx_lie_mcast_address: 224.0.1.1
-        active_key: 1
-        active_origin_key: 3
+        active_authentication_key: 1
+        active_origin_authentication_key: 3
         interfaces:
           - name: if1 # Connected to node-11:if1
             rx_tie_port: 10001
@@ -56,8 +56,8 @@ shards:
         level: 1
         systemid: 11
         rx_lie_mcast_address: 224.0.1.11
-        active_key: 1
-        active_origin_key: 3
+        active_authentication_key: 1
+        active_origin_authentication_key: 3
         interfaces:
           - name: if1 # Connected to node-1:if1
             rx_tie_port: 10002
@@ -75,8 +75,8 @@ shards:
         level: 0
         systemid: 101
         rx_lie_mcast_address: 224.0.1.101
-        active_key: 2
-        active_origin_key: 3
+        active_authentication_key: 2
+        active_origin_authentication_key: 3
         interfaces:
           - name: if1 # Connected to node-11:if3
             rx_tie_port: 10004

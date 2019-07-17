@@ -23,7 +23,7 @@
 #  | 3     |   4         [3, 5]             [4, 5]       << node config
 #  +-------+
 #
-keys:
+authentication_keys:
   - id: 1
     algorithm: sha-256
     secret: this-is-the-secret-for-key-1
@@ -46,10 +46,10 @@ shards:
         level: 2
         systemid: 1
         rx_lie_mcast_address: 224.0.1.1
-        active_key: 1
-        accept_keys: [2]
-        active_origin_key: 4
-        accept_origin_keys: [0, 3, 5]
+        active_authentication_key: 1
+        accept_authentication_keys: [2]
+        active_origin_authentication_key: 4
+        accept_origin_authentication_keys: [0, 3, 5]
         interfaces:
           - name: if1 # Connected to node-11:if1
             rx_tie_port: 10001
@@ -63,16 +63,16 @@ shards:
         level: 1
         systemid: 11
         rx_lie_mcast_address: 224.0.1.11
-        active_key: 4
-        active_origin_key: 5
-        accept_origin_keys: [0, 3, 4]
+        active_authentication_key: 4
+        active_origin_authentication_key: 5
+        accept_origin_authentication_keys: [0, 3, 4]
         interfaces:
           - name: if1 # Connected to node-1:if1
             rx_tie_port: 10002
             rx_lie_port: 20002
             tx_lie_port: 20001
-            active_key: 2
-            accept_keys: [1]
+            active_authentication_key: 2
+            accept_authentication_keys: [1]
           - name: if2 # Connected to node-101:if1
             rx_tie_port: 10003
             rx_lie_port: 20003
@@ -85,9 +85,9 @@ shards:
         level: 0
         systemid: 101
         rx_lie_mcast_address: 224.0.1.101
-        active_key: 4
-        accept_keys: [3, 5]
-        accept_origin_keys: [4, 5]
+        active_authentication_key: 4
+        accept_authentication_keys: [3, 5]
+        accept_origin_authentication_keys: [4, 5]
         interfaces:
           - name: if1 # Connected to node-11:if3
             rx_tie_port: 10004

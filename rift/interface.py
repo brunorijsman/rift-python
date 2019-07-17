@@ -943,14 +943,14 @@ class Interface:
         self.floodred_nbr_is_fr = self.NbrIsFRState.NOT_APPLICABLE
         self.partially_connected = None
         self.partially_connected_causes = None
-        key_id = self.get_config_attribute(config, 'active_key', None)
+        key_id = self.get_config_attribute(config, 'active_authentication_key', None)
         if key_id is None:
             self.active_outer_key = self.node.active_outer_key
             self.active_outer_key_src = self.node.active_outer_key_src
         else:
             self.active_outer_key = self.node.key_id_to_key(key_id)
             self.active_outer_key_src = "Interface Active Key"
-        key_ids = self.get_config_attribute(config, 'accept_keys', None)
+        key_ids = self.get_config_attribute(config, 'accept_authentication_keys', None)
         if key_ids is None:
             self.accept_outer_keys = self.node.accept_outer_keys
             self.accept_outer_keys_src = self.node.accept_outer_keys_src

@@ -22,7 +22,7 @@ SCHEMA = {
             'flooding_reduction_similarity': {'type': 'integer', 'min': 0}
         },
     },
-    'keys': {
+    'authentication_keys': {
         'type': 'list',
         'schema': {
             'type': 'dict',
@@ -61,13 +61,14 @@ SCHEMA = {
                             'state_thrift_services_port': {'type': 'port'},
                             'config_thrift_services_port': {'type': 'port'},
                             'kernel_route_table': {'type': 'kernel_route_table'},
-                            'active_key': {'type': 'integer', 'min': 1, 'max': 255},
-                            'accept_keys': {
+                            'active_authentication_key': {'type': 'integer', 'min': 1, 'max': 255},
+                            'accept_authentication_keys': {
                                 'type': 'list',
                                 'schema': {'type': 'integer', 'min': 0, 'max': 255}
                             },
-                            'active_origin_key': {'type': 'integer', 'min': 1, 'max': 255},
-                            'accept_origin_keys': {
+                            'active_origin_authentication_key': {'type': 'integer', 'min': 1,
+                                                                 'max': 255},
+                            'accept_origin_authentication_keys': {
                                 'type': 'list',
                                 'schema': {'type': 'integer', 'min': 0, 'max': 255}
                             },
@@ -124,8 +125,9 @@ SCHEMA = {
                                         'rx_lie_port': {'type': 'port'},
                                         'tx_lie_port': {'type': 'port'},
                                         'rx_tie_port': {'type': 'port'},
-                                        'active_key': {'type': 'integer', 'min': 1, 'max': 255},
-                                        'accept_keys': {
+                                        'active_authentication_key': {'type': 'integer', 'min': 1,
+                                                                      'max': 255},
+                                        'accept_authentication_keys': {
                                             'type': 'list',
                                             'schema': {'type': 'integer', 'min': 0, 'max': 255}
                                         }

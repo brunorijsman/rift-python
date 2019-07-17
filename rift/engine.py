@@ -154,8 +154,8 @@ class Engine:
             return default
 
     def create_configuration(self, passive_nodes):
-        if 'keys' in self._config:
-            for key_config in self._config['keys']:
+        if 'authentication_keys' in self._config:
+            for key_config in self._config['authentication_keys']:
                 self.create_key(key_config)
         if 'shards' in self._config:
             for shard_config in self._config['shards']:
