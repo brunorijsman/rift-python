@@ -25,19 +25,19 @@
 #
 keys:
   - id: 1
-    algorithm: hmac-sha-256
+    algorithm: sha-256
     secret: this-is-the-secret-for-key-1
   - id: 2
-    algorithm: hmac-sha-256
+    algorithm: sha-256
     secret: this-is-the-secret-for-key-2
   - id: 3
-    algorithm: hmac-sha-256
+    algorithm: sha-256
     secret: this-is-the-secret-for-key-3
   - id: 4
-    algorithm: hmac-sha-224
+    algorithm: sha-256
     secret: this-is-the-secret-for-key-4
   - id: 5
-    algorithm: hmac-sha-512
+    algorithm: sha-256
     secret: this-is-the-secret-for-key-5
 shards:
   - id: 0
