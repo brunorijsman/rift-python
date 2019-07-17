@@ -1,27 +1,26 @@
-# Topology: node_keys_match_node
+# Topology: node_keys_match
 #
-# Intended for testing the outer and origin security envelopes, various scenarios where the keys
-# do match, using keys configured per node.
+# Test the outer and origin security envelopes, various scenarios where the keys do match.
 #
 #              Active    Accept    Active    Accept
 #              Outer     Outer     Origin    Origin
 #              Key       Keys      Key       Keys
 #  +-------+
-#  | 1     |   1         [2]       same      same
+#  | 1     |   1         [2]       4         [0, 3, 5]   << node config
 #  +-------+
-#   if1|
+#   if1|                                                 << interface config
 #      |
 #      |
-#   if1|
+#   if1|       2         [1]                             << interface conifg
 #  +-------+
-#  | 2     |   1         [2]       same      same
+#  | 2     |   4                   5        [0, 3, 4]    << node config
 #  +-------+
-#   if2|
+#   if2|                                                 << interface config
 #      |
 #      |
-#   if1|
+#   if1|                                                 << interface config
 #  +-------+
-#  | 3     |   2         [3, 1]    same      same
+#  | 3     |   4         [3, 5]             [4, 5]       << node config
 #  +-------+
 #
 keys:
@@ -34,6 +33,12 @@ keys:
   - id: 3
     algorithm: hmac-sha-256
     secret: this-is-the-secret-for-key-3
+  - id: 4
+    algorithm: hmac-sha-224
+    secret: this-is-the-secret-for-key-4
+  - id: 5
+    algorithm: hmac-sha-512
+    secret: this-is-the-secret-for-key-5
 shards:
   - id: 0
     nodes:
@@ -43,6 +48,8 @@ shards:
         rx_lie_mcast_address: 224.0.1.1
         active_key: 1
         accept_keys: [2]
+        active_origin_key: 4
+        accept_origin_keys: [0, 3, 5]
         interfaces:
           - name: if1 # Connected to node-11:if1
             rx_tie_port: 10001
@@ -56,13 +63,16 @@ shards:
         level: 1
         systemid: 11
         rx_lie_mcast_address: 224.0.1.11
-        active_key: 1
-        accept_keys: [2]
+        active_key: 4
+        active_origin_key: 5
+        accept_origin_keys: [0, 3, 4]
         interfaces:
           - name: if1 # Connected to node-1:if1
             rx_tie_port: 10002
             rx_lie_port: 20002
             tx_lie_port: 20001
+            active_key: 2
+            accept_keys: [1]
           - name: if2 # Connected to node-101:if1
             rx_tie_port: 10003
             rx_lie_port: 20003
@@ -75,8 +85,9 @@ shards:
         level: 0
         systemid: 101
         rx_lie_mcast_address: 224.0.1.101
-        active_key: 2
-        accept_keys: [3, 1]
+        active_key: 4
+        accept_keys: [3, 5]
+        accept_origin_keys: [4, 5]
         interfaces:
           - name: if1 # Connected to node-11:if3
             rx_tie_port: 10004

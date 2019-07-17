@@ -10,6 +10,7 @@ import common.ttypes
 import constants
 import encoding.ttypes
 import encoding.constants
+import key
 import utils
 
 RIFT_MAGIC = 0xA1F7
@@ -438,16 +439,13 @@ def check_outer_fingerprint(packet_info, active_outer_key, accept_outer_keys):
     if not packet_info.outer_sec_env_header:
         packet_info.error = packet_info.ERR_MISSING_OUTER_SEC_ENV
         return packet_info
-    if packet_info.outer_key_id == 0:
-        if active_outer_key is None or 0 in accept_outer_keys:
-            return True
-        else:
-            packet_info.error = packet_info.ERR_ZERO_OUTER_KEY_ID_NOT_ACCEPTED
-            return False
     use_key = find_key_id(packet_info.outer_key_id, active_outer_key, accept_outer_keys)
     if not use_key:
-        packet_info.error = packet_info.ERR_NON_ZERO_OUTER_KEY_ID_NOT_ACCEPTED
-        packet_info.error_details = "Outer key id is " + str(packet_info.outer_key_id)
+        if packet_info.outer_key_id == 0:
+            packet_info.error = packet_info.ERR_ZERO_OUTER_KEY_ID_NOT_ACCEPTED
+        else:
+            packet_info.error = packet_info.ERR_NON_ZERO_OUTER_KEY_ID_NOT_ACCEPTED
+            packet_info.error_details = "Outer key id is " + str(packet_info.outer_key_id)
         return False
     post = packet_info.outer_sec_env_header[-8:]
     expected = use_key.padded_digest([post, packet_info.origin_sec_env_header,
@@ -469,16 +467,13 @@ def check_origin_fingerprint(packet_info, active_origin_key, accept_origin_keys)
                 return packet_info
     if not packet_info.origin_sec_env_header:
         return True
-    if packet_info.origin_key_id == 0:
-        if active_origin_key is None or 0 in accept_origin_keys:
-            return True
-        else:
-            packet_info.error = packet_info.ERR_ZERO_ORIGIN_KEY_ID_NOT_ACCEPTED
-            return False
     use_key = find_key_id(packet_info.origin_key_id, active_origin_key, accept_origin_keys)
     if not use_key:
-        packet_info.error = packet_info.ERR_NON_ZERO_ORIGIN_KEY_ID_NOT_ACCEPTED
-        packet_info.error_details = "TIE origin key id is " + str(packet_info.origin_key_id)
+        if packet_info.origin_key_id == 0:
+            packet_info.error = packet_info.ERR_ZERO_ORIGIN_KEY_ID_NOT_ACCEPTED
+        else:
+            packet_info.error = packet_info.ERR_NON_ZERO_ORIGIN_KEY_ID_NOT_ACCEPTED
+            packet_info.error_details = "TIE origin key id is " + str(packet_info.origin_key_id)
         return False
     expected = use_key.padded_digest([packet_info.encoded_protocol_packet])
     if packet_info.origin_fingerprint != expected:
@@ -489,9 +484,12 @@ def check_origin_fingerprint(packet_info, active_origin_key, accept_origin_keys)
 def find_key_id(key_id, active_key, accept_keys):
     if active_key and active_key.key_id == key_id:
         return active_key
-    for accept_key in accept_keys:
-        if accept_key.key_id == key_id:
-            return accept_key
+    if accept_keys is not None:
+        for accept_key in accept_keys:
+            if accept_key.key_id == key_id:
+                return accept_key
+    if key_id == 0 and active_key is None and (accept_keys is None or accept_keys == []):
+        return key.Key(0, "null", None)
     return None
 
 # What follows are some horrible hacks to deal with the fact that Thrift only support signed 8, 16,
@@ -566,8 +564,8 @@ def fix_int(value, size, encode):
 def fix_dict(old_dict, dict_fixes, encode):
     (key_fixes, value_fixes) = dict_fixes
     new_dict = {}
-    for key, value in old_dict.items():
-        new_key = fix_value(key, key_fixes, encode)
+    for the_key, value in old_dict.items():
+        new_key = fix_value(the_key, key_fixes, encode)
         new_value = fix_value(value, value_fixes, encode)
         new_dict[new_key] = new_value
     return new_dict

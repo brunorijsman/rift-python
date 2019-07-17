@@ -14,8 +14,8 @@ def check_rift_node1(res):
     res.check_rib("node1", expect_rib)
     expect_node_security = [
         r"Origin Keys:",
-        r"| Active Origin Key  | 2 | Node Active Origin Key  |",
-        r"| Accept Origin Keys | 3 | Node Accept Origin Keys |",
+        r"| Active Origin Key  | 2 |",
+        r"| Accept Origin Keys | 3 |",
     ]
     res.check_node_security("node1", expect_node_security)
     expect_intf_security = [
@@ -43,8 +43,8 @@ def check_rift_node2(res):
     res.check_rib("node2", expect_rib)
     expect_node_security = [
         r"Origin Keys:",
-        r"| Active Origin Key  | 2 | Node Active Origin Key  |",
-        r"| Accept Origin Keys | 3 | Node Accept Origin Keys |",
+        r"| Active Origin Key  | 2 |",
+        r"| Accept Origin Keys | 3 |",
     ]
     res.check_node_security("node2", expect_node_security)
     expect_intf_security = [
@@ -75,8 +75,8 @@ def check_rift_node3(res):
     res.check_rib_absent("node3", "0.0.0.0/0", "north-spf")
     expect_node_security = [
         r"Origin Keys:",
-        r"| Active Origin Key  | 3  | Node Active Origin Key |",
-        r"| Accept Origin Keys |    | Node Accept Keys       |",
+        r"| Active Origin Key  | 3  |",
+        r"| Accept Origin Keys |    |",
     ]
     res.check_node_security("node3", expect_node_security)
     expect_intf_security = [
@@ -88,8 +88,8 @@ def check_rift_node3(res):
         r"| Last Received LIE Nonce  | [0-9]*[1-9][0-9]* |",   # non-zero value
         r"| Last Sent Nonce          | [0-9]*[1-9][0-9]* |",   # non-zero value
         r"Security Statistics:",
-        r"| Non-zero TIE origin key id not accepted | [0-9]*[1-9][0-9]* Packets",   # non-zero value
-        r"| Outer fingerprint okay | [0-9]*[1-9][0-9]* Packets",   # non-zero value
+        r"| Non-zero TIE origin key id not accepted | [0-9]*[1-9][0-9]* Packets",  # non-zero value
+        r"| Non-empty outer fingerprint okay | [0-9]*[1-9][0-9]* Packets",         # non-zero value
     ]
     res.check_intf_security("node3", "if1", expect_intf_security)
 

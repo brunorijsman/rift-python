@@ -1,4 +1,4 @@
-# System test: test_sys_keys_match_inherit
+# System test: test_sys_keys_match
 
 import os
 from rift_expect_session import RiftExpectSession
@@ -22,8 +22,12 @@ def check_rift_node1(res):
         r"| 4      | hmac-sha-224 | this-is-the-secret-for-key-4 |",
         r"| 5      | hmac-sha-512 | this-is-the-secret-for-key-5 |",
         r"Origin Keys:",
-        r"| Active Origin Key  | 4    | Node Active Origin Key  |",
-        r"| Accept Origin Keys | 3, 5 | Node Accept Origin Keys |",
+        r"| Active Origin Key  | 4       |",
+        r"| Accept Origin Keys | 0, 3, 5 |",
+        r"Security Statistics:",
+        r"| Non-empty outer fingerprint okay | [0-9]*[1-9][0-9]* Packets",   # non-zero value
+        r"| Non-empty origin fingerprint okay | [0-9]*[1-9][0-9]* Packets",  # non-zero value
+        r"| Empty origin fingerprint accepted | [0-9]*[1-9][0-9]* Packets",  # non-zero value
     ]
     res.check_node_security("node1", expect_node_security)
     expect_intf_security = [
@@ -34,6 +38,10 @@ def check_rift_node1(res):
         r"Nonces:",
         r"| Last Received LIE Nonce  | [0-9]*[1-9][0-9]* |",   # non-zero value
         r"| Last Sent Nonce          | [0-9]*[1-9][0-9]* |",   # non-zero value
+        r"Security Statistics:",
+        r"| Non-empty outer fingerprint okay | [0-9]*[1-9][0-9]* Packets",   # non-zero value
+        r"| Non-empty origin fingerprint okay | [0-9]*[1-9][0-9]* Packets",  # non-zero value
+        r"| Empty origin fingerprint accepted | [0-9]*[1-9][0-9]* Packets",  # non-zero value
     ]
     res.check_intf_security("node1", "if1", expect_intf_security)
 
@@ -59,8 +67,12 @@ def check_rift_node2(res):
         r"| 4      | hmac-sha-224 | this-is-the-secret-for-key-4 |",
         r"| 5      | hmac-sha-512 | this-is-the-secret-for-key-5 |",
         r"Origin Keys:",
-        r"| Active Origin Key  | 5    | Node Active Origin Key  |",
-        r"| Accept Origin Keys | 3, 4 | Node Accept Origin Keys |",
+        r"| Active Origin Key  | 5       |",
+        r"| Accept Origin Keys | 0, 3, 4 |",
+        r"Security Statistics:",
+        r"| Non-empty outer fingerprint okay | [0-9]*[1-9][0-9]* Packets",   # non-zero value
+        r"| Non-empty origin fingerprint okay | [0-9]*[1-9][0-9]* Packets",  # non-zero value
+        r"| Empty origin fingerprint accepted | [0-9]*[1-9][0-9]* Packets",  # non-zero value
     ]
     res.check_node_security("node2", expect_node_security)
     expect_intf_security = [
@@ -71,6 +83,10 @@ def check_rift_node2(res):
         r"Nonces:",
         r"| Last Received LIE Nonce  | [0-9]*[1-9][0-9]* |",   # non-zero value
         r"| Last Sent Nonce          | [0-9]*[1-9][0-9]* |",   # non-zero value
+        r"Security Statistics:",
+        r"| Non-empty outer fingerprint okay | [0-9]*[1-9][0-9]* Packets",   # non-zero value
+        r"| Non-empty origin fingerprint okay | [0-9]*[1-9][0-9]* Packets",  # non-zero value
+        r"| Empty origin fingerprint accepted | 0 Packets",
     ]
     res.check_intf_security("node2", "if1", expect_intf_security)
     expect_intf_security = [
@@ -81,6 +97,10 @@ def check_rift_node2(res):
         r"Nonces:",
         r"| Last Received LIE Nonce  | [0-9]*[1-9][0-9]* |",   # non-zero value
         r"| Last Sent Nonce          | [0-9]*[1-9][0-9]* |",   # non-zero value
+        r"Security Statistics:",
+        r"| Non-empty outer fingerprint okay | [0-9]*[1-9][0-9]* Packets",   # non-zero value
+        r"| Non-empty origin fingerprint okay | 0 Packets",
+        r"| Empty origin fingerprint accepted | [0-9]*[1-9][0-9]* Packets",  # non-zero value
     ]
     res.check_intf_security("node2", "if2", expect_intf_security)
 
@@ -102,8 +122,11 @@ def check_rift_node3(res):
         r"| 4      | hmac-sha-224 | this-is-the-secret-for-key-4 |",
         r"| 5      | hmac-sha-512 | this-is-the-secret-for-key-5 |",
         r"Origin Keys:",
-        r"| Active Origin Key  | 4    | Node Active Key  |",
-        r"| Accept Origin Keys | 3, 5 | Node Accept Keys |",
+        r"| Active Origin Key  | None |",
+        r"| Accept Origin Keys | 4, 5 |",
+        r"Security Statistics:",
+        r"| Non-empty outer fingerprint okay | [0-9]*[1-9][0-9]* Packets",   # non-zero value
+        r"| Non-empty origin fingerprint okay | [0-9]*[1-9][0-9]* Packets",  # non-zero value
     ]
     res.check_node_security("node3", expect_node_security)
     expect_intf_security = [
@@ -114,12 +137,15 @@ def check_rift_node3(res):
         r"Nonces:",
         r"| Last Received LIE Nonce  | [0-9]*[1-9][0-9]* |",   # non-zero value
         r"| Last Sent Nonce          | [0-9]*[1-9][0-9]* |",   # non-zero value
+        r"Security Statistics:",
+        r"| Non-empty outer fingerprint okay | [0-9]*[1-9][0-9]* Packets",   # non-zero value
+        r"| Non-empty origin fingerprint okay | [0-9]*[1-9][0-9]* Packets",  # non-zero value
     ]
     res.check_intf_security("node3", "if1", expect_intf_security)
 
-def test_keys_match_inherit():
+def test_keys_match():
     passive_nodes = os.getenv("RIFT_PASSIVE_NODES", "").split(",")
-    res = RiftExpectSession("keys_match_inherit")
+    res = RiftExpectSession("keys_match")
     if "node1" not in passive_nodes:
         check_rift_node1(res)
     if "node2" not in passive_nodes:

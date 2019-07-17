@@ -14,8 +14,8 @@ def check_rift_node1(res):
     res.check_rib_absent("node1", "3.3.3.3/32", "south-spf")
     expect_node_security = [
         r"Origin Keys:",
-        r"| Active Origin Key  | 3  | Node Active Origin Key |",
-        r"| Accept Origin Keys |    | Node Accept Keys       |",
+        r"| Active Origin Key  | 3  |",
+        r"| Accept Origin Keys |    |",
     ]
     res.check_node_security("node1", expect_node_security)
     expect_intf_security = [
@@ -43,8 +43,8 @@ def check_rift_node2(res):
     res.check_rib_absent("node2", "3.3.3.3/32", "south-spf")
     expect_node_security = [
         r"Origin Keys:",
-        r"| Active Origin Key  | 3  | Node Active Origin Key |",
-        r"| Accept Origin Keys |    | Node Accept Keys       |",
+        r"| Active Origin Key  | 3  |",
+        r"| Accept Origin Keys |    |",
     ]
     res.check_node_security("node2", expect_node_security)
     expect_intf_security = [
@@ -77,8 +77,8 @@ def check_rift_node3(res):
     res.check_rib_absent("node3", "0.0.0.0/0", "north-spf")
     expect_node_security = [
         r"Origin Keys:",
-        r"| Active Origin Key  | 3  | Node Active Origin Key |",
-        r"| Accept Origin Keys |    | Node Accept Keys       |",
+        r"| Active Origin Key  | 3  |",
+        r"| Accept Origin Keys |    |",
     ]
     res.check_node_security("node3", expect_node_security)
     expect_intf_security = [

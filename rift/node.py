@@ -451,19 +451,9 @@ class Node:
         self.accept_outer_keys = self.key_ids_to_keys(key_ids)
         self.accept_outer_keys_src = "Node Accept Keys"
         key_id = self.get_config_attribute('active_origin_key', None)
-        if key_id is None:
-            self.active_origin_key = self.active_outer_key
-            self.active_origin_key_src = "Node Active Key"
-        else:
-            self.active_origin_key = self.key_id_to_key(key_id)
-            self.active_origin_key_src = "Node Active Origin Key"
+        self.active_origin_key = self.key_id_to_key(key_id)
         key_ids = self.get_config_attribute('accept_origin_keys', None)
-        if key_ids is None:
-            self.accept_origin_keys = self.accept_outer_keys
-            self.accept_origin_keys_src = "Node Accept Keys"
-        else:
-            self.accept_origin_keys = self.key_ids_to_keys(key_ids)
-            self.accept_origin_keys_src = "Node Accept Origin Keys"
+        self.accept_origin_keys = self.key_ids_to_keys(key_ids)
         self._derived_level = None
         self._rx_offers = {}     # Indexed by interface name
         self._tx_offers = {}     # Indexed by interface name
@@ -2267,15 +2257,9 @@ class Node:
 
     def node_origin_keys_table(self):
         tab = table.Table()
-        tab.add_row(["Key",
-                     "Key ID(s)",
-                     "Configuration Source"])
-        tab.add_row(["Active Origin Key",
-                     self.key_str(self.active_origin_key),
-                     self.active_origin_key_src])
-        tab.add_row(["Accept Origin Keys",
-                     self.keys_str(self.accept_origin_keys),
-                     self.accept_origin_keys_src])
+        tab.add_row(["Key", "Key ID(s)"])
+        tab.add_row(["Active Origin Key", self.key_str(self.active_origin_key)])
+        tab.add_row(["Accept Origin Keys", self.keys_str(self.accept_origin_keys)])
         return tab
 
     def auth_errors_table(self):
