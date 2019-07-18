@@ -90,14 +90,14 @@ def fixup_security_for_juniper(config):
     for shard in config['shards']:
         for node in shard['nodes']:
             accept_keys_all = []
-            if 'active_origin_key' in node:
-                active_origin_key = node['active_origin_key']
+            if 'active_origin_authentication_key' in node:
+                active_origin_key = node['active_origin_authentication_key']
                 node['tie_origination_authentication_key'] = active_origin_key
                 accept_keys_all.append(active_origin_key)
-                del node['active_origin_key']
-            if 'accept_origin_keys' in node:
-                accept_keys_all += node['accept_origin_keys']
-                del node['accept_origin_keys']
+                del node['active_origin_authentication_key']
+            if 'accept_origin_authentication_keys' in node:
+                accept_keys_all += node['accept_origin_authentication_keys']
+                del node['accept_origin_authentication_keys']
             for intf in node['interfaces']:
                 if 'active_authentication_key' in intf:
                     intf['link_authentication_validation'] = 'strict'
