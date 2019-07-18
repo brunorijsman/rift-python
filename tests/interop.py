@@ -87,6 +87,23 @@ def fixup_rx_lie_port_for_juniper(config):
                     next_rx_flood_port += 1
 
 def fixup_security_for_juniper(config):
+    # Fixup the following differences between RIFT-Juniper and RIFT-Python
+    # (1) RIFT-Python uses the keyword 'active_origin_authentication_key' whereas
+    #     RIFT-Juniper uses the keyword 'tie_origination_authentication_key'
+    #     They have the exact same meaning
+    # (2) RIFT-Python uses the keyword 'accept_origin_authentication_keys' whereas
+    #     RIFT-Juniper uses the keyword 'authentication_keys'
+    #     They have similar but slightly different meanings:
+    #     RIFT-Python 'accept_origin_authentication_keys' specifies the keys that are accepted for
+    #     the origin key in received packets. The 'active_origin_authentication_key' does not need
+    #     be included; it is always implicity accepted.
+    #     RIFT-Juniper 'authentication_keys' specifies all keys that are accepted for either the
+    #     outer or the origin key in received packets. All keys must be listed; active keys are not
+    #     implicitly included.
+    # (3) Both RIFT-Python and RIFT-Juniper use 'accept_authentication_keys' but they have slightly
+    #     different meanings. In RIFT-Python the 'active_authentication_key' is implicitly included
+    #     in 'accept_authentication_keys' whereas in RIFT-Juniper it is not and it needs to be
+    #     explicitly configured.
     for shard in config['shards']:
         for node in shard['nodes']:
             accept_keys_all = []
@@ -100,11 +117,17 @@ def fixup_security_for_juniper(config):
                 del node['accept_origin_authentication_keys']
             for intf in node['interfaces']:
                 if 'active_authentication_key' in intf:
-                    intf['link_authentication_validation'] = 'strict'
-                    accept_keys_all.append(intf['active_authentication_key'])
-                if 'accept_authentication_keys' in intf:
-                    accept_keys_all += intf['accept_authentication_keys']
+                    active_key = intf['active_authentication_key']
+                    if 'accept_authentication_keys' in intf:
+                        accept_keys = intf['accept_authentication_keys']
+                    else:
+                        accept_keys = []
+                    if active_key not in accept_keys:
+                        accept_keys.append(active_key)
+                        intf['accept_authentication_keys'] = accept_keys
+                accept_keys_all += intf['accept_authentication_keys']
             if accept_keys_all:
+                accept_keys_all = list(dict.fromkeys(accept_keys_all))  # Remove duplicates
                 node['authentication_keys'] = accept_keys_all
 
 def fixup_config_for_juniper(config):
