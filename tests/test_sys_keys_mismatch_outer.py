@@ -21,8 +21,8 @@ def check_rift_node1(res):
     expect_intf_security = [
         r"Outer Keys:",
         r"| Key | Key ID\(s\) | Configuration Source |",
-        r"| Active Outer Key  | 1 | Node Active Key  |",
-        r"| Accept Outer Keys |   | Node Accept Keys |",
+        r"| Active Outer Key  | 1 | Interface Active Key |",
+        r"| Accept Outer Keys |   | Node Accept Keys     |",
         r"Nonces:",
         r"| Last Received LIE Nonce  | [0-9]*[1-9][0-9]* |",   # non-zero value
         r"| Last Sent Nonce          | [0-9]*[1-9][0-9]* |",   # non-zero value
@@ -50,8 +50,8 @@ def check_rift_node2(res):
     expect_intf_security = [
         r"Outer Keys:",
         r"| Key | Key ID\(s\) | Configuration Source |",
-        r"| Active Outer Key  | 1 | Node Active Key  |",
-        r"| Accept Outer Keys |   | Node Accept Keys |",
+        r"| Active Outer Key  | 1 | Interface Active Key |",
+        r"| Accept Outer Keys |   | Node Accept Keys     |",
         r"Nonces:",
         r"| Last Received LIE Nonce  | [0-9]*[1-9][0-9]* |",   # non-zero value
         r"| Last Sent Nonce          | [0-9]*[1-9][0-9]* |",   # non-zero value
@@ -60,8 +60,8 @@ def check_rift_node2(res):
     expect_intf_security = [
         r"Outer Keys:",
         r"| Key | Key ID\(s\) | Configuration Source |",
-        r"| Active Outer Key  | 1 | Node Active Key  |",
-        r"| Accept Outer Keys |   | Node Accept Keys |",
+        r"| Active Outer Key  | 1 | Interface Active Key |",
+        r"| Accept Outer Keys |   | Node Accept Keys     |",
         r"Nonces:",
         r"| Last Received LIE Nonce  | 0 |",
         r"| Last Sent Nonce          | [0-9]*[1-9][0-9]* |",   # non-zero value
@@ -84,8 +84,8 @@ def check_rift_node3(res):
     expect_intf_security = [
         r"Outer Keys:",
         r"| Key | Key ID\(s\) | Configuration Source |",
-        r"| Active Outer Key  | 2 | Node Active Key  |",
-        r"| Accept Outer Keys |   | Node Accept Keys |",
+        r"| Active Outer Key  | 2 | Interface Active Key |",
+        r"| Accept Outer Keys |   | Node Accept Keys     |",
         r"Nonces:",
         r"| Last Received LIE Nonce  | 0 |",
         r"| Last Sent Nonce          | [0-9]*[1-9][0-9]* |",   # non-zero value

@@ -7,21 +7,21 @@
 #              Outer     Outer     Origin    Origin
 #              Key       Keys      Key       Keys
 #  +-------+
-#  | 1     |   1                   2         3           << node config
+#  | 1     |                       2         3           << node config
 #  +-------+
-#   if1|                                                 << interface config
+#   if1|       1                                         << interface config
 #      |
 #      |
-#   if1|                                                 << interface conifg
+#   if1|       1                                         << interface conifg
 #  +-------+
-#  | 2     |   1                   2         3           << node config
+#  | 2     |                       2         3           << node config
 #  +-------+
-#   if2|                                                 << interface config
+#   if2|       1                                         << interface config
 #      |
 #      |
-#   if1|                                                 << interface config
+#   if1|       1                                         << interface config
 #  +-------+
-#  | 3     |   1                   3                     << node config
+#  | 3     |                       3                     << node config
 #  +-------+
 #
 authentication_keys:
@@ -41,7 +41,6 @@ shards:
         level: 2
         systemid: 1
         rx_lie_mcast_address: 224.0.1.1
-        active_authentication_key: 1
         active_origin_authentication_key: 2
         accept_origin_authentication_keys: [ 3 ]
         interfaces:
@@ -49,6 +48,7 @@ shards:
             rx_tie_port: 10001
             rx_lie_port: 20001
             tx_lie_port: 20002
+            active_authentication_key: 1
         v4prefixes:
           - address: 1.1.1.1
             mask: 32
@@ -57,7 +57,6 @@ shards:
         level: 1
         systemid: 2
         rx_lie_mcast_address: 224.0.1.11
-        active_authentication_key: 1
         active_origin_authentication_key: 2
         accept_origin_authentication_keys: [ 3 ]
         interfaces:
@@ -65,10 +64,12 @@ shards:
             rx_tie_port: 10002
             rx_lie_port: 20002
             tx_lie_port: 20001
+            active_authentication_key: 1
           - name: if2 # Connected to node-101:if1
             rx_tie_port: 10003
             rx_lie_port: 20003
             tx_lie_port: 20004
+            active_authentication_key: 1
         v4prefixes:
           - address: 2.2.2.2
             mask: 32
@@ -77,13 +78,13 @@ shards:
         level: 0
         systemid: 3
         rx_lie_mcast_address: 224.0.1.101
-        active_authentication_key: 1
         active_origin_authentication_key: 3
         interfaces:
           - name: if1 # Connected to node-11:if3
             rx_tie_port: 10004
             rx_lie_port: 20004
             tx_lie_port: 20003
+            active_authentication_key: 1
         v4prefixes:
           - address: 3.3.3.3
             mask: 32
