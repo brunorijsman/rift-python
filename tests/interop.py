@@ -92,13 +92,16 @@ def fixup_security_for_juniper(config):
             accept_keys_all = []
             if 'active_origin_key' in node:
                 active_origin_key = node['active_origin_key']
-                del node['active_origin_key']
                 node['tie_origination_authentication_key'] = active_origin_key
                 accept_keys_all.append(active_origin_key)
+                del node['active_origin_key']
+            if 'accept_origin_keys' in node:
+                accept_keys_all += node['accept_origin_keys']
+                del node['accept_origin_keys']
             for intf in node['interfaces']:
                 if 'active_authentication_key' in intf:
                     intf['link_authentication_validation'] = 'strict'
-                    accept_keys_all.append(intf['link_authentication_validation'])
+                    accept_keys_all.append(intf['active_authentication_key'])
                 if 'accept_authentication_keys' in intf:
                     accept_keys_all += intf['accept_authentication_keys']
             if accept_keys_all:
