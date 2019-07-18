@@ -25,8 +25,8 @@ def check_rift_node1(res):
         r"| Active Origin Key  | 4 |",
         r"| Accept Origin Keys | 5 |",
         r"Security Statistics:",
-        r"| Non-empty outer fingerprint okay | [0-9]*[1-9][0-9]* Packets",   # non-zero value
-        r"| Non-empty origin fingerprint okay | [0-9]*[1-9][0-9]* Packets",  # non-zero value
+        r"| Non-empty outer fingerprint accepted  | [0-9]*[1-9][0-9]* Packets",  # non-zero value
+        r"| Non-empty origin fingerprint accepted | [0-9]*[1-9][0-9]* Packets",  # non-zero value
     ]
     res.check_node_security("node1", expect_node_security)
     expect_intf_security = [
@@ -38,8 +38,8 @@ def check_rift_node1(res):
         r"| Last Received LIE Nonce  | [0-9]*[1-9][0-9]* |",   # non-zero value
         r"| Last Sent Nonce          | [0-9]*[1-9][0-9]* |",   # non-zero value
         r"Security Statistics:",
-        r"| Non-empty outer fingerprint okay | [0-9]*[1-9][0-9]* Packets",   # non-zero value
-        r"| Non-empty origin fingerprint okay | [0-9]*[1-9][0-9]* Packets",  # non-zero value
+        r"| Non-empty outer fingerprint accepted  | [0-9]*[1-9][0-9]* Packets",  # non-zero value
+        r"| Non-empty origin fingerprint accepted | [0-9]*[1-9][0-9]* Packets",  # non-zero value
     ]
     res.check_intf_security("node1", "if1", expect_intf_security)
 
@@ -68,8 +68,8 @@ def check_rift_node2(res):
         r"| Active Origin Key  | 4 |",
         r"| Accept Origin Keys | 5 |",
         r"Security Statistics:",
-        r"| Non-empty outer fingerprint okay | [0-9]*[1-9][0-9]* Packets",   # non-zero value
-        r"| Non-empty origin fingerprint okay | [0-9]*[1-9][0-9]* Packets",  # non-zero value
+        r"| Non-empty outer fingerprint accepted | [0-9]*[1-9][0-9]* Packets",   # non-zero value
+        r"| Non-empty origin fingerprint accepted | [0-9]*[1-9][0-9]* Packets",  # non-zero value
     ]
     res.check_node_security("node2", expect_node_security)
     expect_intf_security = [
@@ -81,8 +81,8 @@ def check_rift_node2(res):
         r"| Last Received LIE Nonce  | [0-9]*[1-9][0-9]* |",   # non-zero value
         r"| Last Sent Nonce          | [0-9]*[1-9][0-9]* |",   # non-zero value
         r"Security Statistics:",
-        r"| Non-empty outer fingerprint okay | [0-9]*[1-9][0-9]* Packets",   # non-zero value
-        r"| Non-empty origin fingerprint okay | [0-9]*[1-9][0-9]* Packets",  # non-zero value
+        r"| Non-empty outer fingerprint accepted  | [0-9]*[1-9][0-9]* Packets",  # non-zero value
+        r"| Non-empty origin fingerprint accepted | [0-9]*[1-9][0-9]* Packets",  # non-zero value
     ]
     res.check_intf_security("node2", "if1", expect_intf_security)
     expect_intf_security = [
@@ -94,8 +94,8 @@ def check_rift_node2(res):
         r"| Last Received LIE Nonce  | [0-9]*[1-9][0-9]* |",   # non-zero value
         r"| Last Sent Nonce          | [0-9]*[1-9][0-9]* |",   # non-zero value
         r"Security Statistics:",
-        r"| Non-empty outer fingerprint okay | [0-9]*[1-9][0-9]* Packets",   # non-zero value
-        r"| Non-empty origin fingerprint okay | [0-9]*[1-9][0-9]* Packets",  # non-zero value
+        r"| Non-empty outer fingerprint accepted  | [0-9]*[1-9][0-9]* Packets",  # non-zero value
+        r"| Non-empty origin fingerprint accepted | [0-9]*[1-9][0-9]* Packets",  # non-zero value
     ]
     res.check_intf_security("node2", "if2", expect_intf_security)
 
@@ -120,8 +120,8 @@ def check_rift_node3(res):
         r"| Active Origin Key  | 5 |",
         r"| Accept Origin Keys | 4 |",
         r"Security Statistics:",
-        r"| Non-empty outer fingerprint okay | [0-9]*[1-9][0-9]* Packets",   # non-zero value
-        r"| Non-empty origin fingerprint okay | [0-9]*[1-9][0-9]* Packets",  # non-zero value
+        r"| Non-empty outer fingerprint accepted  | [0-9]*[1-9][0-9]* Packets",  # non-zero value
+        r"| Non-empty origin fingerprint accepted | [0-9]*[1-9][0-9]* Packets",  # non-zero value
     ]
     res.check_node_security("node3", expect_node_security)
     expect_intf_security = [
@@ -133,8 +133,8 @@ def check_rift_node3(res):
         r"| Last Received LIE Nonce  | [0-9]*[1-9][0-9]* |",   # non-zero value
         r"| Last Sent Nonce          | [0-9]*[1-9][0-9]* |",   # non-zero value
         r"Security Statistics:",
-        r"| Non-empty outer fingerprint okay | [0-9]*[1-9][0-9]* Packets",   # non-zero value
-        r"| Non-empty origin fingerprint okay | [0-9]*[1-9][0-9]* Packets",  # non-zero value
+        r"| Non-empty outer fingerprint accepted  | [0-9]*[1-9][0-9]* Packets",  # non-zero value
+        r"| Non-empty origin fingerprint accepted | [0-9]*[1-9][0-9]* Packets",  # non-zero value
     ]
     res.check_intf_security("node3", "if1", expect_intf_security)
 

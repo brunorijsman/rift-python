@@ -89,7 +89,7 @@ def check_rift_node3(res):
         r"| Last Sent Nonce          | [0-9]*[1-9][0-9]* |",   # non-zero value
         r"Security Statistics:",
         r"| Non-zero TIE origin key id not accepted | [0-9]*[1-9][0-9]* Packets",  # non-zero value
-        r"| Non-empty outer fingerprint okay | [0-9]*[1-9][0-9]* Packets",         # non-zero value
+        r"| Non-empty outer fingerprint accepted    | [0-9]*[1-9][0-9]* Packets",  # non-zero value
     ]
     res.check_intf_security("node3", "if1", expect_intf_security)
 

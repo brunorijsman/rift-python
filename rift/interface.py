@@ -1127,9 +1127,9 @@ class Interface:
             self._error_to_counter[auth_error] = counter
         self._security_errors_counter.add_to_group(stg)
         self._outer_auth_ok_counter = stats.MultiCounter(
-            stg, "Non-empty outer fingerprint okay", pab)
+            stg, "Non-empty outer fingerprint accepted", pab)
         self._origin_auth_ok_counter = stats.MultiCounter(
-            stg, "Non-empty origin fingerprint okay", pab)
+            stg, "Non-empty origin fingerprint accepted", pab)
         self._outer_empty_auth_ok_counter = stats.MultiCounter(
             stg, "Empty outer fingerprint accepted", pab)
         self._origin_empty_auth_ok_counter = stats.MultiCounter(
