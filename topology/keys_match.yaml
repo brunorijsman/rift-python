@@ -62,7 +62,7 @@ shards:
             metric: 1
       - name: node2
         level: 1
-        systemid: 11
+        systemid: 2
         rx_lie_mcast_address: 224.0.1.11
         active_origin_authentication_key: 4
         accept_origin_authentication_keys: [5]
@@ -87,7 +87,7 @@ shards:
             metric: 1
       - name: node3
         level: 0
-        systemid: 101
+        systemid: 3
         rx_lie_mcast_address: 224.0.1.101
         active_origin_authentication_key: 5
         accept_origin_authentication_keys: [4]
