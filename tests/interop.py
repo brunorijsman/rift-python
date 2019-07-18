@@ -7,7 +7,16 @@ import subprocess
 import re
 import yaml
 
-TEST_CASES = [("test_sys_2n_l0_l1.py", "2n_l0_l1.yaml", ["node1"]),
+TEST_CASES = [("test_sys_keys_match.py", "keys_match.yaml", ["node1"]),
+              ("test_sys_keys_match.py", "keys_match.yaml", ["node2"]),
+              ("test_sys_keys_match.py", "keys_match.yaml", ["node3"]),
+              ("test_sys_keys_mismatch_outer.py", "keys_mismatch_outer.yaml", ["node1"]),
+              ("test_sys_keys_mismatch_outer.py", "keys_mismatch_outer.yaml", ["node2"]),
+              ("test_sys_keys_mismatch_outer.py", "keys_mismatch_outer.yaml", ["node3"]),
+              ("test_sys_keys_mismatch_origin.py", "keys_mismatch_origin.yaml", ["node1"]),
+              ("test_sys_keys_mismatch_origin.py", "keys_mismatch_origin.yaml", ["node2"]),
+              ("test_sys_keys_mismatch_origin.py", "keys_mismatch_origin.yaml", ["node3"]),
+              ("test_sys_2n_l0_l1.py", "2n_l0_l1.yaml", ["node1"]),
               ("test_sys_2n_l0_l1.py", "2n_l0_l1.yaml", ["node2"]),
               ("test_sys_2n_l0_l2.py", "2n_l0_l2.yaml", ["node1"]),
               ("test_sys_2n_l0_l2.py", "2n_l0_l2.yaml", ["node2"]),
@@ -55,7 +64,7 @@ def mark_non_juniper_nodes_passive(config, juniper_nodes):
                 if 'passive' in node:
                     del node['passive']
 
-def fixup_config_for_juniper(config):
+def fixup_rx_lie_port_for_juniper(config):
     next_rx_lie_port = 21000
     next_rx_flood_port = 22000
     for shard in config['shards']:
@@ -76,6 +85,28 @@ def fixup_config_for_juniper(config):
                     # If the interface does not have a rx_tie_port, generate one.
                     intf['rx_tie_port'] = next_rx_flood_port
                     next_rx_flood_port += 1
+
+def fixup_security_for_juniper(config):
+    for shard in config['shards']:
+        for node in shard['nodes']:
+            accept_keys_all = []
+            if 'active_origin_key' in node:
+                active_origin_key = node['active_origin_key']
+                del node['active_origin_key']
+                node['tie_origination_authentication_key'] = active_origin_key
+                accept_keys_all.append(active_origin_key)
+            for intf in node['interfaces']:
+                if 'active_authentication_key' in intf:
+                    intf['link_authentication_validation'] = 'strict'
+                    accept_keys_all.append(intf['link_authentication_validation'])
+                if 'accept_authentication_keys' in intf:
+                    accept_keys_all += intf['accept_authentication_keys']
+            if accept_keys_all:
+                node['authentication_keys'] = accept_keys_all
+
+def fixup_config_for_juniper(config):
+    fixup_rx_lie_port_for_juniper(config)
+    fixup_security_for_juniper(config)
 
 def write_juniper_config(config_file_name, juniper_nodes, results_dir):
     config = read_config(config_file_name)
