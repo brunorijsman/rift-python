@@ -115,7 +115,7 @@ def fixup_security_for_juniper(config):
     #     behavior.
     #     Somewhat surprisingly, the default behavior of RIFT-Juniper is "none"; you have to
     #     explicitly configure strict checking using 'tie_authentication_validation' and
-    #     'link_authentication_validation'. 
+    #     'link_authentication_validation'.
     #     Furthermore, RIFT-Juniper has a bug: if authentication validation is set to none (which
     #     is the default) and RIFT-Juniper receives a TIE with a non-zero outer key-id, the TIE
     #     will be accepted but not stored in the TIE-DB and not propagated.
@@ -139,10 +139,10 @@ def fixup_security_for_juniper(config):
                         accept_keys = intf['accept_authentication_keys']
                     else:
                         accept_keys = []
+                    accept_keys_all += accept_keys
                     if active_key not in accept_keys:
                         accept_keys.append(active_key)
                         intf['accept_authentication_keys'] = accept_keys
-                accept_keys_all += intf['accept_authentication_keys']
             if accept_keys_all:
                 accept_keys_all = list(dict.fromkeys(accept_keys_all))  # Remove duplicates
                 node['authentication_keys'] = accept_keys_all
