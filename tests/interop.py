@@ -132,6 +132,7 @@ def fixup_security_for_juniper(config):
                 accept_keys_all += node['accept_origin_authentication_keys']
                 del node['accept_origin_authentication_keys']
             for intf in node['interfaces']:
+                print("intf={intf}")
                 intf['link_authentication_validation'] = 'strict'
                 if 'active_authentication_key' in intf:
                     active_key = intf['active_authentication_key']
@@ -139,10 +140,12 @@ def fixup_security_for_juniper(config):
                         accept_keys = intf['accept_authentication_keys']
                     else:
                         accept_keys = []
+                    print("accept_keys={accept_keys}")
                     accept_keys_all += accept_keys
                     if active_key not in accept_keys:
                         accept_keys.append(active_key)
                         intf['accept_authentication_keys'] = accept_keys
+            print("accept_keys_all={accept_keys_all}")
             if accept_keys_all:
                 accept_keys_all = list(dict.fromkeys(accept_keys_all))  # Remove duplicates
                 node['authentication_keys'] = accept_keys_all
