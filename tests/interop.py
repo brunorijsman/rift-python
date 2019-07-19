@@ -89,10 +89,10 @@ def fixup_rx_lie_port_for_juniper(config):
 def fixup_security_for_juniper(config):
     # Fixup the following differences between RIFT-Juniper and RIFT-Python
     # (1) RIFT-Python uses the keyword 'active_origin_authentication_key' whereas
-    #     RIFT-Juniper uses the keyword 'tie_origination_authentication_key'
-    #     They have the exact same meaning
+    #     RIFT-Juniper uses the keyword 'tie_origination_authentication_key'.
+    #     They have the exact same meaning.
     # (2) RIFT-Python uses the keyword 'accept_origin_authentication_keys' whereas
-    #     RIFT-Juniper uses the keyword 'authentication_keys'
+    #     RIFT-Juniper uses the keyword 'authentication_keys'.
     #     They have similar but slightly different meanings:
     #     RIFT-Python 'accept_origin_authentication_keys' specifies the keys that are accepted for
     #     the origin key in received packets. The 'active_origin_authentication_key' does not need
@@ -104,8 +104,24 @@ def fixup_security_for_juniper(config):
     #     different meanings. In RIFT-Python the 'active_authentication_key' is implicitly included
     #     in 'accept_authentication_keys' whereas in RIFT-Juniper it is not and it needs to be
     #     explicitly configured.
+    # (4) If an active-key is configured, RIFT-Python will always sign sent messages, verify the
+    #     fingerprint on received messages, and discard all received messages with invalid
+    #     fingerprint, regardless of the reason why the fingerprint is invalid, including the key-id
+    #     being unknown.
+    #     RIFT-Juniper has different levels of strictness for validating the fingerprint on received
+    #     messages: none (no checking), loose (check only if present), permissive (always validate,
+    #     but allow messages whose key-id is unknown), strict (always validate, don't allow messages
+    #     whose key-id is unknown). RIFT-Juniper's strict checking corresponds to RIFT-Python's
+    #     behavior.
+    #     Somewhat surprisingly, the default behavior of RIFT-Juniper is "none"; you have to
+    #     explicitly configure strict checking using 'tie_authentication_validation' and
+    #     'link_authentication_validation'. 
+    #     Furthermore, RIFT-Juniper has a bug: if authentication validation is set to none (which
+    #     is the default) and RIFT-Juniper receives a TIE with a non-zero outer key-id, the TIE
+    #     will be accepted but not stored in the TIE-DB and not propagated.
     for shard in config['shards']:
         for node in shard['nodes']:
+            node['tie_authentication_validation'] = 'strict'
             accept_keys_all = []
             if 'active_origin_authentication_key' in node:
                 active_origin_key = node['active_origin_authentication_key']
@@ -116,6 +132,7 @@ def fixup_security_for_juniper(config):
                 accept_keys_all += node['accept_origin_authentication_keys']
                 del node['accept_origin_authentication_keys']
             for intf in node['interfaces']:
+                intf['link_authentication_validation'] = 'strict'
                 if 'active_authentication_key' in intf:
                     active_key = intf['active_authentication_key']
                     if 'accept_authentication_keys' in intf:
