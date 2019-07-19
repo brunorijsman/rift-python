@@ -2825,8 +2825,8 @@ class Node:
                 grandparent.covered = True
             else:
                 grandparent.covered = False
-                self.floodred_warning("Grandparent system-id %s not covered by flooding repeaters",
-                                      utils.system_id_str(grandparent.sysid))
+                self.floodred_warning("Grandparent system-id %s not redundantly covered by flooding"
+                                      "repeaters", utils.system_id_str(grandparent.sysid))
 
     def floodrep_update_intfs(self):
         # Do all activations before any de-activations (so that the de-activations can known whether
