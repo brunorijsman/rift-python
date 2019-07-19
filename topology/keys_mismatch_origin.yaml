@@ -1,7 +1,7 @@
-# Topology: node_keys_mismatch_outer
+# Topology: node_keys_mismatch_origin
 #
-# Intended for testing the outer and origin security envelopes, various scenarios where the keys
-# do match, using keys configured per node.
+# Intended for testing the outer and origin security envelopes, scenario where the outer keys do
+# match, but the origin keys don't.
 #
 #              Active    Accept    Active    Accept
 #              Outer     Outer     Origin    Origin
@@ -44,7 +44,7 @@ shards:
         active_origin_authentication_key: 2
         accept_origin_authentication_keys: [ 3 ]
         interfaces:
-          - name: if1 # Connected to node-11:if1
+          - name: if1 # Connected to node2:if1
             rx_tie_port: 10001
             rx_lie_port: 20001
             tx_lie_port: 20002
@@ -60,12 +60,12 @@ shards:
         active_origin_authentication_key: 2
         accept_origin_authentication_keys: [ 3 ]
         interfaces:
-          - name: if1 # Connected to node-1:if1
+          - name: if1 # Connected to node1:if1
             rx_tie_port: 10002
             rx_lie_port: 20002
             tx_lie_port: 20001
             active_authentication_key: 1
-          - name: if2 # Connected to node-101:if1
+          - name: if2 # Connected to node3:if1
             rx_tie_port: 10003
             rx_lie_port: 20003
             tx_lie_port: 20004
@@ -80,7 +80,7 @@ shards:
         rx_lie_mcast_address: 224.0.1.101
         active_origin_authentication_key: 3
         interfaces:
-          - name: if1 # Connected to node-11:if3
+          - name: if1 # Connected to node2:if3
             rx_tie_port: 10004
             rx_lie_port: 20004
             tx_lie_port: 20003

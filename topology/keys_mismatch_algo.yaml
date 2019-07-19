@@ -1,7 +1,7 @@
 # Topology: node_keys_mismatch_outer
 #
-# Intended for testing the outer and origin security envelopes, scenario where the outer keys
-# don't match.
+# Intended for testing the outer and origin security envelopes, various scenarios where the keys
+# do match, using keys configured per node.
 #
 #              Active    Accept    Active    Accept
 #              Outer     Outer     Origin    Origin
@@ -14,26 +14,29 @@
 #      |
 #   if1|       1                                         << interface conifg
 #  +-------+
-#  | 2     |                       3                     << node config
+#  | 2     |                       4                     << node config
 #  +-------+
 #   if2|       1                                         << interface config
 #      |
 #      |
 #   if1|       2                                         << interface config
 #  +-------+
-#  | 3     |                       3                     << node config
+#  | 3     |                       4                     << node config
 #  +-------+
 #
 authentication_keys:
   - id: 1
     algorithm: sha-256
-    secret: this-is-the-secret-for-key-1
+    secret: all-keys-have-different-algos-but-the-same-secret
   - id: 2
-    algorithm: sha-256
-    secret: this-is-the-secret-for-key-2
+    algorithm: sha-512
+    secret: all-keys-have-different-algos-but-the-same-secret
   - id: 3
-    algorithm: sha-256
-    secret: this-is-the-secret-for-key-3
+    algorithm: hmac-sha-256
+    secret: all-keys-have-different-algos-but-the-same-secret
+  - id: 4
+    algorithm: hmac-sha-512
+    secret: all-keys-have-different-algos-but-the-same-secret
 shards:
   - id: 0
     nodes:
@@ -43,7 +46,7 @@ shards:
         rx_lie_mcast_address: 224.0.1.1
         active_origin_authentication_key: 3
         interfaces:
-          - name: if1 # Connected to node2:if1
+          - name: if1 # Connected to node-11:if1
             rx_tie_port: 10001
             rx_lie_port: 20001
             tx_lie_port: 20002
@@ -56,14 +59,14 @@ shards:
         level: 1
         systemid: 2
         rx_lie_mcast_address: 224.0.1.11
-        active_origin_authentication_key: 3
+        active_origin_authentication_key: 4
         interfaces:
-          - name: if1 # Connected to node1:if1
+          - name: if1 # Connected to node-1:if1
             rx_tie_port: 10002
             rx_lie_port: 20002
             tx_lie_port: 20001
             active_authentication_key: 1
-          - name: if2 # Connected to node3:if1
+          - name: if2 # Connected to node-101:if1
             rx_tie_port: 10003
             rx_lie_port: 20003
             tx_lie_port: 20004
@@ -76,9 +79,9 @@ shards:
         level: 0
         systemid: 3
         rx_lie_mcast_address: 224.0.1.101
-        active_origin_authentication_key: 3
+        active_origin_authentication_key: 4
         interfaces:
-          - name: if1 # Connected to node2:if3
+          - name: if1 # Connected to node-11:if3
             rx_tie_port: 10004
             rx_lie_port: 20004
             tx_lie_port: 20003

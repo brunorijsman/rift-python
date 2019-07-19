@@ -1,7 +1,10 @@
-# Topology: node_keys_match
+# Topology: node_keys_match_diff_algo
 #
 # Test the outer and origin security envelopes, various scenarios where the keys do match.
 # In this topology, outer keys are always configured per-interface and never per-node
+#
+# This is a variation on topology node_keys_match_diff_algo: in this topology, the keys use
+# different signing algorithms.
 #
 #              Active    Accept    Active    Accept
 #              Outer     Outer     Origin    Origin
@@ -26,19 +29,19 @@
 #
 authentication_keys:
   - id: 1
-    algorithm: sha-256
+    algorithm: sha-224
     secret: this-is-the-secret-for-key-1
   - id: 2
     algorithm: sha-256
     secret: this-is-the-secret-for-key-2
   - id: 3
-    algorithm: sha-256
+    algorithm: sha-512
     secret: this-is-the-secret-for-key-3
   - id: 4
-    algorithm: sha-256
+    algorithm: hmac-sha-256
     secret: this-is-the-secret-for-key-4
   - id: 66051   # 0x010203
-    algorithm: sha-256
+    algorithm: hmac-sha-1
     secret: this-is-the-secret-for-key-66051
 shards:
   - id: 0
@@ -73,7 +76,7 @@ shards:
             rx_tie_port: 10002
             rx_lie_port: 20002
             tx_lie_port: 20001
-          - name: if2 # Connected to node3:if1
+          - name: if2 # Connected to node2:if1
             active_authentication_key: 2
             accept_authentication_keys: [3]
             rx_tie_port: 10003
