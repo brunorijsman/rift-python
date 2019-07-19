@@ -30,7 +30,6 @@ class PacketInfo:
     ERR_ZERO_ORIGIN_KEY_ID_NOT_ACCEPTED = "Zero TIE origin key id not accepted"
     ERR_NON_ZERO_ORIGIN_KEY_ID_NOT_ACCEPTED = "Non-zero TIE origin key id not accepted"
     ERR_UNEXPECTED_ORIGIN_SEC_ENV = "Unexpected TIE origin security envelope"
-    ERR_UNSUPPORTED_ORIGIN_KEY_ID = "Unsupported TIE origin key id"
     ERR_INCONSISTENT_ORIGIN_KEY_ID = "Inconsistent TIE origin key id and fingerprint"
     ERR_INCORRECT_ORIGIN_FINGERPRINT = "Incorrect TIE origin fingerprint"
     ERR_REFLECTED_NONCE_OUT_OF_SYNC = "Reflected nonce out of sync"
@@ -51,7 +50,6 @@ class PacketInfo:
         ERR_ZERO_ORIGIN_KEY_ID_NOT_ACCEPTED,
         ERR_NON_ZERO_ORIGIN_KEY_ID_NOT_ACCEPTED,
         ERR_UNEXPECTED_ORIGIN_SEC_ENV,
-        ERR_UNSUPPORTED_ORIGIN_KEY_ID,
         ERR_INCONSISTENT_ORIGIN_KEY_ID,
         ERR_INCORRECT_ORIGIN_FINGERPRINT,
         ERR_REFLECTED_NONCE_OUT_OF_SYNC]
@@ -162,8 +160,10 @@ class PacketInfo:
             self.origin_key_id = 0
             self.origin_fingerprint = b''
             self.origin_fingerprint_len = 0
-        # We only support 8-bit key ids. Network order is big endian, so it goes into the 3rd byte.
-        pre = struct.pack("!BBBB", 0, 0, self.origin_key_id, self.origin_fingerprint_len)
+        byte1 = (self.origin_key_id >> 16) & 0xff
+        byte2 = (self.origin_key_id >> 8) & 0xff
+        byte3 = self.origin_key_id & 0xff
+        pre = struct.pack("!BBBB", byte1, byte2, byte3, self.origin_fingerprint_len)
         self.origin_sec_env_header = pre + self.origin_fingerprint
 
 def ipv4_prefix_tup(ipv4_prefix):
@@ -378,14 +378,9 @@ def decode_origin_security_header(packet_info, message, offset):
         packet_info.error_details = \
             "Missing TIE origin key id and TIE origin fingerprint length"
         return -1
-    (should_be_zero_1, should_be_zero_2, origin_key_id, origin_fingerprint_len) = \
-        struct.unpack("!BBBB", message[offset:offset+4])
+    (byte1, byte2, byte3, origin_fingerprint_len) = struct.unpack("!BBBB", message[offset:offset+4])
+    origin_key_id = (byte1 << 16) | (byte2 << 8) | byte3
     offset += 4
-    if should_be_zero_1 != 0 or should_be_zero_2 != 0:
-        got_key_id = should_be_zero_1 << 16 + should_be_zero_2 << 8 + origin_key_id
-        packet_info.error = packet_info.ERR_UNSUPPORTED_ORIGIN_KEY_ID
-        packet_info.error_details = ("Only support <= 255, got {}".format(got_key_id))
-        return -1
     if ((origin_key_id == 0 and origin_fingerprint_len != 0) or
             (origin_key_id != 0 and origin_fingerprint_len == 0)):
         packet_info.error = packet_info.ERR_INCONSISTENT_ORIGIN_KEY_ID

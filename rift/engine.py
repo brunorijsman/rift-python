@@ -170,6 +170,8 @@ class Engine:
     def key_id_to_key(self, key_id):
         if key_id is None:
             return None
+        if key_id not in self.keys:
+            return None
         return self.keys[key_id]
 
     def key_ids_to_keys(self, key_ids):

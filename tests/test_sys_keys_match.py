@@ -14,16 +14,16 @@ def check_rift_node1(res):
     res.check_rib("node1", expect_rib)
     expect_node_security = [
         r"Security Keys:",
-        r"| Key ID | Algorithm | Secret                       |",
-        r"| 0      | null      |                              |",
-        r"| 1      | sha-256   | this-is-the-secret-for-key-1 |",
-        r"| 2      | sha-256   | this-is-the-secret-for-key-2 |",
-        r"| 3      | sha-256   | this-is-the-secret-for-key-3 |",
-        r"| 4      | sha-256   | this-is-the-secret-for-key-4 |",
-        r"| 5      | sha-256   | this-is-the-secret-for-key-5 |",
+        r"| Key ID | Algorithm | Secret                           |",
+        r"| 0      | null      |                                  |",
+        r"| 1      | sha-256   | this-is-the-secret-for-key-1     |",
+        r"| 2      | sha-256   | this-is-the-secret-for-key-2     |",
+        r"| 3      | sha-256   | this-is-the-secret-for-key-3     |",
+        r"| 4      | sha-256   | this-is-the-secret-for-key-4     |",
+        r"| 66051  | sha-256   | this-is-the-secret-for-key-66051 |",
         r"Origin Keys:",
-        r"| Active Origin Key  | 4 |",
-        r"| Accept Origin Keys | 5 |",
+        r"| Active Origin Key  | 4     |",
+        r"| Accept Origin Keys | 66051 |",
         r"Security Statistics:",
         r"| Non-empty outer fingerprint accepted  | [0-9]*[1-9][0-9]* Packets",  # non-zero value
         r"| Non-empty origin fingerprint accepted | [0-9]*[1-9][0-9]* Packets",  # non-zero value
@@ -57,16 +57,16 @@ def check_rift_node2(res):
     res.check_rib("node2", expect_rib)
     expect_node_security = [
         r"Security Keys:",
-        r"| Key ID | Algorithm | Secret                       |",
-        r"| 0      | null      |                              |",
-        r"| 1      | sha-256   | this-is-the-secret-for-key-1 |",
-        r"| 2      | sha-256   | this-is-the-secret-for-key-2 |",
-        r"| 3      | sha-256   | this-is-the-secret-for-key-3 |",
-        r"| 4      | sha-256   | this-is-the-secret-for-key-4 |",
-        r"| 5      | sha-256   | this-is-the-secret-for-key-5 |",
+        r"| Key ID | Algorithm | Secret                           |",
+        r"| 0      | null      |                                  |",
+        r"| 1      | sha-256   | this-is-the-secret-for-key-1     |",
+        r"| 2      | sha-256   | this-is-the-secret-for-key-2     |",
+        r"| 3      | sha-256   | this-is-the-secret-for-key-3     |",
+        r"| 4      | sha-256   | this-is-the-secret-for-key-4     |",
+        r"| 66051  | sha-256   | this-is-the-secret-for-key-66051 |",
         r"Origin Keys:",
-        r"| Active Origin Key  | 4 |",
-        r"| Accept Origin Keys | 5 |",
+        r"| Active Origin Key  | 4     |",
+        r"| Accept Origin Keys | 66051 |",
         r"Security Statistics:",
         r"| Non-empty outer fingerprint accepted | [0-9]*[1-9][0-9]* Packets",   # non-zero value
         r"| Non-empty origin fingerprint accepted | [0-9]*[1-9][0-9]* Packets",  # non-zero value
@@ -109,16 +109,16 @@ def check_rift_node3(res):
     res.check_rib("node3", expect_rib)
     expect_node_security = [
         r"Security Keys:",
-        r"| Key ID | Algorithm | Secret                       |",
-        r"| 0      | null      |                              |",
-        r"| 1      | sha-256   | this-is-the-secret-for-key-1 |",
-        r"| 2      | sha-256   | this-is-the-secret-for-key-2 |",
-        r"| 3      | sha-256   | this-is-the-secret-for-key-3 |",
-        r"| 4      | sha-256   | this-is-the-secret-for-key-4 |",
-        r"| 5      | sha-256   | this-is-the-secret-for-key-5 |",
+        r"| Key ID | Algorithm | Secret                           |",
+        r"| 0      | null      |                                  |",
+        r"| 1      | sha-256   | this-is-the-secret-for-key-1     |",
+        r"| 2      | sha-256   | this-is-the-secret-for-key-2     |",
+        r"| 3      | sha-256   | this-is-the-secret-for-key-3     |",
+        r"| 4      | sha-256   | this-is-the-secret-for-key-4     |",
+        r"| 66051  | sha-256   | this-is-the-secret-for-key-66051 |",
         r"Origin Keys:",
-        r"| Active Origin Key  | 5 |",
-        r"| Accept Origin Keys | 4 |",
+        r"| Active Origin Key  | 66051 |",
+        r"| Accept Origin Keys | 4     |",
         r"Security Statistics:",
         r"| Non-empty outer fingerprint accepted  | [0-9]*[1-9][0-9]* Packets",  # non-zero value
         r"| Non-empty origin fingerprint accepted | [0-9]*[1-9][0-9]* Packets",  # non-zero value

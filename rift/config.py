@@ -27,7 +27,7 @@ SCHEMA = {
         'schema': {
             'type': 'dict',
             'schema': {
-                'id': {'required': True, 'type': 'integer', 'min': 1, 'max': 255},
+                'id': {'required': True, 'type': 'integer', 'min': 1, 'max': 16777215},
                 'algorithm': {'required': True, 'type': 'keyalgorithm'},
                 'secret': {'required': True, 'type': 'string'}
             }
@@ -67,10 +67,10 @@ SCHEMA = {
                                 'schema': {'type': 'integer', 'min': 0, 'max': 255}
                             },
                             'active_origin_authentication_key': {'type': 'integer', 'min': 1,
-                                                                 'max': 255},
+                                                                 'max': 16777215},
                             'accept_origin_authentication_keys': {
                                 'type': 'list',
-                                'schema': {'type': 'integer', 'min': 0, 'max': 255}
+                                'schema': {'type': 'integer', 'min': 0, 'max': 16777215}
                             },
                             'v4prefixes': {
                                 'type': 'list',
