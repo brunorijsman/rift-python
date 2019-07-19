@@ -95,7 +95,7 @@ RIFT-Python supports the following security features:
 
  * Log outer and origin security envelope authentication errors.
 
- * Keep and report detailed statistics on many types of authentication errors and sucesful
+ * Keep and report detailed statistics on many types of authentication errors and successful
    validations.
 
  * CLI command "show security" reports configured keys and authentication statistics for the node.
