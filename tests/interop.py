@@ -121,9 +121,9 @@ def fixup_security_for_juniper(config):
     #     will be accepted but not stored in the TIE-DB and not propagated.
     for shard in config['shards']:
         for node in shard['nodes']:
-            node['tie_authentication_validation'] = 'strict'
             accept_keys_all = []
             if 'active_origin_authentication_key' in node:
+                node['tie_authentication_validation'] = 'strict'
                 active_origin_key = node['active_origin_authentication_key']
                 node['tie_origination_authentication_key'] = active_origin_key
                 accept_keys_all.append(active_origin_key)
@@ -132,8 +132,8 @@ def fixup_security_for_juniper(config):
                 accept_keys_all += node['accept_origin_authentication_keys']
                 del node['accept_origin_authentication_keys']
             for intf in node['interfaces']:
-                intf['link_authentication_validation'] = 'strict'
                 if 'active_authentication_key' in intf:
+                    intf['link_authentication_validation'] = 'strict'
                     active_key = intf['active_authentication_key']
                     if 'accept_authentication_keys' in intf:
                         accept_keys = intf['accept_authentication_keys']
