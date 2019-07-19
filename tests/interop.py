@@ -142,10 +142,10 @@ def fixup_security_for_juniper(config):
                     else:
                         accept_keys = []
                     print(f"accept_keys={accept_keys}")  ###@@@
-                    accept_keys_all += accept_keys
                     if active_key not in accept_keys:
                         accept_keys.append(active_key)
                         intf['accept_authentication_keys'] = accept_keys
+                    accept_keys_all += accept_keys
             print(f"accept_keys_all={accept_keys_all}")  ###@@@
             if accept_keys_all:
                 accept_keys_all = list(dict.fromkeys(accept_keys_all))  # Remove duplicates
