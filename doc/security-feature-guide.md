@@ -4,7 +4,7 @@
 
 RIFT-Python supports the following security features:
 
- * Configure keys: key identifier, key algorithm, and key secret.
+ * Configure authentication keys: key identifier, key algorithm, and key secret.
 
  * Configure outer authentication:
 
@@ -103,13 +103,13 @@ RIFT-Python supports the following security features:
  * CLI command "show interface <i>interface-name</i> security" reports configured keys and
    authentication statistics for the interface.
 
-## Configure keys
+## Configure authentication keys
 
-You can configure the set of security keys at the top-level in the configuration file (also known
-as the topology file) as follows:
+You can configure the set of security authentication_keys at the top-level in the configuration file
+(also known as the topology file) as follows:
 
 <pre>
-keys:
+authentication_keys:
   - id: 1
     algorithm: hmac-sha-1
     secret: this-is-the-secret-for-key-1
@@ -121,7 +121,7 @@ keys:
     secret: this-is-the-secret-for-key-3
 </pre>
 
-Each key is defined by:
+Each autentication_key is defined by:
 
  * A unique key ID. This is a number between 1 and 66051. Keys with a key-id in range 1...255 can
    be used as outer keys and/or origin keys. Keys with a key-id greater than 255 can only be used
