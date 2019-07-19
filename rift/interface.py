@@ -3,6 +3,7 @@
 import collections
 import enum
 import logging
+import random
 import socket
 
 import constants
@@ -282,10 +283,6 @@ class Interface:
             nonce_remote = 0
         else:
             nonce_remote = self._last_rx_lie_nonce_local
-        # The current implementation increases the local nonce on every sent packet, because if
-        # an attacker is able to replay even a single packet, that is suffient for the attacher to
-        # prevent the adjacency from reaching state 3-way. For ease of debugging, we make the local
-        # nonce equal to the packet_nr.
         packet_info.update_outer_sec_env_header(
             outer_key=self.active_outer_key,
             nonce_local=self.choose_tx_nonce_local(),
@@ -911,7 +908,7 @@ class Interface:
                 index = (address_family, packet_type)
                 self._next_tx_packet_nr[index] = 1
         self._last_rx_packet_nr = {}    # Indexed by (address-family, packet-type)
-        self._next_tx_nonce_local = 1
+        self._next_tx_nonce_local = random.randint(1, 65535)
         self._last_tx_nonce_local = None
         self._increase_tx_nonce_local_holddown_timer = timer.Timer(
             interval=self.INCREASE_TX_NONCE_LOCAL_HOLDDOWN_TIME,
