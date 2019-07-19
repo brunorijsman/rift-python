@@ -9,10 +9,10 @@
 #  +-------+
 #  | 1     |                       4         [5]         << node config
 #  +-------+
-#   if1|       1                                         << interface config
+#   if1|       1         [2]                             << interface config
 #      |
 #      |
-#   if1|       1
+#   if1|       2         [1]                             << interface config
 #  +-------+
 #  | 2     |                       4        [5]          << node config
 #  +-------+
@@ -73,8 +73,6 @@ shards:
             rx_tie_port: 10002
             rx_lie_port: 20002
             tx_lie_port: 20001
-            active_authentication_key: 2
-            accept_authentication_keys: [1]
           - name: if2 # Connected to node-101:if1
             active_authentication_key: 2
             accept_authentication_keys: [3]
