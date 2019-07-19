@@ -81,7 +81,7 @@ RIFT-Python supports the following security features:
 
    * Parse and process the TIE remaining lifetime in all received packets.
 
- * Generate, parse, and validate the TIE origin security envelope for all packets:
+ * Generate, parse, and validate the origin security envelope for TIE packets:
 
    * Generate the TIE origin fingerprint for all sent TIE packets according to the configured
      active_origin_authentication_key (if any).
@@ -101,7 +101,7 @@ RIFT-Python supports the following security features:
  * CLI command "show security" reports configured keys and authentication statistics for the node.
 
  * CLI command "show interface <i>interface-name</i> security" reports configured keys and
-   authentication statistics for the node.
+   authentication statistics for the interface.
 
 ## Configure keys
 
@@ -234,7 +234,7 @@ shards:
         level: 2
         systemid: 1
         active_authentication_key: 1
-        <b>accept_authentication_key: [2, 4]</b>
+        <b>accept_authentication_keys: [2, 4]</b>
         interfaces:
           - name: if1
             [...]
