@@ -136,6 +136,7 @@ def fixup_security_for_juniper(config):
                 intf['link_authentication_validation'] = 'strict'
                 if 'active_authentication_key' in intf:
                     active_key = intf['active_authentication_key']
+                    print(f"active_key={active_key}")  ###@@@
                     if 'accept_authentication_keys' in intf:
                         accept_keys = intf['accept_authentication_keys']
                     else:
