@@ -421,7 +421,8 @@ All authentication errors are logged as an ERROR.
 The following proceduce is suggested to perform a roll-over from key A to key B.
 
 In this example we illustrate a roll-over for the outer key, but the same procedure can also be
-followed for origin key roll-overs.
+followed for origin key roll-overs (keeping in mind that for origin keys all nodes in the network
+are involved, whereas with outer keys only two direct neighbor nodes are involved.)
 
 * We assume that the starting scenario is that we have two nodes (node1 and node2) that both
   have active_authentication_key set to A.
@@ -438,10 +439,10 @@ followed for origin key roll-overs.
 * On node2, while keeping accepts_authentication_keys set to [ A, B ], change
   active_authentication_key to B.
 
-* On node1, while keeping active_authentication_key set to A, unconfigure
+* On node1, while keeping active_authentication_key set to B, unconfigure
   accepts_authentication_keys.
 
-* On node2, while keeping active_authentication_key set to A, unconfigure
+* On node2, while keeping active_authentication_key set to B, unconfigure
   accepts_authentication_keys.
 
 Note: currently RIFT-Python does not support run-time configuration changes. To change the
@@ -469,12 +470,15 @@ RIFT-Python generates the non-decreasing local-nonce for sent packets as follows
 
 RIFT-Python generates the reflected remote-nonce for sent packets as follows:
 
- * In state ONE_WAY remote-nonce is alway set to zero.
+ * In state ONE_WAY remote-nonce is alway set to zero (as required by the specification).
  
  * In states TWO_WAY and THREE_WAY, remote-nonce is set to the reflected local-nonce in the most
    recently received LIE packet from the neighbor.
 
 RIFT-Python validates the reflected remote-nonce in received packets as follows:
+
+ * In states ONE_WAY and TWO_WAY remote-nonce zero is always accepted (as required by the
+   specification).
 
  * If RXNonce is reflected remote-nonce in the received packet, and TXNonce is the local-nonce
    in the most recently sent packet, then RX-Nonce is accepted if and only if:
