@@ -229,7 +229,7 @@ set of flood repeaters, and hence a different subset of the spine to super-spine
 
 # Flooding reduction implementation
 
-## Show flooding-reduction
+## Flooding-reduction in the absence of link failures
 
 Enough theory. Let's get our hands dirty and look at what it looks like in practice. We will look
 at the show commands first and then at the (optional) configuration.
@@ -291,6 +291,10 @@ Interfaces:
 
 There is a lot of information here, so lets go over it section by section.
 
+Before we dive in, let me remind you that we are looking at a 3-level (= 5-stage) Clos topology,
+and we are logged in to a leaf node. So, when the output says "parent" it means "spine", and when
+the output says "grand-parent" it means "super-spine".
+
 ### Parents
 
 The first section lists all the parents of the node:
@@ -337,3 +341,63 @@ The table contains the following fields:
 
  * *Flood Repeater*: Whether or not the node has elected that particular spine as a flood repeater.
    In this example spine-1-2 and spine-1-3 have been elected as flood repeaters.
+
+### Grandparents
+
+Now lets look at the grandparents table.
+
+<pre>
+Grandparents:
++-------------+--------+-------------+-------------+
+| Grandparent | Parent | Flood       | Redundantly |
+| System ID   | Count  | Repeater    | Covered     |
+|             |        | Adjacencies |             |
++-------------+--------+-------------+-------------+
+| 1           | 4      | 2           | True        |
++-------------+--------+-------------+-------------+
+| 2           | 4      | 2           | True        |
++-------------+--------+-------------+-------------+
+| 3           | 4      | 2           | True        |
++-------------+--------+-------------+-------------+
+| 4           | 4      | 2           | True        |
++-------------+--------+-------------+-------------+
+</pre>
+
+The leaf knows who its grandparent super-spines are based on the north-bound adjacencies
+reported in the South-Node-TIEs received from the parent spines.
+
+The table contains the following fields:
+
+ * *Grandparent System ID*: The system ID of the grandparent super-spine.
+
+ * *Parent Count*: The total number of parent spines that have a north-bound adjacency with that
+   particular grandparent super-spine. In other words, how many south-bound adjacencies does the
+   grandparent have to spines?
+
+ * *Flood Repeater Adjacencies*: Out of those grandparent-to-spine adjacencies that were reported
+   in the previous field, in how many cases is the spine a flood repeater?
+
+ * *Redundantly Covered*: Now that we know by how many flood repeaters the grandparent super-spine
+   is served, is that number enough? In other words, does that number meet the minimum redundancy
+   requirement?
+
+### Interfaces
+
+Finally, let's look at the interfaces table:
+
+<pre>
+Interfaces:
++-----------------+---------------------------+-----------+-----------+-----------+----------------+----------------+
+| Interface       | Neighbor                  | Neighbor  | Neighbor  | Neighbor  | Neighbor is    | This Node is   |
+| Name            | Interface                 | System ID | State     | Direction | Flood Repeater | Flood Repeater |
+|                 | Name                      |           |           |           | for This Node  | for Neighbor   |
++-----------------+---------------------------+-----------+-----------+-----------+----------------+----------------+
+| veth-1001a-101a | spine-1-1:veth-101a-1001a | 101       | THREE_WAY | North     | False          | Not Applicable |
++-----------------+---------------------------+-----------+-----------+-----------+----------------+----------------+
+| veth-1001b-102a | spine-1-2:veth-102a-1001b | 102       | THREE_WAY | North     | True           | Not Applicable |
++-----------------+---------------------------+-----------+-----------+-----------+----------------+----------------+
+| veth-1001c-103a | spine-1-3:veth-103a-1001c | 103       | THREE_WAY | North     | True           | Not Applicable |
++-----------------+---------------------------+-----------+-----------+-----------+----------------+----------------+
+| veth-1001d-104a | spine-1-4:veth-104a-1001d | 104       | THREE_WAY | North     | False          | Not Applicable |
++-----------------+---------------------------+-----------+-----------+-----------+----------------+----------------+
+</pre>
