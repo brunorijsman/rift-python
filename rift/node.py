@@ -891,8 +891,8 @@ class Node:
         do_adv_disagg = {}
         if self._my_pos_disagg_tie_packet_info:
             ###@@@
-            print(self._my_pos_disagg_tie_packet_info)  ###@@@!!!
-            element = self._my_pos_disagg_tie_packet_info.tie_packet.element
+            protocol_packet = self._my_pos_disagg_tie_packet_info.protocol_packet
+            element = protocol_packet.tie.element
             prefixes = element.positive_disaggregation_prefixes.prefixes
             for prefix, attr in prefixes.items():
                 do_adv_disagg[prefix] = attr
@@ -2320,8 +2320,6 @@ class Node:
     def age_ties(self):
         expired_key_ids = []
         for tie_id, tie_packet_info in self.tie_packet_infos.items():
-            ###@@@
-            print(tie_packet_info)   ###@@@
             tie_packet_info.remaining_tie_lifetime -= 1
             if tie_packet_info.remaining_tie_lifetime <= 0:
                 expired_key_ids.append(tie_id)
