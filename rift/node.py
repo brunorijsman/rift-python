@@ -892,7 +892,7 @@ class Node:
         if self._my_pos_disagg_tie_packet_info:
             ###@@@
             protocol_packet = self._my_pos_disagg_tie_packet_info.protocol_packet
-            element = protocol_packet.tie.element
+            element = protocol_packet.content.tie.element
             prefixes = element.positive_disaggregation_prefixes.prefixes
             for prefix, attr in prefixes.items():
                 do_adv_disagg[prefix] = attr
