@@ -232,4 +232,49 @@ set of flood repeaters, and hence a different subset of the spine to super-spine
 Enough theory. Let's get our hands dirty and look at what it looks like in practice. We will look
 at the show commands first and then at the (optional) configuration.
 
-@@@ CONTINUE FROM HERE @@@
+Let's assume we are using the topology shown in figure 1 and we are logged into router leaf-1-1.
+
+Our configuration does not contain anything related to flooding reduction, but flooding reduction
+is enabled by default.
+
+A good place to start is to issue the `show flooding-reduction` command:
+
+<pre>
+leaf-1-1> show flooding-reduction
+Parents:
++-----------------+-----------+---------------------------+-------------+------------+----------+
+| Interface       | Parent    | Parent                    | Grandparent | Similarity | Flood    |
+| Name            | System ID | Interface                 | Count       | Group      | Repeater |
+|                 |           | Name                      |             |            |          |
++-----------------+-----------+---------------------------+-------------+------------+----------+
+| veth-1001b-102a | 102       | spine-1-2:veth-102a-1001b | 0           | 1: 0-0     | False    |
++-----------------+-----------+---------------------------+-------------+------------+----------+
+| veth-1001a-101a | 101       | spine-1-1:veth-101a-1001a | 0           | 1: 0-0     | False    |
++-----------------+-----------+---------------------------+-------------+------------+----------+
+| veth-1001c-103a | 103       | spine-1-3:veth-103a-1001c | 0           | 1: 0-0     | False    |
++-----------------+-----------+---------------------------+-------------+------------+----------+
+| veth-1001d-104a | 104       | spine-1-4:veth-104a-1001d | 0           | 1: 0-0     | False    |
++-----------------+-----------+---------------------------+-------------+------------+----------+
+
+Grandparents:
++-------------+--------+-------------+-------------+
+| Grandparent | Parent | Flood       | Redundantly |
+| System ID   | Count  | Repeater    | Covered     |
+|             |        | Adjacencies |             |
++-------------+--------+-------------+-------------+
+
+Interfaces:
++-----------------+---------------------------+-----------+-----------+-----------+----------------+----------------+
+| Interface       | Neighbor                  | Neighbor  | Neighbor  | Neighbor  | Neighbor is    | This Node is   |
+| Name            | Interface                 | System ID | State     | Direction | Flood Repeater | Flood Repeater |
+|                 | Name                      |           |           |           | for This Node  | for Neighbor   |
++-----------------+---------------------------+-----------+-----------+-----------+----------------+----------------+
+| veth-1001a-101a | spine-1-1:veth-101a-1001a | 101       | THREE_WAY | North     | False          | Not Applicable |
++-----------------+---------------------------+-----------+-----------+-----------+----------------+----------------+
+| veth-1001b-102a | spine-1-2:veth-102a-1001b | 102       | THREE_WAY | North     | False          | Not Applicable |
++-----------------+---------------------------+-----------+-----------+-----------+----------------+----------------+
+| veth-1001c-103a | spine-1-3:veth-103a-1001c | 103       | THREE_WAY | North     | False          | Not Applicable |
++-----------------+---------------------------+-----------+-----------+-----------+----------------+----------------+
+| veth-1001d-104a | spine-1-4:veth-104a-1001d | 104       | THREE_WAY | North     | False          | Not Applicable |
++-----------------+---------------------------+-----------+-----------+-----------+----------------+----------------+
+</pre>
