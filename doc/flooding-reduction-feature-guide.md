@@ -18,8 +18,8 @@ four spines, in turn, will propagate the TIEs further north-bound to each of the
 parent super-spines, which are super-1, super-2, super-3, and super-4. This flooding of TIEs is
 shown by the red arrows below.
 
-Each super-spine will receive four copies of each leaf TIE.
-In the diagram below you can see that super-1, for example, will receive four identical copies
+Each super-spine receives four copies of each leaf TIE.
+In the diagram below you can see that super-1, for example, receives four identical copies
 of the TIEs from leaf-1-1 (red arrows) and also four identical copies of the TIEs from leaf-1-2
 (green arrows).
 
@@ -67,10 +67,12 @@ north-bound flooding.
 
 _Figure 3: After flooding reduction._
 
-Once again, in the above diagram, the reduction in flooding does not seem that dramatic and you
+In the above diagram, the reduction in flooding does not seem that dramatic and you
 might wonder whether it is worth the trouble.
 But keep in mind that is mostly because our diagrams are simple and have only a few spine nodes.
 If we had many more spine nodes (as is the case in real networks) the savings would be much more apparent (but the diagrams would become unreadable).
+
+### Redundancy
 
 You will notice that in the above diagram, each super-spine still receives two copies of each TIE.
 Why did we do that? Wouldn't it be enough if each super-spine received only a single copy?
@@ -95,7 +97,12 @@ Those chosen spines are the flood repeaters. The leaf still floods all of its TI
 spines, but only the flood repeater spines propagate the leaf TIEs further north.
 
 More generally, if there are more than 3 levels in the fat tree topology, each router elects
-some subset of its north-bound parent routers to be a flood repeater.
+some subset of its north-bound parent routers to be a flood repeater, as long as those parents
+are not the top-of-fabric.
+
+To keep this tutorial simple, all of our examples assume that the spines are the flood repeaters and that the super-spines are the top-of-fabric.
+But everything we say is easily generalized to more than 3 levels, and the RIFT-Python
+implementation supports more than 3 levels.
 
 ### How many flood repeaters?
 
@@ -105,7 +112,7 @@ should be more than one flood repeater.
 Well, how many then? Two? Three? Some configurable number?
 
 There is indeed a configurable number in RIFT, called the redundancy factor R (the default value in
-RIFT-Python is 2). The redundancy factor influences the number of flood repeaters in an indirect
+RIFT-Python is 2). The redundancy factor influences the number of flood repeaters but in an indirect
 manner.
 
 The way that it works is that a leaf node will start with one flood repeater, and then add another
@@ -117,8 +124,13 @@ If there are no failures in the network, then the leaf will end up choosing R fl
 But as you can see in the example below, if there are some broken links, then the leaf may need to
 chose more then R flood-repeater spines to "have enough coverage" for the super spines.
 
-This is a little bit of an extreme scenario with lots of link failures, but it makes it easier to
-follow the example.
+
+![Flood repeater election scenario with link failures](https://brunorijsman-public.s3-us-west-2.amazonaws.com/diagram_clos_2pod_4leaf_4spine_4super-flood-repeater-election.png)
+
+_Figure 4: Flood repeater election scenario with link failures._
+
+This example is a little bit of an extreme scenario with lots of link failures, but it makes it
+easier to follow the example.
 
 The question we are asking is: which spine nodes should leaf-1-1 pick as flood repeaters to make
 sure that each super-spine gets at least two copies of the TIEs flooded by leaf-1-1.
@@ -137,10 +149,6 @@ The conclusion is that in this scenario, leaf-1-1 will choose all four spines to
 This is needed to make sure that each super-spine gets at least two copies of each TIE. In other
 words, this is needed to achieve the desired super-spine coverage of redundancy factor R=2.
 
-![Flood repeater election scenario with link failures](https://brunorijsman-public.s3-us-west-2.amazonaws.com/diagram_clos_2pod_4leaf_4spine_4super-flood-repeater-election.png)
-
-_Figure 4: Flood repeater election scenario with link failures._
-
 In this case, the outcome is a little bit extreme, in the sense that all spines in the POD end
 up being flood repeaters. In other words, it is just the same as having no flooding reductions.
 But such extreme scenarios become extremely unlikely if the number of spines is greater.
@@ -153,8 +161,8 @@ There is no special leaf-to-leaf communication to coordinate the election of the
 
 In fact, there is no requirement that the leaves use the same algorithm for flood repeater election.
 It is perfectly fine if each leaf node uses a completely different proprietary algorithm for flood
-repeater election. The main thing is that the algorithm chooses the flood repeaters in such a manner
-that each super-spine is sufficiently covered to meet the required redundancy R.
+repeater election. This is okay as long as each algorithm chooses the flood repeaters in such a
+manner that each super-spine is sufficiently covered to meet the required redundancy R.
 
 For that reason, the RIFT specification does not mandate a flood repeater election algorithm.
 However, there is an example algorithm in the specification, and RIFT-Python implements exactly that
@@ -165,7 +173,7 @@ algorithm.
 If each leaf elects its flood repeaters independently, there is a risk that the all elect the same
 spines as flood repeaters.
 
-Consider, for example, figure 3 above again. 
+To understand that danger, let's revisit figure 3 above again. 
 
 Imagine, for a second, that all four leaves leaf-1-1, leaf-1-2, leaf-1-3, and leaf-1-4 elected the
 same spines (say spine-1-1 and spine-1-2) as the flood repeaters.
@@ -196,9 +204,28 @@ as follows.
      a little but "fuzzy" on purpose. We do that as follows.
 
   5. If two spine nodes have a similar number of super-spine adjacencies, they are considered to
-     be equally desirable. We put them in an "equivalence group". After sorting spines, we randomize
-     the sorted order within each equivalence group. If that sounds very abstract, the concrete
-     examples and show command output below should make it a bit more concrete.
+     be equally desirable.
+     We put them in an "equivalence group". After sorting spines, we randomize the sorted order
+     within each equivalence group. 
+     In real life, there will be few equivalence groups with large numbers of member spines.
+     In that case, the election of flood repeater will be quite random.
+
+The net result of this algorithm is that each leaf node tries to pick different flood repeaters,
+while still avoiding very non-optimal flood repeaters (i.e. avoiding spines that have bad
+connectivity to the super spines).
+
+If all of this sounds very abstract, the concrete examples and show command output below should make 
+it a bit more concrete.
+
+And if all of this sounds very fuzzy and imprecise, let me remind you of what I said earlier:
+there is no requirement to standardize the algorithm and there is no requirement that all leaves
+run the same algorithm.
+
+There is another subtle point to point out. In other link state routing protocols there are also
+ongoing efforts to implement flooding reduction. Many of those efforts involve "pruning the flooding
+topology", i.e. to pick a subset of the links to do the flooding over. That mental model of a pruned
+flooding topology does not really work for the RIFT approach, because each leaf can pick a different
+set of flood repeaters, and hence a different subset of the spine to super-spine links.
 
 # Flooding reduction implementation
 
