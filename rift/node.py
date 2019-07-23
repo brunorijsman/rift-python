@@ -890,6 +890,8 @@ class Node:
         # actually do advertise.
         do_adv_disagg = {}
         if self._my_pos_disagg_tie_packet_info:
+            ###@@@
+            print(self._my_pos_disagg_tie_packet_info)  ###@@@!!!
             element = self._my_pos_disagg_tie_packet_info.tie_packet.element
             prefixes = element.positive_disaggregation_prefixes.prefixes
             for prefix, attr in prefixes.items():
@@ -901,6 +903,7 @@ class Node:
         # prefixes.
         # Determine the sequence number.
         if self._my_pos_disagg_tie_packet_info:
+            ###@@@
             new_seq_nr = self._my_pos_disagg_tie_packet_info.tie_packet.header.seq_nr + 1
         else:
             new_seq_nr = 1
@@ -2316,12 +2319,10 @@ class Node:
     def age_ties(self):
         expired_key_ids = []
         for tie_id, tie_packet_info in self.tie_packet_infos.items():
-            ###@@@ TODO: Why do some have remaining lifetime set to None
-            ###@@@ Must have been broken by Tony's pull request after moving lifetime to header
-            if tie_packet_info.remaining_tie_lifetime is not None:
-                tie_packet_info.remaining_tie_lifetime -= 1
-                if tie_packet_info.remaining_tie_lifetime <= 0:
-                    expired_key_ids.append(tie_id)
+            ###@@@
+            tie_packet_info.remaining_tie_lifetime -= 1
+            if tie_packet_info.remaining_tie_lifetime <= 0:
+                expired_key_ids.append(tie_id)
         for key_id in expired_key_ids:
             # TODO: log a message
             self.remove_tie(key_id)
