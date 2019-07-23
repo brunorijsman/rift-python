@@ -401,3 +401,18 @@ Interfaces:
 | veth-1001d-104a | spine-1-4:veth-104a-1001d | 104       | THREE_WAY | North     | False          | Not Applicable |
 +-----------------+---------------------------+-----------+-----------+-----------+----------------+----------------+
 </pre>
+
+All the output up until now was really just background information to understand what is going on.
+This interfaces table reports the final result.
+
+The most relevant fields in this table are:
+
+ * *Interface Name*: The name of the local interface on the leaf node.
+
+ * *Neighbor is Flood Repeater for This Node*: Has the neighbor (the spine in this case) been
+   elected as a Flood Repeater? This is only relevant if the neighbor is a parent and not a
+   top-of-fabric.
+
+ * *This Node is Flood Repeater for Neighbor*: Has the neighbor elected this node as its flood
+   repeater? This is only relevant if the neighbor is a child (which it is not in this case) and
+   we are not top-of-fabric.
