@@ -229,7 +229,7 @@ set of flood repeaters, and hence a different subset of the spine to super-spine
 
 # Flooding reduction implementation
 
-## Flooding-reduction in the absence of link failures
+##  Perspective of leaf in the absence of link failures
 
 Enough theory. Let's get our hands dirty and look at what it looks like in practice. We will look
 at the show commands first and then at the (optional) configuration.
@@ -242,7 +242,7 @@ is enabled by default.
 A good place to start is to issue the `show flooding-reduction` command:
 
 <pre>
-leaf-1-1> show flood
+leaf-1-1> <b>show flood</b>
 Parents:
 +-----------------+-----------+---------------------------+-------------+------------+----------+
 | Interface       | Parent    | Parent                    | Grandparent | Similarity | Flood    |
@@ -416,3 +416,67 @@ The most relevant fields in this table are:
  * *This Node is Flood Repeater for Neighbor*: Has the neighbor elected this node as its flood
    repeater? This is only relevant if the neighbor is a child (which it is not in this case) and
    we are not top-of-fabric.
+
+##  Perspective of spine in the absence of link failures
+
+Now, let's keep the same topology and log in to a spine node (spine-1-1 in this case) and let's
+look at its perspective on the flooding reduction situation:
+
+<pre>
+spine-1-1> <b>show flooding-reduction</b>
+Parents:
++--------------+-----------+----------------------+-------------+------------+----------+
+| Interface    | Parent    | Parent               | Grandparent | Similarity | Flood    |
+| Name         | System ID | Interface            | Count       | Group      | Repeater |
+|              |           | Name                 |             |            |          |
++--------------+-----------+----------------------+-------------+------------+----------+
+| veth-101f-2a | 2         | super-2:veth-2a-101f | 0           | 1: 0-0     | False    |
++--------------+-----------+----------------------+-------------+------------+----------+
+| veth-101e-1a | 1         | super-1:veth-1a-101e | 0           | 1: 0-0     | False    |
++--------------+-----------+----------------------+-------------+------------+----------+
+| veth-101g-3a | 3         | super-3:veth-3a-101g | 0           | 1: 0-0     | False    |
++--------------+-----------+----------------------+-------------+------------+----------+
+| veth-101h-4a | 4         | super-4:veth-4a-101h | 0           | 1: 0-0     | False    |
++--------------+-----------+----------------------+-------------+------------+----------+
+
+Grandparents:
++-------------+--------+-------------+-------------+
+| Grandparent | Parent | Flood       | Redundantly |
+| System ID   | Count  | Repeater    | Covered     |
+|             |        | Adjacencies |             |
++-------------+--------+-------------+-------------+
+
+Interfaces:
++-----------------+--------------------------+-----------+-----------+-----------+----------------+----------------+
+| Interface       | Neighbor                 | Neighbor  | Neighbor  | Neighbor  | Neighbor is    | This Node is   |
+| Name            | Interface                | System ID | State     | Direction | Flood Repeater | Flood Repeater |
+|                 | Name                     |           |           |           | for This Node  | for Neighbor   |
++-----------------+--------------------------+-----------+-----------+-----------+----------------+----------------+
+| veth-101a-1001a | leaf-1-1:veth-1001a-101a | 1001      | THREE_WAY | South     | Not Applicable | False          |
++-----------------+--------------------------+-----------+-----------+-----------+----------------+----------------+
+| veth-101b-1002a | leaf-1-2:veth-1002a-101b | 1002      | THREE_WAY | South     | Not Applicable | True           |
++-----------------+--------------------------+-----------+-----------+-----------+----------------+----------------+
+| veth-101c-1003a | leaf-1-3:veth-1003a-101c | 1003      | THREE_WAY | South     | Not Applicable | False          |
++-----------------+--------------------------+-----------+-----------+-----------+----------------+----------------+
+| veth-101d-1004a | leaf-1-4:veth-1004a-101d | 1004      | THREE_WAY | South     | Not Applicable | False          |
++-----------------+--------------------------+-----------+-----------+-----------+----------------+----------------+
+| veth-101e-1a    | super-1:veth-1a-101e     | 1         | THREE_WAY | North     | False          | Not Applicable |
++-----------------+--------------------------+-----------+-----------+-----------+----------------+----------------+
+| veth-101f-2a    | super-2:veth-2a-101f     | 2         | THREE_WAY | North     | False          | Not Applicable |
++-----------------+--------------------------+-----------+-----------+-----------+----------------+----------------+
+| veth-101g-3a    | super-3:veth-3a-101g     | 3         | THREE_WAY | North     | False          | Not Applicable |
++-----------------+--------------------------+-----------+-----------+-----------+----------------+----------------+
+| veth-101h-4a    | super-4:veth-4a-101h     | 4         | THREE_WAY | North     | False          | Not Applicable |
++-----------------+--------------------------+-----------+-----------+-----------+----------------+----------------+
+</pre>
+
+We can make the following observations:
+
+ * Spine-1-1 has four parents (the super-spines)
+
+ * Spine-1-1 has no grandparents
+
+ * Spine-1-1 has not elected any of its parents to be flood repeaters, because they are all
+   top-of-fabric
+
+ * Spine-1-1 has been elected as flood repeater by one leaf, namely leaf-1-2.
