@@ -934,6 +934,7 @@ class Node:
             content=packet_content)
         protocol_packet.content.tie = tie_packet
         packet_info = packet_common.encode_protocol_packet(protocol_packet, self.active_origin_key)
+        packet_common.set_lifetime(packet_info, common.constants.default_lifetime)
         # Make the newly constructed TIE the current positive disaggregation TIE and update the
         # database.
         self._my_pos_disagg_tie_packet_info = packet_info
