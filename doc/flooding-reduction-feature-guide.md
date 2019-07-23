@@ -334,9 +334,9 @@ The table contains the following fields:
    the South-Node-TIEs originated by the spine includes the north-bound adjacencies, although those
    are not used by North-bound SPF.
 
- * *Grandparent Count*: The equivalence group that the spine has been assigned to. The format is
-   "G: A-B" where G is the index of the equivalence group, A-B is the range of grandparent count
-   for the group. In this example all spines are in the same equivalency group, namely group 0
+ * *Similarity Group*: The similarity group that the spine has been assigned to. The format is
+   "G: A-B" where G is the index of the similarity group, A-B is the range of grandparent count
+   for the group. In this example all spines are in the same similarity group, namely group 1
    which contains all spines with between 4 and 4 (so, exactly 4) super-spine adjacencies.
 
  * *Flood Repeater*: Whether or not the node has elected that particular spine as a flood repeater.
@@ -480,3 +480,114 @@ We can make the following observations:
    top-of-fabric
 
  * Spine-1-1 has been elected as flood repeater by one leaf, namely leaf-1-2.
+
+ ##  Breaking some links
+
+ Now, let's spice things up and break some links.
+
+ While we are still logged in to spine-1-1, we use the following special command to simulate some
+ link failures (namely link spine-1-1:super-1, spine-1-1:super-2, and spine-1-1:super-3)
+
+ <pre>
+spine-1-1> <b>set interface veth-101e-1a failure failed</b>
+spine-1-1> <b>set interface veth-101f-2a failure failed</b>
+spine-1-1> <b>set interface veth-101g-3a failure failed</b>
+ </pre>
+ 
+ We can see that the adjacencies have indeed gone down:
+
+<pre>
+spine-1-1> show interfaces
++-----------------+--------------------------+-----------+-----------+
+| Interface       | Neighbor                 | Neighbor  | Neighbor  |
+| Name            | Name                     | System ID | State     |
++-----------------+--------------------------+-----------+-----------+
+| veth-101a-1001a | leaf-1-1:veth-1001a-101a | 1001      | THREE_WAY |
++-----------------+--------------------------+-----------+-----------+
+| veth-101b-1002a | leaf-1-2:veth-1002a-101b | 1002      | THREE_WAY |
++-----------------+--------------------------+-----------+-----------+
+| veth-101c-1003a | leaf-1-3:veth-1003a-101c | 1003      | THREE_WAY |
++-----------------+--------------------------+-----------+-----------+
+| veth-101d-1004a | leaf-1-4:veth-1004a-101d | 1004      | THREE_WAY |
++-----------------+--------------------------+-----------+-----------+
+| veth-101e-1a    |                          |           | ONE_WAY   |
++-----------------+--------------------------+-----------+-----------+
+| veth-101f-2a    |                          |           | ONE_WAY   |
++-----------------+--------------------------+-----------+-----------+
+| veth-101g-3a    |                          |           | ONE_WAY   |
++-----------------+--------------------------+-----------+-----------+
+| veth-101h-4a    | super-4:veth-4a-101h     | 4         | THREE_WAY |
++-----------------+--------------------------+-----------+-----------+
+</pre>
+
+##  Perspective of lead in the presence of link failures
+
+Going back to leaf-1-1, let's see what changed in the flooding reduction:
+
+<pre>
+leaf-1-1> <b>show flooding-reduction</b>
+Parents:
++-----------------+-----------+---------------------------+-------------+------------+----------+
+| Interface       | Parent    | Parent                    | Grandparent | Similarity | Flood    |
+| Name            | System ID | Interface                 | Count       | Group      | Repeater |
+|                 |           | Name                      |             |            |          |
++-----------------+-----------+---------------------------+-------------+------------+----------+
+| veth-1001c-103a | 103       | spine-1-3:veth-103a-1001c | 4           | 1: 4-4     | True     |
++-----------------+-----------+---------------------------+-------------+------------+----------+
+| veth-1001b-102a | 102       | spine-1-2:veth-102a-1001b | 4           | 1: 4-4     | True     |
++-----------------+-----------+---------------------------+-------------+------------+----------+
+| veth-1001d-104a | 104       | spine-1-4:veth-104a-1001d | 4           | 1: 4-4     | False    |
++-----------------+-----------+---------------------------+-------------+------------+----------+
+| veth-1001a-101a | 101       | spine-1-1:veth-101a-1001a | 1           | 2: 1-1     | False    |
++-----------------+-----------+---------------------------+-------------+------------+----------+
+
+Grandparents:
++-------------+--------+-------------+-------------+
+| Grandparent | Parent | Flood       | Redundantly |
+| System ID   | Count  | Repeater    | Covered     |
+|             |        | Adjacencies |             |
++-------------+--------+-------------+-------------+
+| 1           | 3      | 2           | True        |
++-------------+--------+-------------+-------------+
+| 2           | 3      | 2           | True        |
++-------------+--------+-------------+-------------+
+| 3           | 3      | 2           | True        |
++-------------+--------+-------------+-------------+
+| 4           | 4      | 2           | True        |
++-------------+--------+-------------+-------------+
+
+Interfaces:
++-----------------+---------------------------+-----------+-----------+-----------+----------------+----------------+
+| Interface       | Neighbor                  | Neighbor  | Neighbor  | Neighbor  | Neighbor is    | This Node is   |
+| Name            | Interface                 | System ID | State     | Direction | Flood Repeater | Flood Repeater |
+|                 | Name                      |           |           |           | for This Node  | for Neighbor   |
++-----------------+---------------------------+-----------+-----------+-----------+----------------+----------------+
+| veth-1001a-101a | spine-1-1:veth-101a-1001a | 101       | THREE_WAY | North     | False          | Not Applicable |
++-----------------+---------------------------+-----------+-----------+-----------+----------------+----------------+
+| veth-1001b-102a | spine-1-2:veth-102a-1001b | 102       | THREE_WAY | North     | True           | Not Applicable |
++-----------------+---------------------------+-----------+-----------+-----------+----------------+----------------+
+| veth-1001c-103a | spine-1-3:veth-103a-1001c | 103       | THREE_WAY | North     | True           | Not Applicable |
++-----------------+---------------------------+-----------+-----------+-----------+----------------+----------------+
+| veth-1001d-104a | spine-1-4:veth-104a-1001d | 104       | THREE_WAY | North     | False          | Not Applicable |
++-----------------+---------------------------+-----------+-----------+-----------+----------------+----------------+
+</pre>
+
+We can observe the following:
+
+ * Leaf-1-1 still has all spines as parents. However, spine-1-1 only has one grandparent left.
+
+ * Spine-1-1 has been put in its own similarity group, namely group "2: 1-1", which is group number
+   2 which contains all parents with 1 grandparent. RIFT has a parameter similarity factor (whose
+   default value is 2 in RIFT-Python). If the grandparent count differs by more than this number,
+   the spine gets put in its own similarity group. Grandparent count 4 and grandparent count 1
+   differ by more than 2, and that why spine-1-1 it in its own similarity group.
+
+ * The spines in the parent table are sorted by desirability, and we can notice that spine-1-1
+   moved to the bottom because it has so few grandparents. The sorting is based on the similarity
+   group number, and not the absolute grandparent count. This allows the spines which are flood
+   repeater candidates to be randomly shuffled for better spreading of the flooding burden over
+   spines, as discussed earlier.
+
+ * The flood repeaters have not changed in this example. It is still spine-1-2 and spine-1-3 who
+   are the flood repeaters for leaf-1-1. But if spine-1-1 had been a flood repeater, it would have
+   lost its flood repeatership and some other spine would have been elected instead.
