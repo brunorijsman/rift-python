@@ -2320,6 +2320,7 @@ class Node:
         expired_key_ids = []
         for tie_id, tie_packet_info in self.tie_packet_infos.items():
             ###@@@
+            print(tie_packet_info.)   ###@@@
             tie_packet_info.remaining_tie_lifetime -= 1
             if tie_packet_info.remaining_tie_lifetime <= 0:
                 expired_key_ids.append(tie_id)
