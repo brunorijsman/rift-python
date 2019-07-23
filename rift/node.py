@@ -2316,9 +2316,12 @@ class Node:
     def age_ties(self):
         expired_key_ids = []
         for tie_id, tie_packet_info in self.tie_packet_infos.items():
-            tie_packet_info.remaining_tie_lifetime -= 1
-            if tie_packet_info.remaining_tie_lifetime <= 0:
-                expired_key_ids.append(tie_id)
+            ###@@@ TODO: Why do some have remaining lifetime set to None
+            ###@@@ Must have been broken by Tony's pull request after moving lifetime to header
+            if tie_packet_info.remaining_tie_lifetime is not None:
+                tie_packet_info.remaining_tie_lifetime -= 1
+                if tie_packet_info.remaining_tie_lifetime <= 0:
+                    expired_key_ids.append(tie_id)
         for key_id in expired_key_ids:
             # TODO: log a message
             self.remove_tie(key_id)
