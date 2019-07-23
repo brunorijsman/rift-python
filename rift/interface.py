@@ -1525,7 +1525,7 @@ class Interface:
                 ack_header_lifetime = self._ties_ack[tie_header.tieid]
                 if ack_header_lifetime.header.seq_nr < tie_header.seq_nr:
                     # ACK for older TIE is in queue, remove ACK from queue and send newer TIE
-                    self.remove_from_ties_ack(ack_header_lifetime)
+                    self.remove_from_ties_ack(ack_header_lifetime.header)
                     self.add_tie_header_to_ties_tx(tie_header)
                 else:
                     # ACK for newer TIE in in queue, keep ACK and don't send this older TIE
