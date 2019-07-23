@@ -923,8 +923,8 @@ class Node:
             return
         # Wrap the tie_packet into a protocol packet, and encode it into a packet_info
         packet_header = encoding.ttypes.PacketHeader(
-            sender=self.node.system_id,
-            level=self.node.level_value())
+            sender=self.system_id,
+            level=self.level_value())
         packet_content = encoding.ttypes.PacketContent()
         protocol_packet = encoding.ttypes.ProtocolPacket(
             header=packet_header,
