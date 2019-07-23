@@ -229,6 +229,8 @@ set of flood repeaters, and hence a different subset of the spine to super-spine
 
 # Flooding reduction implementation
 
+## Show flooding-reduction
+
 Enough theory. Let's get our hands dirty and look at what it looks like in practice. We will look
 at the show commands first and then at the (optional) configuration.
 
@@ -240,20 +242,20 @@ is enabled by default.
 A good place to start is to issue the `show flooding-reduction` command:
 
 <pre>
-leaf-1-1> show flooding-reduction
+leaf-1-1> show flood
 Parents:
 +-----------------+-----------+---------------------------+-------------+------------+----------+
 | Interface       | Parent    | Parent                    | Grandparent | Similarity | Flood    |
 | Name            | System ID | Interface                 | Count       | Group      | Repeater |
 |                 |           | Name                      |             |            |          |
 +-----------------+-----------+---------------------------+-------------+------------+----------+
-| veth-1001b-102a | 102       | spine-1-2:veth-102a-1001b | 0           | 1: 0-0     | False    |
+| veth-1001c-103a | 103       | spine-1-3:veth-103a-1001c | 4           | 1: 4-4     | True     |
 +-----------------+-----------+---------------------------+-------------+------------+----------+
-| veth-1001a-101a | 101       | spine-1-1:veth-101a-1001a | 0           | 1: 0-0     | False    |
+| veth-1001b-102a | 102       | spine-1-2:veth-102a-1001b | 4           | 1: 4-4     | True     |
 +-----------------+-----------+---------------------------+-------------+------------+----------+
-| veth-1001c-103a | 103       | spine-1-3:veth-103a-1001c | 0           | 1: 0-0     | False    |
+| veth-1001a-101a | 101       | spine-1-1:veth-101a-1001a | 4           | 1: 4-4     | False    |
 +-----------------+-----------+---------------------------+-------------+------------+----------+
-| veth-1001d-104a | 104       | spine-1-4:veth-104a-1001d | 0           | 1: 0-0     | False    |
+| veth-1001d-104a | 104       | spine-1-4:veth-104a-1001d | 4           | 1: 4-4     | False    |
 +-----------------+-----------+---------------------------+-------------+------------+----------+
 
 Grandparents:
@@ -261,6 +263,14 @@ Grandparents:
 | Grandparent | Parent | Flood       | Redundantly |
 | System ID   | Count  | Repeater    | Covered     |
 |             |        | Adjacencies |             |
++-------------+--------+-------------+-------------+
+| 1           | 4      | 2           | True        |
++-------------+--------+-------------+-------------+
+| 2           | 4      | 2           | True        |
++-------------+--------+-------------+-------------+
+| 3           | 4      | 2           | True        |
++-------------+--------+-------------+-------------+
+| 4           | 4      | 2           | True        |
 +-------------+--------+-------------+-------------+
 
 Interfaces:
@@ -271,10 +281,59 @@ Interfaces:
 +-----------------+---------------------------+-----------+-----------+-----------+----------------+----------------+
 | veth-1001a-101a | spine-1-1:veth-101a-1001a | 101       | THREE_WAY | North     | False          | Not Applicable |
 +-----------------+---------------------------+-----------+-----------+-----------+----------------+----------------+
-| veth-1001b-102a | spine-1-2:veth-102a-1001b | 102       | THREE_WAY | North     | False          | Not Applicable |
+| veth-1001b-102a | spine-1-2:veth-102a-1001b | 102       | THREE_WAY | North     | True           | Not Applicable |
 +-----------------+---------------------------+-----------+-----------+-----------+----------------+----------------+
-| veth-1001c-103a | spine-1-3:veth-103a-1001c | 103       | THREE_WAY | North     | False          | Not Applicable |
+| veth-1001c-103a | spine-1-3:veth-103a-1001c | 103       | THREE_WAY | North     | True           | Not Applicable |
 +-----------------+---------------------------+-----------+-----------+-----------+----------------+----------------+
 | veth-1001d-104a | spine-1-4:veth-104a-1001d | 104       | THREE_WAY | North     | False          | Not Applicable |
 +-----------------+---------------------------+-----------+-----------+-----------+----------------+----------------+
 </pre>
+
+There is a lot of information here, so lets go over it section by section.
+
+### Parents
+
+The first section lists all the parents of the node:
+
+<pre>
+Parents:
++-----------------+-----------+---------------------------+-------------+------------+----------+
+| Interface       | Parent    | Parent                    | Grandparent | Similarity | Flood    |
+| Name            | System ID | Interface                 | Count       | Group      | Repeater |
+|                 |           | Name                      |             |            |          |
++-----------------+-----------+---------------------------+-------------+------------+----------+
+| veth-1001c-103a | 103       | spine-1-3:veth-103a-1001c | 4           | 1: 4-4     | True     |
++-----------------+-----------+---------------------------+-------------+------------+----------+
+| veth-1001b-102a | 102       | spine-1-2:veth-102a-1001b | 4           | 1: 4-4     | True     |
++-----------------+-----------+---------------------------+-------------+------------+----------+
+| veth-1001a-101a | 101       | spine-1-1:veth-101a-1001a | 4           | 1: 4-4     | False    |
++-----------------+-----------+---------------------------+-------------+------------+----------+
+| veth-1001d-104a | 104       | spine-1-4:veth-104a-1001d | 4           | 1: 4-4     | False    |
++-----------------+-----------+---------------------------+-------------+------------+----------+
+</pre>
+
+The leaf knows who its parent spines are based on the South-Node-TIEs received from those parent
+spines.
+
+The table contains the following fields:
+
+ * *Interface Name*: The name of the local interface on the leaf to which the parent spine is 
+   connected.
+
+ * *Parent System ID*: The system ID of the parent spine node.
+
+ * *Parent Interface Name*: The name of the remote interface on the parent spine that connects
+   back to this leaf.
+
+ * *Grandparent Count*: The number of north-bound adjacencies that the parent spine has its
+   grand-parent super-spines. You might wonder how the leaf knows this, and the answer is that
+   the South-Node-TIEs originated by the spine includes the north-bound adjacencies, although those
+   are not used by North-bound SPF.
+
+ * *Grandparent Count*: The equivalence group that the spine has been assigned to. The format is
+   "G: A-B" where G is the index of the equivalence group, A-B is the range of grandparent count
+   for the group. In this example all spines are in the same equivalency group, namely group 0
+   which contains all spines with between 4 and 4 (so, exactly 4) super-spine adjacencies.
+
+ * *Flood Repeater*: Whether or not the node has elected that particular spine as a flood repeater.
+   In this example spine-1-2 and spine-1-3 have been elected as flood repeaters.
