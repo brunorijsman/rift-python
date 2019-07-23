@@ -21,6 +21,8 @@ The code is currently still a work in progress (see Feature List below for the s
 
 * Feature Guides:
 
+  * [Flooding Reduction Feature Guide](doc/flooding-reduction-feature-guide.md)
+
   * [Positive Disaggregation Feature Guide](doc/positive-disaggregation-feature-guide.md)
 
   * [Security Feature Guide](doc/security-feature-guide.md)
