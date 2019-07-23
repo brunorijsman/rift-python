@@ -890,7 +890,6 @@ class Node:
         # actually do advertise.
         do_adv_disagg = {}
         if self._my_pos_disagg_tie_packet_info:
-            ###@@@
             protocol_packet = self._my_pos_disagg_tie_packet_info.protocol_packet
             element = protocol_packet.content.tie.element
             prefixes = element.positive_disaggregation_prefixes.prefixes
@@ -903,8 +902,8 @@ class Node:
         # prefixes.
         # Determine the sequence number.
         if self._my_pos_disagg_tie_packet_info:
-            ###@@@
-            new_seq_nr = self._my_pos_disagg_tie_packet_info.tie_packet.header.seq_nr + 1
+            protocol_packet = self._my_pos_disagg_tie_packet_info.protocol_packet
+            new_seq_nr = protocol_packet.content.tie.header.seq_nr + 1
         else:
             new_seq_nr = 1
         # Buid the new prefix TIE.
