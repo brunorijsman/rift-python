@@ -99,9 +99,51 @@ More generally, if there are more than 3 levels in the fat tree topology, each r
 some subset of its north-bound parent routers to be a flood repeater, as long as those parents
 are not the top-of-fabric.
 
-To keep this tutorial simple, all of our examples assume that the spines are the flood repeaters and that the super-spines are the top-of-fabric.
+To keep this tutorial simple, all of our examples assume that the spines are the flood repeaters and
+that the super-spines are the top-of-fabric.
 But everything we say is easily generalized to more than 3 levels, and the RIFT-Python
 implementation supports more than 3 levels.
+
+### Being a flood repeater is a per-interface thing and not a per-node thing
+
+It does not make sense that say that a RIFT router is a flood repeater or not a flood repeater.
+
+It only makes sense to say that a RIFT router is a flood repeater or not a flood repeater _for a
+specific child (south-bound) neighbor_.
+
+To understand the difference, have a look at figure 3 above. In this figure:
+
+ * Spine-1-1 is a flood repeater for child leaf-1-1 and also a flood repeater for leaf-1-2.
+
+ * Spine-1-2 is not a flood repeater for child leaf-1-1 and also not a flood repeater for leaf-1-2.
+
+ * Spine-1-3 is a flood repeater for child leaf-1-1 but not a flood repeater for leaf-1-2.
+
+ * Spine-1-4 is a not flood repeater for child leaf-1-1 but is a flood repeater for leaf-1-2.
+
+### What does a flood repeater do?
+
+It is easy to understand what a flood repeater for a given child does: it floods all TIEs
+received from that child further north-bound.
+
+But to understand what a router does who is not a flood repeater for a given child, we first have to
+make a distinction between unsolicited flooding and solicited flooding:
+
+ * *Unsolicited north-bound flooding* occurs when a router receives a TIE from a south-bound
+   neighbor and immediately floods it to all north-bound neighbors (or to be pedantic, immediately
+   puts it in the transmit queue).
+
+ * *Solicited north-bound flooding* occurs when a router propagates a TIE further north-bound
+   because it received a TIDE or TIRE packet that requested the TIE.
+
+Now, to answer the original question: 
+
+ * When a router who is not a flood repeater for a given child receives a TIE from that child it
+   does not do unsolicited flooding of that TIE further north-bound.
+
+ * However, if a parent router (north-bound adjacency) of the router explicitly requests the TIE
+   using a TIDE or TIRE, the router *will* do solicited flooding of the TIE (despite the fact
+   that it is not a flood repeater for the child from which the TIE was received).
 
 ### How many flood repeaters?
 
