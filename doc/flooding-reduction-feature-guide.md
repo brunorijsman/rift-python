@@ -283,7 +283,7 @@ is enabled by default.
 A good place to start is to issue the `show flooding-reduction` command:
 
 <pre>
-leaf-1-1> <b>show flood</b>
+leaf-1-1> <b>show flooding-reduction</b>
 Parents:
 +-----------------+-----------+---------------------------+-------------+------------+----------+
 | Interface       | Parent    | Parent                    | Grandparent | Similarity | Flood    |
