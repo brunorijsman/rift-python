@@ -134,7 +134,10 @@ make a distinction between unsolicited flooding and solicited flooding:
    puts it in the transmit queue).
 
  * *Solicited north-bound flooding* occurs when a router propagates a TIE further north-bound
-   because it received a TIDE or TIRE packet that requested the TIE.
+   because it received a TIDE or TIRE packet that requested the TIE. 
+   This happens in two scenarios:
+   (a) during initial database synchronization after and adjacency comes up and
+   (b) to recover from dropped TIE messages.
 
 Now, to answer the original question: 
 
