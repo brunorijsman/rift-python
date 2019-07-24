@@ -91,7 +91,7 @@ To understand how flooding reduction works in RIFT, you first need to understand
 flood repeater (also known as a flooding repeater, flood leader, or flooding leader).
 
 The basic idea is that each leaf node chooses some small subset of its parent spine nodes to be
-responsible for propagating the north-bound leaf TIE further north towards the spine nodes.
+responsible for propagating the north-bound leaf TIE further north towards the super-spine nodes.
 
 Those chosen spines are the flood repeaters. The leaf still floods all of its TIEs to all of the
 spines, but only the flood repeater spines propagate the leaf TIEs further north.
