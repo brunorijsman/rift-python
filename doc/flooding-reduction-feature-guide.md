@@ -8,18 +8,17 @@ The examples in this chapter are based on the following topology.
 
 _Figure 1: Topology diagram._
 
-
 ## North-bound without flooding reduction
 
 Consider the TIEs that are flooded north-bound by some leaf node, let's pick leaf-1-1 for the sake
-of discussion (shaded red in the diagram below). Leaf-1-1 will flood its TIEs to each of its four
+of discussion (shaded red in figure 2 below). Leaf-1-1 will flood its TIEs to each of its four
 north-bound parent spines, which are spine-1-1, spine-1-2, spine-1-3, and spine-1-4. Each of those
 four spines, in turn, will propagate the TIEs further north-bound to each of their four north-bound
 parent super-spines, which are super-1, super-2, super-3, and super-4. This flooding of TIEs is
 shown by the red arrows below.
 
 Each super-spine receives four copies of each leaf TIE.
-In the diagram below you can see that super-1, for example, receives four identical copies
+In figure 2 below you can see that super-1, for example, receives four identical copies
 of the TIEs from leaf-1-1 (red arrows) and also four identical copies of the TIEs from leaf-1-2
 (green arrows).
 
@@ -40,7 +39,7 @@ topologies.
 This is because RIFT is "link-state towards to spines and distance-vector towards the leafs." 
 In RIFT, a super-spine will not propagate a TIE received from one spine to the other
 spines.
-In the above diagram, for example, when super-1 receives a north-bound TIE from spine-1-1,
+In figure 2 above, for example, when super-1 receives a north-bound TIE from spine-1-1,
 it will *not* turn it around and propagate it south-bound to each of the of the seven other spines
 in both PODs.
 It RIFT *would* have done that (as a general purpose link state protocol would have done), the
@@ -52,12 +51,12 @@ in this example.
 
 ### Removing redundant flooding
 
-If you look at the above diagram, it is immediately clear that a lot of the TIE flooding is
+If you look at figure 2 above, it is immediately clear that a lot of the TIE flooding is
 redundant.
 There is absolutely no need for each super-spine to receive so many copies of the same leaf TIE.
 
 The goal of the "flooding reduction" feature is to automatically remove most of the unnecessary
-flooding, as shown in the diagram below.
+flooding, as shown in figure 3 below.
 
 Note that flooding in the south-bound direction is not a problem, because in the south-bound
 direction, TIEs are (normally) not propagated. Thus, flooding reduction is only useful for
@@ -67,14 +66,14 @@ north-bound flooding.
 
 _Figure 3: After flooding reduction._
 
-In the above diagram, the reduction in flooding does not seem that dramatic and you
+In figure 3 above, the reduction in flooding does not seem that dramatic and you
 might wonder whether it is worth the trouble.
 But keep in mind that is mostly because our diagrams are simple and have only a few spine nodes.
 If we had many more spine nodes (as is the case in real networks) the savings would be much more apparent (but the diagrams would become unreadable).
 
 ### Redundancy
 
-You will notice that in the above diagram, each super-spine still receives two copies of each TIE.
+You will notice that in figure 3 above, each super-spine still receives two copies of each TIE.
 Why did we do that? Wouldn't it be enough if each super-spine received only a single copy?
 Well, yes, technically a single copy would be enough. 
 But that would mean that we would flood only along a single flooding path. 
