@@ -4,13 +4,44 @@
 
 RIFT-Python supports the following security features:
 
- * Configure keys: key identifier, key algorithm, and key secret.
+ * Configure authentication keys: key identifier, key algorithm, and key secret.
 
- * Select one key as the active key to be used to compute the security fingerprints for sent
-   messages.
+ * Configure outer authentication:
 
- * Select zero or more additional keys as accept keys to allow other nodes to use a different
-   active key during key roll-over scenarios.
+   * "Outer authentication" is used to validate that a directly connected neighbor is properly
+     authenticated.
+ 
+   * Select one key as the active_authentication_key that is used to compute the outer security           fingerprints in sent messages, and to validate the outer security fingerprint in received
+     messages.
+
+   * Optionally select zero or more additional accept_authentication_keys that are used to validate
+     the outer security fingerprint in received messages (in addition to the
+     active_authentication_key).
+     This is intended to allow neighboring nodes to temporarily use a different outer key during
+     key roll-over scenarios.
+   
+   * The active_authentication_key and accept_authentication_keys can configured for the node and/or
+     for each interface individually.
+
+ * Configure origin authentication:
+
+   * "Origin authentication" is used to validate that the originator of a flooded TIE packet is
+     properly authenticated.
+ 
+   * Select one key as the active_origin_authentication_key that is used to compute the origin
+     security fingerprints in sent TIE messages, and to validate the origin security fingerprint in received TIE messages.
+
+   * Optionally select zero or more additional accept_origin_authentication_keys that are used to
+     validate the origin security fingerprint in received TIE messages (in addition to the
+     active_origin_authentication_key).
+     This is intended to allow any node in the network to temporarily use a different origin key
+     during key roll-over scenarios.
+   
+   * The active_origin_authentication_key and accept_origin_authentication_keys can only be
+     configured per node and not per interface (since one cannot predict on which interface a
+     flooded TIE will arrive).
+
+ * Outer authentication and origin authentication can be configured independently of each other.
 
  * Generate, parse, and validate the envelope for all packets:
 
@@ -26,11 +57,11 @@ RIFT-Python supports the following security features:
 
  * Generate, parse, and validate the outer security envelope for all packets:
 
-   * Generate the outer fingerprint for all sent packets according to the configured active
-     key (if any).
+   * Generate the outer fingerprint for all sent packets according to the configured
+     active_authentication_key (if any).
 
    * Parse and validate the outer fingerprint for all received packets according to the
-     configured active key and accept keys (if any).
+     configured active_authentication_key and accept_authentication_keys (if any).
 
    * Ignore all packets with an unrecognized outer key ID.
 
@@ -50,30 +81,35 @@ RIFT-Python supports the following security features:
 
    * Parse and process the TIE remaining lifetime in all received packets.
 
- * Generate, parse, and validate the TIE origin security envelope for all packets:
+ * Generate, parse, and validate the origin security envelope for TIE packets:
 
-   * Generate the TIE origin fingerprint for all sent TIE packets according to the configured active
-     key (if any).
+   * Generate the TIE origin fingerprint for all sent TIE packets according to the configured
+     active_origin_authentication_key (if any).
 
    * Parse and validate the TIE origin fingerprint for all received TIE packets according to the
-     configured active key and accept keys (if any).
+     configured active_origin_authentication_key and accept_origin_authentication_keys (if any).
 
    * Ignore all packets with an unrecognized TIE origin key ID.
 
    * Ignore all packets with an incorrect TIE origin fingerprint.
 
- * Log and keep statistics on all types of outer security envelope authentication errors.
+ * Log outer and origin security envelope authentication errors.
 
- * CLI command "show security" reports configured keys and detected authentication errors on all
-   interfaces.
+ * Keep and report detailed statistics on many types of authentication errors and successful
+   validations.
 
-## Configure keys
+ * CLI command "show security" reports configured keys and authentication statistics for the node.
 
-You can configure the set of security keys at the top-level in the configuration file (also known
-as the topology file) as follows:
+ * CLI command "show interface <i>interface-name</i> security" reports configured keys and
+   authentication statistics for the interface.
+
+## Configure authentication keys
+
+You can configure the set of security authentication_keys at the top-level in the configuration file
+(also known as the topology file) as follows:
 
 <pre>
-keys:
+authentication_keys:
   - id: 1
     algorithm: hmac-sha-1
     secret: this-is-the-secret-for-key-1
@@ -85,13 +121,17 @@ keys:
     secret: this-is-the-secret-for-key-3
 </pre>
 
-Each key is defined by:
+Each autentication_key is defined by:
 
- * A unique key ID. This is a number between 1 and 255.
+ * A unique key ID. This is a number between 1 and 66051. Keys with a key-id in range 1...255 can
+   be used as outer keys and/or origin keys. Keys with a key-id greater than 255 can only be used
+   as an origin key.
 
  * The key algorithm. This is the algorithm used to calculate the fingerprint. The currently
-   supported algorithms are: hmac-sha-1, hmac-sha-224, hmac-sha-256, hmac-sha-384, hmac-sha-512.
-   These algorithms are defined in [RFC2104](https://tools.ietf.org/html/rfc2104).
+   supported algorithms are: hmac-sha-1, hmac-sha-224, hmac-sha-256, hmac-sha-384, hmac-sha-512,
+   sha-1, sha-224, sha-256, sha-384, sha-512.
+   The hmac-sha-xxx algorithms are defined in [RFC2104](https://tools.ietf.org/html/rfc2104).
+   The sha-xxx algorithms compute the fingerprint using SHA-XXX(secret + payload).
 
  * The key secret. This is a string.
 
@@ -99,62 +139,27 @@ Note: in the current implementation the key secret is shown in plain text in bot
 file and in the output of show commands. Obfuscation of secrets is not yet supported.
 
 Configuring a set of keys in itself and by itself does not cause any fingerprints to be generated
-or checked. You must use the active-key element and optionally the accept-keys element (both
-documented below) to enable to actual generation and checking of fingerprints.
+or checked. You must use the active_authentication_key element and optionally the
+accept_authentication_keys element to enable to actual generation and checking of outer
+fingerprints. Similarly you must use the active_origin_authentication_key element and optionally the
+accept_origin_authentication_keys element to enable to actual generation and checking of origin
+fingerprints. These configuration statements are documented below.
 
-## Configure the active key
+## Configure the active_authentication_key
 
-The "active key" for a node is the key that the node uses to generate *all* fingerprints:
+The active_authentication_key is the key that is used to compute the outer
+fingerprints for sent packets and to validate the outer fingerprint for received packets.
 
- * All outer fingerprints on all interfaces.
+ * If you configure active_authentication_key at the node level, it is used for all interfaces on
+   the node.
 
- * All TIE origin fingerprints.
+ * If you configure active_authentication_key at the interface level, it use only for that
+   particular interface.
 
-For the sake of simplicity, RIFT-Python does currently not support using different outer keys on
-different interfaces, nor does it support using a different outer key and TIE origin key.
+ * If you configure active_authentication_key both at the node level and the interface level,
+   the interface level configuration takes precedence.
 
-As a consequence, RIFT-Python currently only supports the Fabric Association Model (FAM), and not
-the the Node Association Model (NAM) or Port Association Model (PAM).
-
-You can configure the active key at the node level in the configuration file (also known
-as the topology file) as follows:
-
-<pre>
-shards:
-  - id: 0
-    nodes:
-      - name: node-1
-        level: 2
-        systemid: 1
-        <b>active_key: 1</b>
-        interfaces:
-          - name: if1
-            [...]
-</pre>
-
-The active key must be a key ID in the range 1 - 255.
-
-It is not allowed to set the active key to zero. If you wish to use null authentication on sent
-packets you must omit the active key from the configuration.
-
-The active key must match one of the key IDs in the keys section (see 
-the ["configure keys"](configure-keys) section.)
-
-If the active_key is not configured, then null authentication is used: the sent key-id is zero,
-and the sent fingerprint is empty.
-
-
-## Configure accept keys
-
-For key roll-over scenarios you can configure a list of accept keys.
-
-Nodes always end packets with a key-id and fingerprint that is determined by the active key.
-But when a node receives a packet with a non-zero key-id and a non-empty fingerprint, it will
-validate and accept the received packet if the received key-id matches the active key *or* any one
-of the accept keys.
-
-You can configure the list of accept keys at the node level in the configuration file (also known
-as the topology file) as follows:
+Example of configuring the active_authentication_key at the node level:
 
 <pre>
 shards:
@@ -163,130 +168,327 @@ shards:
       - name: node-1
         level: 2
         systemid: 1
-        active_key: 1
-        <b>accept_keys: [2, 3]</b>
+        <b>active_authentication_key: 1</b>
         interfaces:
           - name: if1
             [...]
 </pre>
 
-Each accept key must be a key ID in the range 0 - 255.
+Example of configuring the active_authentication_key at the interface level:
 
-It is allowed to include key ID zero in the accept keys. This means that you are willing to accept
-packets with null authentication.
+<pre>
+shards:
+  - id: 0
+    nodes:
+      - name: node-1
+        level: 2
+        systemid: 1
+        interfaces:
+          - name: if1
+            <b>active_authentication_key: 1</b>
+            [...]
+</pre>
 
-Each non-zero accept key must match one of the key IDs in the keys section (see 
+The active_authentication_key must be a key ID in the range 1 - 255.
+
+It is not allowed to set the active_authentication_key to zero. If you wish to use null
+outer authentication on sent packets you must omit active_authentication_key from the configuration.
+
+The active_authentication_key must match one of the key IDs in the keys section (see 
 the ["configure keys"](configure-keys) section.)
 
-See section TODO for more details on how to do key roll-overs.
+If the active_authentication_key is not configured, then null outer authentication is used: the sent
+outer key-id is zero, and the sent outer fingerprint is empty.
+
+## Configure accept_authentication_keys
+
+For key roll-over scenarios you can configure a list of accept_authentication_keys.
+
+Nodes always send packets with an outer key-id and outer fingerprint that is determined by the active_authentication_key as described above.
+
+If the outer key-id and fingerprint in received packet cannot be validated using the
+active_authentication_key then the node will attempt a secondary validation using the keys in
+accept_authentication_keys. If the outer key-id and fingerprint in received packet matches any one
+of the keys in accept_authentication_keys, it will also be accepted.
+
+This mechanism is inteded for key roll-over scenarios. Since it is not possible to change the
+configuration on multiple nodes at exactly the same time, they will be temporary situations where
+the active_authentication_key has already changed on one node but not yet on another node.
+
+ * If you configure accept_authentication_keys at the node level, it is used for all interfaces on
+   the node.
+
+ * If you configure accept_authentication_keys at the interface level, it use only for that
+   particular interface.
+
+ * If you configure accept_authentication_keys both at the node level and the interface level,
+   the interface level configuration takes precedence.
+
+Example of configuring accept_authentication_keys at the node level:
+
+<pre>
+shards:
+  - id: 0
+    nodes:
+      - name: node-1
+        level: 2
+        systemid: 1
+        active_authentication_key: 1
+        <b>accept_authentication_keys: [2, 4]</b>
+        interfaces:
+          - name: if1
+            [...]
+</pre>
+
+Example of configuring accept_authentication_keys at the interface level:
+
+<pre>
+shards:
+  - id: 0
+    nodes:
+      - name: node-1
+        level: 2
+        systemid: 1
+        interfaces:
+          - name: if1
+            active_authentication_key: 1
+            <b>accept_authentication_keys: [2, 4]</b>
+            [...]
+</pre>
+
+Each key in accept_authentication_keys must be a key ID in the range 1 - 255.
+
+It is allowed to include key ID zero in accept_authentication_keys. This means that you are willing
+to accept packets with null authentication.
+
+Each non-zero key in accept_authentication_keys must match one of the key IDs in the keys section
+(see the ["configure keys"](configure-keys) section.)
+
+Key validation is "strict": if a packet is received with an outer key-id that does not
+match the key-id of the active_authentication_key and also does not match the key-id of any of the
+keys in accept_authentication_keys, then the packet is rejected (discarded) due to an authentication
+error.
+That said, if accept_authentication_keys contains key-id zero, the interface will accept packets
+with outer key-id 0 and an empty outer fingerprint (i.e. packets will null outer authentication).
+
+## Configure the active_origin_authentication_key
+
+The active_origin_authentication_key is the key that is used to compute the origin
+fingerprints for sent TIE packets and to validate the origin fingerprint for received TIE packets.
+
+The active_origin_authentication_key can only be configured at the node level and not at the
+interface level. This is because it is typically not possible to predict on which interface a
+flooded TIE packet will arrive.
+
+Example of configuring the active_origin_authentication_key at the node level:
+
+<pre>
+shards:
+  - id: 0
+    nodes:
+      - name: node-1
+        level: 2
+        systemid: 1
+        <b>active_origin_authentication_key: 1</b>
+        interfaces:
+          - name: if1
+            [...]
+</pre>
+
+The active_origin_authentication_key must be a key ID in the range 1 - 25516777215.
+
+It is not allowed to set the active_origin_authentication_key to zero. If you wish to use null
+origin authentication on sent TIE packets you must omit active_origin_authentication_key from the
+configuration.
+
+The active_origin_authentication_key must match one of the key IDs in the keys section (see 
+the ["configure keys"](configure-keys) section.)
+
+If the active_origin_authentication_key is not configured, then null origin authentication is used:
+the sent origin key-id is zero, and the sent origin fingerprint is empty.
+
+## Configure accept_origin_authentication_keys
+
+For key roll-over scenarios you can configure a list of accept_origin_authentication_keys.
+
+Nodes always send packets with an origin key-id and origin fingerprint that is determined by the active_origin_authentication_key as described above.
+
+If the origin key-id and fingerprint in received TIE packet cannot be validated using the
+active_origin_authentication_key then the node will attempt a secondary validation using the keys in
+accept_origin_authentication_keys. If the origin key-id and fingerprint in received packet matches
+any one of the keys in accept_origin_authentication_keys, it will also be accepted.
+
+This mechanism is inteded for key roll-over scenarios. Since it is not possible to change the
+configuration on multiple nodes at exactly the same time, they will be temporary situations where
+the active_origin_authentication_key has already changed on one node but not yet on another node.
+
+The accept_origin_authentication_keys can only be configured at the node level and not at the
+interface level. This is because it is typically not possible to predict on which interface a
+flooded TIE packet will arrive.
+
+Example of configuring accept_origin_authentication_keys at the node level:
+
+<pre>
+shards:
+  - id: 0
+    nodes:
+      - name: node-1
+        level: 2
+        systemid: 1
+        active_origin_authentication_key: 1
+        <b>accept_origin_authentication_keys: [2, 4]</b>
+        interfaces:
+          - name: if1
+            [...]
+</pre>
+
+Each key in accept_authentication_keys must be a key ID in the range 1 - 25516777215.
+
+It is allowed to include key ID zero in accept_origin_authentication_keys. This means that you are
+willing to accept packets with null authentication.
+
+Each non-zero key in accept_authenticatiaccept_origin_authentication_keyson_keys must match one of
+the key IDs in the keys section (see the ["configure keys"](configure-keys) section.)
+
+Key validation is "strict": if a TIE packet is received with an origin key-id that does not
+match the key-id of the active_origin_authentication_key and also does not match the key-id of any
+of the keys in accept_origin_authentication_keys, then the packet is rejected (discarded) due to an authentication error.
+That said, if accept_origin_authentication_keys contains key-id zero, the node will accept TIE
+packets with origin key-id 0 and an empty origin fingerprint (i.e. packets will null origin
+authentication).
 
 ## Fingerprints
 
-RIFT-Python uses the configured active key to generate the key-id and the fingerprint in both the
-outer security header for all sent packets, and in the TIE origin security header for TIE packets.
+RIFT-Python computes the outer fingerprints for all sent packets as follows:
 
-If no active key has been configured, RIFT-Python uses null authentication: it sets the key-id
-to zero and it sets the fingerprint to an empty fingerprint.
+ * RIFT-Python uses the configured active_authentication_key to compute the outer key-id and the
+   outer fingerprint for all sent packets.
 
-For received packets, RIFT-Python compares the received key-id against both the active key
-and the list of accept keys. It does this independently for the outer key-id and the TIE origin
-key-id (if present). In other words, although RIFT-Python always sets the outer key-id and the
-TIE origin key-id to the same value for all sent packets, it can handle different key-ids in the
-outer security envelope and the TIE origin security envelope for received packets.
+ * If active_authentication_key is not configured, then the outer key-id is set to zero and the
+   outer fingerprint is set to empty.
 
-If no matching key is found, an "Unknown key id" authentication error is declared.
+ * If active_authentication_key is not configured, then the outer key-id in the sent packet is set
+   to zero and the outer fingerprint is set to empty.
 
-If a matching key is found, it is used to validate the fingerprint. If the fingerprint does
-not match, an "Incorrect fingerprint" authentication error is declared.
+RIFT-Python computes the origin fingerprints for sent TIE packets as follows:
 
-There are also some less common other types of authentication errors. You can see a full list
-in the output of "show interface ... statistics".
+ * RIFT-Python uses the configured active_origin_authentication_key to compute the origin key-id
+   and the originr fingerprint for sent TIE packets.
 
-Whenever an authentication error occurs, the received packet is not processed any further and
-ignored for further processing.
+ * If active_origin_authentication_key is not configured, then the origin key-id is set to zero and
+   the origin fingerprint is set to empty.
 
-All authentication errors are logged as an ERROR, are counted in the statistics
-("show ... statistics"), and are reported in "show security", for example:
+ * If active_origin_authentication_key is not configured, then the outer key-id in the sent packet
+   is set to zero and the outer fingerprint is set to empty.
 
-<pre>
-node-1> show interface if1 statistics
-Traffic:
-+---------------------------------------------------+------------------------+------------------------------------+-------------------+
-| Description                                       | Value                  | Last Rate                          | Last Change       |
-|                                                   |                        | Over Last 10 Changes               |                   |
-+---------------------------------------------------+------------------------+------------------------------------+-------------------+
-.                                                   .                        .                                    .                   .
-.                                                   .                        .                                    .                   .
-+---------------------------------------------------+------------------------+------------------------------------+-------------------+
-| RX Incorrect outer fingerprint                    | 16 Packets, 2624 Bytes | 2.25 Packets/Sec, 368.91 Bytes/Sec | 0d 00h:00m:00.33s |
-+---------------------------------------------------+------------------------+------------------------------------+-------------------+
-.                                                   .                        .                                    .                   .
-.                                                   .                        .                                    .                   .
-+---------------------------------------------------+------------------------+------------------------------------+-------------------+
-| Total RX Authentication Errors                    | 16 Packets, 2624 Bytes | 2.25 Packets/Sec, 368.91 Bytes/Sec | 0d 00h:00m:00.33s |
-+---------------------------------------------------+------------------------+------------------------------------+-------------------+
-</pre>
+RIFT-Python validates the outer fingerprints for all received packets as follows:
 
-<pre>
-node-1> show security
-Security Keys:
-+--------+--------------+------------------------------+--------+--------+
-| Key ID | Algorithm    | Secret                       | Active | Accept |
-+--------+--------------+------------------------------+--------+--------+
-| 1      | hmac-sha-1   | this-is-the-secret-for-key-1 | Active |        |
-+--------+--------------+------------------------------+--------+--------+
-| 2      | hmac-sha-1   | this-is-the-secret-for-key-2 |        |        |
-+--------+--------------+------------------------------+--------+--------+
-| 3      | hmac-sha-1   | this-is-the-secret-for-key-3 |        |        |
-+--------+--------------+------------------------------+--------+--------+
-| 4      | hmac-sha-256 | this-is-the-secret-for-key-4 |        |        |
-+--------+--------------+------------------------------+--------+--------+
-| 5      | hmac-sha-256 | this-is-the-secret-for-key-5 |        |        |
-+--------+--------------+------------------------------+--------+--------+
+ * RIFT-Python checks whether the outer key-id in the received packet matches the configured
+   active_authentication_key. If so, RIFT-Python validates the received outer fingerprint using that
+   key.
 
-Authentication Errors:
-+-----------+--------------------------------+--------------------------+------------------------------------+-------------------+
-| Interface | Authentication                 | Error                    | Error                              | Last Change       |
-|           | Errors                         | Count                    | Rate                               |                   |
-+-----------+--------------------------------+--------------------------+------------------------------------+-------------------+
-| if1       | RX Incorrect outer fingerprint | 188 Packets, 30832 Bytes | 2.25 Packets/Sec, 368.91 Bytes/Sec | 0d 00h:00m:00.67s |
-+-----------+--------------------------------+--------------------------+------------------------------------+-------------------+
-| if2       | RX Unknown outer key id        | 188 Packets, 30832 Bytes | 2.25 Packets/Sec, 368.80 Bytes/Sec | 0d 00h:00m:00.65s |
-+-----------+--------------------------------+--------------------------+------------------------------------+-------------------+
-</pre>
+ * Otherwise RIFT-Python checks whether the outer key-id in the received packet matches any of the
+   keys in the configured accept_authentication_keys. If so, RIFT-Python validates the received
+   outer fingerprint using that key.
+
+ * If the received packet contains a zero outer key-id and an empty outer fingerprint, the packet
+   will be accepted if and only if (a) active_authentication_key is not configured OR
+   (b) accept_authentication_keys contains key-id zero.
+
+RIFT-Python validates the origin fingerprints for received TIE packets as follows:
+
+ * RIFT-Python checks whether the origin key-id in the received TIE packet matches the configured
+   active_origin_authentication_key. If so, RIFT-Python validates the received origin fingerprint
+   using that key.
+
+ * Otherwise RIFT-Python checks whether the origin key-id in the received TIE packet matches any of
+   the keys in the configured accept_origin_authentication_keys. If so, RIFT-Python validates the
+   received origin fingerprint using that key.
+
+ * If the received packet contains a zero origin key-id and an empty origin fingerprint, the packet
+   will be accepted if and only if (a) active_orgin_authentication_key is not configured OR
+   (b) accept_origin_authentication_keys contains key-id zero.
+
+RIFT-Python keeps detailed statistics on both succesful outer and origin key validations, as well
+as many types on non-successful outer and key validations.
+You can view these statistics using the "show security" and "show interface <i>interface-name</i>
+security" commands (see below for details).
+
+All authentication errors are logged as an ERROR.
 
 ## Key roll-overs
 
-The following proceduce is suggested to perform a roll-over from key A to key B:
+The following proceduce is suggested to perform a roll-over from key A to key B.
 
-* On each node, add key B to the list of keys, and add keys A and B to the accept keys. At this
-  point, each node is still using key A as the active key, but is prepared to accept either key A or
-  key B from other nodes.
+In this example we illustrate a roll-over for the outer key, but the same procedure can also be
+followed for origin key roll-overs (keeping in mind that for origin keys all nodes in the network
+are involved, whereas with outer keys only two direct neighbor nodes are involved.)
 
-* On each node, change the active key from key A to key B. At this point, the nodes that are still
-  using key A as the active key are willing to accept key B from the nodes that have already been
-  switched over. And the nodes that have already switched over to key B are willing to accept key A
-  from the nodes that have not yet been switched over. Note that we need to worry also about nodes
-  that are more than one hop away (because of the TIE origin fingerprint), and not just about
-  neighbor nodes.
+* We assume that the starting scenario is that we have two nodes (node1 and node2) that both
+  have active_authentication_key set to A.
 
-* After all nodes have been switched over, the accept keys configuration can be removed.
+* On node1, while keeping active_authentication_key set to A, set accepts_authentication_keys to
+  [ A, B ].
+
+* On node2, while keeping active_authentication_key set to A, set accepts_authentication_keys to
+  [ A, B ].
+
+* On node1, while keeping accepts_authentication_keys set to [ A, B ], change
+  active_authentication_key to B.
+
+* On node2, while keeping accepts_authentication_keys set to [ A, B ], change
+  active_authentication_key to B.
+
+* On node1, while keeping active_authentication_key set to B, unconfigure
+  accepts_authentication_keys.
+
+* On node2, while keeping active_authentication_key set to B, unconfigure
+  accepts_authentication_keys.
 
 Note: currently RIFT-Python does not support run-time configuration changes. To change the
 configuration, you must edit the configuration file (also known as the topology file) and restart
-the RIFT-Python process.
+the RIFT-Python process. This section is only intended how the concept of accept_key will enable
+roll-overs if and when RIFT-Python does support run-time configuration changes at some point in the
+future.
 
-## Nonces
+## Weak nonces
 
-RIFT-Python generates increasing local nonces for all sent packets.
+Note: in a recent update, the RIFT draft switched from "nonce" terminology to "weak nonce"
+terminology. The RIFT-Python code still uses the term "nonce" (without the weak qualifier) in
+the documentation and in the output of show commands and in log messages.
 
-The current implementation increases the local nonce by one for every sent packet. It does not
-attempt to reduce the number of local nonce changes (and hence the number of times that the outer
-fingerprint needs to be computed) by only changing the local nonce periodically, e.g. every minute
-(plus every FSM state change).
+RIFT-Python generates the non-decreasing local-nonce for sent packets as follows:
 
-RIFT-Python takes the local nonce from the most recently recieved LIE packet, and reflects it in
-the remote nonce in all sent packets to that same node.
+ * The local-nonce is increases whenever a state transition occurs in the LIE FSM. This happens
+   regardless of how fast state transitions occur (i.e. local-nonce increases due to state changes
+   are currently not subject to any hold-down timer.)
+
+ * The local-nonce is increased whenever a packet is sent, but not more frequently than once per
+   minute. 
+
+ * The local-nonce for the first sent packet is a random number between 1 and 65535.
+
+RIFT-Python generates the reflected remote-nonce for sent packets as follows:
+
+ * In state ONE_WAY remote-nonce is alway set to zero (as required by the specification).
+ 
+ * In states TWO_WAY and THREE_WAY, remote-nonce is set to the reflected local-nonce in the most
+   recently received LIE packet from the neighbor.
+
+RIFT-Python validates the reflected remote-nonce in received packets as follows:
+
+ * In states ONE_WAY and TWO_WAY remote-nonce zero is always accepted (as required by the
+   specification).
+
+ * If RXNonce is reflected remote-nonce in the received packet, and TXNonce is the local-nonce
+   in the most recently sent packet, then RX-Nonce is accepted if and only if:
+   
+   TXNonce - 5 <= RXNonce <= TXNonce
+
+ * The math for comparing nonces takes into account the possibility of a nonce rollover.
+
+All of the logic for generating and validating nonces described above happens on a per-interface
+basis.
 
 If debug logging is turned on (command line option "--log-level debug"), both the local nonce and
 the remote nonce are reported in the logs for sent and received messages, for example:
@@ -295,30 +497,12 @@ the remote nonce are reported in the logs for sent and received messages, for ex
 2019-04-22 19:22:55,179:DEBUG:node.if.tx:[node-1:if1] Send IPv4 TIE from 192.168.0.100:49307 to 192.168.0.100:10005 packet-nr=2 outer-key-id=1 <b>nonce-local=7 nonce-remote=5</b> remaining-lie-lifetime=604799 outer-fingerprint-len=5 origin-key-id=1 origin-fingerprint-len=5 protocol-packet=ProtocolPacket(...
 </pre>
 
-RIFT-Python checks whether its neighbor is reflecting nonces that are sufficiently close to the
-most recently sent local noce: the received remote must be in the range [sent local nonce - 5 ... 
-sent local nonce] (taking into account wrap-arounds).
-
 If the received remote nonce is not in the expected range, a "Reflected nonce out of sync"
 authentication error is declared.
 
-
 As with any type of authentication error, the received packet is not processed any further and
 ignored for further processing, the error is logged as an ERROR, is counted in the statistics
-("show ... statistics"), and is reported in "show security", for example:
-
-<pre>
-node-1> show security
-[...]
-
-Authentication Errors:
-+-----------+--------------------------------+------------------------+------------------------------------+-------------------+
-| Interface | Authentication                 | Error                  | Error                              | Last Change       |
-|           | Errors                         | Count                  | Rate                               |                   |
-+-----------+--------------------------------+------------------------+------------------------------------+-------------------+
-| if1       | RX Reflected nonce out of sync | 10 Packets, 1640 Bytes | 2.30 Packets/Sec, 376.98 Bytes/Sec | 0d 00h:00m:00.92s |
-+-----------+--------------------------------+------------------------+------------------------------------+-------------------+
-</pre>
+("show ... statistics"), and is reported in "show security" (see below for example output).
 
 ## Packet numbers
 
@@ -399,40 +583,151 @@ message on one node with a received message on a neighbor node.
 
 ## Show security
 
-The CLI command "show security" reports configured keys and detected authentication errors on all
-interfaces:
+The CLI command "show security" reports configured origin keys and security statistics for the
+current node:
 
 <pre>
-node-1> show security
+node2> show security
 Security Keys:
-+--------+--------------+------------------------------+--------+--------+
-| Key ID | Algorithm    | Secret                       | Active | Accept |
-+--------+--------------+------------------------------+--------+--------+
-| 1      | hmac-sha-1   | this-is-the-secret-for-key-1 | Active |        |
-+--------+--------------+------------------------------+--------+--------+
-| 2      | hmac-sha-1   | this-is-the-secret-for-key-2 |        |        |
-+--------+--------------+------------------------------+--------+--------+
-| 3      | hmac-sha-1   | this-is-the-secret-for-key-3 |        |        |
-+--------+--------------+------------------------------+--------+--------+
-| 4      | hmac-sha-256 | this-is-the-secret-for-key-4 |        |        |
-+--------+--------------+------------------------------+--------+--------+
-| 5      | hmac-sha-256 | this-is-the-secret-for-key-5 |        |        |
-+--------+--------------+------------------------------+--------+--------+
++--------+-----------+----------------------------------+
+| Key ID | Algorithm | Secret                           |
++--------+-----------+----------------------------------+
+| 0      | null      |                                  |
++--------+-----------+----------------------------------+
+| 1      | sha-256   | this-is-the-secret-for-key-1     |
++--------+-----------+----------------------------------+
+| 2      | sha-256   | this-is-the-secret-for-key-2     |
++--------+-----------+----------------------------------+
+| 3      | sha-256   | this-is-the-secret-for-key-3     |
++--------+-----------+----------------------------------+
+| 4      | sha-256   | this-is-the-secret-for-key-4     |
++--------+-----------+----------------------------------+
+| 66051  | sha-256   | this-is-the-secret-for-key-66051 |
++--------+-----------+----------------------------------+
 
-Authentication Errors:
-+-----------+--------------------------------+------------------------+------------------------------------+-------------------+
-| Interface | Authentication                 | Error                  | Error                              | Last Change       |
-|           | Errors                         | Count                  | Rate                               |                   |
-+-----------+--------------------------------+------------------------+------------------------------------+-------------------+
-| if1       | RX Reflected nonce out of sync | 10 Packets, 1640 Bytes | 2.30 Packets/Sec, 376.98 Bytes/Sec | 0d 00h:00m:00.92s |
-+-----------+--------------------------------+------------------------+------------------------------------+-------------------+
-| if2       | RX Unknown outer key id        | 10 Packets, 1640 Bytes | 2.28 Packets/Sec, 374.26 Bytes/Sec | 0d 00h:00m:00.89s |
-+-----------+--------------------------------+------------------------+------------------------------------+-------------------+
+Origin Keys:
++--------------------+-----------+
+| Key                | Key ID(s) |
++--------------------+-----------+
+| Active Origin Key  | 4         |
++--------------------+-----------+
+| Accept Origin Keys | 66051     |
++--------------------+-----------+
+
+Security Statistics:
++------------------------------------------------+-------------------------+-------------------------------------+-------------------+
+| Description                                    | Value                   | Last Rate                           | Last Change       |
+|                                                |                         | Over Last 10 Changes                |                   |
++------------------------------------------------+-------------------------+-------------------------------------+-------------------+
+| Missing outer security envelope                | 0 Packets, 0 Bytes      |                                     |                   |
++------------------------------------------------+-------------------------+-------------------------------------+-------------------+
+| Zero outer key id not accepted                 | 0 Packets, 0 Bytes      |                                     |                   |
++------------------------------------------------+-------------------------+-------------------------------------+-------------------+
+| Non-zero outer key id not accepted             | 0 Packets, 0 Bytes      |                                     |                   |
++------------------------------------------------+-------------------------+-------------------------------------+-------------------+
+| Incorrect outer fingerprint                    | 0 Packets, 0 Bytes      |                                     |                   |
++------------------------------------------------+-------------------------+-------------------------------------+-------------------+
+| Missing TIE origin security envelope           | 0 Packets, 0 Bytes      |                                     |                   |
++------------------------------------------------+-------------------------+-------------------------------------+-------------------+
+| Zero TIE origin key id not accepted            | 0 Packets, 0 Bytes      |                                     |                   |
++------------------------------------------------+-------------------------+-------------------------------------+-------------------+
+| Non-zero TIE origin key id not accepted        | 0 Packets, 0 Bytes      |                                     |                   |
++------------------------------------------------+-------------------------+-------------------------------------+-------------------+
+| Unexpected TIE origin security envelope        | 0 Packets, 0 Bytes      |                                     |                   |
++------------------------------------------------+-------------------------+-------------------------------------+-------------------+
+| Inconsistent TIE origin key id and fingerprint | 0 Packets, 0 Bytes      |                                     |                   |
++------------------------------------------------+-------------------------+-------------------------------------+-------------------+
+| Incorrect TIE origin fingerprint               | 0 Packets, 0 Bytes      |                                     |                   |
++------------------------------------------------+-------------------------+-------------------------------------+-------------------+
+| Reflected nonce out of sync                    | 0 Packets, 0 Bytes      |                                     |                   |
++------------------------------------------------+-------------------------+-------------------------------------+-------------------+
+| Total Authentication Errors                    | 0 Packets, 0 Bytes      |                                     |                   |
++------------------------------------------------+-------------------------+-------------------------------------+-------------------+
+| Non-empty outer fingerprint accepted           | 73 Packets, 16836 Bytes | 8.79 Packets/Sec, 2221.12 Bytes/Sec | 0d 00h:00m:00.50s |
++------------------------------------------------+-------------------------+-------------------------------------+-------------------+
+| Non-empty origin fingerprint accepted          | 6 Packets, 1464 Bytes   | 2.56 Packets/Sec, 636.75 Bytes/Sec  | 0d 00h:00m:09.50s |
++------------------------------------------------+-------------------------+-------------------------------------+-------------------+
+| Empty outer fingerprint accepted               | 0 Packets, 0 Bytes      |                                     |                   |
++------------------------------------------------+-------------------------+-------------------------------------+-------------------+
+| Empty origin fingerprint accepted              | 0 Packets, 0 Bytes      |                                     |                   |
++------------------------------------------------+-------------------------+-------------------------------------+-------------------+
 </pre>
 
 Currently, they key secrets are shown in plain text in both the configuration and in the output
 of "show security". Obfuscation of key secrets is not yet supported.
 
 The authentication error statistics reported by "show security" are exactly the same as those
-that are reported by "show interface ... statistics". However, in the latter case they are easily
+that are reported by "show ... statistics". However, in the latter case they are easily
 overlooked because they are hidden in a sea of other statistics.
+
+## Show interface <i>interface-name</i> security
+
+The CLI command "show interface <i>interface-name</i>security" reports configured outer keys and
+security statistics for the specified interface:
+
+<pre>
+node2> show interface if2 security
+Outer Keys:
++-------------------+-----------+-----------------------+
+| Key               | Key ID(s) | Configuration Source  |
++-------------------+-----------+-----------------------+
+| Active Outer Key  | 2         | Interface Active Key  |
++-------------------+-----------+-----------------------+
+| Accept Outer Keys | 3         | Interface Accept Keys |
++-------------------+-----------+-----------------------+
+
+Nonces:
++--------------------------+----------------+
+| Last Received LIE Nonce  | 45448          |
++--------------------------+----------------+
+| Last Sent Nonce          | 30085          |
++--------------------------+----------------+
+| Next Sent Nonce Increase | 27.605848 secs |
++--------------------------+----------------+
+
+Security Statistics:
++------------------------------------------------+-------------------------+------------------------------------+-------------------+
+| Description                                    | Value                   | Last Rate                          | Last Change       |
+|                                                |                         | Over Last 10 Changes               |                   |
++------------------------------------------------+-------------------------+------------------------------------+-------------------+
+| Missing outer security envelope                | 0 Packets, 0 Bytes      |                                    |                   |
++------------------------------------------------+-------------------------+------------------------------------+-------------------+
+| Zero outer key id not accepted                 | 0 Packets, 0 Bytes      |                                    |                   |
++------------------------------------------------+-------------------------+------------------------------------+-------------------+
+| Non-zero outer key id not accepted             | 0 Packets, 0 Bytes      |                                    |                   |
++------------------------------------------------+-------------------------+------------------------------------+-------------------+
+| Incorrect outer fingerprint                    | 0 Packets, 0 Bytes      |                                    |                   |
++------------------------------------------------+-------------------------+------------------------------------+-------------------+
+| Missing TIE origin security envelope           | 0 Packets, 0 Bytes      |                                    |                   |
++------------------------------------------------+-------------------------+------------------------------------+-------------------+
+| Zero TIE origin key id not accepted            | 0 Packets, 0 Bytes      |                                    |                   |
++------------------------------------------------+-------------------------+------------------------------------+-------------------+
+| Non-zero TIE origin key id not accepted        | 0 Packets, 0 Bytes      |                                    |                   |
++------------------------------------------------+-------------------------+------------------------------------+-------------------+
+| Unexpected TIE origin security envelope        | 0 Packets, 0 Bytes      |                                    |                   |
++------------------------------------------------+-------------------------+------------------------------------+-------------------+
+| Inconsistent TIE origin key id and fingerprint | 0 Packets, 0 Bytes      |                                    |                   |
++------------------------------------------------+-------------------------+------------------------------------+-------------------+
+| Incorrect TIE origin fingerprint               | 0 Packets, 0 Bytes      |                                    |                   |
++------------------------------------------------+-------------------------+------------------------------------+-------------------+
+| Reflected nonce out of sync                    | 0 Packets, 0 Bytes      |                                    |                   |
++------------------------------------------------+-------------------------+------------------------------------+-------------------+
+| Total Authentication Errors                    | 0 Packets, 0 Bytes      |                                    |                   |
++------------------------------------------------+-------------------------+------------------------------------+-------------------+
+| Non-empty outer fingerprint accepted           | 90 Packets, 19762 Bytes | 3.00 Packets/Sec, 686.58 Bytes/Sec | 0d 00h:00m:00.38s |
++------------------------------------------------+-------------------------+------------------------------------+-------------------+
+| Non-empty origin fingerprint accepted          | 3 Packets, 692 Bytes    | 2.05 Packets/Sec, 481.11 Bytes/Sec | 0d 00h:00m:31.36s |
++------------------------------------------------+-------------------------+------------------------------------+-------------------+
+| Empty outer fingerprint accepted               | 0 Packets, 0 Bytes      |                                    |                   |
++------------------------------------------------+-------------------------+------------------------------------+-------------------+
+| Empty origin fingerprint accepted              | 0 Packets, 0 Bytes      |                                    |                   |
++------------------------------------------------+-------------------------+------------------------------------+-------------------+
+</pre>
+
+Currently, they key secrets are shown in plain text in both the configuration and in the output
+of "show interface <i>interface-name</i> security". Obfuscation of key secrets is not yet supported.
+
+The authentication error statistics reported by "show interface <i>interface-name</i> security" 
+are exactly the same as those that are reported by "show interface <i>interface-name</i>
+statistics". However, in the latter case they are easily overlooked because they are hidden in a sea
+of other statistics.

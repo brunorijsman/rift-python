@@ -21,6 +21,8 @@ The code is currently still a work in progress (see Feature List below for the s
 
 * Feature Guides:
 
+  * [Flooding Reduction Feature Guide](doc/flooding-reduction-feature-guide.md)
+
   * [Positive Disaggregation Feature Guide](doc/positive-disaggregation-feature-guide.md)
 
   * [Security Feature Guide](doc/security-feature-guide.md)
@@ -55,6 +57,12 @@ A version of this code (tag ietf-102-rift-hackathon) was used to conduct interop
 
 * [Zero Touch Provisioning (ZTP) Preliminary Interoperability Testing Report](doc/ztp-interop-testing-report.md)
 
+## RIFT Security Reviews
+
+* [RIFT Security Review version 1 (out of date)](http://bit.ly/rift-security-review)
+
+* [RIFT Security Review version 2](http://bit.ly/rift-security-review-v2)
+
 ## IETF 103 (Bangkok)
 
 * [IETF 103 Presentation: Open Source Update (PDF)](ietf-103/ietf-103---rift-wg---open-source-update.pdf)
@@ -76,3 +84,7 @@ A version of this code (tag ietf-102-rift-hackathon) was used to conduct interop
 * [IETF 104 Hackathon Instructions Document (PDF)](http://bit.ly/rift-hackathon-ietf-104)
 
 * [IETF 104 Hackathon Instructions Video (YouTube)](https://www.youtube.com/watch?v=GqebgPmA4Xc)
+
+## IETF 105 (Montreal)
+
+* [IETF 105 Working Group Presentation: Open Source Update (PDF)](ietf-105/ietf-105---rift-wg---open-source-update.pdf)

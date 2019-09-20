@@ -35,6 +35,8 @@ class Interface:
 
     SERVICE_QUEUES_INTERVAL = 1.0
 
+    INCREASE_TX_NONCE_LOCAL_HOLDDOWN_TIME = 60.0
+
     def generate_advertised_name(self):
         return self.node.name + ':' + self.name
 
@@ -44,12 +46,6 @@ class Interface:
         # TODO: Check the hard-coded MTU value: 1400 or 1500
         mtu = 1400
         return mtu
-
-    @staticmethod
-    def generate_nonce():
-        # 15 bits instead of 16 because nonce field is a signed i64
-        nonce = random.getrandbits(15)
-        return nonce
 
     class State(enum.Enum):
         ONE_WAY = 1
@@ -258,7 +254,7 @@ class Interface:
         else:
             type_str = constants.packet_type_str(packet_info.packet_type)
         packet_str = str(packet_info)
-        self._rx_log.log(log_level, "[%s] %s %s %s%s %s" %
+        self._rx_log.log(log_level, "[%s] %s %s %s %s %s" %
                          (self._log_id, prelude, fam_str, type_str, from_str, packet_str))
 
     @staticmethod
@@ -278,18 +274,19 @@ class Interface:
             return "No-Content"
 
     def send_protocol_packet(self, protocol_packet, flood):
-        packet_info = packet_common.encode_protocol_packet(protocol_packet, self.node.active_key)
+        packet_info = packet_common.encode_protocol_packet(protocol_packet, self.active_outer_key)
         self.send_packet_info(packet_info, flood)
 
     def send_packet_info(self, packet_info, flood):
-        # The current implementation increases the local nonce on every sent packet, because if
-        # an attacker is able to replay even a single packet, that is suffient for the attacher to
-        # prevent the adjacency from reaching state 3-way. For ease of debugging, we make the local
-        # nonce equal to the packet_nr.
+        # In state oneway, send the undefined nonce as the reflected nonce
+        if self.fsm.state == self.State.ONE_WAY:
+            nonce_remote = 0
+        else:
+            nonce_remote = self._last_rx_lie_nonce_local
         packet_info.update_outer_sec_env_header(
-            outer_key=self.node.active_key,
+            outer_key=self.active_outer_key,
             nonce_local=self.choose_tx_nonce_local(),
-            nonce_remote=self._last_rx_lie_nonce_local,
+            nonce_remote=nonce_remote,
             remaining_lifetime=packet_info.remaining_tie_lifetime)
         protocol_packet = packet_info.protocol_packet
         if flood:
@@ -345,13 +342,18 @@ class Interface:
             self._next_tx_packet_nr[index] = 1
         return packet_nr
 
-    def choose_tx_nonce_local(self):
-        nonce_local = self._next_tx_nonce_local
+    def increase_tx_nonce_local(self):
         self._next_tx_nonce_local += 1
         if self._next_tx_nonce_local > 0xffff:
             self._next_tx_nonce_local = 1
             self._tx_nonce_local_wrapped = True
+
+    def choose_tx_nonce_local(self):
+        nonce_local = self._next_tx_nonce_local
         self._last_tx_nonce_local = nonce_local
+        if not self._increase_tx_nonce_local_holddown_timer.running():
+            self.increase_tx_nonce_local()
+            self._increase_tx_nonce_local_holddown_timer.start()
         return nonce_local
 
     @staticmethod
@@ -429,7 +431,6 @@ class Interface:
             link_mtu_size=self._mtu,
             neighbor=lie_neighbor,
             pod=self._pod,
-            # nonce=Interface.generate_nonce(),
             node_capabilities=node_capabilities,
             holdtime=3,
             not_a_ztp_offer=self.node.send_not_a_ztp_offer_on_intf(self.name),
@@ -448,6 +449,9 @@ class Interface:
         if self.floodred_nbr_is_fr == self.NbrIsFRState.PENDING_TRUE:
             # This was the first time we send you_are_flood_repeater=True to the neighbor
             self.floodred_mark_sent_you_are_fr()
+
+    def action_increase_tx_nonce_local(self):
+        self.increase_tx_nonce_local()
 
     def floodred_mark_sent_you_are_fr(self):
         self.floodred_nbr_is_fr = self.NbrIsFRState.TRUE
@@ -803,9 +807,19 @@ class Interface:
     }
 
     _state_actions = {
-        State.ONE_WAY  : ([action_cleanup, action_send_lie], []),
-        State.THREE_WAY: ([action_start_flooding, action_init_partially_conn],
-                          [action_stop_flooding, action_clear_partially_conn])
+        State.ONE_WAY  : (
+            [action_cleanup,                        # State 1way entry actions
+             action_send_lie],
+            [action_increase_tx_nonce_local]),      # State 1way exit actions
+        State.TWO_WAY  : (
+            [],                                     # State 2way entry actions
+            [action_increase_tx_nonce_local]),      # State 2way exit actions
+        State.THREE_WAY: (
+            [action_start_flooding,                 # State 3way entry actions
+             action_init_partially_conn],
+            [action_increase_tx_nonce_local,        # State 3way exit actions
+             action_stop_flooding,
+             action_clear_partially_conn])
     }
 
     fsm_definition = fsm.FsmDefinition(
@@ -894,8 +908,13 @@ class Interface:
                 index = (address_family, packet_type)
                 self._next_tx_packet_nr[index] = 1
         self._last_rx_packet_nr = {}    # Indexed by (address-family, packet-type)
-        self._next_tx_nonce_local = 1
+        self._next_tx_nonce_local = random.randint(1, 65535)
         self._last_tx_nonce_local = None
+        self._increase_tx_nonce_local_holddown_timer = timer.Timer(
+            interval=self.INCREASE_TX_NONCE_LOCAL_HOLDDOWN_TIME,
+            expire_function=None,
+            periodic=False,
+            start=False)
         self._tx_nonce_local_wrapped = False
         self._last_rx_lie_nonce_local = 0
         self._time_ticks_since_lie_received = None
@@ -914,13 +933,27 @@ class Interface:
         # same TIE-ID in the queue. The ordering is needed because we want to service the entries
         # in the queue in the same order in which they were added (FIFO).
         # TODO: For _ties_rtx, add time to retransmit to retransmit queue
-        self._ties_tx = collections.OrderedDict()
-        self._ties_rtx = collections.OrderedDict()
-        self._ties_req = collections.OrderedDict()
-        self._ties_ack = collections.OrderedDict()
+        self._ties_tx = collections.OrderedDict()   # Dict of TIEHeader
+        self._ties_rtx = collections.OrderedDict()  # Dict of TIEHeader
+        self._ties_req = collections.OrderedDict()  # Dict of TIEHeaderWithLifeTime
+        self._ties_ack = collections.OrderedDict()  # Dict of TIEHeaderWithLifeTime
         self.floodred_nbr_is_fr = self.NbrIsFRState.NOT_APPLICABLE
         self.partially_connected = None
         self.partially_connected_causes = None
+        key_id = self.get_config_attribute(config, 'active_authentication_key', None)
+        if key_id is None:
+            self.active_outer_key = self.node.active_outer_key
+            self.active_outer_key_src = self.node.active_outer_key_src
+        else:
+            self.active_outer_key = self.node.key_id_to_key(key_id)
+            self.active_outer_key_src = "Interface Active Key"
+        key_ids = self.get_config_attribute(config, 'accept_authentication_keys', None)
+        if key_ids is None:
+            self.accept_outer_keys = self.node.accept_outer_keys
+            self.accept_outer_keys_src = self.node.accept_outer_keys_src
+        else:
+            self.accept_outer_keys = self.node.key_ids_to_keys(key_ids)
+            self.accept_outer_keys_src = "Interface Accept Keys"
         self._traffic_stats_group = stats.Group(self.node.intf_traffic_stats_group)
         pab = ["Packet", "Byte"]
         stg = self._traffic_stats_group
@@ -928,7 +961,7 @@ class Interface:
         self._rx_errors_counter = stats.MultiCounter(None, "Total RX Errors", pab)
         self._errors_counter = stats.MultiCounter(None, "Total RX Decode Errors", pab)
         self._error_to_counter = {}
-        self._auth_errors_counter = stats.MultiCounter(None, "Total RX Authentication Errors", pab)
+        self._security_errors_counter = stats.MultiCounter(None, "Total Authentication Errors", pab)
         self._tx_packets_counter = stats.MultiCounter(None, "Total TX Packets", pab)
         self._rx_packets_counter = stats.MultiCounter(None, "Total RX Packets", pab)
         self._tx_ipv6_counter = stats.MultiCounter(None, "Total TX IPv6 Packets", pab)
@@ -1061,12 +1094,6 @@ class Interface:
                                          sum_counters=[self._errors_counter])
             self._error_to_counter[decode_error] = counter
         self._errors_counter.add_to_group(stg)
-        # Counters for rx message authentication errors
-        for auth_error in packet_common.PacketInfo.AUTHENTICATION_ERRORS:
-            counter = stats.MultiCounter(stg, "RX " + auth_error, pab,
-                                         sum_counters=[self._auth_errors_counter])
-            self._error_to_counter[auth_error] = counter
-        self._auth_errors_counter.add_to_group(stg)
         # Counters for received packets with wrong packet-nr
         self._total_misorders_counter = stats.Counter(None, "Total RX Misorders", "Packet")
         self._ipv4_misorders_counter = stats.Counter(None, "Total RX IPv4 Misorders", "Packet")
@@ -1088,6 +1115,23 @@ class Interface:
         self._ipv4_misorders_counter.add_to_group(stg)
         self._ipv6_misorders_counter.add_to_group(stg)
         self._total_misorders_counter.add_to_group(stg)
+        # Counters for security errors
+        self._security_stats_group = stats.Group(self.node.intf_security_stats_group)
+        stg = self._security_stats_group
+        for auth_error in packet_common.PacketInfo.AUTHENTICATION_ERRORS:
+            counter = stats.MultiCounter(stg, auth_error, pab,
+                                         sum_counters=[self._security_errors_counter])
+            self._error_to_counter[auth_error] = counter
+        self._security_errors_counter.add_to_group(stg)
+        self._outer_auth_ok_counter = stats.MultiCounter(
+            stg, "Non-empty outer fingerprint accepted", pab)
+        self._origin_auth_ok_counter = stats.MultiCounter(
+            stg, "Non-empty origin fingerprint accepted", pab)
+        self._outer_empty_auth_ok_counter = stats.MultiCounter(
+            stg, "Empty outer fingerprint accepted", pab)
+        self._origin_empty_auth_ok_counter = stats.MultiCounter(
+            stg, "Empty origin fingerprint accepted", pab)
+
         self.fsm = fsm.Fsm(
             definition=self.fsm_definition,
             action_handler=self,
@@ -1153,11 +1197,14 @@ class Interface:
             rx_intf=self,
             from_info=from_info,
             message=message,
-            active_key=self.node.active_key,
-            accept_keys=self.node.accept_keys)
+            active_outer_key=self.active_outer_key,
+            accept_outer_keys=self.accept_outer_keys,
+            active_origin_key=self.node.active_origin_key,
+            accept_origin_keys=self.node.accept_origin_keys)
         if packet_info.error:
             self.log_and_count_error(packet_info, nr_bytes)
             return None
+        self.count_auth_okay(packet_info, nr_bytes)
         protocol_packet = packet_info.protocol_packet
         if self._rx_fail:
             self.log_rx_protocol_packet(logging.DEBUG, "Simulated failure receiving", packet_info)
@@ -1195,6 +1242,19 @@ class Interface:
         if counter:
             counter.add([1, nr_bytes])
 
+    def count_auth_okay(self, packet_info, nr_bytes):
+        if packet_info.outer_key_id == 0:
+            counter = self._outer_empty_auth_ok_counter
+        else:
+            counter = self._outer_auth_ok_counter
+        counter.add([1, nr_bytes])
+        if packet_info.origin_sec_env_header:
+            if packet_info.origin_key_id == 0:
+                counter = self._origin_empty_auth_ok_counter
+            else:
+                counter = self._origin_auth_ok_counter
+            counter.add([1, nr_bytes])
+
     def update_last_rx_lie_nonce_local(self, packet_info):
         if packet_info.protocol_packet and packet_info.protocol_packet.content.lie:
             self._last_rx_lie_nonce_local = packet_info.nonce_local
@@ -1204,9 +1264,12 @@ class Interface:
         sent_nonce = self._last_tx_nonce_local
         reflected_nonce = packet_info.nonce_remote
         if reflected_nonce == 0:
-            # Neighbor did not reflect anything yet. This is only allowed in the beginning (first
-            # maximum_valid_nonce_delta sent nonces)
-            if self._tx_nonce_local_wrapped:
+            # Neighbor did not reflect a valid nonce.
+            # This is allowed if we are not in state three-way
+            # This also allowed in the beginning (first maximum_valid_nonce_delta sent nonces)
+            if self.fsm.state != self.State.THREE_WAY:
+                accepted = True
+            elif self._tx_nonce_local_wrapped:
                 accepted = False
             else:
                 accepted = sent_nonce <= max_delta
@@ -1309,29 +1372,29 @@ class Interface:
         if start_sending_tie_header is not None:
             self.try_to_transmit_tie(start_sending_tie_header)
         if ack_tie_header is not None:
-            lifeheader = packet_common.expand_tie_header_with_lifetime(
+            tie_header_lifetime = packet_common.expand_tie_header_with_lifetime(
                 ack_tie_header,
                 tie_packet_info.remaining_tie_lifetime)
-            self.ack_tie(lifeheader)
+            self.ack_tie(tie_header_lifetime)
 
     def process_rx_tide_packet(self, tide_packet):
         result = self.node.process_rx_tide_packet(tide_packet)
-        (request_tie_headers, start_sending_tie_headers, stop_sending_tie_headers) = result
+        (request_tie_headers_lifetime, start_sending_tie_headers, stop_sending_tie_headers) = result
         for tie_header in start_sending_tie_headers:
             self.try_to_transmit_tie(tie_header)
-        for tie_header in request_tie_headers:
-            self.request_tie(tie_header)
+        for tie_header_lifetime in request_tie_headers_lifetime:
+            self.request_tie(tie_header_lifetime)
         for tie_header in stop_sending_tie_headers:
             self.remove_from_all_queues(tie_header)
 
     def process_rx_tire_packet(self, tire_packet):
         self.rx_debug("Receive TIRE packet %s", tire_packet)
         result = self.node.process_rx_tire_packet(tire_packet)
-        (request_tie_headers, start_sending_tie_headers, acked_tie_headers) = result
+        (request_tie_headers_lifetime, start_sending_tie_headers, acked_tie_headers) = result
         for tie_header in start_sending_tie_headers:
             self.try_to_transmit_tie(tie_header)
-        for tie_header in request_tie_headers:
-            self.request_tie(tie_header)
+        for tie_header_lifetime in request_tie_headers_lifetime:
+            self.request_tie(tie_header_lifetime)
         for tie_header in acked_tie_headers:
             self.tie_been_acked(tie_header)
 
@@ -1459,10 +1522,10 @@ class Interface:
         if not filtered:
             self.remove_from_ties_rtx(tie_header)
             if tie_header.tieid in self._ties_ack:
-                ack_header = self._ties_ack[tie_header.tieid]
-                if ack_header.seq_nr < tie_header.seq_nr:
+                ack_header_lifetime = self._ties_ack[tie_header.tieid]
+                if ack_header_lifetime.header.seq_nr < tie_header.seq_nr:
                     # ACK for older TIE is in queue, remove ACK from queue and send newer TIE
-                    self.remove_from_ties_ack(ack_header)
+                    self.remove_from_ties_ack(ack_header_lifetime.header)
                     self.add_tie_header_to_ties_tx(tie_header)
                 else:
                     # ACK for newer TIE in in queue, keep ACK and don't send this older TIE
@@ -1551,8 +1614,8 @@ class Interface:
         tire_packet = packet_common.make_tire_packet()
         # We always send an ACK for every TIE header on the ACK queue. I.e. we always ACK the TIEs
         # that we received and accepted.
-        for tie_header in self._ties_ack.values():
-            packet_common.add_tie_header_to_tire(tire_packet, tie_header)
+        for tie_header_lifetime in self._ties_ack.values():
+            packet_common.add_tie_header_to_tire(tire_packet, tie_header_lifetime)
         packet_content = encoding.ttypes.PacketContent(tire=tire_packet)
         packet_header = encoding.ttypes.PacketHeader(
             sender=self.node.system_id,
@@ -1746,6 +1809,38 @@ class Interface:
                      remote_port])
         return tab
 
+    @staticmethod
+    def key_id_str(key):
+        if key is None:
+            return "None"
+        if key.key_id is None:
+            return "None"
+        return str(key.key_id)
+
+    def intf_outer_keys_table(self):
+        tab = table.Table()
+        tab.add_row(["Key",
+                     "Key ID(s)",
+                     "Configuration Source"])
+        tab.add_row(["Active Outer Key",
+                     self.node.key_str(self.active_outer_key),
+                     self.active_outer_key_src])
+        tab.add_row(["Accept Outer Keys",
+                     self.node.keys_str(self.accept_outer_keys),
+                     self.accept_outer_keys_src])
+        return tab
+
+    def nonces_table(self):
+        tab = table.Table()
+        tab.add_row(["Last Received LIE Nonce", self._last_rx_lie_nonce_local])
+        tab.add_row(["Last Sent Nonce", self._last_tx_nonce_local])
+        if self._increase_tx_nonce_local_holddown_timer.running():
+            next_inc = self._increase_tx_nonce_local_holddown_timer.remaining_time_str()
+        else:
+            next_inc = "Next Packet"
+        tab.add_row(["Next Sent Nonce Increase", next_inc])
+        return tab
+
     def sockets_table(self):
         tab = table.Table()
         tab.add_row([
@@ -1778,6 +1873,9 @@ class Interface:
 
     def traffic_stats_table(self, exclude_zero):
         return self._traffic_stats_group.table(exclude_zero)
+
+    def security_stats_table(self, exclude_zero):
+        return self._security_stats_group.table(exclude_zero)
 
     def lie_fsm_stats_table(self, exclude_zero):
         return self.fsm.stats_table(exclude_zero)
@@ -1822,13 +1920,14 @@ class Interface:
         seq_nrs = []
         remaining_lifetimes = []
         origination_times = []
-        for header in tide_packet.headers:
-            directions.append(packet_common.direction_str(header.header.tieid.direction))
-            originators.append(header.header.tieid.originator)
-            types.append(packet_common.tietype_str(header.header.tieid.tietype))
-            tie_nrs.append(header.header.tieid.tie_nr)
-            seq_nrs.append(header.header.seq_nr)
-            remaining_lifetimes.append(header.remaining_lifetime)
+        for header_lifetime in tide_packet.headers:
+            header = header_lifetime.header
+            directions.append(packet_common.direction_str(header.tieid.direction))
+            originators.append(header.tieid.originator)
+            types.append(packet_common.tietype_str(header.tieid.tietype))
+            tie_nrs.append(header.tieid.tie_nr)
+            seq_nrs.append(header.seq_nr)
+            remaining_lifetimes.append(header_lifetime.remaining_lifetime)
             origination_times.append('-')   # TODO: Report origination_time
         return [
             packet_common.tie_id_str(tide_packet.start_range),
@@ -1841,7 +1940,26 @@ class Interface:
             remaining_lifetimes,
             origination_times]
 
-    def tie_headers_table_common(self, tie_headers):
+    def tie_headers_table_cmn(self, tie_headers):
+        tab = table.Table()
+        tab.add_row([
+            "Direction",
+            "Originator",
+            "Type",
+            "TIE Nr",
+            "Seq Nr",
+            ["Origination", "Time"]])
+        for tie_header in tie_headers.values():
+            # TODO: Move direction_str etc. to packet_common
+            tab.add_row([packet_common.direction_str(tie_header.tieid.direction),
+                         tie_header.tieid.originator,
+                         packet_common.tietype_str(tie_header.tieid.tietype),
+                         tie_header.tieid.tie_nr,
+                         tie_header.seq_nr,
+                         "-"])   # TODO: Report origination_time
+        return tab
+
+    def tie_headers_lifetime_table_cmn(self, tie_headers):
         tab = table.Table()
         tab.add_row([
             "Direction",
@@ -1863,16 +1981,16 @@ class Interface:
         return tab
 
     def ties_tx_table(self):
-        return self.tie_headers_table_common(self._ties_tx)
+        return self.tie_headers_table_cmn(self._ties_tx)
 
     def ties_rtx_table(self):
-        return self.tie_headers_table_common(self._ties_rtx)
+        return self.tie_headers_table_cmn(self._ties_rtx)
 
     def ties_req_table(self):
-        return self.tie_headers_table_common(self._ties_req)
+        return self.tie_headers_lifetime_table_cmn(self._ties_req)
 
     def ties_ack_table(self):
-        return self.tie_headers_table_common(self._ties_ack)
+        return self.tie_headers_lifetime_table_cmn(self._ties_ack)
 
     # TODO: Set TTL as follows:
     # ttl_bin = struct.pack('@i', MYTTL)

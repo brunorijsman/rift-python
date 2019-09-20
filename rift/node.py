@@ -44,35 +44,32 @@ FLUSH_LIFETIME = 60
 # sender)
 
 # TODO: Make static method of Node
-def compare_tie_header_age(header_with_lifetime_1, header_with_lifetime_2):
+def compare_tie_header_lifetime_age(header_lifetime_1, header_lifetime_2):
     # Returns -1 is header1 is older, returns +1 if header1 is newer, 0 if "same" age
     # It is not allowed to call this function with headers with different TIE-IDs.
-    assert header_with_lifetime_1.header.tieid == header_with_lifetime_2.header.tieid
+    assert header_lifetime_1.header.tieid == header_lifetime_2.header.tieid
     # Highest sequence number is newer
-    if header_with_lifetime_1.header.seq_nr < header_with_lifetime_2.header.seq_nr:
+    if header_lifetime_1.header.seq_nr < header_lifetime_2.header.seq_nr:
         return -1
-    if header_with_lifetime_1.header.seq_nr > header_with_lifetime_2.header.seq_nr:
+    if header_lifetime_1.header.seq_nr > header_lifetime_2.header.seq_nr:
         return 1
     # When a node advertises remaining_lifetime 0 in a TIRE, it means a request (I don't have
     # that TIRE, please send it). Thus, if one header has remaining_lifetime 0 and the other
     # does not, then the one with non-zero remaining_lifetime is always newer.
-    if (header_with_lifetime_1.remaining_lifetime == 0) and \
-	(header_with_lifetime_2.remaining_lifetime != 0):
+    remaining_lifetime_1 = header_lifetime_1.remaining_lifetime
+    remaining_lifetime_2 = header_lifetime_2.remaining_lifetime
+    if remaining_lifetime_1 == 0 and remaining_lifetime_2 != 0:
         return -1
-    if (header_with_lifetime_1.remaining_lifetime != 0) and \
-	(header_with_lifetime_2.remaining_lifetime == 0):
+    if remaining_lifetime_1 != 0 and remaining_lifetime_2 == 0:
         return 1
     # The header with the longest remaining lifetime is considered newer. However, if the
     # difference in remaining lifetime is less than 5 minutes (300 seconds), they are considered
     # to be the same age.
-    age_diff = abs(header_with_lifetime_1.remaining_lifetime -
-                   header_with_lifetime_2.remaining_lifetime)
+    age_diff = abs(remaining_lifetime_1 - remaining_lifetime_2)
     if age_diff > common.constants.lifetime_diff2ignore:
-        if header_with_lifetime_1.remaining_lifetime < \
-	   header_with_lifetime_2.remaining_lifetime:
+        if remaining_lifetime_1 < remaining_lifetime_2:
             return -1
-        if header_with_lifetime_1.remaining_lifetime > \
-           header_with_lifetime_2.remaining_lifetime:
+        if remaining_lifetime_1 > remaining_lifetime_2:
             return 1
     # TODO: Figure out what to do with origination_time
     # If we get this far, we have a tie (same age)
@@ -447,13 +444,16 @@ class Node:
         self.floodred_node_random = self.generate_node_random(system_random, self.system_id)
         self.floodred_parents = []
         self.floodred_grandparents = {}
-        self.active_key_id = self.get_config_attribute('active_key', None)
-        if self.active_key_id is None or self.active_key_id == 0:
-            self.active_key = None
-        else:
-            self.active_key = self.engine.keys[self.active_key_id]
-        self._accept_key_ids = self.get_config_attribute('accept_keys', [])
-        self.accept_keys = [self.engine.keys[key_id] for key_id in self._accept_key_ids]
+        key_id = self.get_config_attribute('active_authentication_key', None)
+        self.active_outer_key = self.key_id_to_key(key_id)
+        self.active_outer_key_src = "Node Active Key"
+        key_ids = self.get_config_attribute('accept_authentication_keys', None)
+        self.accept_outer_keys = self.key_ids_to_keys(key_ids)
+        self.accept_outer_keys_src = "Node Accept Keys"
+        key_id = self.get_config_attribute('active_origin_authentication_key', None)
+        self.active_origin_key = self.key_id_to_key(key_id)
+        key_ids = self.get_config_attribute('accept_origin_authentication_keys', None)
+        self.accept_origin_keys = self.key_ids_to_keys(key_ids)
         self._derived_level = None
         self._rx_offers = {}     # Indexed by interface name
         self._tx_offers = {}     # Indexed by interface name
@@ -463,13 +463,16 @@ class Node:
         if self.engine:
             node_ztp_fsm_stats_sum_group = self.engine.node_ztp_fsm_stats_group
             intf_traffic_stats_sum_group = self.engine.intf_traffic_stats_group
+            intf_security_stats_sum_group = self.engine.intf_security_stats_group
             intf_lie_fsm_stats_sum_group = self.engine.intf_lie_fsm_stats_group
         else:
             node_ztp_fsm_stats_sum_group = None
             intf_traffic_stats_sum_group = None
+            intf_security_stats_sum_group = None
             intf_lie_fsm_stats_sum_group = None
         self.node_ztp_fsm_stats_group = stats.Group(node_ztp_fsm_stats_sum_group)
         self.intf_traffic_stats_group = stats.Group(intf_traffic_stats_sum_group)
+        self.intf_security_stats_group = stats.Group(intf_security_stats_sum_group)
         self.intf_lie_fsm_stats_group = stats.Group(intf_lie_fsm_stats_sum_group)
         self._next_interface_id = 1
         if 'interfaces' in config:
@@ -541,6 +544,18 @@ class Node:
             periodic=True,
             start=True)
         self.fsm.start()
+
+    def key_id_to_key(self, key_id):
+        if self.engine:
+            return self.engine.key_id_to_key(key_id)
+        else:
+            return None
+
+    def key_ids_to_keys(self, key_ids):
+        if self.engine:
+            return self.engine.key_ids_to_keys(key_ids)
+        else:
+            return []
 
     def generate_system_id(self):
         mac_address = uuid.getnode()
@@ -800,7 +815,7 @@ class Node:
                 link_ids=link_ids,
                 bandwidth=100)  # TODO: Take this from config file or interface
             tie_packet.element.node.neighbors[intf.neighbor.system_id] = node_neighbor
-        packet_info = packet_common.encode_protocol_packet(protocol_packet, self.active_key)
+        packet_info = packet_common.encode_protocol_packet(protocol_packet, self.active_origin_key)
         packet_common.set_lifetime(packet_info, common.constants.default_lifetime)
         self.my_node_tie_packet_infos[direction] = packet_info
         self.store_tie_packet_info(packet_info)
@@ -857,7 +872,7 @@ class Node:
                 metric = v6prefix['metric']
                 tags = set(v6prefix.get('tags', []))
                 packet_common.add_ipv6_prefix_to_prefix_tie(tie_packet, prefix, metric, tags)
-        packet_info = packet_common.encode_protocol_packet(protocol_packet, self.active_key)
+        packet_info = packet_common.encode_protocol_packet(protocol_packet, self.active_origin_key)
         packet_common.set_lifetime(packet_info, common.constants.default_lifetime)
         self._my_north_prefix_tie_packet_info = packet_info
         self.store_tie_packet_info(self._my_north_prefix_tie_packet_info)
@@ -875,7 +890,8 @@ class Node:
         # actually do advertise.
         do_adv_disagg = {}
         if self._my_pos_disagg_tie_packet_info:
-            element = self._my_pos_disagg_tie_packet_info.tie_packet.element
+            protocol_packet = self._my_pos_disagg_tie_packet_info.protocol_packet
+            element = protocol_packet.content.tie.element
             prefixes = element.positive_disaggregation_prefixes.prefixes
             for prefix, attr in prefixes.items():
                 do_adv_disagg[prefix] = attr
@@ -886,7 +902,8 @@ class Node:
         # prefixes.
         # Determine the sequence number.
         if self._my_pos_disagg_tie_packet_info:
-            new_seq_nr = self._my_pos_disagg_tie_packet_info.tie_packet.header.seq_nr + 1
+            protocol_packet = self._my_pos_disagg_tie_packet_info.protocol_packet
+            new_seq_nr = protocol_packet.content.tie.header.seq_nr + 1
         else:
             new_seq_nr = 1
         # Buid the new prefix TIE.
@@ -908,14 +925,15 @@ class Node:
             return
         # Wrap the tie_packet into a protocol packet, and encode it into a packet_info
         packet_header = encoding.ttypes.PacketHeader(
-            sender=self.node.system_id,
-            level=self.node.level_value())
+            sender=self.system_id,
+            level=self.level_value())
         packet_content = encoding.ttypes.PacketContent()
         protocol_packet = encoding.ttypes.ProtocolPacket(
             header=packet_header,
             content=packet_content)
         protocol_packet.content.tie = tie_packet
-        packet_info = packet_common.encode_protocol_packet(protocol_packet, self.active_key)
+        packet_info = packet_common.encode_protocol_packet(protocol_packet, self.active_origin_key)
+        packet_common.set_lifetime(packet_info, common.constants.default_lifetime)
         # Make the newly constructed TIE the current positive disaggregation TIE and update the
         # database.
         self._my_pos_disagg_tie_packet_info = packet_info
@@ -1012,7 +1030,7 @@ class Node:
                     packet_common.make_ipv6_prefix("::/0"),
                     metric)
             new_packet_info = packet_common.encode_protocol_packet(new_protocol_packet,
-                                                                   self.active_key)
+                                                                   self.active_origin_key)
             packet_common.set_lifetime(new_packet_info, common.constants.default_lifetime)
             self._my_south_prefix_tie_packet_info = new_packet_info
             self.store_tie_packet_info(self._my_south_prefix_tie_packet_info)
@@ -1104,6 +1122,7 @@ class Node:
     def command_clear_node_stats(self, _cli_session):
         self.node_ztp_fsm_stats_group.clear()
         self.intf_traffic_stats_group.clear()
+        self.intf_security_stats_group.clear()
         self.intf_lie_fsm_stats_group.clear()
 
     def command_show_intf_fsm_hist(self, cli_session, parameters, verbose):
@@ -1134,6 +1153,22 @@ class Node:
         cli_session.print("Acknowledge queue:")
         cli_session.print(tab.to_string())
 
+    def command_show_intf_security(self, cli_session, parameters):
+        interface_name = parameters['interface']
+        if not interface_name in self.interfaces_by_name:
+            cli_session.print("Error: interface {} not present".format(interface_name))
+            return
+        intf = self.interfaces_by_name[interface_name]
+        cli_session.print("Outer Keys:")
+        tab = intf.intf_outer_keys_table()
+        cli_session.print(tab.to_string())
+        cli_session.print("Nonces:")
+        tab = intf.nonces_table()
+        cli_session.print(tab.to_string())
+        cli_session.print("Security Statistics:")
+        tab = intf.security_stats_table(exclude_zero=False)
+        cli_session.print(tab.to_string())
+
     def command_show_intf_sockets(self, cli_session, parameters):
         interface_name = parameters['interface']
         if not interface_name in self.interfaces_by_name:
@@ -1151,6 +1186,9 @@ class Node:
         intf = self.interfaces_by_name[interface_name]
         cli_session.print("Traffic:")
         tab = intf.traffic_stats_table(exclude_zero)
+        cli_session.print(tab.to_string())
+        cli_session.print("Security:")
+        tab = intf.security_stats_table(exclude_zero)
         cli_session.print(tab.to_string())
         cli_session.print("LIE FSM:")
         tab = intf.lie_fsm_stats_table(exclude_zero)
@@ -1267,6 +1305,9 @@ class Node:
         cli_session.print(tab.to_string())
         cli_session.print("Node Interfaces Traffic:")
         tab = self.intf_traffic_stats_group.table(exclude_zero)
+        cli_session.print(tab.to_string())
+        cli_session.print("Node Interfaces Security:")
+        tab = self.intf_security_stats_group.table(exclude_zero)
         cli_session.print(tab.to_string())
         cli_session.print("Node Interface LIE FSMs:")
         tab = self.intf_lie_fsm_stats_group.table(exclude_zero, sort_by_description=True)
@@ -1388,10 +1429,13 @@ class Node:
 
     def command_show_security(self, cli_session):
         cli_session.print("Security Keys:")
-        tab = self.keys_table()
+        tab = self.security_keys_table()
         cli_session.print(tab.to_string())
-        cli_session.print("Authentication Errors:")
-        tab = self.auth_errors_table()
+        cli_session.print("Origin Keys:")
+        tab = self.node_origin_keys_table()
+        cli_session.print(tab.to_string())
+        cli_session.print("Security Statistics:")
+        tab = self.intf_security_stats_group.table(exclude_zero=False)
         cli_session.print(tab.to_string())
 
     def command_show_spf(self, cli_session):
@@ -1577,11 +1621,9 @@ class Node:
         if old_tie.header.seq_nr != new_tie.header.seq_nr:
             return True
         # All remaining_lifetime values are the same, except zero, for the purpose of running SPF
-        if (old_tie_info.remaining_tie_lifetime == 0) and \
-	   (new_tie_info.remaining_tie_lifetime != 0):
+        if old_tie_info.remaining_tie_lifetime == 0 and new_tie_info.remaining_tie_lifetime != 0:
             return True
-        if (old_tie_info.remaining_tie_lifetime != 0) and \
-	   (new_tie_info.remaining_tie_lifetime == 0):
+        if old_tie_info.remaining_tie_lifetime != 0 and new_tie_info.remaining_tie_lifetime == 0:
             return True
         # Ignore any changes in origination_lifetime for the purpose of running SPF (TODO: really?)
         # Any change in the element contents (node, prefixes, etc.) trigger an SPF
@@ -1598,7 +1640,7 @@ class Node:
         header = encoding.ttypes.PacketHeader(sender=self.system_id, level=self.level_value())
         content = encoding.ttypes.PacketContent(tie=tie_packet)
         protocol_packet = encoding.ttypes.ProtocolPacket(header=header, content=content)
-        packet_info = packet_common.encode_protocol_packet(protocol_packet, self.active_key)
+        packet_info = packet_common.encode_protocol_packet(protocol_packet, self.active_origin_key)
         packet_info.rx_intf = rx_intf
         packet_info.remaining_tie_lifetime = lifetime
         self.store_tie_packet_info(packet_info)
@@ -1648,7 +1690,7 @@ class Node:
             start_sending_tie_headers.append(db_tie_packet.header)
 
     def process_rx_tide_packet(self, tide_packet):
-        request_tie_headers = []
+        request_tie_headers_lifetime = []
         start_sending_tie_headers = []
         stop_sending_tie_headers = []
         # It is assumed TIDEs are sent and received in increasing order or range. If we observe
@@ -1670,21 +1712,22 @@ class Node:
         last_processed_tie_id = tide_packet.start_range
         minimum_inclusive = True
         # Process the TIDE
-        for header_in_tide in tide_packet.headers:
+        for header_lifetime_in_tide in tide_packet.headers:
+            header_in_tide = header_lifetime_in_tide.header
             # Make sure all tie_ids in the TIDE in the range advertised by the TIDE
-            if header_in_tide.header.tieid < last_processed_tie_id:
+            if header_in_tide.tieid < last_processed_tie_id:
                 # TODO: Handle error (not sorted)
                 assert False
             # Start/mid-gap processing: send TIEs that are in our TIE DB but missing in TIDE
             self.start_sending_db_ties_in_range(start_sending_tie_headers,
                                                 last_processed_tie_id, minimum_inclusive,
-                                                header_in_tide.header.tieid, False)
-            last_processed_tie_id = header_in_tide.header.tieid
+                                                header_in_tide.tieid, False)
+            last_processed_tie_id = header_in_tide.tieid
             minimum_inclusive = False
             # Process all tie_ids in the TIDE
-            db_tie_packet_info = self.find_tie_packet_info(header_in_tide.header.tieid)
+            db_tie_packet_info = self.find_tie_packet_info(header_in_tide.tieid)
             if db_tie_packet_info is None:
-                if header_in_tide.header.tieid.originator == self.system_id:
+                if header_in_tide.tieid.originator == self.system_id:
                     # Self-originate an empty TIE with a higher sequence number.
                     bumped_own_tie_header = self.bump_own_tie(None, header_in_tide)
                     start_sending_tie_headers.append(bumped_own_tie_header)
@@ -1693,29 +1736,28 @@ class Node:
                     # To request a a missing TIE, we have to set the seq_nr to 0. This is not
                     # mentioned in the RIFT draft, but it is described in ISIS ISO/IEC 10589:1992
                     # section 7.3.15.2 bullet b.4
-                    request_header = header_in_tide
+                    request_header = header_lifetime_in_tide
                     request_header.header.seq_nr = 0
                     request_header.header.origination_time = None
                     request_header.remaining_lifetime = 0
-                    request_tie_headers.append(request_header)
+                    request_tie_headers_lifetime.append(request_header)
             else:
                 db_tie_packet = db_tie_packet_info.protocol_packet.content.tie
                 db_tie_header = db_tie_packet.header
-                db_tie_with_lifetime = \
-                    packet_common.expand_tie_header_with_lifetime(
-                        db_tie_header,
-                        db_tie_packet_info.remaining_tie_lifetime)
-
-                comparison = compare_tie_header_age(db_tie_with_lifetime, header_in_tide)
+                db_tie_header_lifetime = packet_common.expand_tie_header_with_lifetime(
+                    db_tie_header,
+                    db_tie_packet_info.remaining_tie_lifetime)
+                comparison = compare_tie_header_lifetime_age(db_tie_header_lifetime,
+                                                             header_lifetime_in_tide)
                 if comparison < 0:
-                    if header_in_tide.header.tieid.originator == self.system_id:
+                    if header_in_tide.tieid.originator == self.system_id:
                         # Re-originate DB TIE with higher sequence number than the one in TIDE
                         bumped_own_tie_header = self.bump_own_tie(db_tie_packet_info,
                                                                   header_in_tide)
                         start_sending_tie_headers.append(bumped_own_tie_header)
                     else:
                         # We have an older version of the TIE, request the newer version
-                        request_tie_headers.append(header_in_tide)
+                        request_tie_headers_lifetime.append(header_lifetime_in_tide)
                 elif comparison > 0:
                     # We have a newer version of the TIE, send it
                     start_sending_tie_headers.append(db_tie_packet.header)
@@ -1726,32 +1768,32 @@ class Node:
         self.start_sending_db_ties_in_range(start_sending_tie_headers,
                                             last_processed_tie_id, minimum_inclusive,
                                             tide_packet.end_range, True)
-        return (request_tie_headers, start_sending_tie_headers, stop_sending_tie_headers)
+        return (request_tie_headers_lifetime, start_sending_tie_headers, stop_sending_tie_headers)
 
     def process_rx_tire_packet(self, tire_packet):
-        request_tie_headers = []
+        request_tie_headers_lifetime = []
         start_sending_tie_headers = []
         acked_tie_headers = []
-        for header_in_tire in tire_packet.headers:
-            db_tie_packet_info = self.find_tie_packet_info(header_in_tire.header.tieid)
+        for header_lifetime_in_tire in tire_packet.headers:
+            db_tie_packet_info = self.find_tie_packet_info(header_lifetime_in_tire.header.tieid)
             if db_tie_packet_info is not None:
                 db_tie_packet = db_tie_packet_info.protocol_packet.content.tie
                 db_tie_header = db_tie_packet.header
-                db_tie_with_lifetime = \
-                    packet_common.expand_tie_header_with_lifetime(
-                        db_tie_header,
-                        db_tie_packet_info.remaining_tie_lifetime)
-                comparison = compare_tie_header_age(db_tie_with_lifetime, header_in_tire)
+                db_tie_header_lifetime = packet_common.expand_tie_header_with_lifetime(
+                    db_tie_header,
+                    db_tie_packet_info.remaining_tie_lifetime)
+                comparison = compare_tie_header_lifetime_age(db_tie_header_lifetime,
+                                                             header_lifetime_in_tire)
                 if comparison < 0:
                     # We have an older version of the TIE, request the newer version
-                    request_tie_headers.append(header_in_tire)
+                    request_tie_headers_lifetime.append(header_lifetime_in_tire)
                 elif comparison > 0:
                     # We have a newer version of the TIE, send it
                     start_sending_tie_headers.append(db_tie_packet.header)
                 else:
                     # We have the same version of the TIE, treat it as an ACK
                     acked_tie_headers.append(db_tie_packet.header)
-        return (request_tie_headers, start_sending_tie_headers, acked_tie_headers)
+        return (request_tie_headers_lifetime, start_sending_tie_headers, acked_tie_headers)
 
     def find_according_node_tie(self, rx_tie_header):
         # We have to originate an empty node TIE for the purpose of flushing it. Use the same
@@ -1842,7 +1884,7 @@ class Node:
             rx_tie_lifetime = packet_common.expand_tie_header_with_lifetime(
                 rx_tie_header,
                 rx_tie_packet_info.remaining_tie_lifetime)
-            comparison = compare_tie_header_age(db_tie_lifetime, rx_tie_lifetime)
+            comparison = compare_tie_header_lifetime_age(db_tie_lifetime, rx_tie_lifetime)
             if comparison < 0:
                 # We have an older version of the TIE, ...
                 if rx_tie_id.originator == self.system_id:
@@ -2192,24 +2234,35 @@ class Node:
             tab.add_row([node_sysid, north_adjacencies, south_adjacencies, missing_adjacencies])
         return tab
 
-    def keys_table(self):
+    def security_keys_table(self):
         tab = table.Table()
-        tab.add_row(["Key ID", "Algorithm", "Secret", "Active", "Accept"])
+        tab.add_row(["Key ID", "Algorithm", "Secret"])
         for configured_key in self.engine.keys.values():
-            if configured_key.key_id == self.active_key_id:
-                active_str = 'Active'
-            else:
-                active_str = ''
-            if configured_key.key_id in self._accept_key_ids:
-                accept_str = 'Accept'
-            else:
-                accept_str = ''
             tab.add_row([
                 configured_key.key_id,
                 configured_key.algorithm,
-                configured_key.secret,
-                active_str,
-                accept_str])
+                configured_key.secret])
+        return tab
+
+    @staticmethod
+    def key_str(key):
+        if key is None:
+            return "None"
+        else:
+            return key.key_id
+
+    @staticmethod
+    def keys_str(keys):
+        if keys is None:
+            return "None"
+        else:
+            return ", ".join([str(key.key_id) for key in keys])
+
+    def node_origin_keys_table(self):
+        tab = table.Table()
+        tab.add_row(["Key", "Key ID(s)"])
+        tab.add_row(["Active Origin Key", self.key_str(self.active_origin_key)])
+        tab.add_row(["Accept Origin Keys", self.keys_str(self.accept_origin_keys)])
         return tab
 
     def auth_errors_table(self):
@@ -2775,8 +2828,8 @@ class Node:
                 grandparent.covered = True
             else:
                 grandparent.covered = False
-                self.floodred_warning("Grandparent system-id %s not covered by flooding repeaters",
-                                      utils.system_id_str(grandparent.sysid))
+                self.floodred_warning("Grandparent system-id %s not redundantly covered by flooding"
+                                      "repeaters", utils.system_id_str(grandparent.sysid))
 
     def floodrep_update_intfs(self):
         # Do all activations before any de-activations (so that the de-activations can known whether

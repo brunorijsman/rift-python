@@ -1,0 +1,105 @@
+# Topology: node_keys_match_diff_algo
+#
+# Test the outer and origin security envelopes, various scenarios where the keys do match.
+# In this topology, outer keys are always configured per-interface and never per-node
+#
+# This is a variation on topology node_keys_match_diff_algo: in this topology, the keys use
+# different signing algorithms.
+#
+#              Active    Accept    Active    Accept
+#              Outer     Outer     Origin    Origin
+#              Key       Keys      Key       Keys
+#  +-------+
+#  | 1     |                       4         [66051]     << node config
+#  +-------+
+#   if1|       1         [2]                             << interface config
+#      |
+#      |
+#   if1|       2         [1]                             << interface config
+#  +-------+
+#  | 2     |                       4        [66051]      << node config
+#  +-------+
+#   if2|       2         [3]                             << interface config
+#      |
+#      |
+#   if1|       3         [2]                             << interface config
+#  +-------+
+#  | 3     |                       66051    [4]          << node config
+#  +-------+
+#
+authentication_keys:
+  - id: 1
+    algorithm: sha-224
+    secret: this-is-the-secret-for-key-1
+  - id: 2
+    algorithm: sha-256
+    secret: this-is-the-secret-for-key-2
+  - id: 3
+    algorithm: sha-512
+    secret: this-is-the-secret-for-key-3
+  - id: 4
+    algorithm: hmac-sha-256
+    secret: this-is-the-secret-for-key-4
+  - id: 66051   # 0x010203
+    algorithm: hmac-sha-1
+    secret: this-is-the-secret-for-key-66051
+shards:
+  - id: 0
+    nodes:
+      - name: node1
+        level: 2
+        systemid: 1
+        rx_lie_mcast_address: 224.0.1.1
+        active_origin_authentication_key: 4
+        accept_origin_authentication_keys: [66051]
+        interfaces:
+          - name: if1 # Connected to node2:if1
+            active_authentication_key: 1
+            accept_authentication_keys: [2]
+            rx_tie_port: 10001
+            rx_lie_port: 20001
+            tx_lie_port: 20002
+        v4prefixes:
+          - address: 1.1.1.1
+            mask: 32
+            metric: 1
+      - name: node2
+        level: 1
+        systemid: 2
+        rx_lie_mcast_address: 224.0.1.11
+        active_origin_authentication_key: 4
+        accept_origin_authentication_keys: [66051]
+        interfaces:
+          - name: if1 # Connected to node1:if1
+            active_authentication_key: 2
+            accept_authentication_keys: [1]
+            rx_tie_port: 10002
+            rx_lie_port: 20002
+            tx_lie_port: 20001
+          - name: if2 # Connected to node2:if1
+            active_authentication_key: 2
+            accept_authentication_keys: [3]
+            rx_tie_port: 10003
+            rx_lie_port: 20003
+            tx_lie_port: 20004
+        v4prefixes:
+          - address: 2.2.2.2
+            mask: 32
+            metric: 1
+      - name: node3
+        level: 0
+        systemid: 3
+        rx_lie_mcast_address: 224.0.1.101
+        active_origin_authentication_key: 66051
+        accept_origin_authentication_keys: [4]
+        interfaces:
+          - name: if1 # Connected to node2:if3
+            active_authentication_key: 3
+            accept_authentication_keys: [2]
+            rx_tie_port: 10004
+            rx_lie_port: 20004
+            tx_lie_port: 20003
+        v4prefixes:
+          - address: 3.3.3.3
+            mask: 32
+            metric: 1

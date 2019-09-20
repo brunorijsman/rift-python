@@ -1,0 +1,89 @@
+# Topology: node_keys_mismatch_outer
+#
+# Intended for testing the outer and origin security envelopes, scenario where the outer keys
+# don't match.
+#
+#              Active    Accept    Active    Accept
+#              Outer     Outer     Origin    Origin
+#              Key       Keys      Key       Keys
+#  +-------+
+#  | 1     |                       3                     << node config
+#  +-------+
+#   if1|       1                                         << interface config
+#      |
+#      |
+#   if1|       1                                         << interface conifg
+#  +-------+
+#  | 2     |                       3                     << node config
+#  +-------+
+#   if2|       1                                         << interface config
+#      |
+#      |
+#   if1|       2                                         << interface config
+#  +-------+
+#  | 3     |                       3                     << node config
+#  +-------+
+#
+authentication_keys:
+  - id: 1
+    algorithm: sha-256
+    secret: this-is-the-secret-for-key-1
+  - id: 2
+    algorithm: sha-256
+    secret: this-is-the-secret-for-key-2
+  - id: 3
+    algorithm: sha-256
+    secret: this-is-the-secret-for-key-3
+shards:
+  - id: 0
+    nodes:
+      - name: node1
+        level: 2
+        systemid: 1
+        rx_lie_mcast_address: 224.0.1.1
+        active_origin_authentication_key: 3
+        interfaces:
+          - name: if1 # Connected to node2:if1
+            rx_tie_port: 10001
+            rx_lie_port: 20001
+            tx_lie_port: 20002
+            active_authentication_key: 1
+        v4prefixes:
+          - address: 1.1.1.1
+            mask: 32
+            metric: 1
+      - name: node2
+        level: 1
+        systemid: 2
+        rx_lie_mcast_address: 224.0.1.11
+        active_origin_authentication_key: 3
+        interfaces:
+          - name: if1 # Connected to node1:if1
+            rx_tie_port: 10002
+            rx_lie_port: 20002
+            tx_lie_port: 20001
+            active_authentication_key: 1
+          - name: if2 # Connected to node3:if1
+            rx_tie_port: 10003
+            rx_lie_port: 20003
+            tx_lie_port: 20004
+            active_authentication_key: 1
+        v4prefixes:
+          - address: 2.2.2.2
+            mask: 32
+            metric: 1
+      - name: node3
+        level: 0
+        systemid: 3
+        rx_lie_mcast_address: 224.0.1.101
+        active_origin_authentication_key: 3
+        interfaces:
+          - name: if1 # Connected to node2:if3
+            rx_tie_port: 10004
+            rx_lie_port: 20004
+            tx_lie_port: 20003
+            active_authentication_key: 2
+        v4prefixes:
+          - address: 3.3.3.3
+            mask: 32
+            metric: 1

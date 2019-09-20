@@ -45,6 +45,7 @@ class Engine:
 
     def __init__(self, passive_nodes, run_which_nodes, interactive, telnet_port_file,
                  ipv4_multicast_loopback, ipv6_multicast_loopback, log_level, config):
+        # pylint:disable=too-many-statements
         log_file_name = "rift.log"  # TODO: Make this configurable
         if "RIFT_TEST_RESULTS_DIR" in os.environ:
             log_file_name = os.environ["RIFT_TEST_RESULTS_DIR"] + "/" + log_file_name
@@ -78,9 +79,11 @@ class Engine:
             constants.DEFAULT_FLOODING_REDUCTION_SIMILARITY)
         self.floodred_system_random = random.randint(0, 0xffffffffffffffff)
         self.intf_traffic_stats_group = stats.Group()
+        self.intf_security_stats_group = stats.Group()
         self.intf_lie_fsm_stats_group = stats.Group()
         self.node_ztp_fsm_stats_group = stats.Group()
         self.keys = {}    # Indexed by key-id
+        self.keys[0] = key.Key(key_id=0, algorithm="null", secret="")
         self._nodes = sortedcontainers.SortedDict()
         self.create_configuration(passive_nodes)
         cli_log = logging.getLogger('cli')
@@ -151,8 +154,8 @@ class Engine:
             return default
 
     def create_configuration(self, passive_nodes):
-        if 'keys' in self._config:
-            for key_config in self._config['keys']:
+        if 'authentication_keys' in self._config:
+            for key_config in self._config['authentication_keys']:
                 self.create_key(key_config)
         if 'shards' in self._config:
             for shard_config in self._config['shards']:
@@ -163,6 +166,18 @@ class Engine:
         algorithm = key_config["algorithm"]
         secret = key_config["secret"]
         self.keys[key_id] = key.Key(key_id, algorithm, secret)
+
+    def key_id_to_key(self, key_id):
+        if key_id is None:
+            return None
+        if key_id not in self.keys:
+            return None
+        return self.keys[key_id]
+
+    def key_ids_to_keys(self, key_ids):
+        if key_ids is None:
+            return []
+        return [self.key_id_to_key(key_id) for key_id in key_ids]
 
     def create_shard(self, shard_config, passive_nodes):
         if 'nodes' in shard_config:
@@ -182,6 +197,7 @@ class Engine:
 
     def command_clear_engine_stats(self, _cli_session):
         self.intf_traffic_stats_group.clear()
+        self.intf_security_stats_group.clear()
         self.intf_lie_fsm_stats_group.clear()
         self.node_ztp_fsm_stats_group.clear()
 
@@ -215,6 +231,9 @@ class Engine:
         cli_session.print("All Interfaces Traffic:")
         tab = self.intf_traffic_stats_group.table(exclude_zero)
         cli_session.print(tab.to_string())
+        cli_session.print("All Interfaces Security:")
+        tab = self.intf_security_stats_group.table(exclude_zero)
+        cli_session.print(tab.to_string())
         cli_session.print("All Interface LIE FSMs:")
         tab = self.intf_lie_fsm_stats_group.table(exclude_zero)
         cli_session.print(tab.to_string())
@@ -233,6 +252,9 @@ class Engine:
 
     def command_show_intf_queues(self, cli_session, parameters):
         cli_session.current_node.command_show_intf_queues(cli_session, parameters)
+
+    def command_show_intf_security(self, cli_session, parameters):
+        cli_session.current_node.command_show_intf_security(cli_session, parameters)
 
     def command_show_intf_sockets(self, cli_session, parameters):
         cli_session.current_node.command_show_intf_sockets(cli_session, parameters)
@@ -417,6 +439,7 @@ class Engine:
                     "verbose-history": command_show_intf_fsm_vhis,
                 },
                 "queues": command_show_intf_queues,
+                "security": command_show_intf_security,
                 "sockets": command_show_intf_sockets,
                 "statistics": {
                     "": command_show_intf_stats,

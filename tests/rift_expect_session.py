@@ -261,3 +261,15 @@ class RiftExpectSession:
         self.sendline("set node {}".format(node))
         self.sendline("show routes prefix {} owner {}".format(prefix, owner))
         self.table_expect("not present")
+
+    def check_node_security(self, node, expect_node_security):
+        self.sendline("set node {}".format(node))
+        self.sendline("show security")
+        for expected_row in expect_node_security:
+            self.table_expect(expected_row)
+
+    def check_intf_security(self, node, intf, expect_intf_security):
+        self.sendline("set node {}".format(node))
+        self.sendline("show interface {} security".format(intf))
+        for expected_row in expect_intf_security:
+            self.table_expect(expected_row)

@@ -35,7 +35,6 @@ def max_tie_header(fudge=0):
     return encoding.ttypes.TIEHeader(
         tieid=max_tieid(),
         seq_nr=packet_common.MAX_U32 - fudge,
-        # remaining_lifetime=packet_common.MAX_U32 - 1,    # Actual max is not allowed
         origination_time=common.ttypes.IEEE802_1ASTimeStampType(
             AS_sec=packet_common.MAX_U64,
             AS_nsec=packet_common.MAX_U32
@@ -43,7 +42,7 @@ def max_tie_header(fudge=0):
         origination_lifetime=packet_common.MAX_U32
     )
 
-def max_tie_header_with_lifetime(fudge=0):
+def max_tie_header_lifetime(fudge=0):
     return encoding.ttypes.TIEHeaderWithLifeTime(
         header=max_tie_header(fudge),
         remaining_lifetime=packet_common.MAX_U32 - 1,    # Actual max is not allowed
@@ -158,7 +157,7 @@ def test_fix_lie_packet():
     packet_info.update_env_header(0)
     packet_info.update_outer_sec_env_header(None, 111, 222)
     message = b''.join(packet_info.message_parts())
-    decoded_packet_info = packet_common.decode_message(None, None, message, None, None)
+    decoded_packet_info = packet_common.decode_message(None, None, message, None, None, None, None)
     assert not decoded_packet_info.error
     assert packet_info.protocol_packet == decoded_packet_info.protocol_packet
 
@@ -177,9 +176,9 @@ def test_fix_tide_packet():
                 start_range=max_tieid(),
                 end_range=max_tieid(),
                 headers=[
-                    max_tie_header_with_lifetime(),
-                    max_tie_header_with_lifetime(),
-                    max_tie_header_with_lifetime()
+                    max_tie_header_lifetime(),
+                    max_tie_header_lifetime(),
+                    max_tie_header_lifetime()
                 ]
             ),
             tire=None,
@@ -190,7 +189,7 @@ def test_fix_tide_packet():
     packet_info.update_env_header(0)
     packet_info.update_outer_sec_env_header(None, 111, 222)
     message = b''.join(packet_info.message_parts())
-    decoded_packet_info = packet_common.decode_message(None, None, message, None, None)
+    decoded_packet_info = packet_common.decode_message(None, None, message, None, None, None, None)
     assert not decoded_packet_info.error
     assert packet_info.protocol_packet == decoded_packet_info.protocol_packet
 
@@ -208,9 +207,9 @@ def test_fix_tire_packet():
             tide=None,
             tire=encoding.ttypes.TIREPacket(
                 headers=set([
-                    max_tie_header_with_lifetime(0),
-                    max_tie_header_with_lifetime(1),
-                    max_tie_header_with_lifetime(2)
+                    max_tie_header_lifetime(0),
+                    max_tie_header_lifetime(1),
+                    max_tie_header_lifetime(2)
                 ])
             ),
             tie=None
@@ -220,7 +219,7 @@ def test_fix_tire_packet():
     packet_info.update_env_header(0)
     packet_info.update_outer_sec_env_header(None, 111, 222)
     message = b''.join(packet_info.message_parts())
-    decoded_packet_info = packet_common.decode_message(None, None, message, None, None)
+    decoded_packet_info = packet_common.decode_message(None, None, message, None, None, None, None)
     assert not decoded_packet_info.error
     assert packet_info.protocol_packet == decoded_packet_info.protocol_packet
 
@@ -269,7 +268,7 @@ def test_fix_node_tie_packet():
     packet_info.update_env_header(0)
     packet_info.update_outer_sec_env_header(None, 111, 222, 10)
     message = b''.join(packet_info.message_parts())
-    decoded_packet_info = packet_common.decode_message(None, None, message, None, None)
+    decoded_packet_info = packet_common.decode_message(None, None, message, None, None, None, None)
     assert not decoded_packet_info.error
     assert packet_info.protocol_packet == decoded_packet_info.protocol_packet
 
@@ -303,7 +302,7 @@ def test_fix_prefixes_tie_packet():
     packet_info.update_env_header(0)
     packet_info.update_outer_sec_env_header(None, 111, 222, 10)
     message = b''.join(packet_info.message_parts())
-    decoded_packet_info = packet_common.decode_message(None, None, message, None, None)
+    decoded_packet_info = packet_common.decode_message(None, None, message, None, None, None, None)
     assert not decoded_packet_info.error
     assert packet_info.protocol_packet == decoded_packet_info.protocol_packet
 
@@ -337,7 +336,7 @@ def test_fix_positive_disaggregation_prefixes_tie_packet():
     packet_info.update_env_header(0)
     packet_info.update_outer_sec_env_header(None, 111, 222, 10)
     message = b''.join(packet_info.message_parts())
-    decoded_packet_info = packet_common.decode_message(None, None, message, None, None)
+    decoded_packet_info = packet_common.decode_message(None, None, message, None, None, None, None)
     assert not decoded_packet_info.error
     assert packet_info.protocol_packet == decoded_packet_info.protocol_packet
 
@@ -371,7 +370,7 @@ def test_fix_negative_disaggregation_prefixes_tie_packet():
     packet_info.update_env_header(0)
     packet_info.update_outer_sec_env_header(None, 111, 222, 10)
     message = b''.join(packet_info.message_parts())
-    decoded_packet_info = packet_common.decode_message(None, None, message, None, None)
+    decoded_packet_info = packet_common.decode_message(None, None, message, None, None, None, None)
     assert not decoded_packet_info.error
     assert packet_info.protocol_packet == decoded_packet_info.protocol_packet
 
@@ -405,7 +404,7 @@ def test_fix_external_prefixes_tie_packet():
     packet_info.update_env_header(0)
     packet_info.update_outer_sec_env_header(None, 111, 222, 10)
     message = b''.join(packet_info.message_parts())
-    decoded_packet_info = packet_common.decode_message(None, None, message, None, None)
+    decoded_packet_info = packet_common.decode_message(None, None, message, None, None, None, None)
     assert not decoded_packet_info.error
     assert packet_info.protocol_packet == decoded_packet_info.protocol_packet
 
@@ -444,6 +443,6 @@ def test_fix_key_value_tie_packet():
     packet_info.update_env_header(0)
     packet_info.update_outer_sec_env_header(None, 111, 222, 10)
     message = b''.join(packet_info.message_parts())
-    decoded_packet_info = packet_common.decode_message(None, None, message, None, None)
+    decoded_packet_info = packet_common.decode_message(None, None, message, None, None, None, None)
     assert not decoded_packet_info.error
     assert packet_info.protocol_packet == decoded_packet_info.protocol_packet

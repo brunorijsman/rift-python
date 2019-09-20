@@ -6,12 +6,12 @@
         "rift/common/**",
         "rift/encoding/**"
     ],
-    "python.testing.pyTestArgs": [
+    "python.testing.pytestArgs": [
         "tests"
     ],
     "python.testing.unittestEnabled": false,
     "python.testing.nosetestsEnabled": false,
-    "python.testing.pyTestEnabled": true,
+    "python.testing.pytestEnabled": true,
     "cSpell.words": [
         "CMSG",
         "Etingof",
@@ -91,6 +91,7 @@
         "pylint",
         "pyroute",
         "pytest",
+        "reconverge",
         "recvmsg",
         "recvpktinfo",
         "reported",
@@ -122,5 +123,42 @@
         "unregister",
         "veth",
         "ydef"
+    ],
+    "cSpell.enabled": false,
+    "cSpell.enabledLanguageIds": [
+        "asciidoc",
+        "c",
+        "cpp",
+        "csharp",
+        "css",
+        "git-commit",
+        "go",
+        "handlebars",
+        "html",
+        "jade",
+        "java",
+        "javascript",
+        "javascriptreact",
+        "json",
+        "jsonc",
+        "latex",
+        "less",
+        "markdown",
+        "php",
+        "plaintext",
+        "pug",
+        "python",
+        "restructuredtext",
+        "rust",
+        "scala",
+        "scss",
+        "text",
+        "typescript",
+        "typescriptreact",
+        "yaml",
+        "yml"
+    ],
+    "cSpell.ignoreWords": [
+        "reconverge"
     ]
 }

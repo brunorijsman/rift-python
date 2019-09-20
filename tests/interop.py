@@ -7,7 +7,16 @@ import subprocess
 import re
 import yaml
 
-TEST_CASES = [("test_sys_2n_l0_l1.py", "2n_l0_l1.yaml", ["node1"]),
+TEST_CASES = [("test_sys_keys_match.py", "keys_match.yaml", ["node1"]),
+              ("test_sys_keys_match.py", "keys_match.yaml", ["node2"]),
+              ("test_sys_keys_match.py", "keys_match.yaml", ["node3"]),
+              ("test_sys_keys_mismatch_outer.py", "keys_mismatch_outer.yaml", ["node1"]),
+              ("test_sys_keys_mismatch_outer.py", "keys_mismatch_outer.yaml", ["node2"]),
+              ("test_sys_keys_mismatch_outer.py", "keys_mismatch_outer.yaml", ["node3"]),
+              ("test_sys_keys_mismatch_origin.py", "keys_mismatch_origin.yaml", ["node1"]),
+              ("test_sys_keys_mismatch_origin.py", "keys_mismatch_origin.yaml", ["node2"]),
+              ("test_sys_keys_mismatch_origin.py", "keys_mismatch_origin.yaml", ["node3"]),
+              ("test_sys_2n_l0_l1.py", "2n_l0_l1.yaml", ["node1"]),
               ("test_sys_2n_l0_l1.py", "2n_l0_l1.yaml", ["node2"]),
               ("test_sys_2n_l0_l2.py", "2n_l0_l2.yaml", ["node1"]),
               ("test_sys_2n_l0_l2.py", "2n_l0_l2.yaml", ["node2"]),
@@ -55,7 +64,7 @@ def mark_non_juniper_nodes_passive(config, juniper_nodes):
                 if 'passive' in node:
                     del node['passive']
 
-def fixup_config_for_juniper(config):
+def fixup_rx_lie_port_for_juniper(config):
     next_rx_lie_port = 21000
     next_rx_flood_port = 22000
     for shard in config['shards']:
@@ -77,6 +86,71 @@ def fixup_config_for_juniper(config):
                     intf['rx_tie_port'] = next_rx_flood_port
                     next_rx_flood_port += 1
 
+def fixup_security_for_juniper(config):
+    # Fixup the following differences between RIFT-Juniper and RIFT-Python
+    # (1) RIFT-Python uses the keyword 'active_origin_authentication_key' whereas
+    #     RIFT-Juniper uses the keyword 'tie_origination_authentication_key'.
+    #     They have the exact same meaning.
+    # (2) RIFT-Python uses the keyword 'accept_origin_authentication_keys' whereas
+    #     RIFT-Juniper uses the keyword 'authentication_keys'.
+    #     They have similar but slightly different meanings:
+    #     RIFT-Python 'accept_origin_authentication_keys' specifies the keys that are accepted for
+    #     the origin key in received packets. The 'active_origin_authentication_key' does not need
+    #     be included; it is always implicity accepted.
+    #     RIFT-Juniper 'authentication_keys' specifies all keys that are accepted for either the
+    #     outer or the origin key in received packets. All keys must be listed; active keys are not
+    #     implicitly included.
+    # (3) Both RIFT-Python and RIFT-Juniper use 'accept_authentication_keys' but they have slightly
+    #     different meanings. In RIFT-Python the 'active_authentication_key' is implicitly included
+    #     in 'accept_authentication_keys' whereas in RIFT-Juniper it is not and it needs to be
+    #     explicitly configured.
+    # (4) If an active-key is configured, RIFT-Python will always sign sent messages, verify the
+    #     fingerprint on received messages, and discard all received messages with invalid
+    #     fingerprint, regardless of the reason why the fingerprint is invalid, including the key-id
+    #     being unknown.
+    #     RIFT-Juniper has different levels of strictness for validating the fingerprint on received
+    #     messages: none (no checking), loose (check only if present), permissive (always validate,
+    #     but allow messages whose key-id is unknown), strict (always validate, don't allow messages
+    #     whose key-id is unknown). RIFT-Juniper's strict checking corresponds to RIFT-Python's
+    #     behavior.
+    #     Somewhat surprisingly, the default behavior of RIFT-Juniper is "none"; you have to
+    #     explicitly configure strict checking using 'tie_authentication_validation' and
+    #     'link_authentication_validation'.
+    #     Furthermore, RIFT-Juniper has a bug: if authentication validation is set to none (which
+    #     is the default) and RIFT-Juniper receives a TIE with a non-zero outer key-id, the TIE
+    #     will be accepted but not stored in the TIE-DB and not propagated.
+    for shard in config['shards']:
+        for node in shard['nodes']:
+            accept_keys_all = []
+            if 'active_origin_authentication_key' in node:
+                node['tie_authentication_validation'] = 'strict'
+                active_origin_key = node['active_origin_authentication_key']
+                node['tie_origination_authentication_key'] = active_origin_key
+                accept_keys_all.append(active_origin_key)
+                del node['active_origin_authentication_key']
+            if 'accept_origin_authentication_keys' in node:
+                accept_keys_all += node['accept_origin_authentication_keys']
+                del node['accept_origin_authentication_keys']
+            for intf in node['interfaces']:
+                if 'active_authentication_key' in intf:
+                    intf['link_authentication_validation'] = 'strict'
+                    active_key = intf['active_authentication_key']
+                    if 'accept_authentication_keys' in intf:
+                        accept_keys = intf['accept_authentication_keys']
+                    else:
+                        accept_keys = []
+                    if active_key not in accept_keys:
+                        accept_keys.append(active_key)
+                        intf['accept_authentication_keys'] = accept_keys
+                    accept_keys_all += accept_keys
+            if accept_keys_all:
+                accept_keys_all = list(dict.fromkeys(accept_keys_all))  # Remove duplicates
+                node['authentication_keys'] = accept_keys_all
+
+def fixup_config_for_juniper(config):
+    fixup_rx_lie_port_for_juniper(config)
+    fixup_security_for_juniper(config)
+
 def write_juniper_config(config_file_name, juniper_nodes, results_dir):
     config = read_config(config_file_name)
     mark_non_juniper_nodes_passive(config, juniper_nodes)
@@ -94,7 +168,7 @@ def check_juniper_rift_in_path():
     output = subprocess.check_output(["rift-environ",
                                       "--version"], universal_newlines=True)
     # print (output)
-    regex = re.compile(r"^.*ersion: *(\d+)\.(\d+).*",
+    regex = re.compile(r"^.hrift encoding schema: *(\d+)\.(\d+).*",
                        re.RegexFlag.IGNORECASE  | re.RegexFlag.MULTILINE)
     major = re.search(regex, output)
 
@@ -104,8 +178,12 @@ def check_juniper_rift_in_path():
     minor = major.group(2)
     major = major.group(1)
 
-    if int(major) != 0 or int(minor) != 9:
-        fatal_error("Wrong Major/Minor version of Juniper RIFT")
+    expected_minor = 0
+    expected_major = 2
+
+    if int(major) != expected_major or int(minor) != expected_minor:
+        fatal_error("Wrong Major/Minor version of Juniper RIFT: (expected {}.{}, got {}.{})"
+                    .format(expected_major, expected_minor, major, minor))
 
 
 def check_pytest_in_path():

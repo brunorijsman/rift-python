@@ -24,6 +24,6 @@ after_success:
   - codecov
 
 after_failure:
-  - cat rift_expect.log
-  - cat rift_telnet_expect.log
-  - cat test_telnet_expect.log
+  - tail -1000 rift_expect.log
+  - tail -1000 rift_telnet_expect.log
+  - tail -1000 test_telnet_expect.log

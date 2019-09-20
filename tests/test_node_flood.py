@@ -46,7 +46,7 @@ def test_compare_tie_header():
         tie_nr=6,
         seq_nr=7,
         lifetime=500)
-    assert node.compare_tie_header_age(header1, header2) == 0
+    assert node.compare_tie_header_lifetime_age(header1, header2) == 0
     # Almost same, lifetime is different but close enough to call it same (within 300 seconds)
     header1 = packet_common.make_tie_header_with_lifetime(
         direction=NORTH,
@@ -62,7 +62,7 @@ def test_compare_tie_header():
         tie_nr=6,
         seq_nr=7,
         lifetime=300)
-    assert node.compare_tie_header_age(header1, header2) == 0
+    assert node.compare_tie_header_lifetime_age(header1, header2) == 0
     # Different: lifetime is the tie breaker (more than 300 seconds difference)
     header1 = packet_common.make_tie_header_with_lifetime(
         direction=NORTH,
@@ -78,8 +78,8 @@ def test_compare_tie_header():
         tie_nr=6,
         seq_nr=7,
         lifetime=600)
-    assert node.compare_tie_header_age(header1, header2) == -1
-    assert node.compare_tie_header_age(header2, header1) == 1
+    assert node.compare_tie_header_lifetime_age(header1, header2) == -1
+    assert node.compare_tie_header_lifetime_age(header2, header1) == 1
     # Different: lifetime is the tie breaker; the difference is less than 300 but one is zero and
     # the other is non-zero. The one with zero lifetime is considered older.
     header1 = packet_common.make_tie_header_with_lifetime(
@@ -96,8 +96,8 @@ def test_compare_tie_header():
         tie_nr=6,
         seq_nr=7,
         lifetime=299)
-    assert node.compare_tie_header_age(header1, header2) == -1
-    assert node.compare_tie_header_age(header2, header1) == 1
+    assert node.compare_tie_header_lifetime_age(header1, header2) == -1
+    assert node.compare_tie_header_lifetime_age(header2, header1) == 1
     # Different: seq_nr is the tie breaker.
     header1 = packet_common.make_tie_header_with_lifetime(
         direction=NORTH,
@@ -113,8 +113,8 @@ def test_compare_tie_header():
         tie_nr=6,
         seq_nr=19,
         lifetime=600)
-    assert node.compare_tie_header_age(header1, header2) == 1
-    assert node.compare_tie_header_age(header2, header1) == -1
+    assert node.compare_tie_header_lifetime_age(header1, header2) == 1
+    assert node.compare_tie_header_lifetime_age(header2, header1) == -1
 
 def test_add_prefix_tie():
     packet_common.add_missing_methods_to_thrift()
@@ -210,11 +210,11 @@ def check_process_tide_common(test_node, start_range, end_range, header_info_lis
             packet_common.add_tie_header_to_tide(tide_packet, tie_header)
     # Process the TIDE packet
     result = test_node.process_rx_tide_packet(tide_packet)
-    (request_tie_headers, start_sending_tie_headers, stop_sending_tie_headers) = result
+    (request_tie_headers_lifetime, start_sending_tie_headers, stop_sending_tie_headers) = result
     # Check results
     compare_header_lists(
         tie_headers_with_disposition(test_node, header_info_list, [REQUEST_MISSING, REQUEST_OLDER]),
-        request_tie_headers)
+        request_tie_headers_lifetime)
     disposition = [e.header for e in
                    tie_headers_with_disposition(test_node,
                                                 header_info_list,

@@ -10,6 +10,7 @@ import common.ttypes
 import constants
 import encoding.ttypes
 import encoding.constants
+import key
 import utils
 
 RIFT_MAGIC = 0xA1F7
@@ -23,14 +24,13 @@ class PacketInfo:
     ERR_TRIFT_VALIDATE = "Thrift validate error"
     ERR_MISSING_OUTER_SEC_ENV = "Missing outer security envelope"
     ERR_ZERO_OUTER_KEY_ID_NOT_ACCEPTED = "Zero outer key id not accepted"
-    ERR_UNKNOWN_OUTER_KEY_ID = "Unknown outer key id"
+    ERR_NON_ZERO_OUTER_KEY_ID_NOT_ACCEPTED = "Non-zero outer key id not accepted"
     ERR_INCORRECT_OUTER_FINGERPRINT = "Incorrect outer fingerprint"
     ERR_MISSING_ORIGIN_SEC_ENV = "Missing TIE origin security envelope"
     ERR_ZERO_ORIGIN_KEY_ID_NOT_ACCEPTED = "Zero TIE origin key id not accepted"
+    ERR_NON_ZERO_ORIGIN_KEY_ID_NOT_ACCEPTED = "Non-zero TIE origin key id not accepted"
     ERR_UNEXPECTED_ORIGIN_SEC_ENV = "Unexpected TIE origin security envelope"
-    ERR_UNSUPPORTED_ORIGIN_KEY_ID = "Unsupported TIE origin key id"
     ERR_INCONSISTENT_ORIGIN_KEY_ID = "Inconsistent TIE origin key id and fingerprint"
-    ERR_UNKNOWN_ORIGIN_KEY_ID = "Unknown TIE origin key id"
     ERR_INCORRECT_ORIGIN_FINGERPRINT = "Incorrect TIE origin fingerprint"
     ERR_REFLECTED_NONCE_OUT_OF_SYNC = "Reflected nonce out of sync"
 
@@ -44,14 +44,13 @@ class PacketInfo:
     AUTHENTICATION_ERRORS = [
         ERR_MISSING_OUTER_SEC_ENV,
         ERR_ZERO_OUTER_KEY_ID_NOT_ACCEPTED,
-        ERR_UNKNOWN_OUTER_KEY_ID,
+        ERR_NON_ZERO_OUTER_KEY_ID_NOT_ACCEPTED,
         ERR_INCORRECT_OUTER_FINGERPRINT,
         ERR_MISSING_ORIGIN_SEC_ENV,
         ERR_ZERO_ORIGIN_KEY_ID_NOT_ACCEPTED,
+        ERR_NON_ZERO_ORIGIN_KEY_ID_NOT_ACCEPTED,
         ERR_UNEXPECTED_ORIGIN_SEC_ENV,
-        ERR_UNSUPPORTED_ORIGIN_KEY_ID,
         ERR_INCONSISTENT_ORIGIN_KEY_ID,
-        ERR_UNKNOWN_ORIGIN_KEY_ID,
         ERR_INCORRECT_ORIGIN_FINGERPRINT,
         ERR_REFLECTED_NONCE_OUT_OF_SYNC]
 
@@ -161,8 +160,10 @@ class PacketInfo:
             self.origin_key_id = 0
             self.origin_fingerprint = b''
             self.origin_fingerprint_len = 0
-        # We only support 8-bit key ids. Network order is big endian, so it goes into the 3rd byte.
-        pre = struct.pack("!BBBB", 0, 0, self.origin_key_id, self.origin_fingerprint_len)
+        byte1 = (self.origin_key_id >> 16) & 0xff
+        byte2 = (self.origin_key_id >> 8) & 0xff
+        byte3 = self.origin_key_id & 0xff
+        pre = struct.pack("!BBBB", byte1, byte2, byte3, self.origin_fingerprint_len)
         self.origin_sec_env_header = pre + self.origin_fingerprint
 
 def ipv4_prefix_tup(ipv4_prefix):
@@ -277,7 +278,8 @@ def encode_protocol_packet(protocol_packet, origin_key):
         packet_info.update_origin_sec_env_header(origin_key)
     return packet_info
 
-def decode_message(rx_intf, from_info, message, active_key, accept_keys):
+def decode_message(rx_intf, from_info, message, active_outer_key, accept_outer_keys,
+                   active_origin_key, accept_origin_keys):
     packet_info = PacketInfo()
     record_source_info(packet_info, rx_intf, from_info)
     continue_offset = decode_envelope_header(packet_info, message)
@@ -293,9 +295,9 @@ def decode_message(rx_intf, from_info, message, active_key, accept_keys):
     continue_offset = decode_protocol_packet(packet_info, message, continue_offset)
     if continue_offset == -1:
         return packet_info
-    if not check_outer_fingerprint(packet_info, active_key, accept_keys):
+    if not check_outer_fingerprint(packet_info, active_outer_key, accept_outer_keys):
         return packet_info
-    if not check_origin_fingerprint(packet_info, active_key, accept_keys):
+    if not check_origin_fingerprint(packet_info, active_origin_key, accept_origin_keys):
         return packet_info
     return packet_info
 
@@ -376,14 +378,9 @@ def decode_origin_security_header(packet_info, message, offset):
         packet_info.error_details = \
             "Missing TIE origin key id and TIE origin fingerprint length"
         return -1
-    (should_be_zero_1, should_be_zero_2, origin_key_id, origin_fingerprint_len) = \
-        struct.unpack("!BBBB", message[offset:offset+4])
+    (byte1, byte2, byte3, origin_fingerprint_len) = struct.unpack("!BBBB", message[offset:offset+4])
+    origin_key_id = (byte1 << 16) | (byte2 << 8) | byte3
     offset += 4
-    if should_be_zero_1 != 0 or should_be_zero_2 != 0:
-        got_key_id = should_be_zero_1 << 16 + should_be_zero_2 << 8 + origin_key_id
-        packet_info.error = packet_info.ERR_UNSUPPORTED_ORIGIN_KEY_ID
-        packet_info.error_details = ("Only support <= 255, got {}".format(got_key_id))
-        return -1
     if ((origin_key_id == 0 and origin_fingerprint_len != 0) or
             (origin_key_id != 0 and origin_fingerprint_len == 0)):
         packet_info.error = packet_info.ERR_INCONSISTENT_ORIGIN_KEY_ID
@@ -433,20 +430,17 @@ def decode_protocol_packet(packet_info, message, offset):
         packet_info.packet_type = constants.PACKET_TYPE_TIRE
     return len(message)
 
-def check_outer_fingerprint(packet_info, active_key, accept_keys):
+def check_outer_fingerprint(packet_info, active_outer_key, accept_outer_keys):
     if not packet_info.outer_sec_env_header:
         packet_info.error = packet_info.ERR_MISSING_OUTER_SEC_ENV
         return packet_info
-    if packet_info.outer_key_id == 0:
-        if active_key is None or 0 in accept_keys:
-            return True
-        else:
-            packet_info.error = packet_info.ERR_ZERO_OUTER_KEY_ID_NOT_ACCEPTED
-            return False
-    use_key = find_key_id(packet_info.outer_key_id, active_key, accept_keys)
+    use_key = find_key_id(packet_info.outer_key_id, active_outer_key, accept_outer_keys)
     if not use_key:
-        packet_info.error = packet_info.ERR_UNKNOWN_OUTER_KEY_ID
-        packet_info.error_details = "Outer key id is " + str(packet_info.outer_key_id)
+        if packet_info.outer_key_id == 0:
+            packet_info.error = packet_info.ERR_ZERO_OUTER_KEY_ID_NOT_ACCEPTED
+        else:
+            packet_info.error = packet_info.ERR_NON_ZERO_OUTER_KEY_ID_NOT_ACCEPTED
+            packet_info.error_details = "Outer key id is " + str(packet_info.outer_key_id)
         return False
     post = packet_info.outer_sec_env_header[-8:]
     expected = use_key.padded_digest([post, packet_info.origin_sec_env_header,
@@ -456,7 +450,7 @@ def check_outer_fingerprint(packet_info, active_key, accept_keys):
         return False
     return True
 
-def check_origin_fingerprint(packet_info, active_key, accept_keys):
+def check_origin_fingerprint(packet_info, active_origin_key, accept_origin_keys):
     if packet_info.protocol_packet:
         if packet_info.protocol_packet.content.tie:
             if not packet_info.origin_sec_env_header:
@@ -468,16 +462,13 @@ def check_origin_fingerprint(packet_info, active_key, accept_keys):
                 return packet_info
     if not packet_info.origin_sec_env_header:
         return True
-    if packet_info.origin_key_id == 0:
-        if active_key is None or 0 in accept_keys:
-            return True
-        else:
-            packet_info.error = packet_info.ERR_ZERO_ORIGIN_KEY_ID_NOT_ACCEPTED
-            return False
-    use_key = find_key_id(packet_info.origin_key_id, active_key, accept_keys)
+    use_key = find_key_id(packet_info.origin_key_id, active_origin_key, accept_origin_keys)
     if not use_key:
-        packet_info.error = packet_info.ERR_UNKNOWN_ORIGIN_KEY_ID
-        packet_info.error_details = "TIE origin key id is " + str(packet_info.origin_key_id)
+        if packet_info.origin_key_id == 0:
+            packet_info.error = packet_info.ERR_ZERO_ORIGIN_KEY_ID_NOT_ACCEPTED
+        else:
+            packet_info.error = packet_info.ERR_NON_ZERO_ORIGIN_KEY_ID_NOT_ACCEPTED
+            packet_info.error_details = "TIE origin key id is " + str(packet_info.origin_key_id)
         return False
     expected = use_key.padded_digest([packet_info.encoded_protocol_packet])
     if packet_info.origin_fingerprint != expected:
@@ -488,9 +479,12 @@ def check_origin_fingerprint(packet_info, active_key, accept_keys):
 def find_key_id(key_id, active_key, accept_keys):
     if active_key and active_key.key_id == key_id:
         return active_key
-    for accept_key in accept_keys:
-        if accept_key.key_id == key_id:
-            return accept_key
+    if accept_keys is not None:
+        for accept_key in accept_keys:
+            if accept_key.key_id == key_id:
+                return accept_key
+    if key_id == 0 and active_key is None and (accept_keys is None or accept_keys == []):
+        return key.Key(0, "null", None)
     return None
 
 # What follows are some horrible hacks to deal with the fact that Thrift only support signed 8, 16,
@@ -565,8 +559,8 @@ def fix_int(value, size, encode):
 def fix_dict(old_dict, dict_fixes, encode):
     (key_fixes, value_fixes) = dict_fixes
     new_dict = {}
-    for key, value in old_dict.items():
-        new_key = fix_value(key, key_fixes, encode)
+    for the_key, value in old_dict.items():
+        new_key = fix_value(the_key, key_fixes, encode)
         new_value = fix_value(value, value_fixes, encode)
         new_dict[new_key] = new_value
     return new_dict
