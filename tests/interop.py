@@ -6,6 +6,8 @@ import shutil
 import subprocess
 import re
 import yaml
+from encoding.constants import protocol_major_version
+from  encoding.constants import protocol_minor_version
 
 TEST_CASES = [("test_sys_keys_match.py", "keys_match.yaml", ["node1"]),
               ("test_sys_keys_match.py", "keys_match.yaml", ["node2"]),
@@ -178,8 +180,8 @@ def check_juniper_rift_in_path():
     minor = major.group(2)
     major = major.group(1)
 
-    expected_minor = 0
-    expected_major = 2
+    expected_minor = protocol_minor_version
+    expected_major = protocol_major_version
 
     if int(major) != expected_major or int(minor) != expected_minor:
         fatal_error("Wrong Major/Minor version of Juniper RIFT: (expected {}.{}, got {}.{})"
