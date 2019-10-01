@@ -169,7 +169,7 @@ def check_juniper_rift_in_path():
                                       "--version"], universal_newlines=True)
     # print (output)
     regex = re.compile(r"^.hrift encoding schema: *(\d+)\.(\d+).*",
-                       re.RegexFlag.IGNORECASE  | re.RegexFlag.MULTILINE)
+                       re.IGNORECASE  | re.MULTILINE)
     major = re.search(regex, output)
 
     if not major or not major.group(1):
