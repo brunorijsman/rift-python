@@ -1,8 +1,6 @@
 /**
     Thrift file for packet encodings for RIFT
 
-    Copyright (c) Juniper Networks, Inc., 2016-
-    All rights reserved.
 */
 
 include "common.thrift"
