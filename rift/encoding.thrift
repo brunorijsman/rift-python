@@ -1,21 +1,28 @@
 /**
     Thrift file for packet encodings for RIFT
 
+    Copyright (c) Juniper Networks, Inc., 2016-
+    All rights reserved.
 */
 
 include "common.thrift"
 
-/** represents protocol encoding schema major version */
+namespace rs models
+namespace py encoding
+
+/** Represents protocol encoding schema major version */
 const common.VersionType protocol_major_version = 2
-/** represents protocol encoding schema minor version */
+/** Represents protocol encoding schema minor version */
 const common.MinorVersionType protocol_minor_version =  0
 
 /** common RIFT packet header */
 struct PacketHeader {
+    /** major version type of protocol */
     1: required common.VersionType major_version = protocol_major_version;
+    /** minor version type of protocol */
     2: required common.VersionType minor_version = protocol_minor_version;
-    /** this is the node sending the packet, in case of LIE/TIRE/TIDE
-        also the originator of it */
+    /** node sending the packet, in case of LIE/TIRE/TIDE
+      * also the originator of it */
     3: required common.SystemIDType  sender;
     /** level of the node sending the packet, required on everything except
       * LIEs. Lack of presence on LIEs indicates UNDEFINED_LEVEL and is used
@@ -24,19 +31,21 @@ struct PacketHeader {
     4: optional common.LevelType            level;
 }
 
-/** Community serves as community for PGP purposes */
+/** community */
 struct Community {
     1: required i32          top;
     2: required i32          bottom;
 }
 
-/** Neighbor structure  */
+/** neighbor structure  */
 struct Neighbor {
+    /** system ID of the originator */
     1: required common.SystemIDType        originator;
+    /** ID of remote side of the link */
     2: required common.LinkIDType          remote_id;
 }
 
-/** Capabilities the node supports. The schema may add to this
+/** capabilities the node supports. The schema may add to this
     field future capabilities to indicate whether it will support
     interpretation of future schema extensions on the same major
     revision. Such fields MUST be optional and have an implicit or
@@ -45,27 +54,35 @@ struct Neighbor {
     it then a major version increment is unavoidable.
 */
 struct NodeCapabilities {
+    /** must advertise supported minor version dialect that way */
+    1: required common.MinorVersionType        protocol_minor_version =
+            protocol_minor_version;
     /** can this node participate in flood reduction */
-    1: optional bool                           flood_reduction =
+    2: optional bool                           flood_reduction =
             common.flood_reduction_default;
     /** does this node restrict itself to be top-of-fabric or
         leaf only (in ZTP) and does it support leaf-2-leaf procedures */
-    2: optional common.HierarchyIndications    hierarchy_indications;
+    3: optional common.HierarchyIndications    hierarchy_indications;
 }
 
-/* Link capabilities */
+/** link capabilities */
 struct LinkCapabilities {
-    /* indicates that the link's `local ID` can be used as its BFD
-       discriminator and the link is supporting BFD */
+    /** indicates that the link is supporting BFD */
     1: optional bool                           bfd =
             common.bfd_default;
+    /** indicates whether the interface will support v4 forwarding. This MUST
+      * be set to true when LIEs from a v4 address are sent and MAY be set
+      * to true in LIEs on v6 address. If v4 and v6 LIEs indicate contradicting
+      * information the behavior is unspecified. */
+    2: optional bool                           v4_forwarding_capable =
+            true;
 }
 
 /** RIFT LIE packet
 
     @note this node's level is already included on the packet header */
 struct LIEPacket {
-    /** optional node or adjacency name */
+    /** node or adjacency name */
     1: optional string                        name;
     /** local link ID */
     2: required common.LinkIDType             local_id;
@@ -78,22 +95,24 @@ struct LIEPacket {
     /** local link bandwidth on the interface */
     5: optional common.BandwithInMegaBitsType link_bandwidth =
             common.default_bandwidth;
-    /** this will reflect the neighbor once received to provide
+    /** reflects the neighbor once received to provide
         3-way connectivity */
     6: optional Neighbor                      neighbor;
+    /** node's PoD */
     7: optional common.PodType                pod =
             common.default_pod;
-    /** optional node capabilities shown in the LIE. The capabilies
+    /** node capabilities shown in the LIE. The capabilies
         MUST match the capabilities shown in the Node TIEs, otherwise
         the behavior is unspecified. A node detecting the mismatch
         SHOULD generate according error */
-   10: optional NodeCapabilities              node_capabilities;
+   10: required NodeCapabilities              node_capabilities;
+   /** capabilities of this link */
    11: optional LinkCapabilities              link_capabilities;
    /** required holdtime of the adjacency, i.e. how much time
        MUST expire without LIE for the adjacency to drop */
    12: required common.TimeIntervalInSecType  holdtime =
             common.default_lie_holdtime;
-   /** optional downstream assigned locally significant label
+   /** unsolicited, downstream assigned locally significant label
        value for the adjacency */
    13: optional common.LabelType              label;
     /** indicates that the level on the LIE MUST NOT be used
@@ -108,11 +127,12 @@ struct LIEPacket {
              common.default_you_are_flood_repeater;
    /** can be optionally set to indicate to neighbor that packet losses are seen on
        reception based on packet numbers or the rate is too high. The receiver SHOULD
-       temporarily slow down flooding rates.
+       temporarily slow down flooding rates
     */
    23: optional bool                          you_are_sending_too_quickly =
              false;
-
+   /** instance name in case multiple RIFT instances running on same interface */
+   24: optional string                        instance_name;
 }
 
 /** LinkID pair describes one of parallel links between two nodes */
@@ -122,14 +142,15 @@ struct LinkIDPair {
     /** received remote link ID for this link */
     2: required common.LinkIDType      remote_id;
 
-    /** optionally describes the local interface index of the link */
+    /** describes the local interface index of the link */
    10: optional common.PlatformInterfaceIndex       platform_interface_index;
-   /** optionally describes the local interface name */
+   /** describes the local interface name */
    11: optional string                              platform_interface_name;
-   /** optional indication whether the link is secured, i.e. protected by outer key, absence
+   /** indication whether the link is secured, i.e. protected by outer key, absence
        of this element means no indication, undefined outer key means not secured */
    12: optional common.OuterSecurityKeyID           trusted_outer_security_key;
-    /** more properties of the link can go in here */
+   /** indication whether the link is protected by established BFD session */
+   13: optional bool                                bfd_up;
 }
 
 /** ID of a TIE
@@ -139,11 +160,13 @@ struct LinkIDPair {
            unsigned integer of according length.
 */
 struct TIEID {
-    /** indicates direction of the TIE */
+    /** direction of TIE */
     1: required common.TieDirectionType    direction;
     /** indicates originator of the TIE */
     2: required common.SystemIDType        originator;
+    /** type of the tie */
     3: required common.TIETypeType         tietype;
+    /** number of the tie */
     4: required common.TIENrType           tie_nr;
 }
 
@@ -153,22 +176,24 @@ struct TIEID {
               in sequence defined and comparing each value as an
               unsigned integer of according length.
 
-              After sequence number the lifetime received on the envelope
+   @note: After sequence number the lifetime received on the envelope
               must be used for comparison before further fields.
 
-              `origination_time` and `origination_lifetime` are disregarded
+   @note: `origination_time` and `origination_lifetime` are disregarded
               for comparison purposes and carried purely for debugging/security
               purposes if present.
 */
 struct TIEHeader {
+    /** ID of the tie */
     2: required TIEID                             tieid;
+    /** sequence number of the tie */
     3: required common.SeqNrType                  seq_nr;
 
-    /** optional absolute timestamp when the TIE
+    /** absolute timestamp when the TIE
         was generated. This can be used on fabrics with
         synchronized clock to prevent lifetime modification attacks. */
    10: optional common.IEEE802_1ASTimeStampType   origination_time;
-   /** optional original lifetime when the TIE
+   /** original lifetime when the TIE
        was generated. This can be used on fabrics with
        synchronized clock to prevent lifetime modification attacks. */
    12: optional common.LifeTimeInSecType          origination_lifetime;
@@ -184,24 +209,24 @@ struct TIEHeaderWithLifeTime {
     2: required     common.LifeTimeInSecType          remaining_lifetime;
 }
 
-/** A TIDE with sorted TIE headers, if headers unsorted, behavior is undefined */
+/** TIDE with sorted TIE headers, if headers are unsorted, behavior is undefined */
 struct TIDEPacket {
-    /** all 00s marks starts */
+    /** first TIE header in the tide packet */
     1: required TIEID                       start_range;
-    /** all FFs mark end */
+    /** last TIE header in the tide packet */
     2: required TIEID                       end_range;
     /** _sorted_ list of headers */
     3: required list<TIEHeaderWithLifeTime> headers;
 }
 
-/** A TIRE packet */
+/** TIRE packet */
 struct TIREPacket {
     1: required set<TIEHeaderWithLifeTime>  headers;
 }
 
-/** Neighbor of a node */
+/** neighbor of a node */
 struct NodeNeighborsTIEElement {
-    /** Level of neighbor */
+    /** level of neighbor */
     1: required common.LevelType                level;
     /**  Cost to neighbor.
 
@@ -222,7 +247,7 @@ struct NodeNeighborsTIEElement {
 
 /** Flags the node sets */
 struct NodeFlags {
-    /** node is in overload, do not transit traffic through it */
+    /** indicates that node is in overload, do not transit traffic through it */
     1: optional bool         overload = common.overload_default;
 }
 
@@ -241,31 +266,35 @@ struct NodeFlags {
     @note: observe that absence of fields implies defined defaults
 */
 struct NodeTIEElement {
+    /** level of the node */
     1: required common.LevelType            level;
-    /** If neighbor systemID repeats in other node TIEs of same node
-        the behavior is undefined. */
+    /** node's neighbors. If neighbor systemID repeats in other node TIEs of
+        same node the behavior is undefined */
     2: required map<common.SystemIDType,
                 NodeNeighborsTIEElement>    neighbors;
-    3: optional NodeCapabilities            capabilities;
+    /** capabilities of the node */
+    3: required NodeCapabilities            capabilities;
+    /** flags of the node */
     4: optional NodeFlags                   flags;
     /** optional node name for easier operations */
     5: optional string                      name;
     /** PoD to which the node belongs */
     6: optional common.PodType              pod;
 
-    /** if any local links are miscabled, the indication is flooded. */
+    /** if any local links are miscabled, the indication is flooded */
    10: optional set<common.LinkIDType>      miscabled_links;
 
 }
 
 struct PrefixAttributes {
+    /** distance of the prefix */
     2: required common.MetricType            metric = common.default_distance;
     /** generic unordered set of route tags, can be redistributed to other protocols or use
         within the context of real time analytics */
     3: optional set<common.RouteTagType>     tags;
-    /** optional monotonic clock for mobile addresses */
+    /** monotonic clock for mobile addresses */
     4: optional common.PrefixSequenceType    monotonic_clock;
-    /** optionally indicates the interface is a node loopback */
+    /** indicates if the interface is a node loopback */
     6: optional bool                         loopback = false;
     /** indicates that the prefix is directly attached, i.e. should be routed to even if
         the node is in overload. **/
@@ -276,7 +305,7 @@ struct PrefixAttributes {
    10: optional common.LinkIDType            from_link;
 }
 
-/** multiple prefixes */
+/** TIE carrying prefixes */
 struct PrefixTIEElement {
     /** prefixes with the associated attributes.
         if the same prefix repeats in multiple TIEs of same node
@@ -284,7 +313,7 @@ struct PrefixTIEElement {
     1: required map<common.IPPrefixType, PrefixAttributes> prefixes;
 }
 
-/** keys with their values */
+/** Generic key value pairs */
 struct KeyValueTIEElement {
     /** if the same key repeats in multiple TIEs of same node
         or with different values, behavior is unspecified */
@@ -305,12 +334,12 @@ struct KeyValueTIEElement {
     be added as well.
  */
 union TIEElement {
-    /** in case of enum common.TIETypeType.NodeTIEType */
+    /** used in case of enum common.TIETypeType.NodeTIEType */
     1: optional NodeTIEElement            node;
-    /** in case of enum common.TIETypeType.PrefixTIEType */
+    /** used in case of enum common.TIETypeType.PrefixTIEType */
     2: optional PrefixTIEElement          prefixes;
     /** positive prefixes (always southbound)
-        It MUST NOT be advertised within a North TIE.
+        It MUST NOT be advertised within a North TIE and ignored otherwise
     */
     3: optional PrefixTIEElement          positive_disaggregation_prefixes;
     /** transitive, negative prefixes (always southbound) which
@@ -321,19 +350,24 @@ union TIEElement {
         blackholes may occur in multiplane fabrics.
         It MUST NOT be advertised within a North TIE.
     */
-    4: optional PrefixTIEElement          negative_disaggregation_prefixes;
+    5: optional PrefixTIEElement          negative_disaggregation_prefixes;
     /** externally reimported prefixes */
-    5: optional PrefixTIEElement          external_prefixes;
+    6: optional PrefixTIEElement          external_prefixes;
+    /** positive external disaggregated prefixes (always southbound).
+        It MUST NOT be advertised within a North TIE and ignored otherwise
+    */
+    7: optional PrefixTIEElement          positive_external_disaggregation_prefixes;
     /** Key-Value store elements */
-    6: optional KeyValueTIEElement        keyvalues;
-    /** @todo: policy guided prefixes */
+    9: optional KeyValueTIEElement        keyvalues;
 }
 
+/** TIE packet */
 struct TIEPacket {
     1: required TIEHeader  header;
     2: required TIEElement element;
 }
 
+/** content of a RIFT packet */
 union PacketContent {
     1: optional LIEPacket     lie;
     2: optional TIDEPacket    tide;
@@ -341,7 +375,7 @@ union PacketContent {
     4: optional TIEPacket     tie;
 }
 
-/** protocol packet structure */
+/** RIFT packet structure */
 struct ProtocolPacket {
     1: required PacketHeader  header;
     2: required PacketContent content;
