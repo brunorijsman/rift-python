@@ -1,18 +1,14 @@
 #!/usr/bin/env python
 
-import sys
-
-sys.path.append("rift")
-sys.path.append("tests")
-
 import datetime
 import os
 import shutil
 import subprocess
 import re
 import yaml
-from encoding.constants import protocol_major_version
-from  encoding.constants import protocol_minor_version
+
+from rift.encoding.constants import protocol_major_version
+from rift.encoding.constants import protocol_minor_version
 
 TEST_CASES = [("test_sys_keys_match.py", "keys_match.yaml", ["node1"]),
               ("test_sys_keys_match.py", "keys_match.yaml", ["node2"]),

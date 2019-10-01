@@ -13,8 +13,6 @@ import encoding.constants
 import key
 import utils
 
-from encoding.constants import protocol_minor_version
-
 RIFT_MAGIC = 0xA1F7
 
 class PacketInfo:
@@ -797,9 +795,8 @@ def make_node_tie_packet(name, level, direction, originator, tie_nr, seq_nr):
     node_tie_element = encoding.ttypes.NodeTIEElement(
         level=level,
         neighbors={},
-        capabilities=
-        encoding.ttypes.NodeCapabilities(
-            protocol_minor_version=protocol_minor_version,
+        capabilities=encoding.ttypes.NodeCapabilities(
+            protocol_minor_version=encoding.constants.protocol_minor_version,
             flood_reduction=True,
         ),
         flags=None,         # TODO: Implement this
