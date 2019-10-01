@@ -1,5 +1,10 @@
 #!/usr/bin/env python
 
+import sys
+
+sys.path.append("rift")
+sys.path.append("tests")
+
 import datetime
 import os
 import shutil
