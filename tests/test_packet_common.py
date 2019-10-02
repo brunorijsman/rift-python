@@ -3,6 +3,8 @@ import packet_common
 
 import encoding.ttypes
 
+from encoding.constants import protocol_minor_version
+
 # Allow long names for test functions
 # pylint: disable=invalid-name
 
@@ -137,6 +139,7 @@ def test_fix_lie_packet():
                 # nonce=packet_common.MAX_U16,
                 # last_neighbor_nonce=packet_common.MAX_U16,
                 node_capabilities=encoding.ttypes.NodeCapabilities(
+                    protocol_minor_version=protocol_minor_version,
                     flood_reduction=True,
                     hierarchy_indications=common.ttypes.HierarchyIndications.leaf_only
                 ),
@@ -247,6 +250,7 @@ def test_fix_node_tie_packet():
                             max_system_id(2): max_neighbor()
                         },
                         capabilities=encoding.ttypes.NodeCapabilities(
+                            protocol_minor_version=protocol_minor_version,
                             flood_reduction=True,
                             hierarchy_indications=common.ttypes.HierarchyIndications.leaf_only
                         ),

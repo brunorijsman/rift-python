@@ -14,9 +14,7 @@ from thrift.transport import TTransport
 
 class HierarchyIndications(object):
     """
-    Flags indicating nodes behavior in case of ZTP and support
-    for special optimization procedures. It will force level to `leaf_level` or
-    `top-of-fabric` level accordingly and enable according procedures
+    flags indicating nodes behavior in case of ZTP
     """
     leaf_only = 0
     leaf_only_and_leaf_2_leaf_procedures = 1
@@ -37,8 +35,7 @@ class HierarchyIndications(object):
 
 class TieDirectionType(object):
     """
-    indicates whether the direction is northbound/east-west
-    or southbound
+    direction of tie
     """
     Illegal = 0
     South = 1
@@ -61,6 +58,9 @@ class TieDirectionType(object):
 
 
 class AddressFamilyType(object):
+    """
+    address family
+    """
     Illegal = 0
     AddressFamilyMinValue = 1
     IPv4 = 2
@@ -86,7 +86,7 @@ class AddressFamilyType(object):
 
 class TIETypeType(object):
     """
-    Type of TIE.
+    type of TIE.
 
     This enum indicates what TIE type the TIE is carrying.
     In case the value is not known to the receiver,
@@ -105,7 +105,8 @@ class TIETypeType(object):
     PGPrefixTIEType = 6
     KeyValueTIEType = 7
     ExternalPrefixTIEType = 8
-    TIETypeMaxValue = 9
+    PositiveExternalDisaggregationPrefixTIEType = 9
+    TIETypeMaxValue = 10
 
     _VALUES_TO_NAMES = {
         0: "Illegal",
@@ -117,7 +118,8 @@ class TIETypeType(object):
         6: "PGPrefixTIEType",
         7: "KeyValueTIEType",
         8: "ExternalPrefixTIEType",
-        9: "TIETypeMaxValue",
+        9: "PositiveExternalDisaggregationPrefixTIEType",
+        10: "TIETypeMaxValue",
     }
 
     _NAMES_TO_VALUES = {
@@ -130,17 +132,20 @@ class TIETypeType(object):
         "PGPrefixTIEType": 6,
         "KeyValueTIEType": 7,
         "ExternalPrefixTIEType": 8,
-        "TIETypeMaxValue": 9,
+        "PositiveExternalDisaggregationPrefixTIEType": 9,
+        "TIETypeMaxValue": 10,
     }
 
 
 class RouteType(object):
     """
+    RIFT route types.
+
     @note: route types which MUST be ordered on their preference
-    PGP prefixes are most preferred attracting
-    traffic north (towards spine) and then south
-    normal prefixes are attracting traffic south (towards leafs),
-    i.e. prefix in NORTH PREFIX TIE is preferred over SOUTH PREFIX TIE.
+            PGP prefixes are most preferred attracting
+            traffic north (towards spine) and then south
+            normal prefixes are attracting traffic south (towards leafs),
+            i.e. prefix in NORTH PREFIX TIE is preferred over SOUTH PREFIX TIE.
 
     @note: The only purpose of those values is to introduce an
            ordering whereas an implementation can choose internally
@@ -268,6 +273,8 @@ class IEEE802_1ASTimeStampType(object):
 
 class IPv4PrefixType(object):
     """
+    IP v4 prefix type
+
     Attributes:
      - address
      - prefixlen
@@ -344,6 +351,8 @@ class IPv4PrefixType(object):
 
 class IPv6PrefixType(object):
     """
+    IP v6 prefix type
+
     Attributes:
      - address
      - prefixlen
@@ -420,6 +429,8 @@ class IPv6PrefixType(object):
 
 class IPAddressType(object):
     """
+    IP address type
+
     Attributes:
      - ipv4address
      - ipv6address
@@ -492,11 +503,13 @@ class IPAddressType(object):
 
 class IPPrefixType(object):
     """
-    Prefix representing reachablity. Observe that for interface
-    addresses the protocol can propagate the address part beyond
-    the subnet mask and on reachability computation that has to
-    be normalized. The non-significant bits can be used for operational
-    purposes.
+    prefix representing reachablity.
+
+    @note: for interface
+        addresses the protocol can propagate the address part beyond
+        the subnet mask and on reachability computation that has to
+        be normalized. The non-significant bits can be used for operational
+        purposes.
 
     Attributes:
      - ipv4prefix
@@ -572,13 +585,11 @@ class IPPrefixType(object):
 
 class PrefixSequenceType(object):
     """
-    @note: Sequence of a prefix. Comparison function:
-    if diff(timestamps) < 200msecs better transactionid wins
-    else better time wins
+    sequence of a prefix when it moves
 
     Attributes:
      - timestamp
-     - transactionid
+     - transactionid: transaction ID set by client in e.g. in 6LoWPAN
     """
 
     thrift_spec = (

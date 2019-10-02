@@ -2,6 +2,9 @@
     Thrift file with common definitions for RIFT
 */
 
+namespace py common
+namespace rs models
+
 /** @note MUST be interpreted in implementation as unsigned 64 bits.
  *        The implementation SHOULD NOT use the MSB.
  */
@@ -71,13 +74,14 @@ typedef i64 CounterType
     RFC5837 */
 typedef i32 PlatformInterfaceIndex
 
-/** Flags indicating nodes behavior in case of ZTP and support
-    for special optimization procedures. It will force level to `leaf_level` or
-    `top-of-fabric` level accordingly and enable according procedures
+/** flags indicating nodes behavior in case of ZTP
  */
 enum HierarchyIndications {
+    /** forces level to `leaf_level` and enables according procedures */
     leaf_only                            = 0,
+    /** forces level to `leaf_level` and enables according procedures */
     leaf_only_and_leaf_2_leaf_procedures = 1,
+    /** forces level to `top_of_fabric` and enables according procedures */
     top_of_fabric                        = 2,
 }
 
@@ -128,9 +132,9 @@ const LifeTimeInSecType rounddown_lifetime_interval = 60
 const LifeTimeInSecType lifetime_diff2ignore  = 400
 
 /** default UDP port to run LIEs on */
-const UDPPortType     default_lie_udp_port       =  911
+const UDPPortType     default_lie_udp_port       =  914
 /** default UDP port to receive TIEs on, that can be peer specific */
-const UDPPortType     default_tie_udp_flood_port =  912
+const UDPPortType     default_tie_udp_flood_port =  915
 
 /** default MTU link size to use */
 const MTUSizeType     default_mtu_size           = 1400
@@ -139,11 +143,9 @@ const bool            bfd_default                = true
 
 /** undefined nonce, equivalent to missing nonce */
 const NonceType       undefined_nonce            = 0;
-/** outer security key id */
+/** outer security key id, MUST be interpreted as in implementation as unsigned */
 typedef i8            OuterSecurityKeyID
-/** outer security key id */
-typedef i32           InnerSecurityKeyID
-/** security key id */
+/** security key id, MUST be interpreted as in implementation as unsigned */
 typedef i32           TIESecurityKeyID
 /** undefined key */
 const TIESecurityKeyID undefined_securitykey_id   = 0;
@@ -156,8 +158,7 @@ const TIESecurityKeyID undefined_securitykey_id   = 0;
     states fairly quickly during ZTP without sending LIEs*/
 const i16             maximum_valid_nonce_delta  = 5;
 
-/** indicates whether the direction is northbound/east-west
-  * or southbound */
+/** direction of tie */
 enum TieDirectionType {
     Illegal           = 0,
     South             = 1,
@@ -165,6 +166,7 @@ enum TieDirectionType {
     DirectionMaxValue = 3,
 }
 
+/** address family */
 enum AddressFamilyType {
    Illegal                = 0,
    AddressFamilyMinValue  = 1,
@@ -173,42 +175,46 @@ enum AddressFamilyType {
    AddressFamilyMaxValue  = 4,
 }
 
+/** IP v4 prefix type */
 struct IPv4PrefixType {
     1: required IPv4Address    address;
     2: required PrefixLenType  prefixlen;
 }
 
+/** IP v6 prefix type */
 struct IPv6PrefixType {
     1: required IPv6Address    address;
     2: required PrefixLenType  prefixlen;
 }
 
+/** IP address type */
 union IPAddressType {
     1: optional IPv4Address   ipv4address;
     2: optional IPv6Address   ipv6address;
 }
 
-/** Prefix representing reachablity. Observe that for interface
-    addresses the protocol can propagate the address part beyond
-    the subnet mask and on reachability computation that has to
-    be normalized. The non-significant bits can be used for operational
-    purposes.
+/** prefix representing reachablity.
+
+    @note: for interface
+        addresses the protocol can propagate the address part beyond
+        the subnet mask and on reachability computation that has to
+        be normalized. The non-significant bits can be used for operational
+        purposes.
 */
 union IPPrefixType {
     1: optional IPv4PrefixType   ipv4prefix;
     2: optional IPv6PrefixType   ipv6prefix;
 }
 
-/** @note: Sequence of a prefix. Comparison function:
-    if diff(timestamps) < 200msecs better transactionid wins
-    else better time wins
+/** sequence of a prefix when it moves
  */
 struct PrefixSequenceType {
     1: required IEEE802_1ASTimeStampType  timestamp;
+    /** transaction ID set by client in e.g. in 6LoWPAN */
     2: optional PrefixTransactionIDType   transactionid;
 }
 
-/** Type of TIE.
+/** type of TIE.
 
     This enum indicates what TIE type the TIE is carrying.
     In case the value is not known to the receiver,
@@ -219,24 +225,27 @@ struct PrefixSequenceType {
     be performed.
 */
 enum TIETypeType {
-    Illegal                             = 0,
-    TIETypeMinValue                     = 1,
+    Illegal                                     = 0,
+    TIETypeMinValue                             = 1,
     /** first legal value */
-    NodeTIEType                         = 2,
-    PrefixTIEType                       = 3,
-    PositiveDisaggregationPrefixTIEType = 4,
-    NegativeDisaggregationPrefixTIEType = 5,
-    PGPrefixTIEType                     = 6,
-    KeyValueTIEType                     = 7,
-    ExternalPrefixTIEType               = 8,
-    TIETypeMaxValue                     = 9,
+    NodeTIEType                                 = 2,
+    PrefixTIEType                               = 3,
+    PositiveDisaggregationPrefixTIEType         = 4,
+    NegativeDisaggregationPrefixTIEType         = 5,
+    PGPrefixTIEType                             = 6,
+    KeyValueTIEType                             = 7,
+    ExternalPrefixTIEType                       = 8,
+    PositiveExternalDisaggregationPrefixTIEType = 9,
+    TIETypeMaxValue                             = 10,
 }
 
-/** @note: route types which MUST be ordered on their preference
-    PGP prefixes are most preferred attracting
-    traffic north (towards spine) and then south
-    normal prefixes are attracting traffic south (towards leafs),
-    i.e. prefix in NORTH PREFIX TIE is preferred over SOUTH PREFIX TIE.
+/** RIFT route types.
+
+    @note: route types which MUST be ordered on their preference
+            PGP prefixes are most preferred attracting
+            traffic north (towards spine) and then south
+            normal prefixes are attracting traffic south (towards leafs),
+            i.e. prefix in NORTH PREFIX TIE is preferred over SOUTH PREFIX TIE.
 
     @note: The only purpose of those values is to introduce an
            ordering whereas an implementation can choose internally
@@ -245,11 +254,11 @@ enum TIETypeType {
 enum RouteType {
     Illegal               =  0,
     RouteTypeMinValue     =  1,
-    /** First legal value. */
-    /** Discard routes are most prefered */
+    /** first legal value. */
+    /** discard routes are most prefered */
     Discard               =  2,
 
-    /** Local prefixes are directly attached prefixes on the
+    /** local prefixes are directly attached prefixes on the
      *  system such as e.g. interface routes.
      */
     LocalPrefix           =  3,
@@ -265,8 +274,7 @@ enum RouteType {
     SouthPrefix           =  8,
     /** externally imported south */
     SouthExternalPrefix   =  9,
-    /** negative, transitive prefixes are least preferred of
-        local variety */
+    /** negative, transitive prefixes are least preferred */
     NegativeSouthPrefix   = 10,
     RouteTypeMaxValue     = 11,
 }

@@ -1,11 +1,17 @@
 #!/usr/bin/env python
 
+import sys
 import datetime
 import os
 import shutil
 import subprocess
 import re
 import yaml
+
+sys.path.append("rift")
+
+from encoding.constants import protocol_major_version # pylint: disable=wrong-import-position
+from encoding.constants import protocol_minor_version # pylint: disable=wrong-import-position
 
 TEST_CASES = [("test_sys_keys_match.py", "keys_match.yaml", ["node1"]),
               ("test_sys_keys_match.py", "keys_match.yaml", ["node2"]),
@@ -169,7 +175,7 @@ def check_juniper_rift_in_path():
                                       "--version"], universal_newlines=True)
     # print (output)
     regex = re.compile(r"^.hrift encoding schema: *(\d+)\.(\d+).*",
-                       re.RegexFlag.IGNORECASE  | re.RegexFlag.MULTILINE)
+                       re.IGNORECASE  | re.MULTILINE)
     major = re.search(regex, output)
 
     if not major or not major.group(1):
@@ -178,8 +184,8 @@ def check_juniper_rift_in_path():
     minor = major.group(2)
     major = major.group(1)
 
-    expected_minor = 0
-    expected_major = 2
+    expected_minor = protocol_minor_version
+    expected_major = protocol_major_version
 
     if int(major) != expected_major or int(minor) != expected_minor:
         fatal_error("Wrong Major/Minor version of Juniper RIFT: (expected {}.{}, got {}.{})"

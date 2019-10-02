@@ -21,6 +21,8 @@ import common.constants
 import common.ttypes
 import encoding.ttypes
 
+from encoding.constants import protocol_minor_version
+
 USE_SIMPLE_REQUEST_FILTERING = True
 
 # TODO: LIEs arriving with a TTL larger than 1 MUST be ignored.
@@ -414,6 +416,7 @@ class Interface:
             sender=self.node.system_id,
             level=self.node.level_value())
         node_capabilities = encoding.ttypes.NodeCapabilities(
+            protocol_minor_version=protocol_minor_version,
             flood_reduction=True,
             hierarchy_indications=
             common.ttypes.HierarchyIndications.leaf_only_and_leaf_2_leaf_procedures)
