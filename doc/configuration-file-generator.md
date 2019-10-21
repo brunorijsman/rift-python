@@ -505,6 +505,34 @@ Example:
 nr-spine-nodes-per-pod: 8
 </pre>
 
+### nr-link-events
+
+| Element | `nr-link-events` |
+| --- | --- |
+| Value | Integer, minimum value 0 |
+| Level | `chaos` |
+| Presence | Optional, default value 20 |
+| Meaning | The number of link events in the chaos testing script |
+
+A link event can be one of the following (each event has a corresponding repair event):
+
+ * A link failure (followed by a corresponding link repair)
+
+Example:
+
+<pre>
+nr-pods: 2
+nr-leaf-nodes-per-pod: 2
+nr-spine-nodes-per-pod: 2
+nr-superspine-nodes: 2
+chaos: {
+  event-interval: 5.0,
+  max-concurrent-events: 3,
+  <b>nr-link-events: 10</b>,
+  nr-node-events: 5
+}
+</pre>
+
 ### nr-pods
 
 | Element | `nr-pods` |
