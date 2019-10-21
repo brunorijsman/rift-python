@@ -533,6 +533,34 @@ chaos: {
 }
 </pre>
 
+### nr-node-events
+
+| Element | `nr-node-events` |
+| --- | --- |
+| Value | Integer, minimum value 0 |
+| Level | `chaos` |
+| Presence | Optional, default value 5 |
+| Meaning | The number of node events in the chaos testing script |
+
+A node event can be one of the following (each event has a corresponding repair event):
+
+ * A node failure (followed by a corresponding node restart)
+
+Example:
+
+<pre>
+nr-pods: 2
+nr-leaf-nodes-per-pod: 2
+nr-spine-nodes-per-pod: 2
+nr-superspine-nodes: 2
+chaos: {
+  event-interval: 5.0,
+  max-concurrent-events: 3,
+  nr-link-events: 10,
+  <b>nr-node-events: 5</b>
+}
+</pre>
+
 ### nr-pods
 
 | Element | `nr-pods` |
