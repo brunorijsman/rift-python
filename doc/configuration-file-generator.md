@@ -371,9 +371,9 @@ The syntax of the meta-configuration YAML file is as follows (! indicates an ele
 
 <pre>
   <b>chaos</b>: {
-    <b>event-interval</b>: <i>&lt;integer&gt;</i>
-    <b>max-concurrent-events</b>: <i>&lt;integer&gt;</i>
-    <b>nr-link-events</b>: <i>&lt;integer&gt;</i>
+    <b>event-interval</b>: <i>&lt;float&gt;</i>,
+    <b>max-concurrent-events</b>: <i>&lt;integer&gt;</i>,
+    <b>nr-link-events</b>: <i>&lt;integer&gt;</i>,
     <b>nr-node-events</b>: <i>&lt;integer&gt;</i>
   }
   <b>leafs</b>: {
@@ -381,14 +381,46 @@ The syntax of the meta-configuration YAML file is as follows (! indicates an ele
   } 
 ! <b>nr-leaf-nodes-per-pod</b>: <i>&lt;integer&gt;</i>
   <b>nr-pods</b>: <i>&lt;integer&gt;</i>
-  <b>nr-spine-nodes-per-pod</b>: <i>&lt;integer&gt;</i>
-! <b>nr-superspine-nodes</b>: <i>&lt;integer&gt;</i>
+! <b>nr-spine-nodes-per-pod</b>: <i>&lt;integer&gt;</i>
+  <b>nr-superspine-nodes</b>: <i>&lt;integer&gt;</i>
   <b>spines</b>: {
     <b>nr-ipv4-loopbacks</b>: <i>&lt;integer&gt;</i>
   } 
   <b>superspines</b>: {
     <b>nr-ipv4-loopbacks</b>: <i>&lt;integer&gt;</i>
   } 
+</pre>
+
+### chaos
+
+| Element | `chaos` |
+| --- | --- |
+| Value | Dictionary with sub-elements: `event-interval`, `max-concurrent-events`, `nr-link-event`, `nr-node-events` |
+| Level | Top-level |
+| Presence | Optional |
+| Meaning | Defines the parameters for chaos testing |
+
+If the `chaos` is present, then the config_generator also outputs the `chaos.sh` script for chaos
+testing.
+
+The `chaos` element is only supported in namespace per node mode (command-line option 
+`--netns-per-node`)
+
+See the [IETF 104 Hackathon Presentation: Chaos Monkey Testing (PDF)](../ietf-104/ietf-104---rift-hackathon---chaos-monkey-testing.pdf) for more details on chaos testing.
+
+Example:
+
+<pre>
+nr-pods: 2
+nr-leaf-nodes-per-pod: 2
+nr-spine-nodes-per-pod: 2
+nr-superspine-nodes: 2
+<b>chaos</b>: {
+  event-interval: 5.0,
+  max-concurrent-events: 3,
+  nr-link-events: 10,
+  nr-node-events: 5
+}
 </pre>
 
 ### leafs
