@@ -367,13 +367,61 @@ spine3>
 
 Just like the configuration file, the meta-configuration file is a YAML file.
 
-The syntax of the meta-configuration YAML file is as follows:
+The syntax of the meta-configuration YAML file is as follows (? indicates an element is optional):
 
 <pre>
-<b>nr-leaf-nodes-per-pod</b>: <i>&lt;integer&gt;</i>
-<b>nr-pods</b>: <i>&lt;integer&gt;</i>                            # Optional
-<b>nr-spine-nodes-per-pod</b>: <i>&lt;integer&gt;</i>
-<b>nr-superspine-nodes</b>: <i>&lt;integer&gt;</i>                # Optional
+? <b>leafs</b>: {
+?   <b>nr-ipv4-loopbacks</b>: <i>&lt;integer&gt;</i>
+  } 
+? <b>spines</b>: {
+?   <b>nr-ipv4-loopbacks</b>: <i>&lt;integer&gt;</i>
+  } 
+  <b>nr-leaf-nodes-per-pod</b>: <i>&lt;integer&gt;</i>
+? <b>nr-pods</b>: <i>&lt;integer&gt;</i>
+? <b>nr-spine-nodes-per-pod</b>: <i>&lt;integer&gt;</i>
+  <b>nr-superspine-nodes</b>: <i>&lt;integer&gt;</i>
+</pre>
+
+### leafs
+
+| Element | `leafs` |
+| --- | --- |
+| Value | Dictionary with sub-elements: `nr-ipv4-loopbacks` |
+| Level | Top-level |
+| Presence | Optional |
+| Meaning | Defines the characteristics of each leaf node in the topology |
+
+Example:
+
+<pre>
+nr-pods: 2
+nr-leaf-nodes-per-pod: 2
+<b>leafs</b>: {
+  nr-ipv4-loopbacks: 2
+}
+nr-spine-nodes-per-pod: 2
+nr-superspine-nodes: 2
+</pre>
+
+### spines
+
+| Element | `spines` |
+| --- | --- |
+| Value | Dictionary with sub-elements: `nr-ipv4-loopbacks` |
+| Level | Top-level |
+| Presence | Optional |
+| Meaning | Defines the characteristics of each spine node in the topology |
+
+Example:
+
+<pre>
+nr-pods: 2
+nr-leaf-nodes-per-pod: 2
+nr-spine-nodes-per-pod: 2
+<b>spines</b>: {
+  nr-ipv4-loopbacks: 2
+}
+nr-superspine-nodes: 2
 </pre>
 
 
@@ -434,8 +482,6 @@ nr-leaf-nodes-per-pod: 8
 | Level | Top-level |
 | Presence | If nr-pods is greater than 1, then nr-superspine-nodes is mandatory. If nr-pods equals 1, then nr-superspine-nodes must not be present. |
 | Meaning | The number of superspine nodes |
-
-
 
 Example:
 

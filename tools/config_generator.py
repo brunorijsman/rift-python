@@ -314,7 +314,6 @@ class Pod(Group):
         self.leaf_nodes = []
         self.spine_nodes = []
         self.nr_leaf_nodes = META_CONFIG['nr-leaf-nodes-per-pod']
-        # TODO: Make nr-ipv4-loopbacks a global knob
         if 'leafs' in META_CONFIG:
             self.leaf_nr_ipv4_loopbacks = META_CONFIG['leafs']['nr-ipv4-loopbacks']
         else:
