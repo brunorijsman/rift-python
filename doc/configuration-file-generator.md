@@ -483,7 +483,7 @@ Between the time that something is broken and the time that it is repaired, the 
 be "active". The `max-concurrent-events` specifies the maximum number of concurrently active
 failures.
 For example, if you set `max-concurrent-events` to 1, then you are testing that the network
-continues to function correctly in the face of any single failur.
+continues to function correctly in the face of any single failure.
 
 Example:
 

@@ -48,6 +48,7 @@ SCHEMA = {
     'nr-pods': {'required': False, 'type': 'integer', 'min': 1, 'default': 1},
     'nr-spine-nodes-per-pod': {'required': True, 'type': 'integer', 'min': 1},
     'nr-superspine-nodes': {'required': False, 'type': 'integer', 'min': 1},
+    'multi-plane': {'required': False, 'type': 'boolean', 'default': False},
     'leafs': NODE_SCHEMA,
     'spines': NODE_SCHEMA,
     'superspines': NODE_SCHEMA,
@@ -365,7 +366,8 @@ class Plane(Group):
         self.superspine_spine_links = []
         self.nr_leaf_nodes = 0
         self.nr_spine_nodes = 0
-        self.nr_superspine_nodes = META_CONFIG['nr-superspine-nodes']
+        self.nr_superspine_nodes = (META_CONFIG['nr-superspine-nodes'] // 
+                                    fabric.nr_planes) 
         if 'superspines' in META_CONFIG:
             self.superspine_nr_ipv4_loopbacks = META_CONFIG['superspines']['nr-ipv4-loopbacks']
         else:
@@ -1088,16 +1090,20 @@ class Fabric:
 
     def __init__(self):
         self.nr_pods = META_CONFIG['nr-pods']
+        self.multi_plane = META_CONFIG['multi-plane']
+        if self.multi_plane:
+            self.nr_planes = META_CONFIG['nr-spine-nodes-per-pod']
+        else:
+            self.nr_planes = 1
         self.pods = []
         self.planes = []
         pods_y_pos = GLOBAL_Y_OFFSET
         # Only generate superspine nodes and planes if there is more than one pod
         if self.nr_pods > 1:
-            nr_planes = 1   # TODO: Implement multi-plane
-            only_plane = (nr_planes == 1)
+            only_plane = (self.nr_planes == 1)
             planes_y_pos = GLOBAL_Y_OFFSET
             pods_y_pos += NODE_Y_SIZE + SUPERSPINE_TO_POD_Y_INTERVAL
-            for index in range(0, nr_planes):
+            for index in range(0, self.nr_planes):
                 global_plane_id = index + 1
                 plane_name = "plane-" + str(global_plane_id)
                 pod = Plane(self, plane_name, global_plane_id, only_plane, planes_y_pos)
@@ -1117,8 +1123,9 @@ class Fabric:
         for plane in self.planes:
             plane.x_center_shift = plane_x_center_shift
         # Generate the links between the superspine nodes and the spine nodes
-        if self.planes:
-            # TODO: Add support for multi-plane
+        if self.multi_plane:
+            self.create_links_multi_plane()
+        else:
             self.create_links_single_plane()
 
     def create_links_single_plane(self):
@@ -1128,6 +1135,16 @@ class Fabric:
         for superspine_node in plane.nodes:
             for pod in self.pods:
                 for spine_node in pod.nodes_by_level[SPINE_LEVEL]:
+                    _link = plane.create_link(superspine_node, spine_node)
+
+    def create_links_multi_plane(self):
+        # Superspine to spine links (multi plane)
+        assert len(self.planes) > 1
+        for plane_index, plane in enumerate(self.planes):
+            for superspine_node in plane.nodes:
+                for pod in self.pods:
+                    spine_nodes = pod.nodes_by_level[SPINE_LEVEL]
+                    spine_node = spine_nodes[plane_index]
                     _link = plane.create_link(superspine_node, spine_node)
 
     def write_config(self):
@@ -1618,6 +1635,14 @@ def validate_meta_configuration():
         fatal_error("nr-superspine-nodes must be configured if number of PODs > 1")
     if (nr_pods == 1) and (nr_superspine_nodes is not None):
         fatal_error("nr-superspine-nodes must not be configured if there is only one POD")
+    if 'multi-plane' in META_CONFIG and META_CONFIG['multi-plane']:
+        if nr_superspine_nodes is None:
+            fatal_error("if multi-plane is configured, then nr-superspine-nodes must also be "
+                        "configured")
+        nr_spine_nodes_per_pod = META_CONFIG['nr-spine-nodes-per-pod']
+        if nr_superspine_nodes % nr_spine_nodes_per_pod != 0:
+            fatal_error("if multi-plane is configured, then nr-superspine-nodes must be an "
+                        "integer multiple of nr-spine-nodes-per-pod")
 
 def parse_command_line_arguments():
     parser = argparse.ArgumentParser(description='RIFT configuration generator')
