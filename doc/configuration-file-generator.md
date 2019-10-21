@@ -379,6 +379,7 @@ The syntax of the meta-configuration YAML file is as follows (! indicates an ele
   <b>leafs</b>: {
     <b>nr-ipv4-loopbacks</b>: <i>&lt;integer&gt;</i>
   } 
+  <b>multi-plane</b>: <i>&lt;boolean&gt;</i>
 ! <b>nr-leaf-nodes-per-pod</b>: <i>&lt;integer&gt;</i>
   <b>nr-pods</b>: <i>&lt;integer&gt;</i>
 ! <b>nr-spine-nodes-per-pod</b>: <i>&lt;integer&gt;</i>
@@ -500,6 +501,32 @@ chaos: {
 }
 </pre>
 
+### multi-plane
+
+| Element | `multi-plane` |
+| --- | --- |
+| Value | Boolean |
+| Level | Top-level |
+| Presence | Optional, default value false |
+| Meaning | Enable multi-plane topology |
+
+Example:
+
+In a single-plane topology, each spine node is each connected to each superspine node.
+
+In a multi-plane topology, the superspine nodes are divided into planes. There are as many planes
+are there are spine nodes per pod. Hence, each spine node in each pod is associated with one
+particular plane (spine #1 associated with plane #1, spine #2 is associated with plane #2, etc).
+Each spine node is connected to all superspine nodes in its associated plane only.
+
+<pre>
+nr-pods: 4
+nr-superspine-nodes: 4
+nr-leaf-nodes-per-pod: 2
+nr-spine-nodes-per-pod: 2
+<b>multi-plane: true</b>
+</pre>
+
 ### nr-ipv4-loopbacks
 
 | Element | `nr-ipv4-loopbacks` |
@@ -515,8 +542,8 @@ Example:
 nr-pods: 2
 nr-leaf-nodes-per-pod: 2
 nr-spine-nodes-per-pod: 2
-<b>spines</b>: {
-  nr-ipv4-loopbacks: 2
+spines: {
+  <b>nr-ipv4-loopbacks: 2</b>
 }
 nr-superspine-nodes: 2
 </pre>
