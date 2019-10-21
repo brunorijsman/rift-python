@@ -468,6 +468,38 @@ nr-spine-nodes-per-pod: 2
 nr-superspine-nodes: 2
 </pre>
 
+### max-concurrent-events
+
+| Element | `max-concurrent-events` |
+| --- | --- |
+| Value | Integer, minimum value 1 |
+| Level | `chaos` |
+| Presence | Optional, default value 5 |
+| Meaning | The maximum number of concurrent events in the chaos testing script |
+
+The chaos testing script `chaos.sh` generates a sequence of random events.
+Each event breaks something (e.g. a link or a node) and some time later repairs it.
+Between the time that something is broken and the time that it is repaired, the failure is deemed to
+be "active". The `max-concurrent-events` specifies the maximum number of concurrently active
+failures.
+For example, if you set `max-concurrent-events` to 1, then you are testing that the network
+continues to function correctly in the face of any single failur.
+
+Example:
+
+<pre>
+nr-pods: 2
+nr-leaf-nodes-per-pod: 2
+nr-spine-nodes-per-pod: 2
+nr-superspine-nodes: 2
+chaos: {
+  event-interval: 5.0,
+  <b>max-concurrent-events: 3</b>,
+  nr-link-events: 10,
+  nr-node-events: 5
+}
+</pre>
+
 ### nr-ipv4-loopbacks
 
 | Element | `nr-ipv4-loopbacks` |
