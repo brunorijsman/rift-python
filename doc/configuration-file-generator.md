@@ -367,12 +367,15 @@ spine3>
 
 Just like the configuration file, the meta-configuration file is a YAML file.
 
-The meta-configuration file can contain the following elements:
+The syntax of the meta-configuration YAML file is as follows:
 
-  * [nr-leaf-nodes-per-pod](#nr-leaf-nodes-per-pod)
-  * [nr-pods](#nr-pods)
-  * [nr-spine-nodes-per-pod](#nr-spine-nodes-per-pod)
-  
+<pre>
+<b>nr-leaf-nodes-per-pod</b>: <i>&ltinteger&gt</i>
+<b>nr-pods</b>: <i>&ltinteger&gt</i>
+<b>nr-spine-nodes-per-pod</b>: <i>&ltinteger&gt</i>
+</pre>
+
+
 ### nr-leaf-nodes-per-pod
 
 | Element | `nr-leaf-nodes-per-pod` |
@@ -401,7 +404,7 @@ nr-spine-nodes-per-pod: 8
 Example:
 
 <pre>
-nr-pods: 2
+<b>nr-pods: 2</b>
 nr-leaf-nodes-per-pod: 8
 nr-spine-nodes-per-pod: 8
 </pre>
