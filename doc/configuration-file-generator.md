@@ -424,6 +424,26 @@ nr-spine-nodes-per-pod: 2
 nr-superspine-nodes: 2
 </pre>
 
+### nr-ipv4-loopbacks
+
+| Element | `nr-ipv4-loopbacks` |
+| --- | --- |
+| Value | Integer, minimum value 0 |
+| Level | `leafs`, `spines` |
+| Presence | Optional, default value 1 |
+| Meaning | The number of IPv4 loopback interfaces per leaf / spine node |
+
+Example:
+
+<pre>
+nr-pods: 2
+nr-leaf-nodes-per-pod: 2
+nr-spine-nodes-per-pod: 2
+<b>spines</b>: {
+  nr-ipv4-loopbacks: 2
+}
+nr-superspine-nodes: 2
+</pre>
 
 ### nr-leaf-nodes-per-pod
 
