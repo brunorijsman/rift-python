@@ -423,6 +423,30 @@ nr-superspine-nodes: 2
 }
 </pre>
 
+### event-interval
+
+| Element | `event-interval` |
+| --- | --- |
+| Value | Float, minimum value 0.0 |
+| Level | `chaos` |
+| Presence | Optional, default value 3.0 |
+| Meaning | The interval, in seconds, between events in the chaos testing script |
+
+Example:
+
+<pre>
+nr-pods: 2
+nr-leaf-nodes-per-pod: 2
+nr-spine-nodes-per-pod: 2
+nr-superspine-nodes: 2
+chaos: {
+  <b>event-interval: 5.0</b>,
+  max-concurrent-events: 3,
+  nr-link-events: 10,
+  nr-node-events: 5
+}
+</pre>
+
 ### leafs
 
 | Element | `leafs` |
