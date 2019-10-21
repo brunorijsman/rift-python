@@ -367,19 +367,28 @@ spine3>
 
 Just like the configuration file, the meta-configuration file is a YAML file.
 
-The syntax of the meta-configuration YAML file is as follows (? indicates an element is optional):
+The syntax of the meta-configuration YAML file is as follows (! indicates an element is mandatory):
 
 <pre>
-? <b>leafs</b>: {
-?   <b>nr-ipv4-loopbacks</b>: <i>&lt;integer&gt;</i>
+  <b>chaos</b>: {
+    <b>event-interval</b>: <i>&lt;integer&gt;</i>
+    <b>max-concurrent-events</b>: <i>&lt;integer&gt;</i>
+    <b>nr-link-events</b>: <i>&lt;integer&gt;</i>
+    <b>nr-node-events</b>: <i>&lt;integer&gt;</i>
+  }
+  <b>leafs</b>: {
+    <b>nr-ipv4-loopbacks</b>: <i>&lt;integer&gt;</i>
   } 
-? <b>spines</b>: {
-?   <b>nr-ipv4-loopbacks</b>: <i>&lt;integer&gt;</i>
+! <b>nr-leaf-nodes-per-pod</b>: <i>&lt;integer&gt;</i>
+  <b>nr-pods</b>: <i>&lt;integer&gt;</i>
+  <b>nr-spine-nodes-per-pod</b>: <i>&lt;integer&gt;</i>
+! <b>nr-superspine-nodes</b>: <i>&lt;integer&gt;</i>
+  <b>spines</b>: {
+    <b>nr-ipv4-loopbacks</b>: <i>&lt;integer&gt;</i>
   } 
-  <b>nr-leaf-nodes-per-pod</b>: <i>&lt;integer&gt;</i>
-? <b>nr-pods</b>: <i>&lt;integer&gt;</i>
-? <b>nr-spine-nodes-per-pod</b>: <i>&lt;integer&gt;</i>
-  <b>nr-superspine-nodes</b>: <i>&lt;integer&gt;</i>
+  <b>superspines</b>: {
+    <b>nr-ipv4-loopbacks</b>: <i>&lt;integer&gt;</i>
+  } 
 </pre>
 
 ### leafs
@@ -403,35 +412,14 @@ nr-spine-nodes-per-pod: 2
 nr-superspine-nodes: 2
 </pre>
 
-### spines
-
-| Element | `spines` |
-| --- | --- |
-| Value | Dictionary with sub-elements: `nr-ipv4-loopbacks` |
-| Level | Top-level |
-| Presence | Optional |
-| Meaning | Defines the characteristics of each spine node in the topology |
-
-Example:
-
-<pre>
-nr-pods: 2
-nr-leaf-nodes-per-pod: 2
-nr-spine-nodes-per-pod: 2
-<b>spines</b>: {
-  nr-ipv4-loopbacks: 2
-}
-nr-superspine-nodes: 2
-</pre>
-
 ### nr-ipv4-loopbacks
 
 | Element | `nr-ipv4-loopbacks` |
 | --- | --- |
 | Value | Integer, minimum value 0 |
-| Level | `leafs`, `spines` |
+| Level | `leafs`, `spines`, `superspines` |
 | Presence | Optional, default value 1 |
-| Meaning | The number of IPv4 loopback interfaces per leaf / spine node |
+| Meaning | The number of IPv4 loopback interfaces per leaf / spine / superspine node |
 
 Example:
 
@@ -510,4 +498,46 @@ nr-leaf-nodes-per-pod: 3
 nr-spine-nodes-per-pod: 3
 nr-pods: 2
 <b>nr-superspine-nodes: 4</b>
+</pre>
+
+### spines
+
+| Element | `spines` |
+| --- | --- |
+| Value | Dictionary with sub-elements: `nr-ipv4-loopbacks` |
+| Level | Top-level |
+| Presence | Optional |
+| Meaning | Defines the characteristics of each spine node in the topology |
+
+Example:
+
+<pre>
+nr-pods: 2
+nr-leaf-nodes-per-pod: 2
+nr-spine-nodes-per-pod: 2
+<b>spines</b>: {
+  nr-ipv4-loopbacks: 2
+}
+nr-superspine-nodes: 2
+</pre>
+
+### superspines
+
+| Element | `superspines` |
+| --- | --- |
+| Value | Dictionary with sub-elements: `nr-ipv4-loopbacks` |
+| Level | Top-level |
+| Presence | Optional |
+| Meaning | Defines the characteristics of each superspine node in the topology |
+
+Example:
+
+<pre>
+nr-pods: 2
+nr-leaf-nodes-per-pod: 2
+nr-spine-nodes-per-pod: 2
+nr-superspine-nodes: 2
+<b>superspines</b>: {
+  nr-ipv4-loopbacks: 2
+}
 </pre>

@@ -50,6 +50,7 @@ SCHEMA = {
     'nr-superspine-nodes': {'required': False, 'type': 'integer', 'min': 1},
     'leafs': NODE_SCHEMA,
     'spines': NODE_SCHEMA,
+    'superspines': NODE_SCHEMA,
     'chaos': {
         'type': 'dict',
         'schema': {
@@ -365,8 +366,10 @@ class Plane(Group):
         self.nr_leaf_nodes = 0
         self.nr_spine_nodes = 0
         self.nr_superspine_nodes = META_CONFIG['nr-superspine-nodes']
-        # TODO: Make nr-ipv4-loopbacks a global knob
-        self.superspine_nr_ipv4_loopbacks = 1
+        if 'superspines' in META_CONFIG:
+            self.superspine_nr_ipv4_loopbacks = META_CONFIG['superspines']['nr-ipv4-loopbacks']
+        else:
+            self.superspine_nr_ipv4_loopbacks = DEFAULT_NR_IPV4_LOOPBACKS
         self.create_superspine_nodes()
 
     def create_superspine_nodes(self):
