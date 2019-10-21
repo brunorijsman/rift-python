@@ -370,9 +370,10 @@ Just like the configuration file, the meta-configuration file is a YAML file.
 The syntax of the meta-configuration YAML file is as follows:
 
 <pre>
-<b>nr-leaf-nodes-per-pod</b>: <i>&ltinteger&gt</i>
-<b>nr-pods</b>: <i>&ltinteger&gt</i>
-<b>nr-spine-nodes-per-pod</b>: <i>&ltinteger&gt</i>
+<b>nr-leaf-nodes-per-pod</b>: <i>&lt;integer&gt;</i>
+<b>nr-pods</b>: <i>&lt;integer&gt;</i>                            # Optional
+<b>nr-spine-nodes-per-pod</b>: <i>&lt;integer&gt;</i>
+<b>nr-superspine-nodes</b>: <i>&lt;integer&gt;</i>                # Optional
 </pre>
 
 
@@ -425,3 +426,22 @@ nr-leaf-nodes-per-pod: 8
 <b>nr-spine-nodes-per-pod: 8</b>
 </pre>
 
+### nr-superspine-nodes
+
+| Element | `nr-superspine-nodes` |
+| --- | --- |
+| Value | Integer, minimum value 1 |
+| Level | Top-level |
+| Presence | If nr-pods is greater than 1, then nr-superspine-nodes is mandatory. If nr-pods equals 1, then nr-superspine-nodes must not be present. |
+| Meaning | The number of superspine nodes |
+
+
+
+Example:
+
+<pre>
+nr-leaf-nodes-per-pod: 3
+nr-spine-nodes-per-pod: 3
+nr-pods: 2
+<b>nr-superspine-nodes: 4</b>
+</pre>
