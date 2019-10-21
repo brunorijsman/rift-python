@@ -366,8 +366,8 @@ class Plane(Group):
         self.superspine_spine_links = []
         self.nr_leaf_nodes = 0
         self.nr_spine_nodes = 0
-        self.nr_superspine_nodes = (META_CONFIG['nr-superspine-nodes'] // 
-                                    fabric.nr_planes) 
+        self.nr_superspine_nodes = (META_CONFIG['nr-superspine-nodes'] //
+                                    fabric.nr_planes)
         if 'superspines' in META_CONFIG:
             self.superspine_nr_ipv4_loopbacks = META_CONFIG['superspines']['nr-ipv4-loopbacks']
         else:
