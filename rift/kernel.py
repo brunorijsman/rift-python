@@ -7,6 +7,7 @@ import packet_common
 import table
 
 RTPROT_RIFT = 99
+RTPRIORITY_RIFT = 199
 
 class Kernel:
 
@@ -75,7 +76,7 @@ class Kernel:
                            table=self._table_nr,
                            dst=dst,
                            proto=RTPROT_RIFT,
-                           priority=RTPROT_RIFT,
+                           priority=RTPRIORITY_RIFT,
                            **kernel_args)
         except pyroute2.netlink.exceptions.NetlinkError as err:
             self.error("Netlink error %s replacing route to %s: %s", err, dst, kernel_args)
@@ -94,7 +95,8 @@ class Kernel:
             return False
         dst = packet_common.ip_prefix_str(prefix)
         try:
-            self.ipr.route('del', table=self._table_nr, dst=dst, proto=RTPROT_RIFT, priority=RTPROT_RIFT)
+            self.ipr.route('del', table=self._table_nr, dst=dst, proto=RTPROT_RIFT,
+                           priority=RTPRIORITY_RIFT)
         except pyroute2.netlink.exceptions.NetlinkError as err:
             if err.code != errno.ESRCH:  # It is not an error to delete a non-existing route
                 self.error("Netlink error \"%s\" deleting route to %s", err, dst)
