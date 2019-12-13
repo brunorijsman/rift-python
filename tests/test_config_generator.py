@@ -6,7 +6,8 @@ import tempfile
 # pylint: disable=invalid-name
 
 TEMP_DIR = tempfile.gettempdir()
-META_TOPOLOGY_FILE_NAME = "meta_topology/clos_3pod_3leaf_3spine_4super.yaml"
+META_TOPOLOGY_FILE_NAMES = ["meta_topology/clos_3pod_3leaf_3spine_4super.yaml",
+                            "meta_topology/2c_3x2.yaml"]
 GRAPHICS_FILE_NAME = TEMP_DIR + "/rift_test_graphics.html"
 CONFIG_FILE_NAME = TEMP_DIR + "/rift_test_configuration.yaml"
 SCRIPTS_DIR_NAME = TEMP_DIR + "/rift_test_configurtion_scripts"
@@ -20,51 +21,55 @@ def cleanup():
         shutil.rmtree(SCRIPTS_DIR_NAME)
 
 def test_config_generator():
-    cleanup()
-    return_code = subprocess.call(["tools/config_generator.py",
-                                   META_TOPOLOGY_FILE_NAME,
-                                   CONFIG_FILE_NAME])
-    assert return_code == 0
-    assert os.path.isfile(CONFIG_FILE_NAME)
-    assert not os.path.isfile(GRAPHICS_FILE_NAME)
-    assert not os.path.isdir(SCRIPTS_DIR_NAME)
-    cleanup()
+    for meta_topology_file_name in META_TOPOLOGY_FILE_NAMES:
+        cleanup()
+        return_code = subprocess.call(["tools/config_generator.py",
+                                       meta_topology_file_name,
+                                       CONFIG_FILE_NAME])
+        assert return_code == 0
+        assert os.path.isfile(CONFIG_FILE_NAME)
+        assert not os.path.isfile(GRAPHICS_FILE_NAME)
+        assert not os.path.isdir(SCRIPTS_DIR_NAME)
+        cleanup()
 
 def test_config_generator_with_graphics():
-    cleanup()
-    return_code = subprocess.call(["tools/config_generator.py",
-                                   "--graphics", GRAPHICS_FILE_NAME,
-                                   META_TOPOLOGY_FILE_NAME,
-                                   CONFIG_FILE_NAME])
-    assert return_code == 0
-    assert os.path.isfile(CONFIG_FILE_NAME)
-    assert os.path.isfile(GRAPHICS_FILE_NAME)
-    assert not os.path.isdir(SCRIPTS_DIR_NAME)
-    cleanup()
+    for meta_topology_file_name in META_TOPOLOGY_FILE_NAMES:
+        cleanup()
+        return_code = subprocess.call(["tools/config_generator.py",
+                                       "--graphics", GRAPHICS_FILE_NAME,
+                                       meta_topology_file_name,
+                                       CONFIG_FILE_NAME])
+        assert return_code == 0
+        assert os.path.isfile(CONFIG_FILE_NAME)
+        assert os.path.isfile(GRAPHICS_FILE_NAME)
+        assert not os.path.isdir(SCRIPTS_DIR_NAME)
+        cleanup()
 
 def test_config_generator_netns():
-    cleanup()
-    return_code = subprocess.call(["tools/config_generator.py",
-                                   "--netns-per-node",
-                                   META_TOPOLOGY_FILE_NAME,
-                                   SCRIPTS_DIR_NAME])
-    assert return_code == 0
-    assert not os.path.isfile(CONFIG_FILE_NAME)
-    assert not os.path.isfile(GRAPHICS_FILE_NAME)
-    assert os.path.isdir(SCRIPTS_DIR_NAME)
-    assert os.path.isfile(SCRIPTS_DIR_NAME + "/start.sh")
-    cleanup()
+    for meta_topology_file_name in META_TOPOLOGY_FILE_NAMES:
+        cleanup()
+        return_code = subprocess.call(["tools/config_generator.py",
+                                       "--netns-per-node",
+                                       meta_topology_file_name,
+                                       SCRIPTS_DIR_NAME])
+        assert return_code == 0
+        assert not os.path.isfile(CONFIG_FILE_NAME)
+        assert not os.path.isfile(GRAPHICS_FILE_NAME)
+        assert os.path.isdir(SCRIPTS_DIR_NAME)
+        assert os.path.isfile(SCRIPTS_DIR_NAME + "/start.sh")
+        cleanup()
 
 def test_config_generator_netns_with_graphics():
-    cleanup()
-    return_code = subprocess.call(["tools/config_generator.py",
-                                   "--netns-per-node",
-                                   "--graphics", GRAPHICS_FILE_NAME,
-                                   META_TOPOLOGY_FILE_NAME,
-                                   SCRIPTS_DIR_NAME])
-    assert return_code == 0
-    assert not os.path.isfile(CONFIG_FILE_NAME)
-    assert os.path.isfile(GRAPHICS_FILE_NAME)
-    assert os.path.isdir(SCRIPTS_DIR_NAME)
-    assert os.path.isfile(SCRIPTS_DIR_NAME + "/start.sh")
-    cleanup()
+    for meta_topology_file_name in META_TOPOLOGY_FILE_NAMES:
+        cleanup()
+        return_code = subprocess.call(["tools/config_generator.py",
+                                       "--netns-per-node",
+                                       "--graphics", GRAPHICS_FILE_NAME,
+                                       meta_topology_file_name,
+                                       SCRIPTS_DIR_NAME])
+        assert return_code == 0
+        assert not os.path.isfile(CONFIG_FILE_NAME)
+        assert os.path.isfile(GRAPHICS_FILE_NAME)
+        assert os.path.isdir(SCRIPTS_DIR_NAME)
+        assert os.path.isfile(SCRIPTS_DIR_NAME + "/start.sh")
+        cleanup()

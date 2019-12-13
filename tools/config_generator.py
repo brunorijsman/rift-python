@@ -1094,7 +1094,7 @@ class Fabric:
         if self.multi_plane:
             self.nr_planes = META_CONFIG['nr-spine-nodes-per-pod']
         else:
-            self.nr_planes = 1
+            self.nr_planes = 0
         self.pods = []
         self.planes = []
         pods_y_pos = GLOBAL_Y_OFFSET
@@ -1125,7 +1125,7 @@ class Fabric:
         # Generate the links between the superspine nodes and the spine nodes
         if self.multi_plane:
             self.create_links_multi_plane()
-        else:
+        elif self.nr_planes > 0:
             self.create_links_single_plane()
 
     def create_links_single_plane(self):
