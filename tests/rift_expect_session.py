@@ -23,7 +23,7 @@ class RiftExpectSession:
     #
     reconverge_secs = 5.0
 
-    expect_timeout = 1.0
+    expect_timeout = 10.0
 
     def __init__(self, topology_file=None, converge_secs=start_converge_secs, log_debug=True):
         rift_cmd = "rift --interactive --non-passive"
@@ -229,7 +229,16 @@ class RiftExpectSession:
         # Let reconverge
         time.sleep(self.reconverge_secs)
 
-    def check_spf(self, node, expect_south_spf, expect_north_spf):
+    def check_spf(self, node, expect_south_spf=None, expect_north_spf=None, expect_special_spf=None):
+        if expect_south_spf is None:
+            expect_south_spf = []
+
+        if expect_north_spf is None:
+            expect_north_spf = []
+
+        if expect_special_spf is None:
+            expect_special_spf = []
+
         self.sendline("set node {}".format(node))
         self.sendline("show spf")
         self.table_expect("South SPF Destinations:")
@@ -237,6 +246,9 @@ class RiftExpectSession:
             self.table_expect(expected_row)
         self.table_expect("North SPF Destinations:")
         for expected_row in expect_north_spf:
+            self.table_expect(expected_row)
+        self.table_expect("Special SPF Destinations:")
+        for expected_row in expect_special_spf:
             self.table_expect(expected_row)
 
     def check_spf_absent(self, node, direction, destination):

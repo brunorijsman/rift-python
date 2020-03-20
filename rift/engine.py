@@ -139,13 +139,12 @@ class Engine:
         sys.exit(1)
 
     def nr_nodes(self):
-        total_nr_nodes = 0
         if 'shards' in self._config:
             for shard_config in self._config['shards']:
                 if 'nodes' in shard_config:
-                    for _node_config in shard_config['nodes']:
-                        total_nr_nodes += 1
-        return total_nr_nodes
+                    return len(shard_config['nodes'])
+
+        return 0
 
     def read_global_configuration(self, config, attribute, default):
         if ('const' in config) and (config['const'] is not None) and (attribute in config['const']):

@@ -495,9 +495,11 @@ class Node:
         self._spf_deferred_trigger_pending = False
         self._spf_runs_count = 0
         self._spf_trigger_history = collections.deque([], self.SPF_TRIGGER_HISTORY_LENGTH)
-        self._spf_destinations = {}
-        self._spf_destinations[constants.DIR_SOUTH] = {}
-        self._spf_destinations[constants.DIR_NORTH] = {}
+        self._spf_destinations = {
+            (constants.DIR_SOUTH, False): {},
+            (constants.DIR_NORTH, False): {},
+            (constants.DIR_SOUTH, True): {}
+        }
         self._ipv4_fib = fib.ForwardingTable(
             constants.ADDRESS_FAMILY_IPV4,
             self.kernel,
@@ -882,7 +884,7 @@ class Node:
         # Gather the set of (prefix, metric, tags) containing all prefixes which we should currently
         # advertise in our TIE.
         should_adv_disagg = {}
-        for dest in self._spf_destinations[constants.DIR_SOUTH].values():
+        for dest in self._spf_destinations[(constants.DIR_SOUTH, False)].values():
             if dest.positively_disaggregate:
                 attr = encoding.ttypes.PrefixAttributes(dest.cost, dest.tags, None)
                 should_adv_disagg[dest.prefix] = attr
@@ -1444,18 +1446,24 @@ class Node:
         cli_session.print(tab.to_string())
         self.command_show_spf_destinations(cli_session, constants.DIR_SOUTH)
         self.command_show_spf_destinations(cli_session, constants.DIR_NORTH)
+        self.command_show_spf_destinations(cli_session, constants.DIR_SOUTH, special_for_neg_disagg=True)
 
     @staticmethod
     def get_direction_param(cli_session, parameters):
         assert "direction" in parameters
+
         direction_str = parameters["direction"]
+
         if direction_str.lower() == "south":
-            return constants.DIR_SOUTH
+            return constants.DIR_SOUTH, False
         if direction_str.lower() == "north":
-            return constants.DIR_NORTH
-        cli_session.print('Invalid direction "{}" (valid values: "south", "north")'
-                          .format(direction_str))
-        return None
+            return constants.DIR_NORTH, False
+        if direction_str.lower() == "special":
+            return constants.DIR_SOUTH, True
+
+        cli_session.print('Invalid direction "{}" (valid values: "south", "north", "special")'.format(direction_str))
+
+        return None, None
 
     @staticmethod
     def get_destination_param(cli_session, parameters):
@@ -1543,22 +1551,27 @@ class Node:
                                   '"default", "unspecified", or number)'.format(table_str))
                 return None
 
-
-
     def command_show_spf_dir(self, cli_session, parameters):
-        direction = self.get_direction_param(cli_session, parameters)
+        (direction, special_for_neg_disagg) = self.get_direction_param(cli_session, parameters)
+
         if direction is None:
             return
-        self.command_show_spf_destinations(cli_session, direction)
+
+        self.command_show_spf_destinations(cli_session, direction, special_for_neg_disagg=special_for_neg_disagg)
 
     def command_show_spf_dir_dest(self, cli_session, parameters):
-        direction = self.get_direction_param(cli_session, parameters)
+        (direction, special_for_neg_disagg) = self.get_direction_param(cli_session, parameters)
+
         if direction is None:
             return
+
         destination = self.get_destination_param(cli_session, parameters)
+
         if destination is None:
             return
-        dest_table = self._spf_destinations[direction]
+
+        dest_table = self._spf_destinations[(direction, special_for_neg_disagg)]
+
         if destination in dest_table:
             tab = table.Table()
             tab.add_row(spf_dest.SPFDest.cli_summary_headers())
@@ -1567,9 +1580,14 @@ class Node:
         else:
             cli_session.print("Destination {} not present".format(destination))
 
-    def command_show_spf_destinations(self, cli_session, direction):
-        cli_session.print(constants.direction_str(direction) + " SPF Destinations:")
-        tab = self.spf_tree_table(direction)
+    def command_show_spf_destinations(self, cli_session, direction, special_for_neg_disagg=False):
+        if not special_for_neg_disagg:
+            cli_session.print(constants.direction_str(direction) + " SPF Destinations:")
+        else:
+            cli_session.print("Special SPF Destinations:")
+
+        tab = self.spf_tree_table(direction, special_for_neg_disagg)
+
         cli_session.print(tab.to_string())
 
     def command_show_tie_db(self, cli_session):
@@ -2298,12 +2316,16 @@ class Node:
         else:
             return (1, dest_key)
 
-    def spf_tree_table(self, direction):
+    def spf_tree_table(self, direction, special_for_neg_disagg):
         tab = table.Table()
+
         tab.add_row(spf_dest.SPFDest.cli_summary_headers())
-        sorted_spf_destinations = sorted(self._spf_destinations[direction].values())
+
+        sorted_spf_destinations = sorted(self._spf_destinations[(direction, special_for_neg_disagg)].values())
+
         for destination in sorted_spf_destinations:
             tab.add_row(destination.cli_summary_attributes())
+
         return tab
 
     def tie_db_table(self):
@@ -2378,51 +2400,65 @@ class Node:
             self.spf_run()
 
     def ties_of_type(self, direction, system_id, prefix_type):
-        # Return an ordered list of TIEs from the given node and in the given direction and of the
-        # given type
+        # Return an ordered list of TIEs from the given node and in the given direction and of the given type
         node_ties = []
+
         start_tie_id = packet_common.make_tie_id(direction, system_id, prefix_type, 0)
-        end_tie_id = packet_common.make_tie_id(direction, system_id, prefix_type,
-                                               packet_common.MAX_U32)
+        end_tie_id = packet_common.make_tie_id(direction, system_id, prefix_type, packet_common.MAX_U32)
+
         node_tie_ids = self.tie_packet_infos.irange(start_tie_id, end_tie_id, (True, True))
+
         for node_tie_id in node_tie_ids:
             node_tie_packet_info = self.tie_packet_infos[node_tie_id]
             node_tie_packet = node_tie_packet_info.protocol_packet.content.tie
             node_ties.append(node_tie_packet)
+
         return node_ties
 
     def node_ties(self, direction, system_id):
         # Return an ordered list of all node TIEs from the given node and in the given direction
         return self.ties_of_type(direction, system_id, common.ttypes.TIETypeType.NodeTIEType)
 
-    def node_neighbors(self, node_ties, neighbor_direction):
+    def node_neighbors(self, node_ties, neighbor_directions):
         # A generator that yields (nbr_system_id, nbr_tie_element) tuples for all neighbors in the
-        # specified direction of the nodes in the node_ties list.
+        # specified directions of the nodes in the node_ties list.
         for node_tie in node_ties:
             node_level = node_tie.element.node.level
+
             for nbr_system_id, nbr_tie_element in node_tie.element.node.neighbors.items():
                 nbr_level = nbr_tie_element.level
-                if neighbor_direction == constants.DIR_SOUTH:
+
+                correct_direction = False
+
+                if constants.DIR_SOUTH in neighbor_directions:
                     correct_direction = (nbr_level < node_level)
-                elif neighbor_direction == constants.DIR_NORTH:
+
+                if not correct_direction and constants.DIR_NORTH in neighbor_directions:
                     correct_direction = (nbr_level > node_level)
-                elif neighbor_direction == constants.DIR_EAST_WEST:
+
+                if not correct_direction and constants.DIR_EAST_WEST in neighbor_directions:
                     correct_direction = (nbr_level == node_level)
-                else:
-                    assert False
+
                 if correct_direction:
-                    yield (nbr_system_id, nbr_tie_element)
+                    yield nbr_system_id, nbr_tie_element
 
     def spf_run(self):
         self._spf_runs_count += 1
         # TODO: Currently we simply always run both North-SPF and South-SPF, but maybe we can be
         # more intelligent about selectively triggering North-SPF and South-SPF separately.
-        self.spf_run_direction(constants.DIR_SOUTH)
-        self.spf_run_direction(constants.DIR_NORTH)
+
+        # Run normal SPFs (south and north)
+        self.spf_run_direction(constants.DIR_SOUTH, special_for_neg_disagg=False)
+        self.spf_run_direction(constants.DIR_NORTH, special_for_neg_disagg=False)
+
+        # Run special SPF (southbound) for negative disaggregation only if current node is a ToF
+        if self.top_of_fabric():
+            self.spf_run_direction(constants.DIR_SOUTH, special_for_neg_disagg=True)
+
         self.floodred_elect_repeaters()
         self.regenerate_my_pos_disagg_tie()
 
-    def spf_run_direction(self, spf_direction):
+    def spf_run_direction(self, spf_direction, special_for_neg_disagg):
         # Shortest Path First (SPF) uses the Dijkstra algorithm to compute the shortest path to
         # each destination that is reachable from this node.
         # Each destination is represented by an SPFDest object, which represents either a node or a
@@ -2431,19 +2467,30 @@ class Node:
         # spf_dest for details. Each SPFDest object also has a key which unique identifies it. For
         # node destinations this is the system-id, and for prefix destinations it is the IP prefix.
         # The attribute _spf_destinations contains ALL known destinations. It is a dictionary
-        # indexed by direction (south and north). Each value in the dictionary (i.e.
-        # _spf_destinations[direction]) is itself a dictionary again: the values are SPFDest
+        # indexed by direction (south and north) and a boolean which indicates if the SPF is a
+        # special run for negative disaggregation. Each value in the dictionary (i.e.
+        # _spf_destinations[direction, False]) is itself a dictionary again: the values are SPFDest
         # SPFDest objects and the index is the key of the SPFDest object (a system-id or prefix).
         # It contains both destinations for which the best path has not yet definitely been
         # determined (so-called candidates) and also destinations for which the best path has
         # already been definitely been determined. In the latter case the best attribute of the
         # SPFDest object is set to True. This dictionary is kept around after the SPF run is
         # completed, and there is a "show spf" CLI command to view it for debugging purposes.
-        self._spf_destinations[spf_direction] = {}
-        dest_table = self._spf_destinations[spf_direction]
+
+        # Ensure that special SPF is called southbound!
+        if special_for_neg_disagg:
+            assert spf_direction == constants.DIR_SOUTH
+
+        # Tuple index is used to save both normal SPFs and special SPF
+        spf_direction_index = (spf_direction, special_for_neg_disagg)
+
+        self._spf_destinations[spf_direction_index] = {}
+        dest_table = self._spf_destinations[spf_direction_index]
+
         # Initially, there is only one known destination, namely this node.
         self_destination = spf_dest.make_node_dest(self.system_id, self.name, 0)
         dest_table[self.system_id] = self_destination
+
         # The variable "candidates" contains the set of destinations (nodes and prefixes) for which
         # we have already determined some feasible path (which may be an ECMP path) but for which
         # we have not yet established that the known path is indeed the best path.
@@ -2461,6 +2508,7 @@ class Node:
         while candidates:
             # Remove the destination with the lowest cost from the candidate priority queue.
             (dest_key, dest_cost) = candidates.popitem()
+
             # If already have a best path to the destination move on to the next candidate. In this
             # case the best path should have a strictly lower cost than the candidate's cost.
             destination = dest_table[dest_key]
@@ -2469,87 +2517,116 @@ class Node:
                 continue
             # Mark that we now have the best path to the destination.
             destination.best = True
+
             # If the destination is a node (i.e. its key is a system-id number rather than an IP
             # prefix), potentially add its neighbor nodes and its prefixes as a new candidate or
             # as a new ECMP path for an existing candidate.
             if isinstance(dest_key, int):
-                self.spf_add_candidates_from_node(dest_key, dest_cost, candidates, spf_direction)
-        # For south-bound SPF runs only, decide which prefixes need to be positively disaggregated
-        if spf_direction == constants.DIR_SOUTH:
-            self.spf_mark_pos_disagg_prefixes()
-        # SPF run is done. Install the computed routes into the route table (RIB)
-        self.spf_install_routes_in_rib(spf_direction)
+                self.spf_add_candidates_from_node(dest_key, dest_cost, candidates,
+                                                  spf_direction, special_for_neg_disagg)
 
-    def spf_add_candidates_from_node(self, node_system_id, node_cost, candidates, spf_direction):
-        node_ties = self.node_ties(self.spf_use_tie_direction(node_system_id, spf_direction),
-                                   node_system_id)
-        if node_ties == []:
+        # For south-bound SPF runs only (not for negative disaggregation special run),
+        # decide which prefixes need to be positively disaggregated
+        if spf_direction == constants.DIR_SOUTH and not special_for_neg_disagg:
+            self.spf_mark_pos_disagg_prefixes()
+
+        # SPF run is done.
+        if not special_for_neg_disagg:
+            # Install the computed routes into the route table (RIB) if run is normal
+            self.spf_install_routes_in_rib(spf_direction)
+        else:
+            # We don't want to install any route in the RIB if the SPF run is special for negative disaggregation
+            # Instead any fallen leaf is handled, if present
+            self.update_neg_disagg_fallen_leafs()
+
+    def spf_add_candidates_from_node(self, node_system_id, node_cost, candidates,
+                                     spf_direction, special_for_neg_disagg):
+        node_ties = self.node_ties(self.spf_use_tie_direction(node_system_id, spf_direction), node_system_id)
+
+        if not node_ties:
             return
+
         # Update the name of the node (we take it from the first node TIE)
-        dest_table = self._spf_destinations[spf_direction]
+        dest_table = self._spf_destinations[(spf_direction, special_for_neg_disagg)]
         dest_table[node_system_id].name = node_ties[0].element.node.name
-        # Add the neighbors of this node as candidates
+
+        # Add the neighbors of this node as candidates, if special_for_neg_disagg = True also consider E-W links
         self.spf_add_neighbor_candidates(node_system_id, node_cost, node_ties, candidates,
-                                         spf_direction)
+                                         spf_direction, special_for_neg_disagg)
+
         # Add the prefixes of this node as candidates
-        self.spf_add_prefixes(node_system_id, node_cost, candidates, spf_direction)
-        self.spf_add_pos_disagg_prefixes(node_system_id, node_cost, candidates, spf_direction)
+        self.spf_add_prefixes(node_system_id, node_cost, candidates, spf_direction, special_for_neg_disagg)
+        self.spf_add_pos_disagg_prefixes(node_system_id, node_cost, candidates, spf_direction, special_for_neg_disagg)
 
     def spf_add_neighbor_candidates(self, node_system_id, node_cost, node_ties, candidates,
-                                    spf_direction):
+                                    spf_direction, special_for_neg_disagg):
         # For a given node, it visits each neighbor in the SPF direction, and either adds that
         # neighbor to the candidate heap for the SPF run, or if the neighbor is already on the
         # candidate heap, it (potentially) updates the cost and predecessors of the neighbor.
         #
         # Consider each neighbor of the visited node in the direction of the SPF
-        for nbr in self.node_neighbors(node_ties, spf_direction):
-            (nbr_system_id, nbr_tie_element) = nbr
+
+        # If the special_for_neg_disagg = True, we add E-W neighbors
+        directions = [spf_direction] if not special_for_neg_disagg else [spf_direction, constants.DIR_EAST_WEST]
+
+        for nbr_system_id, nbr_tie_element in self.node_neighbors(node_ties, neighbor_directions=directions):
             # Only consider bi-directional adjacencies.
             if self.is_neighbor_bidirectional(node_system_id, nbr_system_id, nbr_tie_element,
-                                              spf_direction):
+                                              spf_direction, special_for_neg_disagg):
                 # We have found a feasible path to the neighbor node; is the best path?
                 cost = node_cost + nbr_tie_element.cost
                 destination = spf_dest.make_node_dest(nbr_system_id, None, cost)
+
                 self.spf_consider_candidate_dest(destination, nbr_tie_element, node_system_id,
-                                                 candidates, spf_direction)
+                                                 candidates, spf_direction, special_for_neg_disagg)
 
-    def spf_add_prefixes(self, node_sysid, node_cost, candidates, spf_direction):
-        prefix_ties = self.ties_of_type(
-            direction=self.spf_use_tie_direction(node_sysid, spf_direction),
-            system_id=node_sysid,
-            prefix_type=common.ttypes.TIETypeType.PrefixTIEType)
+    def spf_add_prefixes(self, node_sysid, node_cost, candidates, spf_direction, special_for_neg_disagg):
+        prefix_ties = self.ties_of_type(direction=self.spf_use_tie_direction(node_sysid, spf_direction),
+                                        system_id=node_sysid,
+                                        prefix_type=common.ttypes.TIETypeType.PrefixTIEType
+                                        )
+
         for prefix_tie in prefix_ties:
-            self.spf_add_prefixes_common(
-                node_sysid, node_cost, candidates, spf_direction,
-                prefix_tie.element.prefixes.prefixes, False)
+            self.spf_add_prefixes_common(node_sysid, node_cost, candidates, spf_direction, special_for_neg_disagg,
+                                         prefix_tie.element.prefixes.prefixes,
+                                         is_pos_disagg=False
+                                         )
 
-    def spf_add_pos_disagg_prefixes(self, node_sysid, node_cost, candidates, spf_direction):
-        prefix_ties = self.ties_of_type(
-            direction=self.spf_use_tie_direction(node_sysid, spf_direction),
-            system_id=node_sysid,
-            prefix_type=common.ttypes.TIETypeType.PositiveDisaggregationPrefixTIEType)
+    def spf_add_pos_disagg_prefixes(self, node_sysid, node_cost, candidates, spf_direction, special_for_neg_disagg):
+        prefix_ties = self.ties_of_type(direction=self.spf_use_tie_direction(node_sysid, spf_direction),
+                                        system_id=node_sysid,
+                                        prefix_type=common.ttypes.TIETypeType.PositiveDisaggregationPrefixTIEType
+                                        )
+
         for prefix_tie in prefix_ties:
-            self.spf_add_prefixes_common(
-                node_sysid, node_cost, candidates, spf_direction,
-                prefix_tie.element.positive_disaggregation_prefixes.prefixes, True)
+            self.spf_add_prefixes_common(node_sysid, node_cost, candidates, spf_direction, special_for_neg_disagg,
+                                         prefix_tie.element.positive_disaggregation_prefixes.prefixes,
+                                         is_pos_disagg=True
+                                         )
 
-    def spf_add_prefixes_common(self, node_sysid, node_cost, candidates, spf_direction, prefixes,
-                                is_pos_disagg):
-        if prefixes:
-            for prefix, attributes in prefixes.items():
-                tags = attributes.tags
-                cost = node_cost + attributes.metric
-                dest = spf_dest.make_prefix_dest(prefix, tags, cost, is_pos_disagg)
-                self.spf_consider_candidate_dest(dest, None, node_sysid, candidates, spf_direction)
+    def spf_add_prefixes_common(self, node_sysid, node_cost, candidates, spf_direction, special_for_neg_disagg,
+                                prefixes, is_pos_disagg):
+        if not prefixes:
+            return
+
+        for prefix, attributes in prefixes.items():
+            tags = attributes.tags
+            cost = node_cost + attributes.metric
+            dest = spf_dest.make_prefix_dest(prefix, tags, cost, is_pos_disagg)
+
+            self.spf_consider_candidate_dest(dest, None, node_sysid, candidates,
+                                             spf_direction, special_for_neg_disagg)
 
     def spf_consider_candidate_dest(self, destination, nbr_tie_element, predecessor_system_id,
-                                    candidates, spf_direction):
+                                    candidates, spf_direction, special_for_neg_disagg):
         dest_key = destination.key()
-        dest_table = self._spf_destinations[spf_direction]
+        dest_table = self._spf_destinations[(spf_direction, special_for_neg_disagg)]
+
         if dest_key not in dest_table:
             # We did not have any previous path to the destination. Add it.
             self.set_spf_predecessor(destination, nbr_tie_element, predecessor_system_id,
-                                     spf_direction)
+                                     spf_direction, special_for_neg_disagg)
+
             dest_table[dest_key] = destination
             candidates[dest_key] = destination.cost
         else:
@@ -2560,49 +2637,63 @@ class Node:
                 # The new path is strictly better than the existing path. Replace the existing path
                 # with the new path.
                 self.set_spf_predecessor(destination, nbr_tie_element, predecessor_system_id,
-                                         spf_direction)
+                                         spf_direction, special_for_neg_disagg)
+
                 dest_table[dest_key] = destination
                 candidates[dest_key] = destination.cost
             elif destination.cost == old_destination.cost:
                 # The new path is equal cost to the existing path. Add an ECMP path to the existing
                 # path.
-                self.add_spf_predecessor(old_destination, predecessor_system_id, spf_direction)
+                self.add_spf_predecessor(old_destination, predecessor_system_id,
+                                         spf_direction, special_for_neg_disagg)
+
                 old_destination.inherit_tags(destination)
 
     def set_spf_predecessor(self, destination, nbr_tie_element, predecessor_system_id,
-                            spf_direction):
+                            spf_direction, special_for_neg_disagg):
         destination.add_predecessor(predecessor_system_id)
+
         if (nbr_tie_element is not None) and (predecessor_system_id == self.system_id):
             for link_id_pair in nbr_tie_element.link_ids:
                 nhop = self.interface_id_to_ipv4_next_hop(link_id_pair.local_id)
                 if nhop:
                     destination.add_ipv4_next_hop(nhop)
+
                 nhop = self.interface_id_to_ipv6_next_hop(link_id_pair.local_id)
                 if nhop:
                     destination.add_ipv6_next_hop(nhop)
         else:
-            dest_table = self._spf_destinations[spf_direction]
+            dest_table = self._spf_destinations[(spf_direction, special_for_neg_disagg)]
             destination.inherit_next_hops(dest_table[predecessor_system_id])
 
-    def add_spf_predecessor(self, destination, predecessor_system_id, spf_direction):
+    def add_spf_predecessor(self, destination, predecessor_system_id, spf_direction, special_for_neg_disagg):
         destination.add_predecessor(predecessor_system_id)
-        dest_table = self._spf_destinations[spf_direction]
+        dest_table = self._spf_destinations[(spf_direction, special_for_neg_disagg)]
         destination.inherit_next_hops(dest_table[predecessor_system_id])
 
     def spf_mark_pos_disagg_prefixes(self):
         # Mark the prefixes in the SPF table for which this router wants to do positive aggregation
         # (not to be confused with prefixes in this SPF tables which were received because some
         # north-bound router did positive disaggregation)
-        for dest in self._spf_destinations[constants.DIR_SOUTH].values():
+
+        # FIXME: Prefilter only dests with dest_type == spf_dest.DEST_TYPE_PREFIX?
+        # for dest in filter(lambda x: x.dest_type == spf_dest.DEST_TYPE_PREFIX,
+        #                    self._spf_destinations[(constants.DIR_SOUTH, False)].values()
+        #                    ):
+
+        for dest in self._spf_destinations[(constants.DIR_SOUTH, False)].values():
             if dest.dest_type != spf_dest.DEST_TYPE_PREFIX:
                 continue
+
             if dest.prefix.ipv4prefix:
                 nexthops = dest.ipv4_next_hops
             else:
                 assert dest.prefix.ipv6prefix
                 nexthops = dest.ipv6_next_hops
+
             for nexthop in nexthops:
                 intf = self.interfaces_by_name[nexthop.interface]
+
                 if intf.partially_connected:
                     dest.positively_disaggregate = True
 
@@ -2649,27 +2740,41 @@ class Node:
             return constants.DIR_NORTH
 
     def is_neighbor_bidirectional(self, visit_system_id, nbr_system_id, nbr_tie_element,
-                                  spf_direction):
+                                  spf_direction, special_for_neg_disagg):
         # Locate the Node-TIE(s) of the neighbor node in the desired direction. If we can't find
         # the neighbor's Node-TIE(s), we declare the adjacency to be not bi-directional.
         reverse_direction = constants.reverse_dir(spf_direction)
+
         nbr_node_ties = self.node_ties(reverse_direction, nbr_system_id)
-        if nbr_node_ties == []:
+        if not nbr_node_ties:
             return False
+
         # Check for bi-directional connectivity: the neighbor must report the visited node
         # as an adjacency with the same link-id pair (in reverse).
         bidirectional = False
-        for nbr_nbr in self.node_neighbors(nbr_node_ties, reverse_direction):
-            (nbr_nbr_system_id, nbr_nbr_tie_element) = nbr_nbr
+
+        # FIXME: Compact alternative implementation using functional stuff?
+        # len(list(filter(lambda x: x[0] == visit_system_id and self.are_link_ids_bidirectional(nbr_tie_element, x[1]),
+        #     self.node_neighbors(nbr_node_ties, neighbor_directions=[reverse_direction])))
+        #     ) == 1
+
+        reverse_directions = [reverse_direction] if not special_for_neg_disagg \
+                             else [reverse_direction, constants.DIR_EAST_WEST]
+
+        for nbr_nbr_system_id, nbr_nbr_tie_element in self.node_neighbors(nbr_node_ties,
+                                                                          neighbor_directions=reverse_directions):
             # Does the neighbor report the visited node as its neighbor?
             if nbr_nbr_system_id != visit_system_id:
                 continue
+
             # Are the link_ids bidirectional?
             if not self.are_link_ids_bidirectional(nbr_tie_element, nbr_nbr_tie_element):
                 continue
+
             # Yes, connectivity is bidirectional
             bidirectional = True
             break
+
         return bidirectional
 
     def are_link_ids_bidirectional(self, nbr_tie_element_1, nbr_tie_element_2):
@@ -2686,14 +2791,18 @@ class Node:
             owner = constants.OWNER_N_SPF
         else:
             owner = constants.OWNER_S_SPF
+
         self._ipv4_rib.mark_owner_routes_stale(owner)
         self._ipv6_rib.mark_owner_routes_stale(owner)
-        dest_table = self._spf_destinations[spf_direction]
+
+        # Index is (direction, False) because special SPF does not install any route in RIB
+        dest_table = self._spf_destinations[(spf_direction, False)]
+
         for dest_key, dest in dest_table.items():
             if isinstance(dest_key, int):
                 # Destination is a node, do nothing
                 pass
-            elif dest.predecessors == []:
+            elif not dest.predecessors:
                 # Local node destination, don't install in RIB as result of SPF
                 pass
             elif dest.predecessors == [self.system_id]:
@@ -2711,8 +2820,16 @@ class Node:
                 if next_hops:
                     rte = route.Route(prefix, owner, next_hops)
                     route_table.put_route(rte)
+
         self._ipv4_rib.del_stale_routes()
         self._ipv6_rib.del_stale_routes()
+
+    def update_neg_disagg_fallen_leafs(self):
+        normal_southbound_run = self._spf_destinations[(constants.DIR_SOUTH, False)]
+        special_southbound_run = self._spf_destinations[(constants.DIR_SOUTH, True)]
+
+
+        pass
 
     def floodred_elect_repeaters(self):
         self.floodred_debug("Re-elect flood repeaters")
@@ -2764,7 +2881,7 @@ class Node:
         # Gather list of sysids of parents of parent, i.e. sysids of grandparents of this node
         grandparent_sysids = []
         parent_node_ties = self.node_ties(constants.DIR_SOUTH, parent.sysid)
-        for grandparent_nbr in self.node_neighbors(parent_node_ties, constants.DIR_NORTH):
+        for grandparent_nbr in self.node_neighbors(parent_node_ties, neighbor_directions=[constants.DIR_NORTH]):
             (grandparent_sysid, _grandparent_tie_element) = grandparent_nbr
             grandparent_sysids.append(grandparent_sysid)
         return grandparent_sysids

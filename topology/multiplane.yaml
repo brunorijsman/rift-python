@@ -1,0 +1,423 @@
+# A multiplane topology with K_TOP=2, K_LEAF=2 and R=1 (4 pods, 2x2 leaf/spine per pod; 2 planes, 2 tof per plane)
+# ToF Planes are connected with E-W links
+
+shards:
+  - id: 0
+    nodes:
+      #### POD 1 ####
+      # POD 1 LEAF NODES
+      - name: leaf_1_0_1
+        level: 0
+        systemid: 101
+        rx_lie_mcast_address: 224.0.1.1
+        interfaces:
+          - name: if0 # To spine_1_1_1
+            rx_lie_port: 10100
+            tx_lie_port: 10101
+            rx_tie_port: 10102
+          - name: if1 # To spine_1_1_2
+            rx_lie_port: 10110
+            tx_lie_port: 10111
+            rx_tie_port: 10112
+        v4prefixes:
+          - address: 200.0.0.0
+            mask: 24
+            metric: 1
+      - name: leaf_1_0_2
+        level: 0
+        systemid: 102
+        rx_lie_mcast_address: 224.0.1.2
+        interfaces:
+          - name: if0  # To spine_1_1_1
+            rx_lie_port: 10200
+            tx_lie_port: 10201
+            rx_tie_port: 10202
+          - name: if1 # To spine_1_1_2
+            rx_lie_port: 10210
+            tx_lie_port: 10211
+            rx_tie_port: 10212
+        v4prefixes:
+          - address: 200.0.1.0
+            mask: 24
+            metric: 1
+      # POD 1 SPINE NODES
+      - name: spine_1_1_1
+        level: undefined
+        systemid: 111
+        rx_lie_mcast_address: 224.0.1.3
+        interfaces:
+          - name: if0 # To leaf_1_0_1
+            rx_lie_port: 10101
+            tx_lie_port: 10100
+            rx_tie_port: 11102
+          - name: if1 # To leaf_1_0_2
+            rx_lie_port: 10201
+            tx_lie_port: 10200
+            rx_tie_port: 11112
+          - name: if2 # To tof_1_2_1
+            rx_lie_port: 11120
+            tx_lie_port: 11121
+            rx_tie_port: 11122
+          - name: if3 # To tof_2_2_1
+            rx_lie_port: 11130
+            tx_lie_port: 11131
+            rx_tie_port: 11132
+      - name: spine_1_1_2
+        level: undefined
+        systemid: 112
+        rx_lie_mcast_address: 224.0.1.4
+        interfaces:
+          - name: if0 # To leaf_1_0_1
+            rx_lie_port: 10111
+            tx_lie_port: 10110
+            rx_tie_port: 11202
+          - name: if1 # To leaf_1_0_2
+            rx_lie_port: 10211
+            tx_lie_port: 10210
+            rx_tie_port: 11212
+          - name: if2 # To tof_1_2_2
+            rx_lie_port: 11220
+            tx_lie_port: 11221
+            rx_tie_port: 11222
+          - name: if3 # To tof_2_2_2
+            rx_lie_port: 11230
+            tx_lie_port: 11231
+            rx_tie_port: 11232
+      #### POD 2 ####
+      # POD 2 LEAF NODES
+      - name: leaf_2_0_1
+        level: 0
+        systemid: 201
+        rx_lie_mcast_address: 224.0.1.5
+        interfaces:
+          - name: if0 # To spine_2_1_1
+            rx_lie_port: 20100
+            tx_lie_port: 20101
+            rx_tie_port: 20102
+          - name: if1 # To spine_2_1_2
+            rx_lie_port: 20110
+            tx_lie_port: 20111
+            rx_tie_port: 20112
+        v4prefixes:
+          - address: 200.0.3.0
+            mask: 24
+            metric: 1
+      - name: leaf_2_0_2
+        level: 0
+        systemid: 202
+        rx_lie_mcast_address: 224.0.1.6
+        interfaces:
+          - name: if0  # To spine_2_1_1
+            rx_lie_port: 20200
+            tx_lie_port: 20201
+            rx_tie_port: 20202
+          - name: if1 # To spine_2_1_2
+            rx_lie_port: 20210
+            tx_lie_port: 20211
+            rx_tie_port: 20212
+        v4prefixes:
+          - address: 200.0.4.0
+            mask: 24
+            metric: 1
+      # POD 2 SPINE NODES
+      - name: spine_2_1_1
+        level: undefined
+        systemid: 211
+        rx_lie_mcast_address: 224.0.1.7
+        interfaces:
+          - name: if0 # To leaf_2_0_1
+            rx_lie_port: 20101
+            tx_lie_port: 20100
+            rx_tie_port: 21102
+          - name: if1 # To leaf_2_0_2
+            rx_lie_port: 20201
+            tx_lie_port: 20200
+            rx_tie_port: 21112
+          - name: if2 # To tof_1_2_1
+            rx_lie_port: 21120
+            tx_lie_port: 21121
+            rx_tie_port: 21122
+          - name: if3 # To tof_2_2_1
+            rx_lie_port: 21130
+            tx_lie_port: 21131
+            rx_tie_port: 21132
+      - name: spine_2_1_2
+        level: undefined
+        systemid: 212
+        rx_lie_mcast_address: 224.0.1.8
+        interfaces:
+          - name: if0 # To leaf_2_0_1
+            rx_lie_port: 20111
+            tx_lie_port: 20110
+            rx_tie_port: 21202
+          - name: if1 # To leaf_2_0_2
+            rx_lie_port: 20211
+            tx_lie_port: 20210
+            rx_tie_port: 21212
+          - name: if2 # To tof_1_2_2
+            rx_lie_port: 21220
+            tx_lie_port: 21221
+            rx_tie_port: 21222
+          - name: if3 # To tof_2_2_2
+            rx_lie_port: 21230
+            tx_lie_port: 21231
+            rx_tie_port: 21232
+      #### POD 3 ####
+      # POD 3 LEAF NODES
+      - name: leaf_3_0_1
+        level: 0
+        systemid: 301
+        rx_lie_mcast_address: 224.0.1.9
+        interfaces:
+          - name: if0 # To spine_3_1_1
+            rx_lie_port: 30100
+            tx_lie_port: 30101
+            rx_tie_port: 30102
+          - name: if1 # To spine_3_1_2
+            rx_lie_port: 30110
+            tx_lie_port: 30111
+            rx_tie_port: 30112
+        v4prefixes:
+          - address: 200.0.5.0
+            mask: 24
+            metric: 1
+      - name: leaf_3_0_2
+        level: 0
+        systemid: 302
+        rx_lie_mcast_address: 224.0.1.10
+        interfaces:
+          - name: if0  # To spine_3_1_1
+            rx_lie_port: 30200
+            tx_lie_port: 30201
+            rx_tie_port: 30202
+          - name: if1 # To spine_3_1_2
+            rx_lie_port: 30210
+            tx_lie_port: 30211
+            rx_tie_port: 30212
+        v4prefixes:
+          - address: 200.0.6.0
+            mask: 24
+            metric: 1
+      # POD 3 SPINE NODES
+      - name: spine_3_1_1
+        level: undefined
+        systemid: 311
+        rx_lie_mcast_address: 224.0.1.11
+        interfaces:
+          - name: if0 # To leaf_3_0_1
+            rx_lie_port: 30101
+            tx_lie_port: 30100
+            rx_tie_port: 31102
+          - name: if1 # To leaf_3_0_2
+            rx_lie_port: 30201
+            tx_lie_port: 30200
+            rx_tie_port: 31112
+          - name: if2 # To tof_1_2_1
+            rx_lie_port: 31120
+            tx_lie_port: 31121
+            rx_tie_port: 31122
+          - name: if3 # To tof_2_2_1
+            rx_lie_port: 31130
+            tx_lie_port: 31131
+            rx_tie_port: 31132
+      - name: spine_3_1_2
+        level: undefined
+        systemid: 312
+        rx_lie_mcast_address: 224.0.1.12
+        interfaces:
+          - name: if0 # To leaf_3_0_1
+            rx_lie_port: 30111
+            tx_lie_port: 30110
+            rx_tie_port: 31202
+          - name: if1 # To leaf_3_0_2
+            rx_lie_port: 30211
+            tx_lie_port: 30210
+            rx_tie_port: 31212
+          - name: if2 # To tof_1_2_2
+            rx_lie_port: 31220
+            tx_lie_port: 31221
+            rx_tie_port: 31222
+          - name: if3 # To tof_2_2_2
+            rx_lie_port: 31230
+            tx_lie_port: 31231
+            rx_tie_port: 31232
+      #### POD 4 ####
+      # POD 4 LEAF NODES
+      - name: leaf_4_0_1
+        level: 0
+        systemid: 401
+        rx_lie_mcast_address: 224.0.1.13
+        interfaces:
+          - name: if0 # To spine_4_1_1
+            rx_lie_port: 40100
+            tx_lie_port: 40101
+            rx_tie_port: 40102
+          - name: if1 # To spine_4_1_2
+            rx_lie_port: 40110
+            tx_lie_port: 40111
+            rx_tie_port: 40112
+        v4prefixes:
+          - address: 200.0.7.0
+            mask: 24
+            metric: 1
+      - name: leaf_4_0_2
+        level: 0
+        systemid: 402
+        rx_lie_mcast_address: 224.0.1.14
+        interfaces:
+          - name: if0  # To spine_4_1_1
+            rx_lie_port: 40200
+            tx_lie_port: 40201
+            rx_tie_port: 40202
+          - name: if1 # To spine_4_1_2
+            rx_lie_port: 40210
+            tx_lie_port: 40211
+            rx_tie_port: 40212
+        v4prefixes:
+          - address: 200.0.8.0
+            mask: 24
+            metric: 1
+      # POD 4 SPINE NODES
+      - name: spine_4_1_1
+        level: undefined
+        systemid: 411
+        rx_lie_mcast_address: 224.0.1.15
+        interfaces:
+          - name: if0 # To leaf_4_0_1
+            rx_lie_port: 40101
+            tx_lie_port: 40100
+            rx_tie_port: 41102
+          - name: if1 # To leaf_4_0_2
+            rx_lie_port: 40201
+            tx_lie_port: 40200
+            rx_tie_port: 41112
+          - name: if2 # To tof_1_2_1
+            rx_lie_port: 41120
+            tx_lie_port: 41121
+            rx_tie_port: 41122
+          - name: if3 # To tof_2_2_1
+            rx_lie_port: 41130
+            tx_lie_port: 41131
+            rx_tie_port: 41132
+      - name: spine_4_1_2
+        level: undefined
+        systemid: 412
+        rx_lie_mcast_address: 224.0.1.16
+        interfaces:
+          - name: if0 # To leaf_4_0_1
+            rx_lie_port: 40111
+            tx_lie_port: 40110
+            rx_tie_port: 41202
+          - name: if1 # To leaf_4_0_2
+            rx_lie_port: 40211
+            tx_lie_port: 40210
+            rx_tie_port: 41212
+          - name: if2 # To tof_1_2_2
+            rx_lie_port: 41220
+            tx_lie_port: 41221
+            rx_tie_port: 41222
+          - name: if3 # To tof_2_2_2
+            rx_lie_port: 41230
+            tx_lie_port: 41231
+            rx_tie_port: 41232
+      #### TOF PLANES ####
+      - name: tof_1_2_1
+        level: top-of-fabric
+        systemid: 121
+        rx_lie_mcast_address: 224.0.1.17
+        interfaces:
+          - name: if0 # To spine_1_1_1
+            rx_lie_port: 11121
+            tx_lie_port: 11120
+            rx_tie_port: 12102
+          - name: if1 # To spine_2_1_1
+            rx_lie_port: 21121
+            tx_lie_port: 21120
+            rx_tie_port: 12112
+          - name: if2 # To spine_3_1_1
+            rx_lie_port: 31121
+            tx_lie_port: 31120
+            rx_tie_port: 12122
+          - name: if3 # To spine_4_1_1
+            rx_lie_port: 41121
+            tx_lie_port: 41120
+            rx_tie_port: 12132
+          - name: if4 # To tof_1_2_2
+            rx_lie_port: 12140
+            tx_lie_port: 12141
+            rx_tie_port: 12142
+      - name: tof_1_2_2
+        level: top-of-fabric
+        systemid: 122
+        rx_lie_mcast_address: 224.0.1.18
+        interfaces:
+          - name: if0 # To spine_1_1_2
+            rx_lie_port: 11221
+            tx_lie_port: 11220
+            rx_tie_port: 12202
+          - name: if1 # To spine_2_1_2
+            rx_lie_port: 21221
+            tx_lie_port: 21220
+            rx_tie_port: 12212
+          - name: if2 # To spine_3_1_2
+            rx_lie_port: 31221
+            tx_lie_port: 31220
+            rx_tie_port: 12222
+          - name: if3 # To spine_4_1_2
+            rx_lie_port: 41221
+            tx_lie_port: 41220
+            rx_tie_port: 12232
+          - name: if4 # To tof_1_2_1
+            rx_lie_port: 12141
+            tx_lie_port: 12140
+            rx_tie_port: 12242
+      - name: tof_2_2_1
+        level: top-of-fabric
+        systemid: 221
+        rx_lie_mcast_address: 224.0.1.19
+        interfaces:
+          - name: if0 # To spine_1_1_1
+            rx_lie_port: 11131
+            tx_lie_port: 11130
+            rx_tie_port: 22102
+          - name: if1 # To spine_2_1_1
+            rx_lie_port: 21131
+            tx_lie_port: 21130
+            rx_tie_port: 22112
+          - name: if2 # To spine_3_1_1
+            rx_lie_port: 31131
+            tx_lie_port: 31130
+            rx_tie_port: 22122
+          - name: if3 # To spine_4_1_1
+            rx_lie_port: 41131
+            tx_lie_port: 41130
+            rx_tie_port: 22132
+          - name: if4 # To tof_2_2_2
+            rx_lie_port: 22140
+            tx_lie_port: 22141
+            rx_tie_port: 22142
+      - name: tof_2_2_2
+        level: top-of-fabric
+        systemid: 222
+        rx_lie_mcast_address: 224.0.1.20
+        interfaces:
+          - name: if0 # To spine_1_1_2
+            rx_lie_port: 11231
+            tx_lie_port: 11230
+            rx_tie_port: 22202
+          - name: if1 # To spine_2_1_2
+            rx_lie_port: 21231
+            tx_lie_port: 21230
+            rx_tie_port: 22212
+          - name: if2 # To spine_3_1_2
+            rx_lie_port: 31231
+            tx_lie_port: 31230
+            rx_tie_port: 22222
+          - name: if3 # To spine_4_1_2
+            rx_lie_port: 41231
+            tx_lie_port: 41230
+            rx_tie_port: 22232
+          - name: if4 # To tof_2_2_1
+            rx_lie_port: 22141
+            tx_lie_port: 22140
+            rx_tie_port: 22242
