@@ -10,16 +10,18 @@ def check_ew_not_present_in_south_spf(res):
 
 def check_ew_in_special_spf(res):
     res.check_spf(node="tof_1_2_1",
-                  expect_special_spf=[r"| 122 \(tof_1_2_2\) | 1 | 121 | .* | if4"]
+                  expect_special_spf=[r"| 221 \(tof_2_2_1\) | 1 | 121 | .* | if4"]
                   )
-    res.check_spf(node="tof_2_2_1",
-                  expect_special_spf=[r"| 222 \(tof_2_2_2\) | 1 | 221 | .* | if4"]
+    res.check_spf(node="tof_1_2_2",
+                  expect_special_spf=[r"| 222 \(tof_2_2_2\) | 1 | 122 | .* | if4"]
                   )
 
 
 def check_fallen_leafs_not_present_in_south(res):
     res.check_spf_absent(node="tof_1_2_1", direction="south", destination="101")
-    res.check_spf_absent(node="tof_2_2_1", direction="south", destination="102")
+    res.check_spf_absent(node="tof_1_2_1", direction="south", destination="102")
+    res.check_spf_absent(node="tof_1_2_2", direction="south", destination="101")
+    res.check_spf_absent(node="tof_1_2_2", direction="south", destination="102")
 
 
 def check_fallen_leafs_in_special_spf(res):
@@ -28,7 +30,7 @@ def check_fallen_leafs_in_special_spf(res):
                       r"| 101 \(leaf_1_0_1\) | 3 | 112 | .* | if4",
                       r"| 102 \(leaf_1_0_2\) | 3 | 112 | .* | if4",
                   ])
-    res.check_spf(node="tof_2_2_1",
+    res.check_spf(node="tof_1_2_2",
                   expect_special_spf=[
                       r"| 101 \(leaf_1_0_1\) | 3 | 112 | .* | if4",
                       r"| 102 \(leaf_1_0_2\) | 3 | 112 | .* | if4",

@@ -58,7 +58,7 @@ shards:
             rx_lie_port: 11120
             tx_lie_port: 11121
             rx_tie_port: 11122
-          - name: if3 # To tof_2_2_1
+          - name: if3 # To tof_1_2_2
             rx_lie_port: 11130
             tx_lie_port: 11131
             rx_tie_port: 11132
@@ -75,7 +75,7 @@ shards:
             rx_lie_port: 10211
             tx_lie_port: 10210
             rx_tie_port: 11212
-          - name: if2 # To tof_1_2_2
+          - name: if2 # To tof_2_2_1
             rx_lie_port: 11220
             tx_lie_port: 11221
             rx_tie_port: 11222
@@ -137,7 +137,7 @@ shards:
             rx_lie_port: 21120
             tx_lie_port: 21121
             rx_tie_port: 21122
-          - name: if3 # To tof_2_2_1
+          - name: if3 # To tof_1_2_2
             rx_lie_port: 21130
             tx_lie_port: 21131
             rx_tie_port: 21132
@@ -154,7 +154,7 @@ shards:
             rx_lie_port: 20211
             tx_lie_port: 20210
             rx_tie_port: 21212
-          - name: if2 # To tof_1_2_2
+          - name: if2 # To tof_2_2_1
             rx_lie_port: 21220
             tx_lie_port: 21221
             rx_tie_port: 21222
@@ -216,7 +216,7 @@ shards:
             rx_lie_port: 31120
             tx_lie_port: 31121
             rx_tie_port: 31122
-          - name: if3 # To tof_2_2_1
+          - name: if3 # To tof_1_2_2
             rx_lie_port: 31130
             tx_lie_port: 31131
             rx_tie_port: 31132
@@ -233,7 +233,7 @@ shards:
             rx_lie_port: 30211
             tx_lie_port: 30210
             rx_tie_port: 31212
-          - name: if2 # To tof_1_2_2
+          - name: if2 # To tof_2_2_1
             rx_lie_port: 31220
             tx_lie_port: 31221
             rx_tie_port: 31222
@@ -295,7 +295,7 @@ shards:
             rx_lie_port: 41120
             tx_lie_port: 41121
             rx_tie_port: 41122
-          - name: if3 # To tof_2_2_1
+          - name: if3 # To tof_1_2_2
             rx_lie_port: 41130
             tx_lie_port: 41131
             rx_tie_port: 41132
@@ -312,7 +312,7 @@ shards:
             rx_lie_port: 40211
             tx_lie_port: 40210
             rx_tie_port: 41212
-          - name: if2 # To tof_1_2_2
+          - name: if2 # To tof_2_2_1
             rx_lie_port: 41220
             tx_lie_port: 41221
             rx_tie_port: 41222
@@ -342,7 +342,7 @@ shards:
             rx_lie_port: 41121
             tx_lie_port: 41120
             rx_tie_port: 12132
-          - name: if4 # To tof_1_2_2
+          - name: if4 # To tof_2_2_1
             rx_lie_port: 12140
             tx_lie_port: 12141
             rx_tie_port: 12142
@@ -351,50 +351,50 @@ shards:
         systemid: 122
         rx_lie_mcast_address: 224.0.1.18
         interfaces:
-          - name: if0 # To spine_1_1_2
-            rx_lie_port: 11221
-            tx_lie_port: 11220
+          - name: if0 # To spine_1_1_1
+            rx_lie_port: 11131
+            tx_lie_port: 11130
             rx_tie_port: 12202
-          - name: if1 # To spine_2_1_2
-            rx_lie_port: 21221
-            tx_lie_port: 21220
+          - name: if1 # To spine_2_1_1
+            rx_lie_port: 21131
+            tx_lie_port: 21130
             rx_tie_port: 12212
-          - name: if2 # To spine_3_1_2
-            rx_lie_port: 31221
-            tx_lie_port: 31220
+          - name: if2 # To spine_3_1_1
+            rx_lie_port: 31131
+            tx_lie_port: 31130
             rx_tie_port: 12222
-          - name: if3 # To spine_4_1_2
-            rx_lie_port: 41221
-            tx_lie_port: 41220
+          - name: if3 # To spine_4_1_1
+            rx_lie_port: 41131
+            tx_lie_port: 41130
             rx_tie_port: 12232
-          - name: if4 # To tof_1_2_1
-            rx_lie_port: 12141
-            tx_lie_port: 12140
+          - name: if4 # To tof_2_2_2
+            rx_lie_port: 12240
+            tx_lie_port: 12241
             rx_tie_port: 12242
       - name: tof_2_2_1
         level: top-of-fabric
         systemid: 221
         rx_lie_mcast_address: 224.0.1.19
         interfaces:
-          - name: if0 # To spine_1_1_1
-            rx_lie_port: 11131
-            tx_lie_port: 11130
+          - name: if0 # To spine_1_1_2
+            rx_lie_port: 11221
+            tx_lie_port: 11220
             rx_tie_port: 22102
-          - name: if1 # To spine_2_1_1
-            rx_lie_port: 21131
-            tx_lie_port: 21130
+          - name: if1 # To spine_2_1_2
+            rx_lie_port: 21221
+            tx_lie_port: 21220
             rx_tie_port: 22112
-          - name: if2 # To spine_3_1_1
-            rx_lie_port: 31131
-            tx_lie_port: 31130
+          - name: if2 # To spine_3_1_2
+            rx_lie_port: 31221
+            tx_lie_port: 31220
             rx_tie_port: 22122
-          - name: if3 # To spine_4_1_1
-            rx_lie_port: 41131
-            tx_lie_port: 41130
+          - name: if3 # To spine_4_1_2
+            rx_lie_port: 41221
+            tx_lie_port: 41220
             rx_tie_port: 22132
-          - name: if4 # To tof_2_2_2
-            rx_lie_port: 22140
-            tx_lie_port: 22141
+          - name: if4 # To tof_1_2_1
+            rx_lie_port: 12141
+            tx_lie_port: 12140
             rx_tie_port: 22142
       - name: tof_2_2_2
         level: top-of-fabric
@@ -417,7 +417,7 @@ shards:
             rx_lie_port: 41231
             tx_lie_port: 41230
             rx_tie_port: 22232
-          - name: if4 # To tof_2_2_1
-            rx_lie_port: 22141
-            tx_lie_port: 22140
+          - name: if4 # To tof_1_2_2
+            rx_lie_port: 12241
+            tx_lie_port: 12240
             rx_tie_port: 22242
