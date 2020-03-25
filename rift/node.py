@@ -948,6 +948,9 @@ class Node:
         self.store_tie_packet_info(packet_info)
         self.info("Regenerated positive disaggregation TIE: %s", tie_packet)
 
+    def regenerate_my_neg_disagg_tie(self):
+        pass
+
     def is_overloaded(self):
         # Is this node overloaded?
         # In the current implementation, we are never overloaded.
@@ -2834,14 +2837,16 @@ class Node:
     def update_neg_disagg_fallen_leafs(self):
         normal_southbound_run = self._spf_destinations[(constants.DIR_SOUTH, False)]
         special_southbound_run = self._spf_destinations[(constants.DIR_SOUTH, True)]
-        filtered_normal_southbound_run = set(filter(lambda item: type(item) == common.ttypes.IPPrefixType,
-                                                    normal_southbound_run.keys()))
-        filtered_special_southbound_run = set(filter(lambda item: type(item) == common.ttypes.IPPrefixType,
-                                                     special_southbound_run.keys()))
 
-        difference = filtered_special_southbound_run - filtered_normal_southbound_run
-        if difference and difference != self.orig_neg_disagg_prefixes:
-            self.orig_neg_disagg_prefixes = difference
+        southbound_prefixes = set(filter(lambda item: type(item) == common.ttypes.IPPrefixType,
+                                         normal_southbound_run.keys()))
+        special_prefixes = set(filter(lambda item: type(item) == common.ttypes.IPPrefixType,
+                                      special_southbound_run.keys()))
+
+        new_orig_neg_disagg_prefixes = special_prefixes - southbound_prefixes
+        self.orig_neg_disagg_prefixes = new_orig_neg_disagg_prefixes - self.orig_neg_disagg_prefixes
+
+        self.regenerate_my_neg_disagg_tie()
 
     def floodred_elect_repeaters(self):
         self.floodred_debug("Re-elect flood repeaters")
