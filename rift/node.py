@@ -500,6 +500,8 @@ class Node:
             (constants.DIR_NORTH, False): {},
             (constants.DIR_SOUTH, True): {}
         }
+        self.orig_neg_disagg_prefixes = set()
+        self.prop_neg_disagg_prefixes = set()
         self._ipv4_fib = fib.ForwardingTable(
             constants.ADDRESS_FAMILY_IPV4,
             self.kernel,
