@@ -35,6 +35,7 @@ MY_POS_DISAGG_TIE_NR = 3
 
 FLUSH_LIFETIME = 60
 
+
 # TODO: We currently only store the decoded TIE messages.
 # Also store the encoded TIE messages for the following reasons:
 # - Encode only once, instead of each time the message is sent
@@ -42,6 +43,7 @@ FLUSH_LIFETIME = 60
 # Note: the encoded TIE protocol packet that we send is different from the encoded TIE protocol
 # packet that we send (specifically, the content is the same but the header reflect us as the
 # sender)
+
 
 # TODO: Make static method of Node
 def compare_tie_header_lifetime_age(header_lifetime_1, header_lifetime_2):
@@ -75,8 +77,8 @@ def compare_tie_header_lifetime_age(header_lifetime_1, header_lifetime_2):
     # If we get this far, we have a tie (same age)
     return 0
 
-class Node:
 
+class Node:
     _next_node_nr = 1
 
     ZTP_MIN_NUMBER_OF_PEER_FOR_LEVEL = 3
@@ -140,10 +142,10 @@ class Node:
         if updated_offer.interface_name in self._rx_offers:
             old_offer = self._rx_offers[updated_offer.interface_name]
             new_compare_needed = (
-                (old_offer.system_id != updated_offer.system_id) or
-                (old_offer.level != updated_offer.level) or
-                (old_offer.not_a_ztp_offer != updated_offer.not_a_ztp_offer) or
-                (old_offer.state != updated_offer.state))
+                    (old_offer.system_id != updated_offer.system_id) or
+                    (old_offer.level != updated_offer.level) or
+                    (old_offer.not_a_ztp_offer != updated_offer.not_a_ztp_offer) or
+                    (old_offer.state != updated_offer.state))
         else:
             old_offer = None
             new_compare_needed = True
@@ -328,32 +330,32 @@ class Node:
 
     _state_updating_clients_transitions = {
         Event.CHANGE_LOCAL_CONFIGURED_LEVEL: (State.COMPUTE_BEST_OFFER, [action_store_level]),
-        Event.NEIGHBOR_OFFER:                (None, [action_update_or_remove_offer]),
-        Event.BETTER_HAL:                    (State.COMPUTE_BEST_OFFER, []),
-        Event.BETTER_HAT:                    (State.COMPUTE_BEST_OFFER, []),
-        Event.LOST_HAL:                      (State.HOLDING_DOWN, [action_start_timer_on_lost_hal]),
-        Event.LOST_HAT:                      (State.COMPUTE_BEST_OFFER, []),
+        Event.NEIGHBOR_OFFER: (None, [action_update_or_remove_offer]),
+        Event.BETTER_HAL: (State.COMPUTE_BEST_OFFER, []),
+        Event.BETTER_HAT: (State.COMPUTE_BEST_OFFER, []),
+        Event.LOST_HAL: (State.HOLDING_DOWN, [action_start_timer_on_lost_hal]),
+        Event.LOST_HAT: (State.COMPUTE_BEST_OFFER, []),
     }
 
     _state_holding_down_transitions = {
         Event.CHANGE_LOCAL_CONFIGURED_LEVEL: (State.COMPUTE_BEST_OFFER, [action_store_level]),
-        Event.NEIGHBOR_OFFER:                (None, [action_update_or_remove_offer]),
-        Event.BETTER_HAL:                    (None, []),
-        Event.BETTER_HAT:                    (None, []),
-        Event.LOST_HAL:                      (None, []),
-        Event.LOST_HAT:                      (None, []),
-        Event.COMPUTATION_DONE:              (None, []),
-        Event.HOLD_DOWN_EXPIRED:             (State.COMPUTE_BEST_OFFER, [action_purge_offers]),
+        Event.NEIGHBOR_OFFER: (None, [action_update_or_remove_offer]),
+        Event.BETTER_HAL: (None, []),
+        Event.BETTER_HAT: (None, []),
+        Event.LOST_HAL: (None, []),
+        Event.LOST_HAT: (None, []),
+        Event.COMPUTATION_DONE: (None, []),
+        Event.HOLD_DOWN_EXPIRED: (State.COMPUTE_BEST_OFFER, [action_purge_offers]),
     }
 
     _state_compute_best_offer_transitions = {
         Event.CHANGE_LOCAL_CONFIGURED_LEVEL: (None, [action_store_level, action_level_compute]),
-        Event.NEIGHBOR_OFFER:                (None, [action_update_or_remove_offer]),
-        Event.BETTER_HAL:                    (None, [action_level_compute]),
-        Event.BETTER_HAT:                    (None, [action_level_compute]),
-        Event.LOST_HAL:                      (State.HOLDING_DOWN, [action_start_timer_on_lost_hal]),
-        Event.LOST_HAT:                      (None, [action_level_compute]),
-        Event.COMPUTATION_DONE:              (State.UPDATING_CLIENTS, []),
+        Event.NEIGHBOR_OFFER: (None, [action_update_or_remove_offer]),
+        Event.BETTER_HAL: (None, [action_level_compute]),
+        Event.BETTER_HAT: (None, [action_level_compute]),
+        Event.LOST_HAL: (State.HOLDING_DOWN, [action_start_timer_on_lost_hal]),
+        Event.LOST_HAT: (None, [action_level_compute]),
+        Event.COMPUTATION_DONE: (State.UPDATING_CLIENTS, []),
     }
 
     _transitions = {
@@ -363,7 +365,7 @@ class Node:
     }
 
     _state_actions = {
-        State.UPDATING_CLIENTS:   ([action_update_all_lie_fsms], []),
+        State.UPDATING_CLIENTS: ([action_update_all_lie_fsms], []),
         State.COMPUTE_BEST_OFFER: ([action_stop_hold_down_timer, action_level_compute], []),
     }
 
@@ -455,8 +457,8 @@ class Node:
         key_ids = self.get_config_attribute('accept_origin_authentication_keys', None)
         self.accept_origin_keys = self.key_ids_to_keys(key_ids)
         self._derived_level = None
-        self._rx_offers = {}     # Indexed by interface name
-        self._tx_offers = {}     # Indexed by interface name
+        self._rx_offers = {}  # Indexed by interface name
+        self._tx_offers = {}  # Indexed by interface name
         self._highest_available_level = None
         self.highest_adjacency_three_way = None
         self._holdtime = 1
@@ -481,13 +483,13 @@ class Node:
         self.my_node_tie_seq_nrs = {}
         self.my_node_tie_seq_nrs[common.ttypes.TieDirectionType.South] = 0
         self.my_node_tie_seq_nrs[common.ttypes.TieDirectionType.North] = 0
-        self.my_node_tie_packet_infos = {}     # Indexed by neighbor direction
-        self.peer_node_tie_packet_infos = {}   # Indexed by tie_id
+        self.my_node_tie_packet_infos = {}  # Indexed by neighbor direction
+        self.peer_node_tie_packet_infos = {}  # Indexed by tie_id
         self._originating_default = False
         self._my_south_prefix_tie_packet_info = None
         self._my_north_prefix_tie_packet_info = None
         self._my_pos_disagg_tie_packet_info = None
-        self.tie_packet_infos = sortedcontainers.SortedDict()   # Indexed by tie_id
+        self.tie_packet_infos = sortedcontainers.SortedDict()  # Indexed by tie_id
         self._last_received_tide_end = self.MIN_TIE_ID
         self._defer_spf_timer = None
         self._spf_triggers_count = 0
@@ -565,9 +567,9 @@ class Node:
         mac_address = uuid.getnode()
         pid = os.getpid()
         system_id = (
-            ((mac_address & 0xffffffffff) << 24) |
-            (pid & 0xffff) << 8 |
-            (self._node_nr & 0xff))
+                ((mac_address & 0xffffffffff) << 24) |
+                (pid & 0xffff) << 8 |
+                (self._node_nr & 0xff))
         return system_id
 
     def generatename(self):
@@ -815,7 +817,7 @@ class Node:
                     link_ids.add(link_id_pair)
             node_neighbor = encoding.ttypes.NodeNeighborsTIEElement(
                 level=intf.neighbor.level,
-                cost=1,         # TODO: Take this from config file
+                cost=1,  # TODO: Take this from config file
                 link_ids=link_ids,
                 bandwidth=100)  # TODO: Take this from config file or interface
             tie_packet.element.node.neighbors[intf.neighbor.system_id] = node_neighbor
@@ -1831,7 +1833,7 @@ class Node:
             rx_tie_header.tieid.originator,
             rx_tie_header.tieid.tietype,
             rx_tie_header.tieid.tie_nr,
-            rx_tie_header.seq_nr + 1,           # Higher sequence number
+            rx_tie_header.seq_nr + 1,  # Higher sequence number
         )
         tietype = rx_tie_header.tieid.tietype
         if tietype == common.ttypes.TIETypeType.NodeTIEType:
@@ -1847,8 +1849,9 @@ class Node:
             new_element = encoding.ttypes.TIEElement(
                 positive_disaggregation_prefixes=empty_prefixes)
         elif tietype == common.ttypes.TIETypeType.NegativeDisaggregationPrefixTIEType:
-            # TODO: Negative disaggregation prefixes are not yet in model in specification
-            assert False
+            empty_prefixes = encoding.ttypes.PrefixTIEElement()
+            new_element = encoding.ttypes.TIEElement(
+                negative_disaggregation_prefixes=empty_prefixes)
         elif tietype == common.ttypes.TIETypeType.PGPrefixTIEType:
             # TODO: Policy guided prefixes are not yet in model in specification
             assert False
@@ -2180,13 +2183,12 @@ class Node:
                           "%s (perspective neighbor to us)", tie_header, reason1, reason2)
         return tide_packet
 
-
     def check_sysid_partially_connected(self, look_for_sysid):
         # Check every other node and the same level, and if there is at least one other node that
         # that does not have the sysid as a south-bound adjacencies, then declare the sysid as
         # partially connected. Note: if there are no other nodes at the same level, then the sysid
         # is not partially connected.
-        node_adj_with_look_for_sysid = {}    # Indexed by sysid of other node at same level
+        node_adj_with_look_for_sysid = {}  # Indexed by sysid of other node at same level
         for node_tie_packet_info in self.peer_node_tie_packet_infos.values():
             node_tie_packet = node_tie_packet_info.protocol_packet.content.tie
             node_sysid = node_tie_packet.header.tieid.originator
@@ -2223,7 +2225,7 @@ class Node:
             node_sysid = node_tie_packet.header.tieid.originator
             node_level = node_tie_packet.element.node.level
             if node_sysid not in nodes:
-                nodes[node_sysid] = ([], [])   # List of south-bound and north-bound adjacencies
+                nodes[node_sysid] = ([], [])  # List of south-bound and north-bound adjacencies
             for nbr_sysid, nbr_info in node_tie_packet.element.node.neighbors.items():
                 nbr_level = nbr_info.level
                 if nbr_level > node_level:
@@ -2445,6 +2447,7 @@ class Node:
                     yield nbr_system_id, nbr_tie_element
 
     def spf_run(self):
+
         self._spf_runs_count += 1
         # TODO: Currently we simply always run both North-SPF and South-SPF, but maybe we can be
         # more intelligent about selectively triggering North-SPF and South-SPF separately.
@@ -2761,7 +2764,7 @@ class Node:
         #     ) == 1
 
         reverse_directions = [reverse_direction] if not special_for_neg_disagg \
-                             else [reverse_direction, constants.DIR_EAST_WEST]
+            else [reverse_direction, constants.DIR_EAST_WEST]
 
         for nbr_nbr_system_id, nbr_nbr_tie_element in self.node_neighbors(nbr_node_ties,
                                                                           neighbor_directions=reverse_directions):
@@ -2829,9 +2832,14 @@ class Node:
     def update_neg_disagg_fallen_leafs(self):
         normal_southbound_run = self._spf_destinations[(constants.DIR_SOUTH, False)]
         special_southbound_run = self._spf_destinations[(constants.DIR_SOUTH, True)]
+        filtered_normal_southbound_run = set(filter(lambda item: type(item) == common.ttypes.IPPrefixType,
+                                                    normal_southbound_run.keys()))
+        filtered_special_southbound_run = set(filter(lambda item: type(item) == common.ttypes.IPPrefixType,
+                                                     special_southbound_run.keys()))
 
-
-        pass
+        difference = filtered_special_southbound_run - filtered_normal_southbound_run
+        if difference and difference != self.orig_neg_disagg_prefixes:
+            self.orig_neg_disagg_prefixes = difference
 
     def floodred_elect_repeaters(self):
         self.floodred_debug("Re-elect flood repeaters")
@@ -2867,7 +2875,7 @@ class Node:
                     grandparent = FloodRedGrandparent(self, grandparent_sysid)
                     self.floodred_grandparents[grandparent_sysid] = grandparent
                 parent.add_grandparent(grandparent)  # Grandparent of this node, parent of parent
-                grandparent.add_parent(parent)       # Parent of this node, child of grandparent
+                grandparent.add_parent(parent)  # Parent of this node, child of grandparent
 
     def floodred_gather_parents(self):
         # Gather list of FloodRedParent objects (not sorted at this time)
@@ -2896,7 +2904,7 @@ class Node:
         # to by the "abstract action, maybe noop" comment in the draft (and hence we don't need k)
         parents = self.floodred_parents
         nr_parents = len(parents)
-        similarity_group_index = 1                 # Corresponds to k=0 in the draft
+        similarity_group_index = 1  # Corresponds to k=0 in the draft
         i = 0
         while i < nr_parents:
             j = i
@@ -2916,10 +2924,10 @@ class Node:
         # Fisher-Yates algorithm.
         lst = self.floodred_parents
         high_grandparent_count = len(lst[start_inclusive].grandparents)
-        low_grandparent_count = len(lst[end_exclusive-1].grandparents)
+        low_grandparent_count = len(lst[end_exclusive - 1].grandparents)
         similarity_group = (str(similarity_group_index) + ": " +
                             str(high_grandparent_count) + "-" + str(low_grandparent_count))
-        for i in reversed(range(start_inclusive+1, end_exclusive)):
+        for i in reversed(range(start_inclusive + 1, end_exclusive)):
             random_range = i - start_inclusive
             j = start_inclusive + self.floodred_node_random % random_range
             lst[i], lst[j] = lst[j], lst[i]
@@ -2978,6 +2986,7 @@ class Node:
             pending_str = "(immediate)"
         self.floodred_debug("Deactivate interface %s as flood repeater %s", intf.name, pending_str)
 
+
 class FloodRedParent:
 
     def __init__(self, node, intf):
@@ -2985,7 +2994,7 @@ class FloodRedParent:
         self.intf = intf
         self.sysid = intf.neighbor.system_id
         self.name = intf.neighbor.name
-        self.grandparents = []   # Grandparents of this node, i.e. parent of parent
+        self.grandparents = []  # Grandparents of this node, i.e. parent of parent
         self.similarity_group = None
         self.flood_repeater = False
 
@@ -3026,12 +3035,13 @@ class FloodRedParent:
             self.flood_repeater
         ]
 
+
 class FloodRedGrandparent:
 
     def __init__(self, node, sysid):
         self.node = node
         self.sysid = sysid
-        self.parents = []              # Parents of this node, i.e. children of grandparent
+        self.parents = []  # Parents of this node, i.e. children of grandparent
         self.fr_adjacencies = 0
         self.covered = False
 

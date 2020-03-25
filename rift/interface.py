@@ -1405,6 +1405,8 @@ class Interface:
         if self.neighbor is None:
             return None
         my_level = self.node.level_value()
+        if my_level is None:
+            return None
         if self.neighbor.level > my_level:
             return constants.DIR_NORTH
         elif self.neighbor.level < my_level:
