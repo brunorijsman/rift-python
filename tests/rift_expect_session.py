@@ -229,7 +229,10 @@ class RiftExpectSession:
         # Let reconverge
         time.sleep(self.reconverge_secs)
 
-    def check_spf(self, node, expect_south_spf=None, expect_north_spf=None, expect_special_spf=None):
+    def check_spf(self, node,
+                  expect_south_spf=None,
+                  expect_north_spf=None,
+                  expect_special_spf=None):
         if expect_south_spf is None:
             expect_south_spf = []
 

@@ -1,7 +1,7 @@
 from rift_expect_session import RiftExpectSession
 
 
-def check_ew_not_present_in_south_spf(res):
+def check_ew_absence_in_south_spf(res):
     # E-W neighbor of tof_1_2_1 -> tof_1_2_2
     res.check_spf_absent(node="tof_1_2_1", direction="south", destination="122")
     # E-W neighbor of tof_2_2_1 -> tof_2_2_2
@@ -17,7 +17,7 @@ def check_ew_in_special_spf(res):
                   )
 
 
-def check_fallen_leafs_not_present_in_south(res):
+def check_fallen_leafs_absence_in_south_spf(res):
     res.check_spf_absent(node="tof_1_2_1", direction="south", destination="101")
     res.check_spf_absent(node="tof_1_2_1", direction="south", destination="102")
     res.check_spf_absent(node="tof_1_2_2", direction="south", destination="101")
@@ -42,7 +42,7 @@ def test_neg_disagg_spf():
     res = RiftExpectSession("multiplane", converge_secs=60.0, log_debug=False)
 
     # E-W neighbors should not be present in south SPF
-    check_ew_not_present_in_south_spf(res)
+    check_ew_absence_in_south_spf(res)
     # E-W neighbors must be present in special SPF
     check_ew_in_special_spf(res)
 
@@ -50,10 +50,12 @@ def test_neg_disagg_spf():
     res.interface_failure(node="spine_1_1_1", interface="if2", failure="failed")
     res.interface_failure(node="spine_1_1_1", interface="if3", failure="failed")
 
-    # Check that leaf_1_0_1 and leaf_1_0_2 are not reachable with south SPF of tof_1_1_1 and tof 2_2_1
-    check_fallen_leafs_not_present_in_south(res)
+    # Check that leaf_1_0_1 and leaf_1_0_2 are not reachable
+    # with south SPF of tof_1_1_1 and tof 2_2_1
+    check_fallen_leafs_absence_in_south_spf(res)
 
-    # Check that leaf_1_0_1 and leaf_1_0_2 are reachable using special SPF of tof_1_1_1 and tof 2_2_1
+    # Check that leaf_1_0_1 and leaf_1_0_2 are reachable
+    # using special SPF of tof_1_1_1 and tof 2_2_1
     check_fallen_leafs_in_special_spf(res)
 
     res.stop()
