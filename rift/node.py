@@ -1760,6 +1760,7 @@ class Node:
     def store_tie_packet_info(self, tie_packet_info):
         tie_packet = tie_packet_info.protocol_packet.content.tie
         tie_id = tie_packet.header.tieid
+        tie_type = tie_id.tietype
         if tie_id in self.tie_packet_infos:
             old_tie_packet_info = self.tie_packet_infos[tie_id]
             trigger_spf = self.ties_differ_enough_for_spf(old_tie_packet_info, tie_packet_info)
@@ -1773,6 +1774,12 @@ class Node:
             self.peer_node_tie_packet_infos[tie_packet.header.tieid] = tie_packet_info
             self.update_partially_conn_all_intfs()
             self.regenerate_my_south_prefix_tie()
+            
+        if self.top_of_fabric() and tie_type == common.ttypes.TIETypeType.NegativeDisaggregationPrefixTIEType:
+            trigger_spf = True
+            reason = "TIE " + packet_common.tie_id_str(tie_id) + " added negative"
+            if self.is_same_level_tie(tie_packet):
+                update_neg_disagg_propagation()
         if trigger_spf:
             self.trigger_spf(reason)
 
