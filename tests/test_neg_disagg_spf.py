@@ -26,15 +26,17 @@ def check_fallen_leafs_absence_in_south_spf(res):
 
 def check_fallen_leafs_in_special_spf(res):
     res.check_spf(node="tof_1_2_1",
-                  expect_special_spf=[
-                      r"| 101 \(leaf_1_0_1\) | 3 | 112 | .* | if4",
-                      r"| 102 \(leaf_1_0_2\) | 3 | 112 | .* | if4",
-                  ])
+                  expect_special_spf=[r"| 101 \(leaf_1_0_1\) | 3 | 112 | .* | if4"]
+                  )
+    res.check_spf(node="tof_1_2_1",
+                  expect_special_spf=[r"| 102 \(leaf_1_0_2\) | 3 | 112 | .* | if4"]
+                  )
     res.check_spf(node="tof_1_2_2",
-                  expect_special_spf=[
-                      r"| 101 \(leaf_1_0_1\) | 3 | 112 | .* | if4",
-                      r"| 102 \(leaf_1_0_2\) | 3 | 112 | .* | if4",
-                  ])
+                  expect_special_spf=[r"| 101 \(leaf_1_0_1\) | 3 | 112 | .* | if4"]
+                  )
+    res.check_spf(node="tof_1_2_2",
+                  expect_special_spf=[r"| 102 \(leaf_1_0_2\) | 3 | 112 | .* | if4"]
+                  )
 
 
 def test_neg_disagg_spf():
@@ -51,11 +53,11 @@ def test_neg_disagg_spf():
     res.interface_failure(node="spine_1_1_1", interface="if3", failure="failed")
 
     # Check that leaf_1_0_1 and leaf_1_0_2 are not reachable
-    # with south SPF of tof_1_1_1 and tof 2_2_1
+    # with south SPF of tof_1_1_1 and tof_1_2_2
     check_fallen_leafs_absence_in_south_spf(res)
 
     # Check that leaf_1_0_1 and leaf_1_0_2 are reachable
-    # using special SPF of tof_1_1_1 and tof 2_2_1
+    # using special SPF of tof_1_1_1 and tof_1_2_2
     check_fallen_leafs_in_special_spf(res)
 
     res.stop()
