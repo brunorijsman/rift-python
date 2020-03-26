@@ -21,7 +21,7 @@ class RiftExpectSession:
     # - It takes up to 1 second for node1 to receive the first LIE without the reflection
     # - Add 1 second of slack time
     #
-    reconverge_secs = 5.0
+    reconverge_secs = 10.0
 
     expect_timeout = 10.0
 

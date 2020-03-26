@@ -7,18 +7,18 @@ from rift_expect_session import RiftExpectSession
 def check_neg_tie_in_tof(res):
     res.check_tie_in_db("tof_1_2_1",
                         patterns=[
-                            "| South     | 121        | Neg-Dis-Prefix | .*      | .*      | .*   | Neg-Dis-Prefix: 200.0.0.0/24 |",
-                            "|            |                |        |        |          |   Metric: 4                  |",
-                            "|           |            |                |        |        |          | Neg-Dis-Prefix: 200.0.1.0/24 |",
-                            "|            |                |        |        |          |   Metric: 4                  |",
+                            r"| South | 121 | Neg-Dis-Prefix | .* | .* | .* | Neg-Dis-Prefix: 200.0.0.0/24 |",
+                            r"| | | | | | | +Metric: 4 |",
+                            r"| | | | | | | Neg-Dis-Prefix: 200.0.1.0/24 |",
+                            r"| | | | | | | +Metric: 4 |",
                         ])
 
     res.check_tie_in_db("tof_1_2_2",
                         patterns=[
-                            "| South     | 122        | Neg-Dis-Prefix | .*      | .*      | .*   | Neg-Dis-Prefix: 200.0.0.0/24 |",
-                            "|            |                |        |        |          |   Metric: 4                  |",
-                            "|           |            |                |        |        |          | Neg-Dis-Prefix: 200.0.1.0/24 |",
-                            "|            |                |        |        |          |   Metric: 4                  |",
+                            r"| South | 122 | Neg-Dis-Prefix | .* | .* | .* | Neg-Dis-Prefix: 200.0.0.0/24 |",
+                            r"| | | | | | | +Metric: 4 |",
+                            r"| | | | | | | Neg-Dis-Prefix: 200.0.1.0/24 |",
+                            r"| | | | | | | +Metric: 4 |",
                         ])
 
 
@@ -26,14 +26,14 @@ def check_neg_tie_in_spines(res):
     for spine_n in range(2, 5):
         res.check_tie_in_db("spine_%d_1_1" % spine_n,
                             patterns=[
-                                "| South     | 121        | Neg-Dis-Prefix | .*      | .*      | .*   | Neg-Dis-Prefix: 200.0.0.0/24 |",
-                                "|            |                |        |        |          |   Metric: 4                  |",
-                                "|           |            |                |        |        |          | Neg-Dis-Prefix: 200.0.1.0/24 |",
-                                "|            |                |        |        |          |   Metric: 4                  |",
-                                "| South     | 122        | Neg-Dis-Prefix | .*      | .*      | .*   | Neg-Dis-Prefix: 200.0.0.0/24 |",
-                                "|            |                |        |        |          |   Metric: 4                  |",
-                                "|           |            |                |        |        |          | Neg-Dis-Prefix: 200.0.1.0/24 |",
-                                "|            |                |        |        |          |   Metric: 4                  |",
+                                r"| South | 121 | Neg-Dis-Prefix | .* | .* | .* | Neg-Dis-Prefix: 200.0.0.0/24 |",
+                                r"| | | | | | | +Metric: 4 |",
+                                r"| | | | | | | Neg-Dis-Prefix: 200.0.1.0/24 |",
+                                r"| | | | | | | +Metric: 4 |",
+                                r"| South | 122 | Neg-Dis-Prefix | .* | .* | .* | Neg-Dis-Prefix: 200.0.0.0/24 |",
+                                r"| | | | | | | +Metric: 4 |",
+                                r"| | | | | | | Neg-Dis-Prefix: 200.0.1.0/24 |",
+                                r"| | | | | | | +Metric: 4 |",
                             ])
 
 
