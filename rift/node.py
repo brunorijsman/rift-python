@@ -32,6 +32,7 @@ import utils
 MY_NODE_TIE_NR = 1
 MY_PREFIX_TIE_NR = 2
 MY_POS_DISAGG_TIE_NR = 3
+MY_NEG_DISAGG_TIE_NR = 5
 
 FLUSH_LIFETIME = 60
 
@@ -954,8 +955,80 @@ class Node:
         self.store_tie_packet_info(packet_info)
         self.info("Regenerated positive disaggregation TIE: %s", tie_packet)
 
-    def regenerate_my_neg_disagg_tie(self, difference):
-        pass
+    def regenerate_my_neg_disagg_tie(self, fallen_leafs):
+        # If the no fallen leafs are present and we were not already advertising
+        # a negative disaggregation TIE, return.
+        if not fallen_leafs and not self._orig_neg_disagg_tie_info:
+            return
+
+        if self._orig_neg_disagg_tie_info:
+            # Check that found fallen_leafs are equal to the ones specified
+            # in the announced TIE
+            protocol_packet = self._orig_neg_disagg_tie_info.protocol_packet
+            element = protocol_packet.content.tie.element
+            tie_fallen_leafs = element.negative_disaggregation_prefixes.prefixes
+
+            fallen_leafs_prefixes = fallen_leafs.keys()
+            tie_prefixes = tie_fallen_leafs.keys()
+
+            # Discover new fallen leaf nodes
+            new_fallen_leafs = fallen_leafs_prefixes - tie_prefixes
+            # Check if there are any recovered fallen leaf nodes
+            recovered_leafs = tie_prefixes - fallen_leafs_prefixes
+
+            # Nothing new to announce, exit
+            if not new_fallen_leafs and not recovered_leafs:
+                return
+
+        # We need regenerate a new prefix TIE for the negatively disaggregated prefixes.
+        # Determine the sequence number.
+        if self._orig_neg_disagg_tie_info:
+            protocol_packet = self._orig_neg_disagg_tie_info.protocol_packet
+            new_seq_nr = protocol_packet.content.tie.header.seq_nr + 1
+        else:
+            new_seq_nr = 1
+
+        # Build the new prefix TIE.
+        tie_header = packet_common.make_tie_header(
+            direction=common.ttypes.TieDirectionType.South,
+            originator=self.system_id,
+            tie_type=common.ttypes.TIETypeType.NegativeDisaggregationPrefixTIEType,
+            tie_nr=MY_NEG_DISAGG_TIE_NR,
+            seq_nr=new_seq_nr
+        )
+
+        fallen_leafs_attrs = {}
+        for prefix, dest in fallen_leafs.items():
+            fallen_leafs_attrs[prefix] = encoding.ttypes.PrefixAttributes(dest.cost,
+                                                                          dest.tags,
+                                                                          None)
+
+        prefix_tie_element = encoding.ttypes.PrefixTIEElement(
+            prefixes=fallen_leafs_attrs
+        )
+
+        tie_element = encoding.ttypes.TIEElement(
+            negative_disaggregation_prefixes=prefix_tie_element
+        )
+
+        tie_packet = encoding.ttypes.TIEPacket(header=tie_header, element=tie_element)
+
+        # Wrap the tie_packet into a protocol packet, and encode it into a packet_info
+        packet_header = encoding.ttypes.PacketHeader(sender=self.system_id,
+                                                     level=self.level_value()
+                                                     )
+        packet_content = encoding.ttypes.PacketContent()
+        protocol_packet = encoding.ttypes.ProtocolPacket(
+            header=packet_header,
+            content=packet_content
+        )
+        protocol_packet.content.tie = tie_packet
+        packet_info = packet_common.encode_protocol_packet(protocol_packet, self.active_origin_key)
+        packet_common.set_lifetime(packet_info, common.constants.default_lifetime)
+
+        self._orig_neg_disagg_tie_info = packet_info
+        self.store_tie_packet_info(packet_info)
+        self.info("Regenerated negative disaggregation TIE: %s", tie_packet)
 
     def is_overloaded(self):
         # Is this node overloaded?
@@ -2872,16 +2945,22 @@ class Node:
         normal_southbound_run = self._spf_destinations[(constants.DIR_SOUTH, False)]
         special_southbound_run = self._spf_destinations[(constants.DIR_SOUTH, True)]
 
-        southbound_prefixes = set(filter(lambda item: isinstance(item, common.ttypes.IPPrefixType),
-                                         normal_southbound_run.keys())
-                                  )
-        special_prefixes = set(filter(lambda item: isinstance(item, common.ttypes.IPPrefixType),
-                                      special_southbound_run.keys())
-                               )
+        normal_southbound_dests = dict(
+            filter(lambda item: isinstance(item[0], common.ttypes.IPPrefixType),
+                   normal_southbound_run.items()
+                   )
+        )
+        special_southbound_dests = dict(
+            filter(lambda item: isinstance(item[0], common.ttypes.IPPrefixType),
+                   special_southbound_run.items()
+                   )
+        )
 
-        difference = special_prefixes - southbound_prefixes
+        difference = special_southbound_dests.keys() - normal_southbound_dests.keys()
 
-        self.regenerate_my_neg_disagg_tie(difference)
+        fallen_leafs = {prefix: special_southbound_dests[prefix] for prefix in difference}
+
+        self.regenerate_my_neg_disagg_tie(fallen_leafs)
 
     def floodred_elect_repeaters(self):
         self.floodred_debug("Re-elect flood repeaters")

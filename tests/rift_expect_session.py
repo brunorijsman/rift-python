@@ -288,3 +288,12 @@ class RiftExpectSession:
         self.sendline("show interface {} security".format(intf))
         for expected_row in expect_intf_security:
             self.table_expect(expected_row)
+
+    def check_tie_in_db(self, node, patterns):
+        self.sendline("set node {}".format(node))
+        self.sendline("show tie-db")
+
+        for pattern in patterns:
+            self.table_expect(pattern)
+
+        self.wait_prompt()

@@ -40,8 +40,7 @@ def check_fall_leafs_sp_spf(res):
 
 
 def test_neg_disagg_spf():
-    # This Fat Tree instance requires some additional time to converge.
-    res = RiftExpectSession("multiplane", converge_secs=60.0, log_debug=False)
+    res = RiftExpectSession("multiplane")
 
     # E-W neighbors should not be present in south SPF
     check_ew_absence_in_south_spf(res)
