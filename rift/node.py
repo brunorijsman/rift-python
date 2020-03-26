@@ -141,11 +141,11 @@ class Node:
     def update_offer(self, updated_offer):
         if updated_offer.interface_name in self._rx_offers:
             old_offer = self._rx_offers[updated_offer.interface_name]
-            new_compare_needed = (
-                    (old_offer.system_id != updated_offer.system_id) or
-                    (old_offer.level != updated_offer.level) or
-                    (old_offer.not_a_ztp_offer != updated_offer.not_a_ztp_offer) or
-                    (old_offer.state != updated_offer.state))
+            new_compare_needed = ((old_offer.system_id != updated_offer.system_id) or
+                                  (old_offer.level != updated_offer.level) or
+                                  (old_offer.not_a_ztp_offer != updated_offer.not_a_ztp_offer) or
+                                  (old_offer.state != updated_offer.state)
+                                  )
         else:
             old_offer = None
             new_compare_needed = True
@@ -157,8 +157,9 @@ class Node:
             updated_offer.best_three_way = old_offer.best_three_way
 
     def expire_offer(self, interface_name):
-        if not interface_name in self._rx_offers:
+        if interface_name not in self._rx_offers:
             return
+
         old_offer = self._rx_offers[interface_name]
         new_compare_needed = not old_offer.removed
         old_offer.removed = True
@@ -572,10 +573,11 @@ class Node:
     def generate_system_id(self):
         mac_address = uuid.getnode()
         pid = os.getpid()
-        system_id = (
-                ((mac_address & 0xffffffffff) << 24) |
-                (pid & 0xffff) << 8 |
-                (self._node_nr & 0xff))
+        system_id = (((mac_address & 0xffffffffff) << 24) |
+                     (pid & 0xffff) << 8 |
+                     (self._node_nr & 0xff)
+                     )
+
         return system_id
 
     def generatename(self):

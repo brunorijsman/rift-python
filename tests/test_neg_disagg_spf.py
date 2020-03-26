@@ -17,14 +17,14 @@ def check_ew_in_special_spf(res):
                   )
 
 
-def check_fallen_leafs_absence_in_south_spf(res):
+def check_fall_leafs_s_spf(res):
     res.check_spf_absent(node="tof_1_2_1", direction="south", destination="101")
     res.check_spf_absent(node="tof_1_2_1", direction="south", destination="102")
     res.check_spf_absent(node="tof_1_2_2", direction="south", destination="101")
     res.check_spf_absent(node="tof_1_2_2", direction="south", destination="102")
 
 
-def check_fallen_leafs_in_special_spf(res):
+def check_fall_leafs_sp_spf(res):
     res.check_spf(node="tof_1_2_1",
                   expect_special_spf=[r"| 101 \(leaf_1_0_1\) | 3 | 112 | .* | if4"]
                   )
@@ -54,10 +54,10 @@ def test_neg_disagg_spf():
 
     # Check that leaf_1_0_1 and leaf_1_0_2 are not reachable
     # with south SPF of tof_1_1_1 and tof_1_2_2
-    check_fallen_leafs_absence_in_south_spf(res)
+    check_fall_leafs_s_spf(res)
 
     # Check that leaf_1_0_1 and leaf_1_0_2 are reachable
     # using special SPF of tof_1_1_1 and tof_1_2_2
-    check_fallen_leafs_in_special_spf(res)
+    check_fall_leafs_sp_spf(res)
 
     res.stop()
