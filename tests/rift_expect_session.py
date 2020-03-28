@@ -10,22 +10,23 @@ if TRAVIS:
 else:
     IPV6 = True
 
-class RiftExpectSession:
+# Maximum amount of time to fully reconverge after a uni-directional interface failure
+# If node1 can still send to node2, but node1 cannot receive from node2:
+# - It takes up to 3 seconds for node2 to detect that it is not receiving LIEs from node1
+# - At that point node2 will stop reflecting node1
+# - It takes up to 1 second for node1 to receive the first LIE without the reflection
+# - Add 1 second of slack time
+DEFAULT_RECONVERGE_SECS = 5.0
 
-    start_converge_secs = 10.0
+# Initial Convergence seconds
+DEFAULT_START_CONVERGE_SECS = 10.0
 
-    # Maximum amount of time to fully reconverge after a uni-directional interface failure
-    # If node1 can still send to node2, but node1 cannot receive from node2:
-    # - It takes up to 3 seconds for node2 to detect that it is not receiving LIEs from node1
-    # - At that point node2 will stop reflecting node1
-    # - It takes up to 1 second for node1 to receive the first LIE without the reflection
-    # - Add 1 second of slack time
-    #
-    reconverge_secs = 10.0
 
+class RiftExpectSession(object):
     expect_timeout = 10.0
 
-    def __init__(self, topology_file=None, converge_secs=start_converge_secs, log_debug=True):
+    def __init__(self, topology_file=None, converge_secs=DEFAULT_START_CONVERGE_SECS,
+                 reconvergence_secs=DEFAULT_RECONVERGE_SECS, log_debug=True):
         rift_cmd = "rift --interactive --non-passive"
         if log_debug:
             rift_cmd += " --log-level debug"
@@ -40,6 +41,9 @@ class RiftExpectSession:
         self.write_result("\n\n*** Start session: {}\n\n".format(topology_file))
         self.write_result("TRAVIS : {}\n".format(TRAVIS))
         self.write_result("IPV6   : {}\n\n".format(IPV6))
+
+        self.reconverge_secs = reconvergence_secs
+
         self._expect_session = pexpect.spawn(cmd, logfile=self._results_file)
         time.sleep(converge_secs)
         self.wait_prompt()
@@ -226,6 +230,7 @@ class RiftExpectSession:
         expected_failure = "| Failure | {} |".format(failure)
         self.table_expect(expected_failure)
         self.wait_prompt()
+
         # Let reconverge
         time.sleep(self.reconverge_secs)
 

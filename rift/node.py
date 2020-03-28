@@ -509,8 +509,8 @@ class Node:
             (constants.DIR_SOUTH, True): {}
         }
 
-        self._orig_neg_disagg_tie_info = None
-        self._prop_neg_disagg_tie_info = None
+        self._originate_neg_disagg_tie_info = None
+        self._propagate_neg_disagg_tie_info = None
 
         self._ipv4_fib = fib.ForwardingTable(
             constants.ADDRESS_FAMILY_IPV4,
@@ -958,13 +958,13 @@ class Node:
     def regenerate_my_neg_disagg_tie(self, fallen_leafs):
         # If the no fallen leafs are present and we were not already advertising
         # a negative disaggregation TIE, return.
-        if not fallen_leafs and not self._orig_neg_disagg_tie_info:
+        if not fallen_leafs and not self._originate_neg_disagg_tie_info:
             return
 
-        if self._orig_neg_disagg_tie_info:
+        if self._originate_neg_disagg_tie_info:
             # Check that found fallen_leafs are equal to the ones specified
             # in the announced TIE
-            protocol_packet = self._orig_neg_disagg_tie_info.protocol_packet
+            protocol_packet = self._originate_neg_disagg_tie_info.protocol_packet
             element = protocol_packet.content.tie.element
             tie_fallen_leafs = element.negative_disaggregation_prefixes.prefixes
 
@@ -982,8 +982,8 @@ class Node:
 
         # We need regenerate a new prefix TIE for the negatively disaggregated prefixes.
         # Determine the sequence number.
-        if self._orig_neg_disagg_tie_info:
-            protocol_packet = self._orig_neg_disagg_tie_info.protocol_packet
+        if self._originate_neg_disagg_tie_info:
+            protocol_packet = self._originate_neg_disagg_tie_info.protocol_packet
             new_seq_nr = protocol_packet.content.tie.header.seq_nr + 1
         else:
             new_seq_nr = 1
@@ -1026,7 +1026,7 @@ class Node:
         packet_info = packet_common.encode_protocol_packet(protocol_packet, self.active_origin_key)
         packet_common.set_lifetime(packet_info, common.constants.default_lifetime)
 
-        self._orig_neg_disagg_tie_info = packet_info
+        self._originate_neg_disagg_tie_info = packet_info
         self.store_tie_packet_info(packet_info)
         self.info("Regenerated negative disaggregation TIE: %s", tie_packet)
 
@@ -1044,6 +1044,14 @@ class Node:
                                                  constants.DIR_EAST_WEST]:
                     return True
         return False
+
+    def have_ew_adjacency(self):
+        # Does this node have at least one east-west adjacency?
+        return any(filter(lambda x: x.fsm.state == interface.Interface.State.THREE_WAY and
+                          x.neighbor_direction() == constants.DIR_EAST_WEST,
+                          self.interfaces_by_name.values()
+                          )
+                   )
 
     def other_nodes_are_overloaded(self):
         # Are all the other nodes at my level overloaded?
@@ -2540,7 +2548,6 @@ class Node:
                     yield nbr_system_id, nbr_tie_element
 
     def spf_run(self):
-
         self._spf_runs_count += 1
         # TODO: Currently we simply always run both North-SPF and South-SPF, but maybe we can be
         # more intelligent about selectively triggering North-SPF and South-SPF separately.
@@ -2550,7 +2557,8 @@ class Node:
         self.spf_run_direction(constants.DIR_NORTH, special_for_neg_disagg=False)
 
         # Run special SPF (southbound) for negative disaggregation only if current node is a ToF
-        if self.top_of_fabric():
+        # and it has at least an E-W link
+        if self.top_of_fabric() and self.have_ew_adjacency():
             self.spf_run_direction(constants.DIR_SOUTH, special_for_neg_disagg=True)
 
         self.floodred_elect_repeaters()
