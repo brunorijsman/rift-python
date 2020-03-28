@@ -1773,12 +1773,12 @@ class Node:
         if self.is_same_level_tie(tie_packet):
             self.peer_node_tie_packet_infos[tie_packet.header.tieid] = tie_packet_info
             self.update_partially_conn_all_intfs()
-            self.regenerate_my_south_prefix_tie()   
+            self.regenerate_my_south_prefix_tie()
         if tie_packet.header.level == self.level_value + 1 and \
             tie_type == common.ttypes.TIETypeType.NegativeDisaggregationPrefixTIEType:
             trigger_spf = True
             reason = "TIE " + packet_common.tie_id_str(tie_id) + " added negative"
-            update_neg_disagg_propagation()
+            self.update_neg_disagg_propagation()
         if trigger_spf:
             self.trigger_spf(reason)
 
