@@ -19,14 +19,13 @@ else:
 DEFAULT_RECONVERGE_SECS = 5.0
 # Initial Convergence seconds
 DEFAULT_START_CONVERGE_SECS = 10.0
-DEFAULT_EXPECT_TIMEOUT = 1.0
+
 
 class RiftExpectSession:
-    expect_timeout = DEFAULT_EXPECT_TIMEOUT
+    expect_timeout = 5.0
 
     def __init__(self, topology_file=None, converge_secs=DEFAULT_START_CONVERGE_SECS,
-                 reconvergence_secs=DEFAULT_RECONVERGE_SECS, expect_timeout=DEFAULT_EXPECT_TIMEOUT,
-                 log_debug=True):
+                 reconvergence_secs=DEFAULT_RECONVERGE_SECS, log_debug=True):
         rift_cmd = "rift --interactive --non-passive"
         if log_debug:
             rift_cmd += " --log-level debug"
@@ -43,7 +42,6 @@ class RiftExpectSession:
         self.write_result("IPV6   : {}\n\n".format(IPV6))
 
         self.reconverge_secs = reconvergence_secs
-        self.expect_timeout = expect_timeout
 
         self._expect_session = pexpect.spawn(cmd, logfile=self._results_file)
         time.sleep(converge_secs)
@@ -252,7 +250,7 @@ class RiftExpectSession:
         self.table_expect("North SPF Destinations:")
         for expected_row in expect_north_spf:
             self.table_expect(expected_row)
-        self.table_expect("South SPF (with East-West Links) Destinations:")
+        self.table_expect(r"South SPF \(with East-West Links\) Destinations:")
         for expected_row in expect_south_ew_spf:
             self.table_expect(expected_row)
 

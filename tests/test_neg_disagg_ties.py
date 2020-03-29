@@ -38,7 +38,7 @@ def check_neg_tie_in_spines(res):
 
 
 def test_neg_disagg_ties():
-    res = RiftExpectSession("multiplane", reconvergence_secs=20.0, expect_timeout=10.0)
+    res = RiftExpectSession("multiplane", reconvergence_secs=20.0)
 
     # Break spine_1_1_1 interfaces connected to ToFs to reach a fallen leaf situation
     res.interface_failure(node="spine_1_1_1", interface="if2", failure="failed")

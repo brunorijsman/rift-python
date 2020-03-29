@@ -3,9 +3,9 @@ from rift_expect_session import RiftExpectSession
 
 def check_ew_absence_in_south_spf(res):
     # E-W neighbor of tof_1_2_1 -> tof_1_2_2
-    res.check_spf_absent(node="tof_1_2_1", direction="south-with-ew", destination="122")
+    res.check_spf_absent(node="tof_1_2_1", direction="south", destination="122")
     # E-W neighbor of tof_2_2_1 -> tof_2_2_2
-    res.check_spf_absent(node="tof_2_2_1", direction="south-with-ew", destination="222")
+    res.check_spf_absent(node="tof_2_2_1", direction="south", destination="222")
 
 
 def check_ew_in_special_spf(res):
@@ -16,10 +16,10 @@ def check_ew_in_special_spf(res):
 
 
 def check_fall_leafs_s_spf(res):
-    res.check_spf_absent(node="tof_1_2_1", direction="south-with-ew", destination="101")
-    res.check_spf_absent(node="tof_1_2_1", direction="south-with-ew", destination="102")
-    res.check_spf_absent(node="tof_1_2_2", direction="south-with-ew", destination="101")
-    res.check_spf_absent(node="tof_1_2_2", direction="south-with-ew", destination="102")
+    res.check_spf_absent(node="tof_1_2_1", direction="south", destination="101")
+    res.check_spf_absent(node="tof_1_2_1", direction="south", destination="102")
+    res.check_spf_absent(node="tof_1_2_2", direction="south", destination="101")
+    res.check_spf_absent(node="tof_1_2_2", direction="south", destination="102")
 
 
 def check_fall_leafs_sp_spf(res):
@@ -34,7 +34,7 @@ def check_fall_leafs_sp_spf(res):
 
 
 def test_neg_disagg_spf():
-    res = RiftExpectSession("multiplane", reconvergence_secs=15.0, expect_timeout=10.0)
+    res = RiftExpectSession("multiplane", reconvergence_secs=15.0)
 
     # E-W neighbors should not be present in south SPF
     check_ew_absence_in_south_spf(res)
