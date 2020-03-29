@@ -366,8 +366,7 @@ def parse_configuration(filename):
             config = yaml.safe_load(file)
         except yaml.YAMLError as err:
             print("Could not load configuration file {}: {}".format(filename, str(err)),
-                  file=sys.stderr
-                  )
+                  file=sys.stderr)
             file.close()
             sys.exit(1)
         file.close()

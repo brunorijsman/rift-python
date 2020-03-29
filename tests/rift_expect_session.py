@@ -17,16 +17,16 @@ else:
 # - It takes up to 1 second for node1 to receive the first LIE without the reflection
 # - Add 1 second of slack time
 DEFAULT_RECONVERGE_SECS = 5.0
-
 # Initial Convergence seconds
 DEFAULT_START_CONVERGE_SECS = 10.0
+DEFAULT_EXPECT_TIMEOUT = 1.0
 
-
-class RiftExpectSession(object):
-    expect_timeout = 10.0
+class RiftExpectSession:
+    expect_timeout = DEFAULT_EXPECT_TIMEOUT
 
     def __init__(self, topology_file=None, converge_secs=DEFAULT_START_CONVERGE_SECS,
-                 reconvergence_secs=DEFAULT_RECONVERGE_SECS, log_debug=True):
+                 reconvergence_secs=DEFAULT_RECONVERGE_SECS, expect_timeout=DEFAULT_EXPECT_TIMEOUT,
+                 log_debug=True):
         rift_cmd = "rift --interactive --non-passive"
         if log_debug:
             rift_cmd += " --log-level debug"
@@ -43,6 +43,7 @@ class RiftExpectSession(object):
         self.write_result("IPV6   : {}\n\n".format(IPV6))
 
         self.reconverge_secs = reconvergence_secs
+        self.expect_timeout = expect_timeout
 
         self._expect_session = pexpect.spawn(cmd, logfile=self._results_file)
         time.sleep(converge_secs)
@@ -234,18 +235,14 @@ class RiftExpectSession(object):
         # Let reconverge
         time.sleep(self.reconverge_secs)
 
-    def check_spf(self, node,
-                  expect_south_spf=None,
-                  expect_north_spf=None,
-                  expect_special_spf=None):
+    def check_spf(self, node, expect_south_spf=None, expect_north_spf=None,
+                  expect_south_ew_spf=None):
         if expect_south_spf is None:
             expect_south_spf = []
-
         if expect_north_spf is None:
             expect_north_spf = []
-
-        if expect_special_spf is None:
-            expect_special_spf = []
+        if expect_south_ew_spf is None:
+            expect_south_ew_spf = []
 
         self.sendline("set node {}".format(node))
         self.sendline("show spf")
@@ -255,8 +252,8 @@ class RiftExpectSession(object):
         self.table_expect("North SPF Destinations:")
         for expected_row in expect_north_spf:
             self.table_expect(expected_row)
-        self.table_expect("Special SPF Destinations:")
-        for expected_row in expect_special_spf:
+        self.table_expect("South SPF (with East-West Links) Destinations:")
+        for expected_row in expect_south_ew_spf:
             self.table_expect(expected_row)
 
     def check_spf_absent(self, node, direction, destination):
