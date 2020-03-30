@@ -482,12 +482,10 @@ class Node:
         if 'interfaces' in config:
             for interface_config in self._config['interfaces']:
                 self.create_interface(interface_config)
-
         self.my_node_tie_seq_nrs = {
             common.ttypes.TieDirectionType.South: 0,
             common.ttypes.TieDirectionType.North: 0
         }
-
         self.my_node_tie_packet_infos = {}  # Indexed by neighbor direction
         self.peer_node_tie_packet_infos = {}  # Indexed by tie_id
         self._originating_default = False
@@ -502,16 +500,12 @@ class Node:
         self._spf_deferred_trigger_pending = False
         self._spf_runs_count = 0
         self._spf_trigger_history = collections.deque([], self.SPF_TRIGGER_HISTORY_LENGTH)
-
         self._spf_destinations = {
             (constants.DIR_SOUTH, False): {},
             (constants.DIR_NORTH, False): {},
             (constants.DIR_SOUTH, True): {}
         }
-
-        self._originate_neg_disagg_tie_info = None
-        self._propagate_neg_disagg_tie_info = None
-
+        self._my_neg_disagg_tie_info = None
         self._ipv4_fib = fib.ForwardingTable(
             constants.ADDRESS_FAMILY_IPV4,
             self.kernel,
@@ -733,6 +727,7 @@ class Node:
             ["Top of Fabric Flag", self._top_of_fabric_flag],
             ["Zero Touch Provisioning (ZTP) Enabled", self.zero_touch_provisioning_enabled()],
             ["ZTP FSM State", self.fsm.state.name],
+            ["ZTP Hold Down Timer", self._hold_down_timer.remaining_time_str()],
             ["ZTP Hold Down Timer", self._hold_down_timer.remaining_time_str()],
             ["Highest Available Level (HAL)", self._highest_available_level],
             ["Highest Adjacency Three-way (HAT)", self.highest_adjacency_three_way],
@@ -958,13 +953,13 @@ class Node:
     def regenerate_my_neg_disagg_tie(self, fallen_leafs):
         # If the no fallen leafs are present and we were not already advertising
         # a negative disaggregation TIE, return.
-        if not fallen_leafs and not self._originate_neg_disagg_tie_info:
+        if not fallen_leafs and not self._my_neg_disagg_tie_info:
             return
 
-        if self._originate_neg_disagg_tie_info:
+        if self._my_neg_disagg_tie_info:
             # Check that found fallen_leafs are equal to the ones specified
             # in the announced TIE
-            protocol_packet = self._originate_neg_disagg_tie_info.protocol_packet
+            protocol_packet = self._my_neg_disagg_tie_info.protocol_packet
             element = protocol_packet.content.tie.element
             tie_fallen_leafs = element.negative_disaggregation_prefixes.prefixes
 
@@ -982,8 +977,8 @@ class Node:
 
         # We need regenerate a new prefix TIE for the negatively disaggregated prefixes.
         # Determine the sequence number.
-        if self._originate_neg_disagg_tie_info:
-            protocol_packet = self._originate_neg_disagg_tie_info.protocol_packet
+        if self._my_neg_disagg_tie_info:
+            protocol_packet = self._my_neg_disagg_tie_info.protocol_packet
             new_seq_nr = protocol_packet.content.tie.header.seq_nr + 1
         else:
             new_seq_nr = 1
@@ -999,9 +994,8 @@ class Node:
 
         fallen_leafs_attrs = {}
         for prefix, dest in fallen_leafs.items():
-            fallen_leafs_attrs[prefix] = encoding.ttypes.PrefixAttributes(dest.cost,
-                                                                          dest.tags,
-                                                                          None)
+            fallen_leafs_attrs[prefix] = encoding.ttypes.PrefixAttributes(
+                common.constants.infinite_distance, dest.tags, None)
 
         prefix_tie_element = encoding.ttypes.PrefixTIEElement(
             prefixes=fallen_leafs_attrs
@@ -1024,9 +1018,11 @@ class Node:
         )
         protocol_packet.content.tie = tie_packet
         packet_info = packet_common.encode_protocol_packet(protocol_packet, self.active_origin_key)
-        packet_common.set_lifetime(packet_info, common.constants.default_lifetime)
+        lifetime = common.constants.default_lifetime if fallen_leafs \
+            else common.constants.purge_lifetime
+        packet_common.set_lifetime(packet_info, lifetime)
 
-        self._originate_neg_disagg_tie_info = packet_info
+        self._my_neg_disagg_tie_info = packet_info
         self.store_tie_packet_info(packet_info)
         self.info("Regenerated negative disaggregation TIE: %s", tie_packet)
 
@@ -1767,15 +1763,51 @@ class Node:
             self.update_partially_conn_all_intfs()
             self.regenerate_my_south_prefix_tie()
         if tie_type == common.ttypes.TIETypeType.NegativeDisaggregationPrefixTIEType:
-            # TODO: We need a different test check whether a TIE was received from the parent.
-            trigger_spf = True
-            reason = "TIE " + packet_common.tie_id_str(tie_id) + " added negative"
-            self.update_neg_disagg_propagation()
+            if self.level_value() != common.constants.leaf_level:
+                is_parent = all(map(lambda x: x.element.node.level - self.level_value() == 1,
+                                    self.node_ties(constants.DIR_SOUTH, tie_id.originator)))
+                if is_parent:
+                    trigger_spf = True
+                    reason = "TIE " + packet_common.tie_id_str(tie_id) + " added negative"
+                    self.update_neg_disagg_propagation(tie_packet)
         if trigger_spf:
             self.trigger_spf(reason)
 
-    def update_neg_disagg_propagation(self):
-        pass
+    def update_neg_disagg_propagation(self, neg_tie):
+        # Get all north neighbors nodes
+        north_neighbors = map(lambda intf: intf.neighbor,
+                              filter(lambda intf: intf.neighbor_direction() == constants.DIR_NORTH,
+                                     self.up_interfaces(None)))
+        neg_disagg_type = common.ttypes.TIETypeType.NegativeDisaggregationPrefixTIEType
+        current_neg_disagg_prefixes = {}
+        for prefix, attrs in neg_tie.element.negative_disaggregation_prefixes.prefixes.items():
+            must_propagate = True
+            for neighbor in north_neighbors:
+                # Get neighbor negative disaggregation ties
+                nbr_neg_ties = self.ties_of_type(constants.DIR_SOUTH, neighbor.system_id,
+                                                 neg_disagg_type)
+                # If the ties list is empty there is nothing to propagate
+                if not nbr_neg_ties:
+                    must_propagate = False
+                    break
+                # For each neighbor tie check if it contains the prefix
+                for tie in nbr_neg_ties:
+                    if prefix not in tie.element.negative_disaggregation_prefixes.prefixes:
+                        must_propagate = False
+                        break
+            # If the prefix is contained in all neighbors ties store it in the current prefixes to
+            # propagate
+            if must_propagate:
+                current_neg_disagg_prefixes[prefix] = attrs
+            else:
+                break
+        # Associate each prefix to a spf destination at infinite distance
+        # TODO: Check if it's the right thing
+        fallen_leafs = {prefix: spf_dest.make_prefix_dest(prefix, attrs.tags,
+                                                          common.constants.infinite_distance, False)
+                        for prefix, attrs in current_neg_disagg_prefixes.items()}
+        # Regenerate the tie for the fallen leafs
+        self.regenerate_my_neg_disagg_tie(fallen_leafs)
 
     def remove_tie(self, tie_id):
         # It is not an error to attempt to delete a TIE which is not in the database
@@ -2537,6 +2569,7 @@ class Node:
 
         # Run special SPF (southbound) for negative disaggregation only if current node is a ToF
         # and it has at least an E-W link
+        # TODO: Should we use positive/negative SPFDest objects?
         if self.top_of_fabric() and self.have_ew_adjacency():
             self.spf_run_direction(constants.DIR_SOUTH, special_for_neg_disagg=True)
 
