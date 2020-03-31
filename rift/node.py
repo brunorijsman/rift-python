@@ -492,6 +492,8 @@ class Node:
         self._my_south_prefix_tie_packet_info = None
         self._my_north_prefix_tie_packet_info = None
         self._my_pos_disagg_tie_packet_info = None
+        self._parent_neighbors = None
+        self._my_neg_disagg_tie_info = None
         self.tie_packet_infos = sortedcontainers.SortedDict()  # Indexed by tie_id
         self._last_received_tide_end = self.MIN_TIE_ID
         self._defer_spf_timer = None
@@ -505,7 +507,6 @@ class Node:
             (constants.DIR_NORTH, False): {},
             (constants.DIR_SOUTH, True): {}
         }
-        self._my_neg_disagg_tie_info = None
         self._ipv4_fib = fib.ForwardingTable(
             constants.ADDRESS_FAMILY_IPV4,
             self.kernel,
@@ -831,6 +832,9 @@ class Node:
         self.store_tie_packet_info(packet_info)
         self.info("Regenerated node TIE for direction %s: %s",
                   packet_common.direction_str(direction), tie_packet)
+        if self.level_value() is not None:
+            self._parent_neighbors = dict(filter(lambda x: x[1].level > self.level_value(),
+                                                 tie_packet.element.node.neighbors.items()))
 
     def regenerate_my_node_ties(self, interface_going_down=None):
         for direction in [common.ttypes.TieDirectionType.South,
@@ -1764,9 +1768,8 @@ class Node:
             self.regenerate_my_south_prefix_tie()
         if tie_type == common.ttypes.TIETypeType.NegativeDisaggregationPrefixTIEType:
             if self.level_value() != common.constants.leaf_level:
-                is_parent = all(map(lambda x: x.element.node.level - self.level_value() == 1,
-                                    self.node_ties(constants.DIR_SOUTH, tie_id.originator)))
-                if is_parent:
+                if tie_id.originator in self._parent_neighbors and \
+                        self.level_value() < self._parent_neighbors[tie_id.originator].level:
                     trigger_spf = True
                     reason = "TIE " + packet_common.tie_id_str(tie_id) + " added negative"
                     self.update_neg_disagg_propagation(tie_packet)
@@ -1774,29 +1777,25 @@ class Node:
             self.trigger_spf(reason)
 
     def update_neg_disagg_propagation(self, neg_tie):
-        # Get all north neighbors nodes
-        north_neighbors = map(lambda intf: intf.neighbor,
-                              filter(lambda intf: intf.neighbor_direction() == constants.DIR_NORTH,
-                                     self.up_interfaces(None)))
         neg_disagg_type = common.ttypes.TIETypeType.NegativeDisaggregationPrefixTIEType
         current_neg_disagg_prefixes = {}
         for prefix, attrs in neg_tie.element.negative_disaggregation_prefixes.prefixes.items():
             must_propagate = True
-            for neighbor in north_neighbors:
+            for neighbor_system_id in self._parent_neighbors.keys():
                 # Get neighbor negative disaggregation ties
-                nbr_neg_ties = self.ties_of_type(constants.DIR_SOUTH, neighbor.system_id,
+                nbr_neg_ties = self.ties_of_type(constants.DIR_SOUTH, neighbor_system_id,
                                                  neg_disagg_type)
-                # If the ties list is empty there is nothing to propagate
+                # If neighbor ties list is empty, prefix is not present. So nothing to propagate
                 if not nbr_neg_ties:
                     must_propagate = False
                     break
-                # For each neighbor tie check if it contains the prefix
+                # Check if negative ties of current neighbor contain the prefix
                 for tie in nbr_neg_ties:
                     if prefix not in tie.element.negative_disaggregation_prefixes.prefixes:
                         must_propagate = False
                         break
-            # If the prefix is contained in all neighbors ties store it in the current prefixes to
-            # propagate
+            # If the prefix is contained in all neighbors negative ties, store it in the
+            # current prefixes to propagate
             if must_propagate:
                 current_neg_disagg_prefixes[prefix] = attrs
             else:
