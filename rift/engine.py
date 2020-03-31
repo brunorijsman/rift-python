@@ -143,8 +143,8 @@ class Engine:
         if 'shards' in self._config:
             for shard_config in self._config['shards']:
                 if 'nodes' in shard_config:
-                    for _node_config in shard_config['nodes']:
-                        total_nr_nodes += 1
+                    total_nr_nodes += len(shard_config['nodes'])
+
         return total_nr_nodes
 
     def read_global_configuration(self, config, attribute, default):

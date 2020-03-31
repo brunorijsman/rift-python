@@ -10,22 +10,22 @@ if TRAVIS:
 else:
     IPV6 = True
 
+# Maximum amount of time to fully reconverge after a uni-directional interface failure
+# If node1 can still send to node2, but node1 cannot receive from node2:
+# - It takes up to 3 seconds for node2 to detect that it is not receiving LIEs from node1
+# - At that point node2 will stop reflecting node1
+# - It takes up to 1 second for node1 to receive the first LIE without the reflection
+# - Add 1 second of slack time
+DEFAULT_RECONVERGE_SECS = 5.0
+# Initial Convergence seconds
+DEFAULT_START_CONVERGE_SECS = 10.0
+
+
 class RiftExpectSession:
+    expect_timeout = 5.0
 
-    start_converge_secs = 10.0
-
-    # Maximum amount of time to fully reconverge after a uni-directional interface failure
-    # If node1 can still send to node2, but node1 cannot receive from node2:
-    # - It takes up to 3 seconds for node2 to detect that it is not receiving LIEs from node1
-    # - At that point node2 will stop reflecting node1
-    # - It takes up to 1 second for node1 to receive the first LIE without the reflection
-    # - Add 1 second of slack time
-    #
-    reconverge_secs = 5.0
-
-    expect_timeout = 1.0
-
-    def __init__(self, topology_file=None, converge_secs=start_converge_secs, log_debug=True):
+    def __init__(self, topology_file=None, converge_secs=DEFAULT_START_CONVERGE_SECS,
+                 reconvergence_secs=DEFAULT_RECONVERGE_SECS, log_debug=True):
         rift_cmd = "rift --interactive --non-passive"
         if log_debug:
             rift_cmd += " --log-level debug"
@@ -40,6 +40,9 @@ class RiftExpectSession:
         self.write_result("\n\n*** Start session: {}\n\n".format(topology_file))
         self.write_result("TRAVIS : {}\n".format(TRAVIS))
         self.write_result("IPV6   : {}\n\n".format(IPV6))
+
+        self.reconverge_secs = reconvergence_secs
+
         self._expect_session = pexpect.spawn(cmd, logfile=self._results_file)
         time.sleep(converge_secs)
         self.wait_prompt()
@@ -226,10 +229,19 @@ class RiftExpectSession:
         expected_failure = "| Failure | {} |".format(failure)
         self.table_expect(expected_failure)
         self.wait_prompt()
+
         # Let reconverge
         time.sleep(self.reconverge_secs)
 
-    def check_spf(self, node, expect_south_spf, expect_north_spf):
+    def check_spf(self, node, expect_south_spf=None, expect_north_spf=None,
+                  expect_south_ew_spf=None):
+        if expect_south_spf is None:
+            expect_south_spf = []
+        if expect_north_spf is None:
+            expect_north_spf = []
+        if expect_south_ew_spf is None:
+            expect_south_ew_spf = []
+
         self.sendline("set node {}".format(node))
         self.sendline("show spf")
         self.table_expect("South SPF Destinations:")
@@ -237,6 +249,9 @@ class RiftExpectSession:
             self.table_expect(expected_row)
         self.table_expect("North SPF Destinations:")
         for expected_row in expect_north_spf:
+            self.table_expect(expected_row)
+        self.table_expect(r"South SPF \(with East-West Links\) Destinations:")
+        for expected_row in expect_south_ew_spf:
             self.table_expect(expected_row)
 
     def check_spf_absent(self, node, direction, destination):
@@ -273,3 +288,12 @@ class RiftExpectSession:
         self.sendline("show interface {} security".format(intf))
         for expected_row in expect_intf_security:
             self.table_expect(expected_row)
+
+    def check_tie_in_db(self, node, patterns):
+        self.sendline("set node {}".format(node))
+        self.sendline("show tie-db")
+
+        for pattern in patterns:
+            self.table_expect(pattern)
+
+        self.wait_prompt()

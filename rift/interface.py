@@ -1404,7 +1404,12 @@ class Interface:
     def neighbor_direction(self):
         if self.neighbor is None:
             return None
+
+        # Cannot determine current node level, we can't infer the neighbor direction
         my_level = self.node.level_value()
+        if my_level is None:
+            return None
+
         if self.neighbor.level > my_level:
             return constants.DIR_NORTH
         elif self.neighbor.level < my_level:
