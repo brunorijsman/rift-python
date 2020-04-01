@@ -24,7 +24,7 @@ DEFAULT_START_CONVERGE_SECS = 10.0
 class RiftExpectSession:
     expect_timeout = 5.0
 
-    def __init__(self, topology_file=None, converge_secs=DEFAULT_START_CONVERGE_SECS,
+    def __init__(self, topology_file=None, start_converge_secs=DEFAULT_START_CONVERGE_SECS,
                  reconvergence_secs=DEFAULT_RECONVERGE_SECS, log_debug=True):
         rift_cmd = "rift --interactive --non-passive"
         if log_debug:
@@ -40,11 +40,9 @@ class RiftExpectSession:
         self.write_result("\n\n*** Start session: {}\n\n".format(topology_file))
         self.write_result("TRAVIS : {}\n".format(TRAVIS))
         self.write_result("IPV6   : {}\n\n".format(IPV6))
-
         self.reconverge_secs = reconvergence_secs
-
         self._expect_session = pexpect.spawn(cmd, logfile=self._results_file)
-        time.sleep(converge_secs)
+        time.sleep(start_converge_secs)
         self.wait_prompt()
         self.check_engine()
 
@@ -229,7 +227,6 @@ class RiftExpectSession:
         expected_failure = "| Failure | {} |".format(failure)
         self.table_expect(expected_failure)
         self.wait_prompt()
-
         # Let reconverge
         time.sleep(self.reconverge_secs)
 
@@ -241,7 +238,6 @@ class RiftExpectSession:
             expect_north_spf = []
         if expect_south_ew_spf is None:
             expect_south_ew_spf = []
-
         self.sendline("set node {}".format(node))
         self.sendline("show spf")
         self.table_expect("South SPF Destinations:")
@@ -292,8 +288,6 @@ class RiftExpectSession:
     def check_tie_in_db(self, node, patterns):
         self.sendline("set node {}".format(node))
         self.sendline("show tie-db")
-
         for pattern in patterns:
             self.table_expect(pattern)
-
         self.wait_prompt()

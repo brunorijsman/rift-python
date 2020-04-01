@@ -34,7 +34,8 @@ def check_fall_leafs_sp_spf(res):
 
 
 def test_neg_disagg_spf():
-    res = RiftExpectSession("multiplane", reconvergence_secs=15.0)
+    # Disable debug logging for large topologies such as multiple (it makes convergence too slow)
+    res = RiftExpectSession("multiplane", log_debug=False)
 
     # E-W neighbors should not be present in south SPF
     check_ew_absence_in_south_spf(res)
