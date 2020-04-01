@@ -169,7 +169,7 @@ class CliSessionHandler:
             if callable(parse_subtree):
                 # We have also reached a leaf in the parse tree.
                 if not context_help:
-                    # Call the command handler function (but not when giving context-senstive help)
+                    # Call the command handler function (but not when giving context-sensitive help)
                     command_function = parse_subtree
                     if parameters:
                         command_function(self._command_handler, self, parameters)

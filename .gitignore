@@ -121,5 +121,6 @@ docker/requirements.txt
 # Backups for auto-generated docs updates
 *.md.bak
 
+# IDE settings
+# DO NOT add .vscode here. I DO want my VSC preferences version controlled.
 .idea/
-.vscode/

@@ -920,7 +920,7 @@ class Node:
             new_seq_nr = protocol_packet.content.tie.header.seq_nr + 1
         else:
             new_seq_nr = 1
-        # Buid the new prefix TIE.
+        # Build the new prefix TIE.
         tie_header = packet_common.make_tie_header(
             direction=common.ttypes.TieDirectionType.South,
             originator=self.system_id,
@@ -932,8 +932,8 @@ class Node:
         tie_element = encoding.ttypes.TIEElement(
             positive_disaggregation_prefixes=prefix_tie_element)
         tie_packet = encoding.ttypes.TIEPacket(header=tie_header, element=tie_element)
-        # If the new TIE is empty and we were not already advertising a positive disaggration TIE,
-        # then don't start now.
+        # If the new TIE is empty and we were not already advertising a positive disaggregation
+        # TIE, then don't start now.
         if (not tie_packet.element.positive_disaggregation_prefixes.prefixes
                 and not self._my_pos_disagg_tie_packet_info):
             return
@@ -1830,7 +1830,7 @@ class Node:
             db_tie_packet_info = self.tie_packet_infos[db_tie_id]
             db_tie_packet = db_tie_packet_info.protocol_packet.content.tie
             # TODO: Make sure that lifetime is decreased by at least one before propagating
-            # TODO: Maybe do that when TIE is recevied and stored in tie-db?
+            # TODO: Maybe do that when TIE is received and stored in tie-db?
             start_sending_tie_headers.append(db_tie_packet.header)
 
     def process_rx_tide_packet(self, tide_packet):

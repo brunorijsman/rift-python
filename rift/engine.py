@@ -28,9 +28,9 @@ def make_terminal_unbuffered():
     global OLD_TERMINAL_SETTINGS
     OLD_TERMINAL_SETTINGS = termios.tcgetattr(sys.stdin)
     new_settings = termios.tcgetattr(sys.stdin)
-    new_settings[3] = new_settings[3] & ~(termios.ECHO | termios.ICANON) # lflags
-    new_settings[6][termios.VMIN] = 0  # cc
-    new_settings[6][termios.VTIME] = 0 # cc
+    new_settings[3] = new_settings[3] & ~(termios.ECHO | termios.ICANON)
+    new_settings[6][termios.VMIN] = 0
+    new_settings[6][termios.VTIME] = 0
     termios.tcsetattr(sys.stdin, termios.TCSADRAIN, new_settings)
 
 @atexit.register

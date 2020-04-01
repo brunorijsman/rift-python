@@ -1768,7 +1768,7 @@ class Interface:
             ["Interface IPv6 Address", self._ipv6_address],
             ["Interface Index", self._interface_index],
             ["Metric", self._metric],
-            ["LIE Recieve IPv4 Multicast Address", self._rx_lie_ipv4_mcast_address],
+            ["LIE Receive IPv4 Multicast Address", self._rx_lie_ipv4_mcast_address],
             ["LIE Receive IPv6 Multicast Address", self._rx_lie_ipv6_mcast_address],
             ["LIE Receive Port", self._rx_lie_port],
             ["LIE Transmit IPv4 Multicast Address", self._tx_lie_ipv4_mcast_address],
