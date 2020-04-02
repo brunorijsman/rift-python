@@ -1766,7 +1766,7 @@ class Node:
         tab = self.tie_db_table(filter_direction=direction, filter_originator=originator,
                                 filter_tie_type=tie_type)
         if tab is None:
-            cli_session.print("No TIE with direction {} and originator {} and direction {} "
+            cli_session.print("No TIE with direction {} and originator {} and tie-type {} "
                               "in database".format(parameters["direction"],
                                                    parameters["originator"],
                                                    parameters["tie-type"]))
