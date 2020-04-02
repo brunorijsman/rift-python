@@ -46,7 +46,7 @@ def check_neg_tie_in_leafs(res):
 
 def test_neg_disagg_ties():
     # Disable debug logging for large topologies such as multiple (it makes convergence too slow)
-    res = RiftExpectSession("multiplane", start_converge_secs=20.0, reconverge_secs=40.0,
+    res = RiftExpectSession("multiplane", start_converge_secs=45.0, reconverge_secs=20.0,
                             log_debug=False)
     # Break spine_1_1_1 interfaces connected to ToFs to reach a fallen leaf situation
     res.interface_failure(node="spine_1_1_1", interface="if2", failure="failed")
