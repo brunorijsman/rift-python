@@ -46,6 +46,9 @@
   * [show spf direction <i>direction</i>](#show-spf-direction-direction)
   * [show spf direction <i>direction</i> destination <i>destination</i>](#show-spf-direction-direction-destination-destination)
   * [show tie-db](#show-tie-db)
+  * [show tie-db direction <i>direction</i>](#show-tie-db-direction-direction)
+  * [show tie-db direction <i>direction</i> originator <i>originator</i>](#show-tie-db-direction-direction-originator)
+  * [show tie-db direction <i>direction</i> originator <i>originator</i> tie-type <i>tie-type</i>](#show-tie-db-direction-direction-originator-tie-type-tie-type)
   * [stop](#stop)
 
 ## Connect to the CLI
@@ -2160,6 +2163,52 @@ agg_101> <b>show tie-db</b>
 |           |            |        |        |        |          |   Tag: 9992           |
 +-----------+------------+--------+--------+--------+----------+-----------------------+
 </pre>
+<!-- OUTPUT-END -->
+
+
+### show tie-db direction <i>direction</i>
+
+The "<b>show tie-db direction <i>direction</i></b>" command shows all the TIEs in the Topology 
+Information Element Database (TIE-DB) for the current node and the given direction.
+
+Parameter <i>direction</i> must be one of the following: south or north.
+
+Example:
+
+<!-- OUTPUT-START: agg_101> show tie-db direction south -->
+<!-- OUTPUT-END -->
+
+### show tie-db direction <i>direction</i> originator <i>originator</i>
+
+The "<b>show tie-db direction <i>direction</i></b>" command shows all the TIEs in the Topology 
+Information Element Database (TIE-DB) for the current node and the given direction and
+the given originator.
+
+Parameter <i>direction</i> must be one of the following: south or north.
+
+Parameter <i>originator</i> must be an integer between 0 and 18446744073709551615.
+
+Example:
+
+<!-- OUTPUT-START: agg_101> show tie-db direction south originator 1 -->
+<!-- OUTPUT-END -->
+
+### show tie-db direction <i>direction</i> originator <i>originator</i> tie-type <i>tie-type</i>
+
+The "<b>show tie-db direction <i>direction</i></b>" command shows all the TIEs in the Topology 
+Information Element Database (TIE-DB) for the current node and the given direction and
+the given originator and the given tie-type.
+
+Parameter <i>direction</i> must be one of the following: south or north.
+
+Parameter <i>originator</i> must be an integer between 0 and 18446744073709551615.
+
+Parameter <i>tie-type</i> must be one of the following: node, prefix, pos-dis-prefix, 
+neg-dis-prefix, ext-prefix, pg-prefix, or key-value.
+
+Example:
+
+<!-- OUTPUT-START: agg_101> show tie-db direction south originator 1 tie-type node -->
 <!-- OUTPUT-END -->
 
 ### stop
