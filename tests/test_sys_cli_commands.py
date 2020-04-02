@@ -279,6 +279,33 @@ def check_show_tie_db(res):
     res.sendline("set node node1")
     res.wait_prompt()
 
+def check_show_tie_db_dir(res):
+    res.sendline("set node node2")
+    res.wait_prompt()
+    res.sendline("show tie-db direction south")
+    res.table_expect("| South     | 1 | Node   | 1 | .* | .* | Name: node1 |")
+    res.wait_prompt()
+    res.sendline("set node node1")
+    res.wait_prompt()
+
+def check_show_tie_db_dir_orig(res):
+    res.sendline("set node node2")
+    res.wait_prompt()
+    res.sendline("show tie-db direction south originator 1")
+    res.table_expect("| South     | 1 | Node   | 1 | .* | .* | Name: node1 |")
+    res.wait_prompt()
+    res.sendline("set node node1")
+    res.wait_prompt()
+
+def check_show_tie_db_dir_orig_type(res):
+    res.sendline("set node node2")
+    res.wait_prompt()
+    res.sendline("show tie-db direction south originator 1 type node")
+    res.table_expect("| South     | 1 | Node   | 1 | .* | .* | Name: node1 |")
+    res.wait_prompt()
+    res.sendline("set node node1")
+    res.wait_prompt()
+
 def check_set_level(_res):
     # TODO: Not implemented properly yet. This test fails.
     # res.sendline("set node level 2")
