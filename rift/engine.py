@@ -363,6 +363,16 @@ class Engine:
     def command_show_tie_db(self, cli_session):
         cli_session.current_node.command_show_tie_db(cli_session)
 
+    def command_show_tie_db_dir(self, cli_session, parameters):
+        cli_session.current_node.command_show_tie_db_dir(cli_session, parameters)
+
+    def command_show_tie_db_dir_orig(self, cli_session, parameters):
+        cli_session.current_node.command_show_tie_db_dir_orig(cli_session, parameters)
+
+    def command_show_tie_db_dir_orig_type(self, cli_session, parameters):
+        # pylint:disable=invalid-name
+        cli_session.current_node.command_show_tie_db_dir_orig_type(cli_session, parameters)
+
     def command_show_ztp_fsm(self, cli_session):
         node.Node.fsm_definition.command_show_fsm(cli_session)
 
@@ -491,7 +501,16 @@ class Engine:
                     "$destination": command_show_spf_dir_dest
                 },
             },
-            "tie-db": command_show_tie_db,
+            "tie-db": {
+                "": command_show_tie_db,
+                "$direction": {
+                    "": command_show_tie_db_dir,
+                    "$originator": {
+                        "": command_show_tie_db_dir_orig,
+                        "$tie-type": command_show_tie_db_dir_orig_type
+                    }
+                }
+            }
         },
         "stop": command_stop,
     }

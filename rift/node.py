@@ -1548,6 +1548,18 @@ class Node:
         assert "direction" in parameters
         direction_str = parameters["direction"]
         if direction_str.lower() == "south":
+            return constants.DIR_SOUTH
+        if direction_str.lower() == "north":
+            return constants.DIR_NORTH
+        cli_session.print('Invalid direction "{}" (valid values: "south", "north")'
+                          .format(direction_str))
+        return None
+
+    @staticmethod
+    def get_spf_direction_param(cli_session, parameters):
+        assert "direction" in parameters
+        direction_str = parameters["direction"]
+        if direction_str.lower() == "south":
             return constants.DIR_SOUTH, False
         if direction_str.lower() == "north":
             return constants.DIR_NORTH, False
@@ -1557,6 +1569,29 @@ class Node:
             'Invalid direction "{}" (valid values: "south", "north", "south-with-ew")'.format(
                 direction_str))
         return None, None
+
+    @staticmethod
+    def get_tie_type_param(cli_session, parameters):
+        assert "tie-type" in parameters
+        tie_type_str = parameters["tie-type"].lower()
+        if tie_type_str == "node":
+            return common.ttypes.TIETypeType.NodeTIEType
+        if tie_type_str == "prefix":
+            return common.ttypes.TIETypeType.PrefixTIEType
+        if tie_type_str == "pos-dis-prefix":
+            return common.ttypes.TIETypeType.PositiveDisaggregationPrefixTIEType
+        if tie_type_str == "neg-dis-prefix":
+            return common.ttypes.TIETypeType.NegativeDisaggregationPrefixTIEType
+        if tie_type_str == "ext-prefix":
+            return common.ttypes.TIETypeType.ExternalPrefixTIEType
+        if tie_type_str == "pg-prefix":
+            return common.ttypes.TIETypeType.PGPrefixTIEType
+        if tie_type_str == "key-value":
+            return common.ttypes.TIETypeType.KeyValueTIEType
+        cli_session.print(
+            'Invalid tie-type "{}" (valid values: "node", "prefix", "pos-dis-prefix", '
+            '"neg-dis-prefix", "ext-prefix", "pg-prefix", "key-value")'.format(tie_type_str))
+        return None
 
     @staticmethod
     def get_destination_param(cli_session, parameters):
@@ -1644,14 +1679,25 @@ class Node:
                                   '"default", "unspecified", or number)'.format(table_str))
                 return None
 
+    @staticmethod
+    def get_int64u_param(cli_session, parameters, param_name):
+        assert param_name in parameters
+        value_str = parameters[param_name]
+        try:
+            return int(value_str)
+        except ValueError:
+            cli_session.print('Invalid {} "{}" (valid values: 0..18446744073709551615)'
+                              .format(param_name, value_str))
+            return None
+
     def command_show_spf_dir(self, cli_session, parameters):
-        (direction, special_for_neg_disagg) = self.get_direction_param(cli_session, parameters)
+        (direction, special_for_neg_disagg) = self.get_spf_direction_param(cli_session, parameters)
         if direction is None:
             return
         self.command_show_spf_destinations(cli_session, direction, special_for_neg_disagg)
 
     def command_show_spf_dir_dest(self, cli_session, parameters):
-        (direction, special_for_neg_disagg) = self.get_direction_param(cli_session, parameters)
+        (direction, special_for_neg_disagg) = self.get_spf_direction_param(cli_session, parameters)
         if direction is None:
             return
         destination = self.get_destination_param(cli_session, parameters)
@@ -1676,6 +1722,55 @@ class Node:
 
     def command_show_tie_db(self, cli_session):
         tab = self.tie_db_table()
+        if tab is None:
+            cli_session.print("TIE database is empty")
+            return
+        cli_session.print(tab.to_string())
+
+    def command_show_tie_db_dir(self, cli_session, parameters):
+        direction = self.get_direction_param(cli_session, parameters)
+        if direction is None:
+            return
+        tab = self.tie_db_table(filter_direction=direction)
+        if tab is None:
+            cli_session.print("No TIE with direction {} in database"
+                              .format(parameters["direction"]))
+            return
+        cli_session.print(tab.to_string())
+
+    def command_show_tie_db_dir_orig(self, cli_session, parameters):
+        direction = self.get_direction_param(cli_session, parameters)
+        if direction is None:
+            return
+        originator = self.get_int64u_param(cli_session, parameters, "originator")
+        if originator is None:
+            return
+        tab = self.tie_db_table(filter_direction=direction, filter_originator=originator)
+        if tab is None:
+            cli_session.print("No TIE with direction {} and originator {} in database"
+                              .format(parameters["direction"], parameters["originator"]))
+            return
+        cli_session.print(tab.to_string())
+
+    def command_show_tie_db_dir_orig_type(self, cli_session, parameters):
+        # pylint:disable=invalid-name
+        direction = self.get_direction_param(cli_session, parameters)
+        if direction is None:
+            return
+        originator = self.get_int64u_param(cli_session, parameters, "originator")
+        if originator is None:
+            return
+        tie_type = self.get_tie_type_param(cli_session, parameters)
+        if tie_type is None:
+            return
+        tab = self.tie_db_table(filter_direction=direction, filter_originator=originator,
+                                filter_tie_type=tie_type)
+        if tab is None:
+            cli_session.print("No TIE with direction {} and originator {} and direction {} "
+                              "in database".format(parameters["direction"],
+                                                   parameters["originator"],
+                                                   parameters["tie-type"]))
+            return
         cli_session.print(tab.to_string())
 
     def command_set_interface_failure(self, cli_session, parameters):
@@ -2451,14 +2546,24 @@ class Node:
             tab.add_row(destination.cli_summary_attributes())
         return tab
 
-    def tie_db_table(self):
+    def tie_db_table(self, filter_direction=None, filter_originator=None, filter_tie_type=None):
         tab = table.Table()
+        found_something = False
         tab.add_row(self.cli_tie_db_summary_headers())
         for tie_packet_info in self.tie_packet_infos.values():
-            # TODO Pass tie_packet_info so that we can also report rx_intf
             tie_packet = tie_packet_info.protocol_packet.content.tie
+            tie_id = tie_packet.header.tieid
+            if filter_direction and tie_id.direction != filter_direction:
+                continue
+            if filter_originator and tie_id.originator != filter_originator:
+                continue
+            if filter_tie_type and tie_id.tietype != filter_tie_type:
+                continue
+            found_something = True
             tab.add_row(self.cli_tie_db_summary_attributes(tie_packet,
                                                            tie_packet_info.remaining_tie_lifetime))
+        if not found_something:
+            return None
         return tab
 
     def age_ties(self):

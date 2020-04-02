@@ -25,7 +25,7 @@ class RiftExpectSession:
     expect_timeout = 5.0
 
     def __init__(self, topology_file=None, start_converge_secs=DEFAULT_START_CONVERGE_SECS,
-                 reconvergence_secs=DEFAULT_RECONVERGE_SECS, log_debug=True):
+                 reconverge_secs=DEFAULT_RECONVERGE_SECS, log_debug=True):
         rift_cmd = "rift --interactive --non-passive"
         if log_debug:
             rift_cmd += " --log-level debug"
@@ -40,8 +40,8 @@ class RiftExpectSession:
         self.write_result("\n\n*** Start session: {}\n\n".format(topology_file))
         self.write_result("TRAVIS : {}\n".format(TRAVIS))
         self.write_result("IPV6   : {}\n\n".format(IPV6))
-        self.reconverge_secs = reconvergence_secs
-        self._expect_session = pexpect.spawn(cmd, logfile=self._results_file)
+        self.reconverge_secs = reconverge_secs
+        self._expect_session = pexpect.spawn(cmd, logfile=self._results_file, maxread=100000)
         time.sleep(start_converge_secs)
         self.wait_prompt()
         self.check_engine()
@@ -62,8 +62,8 @@ class RiftExpectSession:
     def sendline(self, line):
         self._expect_session.sendline(line)
 
-    def log_expect_failure(self):
-        self.write_result("\n\n*** Did not find expected pattern\n\n")
+    def log_expect_failure(self, expected_pattern):
+        self.write_result("\n\n*** Did not find expected pattern {}\n\n".format(expected_pattern))
         # Generate a call stack in rift_expect.log for easier debugging
         # But pytest call stacks are very deep, so only show the "interesting" lines
         for line in traceback.format_stack():
@@ -81,7 +81,7 @@ class RiftExpectSession:
         else:
             failed = False
         if failed:
-            self.log_expect_failure()
+            self.log_expect_failure(pattern)
             pytest.fail('Timeout expecting "{} (see rift_expect.log for details)"'.format(pattern))
             return None
         else:
@@ -285,9 +285,10 @@ class RiftExpectSession:
         for expected_row in expect_intf_security:
             self.table_expect(expected_row)
 
-    def check_tie_in_db(self, node, patterns):
+    def check_tie_in_db(self, node, direction, originator, tie_type, patterns):
         self.sendline("set node {}".format(node))
-        self.sendline("show tie-db")
+        self.sendline("show tie-db direction {} originator {} tie-type {}"
+                      .format(direction, originator, tie_type))
         for pattern in patterns:
             self.table_expect(pattern)
         self.wait_prompt()
