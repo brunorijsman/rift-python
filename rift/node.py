@@ -1899,7 +1899,7 @@ class Node:
         # TODO: Check if it's the right thing
         fallen_leafs = {prefix: spf_dest.make_prefix_dest(prefix, attrs.tags,
                                                           common.constants.infinite_distance,
-                                                           is_pos_disagg=False, is_neg_disagg=True)
+                                                          is_pos_disagg=False, is_neg_disagg=True)
                         for prefix, attrs in current_neg_disagg_prefixes.items()}
         # Regenerate the tie for the fallen leafs
         self.regenerate_my_neg_disagg_tie(fallen_leafs)
@@ -3054,6 +3054,9 @@ class Node:
         difference = special_southbound_dests.keys() - normal_southbound_dests.keys()
 
         fallen_leafs = {prefix: special_southbound_dests[prefix] for prefix in difference}
+
+        for prefix in fallen_leafs.values():
+            prefix.set_negatively_disaggregate()
 
         self.regenerate_my_neg_disagg_tie(fallen_leafs)
 
