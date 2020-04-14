@@ -4,13 +4,16 @@ import utils
 DEST_TYPE_NODE = 1
 DEST_TYPE_PREFIX = 2
 DEST_TYPE_POS_DISAGG_PREFIX = 3
+DEST_TYPE_NEG_DISAGG_PREFIX = 4
 
 def make_node_dest(system_id, name, cost):
     return SPFDest(DEST_TYPE_NODE, system_id, name, None, set(), cost)
 
-def make_prefix_dest(prefix, tags, cost, is_pos_disagg):
+def make_prefix_dest(prefix, tags, cost, is_pos_disagg, is_neg_disagg):
     if is_pos_disagg:
         return SPFDest(DEST_TYPE_POS_DISAGG_PREFIX, None, None, prefix, tags, cost)
+    elif is_neg_disagg:
+        return SPFDest(DEST_TYPE_NEG_DISAGG_PREFIX, None, None, prefix, tags, cost)
     else:
         return SPFDest(DEST_TYPE_PREFIX, None, None, prefix, tags, cost)
 
@@ -24,13 +27,17 @@ class SPFDest:
     def __init__(self, dest_type, system_id, name, prefix, tags, cost):
         # Type of the SPFDest: DEST_TYPE_xxx
         self.dest_type = dest_type
-        # System-id of the node for TYPE_NODE, None for TYPE_PREFIX/DEST_TYPE_POS_DISAGG_PREFIX
+        # System-id of the node for TYPE_NODE, None for TYPE_PREFIX/DEST_TYPE_POS_DISAGG_PREFIX/
+        # DEST_TYPE_NEG_DISAGG_PREFIX
         self.system_id = system_id
-        # Name of the node for TYPE_NODE, None for TYPE_PREFIX/DEST_TYPE_POS_DISAGG_PREFIX
+        # Name of the node for TYPE_NODE, None for TYPE_PREFIX/DEST_TYPE_POS_DISAGG_PREFIX/
+        # DEST_TYPE_NEG_DISAGG_PREFIX
         self.name = name
-        # Destination prefix for TYPE_PREFIX/DEST_TYPE_POS_DISAGG_PREFIX, None for TYPE_NODE
+        # Destination prefix for TYPE_PREFIX/DEST_TYPE_POS_DISAGG_PREFIX/DEST_TYPE_NEG_DISAGG_PREFIX
+        # None for TYPE_NODE
         self.prefix = prefix
-        # Prefix  tags for TYPE_PREFIX/DEST_TYPE_POS_DISAGG_PREFIX, None for TYPE_NODE
+        # Prefix  tags for TYPE_PREFIX/DEST_TYPE_POS_DISAGG_PREFIX/DEST_TYPE_NEG_DISAGG_PREFIX
+        # None for TYPE_NODE
         self.tags = tags
         # Cost of best-known path to this destination (is always a single cost, even in the case of
         # ECMP)
@@ -44,13 +51,16 @@ class SPFDest:
         self.ipv4_next_hops = []
         self.ipv6_next_hops = []
         # This is a prefix that needs to be positively disaggregated
-        self.positively_disaggregate = False
+        self.positively_disaggregate = True if dest_type == DEST_TYPE_POS_DISAGG_PREFIX else False
+        # This is a prefix that needs to be negatively disaggregated
+        self.negatively_disaggregate = True if dest_type == DEST_TYPE_NEG_DISAGG_PREFIX else False
 
     def key(self):
         if self.dest_type == DEST_TYPE_NODE:
             return self.system_id
         else:
-            assert self.dest_type in [DEST_TYPE_PREFIX, DEST_TYPE_POS_DISAGG_PREFIX]
+            assert self.dest_type in [DEST_TYPE_PREFIX, DEST_TYPE_POS_DISAGG_PREFIX,
+                                      DEST_TYPE_NEG_DISAGG_PREFIX]
             return self.prefix
 
     def __eq__(self, other):
@@ -88,6 +98,9 @@ class SPFDest:
             self.tags = set()
         self.tags = self.tags.union(other_spf_destination.tags)
 
+    def set_negatively_disaggregate(self):
+        self.negatively_disaggregate = True
+
     @staticmethod
     def cli_summary_headers():
         return [
@@ -107,7 +120,8 @@ class SPFDest:
                 destination_str += " (" + self.name + ")"
         elif self.dest_type == DEST_TYPE_PREFIX:
             destination_str = packet_common.ip_prefix_str(self.prefix)
-        elif self.dest_type == DEST_TYPE_POS_DISAGG_PREFIX:
+        elif self.dest_type == DEST_TYPE_POS_DISAGG_PREFIX or \
+            self.dest_type == DEST_TYPE_NEG_DISAGG_PREFIX:
             destination_str = packet_common.ip_prefix_str(self.prefix) + " (Disagg)"
         else:
             assert False
@@ -117,6 +131,8 @@ class SPFDest:
             tags_str = ""
         if self.positively_disaggregate:
             disaggregate_str = 'Positive'
+        elif self.negatively_disaggregate:
+            disaggregate_str = 'Negative'
         else:
             disaggregate_str = ''
         return [

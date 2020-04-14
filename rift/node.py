@@ -1898,7 +1898,8 @@ class Node:
         # Associate each prefix to a spf destination at infinite distance
         # TODO: Check if it's the right thing
         fallen_leafs = {prefix: spf_dest.make_prefix_dest(prefix, attrs.tags,
-                                                          common.constants.infinite_distance, False)
+                                                          common.constants.infinite_distance,
+                                                          is_pos_disagg=False, is_neg_disagg=True)
                         for prefix, attrs in current_neg_disagg_prefixes.items()}
         # Regenerate the tie for the fallen leafs
         self.regenerate_my_neg_disagg_tie(fallen_leafs)
@@ -2818,7 +2819,7 @@ class Node:
             self.spf_add_prefixes_common(node_sysid, node_cost, candidates, spf_direction,
                                          special_for_neg_disagg,
                                          prefix_tie.element.prefixes.prefixes,
-                                         is_pos_disagg=False)
+                                         is_pos_disagg=False, is_neg_disagg=False)
 
     def spf_add_pos_disagg_prefixes(self, node_sysid, node_cost, candidates, spf_direction,
                                     special_for_neg_disagg):
@@ -2832,16 +2833,16 @@ class Node:
             self.spf_add_prefixes_common(node_sysid, node_cost, candidates, spf_direction,
                                          special_for_neg_disagg,
                                          pos_disagg_prefixes,
-                                         is_pos_disagg=True)
+                                         is_pos_disagg=True, is_neg_disagg=False)
 
     def spf_add_prefixes_common(self, node_sysid, node_cost, candidates, spf_direction,
-                                special_for_neg_disagg, prefixes, is_pos_disagg):
+                                special_for_neg_disagg, prefixes, is_pos_disagg, is_neg_disagg):
         if not prefixes:
             return
         for prefix, attributes in prefixes.items():
             tags = attributes.tags
             cost = node_cost + attributes.metric
-            dest = spf_dest.make_prefix_dest(prefix, tags, cost, is_pos_disagg)
+            dest = spf_dest.make_prefix_dest(prefix, tags, cost, is_pos_disagg, is_neg_disagg)
             self.spf_consider_candidate_dest(dest, None, node_sysid, candidates,
                                              spf_direction, special_for_neg_disagg)
 
@@ -3053,6 +3054,9 @@ class Node:
         difference = special_southbound_dests.keys() - normal_southbound_dests.keys()
 
         fallen_leafs = {prefix: special_southbound_dests[prefix] for prefix in difference}
+
+        for prefix in fallen_leafs.values():
+            prefix.set_negatively_disaggregate()
 
         self.regenerate_my_neg_disagg_tie(fallen_leafs)
 
