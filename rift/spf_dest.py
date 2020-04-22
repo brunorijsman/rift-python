@@ -98,9 +98,6 @@ class SPFDest:
             self.tags = set()
         self.tags = self.tags.union(other_spf_destination.tags)
 
-    def set_negatively_disaggregate(self):
-        self.negatively_disaggregate = True
-
     @staticmethod
     def cli_summary_headers():
         return [

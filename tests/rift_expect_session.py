@@ -240,13 +240,13 @@ class RiftExpectSession:
             expect_south_ew_spf = []
         self.sendline("set node {}".format(node))
         self.sendline("show spf")
-        self.table_expect("South SPF Destinations:")
+        self.expect("South SPF Destinations:")
         for expected_row in expect_south_spf:
             self.table_expect(expected_row)
-        self.table_expect("North SPF Destinations:")
+        self.expect("North SPF Destinations:")
         for expected_row in expect_north_spf:
             self.table_expect(expected_row)
-        self.table_expect(r"South SPF \(with East-West Links\) Destinations:")
+        self.expect(r"South SPF \(with East-West Links\) Destinations:")
         for expected_row in expect_south_ew_spf:
             self.table_expect(expected_row)
 
