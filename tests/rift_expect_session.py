@@ -232,23 +232,20 @@ class RiftExpectSession:
 
     def check_spf(self, node, expect_south_spf=None, expect_north_spf=None,
                   expect_south_ew_spf=None):
-        if expect_south_spf is None:
-            expect_south_spf = []
-        if expect_north_spf is None:
-            expect_north_spf = []
-        if expect_south_ew_spf is None:
-            expect_south_ew_spf = []
         self.sendline("set node {}".format(node))
         self.sendline("show spf")
-        self.expect("South SPF Destinations:")
-        for expected_row in expect_south_spf:
-            self.table_expect(expected_row)
-        self.expect("North SPF Destinations:")
-        for expected_row in expect_north_spf:
-            self.table_expect(expected_row)
-        self.expect(r"South SPF \(with East-West Links\) Destinations:")
-        for expected_row in expect_south_ew_spf:
-            self.table_expect(expected_row)
+        if expect_south_spf is not None:
+            self.expect("South SPF Destinations:")
+            for expected_row in expect_south_spf:
+                self.table_expect(expected_row)
+        if expect_north_spf is not None:
+            self.expect("North SPF Destinations:")
+            for expected_row in expect_north_spf:
+                self.table_expect(expected_row)
+        if expect_south_ew_spf is not None:
+            self.expect(r"South SPF \(with East-West Links\) Destinations:")
+            for expected_row in expect_south_ew_spf:
+                self.table_expect(expected_row)
 
     def check_spf_absent(self, node, direction, destination):
         self.sendline("set node {}".format(node))

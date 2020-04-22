@@ -28,15 +28,26 @@ def check_spine_negative_disagg_spf(res):
                       r"| 200.0.1.0/24 \(Disagg\) | %d | 121 | | Negative | if2 .* | if2 .* |" % infinite_distance
                   ])
     res.check_spf(node="spine_2_1_1", expect_north_spf=[r"| | | 122 | | | if3 .* | if3 .* |"])
-
-    # res.check_spf(node="spine_3_1_1",
-    #               expect_north_spf=[r"| 200.0.0.0/24 \(Disagg\) | %d | 122 | .* | Negative | if3 .* | if3 .* |"])
-    # res.check_spf(node="spine_3_1_1",
-    #               expect_north_spf=[r"| 200.0.1.0/24 \(Disagg\) | %d | 122 | .* | Negative | if3 .* | if3 .* |"])
-    # res.check_spf(node="spine_4_1_1",
-    #               expect_north_spf=[r"| 200.0.0.0/24 \(Disagg\) | %d | 122 | .* | Negative | if3 .* | if3 .* |"])
-    # res.check_spf(node="spine_4_1_1",
-    #               expect_north_spf=[r"| 200.0.1.0/24 \(Disagg\) | %d | 122 | .* | Negative | if3 .* | if3 .* |"])
+    res.check_spf(node="spine_3_1_1",
+                  expect_north_spf=[
+                      r"| 200.0.0.0/24 \(Disagg\) | %d | 121 | | Negative | if2 .* | if2 .* |" % infinite_distance
+                  ])
+    res.check_spf(node="spine_3_1_1", expect_north_spf=[r"| | | 122 | | | if3 .* | if3 .* |"])
+    res.check_spf(node="spine_3_1_1",
+                  expect_north_spf=[
+                      r"| 200.0.1.0/24 \(Disagg\) | %d | 121 | | Negative | if2 .* | if2 .* |" % infinite_distance
+                  ])
+    res.check_spf(node="spine_3_1_1", expect_north_spf=[r"| | | 122 | | | if3 .* | if3 .* |"])
+    res.check_spf(node="spine_4_1_1",
+                  expect_north_spf=[
+                      r"| 200.0.0.0/24 \(Disagg\) | %d | 121 | | Negative | if2 .* | if2 .* |" % infinite_distance
+                  ])
+    res.check_spf(node="spine_4_1_1", expect_north_spf=[r"| | | 122 | | | if3 .* | if3 .* |"])
+    res.check_spf(node="spine_4_1_1",
+                  expect_north_spf=[
+                      r"| 200.0.1.0/24 \(Disagg\) | %d | 121 | | Negative | if2 .* | if2 .* |" % infinite_distance
+                  ])
+    res.check_spf(node="spine_4_1_1", expect_north_spf=[r"| | | 122 | | | if3 .* | if3 .* |"])
 
 
 def test_neg_disagg_spf_propagation():
