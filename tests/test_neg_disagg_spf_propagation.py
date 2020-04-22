@@ -4,17 +4,23 @@ from rift_expect_session import RiftExpectSession
 
 def check_spine_positive_next_hops(res):
     res.check_spf(node="spine_2_1_1",
-                  expect_north_spf=[r"| 200.0.0.0/24 \(Disagg\) | 4 | 122 | | Positive | if3 .* | if3 .* |"])
+                  expect_north_spf=[
+                      r"| 200.0.0.0/24 \(Disagg\) | 4 | 122 | | Positive | if3 .* | if3 .* |"])
     res.check_spf(node="spine_2_1_1",
-                  expect_north_spf=[r"| 200.0.1.0/24 \(Disagg\) | 4 | 122 | | Positive | if3 .* | if3 .* |"])
+                  expect_north_spf=[
+                      r"| 200.0.1.0/24 \(Disagg\) | 4 | 122 | | Positive | if3 .* | if3 .* |"])
     res.check_spf(node="spine_3_1_1",
-                  expect_north_spf=[r"| 200.0.0.0/24 \(Disagg\) | 4 | 122 | | Positive | if3 .* | if3 .* |"])
+                  expect_north_spf=[
+                      r"| 200.0.0.0/24 \(Disagg\) | 4 | 122 | | Positive | if3 .* | if3 .* |"])
     res.check_spf(node="spine_3_1_1",
-                  expect_north_spf=[r"| 200.0.1.0/24 \(Disagg\) | 4 | 122 | | Positive | if3 .* | if3 .* |"])
+                  expect_north_spf=[
+                      r"| 200.0.1.0/24 \(Disagg\) | 4 | 122 | | Positive | if3 .* | if3 .* |"])
     res.check_spf(node="spine_4_1_1",
-                  expect_north_spf=[r"| 200.0.0.0/24 \(Disagg\) | 4 | 122 | | Positive | if3 .* | if3 .* |"])
+                  expect_north_spf=[
+                      r"| 200.0.0.0/24 \(Disagg\) | 4 | 122 | | Positive | if3 .* | if3 .* |"])
     res.check_spf(node="spine_4_1_1",
-                  expect_north_spf=[r"| 200.0.1.0/24 \(Disagg\) | 4 | 122 | | Positive | if3 .* | if3 .* |"])
+                  expect_north_spf=[
+                      r"| 200.0.1.0/24 \(Disagg\) | 4 | 122 | | Positive | if3 .* | if3 .* |"])
 
 
 def check_spine_negative_disagg_spf(res):
@@ -49,43 +55,56 @@ def check_spine_negative_disagg_spf(res):
                       r"| | | 122 | | | if3 .* | if3 .* |" % infinite_distance
                   ])
 
+
 def check_leaf_negative_next_hops(res):
     res.check_spf(node="leaf_2_0_1",
                   expect_north_spf=[
-                      r"| 200.0.0.0/24 \(Disagg\) | %d | 211 | | Negative | if0 .* | if0 .* |" % infinite_distance])
+                      r"| 200.0.0.0/24 \(Disagg\) | %d | 211 | | Negative | if0 .* | if0 .* |"
+                      % infinite_distance])
     res.check_spf(node="leaf_2_0_1",
                   expect_north_spf=[
-                      r"| 200.0.1.0/24 \(Disagg\) | %d | 211 | | Negative | if0 .* | if0 .* |" % infinite_distance])
+                      r"| 200.0.1.0/24 \(Disagg\) | %d | 211 | | Negative | if0 .* | if0 .* |"
+                      % infinite_distance])
     res.check_spf(node="leaf_2_0_2",
                   expect_north_spf=[
-                      r"| 200.0.0.0/24 \(Disagg\) | %d | 211 | | Negative | if0 .* | if0 .* |" % infinite_distance])
+                      r"| 200.0.0.0/24 \(Disagg\) | %d | 211 | | Negative | if0 .* | if0 .* |"
+                      % infinite_distance])
     res.check_spf(node="leaf_2_0_2",
                   expect_north_spf=[
-                      r"| 200.0.1.0/24 \(Disagg\) | %d | 211 | | Negative | if0 .* | if0 .* |" % infinite_distance])
+                      r"| 200.0.1.0/24 \(Disagg\) | %d | 211 | | Negative | if0 .* | if0 .* |"
+                      % infinite_distance])
     res.check_spf(node="leaf_3_0_1",
                   expect_north_spf=[
-                      r"| 200.0.0.0/24 \(Disagg\) | %d | 311 | | Negative | if0 .* | if0 .* |" % infinite_distance])
+                      r"| 200.0.0.0/24 \(Disagg\) | %d | 311 | | Negative | if0 .* | if0 .* |"
+                      % infinite_distance])
     res.check_spf(node="leaf_3_0_1",
                   expect_north_spf=[
-                      r"| 200.0.1.0/24 \(Disagg\) | %d | 311 | | Negative | if0 .* | if0 .* |" % infinite_distance])
+                      r"| 200.0.1.0/24 \(Disagg\) | %d | 311 | | Negative | if0 .* | if0 .* |"
+                      % infinite_distance])
     res.check_spf(node="leaf_3_0_2",
                   expect_north_spf=[
-                      r"| 200.0.0.0/24 \(Disagg\) | %d | 311 | | Negative | if0 .* | if0 .* |" % infinite_distance])
+                      r"| 200.0.0.0/24 \(Disagg\) | %d | 311 | | Negative | if0 .* | if0 .* |"
+                      % infinite_distance])
     res.check_spf(node="leaf_3_0_2",
                   expect_north_spf=[
-                      r"| 200.0.1.0/24 \(Disagg\) | %d | 311 | | Negative | if0 .* | if0 .* |" % infinite_distance])
+                      r"| 200.0.1.0/24 \(Disagg\) | %d | 311 | | Negative | if0 .* | if0 .* |"
+                      % infinite_distance])
     res.check_spf(node="leaf_4_0_1",
                   expect_north_spf=[
-                      r"| 200.0.0.0/24 \(Disagg\) | %d | 411 | | Negative | if0 .* | if0 .* |" % infinite_distance])
+                      r"| 200.0.0.0/24 \(Disagg\) | %d | 411 | | Negative | if0 .* | if0 .* |"
+                      % infinite_distance])
     res.check_spf(node="leaf_4_0_1",
                   expect_north_spf=[
-                      r"| 200.0.1.0/24 \(Disagg\) | %d | 411 | | Negative | if0 .* | if0 .* |" % infinite_distance])
+                      r"| 200.0.1.0/24 \(Disagg\) | %d | 411 | | Negative | if0 .* | if0 .* |"
+                      % infinite_distance])
     res.check_spf(node="leaf_4_0_2",
                   expect_north_spf=[
-                      r"| 200.0.0.0/24 \(Disagg\) | %d | 411 | | Negative | if0 .* | if0 .* |" % infinite_distance])
+                      r"| 200.0.0.0/24 \(Disagg\) | %d | 411 | | Negative | if0 .* | if0 .* |"
+                      % infinite_distance])
     res.check_spf(node="leaf_4_0_2",
                   expect_north_spf=[
-                      r"| 200.0.1.0/24 \(Disagg\) | %d | 411 | | Negative | if0 .* | if0 .* |" % infinite_distance])
+                      r"| 200.0.1.0/24 \(Disagg\) | %d | 411 | | Negative | if0 .* | if0 .* |"
+                      % infinite_distance])
 
 
 def test_neg_disagg_spf_propagation():
