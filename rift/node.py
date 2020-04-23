@@ -2783,7 +2783,7 @@ class Node:
                               special_for_neg_disagg)
         self.spf_add_pos_disagg_prefixes(node_system_id, node_cost, candidates, spf_direction,
                                          special_for_neg_disagg)
-        self.spf_add_neg_disagg_prefixes(node_system_id, candidates, spf_direction,
+        self.spf_add_neg_disagg_prefixes(node_system_id, node_cost, candidates, spf_direction,
                                          special_for_neg_disagg)
 
     def spf_add_neighbor_candidates(self, node_system_id, node_cost, node_ties, candidates,
@@ -2804,7 +2804,10 @@ class Node:
             if self.is_neighbor_bidirectional(node_system_id, nbr_system_id, nbr_tie_element,
                                               spf_direction, special_for_neg_disagg):
                 # We have found a feasible path to the neighbor node; is the best path?
-                cost = node_cost + nbr_tie_element.cost
+                if nbr_tie_element.cost >= common.constants.infinite_distance:
+                    cost = common.constants.infinite_distance
+                else:
+                    cost = node_cost + nbr_tie_element.cost
                 destination = spf_dest.make_node_dest(nbr_system_id, None, cost)
 
                 self.spf_consider_candidate_dest(destination, nbr_tie_element, node_system_id,
@@ -2837,7 +2840,7 @@ class Node:
                                          pos_disagg_prefixes,
                                          is_pos_disagg=True, is_neg_disagg=False)
 
-    def spf_add_neg_disagg_prefixes(self, node_sysid, candidates, spf_direction,
+    def spf_add_neg_disagg_prefixes(self, node_sysid, node_cost, candidates, spf_direction,
                                     special_for_neg_disagg):
         prefix_ties = self.ties_of_type(
             direction=self.spf_use_tie_direction(node_sysid, spf_direction),
@@ -2846,10 +2849,7 @@ class Node:
 
         for prefix_tie in prefix_ties:
             neg_disagg_prefixes = prefix_tie.element.negative_disaggregation_prefixes.prefixes
-            # Force node_cost = 0 since the prefix metric is infinite so
-            # we don't need to compute a real cost
-            # TODO: Ask to Bruno
-            self.spf_add_prefixes_common(node_sysid, 0, candidates, spf_direction,
+            self.spf_add_prefixes_common(node_sysid, node_cost, candidates, spf_direction,
                                          special_for_neg_disagg,
                                          neg_disagg_prefixes,
                                          is_pos_disagg=False, is_neg_disagg=True)
@@ -2860,7 +2860,10 @@ class Node:
             return
         for prefix, attributes in prefixes.items():
             tags = attributes.tags
-            cost = node_cost + attributes.metric
+            if attributes.metric >= common.constants.infinite_distance:
+                cost = common.constants.infinite_distance
+            else:
+                cost = node_cost + attributes.metric
             dest = spf_dest.make_prefix_dest(prefix, tags, cost, is_pos_disagg, is_neg_disagg)
             self.spf_consider_candidate_dest(dest, None, node_sysid, candidates,
                                              spf_direction, special_for_neg_disagg)
