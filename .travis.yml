@@ -20,7 +20,7 @@ install:
 script:
   # We are strict; if the pylint score is not perfect, we fail the build
   ###@@@ TODO: temporary run only one test
-  - pytest --cov=rift tests/test_neg_disagg_spf_ties.py && pylint rift && pylint tests && pylint tools && tools/update_cli_docs.py -c
+  - pytest --cov=rift tests/test_neg_disagg_ties.py && pylint rift && pylint tests && pylint tools && tools/update_cli_docs.py -c
   
 after_success:
   - codecov
