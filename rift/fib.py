@@ -1,7 +1,7 @@
 import sortedcontainers
 
 import packet_common
-import route
+import rib_route
 import table
 
 class ForwardingTable:
@@ -51,7 +51,7 @@ class ForwardingTable:
 
     def cli_table(self):
         tab = table.Table()
-        tab.add_row(route.Route.cli_summary_headers())
+        tab.add_row(rib_route.RibRoute.cli_summary_headers())
         for rte in self.all_routes():
             tab.add_row(rte.cli_summary_attributes())
         return tab

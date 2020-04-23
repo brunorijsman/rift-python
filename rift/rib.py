@@ -1,8 +1,9 @@
-import sortedcontainers
+import pytricia
 
 import packet_common
-import route
+import rib_route
 import table
+
 
 class RouteTable:
 
@@ -10,7 +11,7 @@ class RouteTable:
         assert fib.address_family == address_family
         self.address_family = address_family
         # Sorted dict of _Destination objects indexed by prefix
-        self.destinations = sortedcontainers.SortedDict()
+        self.destinations = pytricia.PyTricia()
         self.fib = fib
         self._log = log
         self._log_id = log_id
@@ -21,54 +22,132 @@ class RouteTable:
 
     def get_route(self, prefix, owner):
         packet_common.assert_prefix_address_family(prefix, self.address_family)
-        if prefix in self.destinations:
-            return self.destinations[prefix].get_route(owner)
+        if self.destinations.has_key(prefix):
+            return self.destinations.get(prefix).get_route(owner)
         else:
             return None
 
     def put_route(self, rte):
+        """
+        Add a RibRoute object to the Destination object associated to the prefix.
+        :param rte: (RibRoute) the object to add to the Destination associated to the prefix
+        :return:
+        """
+
         packet_common.assert_prefix_address_family(rte.prefix, self.address_family)
         rte.stale = False
-        prefix = rte.prefix
         self.debug("Put %s", rte)
-        if rte.prefix in self.destinations:
-            destination = self.destinations[prefix]
+        # If there is no Destination object for the prefix, create a new Destination object
+        # for the given prefix and insert it in the Trie
+        prefix = str(rte.prefix)
+        if not self.destinations.has_key(prefix):
+            prefix_destination = _Destination(self, rte.prefix)
+            self.destinations.insert(prefix, prefix_destination)
         else:
-            destination = _Destination(prefix)
-            self.destinations[prefix] = destination
-        destination.put_route(rte, self.fib)
+            prefix_destination = self.destinations.get(prefix)
+        # Insert desired route in destination object
+        best_changed = prefix_destination.put_route(rte)
+
+        # Get children prefixes before performing actions on the prefix
+        # (it can be deleted from the Trie)
+        children_prefixes = self.destinations.children(str(prefix_destination.prefix))
+
+        # If best route changed in Destination object
+        if best_changed:
+            # Update prefix in the fib
+            self.fib.put_route(prefix_destination.best_route)
+            # Try to delete superfluous children
+            if not self._delete_superfluous_children(prefix_destination, children_prefixes):
+                # If children have not been deleted, update them
+                self._update_prefix_children(children_prefixes)
+
+    def _update_prefix_children(self, children_prefixes):
+        """
+        Refresh children next hops
+        :param children_prefixes: (list) all the children at each level of a given prefix
+        :return:
+        """
+        for child_prefix in children_prefixes:
+            child_prefix_dest = self.destinations.get(child_prefix)
+            self.fib.put_route(child_prefix_dest.best_route)
+
+    def _delete_superfluous_children(self, prefix_dest, children_prefixes):
+        """
+        Delete superfluous children of the given prefix from the RIB and the FIB when it is
+        unreachable
+        :param prefix_dest: (Destination) object to check for superfluous children
+        :param children_prefixes: (list) children of given prefix
+        :return: (boolean) if children of the given prefix have been removed or not
+        """
+        best_route = prefix_dest.best_route
+        if (not best_route.positive_next_hops and best_route.negative_next_hops) \
+                and not best_route.next_hops and prefix_dest.parent_prefix_dest:
+            for child_prefix in children_prefixes:
+                self.destinations.delete(child_prefix)
+                self.fib.delete_route(child_prefix)
+            return True
+
+        return False
 
     def del_route(self, prefix, owner):
-        # Returns True if the route was present in the table and False if not.
+        """
+        Delete given prefix and owner RibRoute object.
+        If no more RibRoute objects are available, also delete Destination from trie and
+        from the FIB.
+        :param prefix: (string) prefix to delete
+        :param owner: (int) owner of the prefix
+        :return: (boolean) if the route has been deleted or not
+        """
         packet_common.assert_prefix_address_family(prefix, self.address_family)
-        if prefix in self.destinations:
-            destination = self.destinations[prefix]
-            deleted = destination.del_route(owner, self.fib)
-            if destination.routes == []:
-                del self.destinations[prefix]
+        destination_deleted = False
+        best_changed = False
+        children_prefixes = None
+        # Check if the prefix is stored in the trie
+        if self.destinations.has_key(prefix):
+            # Get children prefixes before performing actions on the prefix
+            # (it can be deleted from the Trie)
+            children_prefixes = self.destinations.children(prefix)
+            destination = self.destinations.get(prefix)
+            # Delete route from the Destination object
+            deleted, best_changed = destination.del_route(owner)
+            # Route was not present in Destination object, nothing to do
+            if deleted:
+                self.debug("Delete %s", prefix)
+            else:
+                self.debug("Attempted delete %s (not present)", prefix)
+                return
+            if not destination.routes:
+                # No more routes available for current prefix, delete it from trie and FIB
+                self.destinations.delete(prefix)
+                self.fib.delete_route(prefix)
+                destination_deleted = True
+            elif best_changed:
+                # Best route changed, push it in the FIB
+                self.fib.put_route(destination.best_route)
         else:
             deleted = False
-        if deleted:
-            self.debug("Delete %s", prefix)
-        else:
-            self.debug("Attempted delete %s (not present)", prefix)
+        if deleted and (best_changed or destination_deleted):
+            # If route has been deleted and an event occurred
+            # (best changed or destination deleted), update children
+            self._update_prefix_children(children_prefixes)
         return deleted
 
     def all_routes(self):
-        for destination in self.destinations.values():
+        for prefix in self.destinations:
+            destination = self.destinations.get(prefix)
             for rte in destination.routes:
                 yield rte
 
     def all_prefix_routes(self, prefix):
         packet_common.assert_prefix_address_family(prefix, self.address_family)
-        if prefix in self.destinations:
+        if self.destinations.has_key(prefix):
             destination = self.destinations[prefix]
             for rte in destination.routes:
                 yield rte
 
     def cli_table(self):
         tab = table.Table()
-        tab.add_row(route.Route.cli_summary_headers())
+        tab.add_row(rib_route.RibRoute.cli_summary_headers())
         for rte in self.all_routes():
             tab.add_row(rte.cli_summary_attributes())
         return tab
@@ -104,71 +183,110 @@ class RouteTable:
 
     def nr_routes(self):
         count = 0
-        for destination in self.destinations.values():
+        for prefix in self.destinations:
+            destination = self.destinations.get(prefix)
             count += len(destination.routes)
         return count
 
+
 class _Destination:
+    """
+    Class that contains all routes for a given prefix destination
+    Attributes of this class are:
+        - rib: reference to the RIB
+        - prefix: prefix associated to this destination
+        - routes: list of RibRoute objects, in decreasing order or owner (= in decreasing order of
+            preference, higher numerical value is more preferred).
+            For a given owner, at most one route is allowed to be in the list
+    """
 
-    # For each prefix, there can be up to one route per owner. This is also the order of preference
-    # for the routes from different owners to the same destination (higher numerical value is more
-    # preferred)
-
-    def __init__(self, prefix):
+    def __init__(self, rib, prefix):
+        self.rib = rib
         self.prefix = prefix
-        # List of Route objects, in decreasing order or owner (= in decreasing order of preference)
-        # For a given owner, at most one route is allowed to be in the list
         self.routes = []
 
+    @property
+    def parent_prefix_dest(self):
+        """
+        :return: the Destination object associated to the parent prefix of the current one
+        """
+        parent_prefix = self.rib.destinations.parent(self.prefix)
+        if parent_prefix is None:
+            return None
+
+        return self.rib.destinations.get(parent_prefix)
+
+    @property
+    def best_route(self):
+        """
+        :return: the best RibRoute for this prefix
+        """
+        return self.routes[0]
+
     def get_route(self, owner):
+        """
+        Get RibRoute object for a given owner if present
+        :param owner: (int) owner of the route
+        :return: (RibRoute|None) desired RibRoute object if present, else None
+        """
         for rte in self.routes:
             if rte.owner == owner:
                 return rte
         return None
 
-    def update_fib(self, fib):
-        if self.routes == []:
-            fib.del_route(self.prefix)
-        else:
-            best_route = self.routes[0]
-            fib.put_route(best_route)
-
-    def put_route(self, new_route, fib):
+    def put_route(self, new_route):
+        """
+        Add a new RibRoute object in the list of routes for the current prefix. Route is added
+        with proper priority.
+        :param new_route: (RibRoute) route to add to the list
+        :return:
+        """
+        assert self.prefix == new_route.prefix
+        added = False
+        best_changed = False
         index = 0
-        inserted = False
         for existing_route in self.routes:
             if existing_route.owner == new_route.owner:
                 self.routes[index] = new_route
-                inserted = True
-                different = self.routes_significantly_different(existing_route, new_route)
+                added = True
                 break
             elif existing_route.owner < new_route.owner:
                 self.routes.insert(index, new_route)
-                inserted = True
-                different = True
+                added = True
                 break
             index += 1
-        if not inserted:
+        if not added:
             self.routes.append(new_route)
-            different = True
-        if different:
-            self.update_fib(fib)
+        if index == 0:
+            best_changed = True
+        # Update the Route Destination object instance with the current object
+        new_route.destination = self
+        return best_changed
 
-    def del_route(self, owner, fib):
-        index = 0
-        for rte in self.routes:
+    def del_route(self, owner):
+        """
+        Delete a RibRoute object for the given owner
+        :param owner: (int) owner of the route
+        :return: (tuple) first element is a boolean that indicates if the route has been deleted,
+            second element is a boolean that indicates if the best route changed
+        """
+        best_changed = False
+        for index, rte in enumerate(self.routes):
             if rte.owner == owner:
                 del self.routes[index]
-                self.update_fib(fib)
-                return True
-            index += 1
-        return False
+                if index == 0:
+                    best_changed = True
+                return True, best_changed
+        return False, best_changed
+
+    def __repr__(self):
+        parent_prefix = "(Parent: " + self.parent_prefix_dest.prefix + ")" \
+            if self.parent_prefix_dest else ""
+        return "%s\n%s %s\nBest Computed: %s\n\n" % (self.prefix, parent_prefix, str(self.routes),
+                                                     str(self.best_route.next_hops))
 
     @staticmethod
     def routes_significantly_different(route1, route2):
         assert route1.prefix == route2.prefix
         if route1.owner != route2.owner:
             return True
-        if route1.next_hops != route2.next_hops:
-            return True
-        return False

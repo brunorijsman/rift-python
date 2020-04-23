@@ -22,7 +22,7 @@ import next_hop
 import offer
 import packet_common
 import rib
-import route
+import rib_route
 import spf_dest
 import stats
 import table
@@ -1426,7 +1426,7 @@ class Node:
             af_rib = self._ipv6_rib
         at_least_one = False
         tab = table.Table()
-        tab.add_row(route.Route.cli_summary_headers())
+        tab.add_row(rib_route.RibRoute.cli_summary_headers())
         for rte in af_rib.all_prefix_routes(prefix):
             at_least_one = True
             tab.add_row(rte.cli_summary_attributes())
@@ -1452,7 +1452,7 @@ class Node:
                               format(prefix, constants.owner_str(owner)))
         else:
             tab = table.Table()
-            tab.add_row(route.Route.cli_summary_headers())
+            tab.add_row(rib_route.RibRoute.cli_summary_headers())
             tab.add_row(rte.cli_summary_attributes())
             cli_session.print(tab.to_string())
 
@@ -1492,7 +1492,7 @@ class Node:
             cli_session.print("Prefix {} not present".format(prefix))
             return
         tab = table.Table()
-        tab.add_row(route.Route.cli_summary_headers())
+        tab.add_row(rib_route.RibRoute.cli_summary_headers())
         tab.add_row(rte.cli_summary_attributes())
         cli_session.print(tab.to_string())
 
@@ -3052,7 +3052,8 @@ class Node:
                     next_hops = dest.ipv6_next_hops
                     route_table = self._ipv6_rib
                 if next_hops:
-                    rte = route.Route(prefix, owner, next_hops)
+                    rte = rib_route.RibRoute(prefix, owner, next_hops)
+                    print(rte)
                     route_table.put_route(rte)
 
         self._ipv4_rib.del_stale_routes()

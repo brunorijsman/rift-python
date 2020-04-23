@@ -4,7 +4,7 @@ import constants
 import kernel
 import next_hop
 import packet_common
-import route
+import rib_route
 
 # pylint: disable=line-too-long
 # pylint: disable=bad-continuation
@@ -111,7 +111,7 @@ def test_put_del_route():
     # Put route with one next-hop (with interface but no address)
     prefix = packet_common.make_ip_prefix("99.99.99.99/32")
     nhops = [next_hop.NextHop("lo", None)]
-    rte = route.Route(prefix, constants.OWNER_S_SPF, nhops)
+    rte = rib_route.RibRoute(prefix, constants.OWNER_S_SPF, nhops)
     assert kern.put_route(rte)
     # Delete route just added
     assert kern.del_route(prefix)
@@ -119,7 +119,7 @@ def test_put_del_route():
     prefix = packet_common.make_ip_prefix("99.99.99.99/32")
     address = packet_common.make_ip_address("127.0.0.1")
     nhops = [next_hop.NextHop("lo", address)]
-    rte = route.Route(prefix, constants.OWNER_S_SPF, nhops)
+    rte = rib_route.RibRoute(prefix, constants.OWNER_S_SPF, nhops)
     assert kern.put_route(rte)
     # Delete route just added
     assert kern.del_route(prefix)
@@ -128,7 +128,7 @@ def test_put_del_route():
     address1 = packet_common.make_ip_address("127.0.0.1")
     address2 = packet_common.make_ip_address("127.0.0.2")
     nhops = [next_hop.NextHop("lo", address1), next_hop.NextHop("lo", address2)]
-    rte = route.Route(prefix, constants.OWNER_S_SPF, nhops)
+    rte = rib_route.RibRoute(prefix, constants.OWNER_S_SPF, nhops)
     assert kern.put_route(rte)
     # Do we display the ECMP route properly?
     tab_str = kern.cli_route_prefix_table(5, prefix).to_string()
@@ -151,7 +151,7 @@ def test_put_del_route_errors():
     # Attempt to add route with nonsense next-hop interface
     prefix = packet_common.make_ip_prefix("99.99.99.99/32")
     nhops = [next_hop.NextHop("nonsense", None)]
-    rte = route.Route(prefix, constants.OWNER_S_SPF, nhops)
+    rte = rib_route.RibRoute(prefix, constants.OWNER_S_SPF, nhops)
     assert not kern.put_route(rte)
 
 def test_table_nr_to_name():
