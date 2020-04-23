@@ -20,8 +20,9 @@ class RouteTable:
         if self._log:
             self._log.debug("[%s] %s" % (self._log_id, msg), *args)
 
-    def get_route(self, prefix, owner):
-        packet_common.assert_prefix_address_family(prefix, self.address_family)
+    def get_route(self, rte_prefix, owner):
+        packet_common.assert_prefix_address_family(rte_prefix, self.address_family)
+        prefix = str(rte_prefix)
         if self.destinations.has_key(prefix):
             return self.destinations.get(prefix).get_route(owner)
         else:
@@ -89,19 +90,21 @@ class RouteTable:
 
         return False
 
-    def del_route(self, prefix, owner):
+    def del_route(self, rte_prefix, owner):
         """
         Delete given prefix and owner RibRoute object.
         If no more RibRoute objects are available, also delete Destination from trie and
         from the FIB.
-        :param prefix: (string) prefix to delete
+        :param rte_prefix: (string) prefix to delete
         :param owner: (int) owner of the prefix
         :return: (boolean) if the route has been deleted or not
         """
-        packet_common.assert_prefix_address_family(prefix, self.address_family)
+        packet_common.assert_prefix_address_family(rte_prefix, self.address_family)
         destination_deleted = False
         best_changed = False
         children_prefixes = None
+
+        prefix = str(rte_prefix)
         # Check if the prefix is stored in the trie
         if self.destinations.has_key(prefix):
             # Get children prefixes before performing actions on the prefix
@@ -115,11 +118,11 @@ class RouteTable:
                 self.debug("Delete %s", prefix)
             else:
                 self.debug("Attempted delete %s (not present)", prefix)
-                return
+                return deleted
             if not destination.routes:
                 # No more routes available for current prefix, delete it from trie and FIB
                 self.destinations.delete(prefix)
-                self.fib.delete_route(prefix)
+                self.fib.del_route(rte_prefix)
                 destination_deleted = True
             elif best_changed:
                 # Best route changed, push it in the FIB
@@ -138,8 +141,9 @@ class RouteTable:
             for rte in destination.routes:
                 yield rte
 
-    def all_prefix_routes(self, prefix):
-        packet_common.assert_prefix_address_family(prefix, self.address_family)
+    def all_prefix_routes(self, rte_prefix):
+        packet_common.assert_prefix_address_family(rte_prefix, self.address_family)
+        prefix = str(rte_prefix)
         if self.destinations.has_key(prefix):
             destination = self.destinations[prefix]
             for rte in destination.routes:
@@ -290,3 +294,4 @@ class _Destination:
         assert route1.prefix == route2.prefix
         if route1.owner != route2.owner:
             return True
+        return False

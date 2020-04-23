@@ -57,7 +57,7 @@ class Kernel:
         if rte.next_hops == []:
             kernel_args = {}
         elif len(rte.next_hops) == 1:
-            nhop = list(rte.next_hops)[0]
+            nhop = rte.next_hops[0]
             kernel_args = self.nhop_to_kernel_args(nhop, dst)
             if kernel_args == {}:
                 self.del_route(rte.prefix)
