@@ -276,7 +276,7 @@ class RiftExpectSession:
                     pattern += r" {} .* |".format(nexthop_if)   # ipv6 next-hop
                 else:
                     pattern += r" .* |"                         # ip6 next-hop (possily absent)
-        self.expect(pattern)
+        self.table_expect(pattern)
 
     def check_spf_absent(self, node, direction, destination):
         self.sendline("set node {}".format(node))
