@@ -3,29 +3,21 @@ from rift_expect_session import RiftExpectSession
 
 def check_spine_positive_next_hops(res):
     for node in ["spine_2_1_1", "spine_3_1_1", "spine_4_1_1"]:
-        res.check_spf_disagg(node,
-                             prefix="200.0.0.0/24",
-                             cost=4,
-                             pos_or_neg="Positive",
-                             preds_and_nhs=[("122", "if3")])
-        res.check_spf_disagg(node,
-                             prefix="200.0.1.0/24",
-                             cost=4,
-                             pos_or_neg="Positive",
-                             preds_and_nhs=[("122", "if3")])
+        for prefix in ["200.0.0.0/24", "200.0.1.0/24"]:
+            res.check_spf_disagg(node,
+                                 prefix,
+                                 cost=4,
+                                 pos_or_neg="Positive",
+                                 preds_and_nhs=[("122", "if3")])
 
 def check_spine_negative_disagg_spf(res):
     for node in ["spine_2_1_1", "spine_3_1_1", "spine_4_1_1"]:
-        res.check_spf_disagg(node,
-                             prefix="200.0.0.0/24",
-                             cost=infinite_distance,
-                             pos_or_neg="Negative",
-                             preds_and_nhs=[("121", "if2"), ("122", "if3")])
-        res.check_spf_disagg(node,
-                             prefix="200.0.1.0/24",
-                             cost=infinite_distance,
-                             pos_or_neg="Negative",
-                             preds_and_nhs=[("121", "if2"), ("122", "if3")])
+        for prefix in ["200.0.0.0/24", "200.0.1.0/24"]:
+            res.check_spf_disagg(node,
+                                 prefix,
+                                 cost=infinite_distance,
+                                 pos_or_neg="Negative",
+                                 preds_and_nhs=[("121", "if2"), ("122", "if3")])
 
 def check_leaf_negative_next_hops(res):
     for (node, pred) in [("leaf_2_0_1", 211), ("leaf_2_0_2", 211),
