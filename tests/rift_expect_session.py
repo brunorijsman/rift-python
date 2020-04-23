@@ -249,7 +249,7 @@ class RiftExpectSession:
 
     def check_spf_disagg(self, node, prefix, cost, pos_or_neg, preds_and_nhs):
         self.sendline("set node {}".format(node))
-        self.sendline("show spf direction south destination {}".format(prefix))
+        self.sendline("show spf direction north destination {}".format(prefix))
         first = True
         for (pred_sysid, nexthop_if) in preds_and_nhs:
             if first:
