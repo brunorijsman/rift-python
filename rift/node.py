@@ -2804,10 +2804,7 @@ class Node:
             if self.is_neighbor_bidirectional(node_system_id, nbr_system_id, nbr_tie_element,
                                               spf_direction, special_for_neg_disagg):
                 # We have found a feasible path to the neighbor node; is the best path?
-                if nbr_tie_element.cost >= common.constants.infinite_distance:
-                    cost = common.constants.infinite_distance
-                else:
-                    cost = node_cost + nbr_tie_element.cost
+                cost = min(node_cost + nbr_tie_element.cost, common.constants.infinite_distance)
                 destination = spf_dest.make_node_dest(nbr_system_id, None, cost)
 
                 self.spf_consider_candidate_dest(destination, nbr_tie_element, node_system_id,
@@ -2860,10 +2857,7 @@ class Node:
             return
         for prefix, attributes in prefixes.items():
             tags = attributes.tags
-            if attributes.metric >= common.constants.infinite_distance:
-                cost = common.constants.infinite_distance
-            else:
-                cost = node_cost + attributes.metric
+            cost = min(node_cost + attributes.metric, common.constants.infinite_distance)
             dest = spf_dest.make_prefix_dest(prefix, tags, cost, is_pos_disagg, is_neg_disagg)
             self.spf_consider_candidate_dest(dest, None, node_sysid, candidates,
                                              spf_direction, special_for_neg_disagg)
