@@ -40,7 +40,7 @@ class RouteTable:
         self.debug("Put %s", rte)
         # If there is no Destination object for the prefix, create a new Destination object
         # for the given prefix and insert it in the Trie
-        prefix = str(rte.prefix)
+        prefix = packet_common.ip_prefix_str(rte.prefix)
         if not self.destinations.has_key(prefix):
             prefix_destination = _Destination(self, rte.prefix)
             self.destinations.insert(prefix, prefix_destination)
@@ -51,7 +51,8 @@ class RouteTable:
 
         # Get children prefixes before performing actions on the prefix
         # (it can be deleted from the Trie)
-        children_prefixes = self.destinations.children(str(prefix_destination.prefix))
+        children_prefixes = self.destinations.children(
+            packet_common.ip_prefix_str(prefix_destination.prefix))
 
         # If best route changed in Destination object
         if best_changed:
@@ -103,8 +104,7 @@ class RouteTable:
         destination_deleted = False
         best_changed = False
         children_prefixes = None
-
-        prefix = str(rte_prefix)
+        prefix = packet_common.ip_prefix_str(rte_prefix)
         # Check if the prefix is stored in the trie
         if self.destinations.has_key(prefix):
             # Get children prefixes before performing actions on the prefix
@@ -143,7 +143,7 @@ class RouteTable:
 
     def all_prefix_routes(self, rte_prefix):
         packet_common.assert_prefix_address_family(rte_prefix, self.address_family)
-        prefix = str(rte_prefix)
+        prefix = packet_common.ip_prefix_str(rte_prefix)
         if self.destinations.has_key(prefix):
             destination = self.destinations[prefix]
             for rte in destination.routes:
@@ -214,7 +214,7 @@ class _Destination:
         """
         :return: the Destination object associated to the parent prefix of the current one
         """
-        parent_prefix = self.rib.destinations.parent(self.prefix)
+        parent_prefix = self.rib.destinations.parent(packet_common.ip_prefix_str(self.prefix))
         if parent_prefix is None:
             return None
 

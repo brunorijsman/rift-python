@@ -3032,6 +3032,9 @@ class Node:
         # Index is (direction, False) because special SPF does not install any route in RIB
         dest_table = self._spf_destinations[(spf_direction, False)]
 
+        all_next_hops_ipv4 = {}
+        all_next_hops_ipv6 = {}
+
         for dest_key, dest in dest_table.items():
             if isinstance(dest_key, int):
                 # Destination is a node, do nothing
@@ -3046,17 +3049,35 @@ class Node:
                 prefix = dest_key
                 if prefix.ipv4prefix is not None:
                     next_hops = dest.ipv4_next_hops
-                    route_table = self._ipv4_rib
+                    if prefix not in all_next_hops_ipv4:
+                        all_next_hops_ipv4[prefix] = {}
+                    all_next_hops_ipv4[prefix][dest.dest_type] = next_hops
                 else:
                     assert prefix.ipv6prefix is not None
                     next_hops = dest.ipv6_next_hops
-                    route_table = self._ipv6_rib
-                if next_hops:
-                    rte = rib_route.RibRoute(prefix, owner, next_hops)
-                    route_table.put_route(rte)
+                    if prefix not in all_next_hops_ipv6:
+                        all_next_hops_ipv6[prefix] = {}
+                    all_next_hops_ipv6[prefix][dest.dest_type] = next_hops
+
+        self._install_rib_routes(all_next_hops_ipv4, owner, self._ipv4_rib)
+        self._install_rib_routes(all_next_hops_ipv6, owner, self._ipv6_rib)
 
         self._ipv4_rib.del_stale_routes()
         self._ipv6_rib.del_stale_routes()
+
+    @staticmethod
+    def _install_rib_routes(destinations_next_hops, owner, route_family_rib):
+        for prefix, next_hops in destinations_next_hops.items():
+            positive_next_hops = []
+            negative_next_hops = []
+            if spf_dest.DEST_TYPE_PREFIX in next_hops:
+                positive_next_hops.extend(next_hops[spf_dest.DEST_TYPE_PREFIX])
+            if spf_dest.DEST_TYPE_POS_DISAGG_PREFIX in next_hops:
+                positive_next_hops.extend(next_hops[spf_dest.DEST_TYPE_POS_DISAGG_PREFIX])
+            if spf_dest.DEST_TYPE_NEG_DISAGG_PREFIX in next_hops:
+                negative_next_hops = next_hops[spf_dest.DEST_TYPE_NEG_DISAGG_PREFIX]
+            rte = rib_route.RibRoute(prefix, owner, positive_next_hops, negative_next_hops)
+            route_family_rib.put_route(rte)
 
     def update_neg_disagg_fallen_leafs(self):
         normal_southbound_run = self._spf_destinations[(constants.DIR_SOUTH, False)]
