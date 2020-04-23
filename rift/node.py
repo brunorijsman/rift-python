@@ -3053,7 +3053,6 @@ class Node:
                     route_table = self._ipv6_rib
                 if next_hops:
                     rte = rib_route.RibRoute(prefix, owner, next_hops)
-                    print(rte)
                     route_table.put_route(rte)
 
         self._ipv4_rib.del_stale_routes()
