@@ -265,8 +265,8 @@ class RiftExpectSession:
                 else:
                     pattern += r" .* |"                         # ip6 next-hop (possily absent)
             else:
-                pattern += r"\s+"
-                pattern = r"| |"                                # prefix (absent)
+                pattern += r"\s+"                               # Skip whitespace
+                pattern += r"| |"                               # prefix (absent)
                 pattern += r" |"                                # cost (absent)
                 pattern += r" {} |".format(pred_sysid)          # predecessor system id
                 pattern += r" |"                                # tags (absent)
