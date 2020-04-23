@@ -247,6 +247,37 @@ class RiftExpectSession:
             for expected_row in expect_south_ew_spf:
                 self.table_expect(expected_row)
 
+    def check_spf_disagg(self, node, prefix, cost, pos_or_neg, preds_and_nhs):
+        self.sendline("set node {}".format(node))
+        self.sendline("show spf direction south destination {}".format(prefix))
+        first = True
+        for (pred_sysid, nexthop_if) in preds_and_nhs:
+            if first:
+                first = False
+                pattern = r"| {} \(Disagg\) |".format(prefix)   # prefix
+                pattern += r" {} |".format(cost)                # cost
+                pattern += r" {} |".format(pred_sysid)          # predecessor system id
+                pattern += r" |"                                # tags (absent)
+                pattern += r" {} |".format(pos_or_neg)          # positive or negative
+                pattern += r" {} .* |".format(nexthop_if)       # ipv4 next-hop
+                if IPV6:
+                    pattern += r" {} .* |".format(nexthop_if)   # ipv6 next-hop
+                else:
+                    pattern += r" .* |"                         # ip6 next-hop (possily absent)
+            else:
+                pattern += r"\s+"
+                pattern = r"| |"                                # prefix (absent)
+                pattern += r" |"                                # cost (absent)
+                pattern += r" {} |".format(pred_sysid)          # predecessor system id
+                pattern += r" |"                                # tags (absent)
+                pattern += r" |"                                # positive or negative (absent)
+                pattern += r" {} .* |".format(nexthop_if)       # ipv4 next-hop
+                if IPV6:
+                    pattern += r" {} .* |".format(nexthop_if)   # ipv6 next-hop
+                else:
+                    pattern += r" .* |"                         # ip6 next-hop (possily absent)
+        self.expect(pattern)
+
     def check_spf_absent(self, node, direction, destination):
         self.sendline("set node {}".format(node))
         self.sendline("show spf direction {} destination {}".format(direction, destination))
