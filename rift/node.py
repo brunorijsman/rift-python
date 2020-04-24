@@ -1858,9 +1858,14 @@ class Node:
             reason = "TIE " + packet_common.tie_id_str(tie_id) + " added"
         self.tie_packet_infos[tie_id] = tie_packet_info
         if self.is_same_level_tie(tie_packet):
-            self.peer_node_tie_packet_infos[tie_packet.header.tieid] = tie_packet_info
-            self.update_partially_conn_all_intfs()
-            self.regenerate_my_south_prefix_tie()
+            # Ignore E-W links as peer neighbors (only southern reflected TIEs should be considered)
+            # TODO: Ask to Bruno
+            ew_neigh = dict(self.node_neighbors(self.node_ties(constants.DIR_SOUTH, self.system_id),
+                                                neighbor_directions=[constants.DIR_EAST_WEST]))
+            if tie_packet.header.tieid.originator not in ew_neigh:
+                self.peer_node_tie_packet_infos[tie_packet.header.tieid] = tie_packet_info
+                self.update_partially_conn_all_intfs()
+                self.regenerate_my_south_prefix_tie()
         if tie_type == common.ttypes.TIETypeType.NegativeDisaggregationPrefixTIEType:
             if self.level_value() != common.constants.leaf_level:
                 if tie_id.originator in self._parent_neighbors and \
