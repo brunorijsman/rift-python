@@ -7,8 +7,8 @@ class FibRoute:
         self.next_hops = list(next_hops)
 
     def __str__(self):
-        sorted_next_hops = sorted(self.next_hops)
-        return "%s -> %s" % (self.prefix, ", ".join(sorted_next_hops))
+        sorted_next_hops = sorted([str(next_hop) for next_hop in self.next_hops])
+        return "%s -> %s" % (packet_common.ip_prefix_str(self.prefix), ", ".join(sorted_next_hops))
 
     def __repr__(self):
         return str(self)

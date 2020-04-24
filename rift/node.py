@@ -1901,7 +1901,6 @@ class Node:
             else:
                 break
         # Associate each prefix to a spf destination at infinite distance
-        # TODO: Check if it's the right thing
         fallen_leafs = {prefix: spf_dest.make_prefix_dest(prefix, attrs.tags,
                                                           common.constants.infinite_distance,
                                                           is_pos_disagg=False, is_neg_disagg=True)
