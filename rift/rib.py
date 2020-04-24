@@ -22,7 +22,7 @@ class RouteTable:
 
     def get_route(self, rte_prefix, owner):
         packet_common.assert_prefix_address_family(rte_prefix, self.address_family)
-        prefix = str(rte_prefix)
+        prefix = packet_common.ip_prefix_str(rte_prefix)
         if self.destinations.has_key(prefix):
             return self.destinations.get(prefix).get_route(owner)
         else:
