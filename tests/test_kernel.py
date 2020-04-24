@@ -153,6 +153,44 @@ def test_put_del_route_errors():
     rte = fib_route.FibRoute(prefix, nhops)
     assert not kern.put_route(rte)
 
+
+def test_put_del_route_unreachable():
+    kern = kernel.Kernel(log=None, log_id="", table_name="main")
+    if not kern.platform_supported:
+        return
+    # Add unreachable prefix in the kernel routing table (no next hops)
+    prefix = packet_common.make_ip_prefix("99.99.99.99/32")
+    nhops = []
+    rte = fib_route.FibRoute(prefix, nhops)
+    assert kern.put_route(rte)
+    tab_str = kern.cli_route_prefix_table(254, prefix).to_string()
+    pattern = (r"[|] Table +[|] Main +[|]\n"
+               r"[|] Address Family +[|] IPv4 +[|]\n"
+               r"[|] Destination +[|] 99\.99\.99\.99/32 +[|]\n"
+               r"[|] Type +[|] Unreachable +[|]\n"
+               r"[|] Protocol +[|] RIFT +[|]\n"
+               r"[|] Scope +[|] Universe +[|]\n"
+               r"[|] Next-hops +[|]  +[|]\n"
+               r"[|] Priority +[|] 199 +[|]\n")
+    assert re.search(pattern, tab_str) is not None
+    # Replace unreachable route with a route containing one next hop
+    new_nhops = [next_hop.NextHop("lo", packet_common.make_ip_address("127.0.0.1"))]
+    rte = fib_route.FibRoute(prefix, new_nhops)
+    assert kern.put_route(rte)
+    tab_str = kern.cli_route_prefix_table(254, prefix).to_string()
+    pattern = (r"[|] Table +[|] Main +[|]\n"
+               r"[|] Address Family +[|] IPv4 +[|]\n"
+               r"[|] Destination +[|] 99\.99\.99\.99/32 +[|]\n"
+               r"[|] Type +[|] Unicast +[|]\n"
+               r"[|] Protocol +[|] RIFT +[|]\n"
+               r"[|] Scope +[|] Universe +[|]\n"
+               r"[|] Next-hops +[|] lo 127.0.0.1 +[|]\n"
+               r"[|] Priority +[|] 199 +[|]\n")
+    assert re.search(pattern, tab_str) is not None
+    # Delete next hops
+    assert kern.del_route(prefix)
+
+
 def test_table_nr_to_name():
     assert kernel.Kernel.table_nr_to_name(255) == "Local"
     assert kernel.Kernel.table_nr_to_name(254) == "Main"
