@@ -10,7 +10,7 @@ class RouteTable:
     def __init__(self, address_family, fib, log, log_id):
         assert fib.address_family == address_family
         self.address_family = address_family
-        # Sorted dict of _Destination objects indexed by prefix
+        # Patricia Trie of _Destination objects indexed by prefix
         self.destinations = pytricia.PyTricia()
         self.fib = fib
         self._log = log
