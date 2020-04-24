@@ -904,3 +904,37 @@ def test_prop_nesting_with_siblings():
     assert not r_t.destinations.keys()
     # The FIB must be empty.
     assert not r_t.fib.routes.keys()
+
+
+def test_cli_table():
+    packet_common.add_missing_methods_to_thrift()
+    route_table = mkrt(constants.ADDRESS_FAMILY_IPV4)
+    nh1 = mknh("if1", "1.1.1.1")
+    nh2 = mknh("if2", "2.2.2.2")
+    nh3 = mknh("if3", None)
+    nh4 = mknh("if4", "4.4.4.4")
+    route_table.put_route(mkr("2.2.2.0/24", N))
+    route_table.put_route(mkr("1.1.1.0/24", S, [nh1]))
+    route_table.put_route(mkr("0.0.0.0/0", S, [nh1, nh2]))
+    route_table.put_route(mkr("2.2.0.0/16", S, [nh3], [nh4]))
+    route_table.put_route(mkr("1.1.1.0/24", N))
+    route_table.put_route(mkr("4.4.4.0/24", S, [], [nh2, nh3]))
+    tab_str = route_table.cli_table().to_string()
+    assert (tab_str == "+------------+-----------+--------------+\n"
+                       "| Prefix     | Owner     | Next-hops    |\n"
+                       "+------------+-----------+--------------+\n"
+                       "| 0.0.0.0/0  | South SPF | if1 1.1.1.1  |\n"
+                       "|            |           | if2 2.2.2.2  |\n"
+                       "+------------+-----------+--------------+\n"
+                       "| 1.1.1.0/24 | South SPF | if1 1.1.1.1  |\n"
+                       "+------------+-----------+--------------+\n"
+                       "| 1.1.1.0/24 | North SPF |              |\n"
+                       "+------------+-----------+--------------+\n"
+                       "| 2.2.0.0/16 | South SPF | if3          |\n"
+                       "|            |           | ~if4 4.4.4.4 |\n"
+                       "+------------+-----------+--------------+\n"
+                       "| 2.2.2.0/24 | North SPF |              |\n"
+                       "+------------+-----------+--------------+\n"
+                       "| 4.4.4.0/24 | South SPF | ~if2 2.2.2.2 |\n"
+                       "|            |           | ~if3         |\n"
+                       "+------------+-----------+--------------+\n")
