@@ -54,11 +54,9 @@ class Kernel:
         if self._table_nr == -1:
             return False
         dst = packet_common.ip_prefix_str(rte.prefix)
-        reachable_rte = True
         # No next hops means that the route is unreachable.
         if not rte.next_hops:
-            kernel_args = {}
-            reachable_rte = False
+            kernel_args = {"type": "unreachable"}
         elif len(rte.next_hops) == 1:
             nhop = rte.next_hops[0]
             kernel_args = self.nhop_to_kernel_args(nhop, dst)
@@ -75,20 +73,12 @@ class Kernel:
                 self.del_route(rte.prefix)
                 return False
         try:
-            if reachable_rte:
-                self.ipr.route('replace',
-                               table=self._table_nr,
-                               dst=dst,
-                               proto=RTPROT_RIFT,
-                               priority=RTPRIORITY_RIFT,
-                               **kernel_args)
-            else:
-                self.ipr.route('add',
-                               table=self._table_nr,
-                               dst=dst,
-                               proto=RTPROT_RIFT,
-                               priority=RTPRIORITY_RIFT,
-                               type="unreachable")
+            self.ipr.route('replace',
+                           table=self._table_nr,
+                           dst=dst,
+                           proto=RTPROT_RIFT,
+                           priority=RTPRIORITY_RIFT,
+                           **kernel_args)
         except pyroute2.netlink.exceptions.NetlinkError as err:
             self.error("Netlink error %s replacing route to %s: %s", err, dst, kernel_args)
             return False
