@@ -1859,7 +1859,6 @@ class Node:
         self.tie_packet_infos[tie_id] = tie_packet_info
         if self.is_same_level_tie(tie_packet):
             # Ignore E-W links as peer neighbors (only southern reflected TIEs should be considered)
-            # TODO: Ask to Bruno
             ew_neigh = dict(self.node_neighbors(self.node_ties(constants.DIR_SOUTH, self.system_id),
                                                 neighbor_directions=[constants.DIR_EAST_WEST]))
             if tie_packet.header.tieid.originator not in ew_neigh:
@@ -2678,7 +2677,6 @@ class Node:
 
         # Run special SPF (southbound) for negative disaggregation only if current node is a ToF
         # and it has at least an E-W link
-        # TODO: Should we use positive/negative SPFDest objects?
         if self.top_of_fabric() and self.have_ew_adjacency():
             self.spf_run_direction(constants.DIR_SOUTH, special_for_neg_disagg=True)
 
