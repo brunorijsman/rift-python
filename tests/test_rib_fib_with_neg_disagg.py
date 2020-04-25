@@ -344,7 +344,7 @@ def test_add_subnet_disagg_recursive_unreachable():
     assert r_t.destinations.get(FIRST_NEG_DISAGG_PREFIX).best_route.next_hops == set()
     assert set(r_t.fib.routes[mkp(FIRST_NEG_DISAGG_PREFIX)].next_hops) == \
            first_neg_unreach.next_hops
-    assert not r_t.destinations.has_key(SUBNET_NEG_DISAGG_PREFIX)
+    assert r_t.destinations.has_key(SUBNET_NEG_DISAGG_PREFIX)
     assert SUBNET_NEG_DISAGG_PREFIX not in r_t.fib.routes
 
 

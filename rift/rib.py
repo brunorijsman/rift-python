@@ -85,7 +85,6 @@ class RouteTable:
         if (not best_route.positive_next_hops and best_route.negative_next_hops) \
                 and not best_route.next_hops and prefix_dest.parent_prefix_dest:
             for child_prefix in children_prefixes:
-                self.destinations.delete(child_prefix)
                 self.fib.del_route(packet_common.make_ip_prefix(child_prefix))
             return True
 
