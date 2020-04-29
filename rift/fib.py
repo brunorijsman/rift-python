@@ -1,8 +1,9 @@
 import sortedcontainers
 
 import packet_common
-import route
+import fib_route
 import table
+
 
 class ForwardingTable:
 
@@ -29,9 +30,10 @@ class ForwardingTable:
     def put_route(self, rte):
         packet_common.assert_prefix_address_family(rte.prefix, self.address_family)
         self.debug("Put %s", rte)
-        self.routes[rte.prefix] = rte
+        fib_rte = fib_route.FibRoute(rte.prefix, rte.next_hops)
+        self.routes[rte.prefix] = fib_rte
         if self.kernel is not None:
-            self.kernel.put_route(rte)
+            self.kernel.put_route(fib_rte)
 
     def del_route(self, prefix):
         # Returns True if the route was present in the table and False if not.
@@ -51,7 +53,7 @@ class ForwardingTable:
 
     def cli_table(self):
         tab = table.Table()
-        tab.add_row(route.Route.cli_summary_headers())
+        tab.add_row(fib_route.FibRoute.cli_summary_headers())
         for rte in self.all_routes():
             tab.add_row(rte.cli_summary_attributes())
         return tab

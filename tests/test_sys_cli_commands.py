@@ -60,13 +60,13 @@ def check_show_flooding_reduction(res):
 def check_show_forwarding(res):
     res.sendline("show forwarding")
     res.table_expect("IPv4 Routes:")
-    res.table_expect("| 2.2.1.0/24 | South SPF | if1")
+    res.table_expect("| 2.2.1.0/24 | if1")
     res.table_expect("IPv6 Routes:")
     res.wait_prompt()
 
 def check_show_forwarding_prefix(res):
     res.sendline("show forwarding prefix 2.2.2.2/32")
-    res.table_expect("| 2.2.2.2/32 | South SPF | if1")
+    res.table_expect("| 2.2.2.2/32 | if1")
     res.wait_prompt()
 
 def check_show_fsm_lie(res):

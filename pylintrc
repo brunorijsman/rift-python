@@ -21,5 +21,5 @@ disable=
     too-many-locals,                    # Matter of taste
     no-member                           # python 3.6 moved APIs from 3.5
 
-extension-pkg-whitelist=netifaces
+extension-pkg-whitelist=netifaces,pytricia
 

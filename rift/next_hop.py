@@ -49,3 +49,6 @@ class NextHop:
                 isinstance(other.address, ipaddress.IPv4Address)):
             return False
         return self.address < other.address
+
+    def __hash__(self):
+        return hash((self.interface, self.address))

@@ -5,7 +5,7 @@ import fib
 import next_hop
 import packet_common
 import rib
-import route
+import rib_route
 
 # Some helper constants and functions to make the test code more compact and easier to read
 N = constants.OWNER_N_SPF
@@ -22,7 +22,7 @@ def mkp(prefix_str):
 def mkr(prefix_str, owner, next_hops=None):
     if next_hops is None:
         next_hops = []
-    return route.Route(mkp(prefix_str), owner, next_hops)
+    return rib_route.RibRoute(mkp(prefix_str), owner, next_hops)
 
 def mknh(interface_str, address_str):
     if address_str is None:
@@ -287,7 +287,7 @@ def test_asserts():
         packet_common.assert_prefix_address_family(mkp("1.2.3.0/24"), 999)
     # Passing the wrong prefix type to the Route constructor asserts
     with pytest.raises(Exception):
-        _rte = route.Route("1.2.3.0/24", N, [])
+        _rte = rib_route.RibRoute("1.2.3.0/24", N, [])
     # Passing the wrong prefix type to get_route asserts
     with pytest.raises(Exception):
         _rte = route_table.get_route("1.2.3.0/24", N)

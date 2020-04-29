@@ -22,7 +22,7 @@ import next_hop
 import offer
 import packet_common
 import rib
-import route
+import rib_route
 import spf_dest
 import stats
 import table
@@ -1426,7 +1426,7 @@ class Node:
             af_rib = self._ipv6_rib
         at_least_one = False
         tab = table.Table()
-        tab.add_row(route.Route.cli_summary_headers())
+        tab.add_row(rib_route.RibRoute.cli_summary_headers())
         for rte in af_rib.all_prefix_routes(prefix):
             at_least_one = True
             tab.add_row(rte.cli_summary_attributes())
@@ -1452,7 +1452,7 @@ class Node:
                               format(prefix, constants.owner_str(owner)))
         else:
             tab = table.Table()
-            tab.add_row(route.Route.cli_summary_headers())
+            tab.add_row(rib_route.RibRoute.cli_summary_headers())
             tab.add_row(rte.cli_summary_attributes())
             cli_session.print(tab.to_string())
 
@@ -1492,7 +1492,7 @@ class Node:
             cli_session.print("Prefix {} not present".format(prefix))
             return
         tab = table.Table()
-        tab.add_row(route.Route.cli_summary_headers())
+        tab.add_row(rib_route.RibRoute.cli_summary_headers())
         tab.add_row(rte.cli_summary_attributes())
         cli_session.print(tab.to_string())
 
@@ -1858,9 +1858,13 @@ class Node:
             reason = "TIE " + packet_common.tie_id_str(tie_id) + " added"
         self.tie_packet_infos[tie_id] = tie_packet_info
         if self.is_same_level_tie(tie_packet):
-            self.peer_node_tie_packet_infos[tie_packet.header.tieid] = tie_packet_info
-            self.update_partially_conn_all_intfs()
-            self.regenerate_my_south_prefix_tie()
+            # Ignore E-W links as peer neighbors (only southern reflected TIEs should be considered)
+            ew_neigh = dict(self.node_neighbors(self.node_ties(constants.DIR_SOUTH, self.system_id),
+                                                neighbor_directions=[constants.DIR_EAST_WEST]))
+            if tie_packet.header.tieid.originator not in ew_neigh:
+                self.peer_node_tie_packet_infos[tie_packet.header.tieid] = tie_packet_info
+                self.update_partially_conn_all_intfs()
+                self.regenerate_my_south_prefix_tie()
         if tie_type == common.ttypes.TIETypeType.NegativeDisaggregationPrefixTIEType:
             if self.level_value() != common.constants.leaf_level:
                 if tie_id.originator in self._parent_neighbors and \
@@ -1896,7 +1900,6 @@ class Node:
             else:
                 break
         # Associate each prefix to a spf destination at infinite distance
-        # TODO: Check if it's the right thing
         fallen_leafs = {prefix: spf_dest.make_prefix_dest(prefix, attrs.tags,
                                                           common.constants.infinite_distance,
                                                           is_pos_disagg=False, is_neg_disagg=True)
@@ -2674,7 +2677,6 @@ class Node:
 
         # Run special SPF (southbound) for negative disaggregation only if current node is a ToF
         # and it has at least an E-W link
-        # TODO: Should we use positive/negative SPFDest objects?
         if self.top_of_fabric() and self.have_ew_adjacency():
             self.spf_run_direction(constants.DIR_SOUTH, special_for_neg_disagg=True)
 
@@ -3026,6 +3028,9 @@ class Node:
         # Index is (direction, False) because special SPF does not install any route in RIB
         dest_table = self._spf_destinations[(spf_direction, False)]
 
+        all_next_hops_ipv4 = {}
+        all_next_hops_ipv6 = {}
+
         for dest_key, dest in dest_table.items():
             if isinstance(dest_key, int):
                 # Destination is a node, do nothing
@@ -3040,17 +3045,35 @@ class Node:
                 prefix = dest_key
                 if prefix.ipv4prefix is not None:
                     next_hops = dest.ipv4_next_hops
-                    route_table = self._ipv4_rib
+                    if prefix not in all_next_hops_ipv4:
+                        all_next_hops_ipv4[prefix] = {}
+                    all_next_hops_ipv4[prefix][dest.dest_type] = next_hops
                 else:
                     assert prefix.ipv6prefix is not None
                     next_hops = dest.ipv6_next_hops
-                    route_table = self._ipv6_rib
-                if next_hops:
-                    rte = route.Route(prefix, owner, next_hops)
-                    route_table.put_route(rte)
+                    if prefix not in all_next_hops_ipv6:
+                        all_next_hops_ipv6[prefix] = {}
+                    all_next_hops_ipv6[prefix][dest.dest_type] = next_hops
+
+        self._install_rib_routes(all_next_hops_ipv4, owner, self._ipv4_rib)
+        self._install_rib_routes(all_next_hops_ipv6, owner, self._ipv6_rib)
 
         self._ipv4_rib.del_stale_routes()
         self._ipv6_rib.del_stale_routes()
+
+    @staticmethod
+    def _install_rib_routes(destinations_next_hops, owner, route_family_rib):
+        for prefix, next_hops in destinations_next_hops.items():
+            positive_next_hops = []
+            negative_next_hops = []
+            if spf_dest.DEST_TYPE_PREFIX in next_hops:
+                positive_next_hops.extend(next_hops[spf_dest.DEST_TYPE_PREFIX])
+            if spf_dest.DEST_TYPE_POS_DISAGG_PREFIX in next_hops:
+                positive_next_hops.extend(next_hops[spf_dest.DEST_TYPE_POS_DISAGG_PREFIX])
+            if spf_dest.DEST_TYPE_NEG_DISAGG_PREFIX in next_hops:
+                negative_next_hops = next_hops[spf_dest.DEST_TYPE_NEG_DISAGG_PREFIX]
+            rte = rib_route.RibRoute(prefix, owner, positive_next_hops, negative_next_hops)
+            route_family_rib.put_route(rte)
 
     def update_neg_disagg_fallen_leafs(self):
         normal_southbound_run = self._spf_destinations[(constants.DIR_SOUTH, False)]

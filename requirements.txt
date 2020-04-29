@@ -31,3 +31,4 @@ thrift==0.11.0
 typed-ast==1.1.0
 urllib3==1.24.2
 wrapt==1.10.11
+pytricia==1.0.1

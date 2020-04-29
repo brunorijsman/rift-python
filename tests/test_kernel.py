@@ -1,10 +1,9 @@
 import re
 
-import constants
 import kernel
 import next_hop
 import packet_common
-import route
+import fib_route
 
 # pylint: disable=line-too-long
 # pylint: disable=bad-continuation
@@ -111,7 +110,7 @@ def test_put_del_route():
     # Put route with one next-hop (with interface but no address)
     prefix = packet_common.make_ip_prefix("99.99.99.99/32")
     nhops = [next_hop.NextHop("lo", None)]
-    rte = route.Route(prefix, constants.OWNER_S_SPF, nhops)
+    rte = fib_route.FibRoute(prefix, nhops)
     assert kern.put_route(rte)
     # Delete route just added
     assert kern.del_route(prefix)
@@ -119,7 +118,7 @@ def test_put_del_route():
     prefix = packet_common.make_ip_prefix("99.99.99.99/32")
     address = packet_common.make_ip_address("127.0.0.1")
     nhops = [next_hop.NextHop("lo", address)]
-    rte = route.Route(prefix, constants.OWNER_S_SPF, nhops)
+    rte = fib_route.FibRoute(prefix, nhops)
     assert kern.put_route(rte)
     # Delete route just added
     assert kern.del_route(prefix)
@@ -128,7 +127,7 @@ def test_put_del_route():
     address1 = packet_common.make_ip_address("127.0.0.1")
     address2 = packet_common.make_ip_address("127.0.0.2")
     nhops = [next_hop.NextHop("lo", address1), next_hop.NextHop("lo", address2)]
-    rte = route.Route(prefix, constants.OWNER_S_SPF, nhops)
+    rte = fib_route.FibRoute(prefix, nhops)
     assert kern.put_route(rte)
     # Do we display the ECMP route properly?
     tab_str = kern.cli_route_prefix_table(5, prefix).to_string()
@@ -151,8 +150,46 @@ def test_put_del_route_errors():
     # Attempt to add route with nonsense next-hop interface
     prefix = packet_common.make_ip_prefix("99.99.99.99/32")
     nhops = [next_hop.NextHop("nonsense", None)]
-    rte = route.Route(prefix, constants.OWNER_S_SPF, nhops)
+    rte = fib_route.FibRoute(prefix, nhops)
     assert not kern.put_route(rte)
+
+
+def test_put_del_route_unreachable():
+    kern = kernel.Kernel(log=None, log_id="", table_name="main")
+    if not kern.platform_supported:
+        return
+    # Add unreachable prefix in the kernel routing table (no next hops)
+    prefix = packet_common.make_ip_prefix("99.99.99.99/32")
+    nhops = []
+    rte = fib_route.FibRoute(prefix, nhops)
+    assert kern.put_route(rte)
+    tab_str = kern.cli_route_prefix_table(254, prefix).to_string()
+    pattern = (r"[|] Table +[|] Main +[|]\n"
+               r"[|] Address Family +[|] IPv4 +[|]\n"
+               r"[|] Destination +[|] 99\.99\.99\.99/32 +[|]\n"
+               r"[|] Type +[|] Unreachable +[|]\n"
+               r"[|] Protocol +[|] RIFT +[|]\n"
+               r"[|] Scope +[|] Universe +[|]\n"
+               r"[|] Next-hops +[|]  +[|]\n"
+               r"[|] Priority +[|] 199 +[|]\n")
+    assert re.search(pattern, tab_str) is not None
+    # Replace unreachable route with a route containing one next hop
+    new_nhops = [next_hop.NextHop("lo", packet_common.make_ip_address("127.0.0.1"))]
+    rte = fib_route.FibRoute(prefix, new_nhops)
+    assert kern.put_route(rte)
+    tab_str = kern.cli_route_prefix_table(254, prefix).to_string()
+    pattern = (r"[|] Table +[|] Main +[|]\n"
+               r"[|] Address Family +[|] IPv4 +[|]\n"
+               r"[|] Destination +[|] 99\.99\.99\.99/32 +[|]\n"
+               r"[|] Type +[|] Unicast +[|]\n"
+               r"[|] Protocol +[|] RIFT +[|]\n"
+               r"[|] Scope +[|] Universe +[|]\n"
+               r"[|] Next-hops +[|] lo 127.0.0.1 +[|]\n"
+               r"[|] Priority +[|] 199 +[|]\n")
+    assert re.search(pattern, tab_str) is not None
+    # Delete next hops
+    assert kern.del_route(prefix)
+
 
 def test_table_nr_to_name():
     assert kernel.Kernel.table_nr_to_name(255) == "Local"

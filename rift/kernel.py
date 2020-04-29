@@ -54,8 +54,9 @@ class Kernel:
         if self._table_nr == -1:
             return False
         dst = packet_common.ip_prefix_str(rte.prefix)
-        if rte.next_hops == []:
-            kernel_args = {}
+        # No next hops means that the route is unreachable.
+        if not rte.next_hops:
+            kernel_args = {"type": "unreachable"}
         elif len(rte.next_hops) == 1:
             nhop = rte.next_hops[0]
             kernel_args = self.nhop_to_kernel_args(nhop, dst)
