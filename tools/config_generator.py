@@ -48,7 +48,7 @@ SCHEMA = {
     'nr-pods': {'required': False, 'type': 'integer', 'min': 1, 'default': 1},
     'nr-spine-nodes-per-pod': {'required': True, 'type': 'integer', 'min': 1},
     'nr-superspine-nodes': {'required': False, 'type': 'integer', 'min': 1},
-    'multi-plane': {'required': False, 'type': 'boolean', 'default': False},
+    'nr-planes': {'required': False, 'type': 'integer', 'min': 1, 'default': 1},
     'leafs': NODE_SCHEMA,
     'spines': NODE_SCHEMA,
     'superspines': NODE_SCHEMA,
@@ -1090,11 +1090,8 @@ class Fabric:
 
     def __init__(self):
         self.nr_pods = META_CONFIG['nr-pods']
-        self.multi_plane = META_CONFIG['multi-plane']
-        if self.multi_plane:
-            self.nr_planes = META_CONFIG['nr-spine-nodes-per-pod']
-        else:
-            self.nr_planes = 0
+        self.nr_planes = META_CONFIG['nr-planes']
+        self.nr_superspine_nodes = META_CONFIG.get('nr-superspine-nodes')
         self.pods = []
         self.planes = []
         pods_y_pos = GLOBAL_Y_OFFSET
@@ -1122,11 +1119,12 @@ class Fabric:
         plane_x_center_shift = (self.x_size() - self.planes_total_x_size()) // 2
         for plane in self.planes:
             plane.x_center_shift = plane_x_center_shift
-        # Generate the links between the superspine nodes and the spine nodes
-        if self.multi_plane:
-            self.create_links_multi_plane()
-        elif self.nr_planes > 0:
-            self.create_links_single_plane()
+        # If there are any superspines, create the links to them.
+        if self.nr_superspine_nodes:
+            if self.nr_planes > 1:
+                self.create_links_multi_plane()
+            else:
+                self.create_links_single_plane()
 
     def create_links_single_plane(self):
         # Superspine to spine links (single plane)
@@ -1635,14 +1633,20 @@ def validate_meta_configuration():
         fatal_error("nr-superspine-nodes must be configured if number of PODs > 1")
     if (nr_pods == 1) and (nr_superspine_nodes is not None):
         fatal_error("nr-superspine-nodes must not be configured if there is only one POD")
-    if 'multi-plane' in META_CONFIG and META_CONFIG['multi-plane']:
-        if nr_superspine_nodes is None:
-            fatal_error("if multi-plane is configured, then nr-superspine-nodes must also be "
-                        "configured")
-        nr_spine_nodes_per_pod = META_CONFIG['nr-spine-nodes-per-pod']
-        if nr_superspine_nodes % nr_spine_nodes_per_pod != 0:
-            fatal_error("if multi-plane is configured, then nr-superspine-nodes must be an "
-                        "integer multiple of nr-spine-nodes-per-pod")
+    if 'nr-planes' in META_CONFIG:
+        nr_planes = META_CONFIG['nr-planes']
+        if nr_planes > 1:
+            if nr_superspine_nodes is None:
+                fatal_error("if there are multiple planes then nr-superspine-nodes must also be "
+                            "configured")
+            if nr_superspine_nodes % nr_planes != 0:
+                fatal_error("nr-superspine-nodes must be multiple of nr-planes")
+            nr_spine_nodes_per_pod = META_CONFIG['nr-spine-nodes-per-pod']
+            if nr_planes > nr_spine_nodes_per_pod:
+                fatal_error("nr-planes must be less than or equal to nr_spine_nodes_per_pod")
+            if nr_spine_nodes_per_pod > nr_planes:
+                if nr_spine_nodes_per_pod % nr_planes != 0:
+                    fatal_error("nr-spine-nodes-per-pod must be multiple of nr-planes")
 
 def parse_command_line_arguments():
     parser = argparse.ArgumentParser(description='RIFT configuration generator')

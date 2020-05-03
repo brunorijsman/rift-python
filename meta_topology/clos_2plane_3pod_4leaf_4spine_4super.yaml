@@ -1,0 +1,5 @@
+nr-pods: 3
+nr-leaf-nodes-per-pod: 4
+nr-spine-nodes-per-pod: 4
+nr-superspine-nodes: 4
+nr-planes: 2
