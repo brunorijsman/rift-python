@@ -10,7 +10,8 @@
             "type": "python",
             "request": "launch",
             "program": "tools/config_generator.py",
-            "args": ["-g", "diagram.html", "meta_topology/clos_3pod_3leaf_3spine_4super.yaml",
+            "args": ["-g",
+                     "diagram.html", "meta_topology/clos_2plane_3pod_4leaf_4spine_4super.yaml",
                      "scripts"] 
         },
         {

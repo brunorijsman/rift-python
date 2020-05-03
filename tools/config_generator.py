@@ -1122,12 +1122,13 @@ class Fabric:
         # If there are any superspines, create the links to them.
         if self.nr_superspine_nodes:
             if self.nr_planes > 1:
-                self.create_links_multi_plane()
+                self.create_links_ns_multi_plane()
+                self.create_links_ew_multi_plane()
             else:
-                self.create_links_single_plane()
+                self.create_links_ns_single_plane()
 
-    def create_links_single_plane(self):
-        # Superspine to spine links (single plane)
+    def create_links_ns_single_plane(self):
+        # Superspine-to-spine north-south links (single plane)
         assert len(self.planes) == 1
         plane = self.planes[0]
         for superspine_node in plane.nodes:
@@ -1135,9 +1136,8 @@ class Fabric:
                 for spine_node in pod.nodes_by_level[SPINE_LEVEL]:
                     _link = plane.create_link(superspine_node, spine_node)
 
-    def create_links_multi_plane(self):
-        # Superspine to spine links (multi plane)
-        assert len(self.planes) > 1
+    def create_links_ns_multi_plane(self):
+        # Superspine-to-spine north-south links (multi-plane)
         for plane_index, plane in enumerate(self.planes):
             for superspine_node in plane.nodes:
                 for pod in self.pods:
@@ -1148,6 +1148,28 @@ class Fabric:
                     for spine_index in range(start_spine_index, end_spine_index):
                         spine_node = spine_nodes[spine_index]
                         _link = plane.create_link(superspine_node, spine_node)
+
+    ###@@@
+    def create_links_ew_multi_plane(self):
+        # Plane-to-plane east-west links within superspine (multi-plane)
+        for inter_plane_loop_nr in range(0, self.nr_inter_plane_loops()):
+            superspines_and_planes = self.superspines_in_inter_plane_loop(inter_plane_loop_nr)
+            loop_length = len(superspines_and_planes)
+            for index, from_superspine_and_plane in enumerate(superspines_and_planes):
+                (from_superspine, from_plane) = from_superspine_and_plane
+                to_superspine_and_plane = superspines_and_planes[(index + 1) % loop_length]
+                (to_superspine, _to_plane) = to_superspine_and_plane
+                _link = from_plane.create_link(from_superspine, to_superspine)
+
+    def nr_inter_plane_loops(self):
+        return self.nr_superspine_nodes // self.nr_planes
+
+    def superspines_in_inter_plane_loop(self, inter_plane_loop_nr):
+        superspines_and_planes = []
+        for plane in self.planes:
+            superspine = plane.nodes[inter_plane_loop_nr]
+            superspines_and_planes.append((superspine, plane))
+        return superspines_and_planes
 
     def write_config(self):
         file_name = getattr(ARGS, 'output-file-or-dir')
