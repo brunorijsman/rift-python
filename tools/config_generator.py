@@ -1142,8 +1142,13 @@ class Fabric:
             for superspine_node in plane.nodes:
                 for pod in self.pods:
                     spine_nodes = pod.nodes_by_level[SPINE_LEVEL]
-                    spine_node = spine_nodes[plane_index]
-                    _link = plane.create_link(superspine_node, spine_node)
+                    ###@@@ 
+                    spine_nodes_per_plane = len(spine_nodes) // self.nr_planes
+                    start_spine_index = plane_index * spine_nodes_per_plane
+                    end_spine_index = start_spine_index + spine_nodes_per_plane
+                    for spine_index in range(start_spine_index, end_spine_index):
+                        spine_node = spine_nodes[spine_index]
+                        _link = plane.create_link(superspine_node, spine_node)
 
     def write_config(self):
         file_name = getattr(ARGS, 'output-file-or-dir')
