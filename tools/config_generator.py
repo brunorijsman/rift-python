@@ -1142,7 +1142,6 @@ class Fabric:
             for superspine_node in plane.nodes:
                 for pod in self.pods:
                     spine_nodes = pod.nodes_by_level[SPINE_LEVEL]
-                    ###@@@ 
                     spine_nodes_per_plane = len(spine_nodes) // self.nr_planes
                     start_spine_index = plane_index * spine_nodes_per_plane
                     end_spine_index = start_spine_index + spine_nodes_per_plane
