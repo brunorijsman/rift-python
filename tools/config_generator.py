@@ -224,14 +224,17 @@ class Group:
             node.write_netns_configs_and_scripts()
 
     def write_netns_start_scr_to_file_1(self, file):
-        # Start phase 1: Create all namespaces and interfaces
+        # Start phase 1: Create all interfaces
         for link in self.links:
             link.write_netns_start_scr_to_file(file)
+
+    def write_netns_start_scr_to_file_2(self, file):
+        # Start phase 2: Create all namespaces
         for node in self.nodes:
             node.write_netns_start_scr_to_file_1(file)
 
-    def write_netns_start_scr_to_file_2(self, file):
-        # Start phase 2: Start all nodes
+    def write_netns_start_scr_to_file_3(self, file):
+        # Start phase 3: Start all nodes
         # Allow interfaces to come up (particularly IPv6 interfaces take a bit of time)
         print("sleep 1", file=file)
         for node in self.nodes:
@@ -1300,16 +1303,23 @@ class Fabric:
         print('echo "{}"'.format(message), file=file)
 
     def write_netns_start_scr_to_file(self, file):
-        # Note: Plane has to go first, because superspine to spine links are owned by the space
+        # Note: Plane has to go first, because superspine to spine links are owned by the plane
         # group, not the pod group.
+        # Phase 1: create veth interfaces for links
         for plane in self.planes:
             plane.write_netns_start_scr_to_file_1(file)
         for pod in self.pods:
             pod.write_netns_start_scr_to_file_1(file)
+        # Phase 1: create network namespaces for nodes
         for plane in self.planes:
             plane.write_netns_start_scr_to_file_2(file)
         for pod in self.pods:
             pod.write_netns_start_scr_to_file_2(file)
+        # Phase 1: start RIFT process
+        for plane in self.planes:
+            plane.write_netns_start_scr_to_file_3(file)
+        for pod in self.pods:
+            pod.write_netns_start_scr_to_file_3(file)
 
     def write_netns_stop_scr_to_file(self, file):
         for plane in self.planes:
