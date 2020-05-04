@@ -1310,12 +1310,12 @@ class Fabric:
             plane.write_netns_start_scr_to_file_1(file)
         for pod in self.pods:
             pod.write_netns_start_scr_to_file_1(file)
-        # Phase 1: create network namespaces for nodes
+        # Phase 2: create network namespaces for nodes
         for plane in self.planes:
             plane.write_netns_start_scr_to_file_2(file)
         for pod in self.pods:
             pod.write_netns_start_scr_to_file_2(file)
-        # Phase 1: start RIFT process
+        # Phase 3: start RIFT process
         for plane in self.planes:
             plane.write_netns_start_scr_to_file_3(file)
         for pod in self.pods:
