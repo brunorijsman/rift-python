@@ -1162,7 +1162,8 @@ class Fabric:
         if self.nr_superspine_nodes:
             if self.nr_planes > 1:
                 self.create_links_ns_multi_plane()
-                self.create_links_ew_multi_plane()
+                if self.inter_plane_east_west_links:
+                    self.create_links_ew_multi_plane()
             else:
                 self.create_links_ns_single_plane()
 
