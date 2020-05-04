@@ -44,6 +44,7 @@ NODE_SCHEMA = {
 }
 
 SCHEMA = {
+    'inter-plane-east-west-links': {'required': False, 'type': 'boolean', 'default': True},
     'nr-leaf-nodes-per-pod': {'required': True, 'type': 'integer', 'min': 1},
     'nr-pods': {'required': False, 'type': 'integer', 'min': 1, 'default': 1},
     'nr-spine-nodes-per-pod': {'required': True, 'type': 'integer', 'min': 1},
@@ -97,6 +98,9 @@ INTF_COLOR = "black"
 INTF_RADIUS = "3"
 INTF_HIGHLIGHT_RADIUS = "5"
 HIGHLIGHT_COLOR = "red"
+INTER_PLANE_Y_FIRST_LINE_SPACER = GROUP_Y_SPACER
+INTER_PLANE_Y_INTERLINE_SPACER = 10
+INTER_PLANE_Y_LOOP_SPACER = 20
 
 LOOPBACKS_ADDRESS_BYTE = 88    # 88.level.index.lb
 LIE_MCAST_ADDRESS_BYTE = 88    # 224.88.level.index  ff02::88:level:index
@@ -986,6 +990,9 @@ class Interface:
 class Link:
 
     def __init__(self, node1, node2):
+        self.node1 = node1
+        self.node2 = node2
+        self.east_west = node1.level == node2.level
         self.intf1 = node1.create_interface()
         self.intf2 = node2.create_interface()
         self.intf1.set_peer_intf(self.intf2)
@@ -1003,6 +1010,12 @@ class Link:
         print("ip link add dev {} type veth peer name {}".format(veth1_name, veth2_name), file=file)
 
     def write_graphics_to_file(self, file):
+        if self.east_west:
+            self.write_ew_graphics_to_file(file)
+        else:
+            self.write_ns_graphics_to_file(file)
+
+    def write_ns_graphics_to_file(self, file):
         x_pos1 = self.intf1.x_pos()
         y_pos1 = self.intf1.y_pos()
         x_pos2 = self.intf2.x_pos()
@@ -1017,6 +1030,25 @@ class Link:
                    'class="link-line">'
                    '</line>\n'
                    .format(x_pos1, y_pos1, x_pos2, y_pos2, LINK_COLOR))
+        self.intf1.write_graphics_to_file(file)
+        self.intf2.write_graphics_to_file(file)
+        file.write('</g>\n')
+
+    def write_ew_graphics_to_file(self, file):
+        x_pos1 = self.intf1.x_pos()
+        y_pos1 = self.intf1.y_pos() - 10
+        x_pos2 = self.intf2.x_pos()
+        y_pos2 = self.intf2.y_pos() - 10
+        file.write('<g class="link">\n')
+        file.write('<line '
+                   'x1="{}" '
+                   'y1="{}" '
+                   'x2="{}" '
+                   'y2="{}" '
+                   'style="stroke:{};" '
+                   'class="link-line">'
+                   '</line>\n'
+                   .format(x_pos1, y_pos1, x_pos2, y_pos2, GREEN))  ###@@@
         self.intf1.write_graphics_to_file(file)
         self.intf2.write_graphics_to_file(file)
         file.write('</g>\n')
@@ -1091,10 +1123,17 @@ class Fabric:
     def __init__(self):
         self.nr_pods = META_CONFIG['nr-pods']
         self.nr_planes = META_CONFIG['nr-planes']
+        self.inter_plane_east_west_links = META_CONFIG['inter-plane-east-west-links']
         self.nr_superspine_nodes = META_CONFIG.get('nr-superspine-nodes')
         self.pods = []
         self.planes = []
         pods_y_pos = GLOBAL_Y_OFFSET
+        # TODO: not if east-west links are disabled
+        ###@@@
+        # if self.nr_planes > 1:
+        #     pods_y_pos += GROUP_Y_SPACER
+        #     pods_y_pos += self.nr_superspine_nodes * INTER_PLANE_Y_LINE_SPACER
+        #     pods_y_pos += self.nr_inter_plane_loops() * INTER_PLANE_Y_LOOP_SPACER
         # Only generate superspine nodes and planes if there is more than one pod
         if self.nr_pods > 1:
             only_plane = (self.nr_planes == 1)
@@ -1149,7 +1188,6 @@ class Fabric:
                         spine_node = spine_nodes[spine_index]
                         _link = plane.create_link(superspine_node, spine_node)
 
-    ###@@@
     def create_links_ew_multi_plane(self):
         # Plane-to-plane east-west links within superspine (multi-plane)
         for inter_plane_loop_nr in range(0, self.nr_inter_plane_loops()):

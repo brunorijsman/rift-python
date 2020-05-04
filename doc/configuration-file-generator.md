@@ -376,6 +376,7 @@ The syntax of the meta-configuration YAML file is as follows (! indicates an ele
     <b>nr-link-events</b>: <i>&lt;integer&gt;</i>,
     <b>nr-node-events</b>: <i>&lt;integer&gt;</i>
   }
+  <b>inter-plane-east-west-links</b>: <i>&lt;boolean&gt;</i>
   <b>leafs</b>: {
     <b>nr-ipv4-loopbacks</b>: <i>&lt;integer&gt;</i>
   } 
@@ -446,6 +447,27 @@ chaos: {
   nr-link-events: 10,
   nr-node-events: 5
 }
+</pre>
+
+
+### inter-plane-east-west-links
+
+| Element | `inter-plane-east-west-links` |
+| --- | --- |
+| Value | Boolean |
+| Level | Top-level |
+| Presence | Optional, default value True. Only relevant if nr-planes > 1; ignored if nr-planes = 1 |
+| Meaning | True if inter-plane east-west connections are present in the superspine; false if not. |
+
+Example:
+
+<pre>
+nr-pods: 3
+nr-leaf-nodes-per-pod: 4
+nr-spine-nodes-per-pod: 4
+nr-superspine-nodes: 4
+nr-planes: 2
+inter-plane-east-west-links: false
 </pre>
 
 ### leafs
