@@ -247,7 +247,7 @@ class Group:
         for node in self.nodes:
             node.write_netns_stop_scr_to_file_2(file)
 
-    def write_background_graphics_to_file(self, file):
+    def write_bg_graphics_to_file(self, file):
         x_pos = self.x_pos()
         y_pos = self.y_pos()
         x_size = self.x_size()
@@ -274,7 +274,7 @@ class Group:
         for node in self.nodes:
             node.write_graphics_to_file(file)
 
-    def write_foreground_graphics_to_file(self, file):        
+    def write_fg_graphics_to_file(self, file):
         for link in self.links:
             link.write_graphics_to_file(file)
 
@@ -1469,14 +1469,16 @@ class Fabric:
 
     def write_graphics_to_file(self, file):
         self.svg_start(file)
+        # Background graphics first
         for pod in self.pods:
-            pod.write_background_graphics_to_file(file)
+            pod.write_bg_graphics_to_file(file)
         for plane in self.planes:
-            plane.write_background_graphics_to_file(file)
+            plane.write_bg_graphics_to_file(file)
+        # Foreground graphics last
         for pod in self.pods:
-            pod.write_foreground_graphics_to_file(file)
+            pod.write_fg_graphics_to_file(file)
         for plane in self.planes:
-            plane.write_foreground_graphics_to_file(file)
+            plane.write_fg_graphics_to_file(file)
         self.svg_end(file)
 
     def svg_start(self, file):
