@@ -99,8 +99,8 @@ INTF_RADIUS = "3"
 INTF_HIGHLIGHT_RADIUS = "5"
 HIGHLIGHT_COLOR = "red"
 INTER_PLANE_Y_FIRST_LINE_SPACER = GROUP_Y_SPACER
-INTER_PLANE_Y_INTERLINE_SPACER = 10
-INTER_PLANE_Y_LOOP_SPACER = 20
+INTER_PLANE_Y_INTERLINE_SPACER = 8
+INTER_PLANE_Y_LOOP_SPACER = 24
 
 LOOPBACKS_ADDRESS_BYTE = 88    # 88.level.index.lb
 LIE_MCAST_ADDRESS_BYTE = 88    # 224.88.level.index  ff02::88:level:index
@@ -204,8 +204,8 @@ class Group:
         self.nodes_by_level[level].append(node)
         return node
 
-    def create_link(self, from_node, to_node):
-        link = Link(from_node, to_node)
+    def create_link(self, from_node, to_node, inter_plane_loop_nr=None):
+        link = Link(from_node, to_node, inter_plane_loop_nr)
         self.links.append(link)
         return link
 
@@ -247,7 +247,7 @@ class Group:
         for node in self.nodes:
             node.write_netns_stop_scr_to_file_2(file)
 
-    def write_graphics_to_file(self, file):
+    def write_background_graphics_to_file(self, file):
         x_pos = self.x_pos()
         y_pos = self.y_pos()
         x_size = self.x_size()
@@ -273,6 +273,8 @@ class Group:
                        .format(x_pos, y_pos, GROUP_LINE_COLOR, self.name))
         for node in self.nodes:
             node.write_graphics_to_file(file)
+
+    def write_foreground_graphics_to_file(self, file):        
         for link in self.links:
             link.write_graphics_to_file(file)
 
@@ -989,10 +991,11 @@ class Interface:
 
 class Link:
 
-    def __init__(self, node1, node2):
+    def __init__(self, node1, node2, inter_plane_loop_nr=None):
         self.node1 = node1
         self.node2 = node2
         self.east_west = node1.level == node2.level
+        self.inter_plane_loop_nr = inter_plane_loop_nr
         self.intf1 = node1.create_interface()
         self.intf2 = node2.create_interface()
         self.intf1.set_peer_intf(self.intf2)
@@ -1035,20 +1038,27 @@ class Link:
         file.write('</g>\n')
 
     def write_ew_graphics_to_file(self, file):
+        print(self.node1.group_level_node_id, self.node2.group_level_node_id)
         x_pos1 = self.intf1.x_pos()
-        y_pos1 = self.intf1.y_pos() - 10
         x_pos2 = self.intf2.x_pos()
-        y_pos2 = self.intf2.y_pos() - 10
+        intf_y_pos = self.intf1.y_pos()
+        loop_y_spacer = self.inter_plane_loop_nr * INTER_PLANE_Y_LOOP_SPACER
+        line_y_pos = (intf_y_pos
+                      - INTER_PLANE_Y_FIRST_LINE_SPACER    # Up to top of superspine box
+                      - GROUP_Y_SPACER                     # Spacer between box and east-west links
+                      - loop_y_spacer)                     # Spacer between different loops
         file.write('<g class="link">\n')
-        file.write('<line '
-                   'x1="{}" '
-                   'y1="{}" '
-                   'x2="{}" '
-                   'y2="{}" '
+        file.write('<polyline '
+                   'points="{},{} {},{} {},{} {},{}" '
                    'style="stroke:{};" '
+                   'fill="none" '
                    'class="link-line">'
-                   '</line>\n'
-                   .format(x_pos1, y_pos1, x_pos2, y_pos2, GREEN))  ###@@@
+                   '</polyline>\n'
+                   .format(x_pos1, intf_y_pos,   # Start at interface 1
+                           x_pos1, line_y_pos,   # Verically up to horizontal line
+                           x_pos2, line_y_pos,   # Hortizontal line
+                           x_pos2, intf_y_pos,   # Down to interface 2
+                           LINK_COLOR))
         self.intf1.write_graphics_to_file(file)
         self.intf2.write_graphics_to_file(file)
         file.write('</g>\n')
@@ -1128,16 +1138,14 @@ class Fabric:
         self.pods = []
         self.planes = []
         pods_y_pos = GLOBAL_Y_OFFSET
-        # TODO: not if east-west links are disabled
-        ###@@@
-        # if self.nr_planes > 1:
-        #     pods_y_pos += GROUP_Y_SPACER
-        #     pods_y_pos += self.nr_superspine_nodes * INTER_PLANE_Y_LINE_SPACER
-        #     pods_y_pos += self.nr_inter_plane_loops() * INTER_PLANE_Y_LOOP_SPACER
+        # Make room for inter-plane east-west links if needed
+        if self.nr_planes > 1 and self.inter_plane_east_west_links:
+            pods_y_pos += (INTER_PLANE_Y_FIRST_LINE_SPACER
+                           + self.nr_inter_plane_loops() * INTER_PLANE_Y_LOOP_SPACER)
         # Only generate superspine nodes and planes if there is more than one pod
         if self.nr_pods > 1:
             only_plane = (self.nr_planes == 1)
-            planes_y_pos = GLOBAL_Y_OFFSET
+            planes_y_pos = pods_y_pos
             pods_y_pos += NODE_Y_SIZE + SUPERSPINE_TO_POD_Y_INTERVAL
             for index in range(0, self.nr_planes):
                 global_plane_id = index + 1
@@ -1191,14 +1199,21 @@ class Fabric:
 
     def create_links_ew_multi_plane(self):
         # Plane-to-plane east-west links within superspine (multi-plane)
+        # Create each inter-plane loop.
         for inter_plane_loop_nr in range(0, self.nr_inter_plane_loops()):
+            # Visit each superspine in the current loop
             superspines_and_planes = self.superspines_in_inter_plane_loop(inter_plane_loop_nr)
             loop_length = len(superspines_and_planes)
             for index, from_superspine_and_plane in enumerate(superspines_and_planes):
+                # Create a link between this superspine and the next one (with wrap-around)
                 (from_superspine, from_plane) = from_superspine_and_plane
                 to_superspine_and_plane = superspines_and_planes[(index + 1) % loop_length]
                 (to_superspine, _to_plane) = to_superspine_and_plane
-                _link = from_plane.create_link(from_superspine, to_superspine)
+                _link = from_plane.create_link(from_superspine, to_superspine, inter_plane_loop_nr)
+            # Swap the last two interfaces the first superspine in the loop for nicer visual
+            first_superspine = superspines_and_planes[0][0]
+            interfaces = first_superspine.interfaces
+            interfaces[-1], interfaces[-2] = interfaces[-2], interfaces[-1]
 
     def nr_inter_plane_loops(self):
         return self.nr_superspine_nodes // self.nr_planes
@@ -1455,9 +1470,13 @@ class Fabric:
     def write_graphics_to_file(self, file):
         self.svg_start(file)
         for pod in self.pods:
-            pod.write_graphics_to_file(file)
+            pod.write_background_graphics_to_file(file)
         for plane in self.planes:
-            plane.write_graphics_to_file(file)
+            plane.write_background_graphics_to_file(file)
+        for pod in self.pods:
+            pod.write_foreground_graphics_to_file(file)
+        for plane in self.planes:
+            plane.write_foreground_graphics_to_file(file)
         self.svg_end(file)
 
     def svg_start(self, file):
