@@ -1038,15 +1038,19 @@ class Link:
         file.write('</g>\n')
 
     def write_ew_graphics_to_file(self, file):
-        print(self.node1.group_level_node_id, self.node2.group_level_node_id)
         x_pos1 = self.intf1.x_pos()
         x_pos2 = self.intf2.x_pos()
         intf_y_pos = self.intf1.y_pos()
         loop_y_spacer = self.inter_plane_loop_nr * INTER_PLANE_Y_LOOP_SPACER
+        from_group_id = self.node1.group.class_group_id
+        to_group_id = self.node2.group.class_group_id
+        last_to_first = from_group_id > to_group_id
+        line_y_spacer = INTER_PLANE_Y_INTERLINE_SPACER if last_to_first else 0
         line_y_pos = (intf_y_pos
                       - INTER_PLANE_Y_FIRST_LINE_SPACER    # Up to top of superspine box
                       - GROUP_Y_SPACER                     # Spacer between box and east-west links
-                      - loop_y_spacer)                     # Spacer between different loops
+                      - loop_y_spacer                      # Spacer between different loops
+                      - line_y_spacer)                     # Spacer for link going back to first
         file.write('<g class="link">\n')
         file.write('<polyline '
                    'points="{},{} {},{} {},{} {},{}" '
@@ -1139,9 +1143,10 @@ class Fabric:
         self.planes = []
         pods_y_pos = GLOBAL_Y_OFFSET
         # Make room for inter-plane east-west links if needed
+        total_y_spacer_per_loop = INTER_PLANE_Y_LOOP_SPACER + INTER_PLANE_Y_INTERLINE_SPACER
         if self.nr_planes > 1 and self.inter_plane_east_west_links:
             pods_y_pos += (INTER_PLANE_Y_FIRST_LINE_SPACER
-                           + self.nr_inter_plane_loops() * INTER_PLANE_Y_LOOP_SPACER)
+                           + self.nr_inter_plane_loops() * total_y_spacer_per_loop)
         # Only generate superspine nodes and planes if there is more than one pod
         if self.nr_pods > 1:
             only_plane = (self.nr_planes == 1)
