@@ -649,7 +649,8 @@ class Node:
             return str(level_value)
 
     def top_of_fabric(self):
-        # TODO: Is this right? Should we look at capabilities.hierarchy_indications?
+        # TODO: Not wrong per-se, but we need to implement the TOP_OF_FABRIC logic and update
+        # ZTP accordingly.
         return self.level_value() == common.constants.top_of_fabric_level
 
     def record_tx_offer(self, tx_offer):

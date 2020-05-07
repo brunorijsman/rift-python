@@ -36,7 +36,8 @@ class Neighbor:
         self.label = lie.label
 
     def top_of_fabric(self):
-        # TODO: Is this right? Should we look at capabilities.hierarchy_indications?
+        # TODO: Not wrong per-se, but we need to implement the TOP_OF_FABRIC logic and update
+        # ZTP accordingly. Also look at capabilities.hierarchy_indications.
         return self.level == common.constants.top_of_fabric_level
 
     def cli_details_table(self):
