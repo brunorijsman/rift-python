@@ -399,8 +399,6 @@ class Node:
     next_level_node_id = {}
 
     def __init__(self, group, name, level, top_of_fabric, group_level_node_id, y_pos):
-        # For now, we support max 3 levels, and they must be level 0, 1, and 2
-        assert level <= 2
         self.group = group
         self.name = name
         self.allocate_node_ids(level)
