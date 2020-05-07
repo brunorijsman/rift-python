@@ -214,8 +214,7 @@ class RiftValidator(cerberus.Validator):
         except ValueError:
             return False
         else:
-            # TODO: Is this the right range?
-            return 0 <= level <= 3
+            return 0 <= level <= 24
 
     def _validate_type_kernel_route_table(self, value):
         if isinstance(value, str) and value.lower() in ['local', 'main', 'default', 'unspecified',
