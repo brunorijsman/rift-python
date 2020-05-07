@@ -1848,7 +1848,6 @@ class Node:
         tie_id = tie_packet.header.tieid
         tie_type = tie_id.tietype
         reason = ""
-
         if tie_id in self.tie_packet_infos:
             old_tie_packet_info = self.tie_packet_infos[tie_id]
             trigger_spf = self.ties_differ_enough_for_spf(old_tie_packet_info, tie_packet_info)
