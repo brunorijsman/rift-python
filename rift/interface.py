@@ -1475,12 +1475,12 @@ class Interface:
     #
     def is_request_allowed_simple(self, tie_header, _i_am_top_of_fabric):
         return self.node.flood_allowed_from_nbr_to_node(
-            tie_header,
-            self.neighbor_direction(),
-            self.neighbor.system_id,
-            self.neighbor.level,
-            self.neighbor.top_of_fabric(),
-            self.node.system_id)
+            tie_header=tie_header,
+            neighbor_direction=self.neighbor_direction(),
+            neighbor_system_id=self.neighbor.system_id,
+            neighbor_level=self.neighbor.level,
+            neighbor_is_top_of_fabric=self.neighbor.top_of_fabric(),
+            node_system_id=self.node.system_id)
 
     def is_request_allowed(self, tie_header, i_am_top_of_fabric):
         if USE_SIMPLE_REQUEST_FILTERING:
@@ -1641,12 +1641,12 @@ class Interface:
             # to advertise extra TIEs in the TIDE, and if we request them we will get an
             # oscillation.
             (allowed, _reason) = self.node.flood_allowed_from_nbr_to_node(
-                tie_header_lifetime.header,
-                self.neighbor_direction(),
-                self.neighbor.system_id,
-                self.neighbor.level,
-                self.neighbor.top_of_fabric(),
-                self.node.system_id)
+                tie_header=tie_header_lifetime.header,
+                neighbor_direction=self.neighbor_direction(),
+                neighbor_system_id=self.neighbor.system_id,
+                neighbor_level=self.neighbor.level,
+                neighbor_is_top_of_fabric=self.neighbor.top_of_fabric(),
+                node_system_id=self.node.system_id)
             if allowed:
                 packet_common.add_tie_header_to_tire(tire_packet, tie_header_lifetime)
             else:

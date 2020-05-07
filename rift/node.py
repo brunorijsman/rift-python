@@ -2319,12 +2319,12 @@ class Node:
                     continue
             # Only flood if allowed by flooding scope rules
             (allowed, _reason) = self.flood_allowed_from_node_to_nbr(
-                tie_packet.header,
-                tx_intf.neighbor_direction(),
-                tx_intf.neighbor.system_id,
-                self.system_id,
-                tx_intf.neighbor.level,
-                tx_intf.neighbor.top_of_fabric())
+                tie_header=tie_packet.header,
+                neighbor_direction=tx_intf.neighbor_direction(),
+                neighbor_system_id=tx_intf.neighbor.system_id,
+                node_system_id=self.system_id,
+                node_level=self.level_value(),
+                node_is_top_of_fabric=self.top_of_fabric())
             if not allowed:
                 continue
             # Put the packet on the transmit queue.
@@ -2366,12 +2366,12 @@ class Node:
             # we have a TIE that we want to send to the neighbor. In other words the TIE in the
             # flooding scope from us to the neighbor.
             (allowed, reason1) = self.flood_allowed_from_node_to_nbr(
-                tie_header,
-                neighbor_direction,
-                neighbor_system_id,
-                self.system_id,
-                my_level,
-                i_am_top_of_fabric)
+                tie_header=tie_header,
+                neighbor_direction=neighbor_direction,
+                neighbor_system_id=neighbor_system_id,
+                node_system_id=self.system_id,
+                node_level=my_level,
+                node_is_top_of_fabric=i_am_top_of_fabric)
             if allowed:
                 self.db_debug("Include TIE %s in TIDE because %s (perspective us to neighbor)",
                               tie_header, reason1)
@@ -2385,12 +2385,12 @@ class Node:
             # neighbor might be considering to send the TIE to us, and we want to let the neighbor
             # know that we already have the TIE and what version it it.
             (allowed, reason2) = self.flood_allowed_from_nbr_to_node(
-                tie_header,
-                neighbor_direction,
-                neighbor_system_id,
-                neighbor_level,
-                neighbor_is_top_of_fabric,
-                self.system_id)
+                tie_header=tie_header,
+                neighbor_direction=neighbor_direction,
+                neighbor_system_id=neighbor_system_id,
+                neighbor_level=neighbor_level,
+                neighbor_is_top_of_fabric=neighbor_is_top_of_fabric,
+                node_system_id=self.system_id)
             if allowed:
                 self.db_debug("Include TIE %s in TIDE because %s (perspective neighbor to us)",
                               tie_header, reason2)
