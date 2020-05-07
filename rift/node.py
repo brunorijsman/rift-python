@@ -2207,6 +2207,10 @@ class Node:
                         return (False,
                                 "Node S-TIE to N: originator level is not higher than from-node")
                 elif to_node_direction == constants.DIR_EAST_WEST:
+                    ###@@@
+                    if (from_node_system_id == 1 and from_node_system_id == 3):
+                        print("from_node_is_top_of_fabric =", from_node_is_top_of_fabric)
+                    ###@@@
                     # Node S-TIE to EW: Flood only if this node is not top of fabric
                     if from_node_is_top_of_fabric:
                         return (False, "Node S-TIE to EW: from-node is top of fabric")
