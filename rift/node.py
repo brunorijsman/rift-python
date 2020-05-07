@@ -1859,6 +1859,7 @@ class Node:
         self.tie_packet_infos[tie_id] = tie_packet_info
         if self.is_same_level_tie(tie_packet):
             # Ignore E-W links as peer neighbors (only southern reflected TIEs should be considered)
+            ###@@@ TODO: Get rid of this extra check?
             ew_neigh = dict(self.node_neighbors(self.node_ties(constants.DIR_SOUTH, self.system_id),
                                                 neighbor_directions=[constants.DIR_EAST_WEST]))
             if tie_packet.header.tieid.originator not in ew_neigh:
@@ -2321,9 +2322,9 @@ class Node:
                 tie_packet.header,
                 tx_intf.neighbor_direction(),
                 tx_intf.neighbor.system_id,
+                self.system_id,
                 tx_intf.neighbor.level,
-                tx_intf.neighbor.top_of_fabric(),
-                self.system_id)
+                tx_intf.neighbor.top_of_fabric())
             if not allowed:
                 continue
             # Put the packet on the transmit queue.
