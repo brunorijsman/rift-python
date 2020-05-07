@@ -3,39 +3,80 @@
 
 # Negative Disaggregation Feature Guide
 
-
-*** THE FOLLOWING TEXT IS COPIED FROM POSITIVE DISAGGREGATION AND WILL BE CONVERTED ***
-
-# Positive Disaggregation Feature Guide
-
 ## Example network
+The examples in this chapter are based on the following topology. We will complete disconnect
+plane-1 from pod-1 by breaking both links marked with red crosses. This will cause plane-1
+to send negative disaggregation routes for pod-1 to the other pods pod-2 and pod-3.
 
-The examples in this chapter are based on the following topology. We will cause routes to be 
-positively disaggregated in pod-1 by breaking the red link.
-
-![Topology Diagram](https://s3-us-west-2.amazonaws.com/brunorijsman-public/diagram_clos_3pod_3leaf_3spine_4super.png)
+![Topology Diagram](https://s3-us-west-2.amazonaws.com/brunorijsman-public/diagram_clos_3plane_3pod_3leaf_3spine_6super.png)
 
 ## Before breaking the link: no positive disaggregation occurs
 
-Let us first look at the network before we break the red link and before any positive disaggregation
-happens.
+Let us first look at the network before we break the red links and before any negative
+disaggregation happens.
 
+### Super-1-1
 
-On leaf-1-1 all adjacencies are up:
+On super-1-1 all adjacencies are up:
 
 <pre>
-leaf-1-1> <b>show interfaces</b>
-+-----------------+---------------------------+-----------+-----------+
-| Interface       | Neighbor                  | Neighbor  | Neighbor  |
-| Name            | Name                      | System ID | State     |
-+-----------------+---------------------------+-----------+-----------+
-| veth-1001a-101a | spine-1-1:veth-101a-1001a | 101       | THREE_WAY |
-+-----------------+---------------------------+-----------+-----------+
-| veth-1001b-102a | spine-1-2:veth-102a-1001b | 102       | THREE_WAY |
-+-----------------+---------------------------+-----------+-----------+
-| veth-1001c-103a | spine-1-3:veth-103a-1001c | 103       | THREE_WAY |
-+-----------------+---------------------------+-----------+-----------+
+super-1-1> <b>show interfaces</b>
++-----------+-------------------+-----------+-----------+
+| Interface | Neighbor          | Neighbor  | Neighbor  |
+| Name      | Name              | System ID | State     |
++-----------+-------------------+-----------+-----------+
+| if-1a     | spine-1-1:if-101d | 101       | THREE_WAY |
++-----------+-------------------+-----------+-----------+
+| if-1b     | spine-2-1:if-104d | 104       | THREE_WAY |
++-----------+-------------------+-----------+-----------+
+| if-1c     | spine-3-1:if-107d | 107       | THREE_WAY |
++-----------+-------------------+-----------+-----------+
+| if-1d     | super-2-1:if-3d   | 3         | THREE_WAY |
++-----------+-------------------+-----------+-----------+
+| if-1e     | super-3-1:if-5e   | 5         | THREE_WAY |
++-----------+-------------------+-----------+-----------+
 </pre>
+
+Super-1-1 has three south-bound adjacencies to spine-1-1, spine-2-1, and spine-3-1, which are the
+first spines in pod-1, pod-2, and pod-3 respectively.
+
+Additionally, super-1-1 has two east-west adjacencies to super-2-1 and super-3-1, which are the 
+first superspines in plane-2 and plane-3 respectively. This forms one of the two interplane
+east-west loops.
+
+### Spine-2-1
+
+On spine-2-1 all adjacencies are also up:
+
+<pre>
+spine-2-1> <b<>how interfaces</b>
++-----------+-------------------+-----------+-----------+
+| Interface | Neighbor          | Neighbor  | Neighbor  |
+| Name      | Name              | System ID | State     |
++-----------+-------------------+-----------+-----------+
+| if-104a   | leaf-2-1:if-1004a | 1004      | THREE_WAY |
++-----------+-------------------+-----------+-----------+
+| if-104b   | leaf-2-2:if-1005a | 1005      | THREE_WAY |
++-----------+-------------------+-----------+-----------+
+| if-104c   | leaf-2-3:if-1006a | 1006      | THREE_WAY |
++-----------+-------------------+-----------+-----------+
+| if-104d   | super-1-1:if-1b   | 1         | THREE_WAY |
++-----------+-------------------+-----------+-----------+
+| if-104e   | super-1-2:if-2b   | 2         | THREE_WAY |
++-----------+-------------------+-----------+-----------+
+</pre>
+
+Spine-2-1 has two north-bound adjacencies to super-1-1 and super-2-1, which are the two superspine
+nodes in plane-1.
+
+Additionallyt, spine-2-1 has three south-bound adjacencies to leaf-2-1, leaf-2-2, and leaf-2-3, 
+which are the three leaf nodes in pod-2.
+
+
+
+
+
+@@@ CONTINUE FROM HERE @@@
 
 Since leaf-1-2 can reach leaf-1-1 over any of the three spine nodes in pod-1, leaf-1-2 only
 has a north-bound default route with an ECMP next-hop over spine-1-1, spine-1-2, and spine-1-3.
