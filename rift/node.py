@@ -627,7 +627,11 @@ class Node:
         elif level_symbol == 'top-of-fabric':
             return (None, False, False, True)
         elif isinstance(level_symbol, int):
-            return (level_symbol, level_symbol == 0, False, True)
+            ###@@@ TODO: Revisit this (levels)
+            ###@@@ TODO: In show nodes level, report *actual* configured level and flags
+            leaf_only = level_symbol == 0
+            top_of_fabric_flag = level_symbol == common.constants.top_of_fabric_level
+            return (level_symbol, leaf_only, False, top_of_fabric_flag)
         else:
             return None
 

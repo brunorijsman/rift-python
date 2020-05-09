@@ -1,15 +1,12 @@
-
-# yaml config
 const:
     tx_src_address: 127.0.0.1
-    #tx_v6_src_address: TBD
 shards:
   - id: 0
     nodes:
        - name: core_1
-         level: 2
+         ###@@@ TODO: In all other scripts, use top-of-fabric instead of 2 for ToF nodes
+         level: top-of-fabric
          systemid: 1
-#         rx_lie_mcast_address: 224.0.255.1
          rx_lie_mcast_address: 224.0.0.71
          rx_lie_port: 20100
          interfaces:
@@ -35,9 +32,8 @@ shards:
                   rx_tie_port: 20023
        - name: core_2
          passive: true
-         level: 2
+         level: top-of-fabric
          systemid: 2
-#         rx_lie_mcast_address: 224.0.255.2
          rx_lie_mcast_address: 224.0.0.72
          rx_lie_port: 20101
          interfaces:
@@ -64,7 +60,6 @@ shards:
        - name: agg_101
          level: 1
          systemid: 101
-#         rx_lie_mcast_address: 224.0.255.101
          rx_lie_mcast_address: 224.0.0.81
          rx_lie_port: 20102
          interfaces:
@@ -91,7 +86,6 @@ shards:
        - name: agg_102
          level: 1
          systemid: 102
-#         rx_lie_mcast_address: 224.0.255.102
          rx_lie_mcast_address: 224.0.0.82
          rx_lie_port: 20103
          interfaces:
@@ -118,7 +112,6 @@ shards:
        - name: agg_201
          level: 1
          systemid: 201
-#         rx_lie_mcast_address: 224.0.255.201
          rx_lie_mcast_address: 224.0.0.83
          rx_lie_port: 20104
          interfaces:
@@ -145,7 +138,6 @@ shards:
        - name: agg_202
          level: 1
          systemid: 202
-#         rx_lie_mcast_address: 224.0.255.202
          rx_lie_mcast_address: 224.0.0.84
          rx_lie_port: 20105
          interfaces:
@@ -172,7 +164,6 @@ shards:
        - name: edge_1001
          level: 0
          systemid: 1001
-#         rx_lie_mcast_address: 224.0.1.001
          rx_lie_mcast_address: 224.0.0.91
          rx_lie_port: 20106
          v4prefixes:
@@ -207,7 +198,6 @@ shards:
        - name: edge_1002
          level: 0
          systemid: 1002
-#         rx_lie_mcast_address: 224.0.1.002
          rx_lie_mcast_address: 224.0.0.92
          rx_lie_port: 20107
          v4prefixes:
@@ -242,7 +232,6 @@ shards:
        - name: edge_2001
          level: 0
          systemid: 2001
-#         rx_lie_mcast_address: 224.0.2.001
          rx_lie_mcast_address: 224.0.0.93
          rx_lie_port: 20108
          v4prefixes:
@@ -280,7 +269,6 @@ shards:
        - name: edge_2002
          level: 0
          systemid: 2002
-#         rx_lie_mcast_address: 224.0.2.002
          rx_lie_mcast_address: 224.0.0.94
          rx_lie_port: 20109
          v4prefixes:
