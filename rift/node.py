@@ -3089,7 +3089,7 @@ class Node:
         (sysid_or_prefix, destination) = item
         if not isinstance(sysid_or_prefix, common.ttypes.IPPrefixType):
             return False
-        if not destanation.is_leaf:
+        if not destination.is_leaf:
             return False
         return True
 
