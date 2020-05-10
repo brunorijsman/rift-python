@@ -1955,19 +1955,16 @@ class Interface:
             "Originator",
             "Type",
             "TIE Nr",
-            "Seq Nr",
-            ["Origination", "Time"]])
+            "Seq Nr"])
         for tie_header in tie_headers.values():
-            # TODO: Move direction_str etc. to packet_common
             tab.add_row([packet_common.direction_str(tie_header.tieid.direction),
                          tie_header.tieid.originator,
                          packet_common.tietype_str(tie_header.tieid.tietype),
                          tie_header.tieid.tie_nr,
-                         tie_header.seq_nr,
-                         "-"])   # TODO: Report origination_time
+                         tie_header.seq_nr])
         return tab
 
-    def tie_headers_lifetime_table_cmn(self, tie_headers):
+    def tie_headers_lifetime_table_cmn(self, tie_headers_with_lifetime):
         tab = table.Table()
         tab.add_row([
             "Direction",
@@ -1975,17 +1972,16 @@ class Interface:
             "Type",
             "TIE Nr",
             "Seq Nr",
-            ["Remaining", "Lifetime"],
-            ["Origination", "Time"]])
-        for tie_header in tie_headers.values():
-            # TODO: Move direction_str etc. to packet_common
-            tab.add_row([packet_common.direction_str(tie_header.tieid.direction),
-                         tie_header.tieid.originator,
-                         packet_common.tietype_str(tie_header.tieid.tietype),
-                         tie_header.tieid.tie_nr,
-                         tie_header.seq_nr,
-                         tie_header.remaining_lifetime,
-                         "-"])   # TODO: Report origination_time
+            ["Remaining", "Lifetime"]])
+        for tie_header_lifetime in tie_headers_with_lifetime.values():
+            header = tie_header_lifetime.header
+            lifetime = tie_header_lifetime.remaining_lifetime
+            tab.add_row([packet_common.direction_str(header.tieid.direction),
+                         header.tieid.originator,
+                         packet_common.tietype_str(header.tieid.tietype),
+                         header.tieid.tie_nr,
+                         header.seq_nr,
+                         lifetime])
         return tab
 
     def ties_tx_table(self):
