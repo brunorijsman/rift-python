@@ -69,7 +69,7 @@ spine-2-1> <b<>how interfaces</b>
 Spine-2-1 has two north-bound adjacencies to super-1-1 and super-2-1, which are the two superspine
 nodes in plane-1.
 
-Additionallyt, spine-2-1 has three south-bound adjacencies to leaf-2-1, leaf-2-2, and leaf-2-3, 
+Additionally, spine-2-1 has three south-bound adjacencies to leaf-2-1, leaf-2-2, and leaf-2-3, 
 which are the three leaf nodes in pod-2.
 
 

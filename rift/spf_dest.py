@@ -6,16 +6,16 @@ DEST_TYPE_PREFIX = 2
 DEST_TYPE_POS_DISAGG_PREFIX = 3
 DEST_TYPE_NEG_DISAGG_PREFIX = 4
 
-def make_node_dest(system_id, name, cost):
-    return SPFDest(DEST_TYPE_NODE, system_id, name, None, set(), cost)
+def make_node_dest(system_id, name, cost, is_leaf):
+    return SPFDest(DEST_TYPE_NODE, system_id, name, None, set(), cost, is_leaf)
 
-def make_prefix_dest(prefix, tags, cost, is_pos_disagg, is_neg_disagg):
+def make_prefix_dest(prefix, tags, cost, is_leaf, is_pos_disagg, is_neg_disagg):
     if is_pos_disagg:
-        return SPFDest(DEST_TYPE_POS_DISAGG_PREFIX, None, None, prefix, tags, cost)
+        return SPFDest(DEST_TYPE_POS_DISAGG_PREFIX, None, None, prefix, tags, cost, is_leaf)
     elif is_neg_disagg:
-        return SPFDest(DEST_TYPE_NEG_DISAGG_PREFIX, None, None, prefix, tags, cost)
+        return SPFDest(DEST_TYPE_NEG_DISAGG_PREFIX, None, None, prefix, tags, cost, is_leaf)
     else:
-        return SPFDest(DEST_TYPE_PREFIX, None, None, prefix, tags, cost)
+        return SPFDest(DEST_TYPE_PREFIX, None, None, prefix, tags, cost, is_leaf)
 
 class SPFDest:
 
@@ -24,7 +24,7 @@ class SPFDest:
 
     # TODO: Add support for Non-Equal Cost Multi-Path (NECMP)
 
-    def __init__(self, dest_type, system_id, name, prefix, tags, cost):
+    def __init__(self, dest_type, system_id, name, prefix, tags, cost, is_leaf):
         # Type of the SPFDest: DEST_TYPE_xxx
         self.dest_type = dest_type
         # System-id of the node for TYPE_NODE, None for TYPE_PREFIX/DEST_TYPE_POS_DISAGG_PREFIX/
@@ -42,6 +42,8 @@ class SPFDest:
         # Cost of best-known path to this destination (is always a single cost, even in the case of
         # ECMP)
         self.cost = cost
+        # Is the advertising node a leaf node?
+        self.is_leaf = is_leaf
         # Has the best path to the destination been determined?
         self.best = False
         # System-ID of node before this destination (predecessor) on best known path (*)
@@ -103,6 +105,7 @@ class SPFDest:
         return [
             "Destination",
             "Cost",
+            "Is Leaf",
             ["Predecessor", "System IDs"],
             ["Tags"],
             "Disaggregate",
@@ -135,6 +138,7 @@ class SPFDest:
         return [
             destination_str,
             self.cost,
+            self.is_leaf,
             sorted(self.predecessors),
             tags_str,
             disaggregate_str,
