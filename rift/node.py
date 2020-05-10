@@ -620,20 +620,19 @@ class Node:
         #  - (configured_level, leaf_only, leaf_2_leaf, top_of_fabric_flag) is level_symbol is valid
         if level_symbol == 'undefined':
             return (None, False, False, False)
-        elif level_symbol == 'leaf':
+        if level_symbol == 'leaf':
             return (None, True, False, False)
-        elif level_symbol == 'leaf-2-leaf':
+        if level_symbol == 'leaf-2-leaf':
             return (None, True, True, False)
-        elif level_symbol == 'top-of-fabric':
+        if level_symbol == 'top-of-fabric':
             return (None, False, False, True)
-        elif isinstance(level_symbol, int):
-            ###@@@ TODO: Revisit this (levels)
-            ###@@@ TODO: In show nodes level, report *actual* configured level and flags
-            leaf_only = level_symbol == 0
-            top_of_fabric_flag = level_symbol == common.constants.top_of_fabric_level
-            return (level_symbol, leaf_only, False, top_of_fabric_flag)
-        else:
+        try:
+            level_value = int(level_symbol)
+        except ValueError:
             return None
+        leaf_only = level_value == 0
+        top_of_fabric_flag = level_value == common.constants.top_of_fabric_level
+        return (level_value, leaf_only, False, top_of_fabric_flag)
 
     def level_value(self):
         if self.configured_level is not None:
