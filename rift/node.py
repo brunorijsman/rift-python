@@ -772,6 +772,13 @@ class Node:
         if tie_packet.header.tieid.tietype != common.ttypes.TIETypeType.NodeTIEType:
             # Not a node TIE
             return False
+        if tie_packet.header.tieid.direction != common.ttypes.TieDirectionType.South:
+            # Not a south TIE. We only consider south TIEs because we only consider nodes in the
+            # same plane as same-level-nodes for the purpose of positive disaggregation.
+            # South-Node-TIEs from the nodes in the same plane are reflected to this node.
+            # South-Node-TIEs from nodes in other planes are not relected and also not propagated
+            # through interplane east-west links.
+            return False
         if tie_packet.element.node.level != self.level_value():
             # Not from a node at the same level
             return False
