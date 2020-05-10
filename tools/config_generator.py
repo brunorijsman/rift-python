@@ -71,9 +71,9 @@ SCHEMA = {
 SOUTH = 1
 NORTH = 2
 
-LEAF_LEVEL = 0
-SPINE_LEVEL = 1
-SUPERSPINE_LEVEL = 24
+LEAF_LAYER = 0
+SPINE_LAYER = 1
+SUPERSPINE_LAYER = 2
 
 GLOBAL_X_OFFSET = 10
 GLOBAL_Y_OFFSET = 10
@@ -102,8 +102,8 @@ INTER_PLANE_Y_FIRST_LINE_SPACER = GROUP_Y_SPACER
 INTER_PLANE_Y_INTERLINE_SPACER = 8
 INTER_PLANE_Y_LOOP_SPACER = 24
 
-LOOPBACKS_ADDRESS_BYTE = 88    # 88.level.index.lb
-LIE_MCAST_ADDRESS_BYTE = 88    # 224.88.level.index  ff02::88:level:index
+LOOPBACKS_ADDRESS_BYTE = 88    # 88.layer.index.lb
+LIE_MCAST_ADDRESS_BYTE = 88    # 224.88.layer.index  ff02::88:layer:index
 
 END_OF_SVG = """
 <script type="text/javascript"><![CDATA[
@@ -190,18 +190,18 @@ class Group:
         self.given_y_size = y_size
         self.x_center_shift = 0
         self.nodes = []
-        self.nodes_by_level = {}
+        self.nodes_by_layer = {}
         # Links within the group. Spine to super-spine links are owned by the plane group, not the
         # pod group.
         self.links = []
 
-    def create_node(self, name, level, top_of_fabric, group_level_node_id, y_pos):
-        node = Node(self, name, level, top_of_fabric, group_level_node_id, y_pos)
+    def create_node(self, name, layer, top_of_fabric, group_layer_node_id, y_pos):
+        node = Node(self, name, layer, top_of_fabric, group_layer_node_id, y_pos)
         # TODO: Move adding of loopbacks to here
         self.nodes.append(node)
-        if level not in self.nodes_by_level:
-            self.nodes_by_level[level] = []
-        self.nodes_by_level[level].append(node)
+        if layer not in self.nodes_by_layer:
+            self.nodes_by_layer[layer] = []
+        self.nodes_by_layer[layer].append(node)
         return node
 
     def create_link(self, from_node, to_node, inter_plane_loop_nr=None):
@@ -209,11 +209,11 @@ class Group:
         self.links.append(link)
         return link
 
-    def node_name(self, base_name, group_level_node_id):
+    def node_name(self, base_name, group_layer_node_id):
         if self.only_instance:
-            return base_name + "-" + str(group_level_node_id)
+            return base_name + "-" + str(group_layer_node_id)
         else:
-            return base_name + "-" + str(self.class_group_id) + "-" + str(group_level_node_id)
+            return base_name + "-" + str(self.class_group_id) + "-" + str(group_layer_node_id)
 
     def write_config_to_file(self, file, netns):
         for node in self.nodes:
@@ -291,15 +291,15 @@ class Group:
     def y_pos(self):
         return self.given_y_pos
 
-    def nr_nodes_in_widest_level(self):
+    def nr_nodes_in_widest_layer(self):
         result = 0
-        for nodes_in_level_list in self.nodes_by_level.values():
-            nr_nodes_in_level = len(nodes_in_level_list)
-            result = max(result, nr_nodes_in_level)
+        for nodes_in_layer_list in self.nodes_by_layer.values():
+            nr_nodes_in_layer = len(nodes_in_layer_list)
+            result = max(result, nr_nodes_in_layer)
         return result
 
     def x_size(self):
-        width_nodes = self.nr_nodes_in_widest_level()
+        width_nodes = self.nr_nodes_in_widest_layer()
         width = width_nodes * NODE_X_SIZE
         width += (width_nodes - 1) * NODE_X_INTERVAL
         width += 2 * GROUP_X_SPACER   # TODO: Change to GROUP_X_SPACER
@@ -308,14 +308,14 @@ class Group:
     def y_size(self):
         return self.given_y_size
 
-    def first_node_x_pos(self, level):
-        width_nodes = self.nr_nodes_in_widest_level()
-        missing_nodes = width_nodes - len(self.nodes_by_level[level])
+    def first_node_x_pos(self, layer):
+        width_nodes = self.nr_nodes_in_widest_layer()
+        missing_nodes = width_nodes - len(self.nodes_by_layer[layer])
         padding_width = missing_nodes * (NODE_X_SIZE + NODE_X_INTERVAL) // 2
         return self.x_pos() + padding_width + GROUP_X_SPACER
 
-    def nr_levels(self):
-        return len(self.nodes_by_level)
+    def nr_layers(self):
+        return len(self.nodes_by_layer)
 
 class Pod(Group):
 
@@ -342,9 +342,9 @@ class Pod(Group):
     def create_leaf_nodes(self):
         y_pos = self.y_pos() + GROUP_Y_SPACER + NODE_Y_SIZE + NODE_Y_INTERVAL
         for index in range(0, self.nr_leaf_nodes):
-            group_level_node_id = index + 1
-            node_name = self.node_name("leaf", group_level_node_id)
-            node = self.create_node(node_name, LEAF_LEVEL, False, group_level_node_id, y_pos)
+            group_layer_node_id = index + 1
+            node_name = self.node_name("leaf", group_layer_node_id)
+            node = self.create_node(node_name, LEAF_LAYER, False, group_layer_node_id, y_pos)
             node.add_ipv4_loopbacks(self.leaf_nr_ipv4_loopbacks)
             self.leaf_nodes.append(node)
 
@@ -354,9 +354,9 @@ class Pod(Group):
         top_of_fabric = self.only_instance
         y_pos = self.y_pos() + GROUP_Y_SPACER
         for index in range(0, self.nr_spine_nodes):
-            group_level_node_id = index + 1
-            node_name = self.node_name("spine", group_level_node_id)
-            node = self.create_node(node_name, SPINE_LEVEL, top_of_fabric, group_level_node_id,
+            group_layer_node_id = index + 1
+            node_name = self.node_name("spine", group_layer_node_id)
+            node = self.create_node(node_name, SPINE_LAYER, top_of_fabric, group_layer_node_id,
                                     y_pos)
             node.add_ipv4_loopbacks(self.spine_nr_ipv4_loopbacks)
             self.spine_nodes.append(node)
@@ -387,30 +387,30 @@ class Plane(Group):
         top_of_fabric = True
         y_pos = self.y_pos() + GROUP_Y_SPACER
         for index in range(0, self.nr_superspine_nodes):
-            group_level_node_id = index + 1
-            node_name = self.node_name("super", group_level_node_id)
-            node = self.create_node(node_name, SUPERSPINE_LEVEL, top_of_fabric, group_level_node_id,
+            group_layer_node_id = index + 1
+            node_name = self.node_name("super", group_layer_node_id)
+            node = self.create_node(node_name, SUPERSPINE_LAYER, top_of_fabric, group_layer_node_id,
                                     y_pos)
             node.add_ipv4_loopbacks(self.superspine_nr_ipv4_loopbacks)
             self.superspine_nodes.append(node)
 
 class Node:
 
-    next_level_node_id = {}
+    next_layer_node_id = {}
 
-    def __init__(self, group, name, level, top_of_fabric, group_level_node_id, y_pos):
+    def __init__(self, group, name, layer, top_of_fabric, group_layer_node_id, y_pos):
         self.group = group
         self.name = name
-        self.allocate_node_ids(level)
+        self.allocate_node_ids(layer)
         self.ns_name = NETNS_PREFIX + str(self.global_node_id)
-        self.level = level
+        self.layer = layer
         self.top_of_fabric = top_of_fabric
-        self.group_level_node_id = group_level_node_id
+        self.group_layer_node_id = group_layer_node_id
         self.given_y_pos = y_pos
         self.rx_lie_ipv4_mcast_addr = self.generate_ipv4_address_str(
-            224, LIE_MCAST_ADDRESS_BYTE, self.level, self.level_node_id)
+            224, LIE_MCAST_ADDRESS_BYTE, self.layer, self.layer_node_id)
         self.rx_lie_ipv6_mcast_addr = self.generate_ipv6_address_str(
-            "ff02", LIE_MCAST_ADDRESS_BYTE, self.level, self.level_node_id)
+            "ff02", LIE_MCAST_ADDRESS_BYTE, self.layer, self.layer_node_id)
         self.interfaces = []
         self.ipv4_prefixes = []
         self.lo_addresses = []
@@ -418,27 +418,27 @@ class Node:
         self.port_file = "/tmp/rift-python-telnet-port-" + self.name
         self.telnet_session = None
 
-    def allocate_node_ids(self, level):
-        # level_node_id: a node ID unique only within the level (each level has IDs 1, 2, 3...)
+    def allocate_node_ids(self, layer):
+        # layer_node_id: a node ID unique only within the layer (each layer has IDs 1, 2, 3...)
         # global_node_id: a node ID which is globally unque (1001, 1002, 1003... for leaf nodes,
         #                 101, 102, 103... for spine nodes, and 1, 2, 3... for super-spine nodes)
-        if level in Node.next_level_node_id:
-            self.level_node_id = Node.next_level_node_id[level]
-            Node.next_level_node_id[level] += 1
+        if layer in Node.next_layer_node_id:
+            self.layer_node_id = Node.next_layer_node_id[layer]
+            Node.next_layer_node_id[layer] += 1
         else:
-            self.level_node_id = 1
-            Node.next_level_node_id[level] = 2
-        # We use the index as a byte in IP addresses, so we support max 254 nodes per level
-        assert self.level_node_id <= 254
-        if level == LEAF_LEVEL:
-            base_global_node_id_for_level = 1000
-        elif level == SPINE_LEVEL:
-            base_global_node_id_for_level = 100
-        elif level == SUPERSPINE_LEVEL:
-            base_global_node_id_for_level = 0
+            self.layer_node_id = 1
+            Node.next_layer_node_id[layer] = 2
+        # We use the index as a byte in IP addresses, so we support max 254 nodes per layer
+        assert self.layer_node_id <= 254
+        if layer == LEAF_LAYER:
+            base_global_node_id_for_layer = 1000
+        elif layer == SPINE_LAYER:
+            base_global_node_id_for_layer = 100
+        elif layer == SUPERSPINE_LAYER:
+            base_global_node_id_for_layer = 0
         else:
             assert False
-        self.global_node_id = base_global_node_id_for_level + self.level_node_id
+        self.global_node_id = base_global_node_id_for_layer + self.layer_node_id
 
     def generate_ipv4_address_str(self, byte1, byte2, byte3, byte4):
         assert 0 <= byte1 <= 255
@@ -457,7 +457,7 @@ class Node:
     def add_ipv4_loopbacks(self, count):
         for node_loopback_id in range(1, count+1):
             address = self.generate_ipv4_address_str(
-                LOOPBACKS_ADDRESS_BYTE, self.level, self.level_node_id, node_loopback_id)
+                LOOPBACKS_ADDRESS_BYTE, self.layer, self.layer_node_id, node_loopback_id)
             mask = "32"
             metric = "1"
             prefix = (address, mask, metric)
@@ -496,7 +496,13 @@ class Node:
             print("  - id: 0", file=file)
             print("    nodes:", file=file)
         print("      - name: " + self.name, file=file)
-        print("        level: " + str(self.level), file=file)
+        if self.layer == LEAF_LAYER:
+            level = "leaf"
+        elif self.top_of_fabric:
+            level = "top-of-fabric"
+        else:
+            level = "undefined"
+        print("        level: " + str(level), file=file)
         print("        systemid: " + str(self.global_node_id), file=file)
         if not netns:
             print("        rx_lie_mcast_address: " + self.rx_lie_ipv4_mcast_addr, file=file)
@@ -754,9 +760,9 @@ class Node:
         return nexthops
 
     def interface_direction(self, interface):
-        if self.level > interface.peer_intf.node.level:
+        if self.layer > interface.peer_intf.node.layer:
             return constants.DIR_SOUTH
-        elif self.level < interface.peer_intf.node.level:
+        elif self.layer < interface.peer_intf.node.layer:
             return constants.DIR_NORTH
         else:
             return constants.DIR_EAST_WEST
@@ -913,8 +919,8 @@ class Node:
 
     def x_pos(self):
         # X position of top-left corner of rectangle representing the node
-        x_delta = (self.group_level_node_id - 1) * (NODE_X_SIZE + NODE_X_INTERVAL)
-        return self.group.first_node_x_pos(self.level) + x_delta
+        x_delta = (self.group_layer_node_id - 1) * (NODE_X_SIZE + NODE_X_INTERVAL)
+        return self.group.first_node_x_pos(self.layer) + x_delta
 
     def y_pos(self):
         # Y position of top-left corner of rectangle representing the node
@@ -939,7 +945,7 @@ class Interface:
     def set_peer_intf(self, peer_intf):
         self.peer_intf = peer_intf
         peer_node = peer_intf.node
-        if peer_node.level < self.node.level:
+        if peer_node.layer < self.node.layer:
             self.direction = SOUTH
         else:
             self.direction = NORTH
@@ -995,7 +1001,7 @@ class Link:
     def __init__(self, node1, node2, inter_plane_loop_nr=None):
         self.node1 = node1
         self.node2 = node2
-        self.east_west = node1.level == node2.level
+        self.east_west = node1.layer == node2.layer
         self.inter_plane_loop_nr = inter_plane_loop_nr
         self.intf1 = node1.create_interface()
         self.intf2 = node2.create_interface()
@@ -1187,7 +1193,7 @@ class Fabric:
         plane = self.planes[0]
         for superspine_node in plane.nodes:
             for pod in self.pods:
-                for spine_node in pod.nodes_by_level[SPINE_LEVEL]:
+                for spine_node in pod.nodes_by_layer[SPINE_LAYER]:
                     _link = plane.create_link(superspine_node, spine_node)
 
     def create_links_ns_multi_plane(self):
@@ -1195,7 +1201,7 @@ class Fabric:
         for plane_index, plane in enumerate(self.planes):
             for superspine_node in plane.nodes:
                 for pod in self.pods:
-                    spine_nodes = pod.nodes_by_level[SPINE_LEVEL]
+                    spine_nodes = pod.nodes_by_layer[SPINE_LAYER]
                     spine_nodes_per_plane = len(spine_nodes) // self.nr_planes
                     start_spine_index = plane_index * spine_nodes_per_plane
                     end_spine_index = start_spine_index + spine_nodes_per_plane
@@ -1333,7 +1339,7 @@ class Fabric:
         print("FAILURE_COUNT=0", file=file)
         all_leaf_nodes = []
         for pod in self.pods:
-            for leaf_node in pod.nodes_by_level[LEAF_LEVEL]:
+            for leaf_node in pod.nodes_by_layer[LEAF_LAYER]:
                 all_leaf_nodes.append(leaf_node)
         self.write_netns_ping_all_pairs(file, all_leaf_nodes)
         print("echo", file=file)
