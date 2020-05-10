@@ -4,7 +4,6 @@ shards:
   - id: 0
     nodes:
        - name: core_1
-         ###@@@ TODO: In all other scripts, use top-of-fabric instead of 2 for ToF nodes
          level: top-of-fabric
          systemid: 1
          rx_lie_mcast_address: 224.0.0.71
@@ -58,7 +57,6 @@ shards:
                   rx_lie_port: 20030
                   rx_tie_port: 20031
        - name: agg_101
-         level: 1
          systemid: 101
          rx_lie_mcast_address: 224.0.0.81
          rx_lie_port: 20102
@@ -84,7 +82,6 @@ shards:
                   rx_lie_port: 20037
                   rx_tie_port: 20039
        - name: agg_102
-         level: 1
          systemid: 102
          rx_lie_mcast_address: 224.0.0.82
          rx_lie_port: 20103
@@ -110,7 +107,6 @@ shards:
                   rx_lie_port: 20045
                   rx_tie_port: 20047
        - name: agg_201
-         level: 1
          systemid: 201
          rx_lie_mcast_address: 224.0.0.83
          rx_lie_port: 20104
@@ -136,7 +132,6 @@ shards:
                   rx_lie_port: 20053
                   rx_tie_port: 20055
        - name: agg_202
-         level: 1
          systemid: 202
          rx_lie_mcast_address: 224.0.0.84
          rx_lie_port: 20105
