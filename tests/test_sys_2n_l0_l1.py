@@ -39,17 +39,17 @@ def check_rift_node1_intf_up(res):
         hat="None",
         level_value=1)
     expect_south_spf = [
-        r"| 1 \(node1\) | 0 |   |  |  |  |",
-        r"| 2 \(node2\) | 1 | 1 |  |  | if1",
-        r"| 1.1.1.0/24  | 1 | 1 |  |  |  |",
-        r"| 1.1.2.2.32  | 2 | 1 |  |  |  |",
-        r"| 2.2.1.0/24  | 2 | 2 |  |  | if1",
-        r"| 2.2.2.2/32  | 3 | 2 |  |  | if1",
+        r"| 1 \(node1\) | 0 | False |   |  |  |  |",
+        r"| 2 \(node2\) | 1 | True  | 1 |  |  | if1",
+        r"| 1.1.1.0/24  | 1 | False | 1 |  |  |  |",
+        r"| 1.1.2.2.32  | 2 | False | 1 |  |  |  |",
+        r"| 2.2.1.0/24  | 2 | True  | 2 |  |  | if1",
+        r"| 2.2.2.2/32  | 3 | True  | 2 |  |  | if1",
     ]
     expect_north_spf = [
-        r"| 1 \(node1\) | 0 |   |  |",
-        r"| 1.1.1.0.24  | 1 | 1 |  |",
-        r"| 1.1.2.2.32  | 2 | 1 |  |",
+        r"| 1 \(node1\) | 0 | False |   |  |",
+        r"| 1.1.1.0.24  | 1 | False | 1 |  |",
+        r"| 1.1.2.2.32  | 2 | False | 1 |  |",
     ]
     res.check_spf("node1", expect_south_spf, expect_north_spf)
     res.check_rib_absent("node1", "0.0.0.0/0", "north-spf")
@@ -93,14 +93,14 @@ def check_rift_node1_intf_down(res):
         hat="None",
         level_value=1)
     expect_south_spf = [
-        r"| 1 \(node1\) | 0 |   |  |  |  |",
-        r"| 1.1.1.0/24  | 1 | 1 |  |  |  |",
-        r"| 1.1.2.2.32  | 2 | 1 |  |  |  |",
+        r"| 1 \(node1\) | 0 | False |   |  |  |  |",
+        r"| 1.1.1.0/24  | 1 | False | 1 |  |  |  |",
+        r"| 1.1.2.2.32  | 2 | False | 1 |  |  |  |",
     ]
     expect_north_spf = [
-        r"| 1 \(node1\) | 0 |   |  |",
-        r"| 1.1.1.0.24  | 1 | 1 |  |",
-        r"| 1.1.2.2.32  | 2 | 1 |  |",
+        r"| 1 \(node1\) | 0 | False |   |  |",
+        r"| 1.1.1.0.24  | 1 | False | 1 |  |",
+        r"| 1.1.2.2.32  | 2 | False | 1 |  |",
     ]
     res.check_spf("node1", expect_south_spf, expect_north_spf)
     res.check_spf_absent("node1", "south", "2")
@@ -144,17 +144,17 @@ def check_rift_node2_intf_up(res):
         hat=1,
         level_value=0)
     expect_south_spf = [
-        r"| 2 \(node2\) | 0 |   |  |  |",
-        r"| 2.2.1.0/24  | 1 | 2 |  |  |",
-        r"| 2.2.2.2/32  | 2 | 2 |  |  |",
+        r"| 2 \(node2\) | 0 | True  |   |  |  |",
+        r"| 2.2.1.0/24  | 1 | True  | 2 |  |  |",
+        r"| 2.2.2.2/32  | 2 | True  | 2 |  |  |",
     ]
     expect_north_spf = [
-        r"| 1 \(node1\) | 1 | 2 |  |  | if1",
-        r"| 2 \(node2\) | 0 |   |  |  |  |",
-        r"| 0.0.0.0/0   | 2 | 1 |  |  | if1",
-        r"| 2.2.1.0/24  | 1 | 2 |  |  |  |",
-        r"| 2.2.2.2/32  | 2 | 2 |  |  |  |",
-        r"| ::/0        | 2 | 1 |  |  | if1",
+        r"| 1 \(node1\) | 1 | False | 2 |  |  | if1",
+        r"| 2 \(node2\) | 0 | True  |   |  |  |  |",
+        r"| 0.0.0.0/0   | 2 | False | 1 |  |  | if1",
+        r"| 2.2.1.0/24  | 1 | True  | 2 |  |  |  |",
+        r"| 2.2.2.2/32  | 2 | True  | 2 |  |  |  |",
+        r"| ::/0        | 2 | False | 1 |  |  | if1",
     ]
     res.check_spf("node2", expect_south_spf, expect_north_spf)
     expect_rib = [
@@ -198,14 +198,14 @@ def check_rift_node2_intf_down(res):
         hat=None,
         level_value=0)
     expect_south_spf = [
-        r"| 2 \(node2\) | 0 |   |  |  |",
-        r"| 2.2.1.0/24  | 1 | 2 |  |  |",
-        r"| 2.2.2.2/32  | 2 | 2 |  |  |",
+        r"| 2 \(node2\) | 0 | True |   |  |  |",
+        r"| 2.2.1.0/24  | 1 | True | 2 |  |  |",
+        r"| 2.2.2.2/32  | 2 | True | 2 |  |  |",
     ]
     expect_north_spf = [
-        r"| 2 \(node2\) | 0 |   |  |  |",
-        r"| 2.2.1.0/24  | 1 | 2 |  |  |",
-        r"| 2.2.2.2/32  | 2 | 2 |  |  |",
+        r"| 2 \(node2\) | 0 | True |   |  |  |",
+        r"| 2.2.1.0/24  | 1 | True | 2 |  |  |",
+        r"| 2.2.2.2/32  | 2 | True | 2 |  |  |",
     ]
     res.check_spf("node2", expect_south_spf, expect_north_spf)
     res.check_spf_absent("node2", "north", "1")

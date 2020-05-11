@@ -7,6 +7,7 @@ def check_spine_positive_next_hops(res):
             res.check_spf_disagg(node,
                                  prefix,
                                  cost=4,
+                                 is_leaf=True,
                                  pos_or_neg="Positive",
                                  preds_and_nhs=[("122", "if3")])
 
@@ -16,6 +17,7 @@ def check_spine_negative_disagg_spf(res):
             res.check_spf_disagg(node,
                                  prefix,
                                  cost=infinite_distance,
+                                 is_leaf=True,
                                  pos_or_neg="Negative",
                                  preds_and_nhs=[("121", "if2"), ("122", "if3")])
 
@@ -27,6 +29,7 @@ def check_leaf_negative_next_hops(res):
             res.check_spf_disagg(node,
                                  prefix,
                                  cost=infinite_distance,
+                                 is_leaf=True,
                                  pos_or_neg="Negative",
                                  preds_and_nhs=[(pred, "if0")])
 

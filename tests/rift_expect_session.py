@@ -247,7 +247,7 @@ class RiftExpectSession:
             for expected_row in expect_south_ew_spf:
                 self.table_expect(expected_row)
 
-    def check_spf_disagg(self, node, prefix, cost, pos_or_neg, preds_and_nhs):
+    def check_spf_disagg(self, node, prefix, cost, is_leaf, pos_or_neg, preds_and_nhs):
         self.sendline("set node {}".format(node))
         self.sendline("show spf direction north destination {}".format(prefix))
         first = True
@@ -256,6 +256,7 @@ class RiftExpectSession:
                 first = False
                 pattern = r"| {} \(Disagg\) |".format(prefix)   # prefix
                 pattern += r" {} |".format(cost)                # cost
+                pattern += r" {} |".format(is_leaf)             # is leaf
                 pattern += r" {} |".format(pred_sysid)          # predecessor system id
                 pattern += r" |"                                # tags (absent)
                 pattern += r" {} |".format(pos_or_neg)          # positive or negative
@@ -268,6 +269,7 @@ class RiftExpectSession:
                 pattern += r"\s+"                               # Skip whitespace
                 pattern += r"| |"                               # prefix (absent)
                 pattern += r" |"                                # cost (absent)
+                pattern += r" |"                                # is leaf (absent)
                 pattern += r" {} |".format(pred_sysid)          # predecessor system id
                 pattern += r" |"                                # tags (absent)
                 pattern += r" |"                                # positive or negative (absent)
