@@ -1887,7 +1887,10 @@ class Node:
     def update_neg_disagg_propagation(self, neg_tie):
         neg_disagg_type = common.ttypes.TIETypeType.NegativeDisaggregationPrefixTIEType
         current_neg_disagg_prefixes = {}
-        for prefix, attrs in neg_tie.element.negative_disaggregation_prefixes.prefixes.items():
+        rx_prefixes = neg_tie.element.negative_disaggregation_prefixes.prefixes
+        if rx_prefixes is None:
+            rx_prefixes = {}
+        for prefix, attrs in rx_prefixes.items():
             must_propagate = True
             for neighbor_system_id in self._parent_neighbors.keys():
                 # Get neighbor negative disaggregation ties
