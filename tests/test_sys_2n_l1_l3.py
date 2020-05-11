@@ -42,10 +42,10 @@ def check_rift_node1(res):
         hat="None",
         level_value=3)
     expect_south_spf = [
-        r"| 1 \(node1\) | 0 |   |  |  |  |",
+        r"| 1 \(node1\) | 0 | False |  |  |  |  |",
     ]
     expect_north_spf = [
-        r"| 1 \(node1\) | 0 |   |  |  |",
+        r"| 1 \(node1\) | 0 | False |  |  |  |",
     ]
     res.check_spf("node1", expect_south_spf, expect_north_spf)
     res.check_spf_absent("node1", "south", "2")
@@ -85,10 +85,10 @@ def check_rift_node2(res):
         hat="None",
         level_value=1)
     expect_south_spf = [
-        r"| 2 \(node2\) | 0 |   |  |  |  |",
+        r"| 2 \(node2\) | 0 | False |  |  |  |  |",
     ]
     expect_north_spf = [
-        r"| 2 \(node2\) | 0 |   |  |  |  |",
+        r"| 2 \(node2\) | 0 | False |  |  |  |  |",
     ]
     res.check_spf("node2", expect_south_spf, expect_north_spf)
     res.check_spf_absent("node2", "north", "1")
