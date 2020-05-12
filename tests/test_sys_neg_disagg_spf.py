@@ -34,12 +34,14 @@ def check_fall_leafs_sp_spf(res):
 
 
 def test_neg_disagg_spf():
+
     # Disable debug logging for large topologies such as multiple (it makes convergence too slow)
     res = RiftExpectSession("multiplane", start_converge_secs=45.0, reconverge_secs=20.0,
                             log_debug=False)
 
     # E-W neighbors should not be present in south SPF
     check_ew_absence_in_south_spf(res)
+
     # E-W neighbors must be present in special SPF
     check_ew_in_special_spf(res)
 
@@ -47,12 +49,12 @@ def test_neg_disagg_spf():
     res.interface_failure(node="spine_1_1_1", interface="if2", failure="failed")
     res.interface_failure(node="spine_1_1_1", interface="if3", failure="failed")
 
-    # Check that leaf_1_0_1 and leaf_1_0_2 are not reachable
-    # with south SPF of tof_1_1_1 and tof_1_2_2
+    # Check that leaf_1_0_1 and leaf_1_0_2 are not reachable with south SPF of tof_1_1_1 and
+    # tof_1_2_2
     check_fall_leafs_s_spf(res)
 
-    # Check that leaf_1_0_1 and leaf_1_0_2 are reachable
-    # using special SPF of tof_1_1_1 and tof_1_2_2
+    # Check that leaf_1_0_1 and leaf_1_0_2 are reachable using special SPF of tof_1_1_1 and
+    # tof_1_2_2
     check_fall_leafs_sp_spf(res)
 
     res.stop()
