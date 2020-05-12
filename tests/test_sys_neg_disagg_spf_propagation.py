@@ -30,7 +30,7 @@ def check_leaf_negative_next_hops(res):
             res.check_spf_disagg(node,
                                  prefix,
                                  cost=infinite_distance,
-                                 is_leaf=True,
+                                 is_leaf=False,
                                  pos_or_neg="Negative",
                                  preds_and_nhs=[(pred, "if0")])
 
