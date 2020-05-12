@@ -1,3 +1,4 @@
+
 from common.constants import infinite_distance
 from rift_expect_session import RiftExpectSession
 
@@ -7,7 +8,7 @@ def check_spine_positive_next_hops(res):
             res.check_spf_disagg(node,
                                  prefix,
                                  cost=4,
-                                 is_leaf=True,
+                                 is_leaf=False,
                                  pos_or_neg="Positive",
                                  preds_and_nhs=[("122", "if3")])
 
@@ -34,6 +35,7 @@ def check_leaf_negative_next_hops(res):
                                  preds_and_nhs=[(pred, "if0")])
 
 def test_neg_disagg_spf_propagation():
+
     # Disable debug logging for large topologies such as multiple (it makes convergence too slow)
     res = RiftExpectSession("multiplane", start_converge_secs=45.0, reconverge_secs=30.0,
                             log_debug=False)
