@@ -13,6 +13,7 @@ sys.path.append("rift")
 from encoding.constants import protocol_major_version # pylint: disable=wrong-import-position
 from encoding.constants import protocol_minor_version # pylint: disable=wrong-import-position
 
+# TODO: Update these, new tests have been added
 TEST_CASES = [("test_sys_keys_match.py", "keys_match.yaml", ["node1"]),
               ("test_sys_keys_match.py", "keys_match.yaml", ["node2"]),
               ("test_sys_keys_match.py", "keys_match.yaml", ["node3"]),
