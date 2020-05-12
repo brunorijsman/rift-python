@@ -114,7 +114,8 @@ def check_neg_tie_in_leafs(res):
             res.check_tie_in_db(node, "south", originator, "neg-dis-prefix", patterns)
 
 
-def test_neg_disagg():
+def test__large__neg_disagg():
+    # __large__  means: don't run this test in a constrained environment (e.g. a small laptop)
 
     # Disable debug logging for large topologies such as multiple (it makes convergence too slow)
     res = RiftExpectSession("multiplane", start_converge_secs=45.0, reconverge_secs=20.0,
