@@ -3,12 +3,120 @@
 
 # Negative Disaggregation Feature Guide
 
+## Automatic disaggregation
+
+Negative disaggregation is one of the most novel and most interesting innovations in the Routing In
+Fat Trees (RIFT) protocol.
+
+Negative disaggregation is very closely related to positive disaggregation which is briefly
+mentioned in this feature guide and which is described in far greater detail in its own feature
+guide @@@.
+
+One of the best known characteristics of RIFT is that it is a link-state protocol north-bound and
+a distance-vector protocol south-bound. One consequence of that is that the RIFT
+routing tables contain host /32 (for IPv4) or /128 (for IPv6) routes for all south-bound traffic,
+and only default 0.0.0.0/0 and ::0/0 routes for all north-bound traffic.
+
+Automatic disaggregation (either the positive or the negative flavor) is what allows RIFT to get
+away with only using default routes for north-bound traffic.
+
+If there are no failures (no broken links and no broken routers) anywhere in the topology, then
+default routes are just fine.
+Each router can just "spray" all north-bound traffic accross all parent routers using a equal cost
+multi-path (ECMP) default route. The Clos topology guarantees that (in the absence of failures)
+it doesn't matter which parent router is chosen. Any parent router is able to reach the final
+destination at the same cost as any other parent router. Have a look at the topology below and
+spend a few minutes to convince yourself that this is indeed a true statement.
+
+However, we have to consider the unhappy scenario as well. What if one or more links or routers
+are down? In this case a simple default route for all north-bound traffic is not going to work.
+The traffic for certain destinations must avoid certain parents, and use certain alternative
+parents instead. I intentionally wrote that previous sentence to sound very vague:
+
+ * Which destination prefixes exactly must follow a special path and cannot follow the default
+   route? In other words, which destination prefixes must be disaggregated? The word disaggregate
+   is simply a fancy word for using a more specific route instead of the default route.
+
+ * For those disaggregated routes, which subset of parent next-hops should these disaggregated
+   routes avoid? This is the question that negative disaggregation answers.
+
+ * Or equivalently, you might ask: which subset of alternative parent next-hops should these
+   disaggregated routes use instead? This is the question that positive disaggregation answers.
+
+It is complex to answer these questions. The answer depends on the topology of the network, where
+the prefixes are located in the network, and which links and routers have failed at any particular
+moment in time.
+
+This is exactly the magical leap that RIFT took. It answers this question in a completely automated
+manner without the need for any manual a-priori configuration or any manual intervention when a
+failure occurs. In the absence of a failure, RIFT only installs ECMP default routes for all
+north-bound traffic. RIFT automatically detects link and router failures. When one or more failures
+occur, RIFT automatically decides which prefixes need to be disaggregated, whether positive or
+negative disaggregation should be used, automatically floods the disaggregated routes to those
+parts of the network where they are needed, and automatically installs the disaggregated routes
+into the routing tables of the routers where they are needed.
+
+As far as I know, no other widely used protocol has taken this leap. Neither OSPF nor ISIS nor BGP
+nor any other widely deployed protocol is able to automatically disaggregate routes. Some support
+_manual_ disaggregation, but not _automatic_. For that reason, those protocol tend to use specific
+/32 and /128 routes for both south-bound and north-bound traffic in Clos topologies.
+
+## Positive disaggregation versus negative disaggregation
+
+Consider the following toy example topology.
+
+![RIFT Clos 3x3 No Failures](https://brunorijsman-public.s3-us-west-2.amazonaws.com/diagram-rift-clos-3-x-3-no-failure-default-only.png)
+
+We are interested in how traffic gets from leaf-1 to leaf-3.
+
+In the absence of failures, each spine router advertises a default route to each leaf router.
+Each leaf router, including leaf-1, ends up with a single ECMP default route that sprays
+all traffic over all three spines.
+
+### Positive disaggregation
+
+Now let us consider how positive disaggregation can recover from a link failure between spine-1
+and leaf-1 (indicated by the red cross):
+
+![RIFT Clos 3x3 Failures repaired by positive disaggregation](https://brunorijsman-public.s3-us-west-2.amazonaws.com/diagram-rift-clos-3-x-3-failure-pos-disagg.png)
+
+The first thing to observe is that having only a default route on leaf-1 is not good enough anymore.
+Why not? Let's see what happens if leaf-1 sends a packet to leaf-3. The default route has a 1/3rd
+chance of sending the packet to spine-1, a 1/3rd chance for spine-2, and a 1/3rd chance for spine-3.
+If it happens to choose spine-1, the packet will be dropped, because spine-1 cannot get to leaf-3.
+
+Positive disaggregation deals with this situation as follows. In the following explanation we
+describe everything from the perspective of router spine-2, but the exact same sequence of steps
+happens on router spine-3 as well.
+
+ 1. Router spine-2 detects that it can get to leaf-1 but router spine-1 cannot get to leaf-1.
+    Details of how this detection works exactly are given in the positive disaggregation feature
+    guide.
+    Suffice it for now to say that router spine-2 does this by looking at the south
+    node TIE from router spine-1 (which is reflected by the leaf node) and by comparing the set
+    of adjacencies in spine-1's south node TIE with its own adjacencies.
+
+ 2. What we want to achieve at this point is that the leaf routers send any traffic destined for
+    leaf-3 to spine-2 and not to spine-1. In the case of positive disaggregation, this is achieved
+    by router spine-2 sending a more spefic route for leaf-3's prefix 2.0.0.3/32 to all leaf nodes.
+    These are the green routes in the diagram.
+
+ 3. Router spine-3 does the exact same thing as router spine-2: it also advertises a more speficic
+    route 2.0.0.3/32 for leaf-3.
+
+ 4. All leaf routers, including leaf-1, end up with an ECMP 2.0.0.3/32 route that send the traffic
+    to spine-2 and spine-3 but not spine-1, thus avoiding blackholing traffic for leaf-1.
+    Note that traffic to leaf-2 still follows the default route and uses all three spine routers.
+
 ## Example network
-The examples in this chapter are based on the following topology. We will complete disconnect
-plane-1 from pod-1 by breaking both links marked with red crosses. This will cause plane-1
-to send negative disaggregation routes for pod-1 to the other pods pod-2 and pod-3.
+
+This feature guide for negative disaggregation is based on the following topology:
 
 ![Topology Diagram](https://s3-us-west-2.amazonaws.com/brunorijsman-public/diagram_clos_3plane_3pod_3leaf_3spine_6super.png)
+
+We will complete disconnect plane-1 from pod-1 by breaking both links marked with red crosses.
+This will cause plane-1 to send negative disaggregation routes for pod-1 to the other pods pod-2
+and pod-3.
 
 ## Before breaking the link: no positive disaggregation occurs
 
