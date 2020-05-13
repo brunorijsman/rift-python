@@ -65,13 +65,23 @@ class RibRoute:
         all_next_hops.sort()
         return all_next_hops
 
+    @staticmethod
+    def _nexthop_str(nexthop):
+        (address, is_positive) = nexthop
+        if is_positive:
+            return str(address)
+        else:
+            return "Negative " + str(address)
+
+    @staticmethod
+    def _all_nexthops_str(all_nexthops):
+        return ", ".join(map(RibRoute._nexthop_str, all_nexthops))
+
     def __str__(self):
         all_next_hops = self._get_nexthops_sorted()
         return "%s: %s -> %s" % (constants.owner_str(self.owner),
                                  packet_common.ip_prefix_str(self.prefix),
-                                 ", ".join(
-                                     map(lambda x: str(x[0]) if x[1] else "~%s" % str(x[0]),
-                                         all_next_hops)))
+                                 self._all_nexthops_str(all_next_hops))
 
     @staticmethod
     def cli_summary_headers():
@@ -81,9 +91,9 @@ class RibRoute:
             "Next-hops"]
 
     def cli_summary_attributes(self):
+        all_next_hops = self._get_nexthops_sorted()
         return [
             packet_common.ip_prefix_str(self.prefix),
             constants.owner_str(self.owner),
-            list(map(lambda x: str(x[0]) if x[1] else "~%s" % str(x[0]),
-                     self._get_nexthops_sorted()))
+            [self._nexthop_str(nexthop) for nexthop in all_next_hops]
         ]
