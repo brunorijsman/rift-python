@@ -31,8 +31,8 @@ default routes are just fine.
 Each router can just "spray" all north-bound traffic accross all parent routers using a equal cost
 multi-path (ECMP) default route. The Clos topology guarantees that (in the absence of failures)
 it doesn't matter which parent router is chosen. Any parent router is able to reach the final
-destination at the same cost as any other parent router. Have a look at the topology below and
-spend a few minutes to convince yourself that this is indeed a true statement.
+destination at the same cost as any other parent router. Have a look at the topologies in this
+guide and spend a few minutes to convince yourself that this is indeed a true statement.
 
 However, we have to consider the unhappy scenario as well. What if one or more links or routers
 are down? In this case a simple default route for all north-bound traffic is not going to work.
@@ -1378,8 +1378,8 @@ IPv4 Routes:
 
 Phew! We have made it to the end of this negative disaggregation feature guide.
 
-While there is some complexity to understanding to how negative disaggregation works, I hope
-you could see that "it just works".
+While there is some complexity to understanding to how negative disaggregation works
+"under the hood", I hope you could see that "it just works".
 
 For automatic positive disaggregation, we did not have to configure anything special.
 
