@@ -64,8 +64,10 @@ parts of the network where they are needed, and automatically installs the disag
 into the routing tables of the routers where they are needed.
 
 As far as I know, no other widely used protocol has taken this leap. Neither OSPF nor ISIS nor BGP
-nor any other widely deployed protocol is able to automatically disaggregate routes. Some support
-_manual_ disaggregation, but not _automatic_. For that reason, those protocol tend to use specific
+nor any other widely deployed protocol is able to automatically disaggregate routes to re-route
+traffic around failures. 
+Some support _manual_ disaggregation, but not _automatic_. For that reason, those protocol tend to
+use specific
 /32 and /128 routes for both south-bound and north-bound traffic in Clos topologies.
 
 On top of that, as far as I know, prior to RIFT no protocol supported the concept of _negative_
@@ -129,8 +131,10 @@ Positive disaggregation deals with this situation as follows:
     must tell them that if they have any traffic to send to leaf-3, they better not give it to
     spine-1, but it is okay to give it to me!"
 
- 4. How does spine-2 warn the leaf routers? By advertising a host-specific 2.0.0.3/32 route for
-    leaf-1 to all leaf routers. This /32 host route more specific than the /0 default route.
+ 4. How does spine-2 warn the other routers? By advertising a host-specific 2.0.0.3/32 route for
+    leaf-3 to all leaf routers.
+    This route is called a positive disaggregation route.
+    It is a /32 host route, whichis more specific than the /0 default route.
     Hence, all leaf routes will send traffic to leaf-3 via spine-2. Traffic for leaf-1 and leaf-2
     still follows the default route and is ECMP'ed across all three spine routers.
  
@@ -152,13 +156,112 @@ see how negative disaggregation avoids this problem.
 
 ### Negative disaggregation
 
+Now that we have seen how _positive_ disaggregation recovers from a link failure, let's see
+how _negative_ disaggregation could recover from the same link failure.
+
+I carefully used the word _could_ in the previous sentence for a reason. 
+According to the current version of the RIFT specification, 
+RIFT currently always uses positive disaggregation to recover
+from this type of failure. Negative disaggregation is perfectly capabable of recovering from this
+failure as well, and that would even have advantages (which we will discuss). 
+But the RIFT specification
+as it is currently written, does not use negative disaggregation for this particular simple
+scenario.
+RIFT only uses negative disaggregation in quite complex failure scenarios
+involving multi-plane fabrics with inter-plane east-west links, which we will also cover after 
+covering the simpler scenario first.
+
+So, in this section we will use the same failure scenario as before to explain how negative
+disaggregation works, even though RIFT would never use negative disaggregation in this particular
+scenario. We use this scenario anyway because it makes negative disaggregation much easier to
+understand than the much more complex realistic scenario that we will cover later on.
+
+![RIFT Clos 3x3 Failures repaired by negative disaggregation](https://brunorijsman-public.s3-us-west-2.amazonaws.com/diagram-rift-clos-3-x-3-failure-neg-disagg.png)
+
+Negative disaggregation recovers from this failure as follows:
+
+ 1. Spine-1 knows that the other spine routes are connected to leaf-3. How does spine-1 know this?
+    Because spine-1 can see the South-Node-TIE from the the other spines (they are reflected by the
+    leaf nodes) which contain leaf-3 as an adjacency. Spine-1 conludes: "Spine-2 and spine-3 can
+    reach leaf-3. If anyone wants to send traffic to leaf-3 they can give it to spine-2 or spine-3,
+    and they will deliver it to leaf-3."
+
+ 2. On the other hand, spine-1 also knows that it does not have any adjacency to leaf-3 itself. In
+    fact it may never have had any adjacency with leaf-3. Spine-1 concludes: "I myself cannot
+    reach leaf-3. If anyone wants to send traffic to leaf-3 they better not give it me because I
+    will blackhole it."
+
+ 3. Spine-1, also being a helpful and altruistic router thinks: "I must warn all the leaf routers!
+    Evidently somewhere out there, there is this leaf-3 router, but I don't know how to get to it.
+    I must warn everyone not to send any traffic for leaf-3 to me."
+
+ 4. How does spine-1 warn the other routers? By advertising a special kind of 
+    host-specific 2.0.0.3/32 route for
+    leaf-3 to all leaf routers.
+    This route is called a negative disaggregation route.
+    Such a negative route has a very special meaning: it means "Please do _not_ send traffic
+    for this prefix to me. If you have another route to this same prefix that avoids me, even if
+
+ 5. When the leaf routers receive such a negative disaggregation route, this install it as a
+    special route in the routing information base (RIB) with negative next-hops.
+ 
+ 6. This concept of a negative next-hop is a pure control-plane abstraction. In current forwarding
+    plane hardware there is no such thing as a negative next-hop. So, when RIB route is installed
+    in the FIB, we must translate the negative next-hop into an equivalent "complementary" set of
+    positive next-hops as follows:
+
+    a. Start with the prefix of the negative route (2.0.0.3/32 in this case).
+
+    b. Find the most specific aggregate route that covers this prefix (0.0.0.0/0 in this case).
+
+    c. Take the next-hops of the aggregate encompasing route (1.0.0.1, 1.0.0.2, and 1.0.0.3 in this
+       case).
+
+    d. From this set of next-hops, remove the negative next-hops of the more specific negative
+       route (in this example we remove negative next-hop 1.0.0.1 which leave us with effective
+       next-hops 1.0.0.2 and 1.0.0.3).
+
+Steps 1 and 2 bring leaf-1 to the point that it realizes that there exists some destination prefix
+that it should be able to reach but that it can not actually reach. We described one particular
+mechanism, but later on we see a different mechanism for multi-plane topologies.
+
+Negative disaggregation has two advantages relative to positive disaggregation:
+
+ 1. It is simpler in the sense that it greatly reduces the amount of routes that have to be
+    advertised to recover from a failure. Instead of N-1 routers having to advertise a positive
+    disaggregate route, only 1 router has to advertise a negative disaggregate route.
+ 
+ 2. For this exact same reason, negative disaggregation avoids the transitory incast problem that
+    we described above.
+
+# Negative disaggregation in the real world
+
+## Multi-plane fabrics with east-west inter-plane links
+
+We have explained how negative disaggregation works using an unrealisticly simple topology. Now
+let's look at an actual realistic topology, namely the following 3-level multi-plane Clos fabric
+with east-west inter-plane links:
+
+![Multi-Plane Topology Diagram](https://s3-us-west-2.amazonaws.com/brunorijsman-public/diagram_clos_3plane_3pod_3leaf_3spine_6super.png)
+
+The description "3-level multi-plane Clos fabric with east-west inter-plane links" is quite a
+mouthful. Let's take that apart to see what it really means:
+
+ * **3-level**: There are 3 levels in the topology: leaf routers, spine routers, and superspine
+   routers (also known as top-of-fabric routers).
+
+ * **multi-plane**: The superspine routers are devided into multiple indendent "planes". This
+   is typically done when the superspine routers don't have enough ports to connect to each
+   spine router. The reason these are called "planes" becomes more clear when you look at the
+   equivalent 3-dimensional diagram below. In this 3D diagram we have a blue, a brown, and a green
+   plane.
+
+ * **with east-west interplane links**:
 
 
-## Example network
+![3D Planes](https://brunorijsman-public.s3-us-west-2.amazonaws.com/diagram-rift-3d-planes.png)
 
-This feature guide for negative disaggregation is based on the following topology:
 
-![Topology Diagram](https://s3-us-west-2.amazonaws.com/brunorijsman-public/diagram_clos_3plane_3pod_3leaf_3spine_6super.png)
 
 We will complete disconnect plane-1 from pod-1 by breaking both links marked with red crosses.
 This will cause plane-1 to send negative disaggregation routes for pod-1 to the other pods pod-2
