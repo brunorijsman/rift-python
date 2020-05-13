@@ -1283,5 +1283,107 @@ we only have normal positive nexthops and no negative disaggregation going one. 
 of the fact that all pods are fully reachable via plane-2.
 
 <pre>
-
+spine-2-2> <b>show route family ipv4</b>
+IPv4 Routes:
++-------------+-----------+-----------------------+
+| Prefix      | Owner     | Next-hops             |
++-------------+-----------+-----------------------+
+| 0.0.0.0/0   | North SPF | if-105d 172.31.15.176 |
+|             |           | if-105e 172.31.15.176 |
++-------------+-----------+-----------------------+
+| 88.0.4.1/32 | South SPF | if-105a 172.31.15.176 |
++-------------+-----------+-----------------------+
+| 88.0.5.1/32 | South SPF | if-105b 172.31.15.176 |
++-------------+-----------+-----------------------+
+| 88.0.6.1/32 | South SPF | if-105c 172.31.15.176 |
++-------------+-----------+-----------------------+
 </pre>
+
+### Leaf-2-3
+
+We are near the end of our negative disaggregation journey.
+All that remains is looking at leaf-2-3.
+
+Leaf-2-3 has received a negative disaggregation TIE from spine-2-1 (due to the propagation rule
+that we discussed just a minute ago):
+
+<pre>
+leaf-2-3> <b>show tie-db direction south originator 104 tie-type neg-dis-prefix</b>
++-----------+------------+----------------+--------+--------+----------+-----------------------------+
+| Direction | Originator | Type           | TIE Nr | Seq Nr | Lifetime | Contents                    |
++-----------+------------+----------------+--------+--------+----------+-----------------------------+
+| South     | 104        | Neg-Dis-Prefix | 5      | 1      | 603512   | Neg-Dis-Prefix: 88.0.1.1/32 |
+|           |            |                |        |        |          |   Metric: 2147483647        |
+|           |            |                |        |        |          | Neg-Dis-Prefix: 88.0.2.1/32 |
+|           |            |                |        |        |          |   Metric: 2147483647        |
+|           |            |                |        |        |          | Neg-Dis-Prefix: 88.0.3.1/32 |
+|           |            |                |        |        |          |   Metric: 2147483647        |
++-----------+------------+----------------+--------+--------+----------+-----------------------------+
+</pre>
+
+Bit leaf-2-3 did not receive any negative disaggregation TIEs from either spine-2-2 or spine-2-3:
+
+<pre
+leaf-2-3> <b>show tie-db direction south originator 105 tie-type neg-dis-prefix</b>
+No TIE with direction south and originator 105 and tie-type neg-dis-prefix in database
+leaf-2-3> <b>show tie-db direction south originator 106 tie-type neg-dis-prefix</b>
+No TIE with direction south and originator 106 and tie-type neg-dis-prefix in database
+</pre>
+
+In the RIB of leaf-2-3 we can see that spine-2-1 is a negative nexthop for the leaf prefixes in
+pod-1:
+
+<pre>
+leaf-2-3> <b>show route family ipv4</b>
+IPv4 Routes:
++-------------+-----------+---------------------------------+
+| Prefix      | Owner     | Next-hops                       |
++-------------+-----------+---------------------------------+
+| 0.0.0.0/0   | North SPF | if-1006a 172.31.15.176          |
+|             |           | if-1006b 172.31.15.176          |
+|             |           | if-1006c 172.31.15.176          |
++-------------+-----------+---------------------------------+
+| 88.0.1.1/32 | North SPF | Negative if-1006a 172.31.15.176 |
++-------------+-----------+---------------------------------+
+| 88.0.2.1/32 | North SPF | Negative if-1006a 172.31.15.176 |
++-------------+-----------+---------------------------------+
+| 88.0.3.1/32 | North SPF | Negative if-1006a 172.31.15.176 |
++-------------+-----------+---------------------------------+
+</pre>
+
+And, finally, when we look at the FIB of leaf-2-3, we see that the negative spine-2-1 nexthop
+has been translated into the complementary positive spine-2-2 and spine-2-3 nexthops:
+
+<pre>
+leaf-2-3> <b>show forwarding family ipv4</b>
+IPv4 Routes:
++-------------+------------------------+
+| Prefix      | Next-hops              |
++-------------+------------------------+
+| 0.0.0.0/0   | if-1006a 172.31.15.176 |
+|             | if-1006c 172.31.15.176 |
+|             | if-1006b 172.31.15.176 |
++-------------+------------------------+
+| 88.0.1.1/32 | if-1006c 172.31.15.176 |
+|             | if-1006b 172.31.15.176 |
++-------------+------------------------+
+| 88.0.2.1/32 | if-1006c 172.31.15.176 |
+|             | if-1006b 172.31.15.176 |
++-------------+------------------------+
+| 88.0.3.1/32 | if-1006c 172.31.15.176 |
+|             | if-1006b 172.31.15.176 |
++-------------+------------------------+
+</pre>
+
+## Conclusion
+
+Phew! We have made it to the end of this negative disaggregation feature guide.
+
+While there is some complexity to understanding to how negative disaggregation works, I hope
+you could see that "it just works".
+
+For automatic positive disaggregation, we did not have to configure anything special.
+
+Automatic negative disaggregation is only really needed for multi-plane topologies, and in that
+case the only extra requirement for negative disaggregation to work is that we have east-west
+inter-plane links.
