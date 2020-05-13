@@ -3,19 +3,26 @@
 
 # Negative Disaggregation Feature Guide
 
-## Automatic disaggregation
+## Innovations in disaggregation
 
-Negative disaggregation is one of the most novel and most interesting innovations in the Routing In
-Fat Trees (RIFT) protocol.
+Automatic disaggregation and negative disaggregation are two of the most novel and most interesting
+innovations in the Routing In Fat Trees (RIFT) protocol.
 
 Negative disaggregation is very closely related to positive disaggregation which is briefly
 mentioned in this feature guide and which is described in far greater detail in its own feature
 guide @@@.
 
 One of the best known characteristics of RIFT is that it is a link-state protocol north-bound and
-a distance-vector protocol south-bound. One consequence of that is that the RIFT
-routing tables contain host /32 (for IPv4) or /128 (for IPv6) routes for all south-bound traffic,
+a distance-vector protocol south-bound. 
+One consequence of that is that the RIFT routing tables typically contain host /32 (for IPv4) or
+/128 (for IPv6) routes for all south-bound traffic,
 and only default 0.0.0.0/0 and ::0/0 routes for all north-bound traffic.
+
+The following figure shows typical RIFT route tables in a small 3-level fat tree topology.
+The leaf nodes contain only a single north-bound default route. The superspine nodes contain
+only host-specific south-bound routes. And the spine nodes contain a mixture.
+
+![RIFT Typical Route Tables](https://brunorijsman-public.s3-us-west-2.amazonaws.com/diagram-rift-typical-route-tables.png)
 
 Automatic disaggregation (either the positive or the negative flavor) is what allows RIFT to get
 away with only using default routes for north-bound traffic.
@@ -61,6 +68,23 @@ nor any other widely deployed protocol is able to automatically disaggregate rou
 _manual_ disaggregation, but not _automatic_. For that reason, those protocol tend to use specific
 /32 and /128 routes for both south-bound and north-bound traffic in Clos topologies.
 
+On top of that, as far as I know, prior to RIFT no protocol supported the concept of _negative_
+disaggregation. In protocols prior to RIFT all disaggregation was _positive_. If traffic to a
+specific destination prefix needed to follow a non-default path, then the protocol would advertise
+specific routes pointing to all remaining feasible equal-cost paths. In contrast, RIFT supports the
+concept of _negative_ disaggregation: instead of advertising positive more specific routes poiting
+to the more preferred path, it can advertise negative more specific routes advertising which paths
+should be avoided. This is particularly useful in topologies that have massive ECMP, such as
+Clos topologies. Consider a route that has 64-way ECMP, which not uncommon in large datacenter
+topologies. Now consider that one of the 64 paths fails. With positive disaggregation, we would
+advertise 63 more specific routes to the remaining feasily paths. With negative disaggregation,
+we would only advertise one single more specific (negative) route to the single path to be
+avoided.
+
+To summarize: disaggregation per-se is not novel in RIFT; disaggregation already existed in
+other protocols prior to RIFT. The main two innovations in RIFT are
+(a) the fact that disaggregation is _automatic_ and (b) the concept of _negative_ disaggregation.
+
 ## Positive disaggregation versus negative disaggregation
 
 Consider the following toy example topology.
@@ -73,10 +97,14 @@ In the absence of failures, each spine router advertises a default route to each
 Each leaf router, including leaf-1, ends up with a single ECMP default route that sprays
 all traffic over all three spines.
 
+Make a mental note of the fact that the traffic from leaf-1 to leaf-3 is spread equally across
+all three spine nodes. This will turn out to be important later on. (We are assuming here that
+the traffic consists of a sufficient number of flows, allowing ECMP hashing to do its job.)
+
 ### Positive disaggregation
 
 Now let us consider how positive disaggregation can recover from a link failure between spine-1
-and leaf-1 (indicated by the red cross):
+and leaf-3 (indicated by the red cross).
 
 ![RIFT Clos 3x3 Failures repaired by positive disaggregation](https://brunorijsman-public.s3-us-west-2.amazonaws.com/diagram-rift-clos-3-x-3-failure-pos-disagg.png)
 
@@ -85,28 +113,46 @@ Why not? Let's see what happens if leaf-1 sends a packet to leaf-3. The default 
 chance of sending the packet to spine-1, a 1/3rd chance for spine-2, and a 1/3rd chance for spine-3.
 If it happens to choose spine-1, the packet will be dropped, because spine-1 cannot get to leaf-3.
 
-Positive disaggregation deals with this situation as follows. In the following explanation we
-describe everything from the perspective of router spine-2, but the exact same sequence of steps
-happens on router spine-3 as well.
+Positive disaggregation deals with this situation as follows:
 
- 1. Router spine-2 detects that it can get to leaf-1 but router spine-1 cannot get to leaf-1.
-    Details of how this detection works exactly are given in the positive disaggregation feature
-    guide.
-    Suffice it for now to say that router spine-2 does this by looking at the south
-    node TIE from router spine-1 (which is reflected by the leaf node) and by comparing the set
-    of adjacencies in spine-1's south node TIE with its own adjacencies.
+ 1. Spine-2 knows that its link to leaf-3 is still up. Spine-2 concludes: "I can still reach
+    leaf-3. If anyone wants to send traffic to leaf-3, they can safely give it to me, and I will
+    deliver it to leaf-3."
+ 
+ 2. Spine-2 also knows that the link from spine-1 to leaf-3 is down. How does spine-2 know this? 
+    Because spine-2 can see the South-Node-TIE from spine-1 (it is reflected by the leaf nodes)
+    which contains spine-1's adjacencies. Spine-2 conludes: "Spine-1 cannot reach leaf-3. If anyone
+    wants to send traffic to leaf-3, they better not give it to leaf-1 because leaf-1 will blackhole
+    that traffic."
+ 
+ 3. Spine-2, being a helpful and altruistic router thinks: "I must warn all the leaf routers! I
+    must tell them that if they have any traffic to send to leaf-3, they better not give it to
+    spine-1, but it is okay to give it to me!"
 
- 2. What we want to achieve at this point is that the leaf routers send any traffic destined for
-    leaf-3 to spine-2 and not to spine-1. In the case of positive disaggregation, this is achieved
-    by router spine-2 sending a more spefic route for leaf-3's prefix 2.0.0.3/32 to all leaf nodes.
-    These are the green routes in the diagram.
+ 4. How does spine-2 warn the leaf routers? By advertising a host-specific 2.0.0.3/32 route for
+    leaf-1 to all leaf routers. This /32 host route more specific than the /0 default route.
+    Hence, all leaf routes will send traffic to leaf-3 via spine-2. Traffic for leaf-1 and leaf-2
+    still follows the default route and is ECMP'ed across all three spine routers.
+ 
+ 5. Router spine-3 independently goes through the exact sequence of steps as spine-2: it also
+    advertises a host-specific route 2.0.0.3/32 for leaf-3.
 
- 3. Router spine-3 does the exact same thing as router spine-2: it also advertises a more speficic
-    route 2.0.0.3/32 for leaf-3.
+ 6. After everything has converged, the leaf routers will end up with an ECMP 2.0.0.3/32 route
+    for leaf-3 that ECMP's the traffic across spine-2 and spine-3 (but not spine-1).
 
- 4. All leaf routers, including leaf-1, end up with an ECMP 2.0.0.3/32 route that send the traffic
-    to spine-2 and spine-3 but not spine-1, thus avoiding blackholing traffic for leaf-1.
-    Note that traffic to leaf-2 still follows the default route and uses all three spine routers.
+Note that step 5 takes place independently and asynchronously on each spine routers.
+Thus, as the positive disaggregation process is converging, the host-specific positive disaggregate
+route starts out with a single next-hop, then two ECMP next-hop, until it finally ends up with N-1
+ECMP next-hops where N is the number of spine routers.
+
+This can be a problem. The traffic that used to be spread out over N routers is temporarily 
+concentrated on a single spine router, then two spine routers, until it is finally spread out
+again over N-1 spine routers. This is referred to as the "transitory incast" problem. Later we will
+see how negative disaggregation avoids this problem.
+
+### Negative disaggregation
+
+
 
 ## Example network
 
