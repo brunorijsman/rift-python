@@ -9,8 +9,8 @@ Automatic disaggregation and negative disaggregation are two of the most novel a
 innovations in the Routing In Fat Trees (RIFT) protocol.
 
 Negative disaggregation is very closely related to positive disaggregation which is briefly
-mentioned in this feature guide and which is described in far greater detail in its own feature
-guide @@@.
+mentioned in this feature guide and which is described in far greater detail in [its own feature
+guide](doc/positive-disaggregation-feature-guide.md).
 
 One of the best known characteristics of RIFT is that it is a link-state protocol north-bound and
 a distance-vector protocol south-bound. 
