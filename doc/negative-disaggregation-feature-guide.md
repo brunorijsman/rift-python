@@ -339,7 +339,7 @@ leaf-1-1> <b>show nodes</b>
 Note: this is a large and complex topology. My MacBook (not a Pro) laptop is too feeble to run it.
 Instead, I hrun it on an m5a-large AWS instance.
 
-## Before breaking the link: no positive disaggregation occurs
+## Initial convergence
 
 Before we start breaking links and before we have a look at negative disaggregation in action,
 let's just spend a few minutes looking around in the topology.
@@ -405,36 +405,62 @@ nodes in plane-1.
 Additionally, spine-2-1 has three south-bound adjacencies to leaf-2-1, leaf-2-2, and leaf-2-3, 
 which are the three leaf nodes in pod-2.
 
+### Leaf-2-1
 
-@@@ CONTINUE FROM HERE @@@
-
-Since leaf-1-2 can reach leaf-1-1 over any of the three spine nodes in pod-1, leaf-1-2 only
-has a north-bound default route with an ECMP next-hop over spine-1-1, spine-1-2, and spine-1-3.
+On leaf-2-1 all adjacencies are also up:
 
 <pre>
-leaf-1-2> <b>show route</b>
-IPv4 Routes:
-+-----------+-----------+-----------------------------+
-| Prefix    | Owner     | Next-hops                   |
-+-----------+-----------+-----------------------------+
-| 0.0.0.0/0 | North SPF | veth-1002a-101b 99.7.8.8    |
-|           |           | veth-1002b-102b 99.9.10.10  |
-|           |           | veth-1002c-103b 99.11.12.12 |
-+-----------+-----------+-----------------------------+
-
-IPv6 Routes:
-+--------+-----------+-------------------------------------------+
-| Prefix | Owner     | Next-hops                                 |
-+--------+-----------+-------------------------------------------+
-| ::/0   | North SPF | veth-1002a-101b fe80::f0d0:f7ff:fe9a:3c1c |
-|        |           | veth-1002b-102b fe80::c038:98ff:fe9b:1499 |
-|        |           | veth-1002c-103b fe80::38ac:10ff:fe48:310f |
-+--------+-----------+-------------------------------------------+
+leaf-2-1> <b>show interfaces</b>
++-----------+-------------------+-----------+-----------+
+| Interface | Neighbor          | Neighbor  | Neighbor  |
+| Name      | Name              | System ID | State     |
++-----------+-------------------+-----------+-----------+
+| if-1004a  | spine-2-1:if-104a | 104       | THREE_WAY |
++-----------+-------------------+-----------+-----------+
+| if-1004b  | spine-2-2:if-105a | 105       | THREE_WAY |
++-----------+-------------------+-----------+-----------+
+| if-1004c  | spine-2-3:if-106a | 106       | THREE_WAY |
++-----------+-------------------+-----------+-----------+
 </pre>
 
-We do not see any /32 routes on leaf-1-2 because there is no disaggregation happening.
+Leaf-2-1 has a single north-bound default (actually one for IPv4 and one for IPv6) that sprays
+all traffic over all three spine nodes in pod-2:
 
-## After breaking the link: positive disaggregation occurs
+<pre>
+leaf-2-1> <b>show route</b>
+IPv4 Routes:
++-----------+-----------+------------------------+
+| Prefix    | Owner     | Next-hops              |
++-----------+-----------+------------------------+
+| 0.0.0.0/0 | North SPF | if-1004a 172.31.15.176 |
+|           |           | if-1004b 172.31.15.176 |
+|           |           | if-1004c 172.31.15.176 |
++-----------+-----------+------------------------+
+
+IPv6 Routes:
++--------+-----------+----------------------------------+
+| Prefix | Owner     | Next-hops                        |
++--------+-----------+----------------------------------+
+| ::/0   | North SPF | if-1004a fe80::84a:2ff:fe78:2746 |
+|        |           | if-1004b fe80::84a:2ff:fe78:2746 |
+|        |           | if-1004c fe80::84a:2ff:fe78:2746 |
++--------+-----------+----------------------------------+
+</pre>
+
+We do not see any /32 routes on leaf-2-1 because there is no disaggregation happening.
+
+## Breaking the first link
+
+### Spine-1-1
+
+Let's break the first link from spine-1-1 to super-1-1. RIFT-Python offers a handy set command to
+simulate link failures:
+
+<pre>
+spine-1-1> <b>set interface if-101d failure failed</b>
+</pre>
+
+@@@ CONTINUE FROM HERE @@@
 
 We break the link marked in red in the above diagram.
 
