@@ -239,8 +239,8 @@ Negative disaggregation has two advantages relative to positive disaggregation:
 ## Multi-plane fabrics with east-west inter-plane links
 
 We have explained how negative disaggregation works using an unrealisticly simple topology. Now
-let's look at an actual realistic topology, namely the following 3-level multi-plane Clos fabric
-with east-west inter-plane links:
+let's look at an actual realistic real-life topology, namely the following 3-level multi-plane Clos
+fabric with east-west inter-plane links:
 
 ![Multi-Plane Topology Diagram](https://s3-us-west-2.amazonaws.com/brunorijsman-public/diagram_clos_3plane_3pod_3leaf_3spine_6super.png)
 
@@ -256,27 +256,100 @@ mouthful. Let's take that apart to see what it really means:
    equivalent 3-dimensional diagram below. In this 3D diagram we have a blue, a brown, and a green
    plane.
 
- * **with east-west interplane links**:
-
+ * **with east-west interplane links**: This means that the superspine routers in different planes
+   are connected to each other using east-west links. (These links are not shown in the 3D diagram
+   further below.) The east-west links between the superspine routers are only used for RIFT
+   control-plane messages (LIE, TIE, TIRE, and TIDE messages) and not for data-plane traffic.
+   In general these east-west inter-plane links are not mandatory, but the negative disaggregation
+   feature only works if these links are present.
 
 ![3D Planes](https://brunorijsman-public.s3-us-west-2.amazonaws.com/diagram-rift-3d-planes.png)
 
+## The failure scenario
 
+We will study the following failure scenario: 
+we will break both north-bound links from router spine-1-1.
+This causes pod-1 to become completely disconnected from plane-1.
 
-We will complete disconnect plane-1 from pod-1 by breaking both links marked with red crosses.
-This will cause plane-1 to send negative disaggregation routes for pod-1 to the other pods pod-2
-and pod-3.
+When any leaf router in pod-1 (i.e. leaf-1-1, leaf-1-2, or leaf-1-3) wants to send any traffic
+to any other pod (i.e. pod-2 or pod-3) it cannot send the traffic via plane-1 and hence also not
+via spine-1-1.
+Instead, the traffic must go via plane-2 (and hence spine-1-2) or via plane-3 (and hence spine-1-3).
+
+## Generating and starting the topology
+
+Let's actually run the above topology in RIFT-Python and discover how negative disaggregation
+recovers from the failure.
+
+Although the topology is quite complex, it is almost trivial to run it in RIFT-Python.
+
+The meta-topology file `meta_topology/clos_3plane_3pod_3leaf_3spine_6super.yaml` contains the
+following extremely succint description of the topology:
+
+<pre>
+nr-pods: 3
+nr-leaf-nodes-per-pod: 3
+nr-spine-nodes-per-pod: 3
+nr-superspine-nodes: 6
+nr-planes: 3
+</pre>
+
+We use the configuration generator to convert this meta-topology into a topology file named
+`generated.yaml`.
+
+<pre>
+(env) $ <b>tools/config_generator.py meta_topology/clos_3plane_3pod_3leaf_3spine_6super.yaml generated.yaml</b>
+</pre>
+
+Note: you can use the `-g` command-line option to also generate a diagram of the topology called
+`diagram.html` that you can open using any web browser (this is how we produced the above diagram):
+
+<pre>
+(env) $ <b>tools/config_generator.py -g diagram.hml meta_topology/clos_3plane_3pod_3leaf_3spine_6super.yaml generated.yaml</b>
+</pre>
+
+Once the topology file is generated, you can start it in RIFT-Python as follows:
+
+<pre>
+(env) $ <b>python rift -i generated.yaml</b>
+leaf-1-1>
+</pre>
+
+You can see that all the expected routers are present:
+
+<pre>
+leaf-1-1> <b>show nodes</b>
++-----------+--------+---------+
+| Node      | System | Running |
+| Name      | ID     |         |
++-----------+--------+---------+
+| leaf-1-1  | 1001   | True    |
++-----------+--------+---------+
+| leaf-1-2  | 1002   | True    |
++-----------+--------+---------+
+.           .        .         .
+.           .        .         .
++-----------+--------+---------+
+| super-3-1 | 5      | True    |
++-----------+--------+---------+
+| super-3-2 | 6      | True    |
++-----------+--------+---------+
+</pre>
+
+Note: this is a large and complex topology. My MacBook (not a Pro) laptop is too feeble to run it.
+Instead, I hrun it on an m5a-large AWS instance.
 
 ## Before breaking the link: no positive disaggregation occurs
 
-Let us first look at the network before we break the red links and before any negative
-disaggregation happens.
+Before we start breaking links and before we have a look at negative disaggregation in action,
+let's just spend a few minutes looking around in the topology.
 
 ### Super-1-1
 
 On super-1-1 all adjacencies are up:
 
 <pre>
+leaf-1-1> <b>set node super-1-1</b>
 super-1-1> <b>show interfaces</b>
 +-----------+-------------------+-----------+-----------+
 | Interface | Neighbor          | Neighbor  | Neighbor  |
@@ -300,6 +373,9 @@ first spines in pod-1, pod-2, and pod-3 respectively.
 Additionally, super-1-1 has two east-west adjacencies to super-2-1 and super-3-1, which are the 
 first superspines in plane-2 and plane-3 respectively. This forms one of the two interplane
 east-west loops.
+
+Note: from now on, we will omit the `set node ...` commands and expect you to navigate to the
+correct router yourself.
 
 ### Spine-2-1
 
@@ -328,9 +404,6 @@ nodes in plane-1.
 
 Additionally, spine-2-1 has three south-bound adjacencies to leaf-2-1, leaf-2-2, and leaf-2-3, 
 which are the three leaf nodes in pod-2.
-
-
-
 
 
 @@@ CONTINUE FROM HERE @@@
