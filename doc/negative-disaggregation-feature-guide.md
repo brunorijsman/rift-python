@@ -1,6 +1,3 @@
-
-*** WORK IN PROGRESS ***
-
 # Negative Disaggregation Feature Guide
 
 ## Innovations in disaggregation
