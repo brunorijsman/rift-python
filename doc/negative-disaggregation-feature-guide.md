@@ -1101,6 +1101,187 @@ super-1-2> <b>show tie-db direction south originator 2 tie-type neg-dis-prefix</
 +-----------+------------+----------------+--------+--------+----------+-----------------------------+
 </pre>
 
+### Spine-1-2
 
+We are off to a good start, but the journey to fully undestanding negative disaggregation still
+has a ways to go.
 
-We are off to a good start, but 
+Let's move over to spine-1-2 and see how it processed the negative disaggregation TIE that it
+received from super-1-2.
+
+First of all, we need to confirm that spine-1-2 indeed received the negative disaggregation TIE.
+A quick look at the TIE database shows that indeed it did:
+
+<pre>
+spine-2-1> <b>show tie-db direction south originator 2 tie-type neg-dis-prefix</b>
++-----------+------------+----------------+--------+--------+----------+-----------------------------+
+| Direction | Originator | Type           | TIE Nr | Seq Nr | Lifetime | Contents                    |
++-----------+------------+----------------+--------+--------+----------+-----------------------------+
+| South     | 2          | Neg-Dis-Prefix | 5      | 1      | 604696   | Neg-Dis-Prefix: 88.0.1.1/32 |
+|           |            |                |        |        |          |   Metric: 2147483647        |
+|           |            |                |        |        |          | Neg-Dis-Prefix: 88.0.2.1/32 |
+|           |            |                |        |        |          |   Metric: 2147483647        |
+|           |            |                |        |        |          | Neg-Dis-Prefix: 88.0.3.1/32 |
+|           |            |                |        |        |          |   Metric: 2147483647        |
++-----------+------------+----------------+--------+--------+----------+-----------------------------+
+</pre>
+
+These negative disaggregation TIEs are used in the SPF calculation to compute paths to
+"negative destinations":
+
+<pre>
+spine-2-1> <b>show spf direction north</b>
+North SPF Destinations:
++----------------------+------------+---------+-------------+------+--------------+-----------------------+---------------------------------+
+| Destination          | Cost       | Is Leaf | Predecessor | Tags | Disaggregate | IPv4 Next-hops        | IPv6 Next-hops                  |
+|                      |            |         | System IDs  |      |              |                       |                                 |
++----------------------+------------+---------+-------------+------+--------------+-----------------------+---------------------------------+
+| 1 (super-1-1)        | 1          | False   | 104         |      |              | if-104d 172.31.15.176 | if-104d fe80::84a:2ff:fe78:2746 |
++----------------------+------------+---------+-------------+------+--------------+-----------------------+---------------------------------+
+| 2 (super-1-2)        | 1          | False   | 104         |      |              | if-104e 172.31.15.176 | if-104e fe80::84a:2ff:fe78:2746 |
++----------------------+------------+---------+-------------+------+--------------+-----------------------+---------------------------------+
+| 104 (spine-2-1)      | 0          | False   |             |      |              |                       |                                 |
++----------------------+------------+---------+-------------+------+--------------+-----------------------+---------------------------------+
+| 0.0.0.0/0            | 2          | False   | 1           |      |              | if-104d 172.31.15.176 | if-104d fe80::84a:2ff:fe78:2746 |
+|                      |            |         | 2           |      |              | if-104e 172.31.15.176 | if-104e fe80::84a:2ff:fe78:2746 |
++----------------------+------------+---------+-------------+------+--------------+-----------------------+---------------------------------+
+| 88.1.4.1/32          | 1          | False   | 104         |      |              |                       |                                 |
++----------------------+------------+---------+-------------+------+--------------+-----------------------+---------------------------------+
+| ::/0                 | 2          | False   | 1           |      |              | if-104d 172.31.15.176 | if-104d fe80::84a:2ff:fe78:2746 |
+|                      |            |         | 2           |      |              | if-104e 172.31.15.176 | if-104e fe80::84a:2ff:fe78:2746 |
++----------------------+------------+---------+-------------+------+--------------+-----------------------+---------------------------------+
+| 88.0.1.1/32 (Disagg) | 2147483647 | False   | 1           |      | Negative     | if-104d 172.31.15.176 | if-104d fe80::84a:2ff:fe78:2746 |
+|                      |            |         | 2           |      |              | if-104e 172.31.15.176 | if-104e fe80::84a:2ff:fe78:2746 |
++----------------------+------------+---------+-------------+------+--------------+-----------------------+---------------------------------+
+| 88.0.2.1/32 (Disagg) | 2147483647 | False   | 1           |      | Negative     | if-104d 172.31.15.176 | if-104d fe80::84a:2ff:fe78:2746 |
+|                      |            |         | 2           |      |              | if-104e 172.31.15.176 | if-104e fe80::84a:2ff:fe78:2746 |
++----------------------+------------+---------+-------------+------+--------------+-----------------------+---------------------------------+
+| 88.0.3.1/32 (Disagg) | 2147483647 | False   | 1           |      | Negative     | if-104d 172.31.15.176 | if-104d fe80::84a:2ff:fe78:2746 |
+|                      |            |         | 2           |      |              | if-104e 172.31.15.176 | if-104e fe80::84a:2ff:fe78:2746 |
++----------------------+------------+---------+-------------+------+--------------+-----------------------+---------------------------------+
+</pre>
+
+These negative destinations are subsequently installed in the routing information base (RIB)
+as negative next-hops for routes:
+
+<pre>
+spine-2-1> <b>show routes family ipv4</b>
+IPv4 Routes:
++-------------+-----------+--------------------------------+
+| Prefix      | Owner     | Next-hops                      |
++-------------+-----------+--------------------------------+
+| 0.0.0.0/0   | North SPF | if-104d 172.31.15.176          |
+|             |           | if-104e 172.31.15.176          |
++-------------+-----------+--------------------------------+
+| 88.0.1.1/32 | North SPF | Negative if-104d 172.31.15.176 |
+|             |           | Negative if-104e 172.31.15.176 |
++-------------+-----------+--------------------------------+
+| 88.0.2.1/32 | North SPF | Negative if-104d 172.31.15.176 |
+|             |           | Negative if-104e 172.31.15.176 |
++-------------+-----------+--------------------------------+
+| 88.0.3.1/32 | North SPF | Negative if-104d 172.31.15.176 |
+|             |           | Negative if-104e 172.31.15.176 |
++-------------+-----------+--------------------------------+
+| 88.0.4.1/32 | South SPF | if-104a 172.31.15.176          |
++-------------+-----------+--------------------------------+
+| 88.0.5.1/32 | South SPF | if-104b 172.31.15.176          |
++-------------+-----------+--------------------------------+
+| 88.0.6.1/32 | South SPF | if-104c 172.31.15.176          |
++-------------+-----------+--------------------------------+
+</pre>
+
+As explained earlier in this feature guide, negative nexthops are a control-plane abstraction
+that doesn't exist in the formarding plane.
+
+Thus, when the RIB routes are installed into the forwarding information base (FIB), these
+negative nexthops need to be installed into equivalent complementary positive nexthops. Let's
+see what we ended up with:
+
+<pre>
+spine-2-1> <b>show forwarding family ipv4</b>
+IPv4 Routes:
++-------------+-----------------------+
+| Prefix      | Next-hops             |
++-------------+-----------------------+
+| 0.0.0.0/0   | if-104e 172.31.15.176 |
+|             | if-104d 172.31.15.176 |
++-------------+-----------------------+
+| 88.0.1.1/32 |                       |
++-------------+-----------------------+
+| 88.0.2.1/32 |                       |
++-------------+-----------------------+
+| 88.0.3.1/32 |                       |
++-------------+-----------------------+
+| 88.0.4.1/32 | if-104a 172.31.15.176 |
++-------------+-----------------------+
+| 88.0.5.1/32 | if-104b 172.31.15.176 |
++-------------+-----------------------+
+| 88.0.6.1/32 | if-104c 172.31.15.176 |
++-------------+-----------------------+
+</pre>
+
+Whoa! The negatively disaggregated routes in the forwarding table don't have any nexthops!
+This means that they are effectively discard routes.
+
+That is actually exactly what we expected. This is because spine-2-1 received negatively 
+disaggregated routes for the leaves in pod-1 from all superspine routers in plane 1 (i.e.
+from both super-1-1 and super-1-2):
+
+<pre>
+spine-2-1> <b>show tie-db direction south</b>
++-----------+------------+----------------+--------+--------+----------+-----------------------------+
+| Direction | Originator | Type           | TIE Nr | Seq Nr | Lifetime | Contents                    |
++-----------+------------+----------------+--------+--------+----------+-----------------------------+
+.           .            .                .        .        .          .                             .
++-----------+------------+----------------+--------+--------+----------+-----------------------------+
+| South     | 1          | Neg-Dis-Prefix | 5      | 1      | 604153   | Neg-Dis-Prefix: 88.0.1.1/32 |
+|           |            |                |        |        |          |   Metric: 2147483647        |
+|           |            |                |        |        |          | Neg-Dis-Prefix: 88.0.2.1/32 |
+|           |            |                |        |        |          |   Metric: 2147483647        |
+|           |            |                |        |        |          | Neg-Dis-Prefix: 88.0.3.1/32 |
+|           |            |                |        |        |          |   Metric: 2147483647        |
++-----------+------------+----------------+--------+--------+----------+-----------------------------+
+.           .            .                .        .        .          .                             .
++-----------+------------+----------------+--------+--------+----------+-----------------------------+
+| South     | 2          | Neg-Dis-Prefix | 5      | 1      | 604156   | Neg-Dis-Prefix: 88.0.1.1/32 |
+|           |            |                |        |        |          |   Metric: 2147483647        |
+|           |            |                |        |        |          | Neg-Dis-Prefix: 88.0.2.1/32 |
+|           |            |                |        |        |          |   Metric: 2147483647        |
+|           |            |                |        |        |          | Neg-Dis-Prefix: 88.0.3.1/32 |
+|           |            |                |        |        |          |   Metric: 2147483647        |
++-----------+------------+----------------+--------+--------+----------+-----------------------------+
+.           .            .                .        .        .          .                             .
++-----------+------------+----------------+--------+--------+----------+-----------------------------+
+| South     | 104        | Neg-Dis-Prefix | 5      | 1      | 604157   | Neg-Dis-Prefix: 88.0.1.1/32 |
+|           |            |                |        |        |          |   Metric: 2147483647        |
+|           |            |                |        |        |          | Neg-Dis-Prefix: 88.0.2.1/32 |
+|           |            |                |        |        |          |   Metric: 2147483647        |
+|           |            |                |        |        |          | Neg-Dis-Prefix: 88.0.3.1/32 |
+|           |            |                |        |        |          |   Metric: 2147483647        |
++-----------+------------+----------------+--------+--------+----------+-----------------------------+
+.           .            .                .        .        .          .                             .
++-----------+------------+----------------+--------+--------+----------+-----------------------------+
+</pre>
+
+But wait, there is more. In addition to the Neg-Dis-Prefix TIEs from super-1-1 (system ID 1)
+and super-1-2 (system ID 2), we see another Neg-Dis-Prefix TIE from spine-2-1 (system ID 104)
+itself.
+
+What we see here is the rule for propagating negatively disaggregated prefix TIEs in action.
+The rule is: if, for a given prefix, a router receives negatively disaggregated prefix TIEs
+from _all_ its parent routers, then it should reoriginate a negatively disaggregated prefix TIE
+for that prefix.
+
+Why is that? Well we already saw that spine-2-1 installed a discard route for those prefixes.
+Thus, it makes only sense that spine-2-1 announces to its south-bound neighbors that it is unable
+to reach that prefix.
+
+### Spine-2-2
+
+Let's quickly pop over to spine-2-2 and look at it's route table. Here everything is normal;
+we only have normal positive nexthops and no negative disaggregation going one. This is a reflection
+of the fact that all pods are fully reachable via plane-2.
+
+<pre>
+
+</pre>
