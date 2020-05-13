@@ -2,12 +2,14 @@
 
 ## Innovations in disaggregation
 
-Automatic disaggregation and negative disaggregation are two of the most novel and most interesting
-innovations in the Routing In Fat Trees (RIFT) protocol.
-
-Negative disaggregation is very closely related to positive disaggregation which is briefly
-mentioned in this feature guide and which is described in far greater detail in [its own feature
-guide](doc/positive-disaggregation-feature-guide.md).
+Automatic disaggregation is one of the most novel and most interesting innovations in the Routing
+In Fat Trees (RIFT) protocol.
+There are actually two flavors of disaggregation in RIFT: positive disaggregation and negative
+disaggregation.
+The focus of this feature guide is negative disaggregation, but since it is closely related
+to positive disaggregation, we also briefly cover positive disaggregation.
+Positive disaggregation is discussed in greater detail in 
+[its own feature guide](doc/positive-disaggregation-feature-guide.md).
 
 One of the best known characteristics of RIFT is that it is a link-state protocol north-bound and
 a distance-vector protocol south-bound. 
