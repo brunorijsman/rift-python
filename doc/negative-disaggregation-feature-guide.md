@@ -81,7 +81,7 @@ should be avoided. This is particularly useful in topologies that have massive E
 Clos topologies. Consider a route that has 64-way ECMP, which is not uncommon in large datacenter
 topologies. Now consider that one of the 64 paths fails. With positive disaggregation, we would
 advertise 63 more specific routes to the remaining feasily paths. With negative disaggregation,
-we would only advertise one single more specific (negative) route to the single path to be
+we would only advertise one single more specific (negative) route reporting the single path to be
 avoided.
 
 To summarize: disaggregation per-se is not novel in RIFT; disaggregation already existed in
