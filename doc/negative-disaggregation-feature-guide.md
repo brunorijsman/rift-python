@@ -33,6 +33,8 @@ and we treat a 3-layer topology as a synonym for a 5-stage topology.
 
 Automatic disaggregation (either the positive or the negative flavor) is what allows RIFT to get
 away with only using default routes for north-bound traffic.
+The word disaggregate is simply a fancy word for using a more specific route instead of the default
+route.
 
 If there are no failures (no broken links and no broken nodes) anywhere in the topology, then
 default routes are just fine.
@@ -50,8 +52,7 @@ and use certain alternative parents instead.
 That sentence was intentionally vague:
 
  * Which destination prefixes exactly must follow a special path and cannot follow the default
-   route? In other words, which destination prefixes must be disaggregated? The word disaggregate
-   is simply a fancy word for using a more specific route instead of the default route.
+   route? In other words, which destination prefixes must be disaggregated? 
 
  * For those disaggregated routes, which subset of parent next-hops should these disaggregated
    routes avoid? This is the question that negative disaggregation answers.
