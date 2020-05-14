@@ -753,7 +753,7 @@ North SPF Destinations:
 +----------------------+------+---------+-------------+------+--------------+-----------------------+---------------------------------+
 </pre>
 
-And finally spine-3-1 installs routes to the positively disaggregated prefixes in the
+And finally spine-3-1 installs routes to the positive disaggregate prefixes in the
 routing information base (RIB):
 
 <pre>
@@ -1232,7 +1232,7 @@ IPv4 Routes:
 +-------------+-----------------------+
 </pre>
 
-Whoa! The negatively disaggregated routes in the forwarding table don't have any nexthops!
+Whoa! The negative disaggregate routes in the forwarding table don't have any nexthops!
 This means that they are effectively discard routes.
 
 That is actually exactly what we expected. This is because spine-2-1 received negatively 
@@ -1279,9 +1279,9 @@ But wait, there is more. In addition to the Neg-Dis-Prefix TIEs from super-1-1 (
 and super-1-2 (system ID 2), we see another Neg-Dis-Prefix TIE from spine-2-1 (system ID 104)
 itself.
 
-What we see here is the rule for propagating negatively disaggregated prefix TIEs in action.
-The rule is: if, for a given prefix, a node receives negatively disaggregated prefix TIEs
-from _all_ its parent nodes, then it should reoriginate a negatively disaggregated prefix TIE
+What we see here is the rule for propagating negative disaggregate prefix TIEs in action.
+The rule is: if, for a given prefix, a node receives negative disaggregate prefix TIEs
+from _all_ its parent nodes, then it should reoriginate a negative disaggregate prefix TIE
 for that prefix.
 
 Why is that? Well we already saw that spine-2-1 installed a discard route for those prefixes.
