@@ -237,6 +237,9 @@ Steps 1 and 2 bring leaf-1 to the point that it realizes that there exists some 
 that it should be able to reach but that it can not actually reach. We described one particular
 mechanism, but later on we see a different mechanism for multi-plane topologies.
 
+In step 6, there are some special rules to deal with the interaction between positive and
+negative disaggregation that we skip here for the sake of simplicity.
+
 Negative disaggregation has two advantages relative to positive disaggregation:
 
  1. It is simpler in the sense that it greatly reduces the amount of routes that have to be
