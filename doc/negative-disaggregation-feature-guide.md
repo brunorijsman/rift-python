@@ -210,7 +210,7 @@ Negative disaggregation recovers from this failure as follows:
     for this prefix to me. If you have another route to this same prefix that avoids me, use it,
     even if that other route is less specific, e.g. the default route."
 
- 5. When the leaf nodes receive such a negative disaggregation route, this install it as a
+ 5. When the leaf nodes receive such a negative disaggregation route, it installs it as a
     special route in the routing information base (RIB) with negative next-hops.
  
  6. This concept of a negative next-hop is a pure control-plane abstraction. In current forwarding
