@@ -20,7 +20,13 @@ and only default 0.0.0.0/0 and ::0/0 routes for all north-bound traffic.
 The following figure shows typical RIFT route tables in a small 3-level fat tree topology.
 The leaf nodes contain only a single north-bound default route. The superspine nodes contain
 only host-specific south-bound routes. And the spine nodes contain a mixture.
-(Note that the term node is synonymous with router or layer 3 switch.)
+
+A quick note on terminology before we proceed. In this document we use term node as a synonym for
+router or layer 3 switch. And we use terms leaf, spine, and superspine for the layers
+of nodes in a 3-layer fat tree topology. In a 3-layer topology, a superspine node is also known as
+a top-of-fabric node, and a a spine node is also known as a a top-of-pod node (where pod stands
+for point-of-deployment). Finally, we treat a fat tree topology as a synonym for a Clos topology,
+and we treat a 3-layer topology as a synonym for a 5-stage topology.
 
 ![RIFT Typical Route Tables](https://brunorijsman-public.s3-us-west-2.amazonaws.com/diagram-rift-typical-route-tables.png)
 
@@ -249,7 +255,7 @@ The description "3-level multi-plane Clos fabric with east-west inter-plane link
 mouthful. Let's take that apart to see what it really means:
 
  * **3-level**: There are 3 levels in the topology: leaf nodes, spine nodes, and superspine
-   nodes (also known as top-of-fabric nodes).
+   nodes.
 
  * **multi-plane**: The superspine nodes are devided into multiple indendent "planes". This
    is typically done when the superspine nodes don't have enough ports to connect to each
