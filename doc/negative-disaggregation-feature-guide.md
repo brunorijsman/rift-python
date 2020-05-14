@@ -37,8 +37,10 @@ guide and spend a few minutes to convince yourself that this is indeed a true st
 
 However, we have to consider the unhappy scenario as well. What if one or more links or nodes
 are down? In this case a simple default route for all north-bound traffic is not going to work.
-The traffic for certain destinations must avoid certain parents, and use certain alternative
-parents instead. I intentionally wrote that previous sentence to sound very vague:
+To prevent blackholing, the traffic for certain destinations must avoid certain parents,
+and use certain alternative parents instead.
+
+That sentence was intentionally vague:
 
  * Which destination prefixes exactly must follow a special path and cannot follow the default
    route? In other words, which destination prefixes must be disaggregated? The word disaggregate
@@ -50,7 +52,7 @@ parents instead. I intentionally wrote that previous sentence to sound very vagu
  * Or equivalently, you might ask: which subset of alternative parent next-hops should these
    disaggregated routes use instead? This is the question that positive disaggregation answers.
 
-It is complex to answer these questions. The answer depends on the topology of the network, where
+The answer to these questions is complex. It depends on the topology of the network, where
 the prefixes are located in the network, and which links and nodes have failed at any particular
 moment in time.
 
