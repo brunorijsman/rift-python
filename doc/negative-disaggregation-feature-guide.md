@@ -67,8 +67,9 @@ into the routing tables of the nodes where they are needed.
 
 As far as I know, no other widely used protocol (OSPF, ISIS, BGP, ...)
 is able to automatically disaggregate routes to re-route traffic around failures. 
-Some support _manual_ disaggregation, but not _automatic_. For that reason, those protocol tend to use specific /32 and /128 routes for both south-bound and north-bound traffic in
-Clos topologies.
+Some support _manual_ disaggregation, but not _automatic_. 
+Existing protocols tend to flood /32 and /128 host prefixes across the whole fabric,
+in both the north-bound and south-bound direction.
 
 On top of that, as far as I know, prior to RIFT no protocol supported the concept of _negative_
 disaggregation. In protocols prior to RIFT all disaggregation was _positive_. If traffic to a
