@@ -20,21 +20,22 @@ and only default 0.0.0.0/0 and ::0/0 routes for all north-bound traffic.
 The following figure shows typical RIFT route tables in a small 3-level fat tree topology.
 The leaf nodes contain only a single north-bound default route. The superspine nodes contain
 only host-specific south-bound routes. And the spine nodes contain a mixture.
+(Note that the term node is synonymous with router or layer 3 switch.)
 
 ![RIFT Typical Route Tables](https://brunorijsman-public.s3-us-west-2.amazonaws.com/diagram-rift-typical-route-tables.png)
 
 Automatic disaggregation (either the positive or the negative flavor) is what allows RIFT to get
 away with only using default routes for north-bound traffic.
 
-If there are no failures (no broken links and no broken routers) anywhere in the topology, then
+If there are no failures (no broken links and no broken nodes) anywhere in the topology, then
 default routes are just fine.
-Each router can just "spray" all north-bound traffic accross all parent routers using a equal cost
+Each node can just "spray" all north-bound traffic accross all parent nodes using a equal cost
 multi-path (ECMP) default route. The Clos topology guarantees that (in the absence of failures)
-it doesn't matter which parent router is chosen. Any parent router is able to reach the final
-destination at the same cost as any other parent router. Have a look at the topologies in this
+it doesn't matter which parent nodes is chosen. Any parent node is able to reach the final
+destination at the same cost as any other parent node. Have a look at the topologies in this
 guide and spend a few minutes to convince yourself that this is indeed a true statement.
 
-However, we have to consider the unhappy scenario as well. What if one or more links or routers
+However, we have to consider the unhappy scenario as well. What if one or more links or nodes
 are down? In this case a simple default route for all north-bound traffic is not going to work.
 The traffic for certain destinations must avoid certain parents, and use certain alternative
 parents instead. I intentionally wrote that previous sentence to sound very vague:
@@ -50,17 +51,17 @@ parents instead. I intentionally wrote that previous sentence to sound very vagu
    disaggregated routes use instead? This is the question that positive disaggregation answers.
 
 It is complex to answer these questions. The answer depends on the topology of the network, where
-the prefixes are located in the network, and which links and routers have failed at any particular
+the prefixes are located in the network, and which links and nodes have failed at any particular
 moment in time.
 
 This is exactly the magical leap that RIFT took. It answers this question in a completely automated
 manner without the need for any manual a-priori configuration or any manual intervention when a
 failure occurs. In the absence of a failure, RIFT only installs ECMP default routes for all
-north-bound traffic. RIFT automatically detects link and router failures. When one or more failures
+north-bound traffic. RIFT automatically detects link and node failures. When one or more failures
 occur, RIFT automatically decides which prefixes need to be disaggregated, whether positive or
 negative disaggregation should be used, automatically floods the disaggregated routes to those
 parts of the network where they are needed, and automatically installs the disaggregated routes
-into the routing tables of the routers where they are needed.
+into the routing tables of the nodes where they are needed.
 
 As far as I know, no other widely used protocol has taken this leap. Neither OSPF nor ISIS nor BGP
 nor any other widely deployed protocol is able to automatically disaggregate routes to re-route
@@ -94,8 +95,8 @@ Consider the following toy example topology.
 
 We are interested in how traffic gets from leaf-1 to leaf-3.
 
-In the absence of failures, each spine router advertises a default route to each leaf router.
-Each leaf router, including leaf-1, ends up with a single ECMP default route that sprays
+In the absence of failures, each spine node advertises a default route to each leaf node.
+Each leaf node, including leaf-1, ends up with a single ECMP default route that sprays
 all traffic over all three spines.
 
 Make a mental note of the fact that the traffic from leaf-1 to leaf-3 is spread equally across
@@ -126,31 +127,31 @@ Positive disaggregation deals with this situation as follows:
     wants to send traffic to leaf-3, they better not give it to leaf-1 because leaf-1 will blackhole
     that traffic."
  
- 3. Spine-2, being a helpful and altruistic router thinks: "I must warn all the leaf routers! I
+ 3. Spine-2, being a helpful and altruistic node thinks: "I must warn all the leaf nodes! I
     must tell them that if they have any traffic to send to leaf-3, they better not give it to
     spine-1, but it is okay to give it to me!"
 
- 4. How does spine-2 warn the other routers? By advertising a host-specific 2.0.0.3/32 route for
-    leaf-3 to all leaf routers.
+ 4. How does spine-2 warn the other nodes? By advertising a host-specific 2.0.0.3/32 route for
+    leaf-3 to all leaf nodes.
     This route is called a positive disaggregation route.
     It is a /32 host route, whichis more specific than the /0 default route.
     Hence, all leaf routes will send traffic to leaf-3 via spine-2. Traffic for leaf-1 and leaf-2
-    still follows the default route and is ECMP'ed across all three spine routers.
+    still follows the default route and is ECMP'ed across all three spine nodes.
  
- 5. Router spine-3 independently goes through the exact sequence of steps as spine-2: it also
+ 5. Node spine-3 independently goes through the exact sequence of steps as spine-2: it also
     advertises a host-specific route 2.0.0.3/32 for leaf-3.
 
- 6. After everything has converged, the leaf routers will end up with an ECMP 2.0.0.3/32 route
+ 6. After everything has converged, the leaf nodes will end up with an ECMP 2.0.0.3/32 route
     for leaf-3 that ECMP's the traffic across spine-2 and spine-3 (but not spine-1).
 
-Note that step 5 takes place independently and asynchronously on each spine routers.
+Note that step 5 takes place independently and asynchronously on each spine nodes.
 Thus, as the positive disaggregation process is converging, the host-specific positive disaggregate
 route starts out with a single next-hop, then two ECMP next-hop, until it finally ends up with N-1
-ECMP next-hops where N is the number of spine routers.
+ECMP next-hops where N is the number of spine nodes.
 
-This can be a problem. The traffic that used to be spread out over N routers is temporarily 
-concentrated on a single spine router, then two spine routers, until it is finally spread out
-again over N-1 spine routers. This is referred to as the "transitory incast" problem. Later we will
+This can be a problem. The traffic that used to be spread out over N nodes is temporarily 
+concentrated on a single spine node, then two spine nodes, until it is finally spread out
+again over N-1 spine nodes. This is referred to as the "transitory incast" problem. Later we will
 see how negative disaggregation avoids this problem.
 
 ### Negative disaggregation
@@ -190,18 +191,18 @@ Negative disaggregation recovers from this failure as follows:
     reach leaf-3. If anyone wants to send traffic to leaf-3 they better not give it me because I
     will blackhole it."
 
- 3. Spine-1, also being a helpful and altruistic router thinks: "I must warn all the leaf routers!
-    Evidently somewhere out there, there is this leaf-3 router, but I don't know how to get to it.
+ 3. Spine-1, also being a helpful and altruistic node thinks: "I must warn all the leaf nodes!
+    Evidently somewhere out there, there is this leaf-3 node, but I don't know how to get to it.
     I must warn everyone not to send any traffic for leaf-3 to me."
 
- 4. How does spine-1 warn the other routers? By advertising a special kind of 
+ 4. How does spine-1 warn the other nodes? By advertising a special kind of 
     host-specific 2.0.0.3/32 route for
-    leaf-3 to all leaf routers.
+    leaf-3 to all leaf nodes.
     This route is called a negative disaggregation route.
     Such a negative route has a very special meaning: it means "Please do _not_ send traffic
     for this prefix to me. If you have another route to this same prefix that avoids me, even if
 
- 5. When the leaf routers receive such a negative disaggregation route, this install it as a
+ 5. When the leaf nodes receive such a negative disaggregation route, this install it as a
     special route in the routing information base (RIB) with negative next-hops.
  
  6. This concept of a negative next-hop is a pure control-plane abstraction. In current forwarding
@@ -227,8 +228,8 @@ mechanism, but later on we see a different mechanism for multi-plane topologies.
 Negative disaggregation has two advantages relative to positive disaggregation:
 
  1. It is simpler in the sense that it greatly reduces the amount of routes that have to be
-    advertised to recover from a failure. Instead of N-1 routers having to advertise a positive
-    disaggregate route, only 1 router has to advertise a negative disaggregate route.
+    advertised to recover from a failure. Instead of N-1 nodes having to advertise a positive
+    disaggregate route, only 1 node has to advertise a negative disaggregate route.
  
  2. For this exact same reason, negative disaggregation avoids the transitory incast problem that
     we described above.
@@ -246,18 +247,18 @@ fabric with east-west inter-plane links:
 The description "3-level multi-plane Clos fabric with east-west inter-plane links" is quite a
 mouthful. Let's take that apart to see what it really means:
 
- * **3-level**: There are 3 levels in the topology: leaf routers, spine routers, and superspine
-   routers (also known as top-of-fabric routers).
+ * **3-level**: There are 3 levels in the topology: leaf nodes, spine nodes, and superspine
+   nodes (also known as top-of-fabric nodes).
 
- * **multi-plane**: The superspine routers are devided into multiple indendent "planes". This
-   is typically done when the superspine routers don't have enough ports to connect to each
-   spine router. The reason these are called "planes" becomes more clear when you look at the
+ * **multi-plane**: The superspine nodes are devided into multiple indendent "planes". This
+   is typically done when the superspine nodes don't have enough ports to connect to each
+   spine node. The reason these are called "planes" becomes more clear when you look at the
    equivalent 3-dimensional diagram below. In this 3D diagram we have a blue, a brown, and a green
    plane.
 
- * **with east-west interplane links**: This means that the superspine routers in different planes
+ * **with east-west interplane links**: This means that the superspine nodes in different planes
    are connected to each other using east-west links. (These links are not shown in the 3D diagram
-   further below.) The east-west links between the superspine routers are only used for RIFT
+   further below.) The east-west links between the superspine nodes are only used for RIFT
    control-plane messages (LIE, TIE, TIRE, and TIDE messages) and not for data-plane traffic.
    In general these east-west inter-plane links are not mandatory, but the negative disaggregation
    feature only works if these links are present.
@@ -267,10 +268,10 @@ mouthful. Let's take that apart to see what it really means:
 ## The failure scenario
 
 We will study the following failure scenario: 
-we will break both north-bound links from router spine-1-1.
+we will break both north-bound links from node spine-1-1.
 This causes pod-1 to become completely disconnected from plane-1.
 
-When any leaf router in pod-1 (i.e. leaf-1-1, leaf-1-2, or leaf-1-3) wants to send any traffic
+When any leaf node in pod-1 (i.e. leaf-1-1, leaf-1-2, or leaf-1-3) wants to send any traffic
 to any other pod (i.e. pod-2 or pod-3) it cannot send the traffic via plane-1 and hence also not
 via spine-1-1.
 Instead, the traffic must go via plane-2 (and hence spine-1-2) or via plane-3 (and hence spine-1-3).
@@ -314,7 +315,7 @@ Once the topology file is generated, you can start it in RIFT-Python as follows:
 leaf-1-1>
 </pre>
 
-You can see that all the expected routers are present:
+You can see that all the expected nodes are present:
 
 <pre>
 leaf-1-1> <b>show nodes</b>
@@ -374,7 +375,7 @@ first superspines in plane-2 and plane-3 respectively. This forms one of the two
 east-west loops.
 
 Note: from now on, we will omit the `set node ...` commands and expect you to navigate to the
-correct router yourself.
+correct node yourself.
 
 ### Spine-2-1
 
@@ -485,7 +486,7 @@ super-1-1> <b>show interfaces</b>
 
 ### Super-1-2
 
-Router super-1-2, which is the same plane as super-1-1 (namely plane-1) still has all three
+Node super-1-2, which is the same plane as super-1-1 (namely plane-1) still has all three
 adjacencies to spine-1-1, spine-2-1, and spine-3-1:
 
 <pre>
@@ -506,7 +507,7 @@ super-1-2> <b>show interfaces</b>
 +-----------+-------------------+-----------+-----------+
 </pre>
 
-Super-1-2 also has the south-node-TIE from super-1-1, because it was reflected by the spine routers:
+Super-1-2 also has the south-node-TIE from super-1-1, because it was reflected by the spine nodes:
 
 <pre>
 super-1-2> <b>show tie-db direction south originator 1 tie-type node</b>
@@ -559,7 +560,7 @@ super-1-2> <b>show same-level-nodes</b>
 +-----------+-------------+-------------+-------------+
 </pre>
 
-Here we can see that super-1-2 knows that super-1-1 (system ID 1) is another superspone router
+Here we can see that super-1-2 knows that super-1-1 (system ID 1) is another superspone node
 in the same plane, that it has two south-bound adjacencies to spine-2-1 (system ID 104) and
 spine-3-1 (system ID 107), but that it is missing a south-bound adjacency to spine-1-1 (system
 ID 101). This is exactly the same information as what we already concluded from looking directly
@@ -685,7 +686,7 @@ super-1-2> <b>show tie-db direction south originator 2 tie-type pos-dis-prefix</
 
 ### Spine-3-1
 
-Now let's head over to spine-3-1 which is PoD 3's spine router in plane 1.
+Now let's head over to spine-3-1 which is PoD 3's spine node in plane 1.
 
 It has received the positive disaggregation TIE that was originated by super-1-2:
 
@@ -907,7 +908,7 @@ Let's go back to super-1-2, and look at the crucial step for initiating a negati
 disaggregation.
 
 The crucial step is this: super-1-2 must come to the realization that there exists some
-destination prefix that can be reached via other superspine routers, but not via super-1-2 itself.
+destination prefix that can be reached via other superspine nodes, but not via super-1-2 itself.
 
 How does super-1-2 come to this realization? Well, this is where the inter-plane east-west links
 come into play.
@@ -1223,7 +1224,7 @@ Whoa! The negatively disaggregated routes in the forwarding table don't have any
 This means that they are effectively discard routes.
 
 That is actually exactly what we expected. This is because spine-2-1 received negatively 
-disaggregated routes for the leaves in pod-1 from all superspine routers in plane 1 (i.e.
+disaggregated routes for the leaves in pod-1 from all superspine nodes in plane 1 (i.e.
 from both super-1-1 and super-1-2):
 
 <pre>
@@ -1267,8 +1268,8 @@ and super-1-2 (system ID 2), we see another Neg-Dis-Prefix TIE from spine-2-1 (s
 itself.
 
 What we see here is the rule for propagating negatively disaggregated prefix TIEs in action.
-The rule is: if, for a given prefix, a router receives negatively disaggregated prefix TIEs
-from _all_ its parent routers, then it should reoriginate a negatively disaggregated prefix TIE
+The rule is: if, for a given prefix, a node receives negatively disaggregated prefix TIEs
+from _all_ its parent nodes, then it should reoriginate a negatively disaggregated prefix TIE
 for that prefix.
 
 Why is that? Well we already saw that spine-2-1 installed a discard route for those prefixes.
