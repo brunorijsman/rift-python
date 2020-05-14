@@ -78,7 +78,7 @@ specific routes pointing to all remaining feasible equal-cost paths. In contrast
 concept of _negative_ disaggregation: instead of advertising positive more specific routes pointing
 to the more preferred path, it advertises negative more specific routes advertising which paths
 should be avoided. This is particularly useful in topologies that have massive ECMP, such as
-Clos topologies. Consider a route that has 64-way ECMP, which not uncommon in large datacenter
+Clos topologies. Consider a route that has 64-way ECMP, which is not uncommon in large datacenter
 topologies. Now consider that one of the 64 paths fails. With positive disaggregation, we would
 advertise 63 more specific routes to the remaining feasily paths. With negative disaggregation,
 we would only advertise one single more specific (negative) route to the single path to be
