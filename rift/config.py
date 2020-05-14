@@ -33,6 +33,7 @@ SCHEMA = {
             }
         }
     },
+    'disaggregation': {'type': 'disaggregation', 'default': 'positive-and-negative'},
     'shards': {
         'type': 'list',
         'schema': {
@@ -229,6 +230,11 @@ class RiftValidator(cerberus.Validator):
 
     def _validate_type_keyalgorithm(self, value):
         return isinstance(value, str) and value.lower() in key.ALGORITHMS
+
+    def _validate_type_disaggregation(self, value):
+        return isinstance(value, str) and value.lower() in ['positive-and-negative',
+                                                            'positive-only',
+                                                            'negative-only']
 
 def apply_global_defaults(config):
     if 'const' in config:

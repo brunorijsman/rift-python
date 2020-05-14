@@ -272,7 +272,8 @@ By default, RIFT-Python behaves as follows:
     by the fact that a negative disaggregate prefix TIE for a given prefix was received from all
     parent routers.
 
-To summarize: by default RIFT-Python uses a mixture of both positive and negative disaggregation.
+To summarize: by default RIFT-Python uses a combination of both positive and negative
+disaggregation.
 
 RIFT-Python has an optional `disaggregation` parameter in the configuration file that can have
 one of the following values:
@@ -514,6 +515,19 @@ spine-1-1> <b>set interface if-101d failure failed</b>
 </pre>
 
 We will see how this failure causes positive disaggregation to happen.
+
+Note: in this feature guide, we describe how RIFT-Python behaves _by default_, i.e.
+with using the default value `positive-and-negative` for the `aggregtation` configuration
+parameter.
+
+<pre>
+@@@@
+</pre>
+
+It is actually quite interesting to see how RIFT-Python behaves in the `negative-only` 
+aggregation mode. In particular, it gives a better insight into the propagation rules for
+negative disaggregation.
+We describe this in [a separate guide](negative-only-disaggregation.md).
 
 ### Super-1-1
 

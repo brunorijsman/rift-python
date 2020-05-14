@@ -83,3 +83,26 @@ def owner_str(owner):
     else:
         assert owner == OWNER_N_SPF
         return "North SPF"
+
+DISAGG_POS_AND_NEG = 1
+DISAGG_POS_ONLY = 2
+DISAGG_NEG_ONLY = 3
+
+def disagg_str(disagg):
+    if disagg == DISAGG_POS_AND_NEG:
+        return "positive-and-negative"
+    elif disagg == DISAGG_POS_ONLY:
+        return "positive-only"
+    else:
+        assert disagg == DISAGG_NEG_ONLY
+        return "negative-only"
+
+def disagg_from_str(str_value):
+    lower_str = str_value.lower()
+    if lower_str == "positive-and-negative":
+        return DISAGG_POS_AND_NEG
+    elif lower_str == "positive-only":
+        return DISAGG_POS_ONLY
+    else:
+        assert lower_str == "negative-only"
+        return DISAGG_NEG_ONLY
