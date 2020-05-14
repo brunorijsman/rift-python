@@ -15,7 +15,8 @@ One of the best known characteristics of RIFT is that it is a link-state protoco
 a distance-vector protocol south-bound. 
 One consequence of that is that the RIFT routing tables typically contain host /32 (for IPv4) or
 /128 (for IPv6) routes for all south-bound traffic,
-and only default 0.0.0.0/0 and ::0/0 routes for all north-bound traffic.
+and only fabric default routes for all north-bound traffic 
+(typically 0.0.0.0/0 and ::0/0, but it could be something more specific as well).
 
 The following figure shows typical RIFT route tables in a small 3-level fat tree topology.
 The leaf nodes contain only a single north-bound default route. The superspine nodes contain
