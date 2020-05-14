@@ -275,8 +275,8 @@ mouthful. Let's take that apart to see what it really means:
 
 ## The failure scenario
 
-We will study the following failure scenario: 
-we will break both north-bound links from node spine-1-1.
+Let's study the following failure scenario where we break both north-bound links from router 
+spine-1-1.
 This causes pod-1 to become completely disconnected from plane-1.
 
 When any leaf node in pod-1 (i.e. leaf-1-1, leaf-1-2, or leaf-1-3) wants to send any traffic
