@@ -88,7 +88,7 @@ to the more preferred path, it advertises negative more specific routes advertis
 should be avoided. This is particularly useful in topologies that have massive ECMP, such as
 Clos topologies. Consider a route that has 64-way ECMP, which is not uncommon in large datacenter
 topologies. Now consider that one of the 64 paths fails. With positive disaggregation, we would
-advertise 63 more specific routes to the remaining feasily paths. With negative disaggregation,
+advertise 63 more specific routes to the remaining feasible paths. With negative disaggregation,
 we would only advertise one single more specific (negative) route reporting the single path to be
 avoided.
 
@@ -143,7 +143,7 @@ Positive disaggregation deals with this situation as follows:
  4. How does spine-2 warn the other nodes? By advertising a host-specific 2.0.0.3/32 route for
     leaf-3 to all leaf nodes.
     This route is called a positive disaggregation route.
-    It is a /32 host route, whichis more specific than the /0 default route.
+    It is a /32 host route, which is more specific than the /0 default route.
     Hence, all leaf routes will send traffic to leaf-3 via spine-2. Traffic for leaf-1 and leaf-2
     still follows the default route and is ECMP'ed across all three spine nodes.
  
