@@ -257,18 +257,18 @@ By default, RIFT-Python behaves as follows:
     the observation that the originating node has a south-bound adjacency that is missing on
     some same-level node.
 
- 2. All nodes always process all _received_ positive disaggregate TIEs, includes them in the SPF,
-    and install them in the RIB and FIB as required.
+ 2. Each node always processes all _received_ positive disaggregate TIEs, includes them in the SPF,
+    and installs them in the RIB and FIB as required.
 
  3. Top-of-fabric nodes that have at least one east-west inter-fabric ring interface
     can _originate_ a negative disaggregate prefix TIE. This is triggered by observing
     a falled leaf node in the special south-bound SPF that includes east-west links.
 
- 4. All nodes always process all _received_ negative disaggregate TIEs:
+ 4. Each node always processes all _received_ negative disaggregate TIEs:
  
-    a. Includes them in the SPF, and install them in the RIB and FIB as required.
+    a. Includes them in the SPF, and installs them in the RIB and FIB as required.
 
-    b. Propagate them if required. This is triggered
+    b. Propagates them if required. This is triggered
     by the fact that a negative disaggregate prefix TIE for a given prefix was received from all
     parent routers.
 
