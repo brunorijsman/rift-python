@@ -516,12 +516,16 @@ spine-1-1> <b>set interface if-101d failure failed</b>
 
 We will see how this failure causes positive disaggregation to happen.
 
-Note: in this feature guide, we describe how RIFT-Python behaves _by default_, i.e.
+Note: in this feature guide, we describe how RIFT-Python behaves by default, i.e.
 with using the default value `positive-and-negative` for the `aggregtation` configuration
 parameter.
 
 <pre>
-@@@@
+spine-1-1> <b>show engine</b>
++----------------------------------+-----------------------+
+.                                  .                       .
+| Disaggregation                   | positive-and-negative |
++----------------------------------+-----------------------+
 </pre>
 
 It is actually quite interesting to see how RIFT-Python behaves in the `negative-only` 
