@@ -251,17 +251,24 @@ Negative disaggregation has two advantages relative to positive disaggregation:
 
 # Choosing between positive and negative disaggregation
 
-RIFT-Python behaves as follows by default:
+By default, RIFT-Python behaves as follows:
 
  1. Any node can _originate_ a positive disaggregate prefix TIE. This is triggered
-    the observation that the originating node has a south-bound adjacency that is missing on a 
-    same-level node.
+    the observation that the originating node has a south-bound adjacency that is missing on
+    some same-level node.
 
- 2. Only top-of-fabric nodes that have at least one east-west inter-fabric ring interface
+ 2. All nodes always process all _received_ positive disaggregate TIEs, includes them in the SPF,
+    and install them in the RIB and FIB as required.
+
+ 3. Top-of-fabric nodes that have at least one east-west inter-fabric ring interface
     can _originate_ a negative disaggregate prefix TIE. This is triggered by observing
     a falled leaf node in the special south-bound SPF that includes east-west links.
 
- 3. Any node can _propagate_ a negative disaggregate prefix TIE. This is triggered
+ 4. All nodes always process all _received_ negative disaggregate TIEs:
+ 
+    a. Includes them in the SPF, and install them in the RIB and FIB as required.
+
+    b. Propagate them if required. This is triggered
     by the fact that a negative disaggregate prefix TIE for a given prefix was received from all
     parent routers.
 
@@ -273,10 +280,13 @@ one of the following values:
 `positive-and-negative`: This is the default value and represents the default behavior as described
 above.
 
-`positive-only`: Only does item #1 above. Does not do items #2 and #3 above.
+`positive-only`: Only does items #1, #2, and #4 above. Does not do item #3 above.
 
-`negative-only`: Does items #2 and #3 above. For item #1 above, it uses the same trigger for
-negative disaggregation instead of positive disaggregation.
+`negative-only`: Does items #2, #3, and #4 above. For item #1 above, the modified rule is: 
+Any node can _originate_ a negative disaggregate prefix TIE. This is triggered
+the observation that the originating node is missing a south-bound adjacency that present on
+some same-level node. In other words, this mode uses negative disaggregation for all use cases,
+including the ones that are normally solved by by positive disaggregation.
 
 # Negative disaggregation in the real world
 
