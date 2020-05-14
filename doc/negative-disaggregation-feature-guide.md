@@ -915,7 +915,7 @@ IPv4 Routes:
 Let's go back to super-1-2, and look at the crucial step for initiating a negative 
 disaggregation.
 
-The crucial step is this: super-1-2 must come to the realization that there exists some
+The crucial step is: super-1-2 must come to the realization that there exists some
 destination prefix that can be reached via other superspine nodes, but not via super-1-2 itself.
 
 How does super-1-2 come to this realization? Well, this is where the inter-plane east-west links
