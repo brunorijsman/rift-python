@@ -207,7 +207,8 @@ Negative disaggregation recovers from this failure as follows:
     leaf-3 to all leaf nodes.
     This route is called a negative disaggregation route.
     Such a negative route has a very special meaning: it means "Please do _not_ send traffic
-    for this prefix to me. If you have another route to this same prefix that avoids me, even if
+    for this prefix to me. If you have another route to this same prefix that avoids me, use it,
+    even if that other route is less specific, e.g. the default route."
 
  5. When the leaf nodes receive such a negative disaggregation route, this install it as a
     special route in the routing information base (RIB) with negative next-hops.
