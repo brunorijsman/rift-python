@@ -75,8 +75,8 @@ On top of that, as far as I know, prior to RIFT no protocol supported the concep
 disaggregation. In protocols prior to RIFT all disaggregation was _positive_. If traffic to a
 specific destination prefix needed to follow a non-default path, then the protocol would advertise
 specific routes pointing to all remaining feasible equal-cost paths. In contrast, RIFT supports the
-concept of _negative_ disaggregation: instead of advertising positive more specific routes poiting
-to the more preferred path, it can advertise negative more specific routes advertising which paths
+concept of _negative_ disaggregation: instead of advertising positive more specific routes pointing
+to the more preferred path, it advertises negative more specific routes advertising which paths
 should be avoided. This is particularly useful in topologies that have massive ECMP, such as
 Clos topologies. Consider a route that has 64-way ECMP, which not uncommon in large datacenter
 topologies. Now consider that one of the 64 paths fails. With positive disaggregation, we would
