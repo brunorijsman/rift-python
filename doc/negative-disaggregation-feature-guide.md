@@ -9,7 +9,7 @@ disaggregation.
 The focus of this feature guide is negative disaggregation, but since it is closely related
 to positive disaggregation, we also briefly cover positive disaggregation.
 Positive disaggregation is discussed in greater detail in 
-[its own feature guide](doc/positive-disaggregation-feature-guide.md).
+[its own feature guide](positive-disaggregation-feature-guide.md).
 
 One of the best known characteristics of RIFT is that it is a link-state protocol north-bound and
 a distance-vector protocol south-bound. 
