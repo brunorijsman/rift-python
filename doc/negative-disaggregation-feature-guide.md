@@ -127,9 +127,11 @@ If it happens to choose spine-1, the packet will be dropped, because spine-1 can
 Positive disaggregation deals with this situation as follows:
 
  1. Spine-2 knows that its link to leaf-3 is still up. Spine-2 concludes: "I can still reach
-    leaf-3. If anyone wants to send traffic to leaf-3, they can safely give it to me, and I will
-    deliver it to leaf-3."
- 
+    leaf-3. If anyone wants to send traffic to any of the prefixes advertised by leaf-3, they can
+    safely give it to me, and I will deliver it to leaf-3." 
+    Note that _the prefixes advertised by leaf-3_ includes any hosts that are conncected to leaf-3
+    as well as overlay tunnel end-points that terminate on leaf-3.
+
  2. Spine-2 also knows that the link from spine-1 to leaf-3 is down. How does spine-2 know this? 
     Because spine-2 can see the South-Node-TIE from spine-1 (it is reflected by the leaf nodes)
     which contains spine-1's adjacencies. Spine-2 conludes: "Spine-1 cannot reach leaf-3. If anyone
@@ -192,17 +194,17 @@ Negative disaggregation recovers from this failure as follows:
  1. Spine-1 knows that the other spine routes are connected to leaf-3. How does spine-1 know this?
     Because spine-1 can see the South-Node-TIE from the the other spines (they are reflected by the
     leaf nodes) which contain leaf-3 as an adjacency. Spine-1 conludes: "Spine-2 and spine-3 can
-    reach leaf-3. If anyone wants to send traffic to leaf-3 they can give it to spine-2 or spine-3,
-    and they will deliver it to leaf-3."
+    reach leaf-3. If anyone wants to send traffic to any of the prefixes advertised by leaf-3 they
+    can give it to spine-2 or spine-3, and they will deliver it to leaf-3."
 
  2. On the other hand, spine-1 also knows that it does not have any adjacency to leaf-3 itself. In
     fact it may never have had any adjacency with leaf-3. Spine-1 concludes: "I myself cannot
-    reach leaf-3. If anyone wants to send traffic to leaf-3 they better not give it me because I
-    will blackhole it."
+    reach leaf-3. If anyone wants to send traffic to any of the prefixes advertised by leaf-3
+    they better not give it me because I will blackhole it."
 
  3. Spine-1, also being a helpful and altruistic node thinks: "I must warn all the leaf nodes!
     Evidently somewhere out there, there is this leaf-3 node, but I don't know how to get to it.
-    I must warn everyone not to send any traffic for leaf-3 to me."
+    I must warn everyone not to send any traffic destined for leaf-3 to me."
 
  4. How does spine-1 warn the other nodes? By advertising a special kind of 
     host-specific 2.0.0.3/32 route for
