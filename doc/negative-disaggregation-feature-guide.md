@@ -312,8 +312,8 @@ mouthful. Let's take that apart to see what it really means:
    plane.
 
  * **with east-west interplane links**: This means that the superspine nodes in different planes
-   are connected to each other using east-west links. (These links are not shown in the 3D diagram
-   further below.) The east-west links between the superspine nodes are only used for RIFT
+   are connected to each other using east-west links.
+   The east-west links between the superspine nodes are only used for RIFT
    control-plane messages (LIE, TIE, TIRE, and TIDE messages) and not for data-plane traffic.
    In general these east-west inter-plane links are not mandatory, but the negative disaggregation
    feature only works if these links are present.
