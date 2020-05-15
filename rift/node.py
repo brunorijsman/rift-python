@@ -2487,7 +2487,7 @@ class Node:
             missing_adjacencies = sorted(list(missing_adjacencies))
             # Determine missing adjacencies
             extra_adjacencies = set(node_south_adjacencies) - set(my_south_adjacencies)
-            extra_adjacencies = sorted(list(missing_adjacencies))
+            extra_adjacencies = sorted(list(extra_adjacencies))
             # Add row to table
             tab.add_row([node_sysid,
                          node_north_adjacencies,
