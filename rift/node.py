@@ -37,15 +37,6 @@ MY_NEG_DISAGG_TIE_NR = 5
 FLUSH_LIFETIME = 60
 
 
-# TODO: We currently only store the decoded TIE messages.
-# Also store the encoded TIE messages for the following reasons:
-# - Encode only once, instead of each time the message is sent
-# - Ability to flood the message immediately before it is decoded
-# Note: the encoded TIE protocol packet that we send is different from the encoded TIE protocol
-# packet that we send (specifically, the content is the same but the header reflect us as the
-# sender)
-
-
 # TODO: Make static method of Node
 def compare_tie_header_lifetime_age(header_lifetime_1, header_lifetime_2):
     # Returns -1 is header1 is older, returns +1 if header1 is newer, 0 if "same" age
