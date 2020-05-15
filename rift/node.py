@@ -2449,7 +2449,8 @@ class Node:
             ["Node", "System ID"],
             ["North-bound", "Adjacencies"],
             ["South-bound", "Adjacencies"],
-            ["Missing", "South-bound", "Adjacencies"]])
+            ["Missing", "South-bound", "Adjacencies"],
+            ["Extra", "South-bound", "Adjacencies"]])
         # If there are no other nodes at my level; return empty table.
         if not self.peer_node_tie_packet_infos:
             return tab
@@ -2467,28 +2468,32 @@ class Node:
                     nodes[node_sysid][0].append(nbr_sysid)  # Add north-bound adjacency
                 elif nbr_level < node_level:
                     nodes[node_sysid][1].append(nbr_sysid)  # Add south-bound adjacency
+        # Determine the south-bound adjacencies of this node
+        my_south_adjacencies = []
+        for intf in self.interfaces_by_name.values():
+            if intf.fsm.state != intf.State.THREE_WAY:
+                continue
+            if intf.neighbor_direction() != constants.DIR_SOUTH:
+                continue
+            my_south_adjacencies.append(intf.neighbor.system_id)
         # Format collected information into table
         sorted_node_sysids = sorted(list(nodes.keys()))
         for node_sysid in sorted_node_sysids:
             # Sort adjacencies and remove duplicates
-            north_adjacencies = sorted(list(set(nodes[node_sysid][0])))
-            south_adjacencies = sorted(list(set(nodes[node_sysid][1])))
+            node_north_adjacencies = sorted(list(set(nodes[node_sysid][0])))
+            node_south_adjacencies = sorted(list(set(nodes[node_sysid][1])))
             # Determine missing adjacencies
-            missing_adjacencies = []
-            for intf in self.interfaces_by_name.values():
-                if intf.fsm.state != intf.State.THREE_WAY:
-                    continue
-                if intf.neighbor_direction() != constants.DIR_SOUTH:
-                    continue
-                missing = True
-                for adj_sysid in south_adjacencies:
-                    if intf.neighbor.system_id == adj_sysid:
-                        missing = False
-                        break
-                if missing:
-                    missing_adjacencies.append(intf.neighbor.system_id)
-            missing_adjacencies = sorted(list(set(missing_adjacencies)))
-            tab.add_row([node_sysid, north_adjacencies, south_adjacencies, missing_adjacencies])
+            missing_adjacencies = set(my_south_adjacencies) - set(node_south_adjacencies)
+            missing_adjacencies = sorted(list(missing_adjacencies))
+            # Determine missing adjacencies
+            extra_adjacencies = set(node_south_adjacencies) - set(my_south_adjacencies)
+            extra_adjacencies = sorted(list(missing_adjacencies))
+            # Add row to table
+            tab.add_row([node_sysid,
+                         node_north_adjacencies,
+                         node_south_adjacencies,
+                         missing_adjacencies,
+                         extra_adjacencies])
         return tab
 
     def security_keys_table(self):
