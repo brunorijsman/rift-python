@@ -71,11 +71,6 @@ we saw that this would cause positive disaggregation to happen.
 But now we have configured RIFT-Python to use only negative disaggregation, so let's see how
 negative disaggregation can replace positive disaggregation to recover from this failure.
 
-
-
-
-@@@@ 
-
 ### Super-1-1
 
 As before, we see that the adjacency from super-1-1 to spine-1-1 goes down.
@@ -198,164 +193,50 @@ super-1-1> <b>show tie-db direction south originator 1 tie-type node</b>
 |           |            |      |        |        |          |   Link: 3-4             |
 +-----------+------------+------+--------+--------+----------+-------------------------+
 </pre>
-We will see how this failure causes positive disaggregation to happen.
 
-Note: in this feature guide, we describe how RIFT-Python behaves by default, i.e.
-with using the default value `positive-and-negative` for the `
-
-` configuration
-parameter.
-
-<pre>
-spine-1-1> <b>show engine</b>
-+----------------------------------+-----------------------+
-.                                  .                       .
-| Disaggregation                   | positive-and-negative |
-+----------------------------------+-----------------------+
-</pre>
-
-It is actually quite interesting to see how RIFT-Python behaves in the `negative-only` 
-aggregation mode. In particular, it gives a better insight into the propagation rules for
-negative disaggregation.
-We describe this in [a separate guide](negative-only-disaggregation.md).
-
-### Super-1-1
-
-First of all, we see that the adjacency from super-1-1 to spine-1-1 goes down.
-Super-1-1 still has adjacencies to spine-2-1 and spine-3-1, but not to spine-1-1 anymore.
-
-<pre>
-super-1-1> <b>show interfaces</b>
-+-----------+-------------------+-----------+-----------+
-| Interface | Neighbor          | Neighbor  | Neighbor  |
-| Name      | Name              | System ID | State     |
-+-----------+-------------------+-----------+-----------+
-| if-1a     |                   |           | ONE_WAY   |
-+-----------+-------------------+-----------+-----------+
-| if-1b     | spine-2-1:if-104d | 104       | THREE_WAY |
-+-----------+-------------------+-----------+-----------+
-| if-1c     | spine-3-1:if-107d | 107       | THREE_WAY |
-+-----------+-------------------+-----------+-----------+
-| if-1d     | super-2-1:if-3d   | 3         | THREE_WAY |
-+-----------+-------------------+-----------+-----------+
-| if-1e     | super-3-1:if-5e   | 5         | THREE_WAY |
-+-----------+-------------------+-----------+-----------+
-</pre>
-
-### Super-1-2
-
-Node super-1-2, which is the same plane as super-1-1 (namely plane-1) still has all three
-adjacencies to spine-1-1, spine-2-1, and spine-3-1:
-
-<pre>
-super-1-2> <b>show interfaces</b>
-+-----------+-------------------+-----------+-----------+
-| Interface | Neighbor          | Neighbor  | Neighbor  |
-| Name      | Name              | System ID | State     |
-+-----------+-------------------+-----------+-----------+
-| if-2a     | spine-1-1:if-101e | 101       | THREE_WAY |
-+-----------+-------------------+-----------+-----------+
-| if-2b     | spine-2-1:if-104e | 104       | THREE_WAY |
-+-----------+-------------------+-----------+-----------+
-| if-2c     | spine-3-1:if-107e | 107       | THREE_WAY |
-+-----------+-------------------+-----------+-----------+
-| if-2d     | super-2-2:if-4d   | 4         | THREE_WAY |
-+-----------+-------------------+-----------+-----------+
-| if-2e     | super-3-2:if-6e   | 6         | THREE_WAY |
-+-----------+-------------------+-----------+-----------+
-</pre>
-
-Super-1-2 also has the south-node-TIE from super-1-1, because it was reflected by the spine nodes:
-
-<pre>
-super-1-2> <b>show tie-db direction south originator 1 tie-type node</b>
-+-----------+------------+------+--------+--------+----------+-------------------------+
-| Direction | Originator | Type | TIE Nr | Seq Nr | Lifetime | Contents                |
-+-----------+------------+------+--------+--------+----------+-------------------------+
-| South     | 1          | Node | 1      | 7      | 598859   | Name: super-1-1         |
-|           |            |      |        |        |          | Level: 24               |
-|           |            |      |        |        |          | Capabilities:           |
-|           |            |      |        |        |          |   Flood reduction: True |
-|           |            |      |        |        |          | Neighbor: 3             |
-|           |            |      |        |        |          |   Level: 24             |
-|           |            |      |        |        |          |   Cost: 1               |
-|           |            |      |        |        |          |   Bandwidth: 100 Mbps   |
-|           |            |      |        |        |          |   Link: 5-4             |
-|           |            |      |        |        |          | Neighbor: 5             |
-|           |            |      |        |        |          |   Level: 24             |
-|           |            |      |        |        |          |   Cost: 1               |
-|           |            |      |        |        |          |   Bandwidth: 100 Mbps   |
-|           |            |      |        |        |          |   Link: 4-5             |
-|           |            |      |        |        |          | Neighbor: 104           |
-|           |            |      |        |        |          |   Level: 23             |
-|           |            |      |        |        |          |   Cost: 1               |
-|           |            |      |        |        |          |   Bandwidth: 100 Mbps   |
-|           |            |      |        |        |          |   Link: 2-4             |
-|           |            |      |        |        |          | Neighbor: 107           |
-|           |            |      |        |        |          |   Level: 23             |
-|           |            |      |        |        |          |   Cost: 1               |
-|           |            |      |        |        |          |   Bandwidth: 100 Mbps   |
-|           |            |      |        |        |          |   Link: 3-4             |
-+-----------+------------+------+--------+--------+----------+-------------------------+
-</pre>
-
-Super-2-1 looks at this TIE and notices that super-1-1 reports adjacencies with spine-2-1
-(system ID 104) and spine-3-1 (system ID 107) but not with spine-1-1 (system ID 101).
-
-Super-2-1 concludes that it has an adjacency with spine-1-1 which is missing from the set
-of adjacencies of super-1-1. 
+We discovered the "hard way" (i.e. by manually looking at the south-node-TIEs) that spine-1-2
+has one extra south-bound adjacency that spine-1-1 doesn't have.
 A much handier command for reporting the same information is `show same-level-nodes`:
 
 <pre>
-super-1-2> <b>show same-level-nodes</b>
-+-----------+-------------+-------------+-------------+
-| Node      | North-bound | South-bound | Missing     |
-| System ID | Adjacencies | Adjacencies | South-bound |
-|           |             |             | Adjacencies |
-+-----------+-------------+-------------+-------------+
-| 1         |             | 104         | 101         |
-|           |             | 107         |             |
-+-----------+-------------+-------------+-------------+
+super-1-1> <b>show same-level-nodes</b>
++-----------+-------------+-------------+-------------+-------------+
+| Node      | North-bound | South-bound | Missing     | Extra       |
+| System ID | Adjacencies | Adjacencies | South-bound | South-bound |
+|           |             |             | Adjacencies | Adjacencies |
++-----------+-------------+-------------+-------------+-------------+
+| 2         |             | 101         |             | 101         |
+|           |             | 104         |             |             |
+|           |             | 107         |             |             |
++-----------+-------------+-------------+-------------+-------------+
 </pre>
 
-Here we can see that super-1-2 knows that super-1-1 (system ID 1) is another superspone node
-in the same plane, that it has two south-bound adjacencies to spine-2-1 (system ID 104) and
-spine-3-1 (system ID 107), but that it is missing a south-bound adjacency to spine-1-1 (system
-ID 101). This is exactly the same information as what we already concluded from looking directly
-at the TIE.
+Here we can see that
+super-1-2 knows that super-1-1 (system ID 1) is another superspine node in the same plane, that it
+has three south-bound adjacencies to spine-1-1 (system ID 101), spine-2-1 (system ID 104) and
+spine-3-1 (system ID 107). This means it has one extra south-bound adjacency, namely to node
+spine-1-1 (system ID 101) that this node (super-1-1) does't have.
+This is exactly the same information as what we already concluded from looking directly
+at the TIEs.
 
-Yet another way of seeing the same information is as follows:
+The fact that super-1-1 is "missing" a south-bound adjancency as compared to super-1-2 triggers
+disaggregation.
+The default behavior of RIFT-Python is that super-1-2 will trigger positive disaggregation, as
+we saw in detail in the
+[negative disaggregation feature guide](negative-disaggregation-feature-guide.md).
+But in this guide we have configured the negative-only disaggregation mode.
+Hence, instead of super-1-2 triggering positive disaggregation ("send traffic to super-1-2!"),
+super-1-1 triggers negative disaggregation ("don't send trafic to super-1-1!")
 
-<pre>
-super-1-2> <b>show interface if-2a</b>
-Interface:
-+--------------------------------------+----------------------------------------------------------+
-| Interface Name                       | if-2a                                                    |
-| Physical Interface Name              | ens5                                                     |
-| Advertised Name                      | super-1-2:if-2a                                          |
-.                                      .                                                          .
-| <b>Neighbor is Partially Connected      | True</b>                                                     |
-| <b>Nodes Causing Partial Connectivity   | 1</b>                                                        |
-+--------------------------------------+----------------------------------------------------------+
+@@@
+ We can look at spine-1-1's shortest path first (SPF) calculation to see which prefixes it decides
+to negatively disaggregate:
 
-Neighbor:
-+------------------------+------------------------------+
-|<b> Name                   | spine-1-1:if-101e</b>            |
-| System ID              | 101                          |
-.                        .                              .
-+------------------------+------------------------------+
-</pre>
+@@@ mention normal feature guide that super-1-1 already does negative
+@@@ so we have positive AND negative for the same prefix on spine-2-1
+@@@ check this
 
-Here we can see that super-1-2 has concluded that the spine-1-1 (which is on the other side of
-interface if-2a) is only "partially connected" to the superspine nodes above it. In fact, it 
-missing an adjacency to super-1-1 (system ID 1), which is declared "the cause of the partical
-connectivity".
-
-This missing adjacency is exactly the trigger for initiating positive disaggregation
-for every prefix that super-2-1 can reach via spine-1-1.
-
-We can look at spine-2-1's shortest path first (SPF) calculation to see which prefixes it decides
-to positively disaggregate:
+vvvv not this anymore
 
 <pre>
 super-1-2> show spf direction south

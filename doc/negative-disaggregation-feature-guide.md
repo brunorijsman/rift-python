@@ -632,7 +632,7 @@ super-1-2> <b>show same-level-nodes</b>
 +-----------+-------------+-------------+-------------+
 </pre>
 
-Here we can see that super-1-2 knows that super-1-1 (system ID 1) is another superspone node
+Here we can see that super-1-2 knows that super-1-1 (system ID 1) is another superspine node
 in the same plane, that it has two south-bound adjacencies to spine-2-1 (system ID 104) and
 spine-3-1 (system ID 107), but that it is missing a south-bound adjacency to spine-1-1 (system
 ID 101). This is exactly the same information as what we already concluded from looking directly
