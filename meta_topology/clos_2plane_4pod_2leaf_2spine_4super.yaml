@@ -1,0 +1,6 @@
+# The topology that Mariano and Tomasso use in their paper
+nr-pods: 4
+nr-leaf-nodes-per-pod: 2
+nr-spine-nodes-per-pod: 2
+nr-superspine-nodes: 4
+nr-planes: 2
