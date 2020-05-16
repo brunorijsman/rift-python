@@ -2309,14 +2309,14 @@ class Node:
             # Only flood to adjacencies that are in state 3-way
             if tx_intf.fsm.state != tx_intf.State.THREE_WAY:
                 continue
+            # In some race conditions when the interface is in the process of going down, the
+            # neighbor can already be gone, but the state is still saying THREE_WAY. Skip those too.
+            if tx_intf.neighbor is None:
+                continue
             # If flooding reduction is enabled, only flood to flood repeaters
             if self.floodred_enabled:
                 if not tx_intf.floodred_nbr_is_fr:
                     continue
-            ###@@@
-            if tx_intf.neighbor is None:
-                print("DANGER DANGER")
-                print("tx_intf.name = ", tx_intf.name)
             # Only flood if allowed by flooding scope rules
             (allowed, _reason) = self.flood_allowed_from_node_to_nbr(
                 tie_header=tie_packet.header,
