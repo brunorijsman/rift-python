@@ -810,6 +810,11 @@ class Node:
         self.my_node_tie_seq_nrs[direction] += 1
         seq_nr = self.my_node_tie_seq_nrs[direction]
         protocol_packet = self.make_node_tie_protocol_packet(direction, tie_nr, seq_nr)
+        ###@@@ DEBUG
+        if self.level_value() is None:
+            print("ORIGINATING NODE TIE WITH NONE LEVEL")
+            print("interface_going_down = ", interface_going_down.name)
+        assert self.level_value() not is None
         tie_packet = protocol_packet.content.tie
         for intf in self.up_interfaces(interface_going_down):
             # Did we already report the neighbor on the other end of this interface? This
@@ -2663,12 +2668,11 @@ class Node:
         # A generator that yields (nbr_system_id, nbr_level, nbr_tie_element) tuples for all
         # neighbors in the specified directions of the nodes in the node_ties list.
         for node_tie in node_ties:
+            # If a node reports no level but does report neighbors, those neighbors cannot be
+            # considered to point in any particular direction.
             node_level = node_tie.element.node.level
-            ###@@@ DEBUG
-            if node_level is None:
-                print("DANGER DANGER")
-                print("node.name = ", self.name)
-                print("node_tie = ", node_tie)
+            if node_level is None
+                continue
             for nbr_system_id, nbr_tie_element in node_tie.element.node.neighbors.items():
                 nbr_level = nbr_tie_element.level
                 correct_direction = False
