@@ -1,6 +1,5 @@
 # pylint:disable=too-many-lines
 
-import collections
 import enum
 import logging
 import random
@@ -8,6 +7,7 @@ import socket
 
 import constants
 import fsm
+import msg_queues
 import neighbor
 import offer
 import packet_common
@@ -34,8 +34,6 @@ USE_SIMPLE_REQUEST_FILTERING = True
 class Interface:
 
     UNDEFINED_OR_ANY_POD = 0
-
-    SERVICE_QUEUES_INTERVAL = 1.0
 
     INCREASE_TX_NONCE_LOCAL_HOLDDOWN_TIME = 60.0
 
@@ -166,8 +164,6 @@ class Interface:
             receive_function=self.receive_flood_message,
             log=self._rx_log,
             log_id=self._log_id)
-        # Periodically start sending TIE packets and TIRE packets
-        self._service_queues_timer.start()
         # Update the node TIEs originated by this node to include this neighbor
         self.node.regenerate_my_node_ties()
         # Update the south prefix TIE: we may have to start or stop originating a default route
@@ -180,8 +176,7 @@ class Interface:
     def action_stop_flooding(self):
         # Stop sending TIE, TIRE, and TIDE packets to this neighbor
         self.rx_info("Stop flooding")
-        self._service_queues_timer.stop()
-        self.clear_all_queues()
+        self._queues.clear_all_queues()
         if self._flood_rx_ipv4_handler:
             self._flood_rx_ipv4_handler.close()
             self._flood_rx_ipv4_handler = None
@@ -931,15 +926,7 @@ class Interface:
         self._flood_tx_ipv6_socket = None
         self._flood_rx_ipv4_handler = None
         self._flood_rx_ipv6_handler = None
-        # The following queues (ties_tx, ties_rtx, ties_req, are ties_ack) are ordered dictionaries.
-        # The value is the header of the TIE. The index is the TIE-ID want to have two headers with
-        # same TIE-ID in the queue. The ordering is needed because we want to service the entries
-        # in the queue in the same order in which they were added (FIFO).
-        # TODO: For _ties_rtx, add time to retransmit to retransmit queue
-        self._ties_tx = collections.OrderedDict()   # Dict of TIEHeader
-        self._ties_rtx = collections.OrderedDict()  # Dict of TIEHeader
-        self._ties_req = collections.OrderedDict()  # Dict of TIEHeaderWithLifeTime
-        self._ties_ack = collections.OrderedDict()  # Dict of TIEHeaderWithLifeTime
+        self._queues = msg_queues.MsgQueues(self)
         self.floodred_nbr_is_fr = self.NbrIsFRState.NOT_APPLICABLE
         self.partially_connected = None
         self.partially_connected_causes = None
@@ -1177,11 +1164,6 @@ class Interface:
         self._one_second_timer = timer.Timer(
             1.0,
             lambda: self.fsm.push_event(self.Event.TIMER_TICK))
-        self._service_queues_timer = timer.Timer(
-            interval=self.SERVICE_QUEUES_INTERVAL,
-            expire_function=self.service_queues,
-            periodic=True,
-            start=False)
 
     def get_config_attribute(self, config, attribute, default):
         if attribute in config:
@@ -1388,7 +1370,7 @@ class Interface:
         for tie_header_lifetime in request_tie_headers_lifetime:
             self.request_tie(tie_header_lifetime)
         for tie_header in stop_sending_tie_headers:
-            self.remove_from_all_queues(tie_header)
+            self._queues.remove_from_all_queues(tie_header.tieid)
 
     def process_rx_tire_packet(self, tire_packet):
         self.rx_debug("Receive TIRE packet %s", tire_packet)
@@ -1404,12 +1386,10 @@ class Interface:
     def neighbor_direction(self):
         if self.neighbor is None:
             return None
-
         # Cannot determine current node level, we can't infer the neighbor direction
         my_level = self.node.level_value()
         if my_level is None:
             return None
-
         if self.neighbor.level > my_level:
             return constants.DIR_NORTH
         elif self.neighbor.level < my_level:
@@ -1468,7 +1448,7 @@ class Interface:
         # Cannot determine direction of neighbor. Exclude.
         return (False, "to {}: exclude".format(dir_str))
 
-    # This is the simplified implementation of s_request_allowed as described in "the solution to
+    # This is the simplified implementation of is_request_allowed as described in "the solution to
     # oscillation #2" in slide deck http://bit.ly/rift-flooding-oscillations-v1. During the RIFT
     # core team conference call on 19 Oct 2018, Tony reported it was his intent to apply the same
     # logic. However, this seems like a simpler (and less error prone) way to achieve that.
@@ -1506,86 +1486,37 @@ class Interface:
         filtered = not allowed
         return (filtered, reason)
 
-    def add_tie_header_to_ties_tx(self, tie_header, tie_packet_info=None):
-        # If the TIE is not already on the send queue or if the TIE is a newer version than what's
-        # already on the send queue, then send it immediately instead of (in addition to, really)
-        # waiting for the next service timer.
-        if tie_header.tieid not in self._ties_tx:
-            send_now = True
-        elif tie_header.seq_nr > self._ties_tx[tie_header.tieid].seq_nr:
-            send_now = True
-        else:
-            send_now = False
-        self._ties_tx[tie_header.tieid] = tie_header
-        if send_now:
-            if tie_packet_info is None:
-                tie_packet_info = self.node.find_tie_packet_info(tie_header.tieid)
-            if tie_packet_info is not None:
-                self.send_packet_info(tie_packet_info, flood=True)
-
     def try_to_transmit_tie(self, tie_header):
         (filtered, reason) = self.is_flood_filtered(tie_header)
         outcome = "filtered" if filtered else "allowed"
         self.tx_debug("Transmit TIE %s is %s because %s", tie_header, outcome, reason)
         if not filtered:
-            self.remove_from_ties_rtx(tie_header)
-            if tie_header.tieid in self._ties_ack:
-                ack_header_lifetime = self._ties_ack[tie_header.tieid]
+            ack_header_lifetime = self._queues.search_tie_ack_queue(tie_header.tieid)
+            if ack_header_lifetime:
                 if ack_header_lifetime.header.seq_nr < tie_header.seq_nr:
                     # ACK for older TIE is in queue, remove ACK from queue and send newer TIE
-                    self.remove_from_ties_ack(ack_header_lifetime.header)
-                    self.add_tie_header_to_ties_tx(tie_header)
+                    self._queues.remove_from_tie_ack_queue(ack_header_lifetime.header.tieid)
+                    self.tx_tie(tie_header)
                 else:
-                    # ACK for newer TIE in in queue, keep ACK and don't send this older TIE
+                    # ACK for newer TIE or same seq-nr TIE in in queue, keep ACK and don't send
+                    # this older TIE
                     pass
             else:
                 # No ACK in queue, send this TIE
-                self.add_tie_header_to_ties_tx(tie_header)
+                self.tx_tie(tie_header)
+
+    def tx_tie(self, tie_header):
+        self._queues.add_to_tie_queue(tie_header)
 
     def ack_tie(self, tie_header_lifetime):
         assert tie_header_lifetime.__class__ == encoding.ttypes.TIEHeaderWithLifeTime
-        self.remove_from_all_queues(tie_header_lifetime.header)
-        self._ties_ack[tie_header_lifetime.header.tieid] = tie_header_lifetime
+        tie_id = tie_header_lifetime.header.tieid
+        self._queues.remove_from_tie_queue(tie_id)
+        self._queues.remove_from_tie_req_queue(tie_id)
+        self._queues.add_to_tie_ack_queue(tie_header_lifetime)
 
     def tie_been_acked(self, tie_header):
-        self.remove_from_all_queues(tie_header)
-
-    def remove_from_all_queues(self, tie_header):
-        assert tie_header.__class__ == encoding.ttypes.TIEHeader
-        self.remove_from_ties_tx(tie_header)
-        self.remove_from_ties_rtx(tie_header)
-        self.remove_from_ties_req(tie_header)
-        self.remove_from_ties_ack(tie_header)
-
-    def clear_all_queues(self):
-        self._ties_tx.clear()
-        self._ties_rtx.clear()
-        self._ties_req.clear()
-        self._ties_ack.clear()
-
-    def remove_from_ties_tx(self, tie_header):
-        try:
-            del self._ties_tx[tie_header.tieid]
-        except KeyError:
-            pass
-
-    def remove_from_ties_rtx(self, tie_header):
-        try:
-            del self._ties_rtx[tie_header.tieid]
-        except KeyError:
-            pass
-
-    def remove_from_ties_req(self, tie_header):
-        try:
-            del self._ties_req[tie_header.tieid]
-        except KeyError:
-            pass
-
-    def remove_from_ties_ack(self, tie_header):
-        try:
-            del self._ties_ack[tie_header.tieid]
-        except KeyError:
-            pass
+        self._queues.remove_from_all_queues(tie_header.tieid)
 
     def request_tie(self, tie_header_lifetime):
         assert tie_header_lifetime.__class__ == encoding.ttypes.TIEHeaderWithLifeTime
@@ -1594,86 +1525,10 @@ class Interface:
         self.tx_debug("Request TIE %s is %s in TIRE because %s",
                       tie_header_lifetime, outcome, reason)
         if not filtered:
-            self.remove_from_all_queues(tie_header_lifetime.header)
-            self._ties_req[tie_header_lifetime.header.tieid] = tie_header_lifetime
-
-    # TODO: Defined in spec, but never invoked
-    def move_to_rtx_queue(self, tie_header):
-        self.remove_from_ties_rtx(tie_header)
-        self._ties_rtx[tie_header.tieid] = tie_header
-
-    # TODO: Defined in spec, but never invoked
-    def clear_requests(self, tie_header):
-        self.remove_from_ties_req(tie_header)
-
-    def service_queues(self):
-        # TODO: For now, we have an extremely simplistic send queue service implementation. Once
-        # per second we send all queued messages. Make this more sophisticated.
-        if self._ties_ack:
-            self.service_ties_ack()
-        if self._ties_tx:
-            self.service_ties_tx()
-        if self._ties_rtx:
-            self.service_ties_rtx()
-        if self._ties_req:
-            self.service_ties_req()
-
-    def service_ties_ack(self):
-        tire_packet = packet_common.make_tire_packet()
-        # We always send an ACK for every TIE header on the ACK queue. I.e. we always ACK the TIEs
-        # that we received and accepted.
-        for tie_header_lifetime in self._ties_ack.values():
-            packet_common.add_tie_header_to_tire(tire_packet, tie_header_lifetime)
-        packet_content = encoding.ttypes.PacketContent(tire=tire_packet)
-        packet_header = encoding.ttypes.PacketHeader(
-            sender=self.node.system_id,
-            level=self.node.level_value())
-        protocol_packet = encoding.ttypes.ProtocolPacket(
-            header=packet_header,
-            content=packet_content)
-        self.send_protocol_packet(protocol_packet, flood=True)
-
-    def service_ties_req(self):
-        tire_packet = packet_common.make_tire_packet()
-        for tie_header_lifetime in self._ties_req.values():
-            # We don't request a TIE from our neighbor if the flooding scope rules say that the
-            # neighbor is not allowed to flood the TIE to us. Why? Because the neighbor is allowed
-            # to advertise extra TIEs in the TIDE, and if we request them we will get an
-            # oscillation.
-            (allowed, _reason) = self.node.flood_allowed_from_nbr_to_node(
-                tie_header=tie_header_lifetime.header,
-                neighbor_direction=self.neighbor_direction(),
-                neighbor_system_id=self.neighbor.system_id,
-                neighbor_level=self.neighbor.level,
-                neighbor_is_top_of_fabric=self.neighbor.top_of_fabric(),
-                node_system_id=self.node.system_id)
-            if allowed:
-                packet_common.add_tie_header_to_tire(tire_packet, tie_header_lifetime)
-            else:
-                # TODO: log message
-                pass
-        packet_content = encoding.ttypes.PacketContent(tire=tire_packet)
-        packet_header = encoding.ttypes.PacketHeader(
-            sender=self.node.system_id,
-            level=self.node.level_value())
-        protocol_packet = encoding.ttypes.ProtocolPacket(
-            header=packet_header,
-            content=packet_content)
-        self.send_protocol_packet(protocol_packet, flood=True)
-
-    def service_ties_queue(self, queue):
-        # Note: we only look at the TIE-ID in the queue and not at the header. If we have a more
-        # recent version of the TIE in the TIE-DB than the one requested, we send the one we have.
-        for tie_id in queue.keys():
-            db_tie_packet_info = self.node.find_tie_packet_info(tie_id)
-            if db_tie_packet_info is not None:
-                self.send_packet_info(db_tie_packet_info, flood=True)
-
-    def service_ties_tx(self):
-        self.service_ties_queue(self._ties_tx)
-
-    def service_ties_rtx(self):
-        self.service_ties_queue(self._ties_rtx)
+            tie_id = tie_header_lifetime.header.tieid
+            self._queues.remove_from_tie_queue(tie_id)
+            self._queues.remove_from_tie_ack_queue(tie_id)
+            self._queues.add_to_tie_req_queue(tie_header_lifetime)
 
     @property
     def state_name(self):
@@ -1984,17 +1839,8 @@ class Interface:
                          lifetime])
         return tab
 
-    def ties_tx_table(self):
-        return self.tie_headers_table_cmn(self._ties_tx)
-
-    def ties_rtx_table(self):
-        return self.tie_headers_table_cmn(self._ties_rtx)
-
-    def ties_req_table(self):
-        return self.tie_headers_lifetime_table_cmn(self._ties_req)
-
-    def ties_ack_table(self):
-        return self.tie_headers_lifetime_table_cmn(self._ties_ack)
+    def command_show_intf_queues(self, cli_session):
+        self._queues.command_show_intf_queues(cli_session)
 
     # TODO: Set TTL as follows:
     # ttl_bin = struct.pack('@i', MYTTL)

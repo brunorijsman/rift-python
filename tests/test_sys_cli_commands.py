@@ -119,7 +119,6 @@ def check_show_interface_fsm_verbose_history(res):
 def check_show_interface_queues(res):
     res.sendline("show interface if1 queues")
     res.table_expect("Transmit queue:")
-    res.table_expect("Retransmit queue:")
     res.table_expect("Request queue:")
     res.table_expect("Acknowledge queue:")
     res.wait_prompt()

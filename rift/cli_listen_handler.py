@@ -2,8 +2,6 @@ import socket
 import scheduler
 from cli_session_handler import CliSessionHandler
 
-# TODO: Add IPv6 support
-
 class CliListenHandler:
 
     def __init__(self, command_tree, command_handler, log, default_node, port=0):

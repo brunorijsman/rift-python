@@ -1241,18 +1241,7 @@ class Node:
             cli_session.print("Error: interface {} not present".format(interface_name))
             return
         intf = self.interfaces_by_name[interface_name]
-        tab = intf.ties_tx_table()
-        cli_session.print("Transmit queue:")
-        cli_session.print(tab.to_string())
-        tab = intf.ties_rtx_table()
-        cli_session.print("Retransmit queue:")
-        cli_session.print(tab.to_string())
-        tab = intf.ties_req_table()
-        cli_session.print("Request queue:")
-        cli_session.print(tab.to_string())
-        tab = intf.ties_ack_table()
-        cli_session.print("Acknowledge queue:")
-        cli_session.print(tab.to_string())
+        intf.command_show_intf_queues(cli_session)
 
     def command_show_intf_security(self, cli_session, parameters):
         interface_name = parameters['interface']
@@ -2333,7 +2322,7 @@ class Node:
                 continue
             # Put the packet on the transmit queue.
             flood_count += 1
-            tx_intf.add_tie_header_to_ties_tx(tie_packet.header, tie_packet_info)
+            tx_intf.tx_tie(tie_packet.header)
         # Log to how many interfaces the TIE was flooded
         if flood_count > 0:
             self.db_debug("TIE %s received on %s flooded to %d interfaces", tie_packet.header,
