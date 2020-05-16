@@ -622,14 +622,14 @@ A much handier command for reporting the same information is `show same-level-no
 
 <pre>
 super-1-2> <b>show same-level-nodes</b>
-+-----------+-------------+-------------+-------------+
-| Node      | North-bound | South-bound | Missing     |
-| System ID | Adjacencies | Adjacencies | South-bound |
-|           |             |             | Adjacencies |
-+-----------+-------------+-------------+-------------+
-| 1         |             | 104         | 101         |
-|           |             | 107         |             |
-+-----------+-------------+-------------+-------------+
++-----------+-------------+-------------+-------------+-------------+
+| Node      | North-bound | South-bound | Missing     | Extra       |
+| System ID | Adjacencies | Adjacencies | South-bound | South-bound |
+|           |             |             | Adjacencies | Adjacencies |
++-----------+-------------+-------------+-------------+-------------+
+| 1         |             | 104         | 101         |             |
+|           |             | 107         |             |             |
++-----------+-------------+-------------+-------------+-------------+
 </pre>
 
 Here we can see that super-1-2 knows that super-1-1 (system ID 1) is another superspine node
