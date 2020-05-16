@@ -437,7 +437,7 @@ correct node yourself.
 On spine-2-1 all adjacencies are also up:
 
 <pre>
-spine-2-1> <b<>how interfaces</b>
+spine-2-1> <b>show interfaces</b>
 +-----------+-------------------+-----------+-----------+
 | Interface | Neighbor          | Neighbor  | Neighbor  |
 | Name      | Name              | System ID | State     |
