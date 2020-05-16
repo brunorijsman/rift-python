@@ -814,9 +814,11 @@ class Node:
         if self.level_value() is None:
             print("ORIGINATING NODE TIE WITH NONE LEVEL")
             print("interface_going_down = ", interface_going_down.name)
-        assert self.level_value() not is None
         tie_packet = protocol_packet.content.tie
         for intf in self.up_interfaces(interface_going_down):
+            ###@@@
+            if self.level_value() is None:
+                print("adding intf ", intf.name)
             # Did we already report the neighbor on the other end of this interface? This
             # happens if we have multiple parallel interfaces to the same neighbor.
             if intf.neighbor.system_id in tie_packet.element.node.neighbors:
