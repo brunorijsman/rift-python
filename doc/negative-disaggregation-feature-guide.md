@@ -1395,7 +1395,7 @@ leaf-2-3> <b>show tie-db direction south originator 104 tie-type neg-dis-prefix<
 
 Bit leaf-2-3 did not receive any negative disaggregation TIEs from either spine-2-2 or spine-2-3:
 
-<pre
+<pre>
 leaf-2-3> <b>show tie-db direction south originator 105 tie-type neg-dis-prefix</b>
 No TIE with direction south and originator 105 and tie-type neg-dis-prefix in database
 leaf-2-3> <b>show tie-db direction south originator 106 tie-type neg-dis-prefix</b>
