@@ -813,7 +813,8 @@ class Node:
         ###@@@ DEBUG
         if self.level_value() is None:
             print("ORIGINATING NODE TIE WITH NONE LEVEL")
-            print("interface_going_down = ", interface_going_down.name)
+            if interface_going_down:
+                print("interface_going_down = ", interface_going_down.name)
         tie_packet = protocol_packet.content.tie
         for intf in self.up_interfaces(interface_going_down):
             ###@@@
