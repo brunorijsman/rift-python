@@ -810,16 +810,8 @@ class Node:
         self.my_node_tie_seq_nrs[direction] += 1
         seq_nr = self.my_node_tie_seq_nrs[direction]
         protocol_packet = self.make_node_tie_protocol_packet(direction, tie_nr, seq_nr)
-        ###@@@ DEBUG
-        if self.level_value() is None:
-            print("ORIGINATING NODE TIE WITH NONE LEVEL")
-            if interface_going_down:
-                print("interface_going_down = ", interface_going_down.name)
         tie_packet = protocol_packet.content.tie
         for intf in self.up_interfaces(interface_going_down):
-            ###@@@
-            if self.level_value() is None:
-                print("adding intf ", intf.name)
             # Did we already report the neighbor on the other end of this interface? This
             # happens if we have multiple parallel interfaces to the same neighbor.
             if intf.neighbor.system_id in tie_packet.element.node.neighbors:
