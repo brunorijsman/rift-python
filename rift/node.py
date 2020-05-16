@@ -2673,7 +2673,7 @@ class Node:
             # If a node reports no level but does report neighbors, those neighbors cannot be
             # considered to point in any particular direction.
             node_level = node_tie.element.node.level
-            if node_level is None
+            if node_level is None:
                 continue
             for nbr_system_id, nbr_tie_element in node_tie.element.node.neighbors.items():
                 nbr_level = nbr_tie_element.level
