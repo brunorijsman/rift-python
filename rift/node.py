@@ -837,6 +837,7 @@ class Node:
         self.store_tie_packet_info(packet_info)
         self.info("Regenerated node TIE for direction %s: %s",
                   packet_common.direction_str(direction), tie_packet)
+        self.unsol_flood_tie_packet_info(packet_info)
         if self.level_value() is not None:
             self._parent_neighbors = dict(filter(lambda x: x[1].level > self.level_value(),
                                                  tie_packet.element.node.neighbors.items()))
@@ -896,6 +897,7 @@ class Node:
         self._my_north_prefix_tie_packet_info = packet_info
         self.store_tie_packet_info(self._my_north_prefix_tie_packet_info)
         self.info("Regenerated north prefix TIE: %s", tie_packet)
+        self.unsol_flood_tie_packet_info(self._my_north_prefix_tie_packet_info)
 
     def regenerate_my_pos_disagg_tie(self):
         # Gather the set of (prefix, metric, tags) containing all prefixes which we should currently
@@ -958,6 +960,7 @@ class Node:
         self._my_pos_disagg_tie_packet_info = packet_info
         self.store_tie_packet_info(packet_info)
         self.info("Regenerated positive disaggregation TIE: %s", tie_packet)
+        self.unsol_flood_tie_packet_info(packet_info)
 
     def regenerate_my_neg_disagg_tie(self, fallen_leafs):
         # If the no fallen leafs are present and we were not already advertising
@@ -1034,6 +1037,7 @@ class Node:
         self._my_neg_disagg_tie_info = packet_info
         self.store_tie_packet_info(packet_info)
         self.info("Regenerated negative disaggregation TIE: %s", tie_packet)
+        self.unsol_flood_tie_packet_info(packet_info)
 
     def is_overloaded(self):
         # Is this node overloaded?
@@ -1136,6 +1140,7 @@ class Node:
             self._my_south_prefix_tie_packet_info = new_packet_info
             self.store_tie_packet_info(self._my_south_prefix_tie_packet_info)
             self.info("Regenerated south prefix TIE because %s: %s", reason, new_tie_packet)
+            self.unsol_flood_tie_packet_info(self._my_south_prefix_tie_packet_info)
 
     def clear_all_generated_node_ties(self):
         for direction in [common.ttypes.TieDirectionType.South,
@@ -2294,9 +2299,7 @@ class Node:
             from_node_is_top_of_fabric=neighbor_is_top_of_fabric)
 
     def unsol_flood_tie_packet_info(self, tie_packet_info):
-        # Self-originated TIEs are not subject to unsolicited flooding
-        if tie_packet_info.rx_intf is None:
-            return
+        self_originated = tie_packet_info.rx_intf is None
         flood_count = 0
         tie_packet = tie_packet_info.protocol_packet.content.tie
         for tx_intf in self.interfaces_by_name.values():
@@ -2325,8 +2328,12 @@ class Node:
             tx_intf.tx_tie(tie_packet.header)
         # Log to how many interfaces the TIE was flooded
         if flood_count > 0:
-            self.db_debug("TIE %s received on %s flooded to %d interfaces", tie_packet.header,
-                          tie_packet_info.rx_intf.name, flood_count)
+            if self_originated:
+                self.db_debug("Self-originated TIE %s flooded to %d interfaces", tie_packet.header,
+                              flood_count)
+            else:
+                self.db_debug("TIE %s received on %s flooded to %d interfaces", tie_packet.header,
+                              tie_packet_info.rx_intf.name, flood_count)
 
     def generate_tide_packet(self,
                              neighbor_direction,
