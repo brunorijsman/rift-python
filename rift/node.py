@@ -2664,6 +2664,11 @@ class Node:
         # neighbors in the specified directions of the nodes in the node_ties list.
         for node_tie in node_ties:
             node_level = node_tie.element.node.level
+            ###@@@ DEBUG
+            if node_level is None:
+                print("DANGER DANGER")
+                print("node.name = ", self.name)
+                print("node_tie = ", node_tie)
             for nbr_system_id, nbr_tie_element in node_tie.element.node.neighbors.items():
                 nbr_level = nbr_tie_element.level
                 correct_direction = False
