@@ -905,6 +905,9 @@ class Node:
         self.unsol_flood_tie_packet_info(self._my_north_prefix_tie_packet_info)
 
     def regenerate_my_pos_disagg_tie(self):
+        # Don't do positive disaggregation if configured to only do negative
+        if self.engine.disaggregation == constants.DISAGG_NEG_ONLY:
+            return
         # Gather the set of (prefix, metric, tags) containing all prefixes which we should currently
         # advertise in our TIE.
         should_adv_disagg = {}
@@ -968,6 +971,10 @@ class Node:
         self.unsol_flood_tie_packet_info(packet_info)
 
     def regenerate_my_neg_disagg_tie(self, fallen_leafs):
+        # Don't do negative disaggregation if configured to only do positve
+        if self.engine.disaggregation == constants.DISAGG_POS_ONLY:
+            return
+
         # If the no fallen leafs are present and we were not already advertising
         # a negative disaggregation TIE, return.
         if not fallen_leafs and not self._my_neg_disagg_tie_info:
