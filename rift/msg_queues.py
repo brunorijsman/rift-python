@@ -152,11 +152,6 @@ class _TIEQueue(_MsgQueueBase):
         node = self._interface.node
         db_tie_packet_info = node.find_tie_packet_info(tie_id)
         if db_tie_packet_info is not None:
-            ###@@@ DEBUG
-            if tie_id.tietype == 5 and node.name == "spine-1-1":
-                self._interface._log.critical("[%s] send TIE %s" %
-                                              (self._interface._log_id, str(db_tie_packet_info)))
-            ###@@@
             self._interface.send_packet_info(db_tie_packet_info, flood=True)
 
 
