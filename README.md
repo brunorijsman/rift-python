@@ -25,7 +25,11 @@ The code is currently still a work in progress (see Feature List below for the s
 
   * [Positive Disaggregation Feature Guide](doc/positive-disaggregation-feature-guide.md)
 
-  * [Negative Disaggregation Feature Guide](doc/negative-disaggregation-feature-guide.md)
+  * [Negative Disaggregation Feature Guide 1](doc/negative-disaggregation-feature-guide.md)
+    (default behavior: both positive and negative disaggregation).
+
+  * [Negative Disaggregation Feature Guide 2](doc/negative-disaggregation-feature-guide.md)
+    (non-default behavior: only and negative disaggregation).
 
   * [Security Feature Guide](doc/security-feature-guide.md)
 

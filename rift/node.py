@@ -397,7 +397,12 @@ class Node:
                 self._kernel_route_table = self._node_nr
             else:
                 self._kernel_route_table = "none"
+        if self.engine:
+            simulated_interfaces = self.engine.simulated_interfaces
+        else:
+            simulated_interfaces = True
         self.kernel = kernel.Kernel(
+            simulated_interfaces,
             self._kernel_route_table,
             self._kernel_log,
             self.log_id)

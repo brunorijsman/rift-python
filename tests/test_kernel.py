@@ -9,11 +9,11 @@ import fib_route
 # pylint: disable=bad-continuation
 
 def test_create_kernel():
-    _kernel_1 = kernel.Kernel(log=None, log_id="", table_name="main")
-    _kernel_2 = kernel.Kernel(log=None, log_id="", table_name=3)
+    _kernel_1 = kernel.Kernel(simulated_interfaces=False, log=None, log_id="", table_name="main")
+    _kernel_2 = kernel.Kernel(simulated_interfaces=False, log=None, log_id="", table_name=3)
 
 def test_cli_addresses_table():
-    kern = kernel.Kernel(log=None, log_id="", table_name="main")
+    kern = kernel.Kernel(simulated_interfaces=False, log=None, log_id="", table_name="main")
     if not kern.platform_supported:
         return
     # We assume the loopback interface (lo) is always there, and we look for something like this:
@@ -30,7 +30,7 @@ def test_cli_addresses_table():
     assert re.search(pattern, tab_str) is not None
 
 def test_cli_links_table():
-    kern = kernel.Kernel(log=None, log_id="", table_name="main")
+    kern = kernel.Kernel(simulated_interfaces=False, log=None, log_id="", table_name="main")
     if not kern.platform_supported:
         return
     # We assume the loopback interface (lo) is always there, and we look for something like this:
@@ -51,7 +51,7 @@ def test_cli_links_table():
 
 def test_cli_routes_table():
     packet_common.add_missing_methods_to_thrift()
-    kern = kernel.Kernel(log=None, log_id="", table_name="main")
+    kern = kernel.Kernel(simulated_interfaces=False, log=None, log_id="", table_name="main")
     if not kern.platform_supported:
         return
     # We assume that the main route table always has a default route, and we look for this:
@@ -70,7 +70,7 @@ def test_cli_routes_table():
     assert re.search(pattern, tab_str) is not None
 
 def test_cli_route_prefix_table():
-    kern = kernel.Kernel(log=None, log_id="", table_name="main")
+    kern = kernel.Kernel(simulated_interfaces=False, log=None, log_id="", table_name="main")
     if not kern.platform_supported:
         return
     # We assume that the main route table always has a default route, and we look for this:
@@ -104,7 +104,7 @@ def test_cli_route_prefix_table():
     assert re.search(pattern, tab_str) is not None
 
 def test_put_del_route():
-    kern = kernel.Kernel(log=None, log_id="", table_name="5")
+    kern = kernel.Kernel(simulated_interfaces=False, log=None, log_id="", table_name="5")
     if not kern.platform_supported:
         return
     # Put route with one next-hop (with interface but no address)
@@ -144,7 +144,7 @@ def test_put_del_route():
     assert kern.del_route(prefix)
 
 def test_put_del_route_errors():
-    kern = kernel.Kernel(log=None, log_id="", table_name="main")
+    kern = kernel.Kernel(simulated_interfaces=False, log=None, log_id="", table_name="main")
     if not kern.platform_supported:
         return
     # Attempt to add route with nonsense next-hop interface
@@ -155,7 +155,7 @@ def test_put_del_route_errors():
 
 
 def test_put_del_route_unreachable():
-    kern = kernel.Kernel(log=None, log_id="", table_name="main")
+    kern = kernel.Kernel(simulated_interfaces=False, log=None, log_id="", table_name="main")
     if not kern.platform_supported:
         return
     # Add unreachable prefix in the kernel routing table (no next hops)

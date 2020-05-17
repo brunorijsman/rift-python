@@ -11,7 +11,8 @@ RTPRIORITY_RIFT = 199
 
 class Kernel:
 
-    def __init__(self, table_name, log, log_id):
+    def __init__(self, simulated_interfaces, table_name, log, log_id):
+        self._simulated_interfaces = simulated_interfaces
         self._table_name = table_name
         if isinstance(table_name, int):
             self._table_nr = table_name
@@ -49,7 +50,7 @@ class Kernel:
             return True
 
     def put_route(self, rte):
-        if not self.platform_supported:
+        if not self.platform_supported or self._simulated_interfaces:
             return False
         if self._table_nr == -1:
             return False
@@ -90,7 +91,7 @@ class Kernel:
             return True
 
     def del_route(self, prefix):
-        if not self.platform_supported:
+        if not self.platform_supported or self._simulated_interfaces:
             return False
         if self._table_nr == -1:
             return False
