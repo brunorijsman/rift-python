@@ -4,7 +4,11 @@ import packet_common
 import table
 import timer
 
+
 class _MsgQueueBase:
+
+    _SHORT_DELAY_TICKS = 1
+    _LONG_DELAY_TICKS = 10
 
     """
     The message queue base class (MsgQueueBase) is the base class that abstracts the common
@@ -15,11 +19,11 @@ class _MsgQueueBase:
     - Manage the queue of TIE messages to be sent.
     - Manage the queue of TIEs to be requested in a TIRE message.
     - Manage the queue of TIEs to be acknowledged in a TIRE message.
-    - When something is queued to be sent for the first time, send it out after a very short delay
-      (the short delay is intended to enable the packing of multiple items into a single message)
-    - When a header is added to the queue and it is not already there, put it in the fast queue,
-      and start a fast timer, if it is not already running.
-    - Use a slow timer to periodically retrasmit items on the queue if they are not removed.
+    - When something is queued to be sent for the first time, send it out after a very short delay,
+      namely after INITAL_DELAY_TICKS timer ticks. The short delay is intended to enable the packing
+      of multiple items into a single message.
+    - After that, as long as the item remains in the queue, it is re-transmitted every
+      RETRANSMIT_DELAY_TICKS timer ticks after that.
 
     It may seem like overkill to put all of this in a base class, but it opens up the path to
     potential enhancements in the future, such as:
@@ -36,8 +40,9 @@ class _MsgQueueBase:
     def __init__(self, interface, with_lifetime):
         self._interface = interface
         self._with_lifetime = with_lifetime
-        self._tx_queue = collections.OrderedDict()
-        self._rtx_queue = collections.OrderedDict()
+        # Queue key is TIE-ID
+        # Queue value is (delay_ticks, TIEHeaderWithLifeTime)
+        self._queue = collections.OrderedDict()
 
     def add_tie_header(self, tie_header):
         assert not self._with_lifetime
@@ -47,69 +52,64 @@ class _MsgQueueBase:
 
     def add_tie_header_lifetime(self, tie_header_lifetime):
         assert self._with_lifetime
+        assert tie_header_lifetime.__class__ == encoding.ttypes.TIEHeaderWithLifeTime
         self._add_tie_header_common(tie_header_lifetime)
 
     def _add_tie_header_common(self, tie_header_lifetime):
-        assert tie_header_lifetime.__class__ == encoding.ttypes.TIEHeaderWithLifeTime
         tie_header = tie_header_lifetime.header
         tie_id = tie_header.tieid
-        if tie_id in self._tx_queue:
-            # Message is already on the fast initial transmit queue, just update the message.
-            assert tie_id not in self._rtx_queue
-            self._tx_queue[tie_id] = tie_header_lifetime
-        elif tie_id in self._rtx_queue:
-            # The message is already on slow retransmit queue.
-            if tie_header.seq_nr > self._rtx_queue[tie_id].header.seq_nr:
-                # This is a newer version of the TIE, move it to the fast initial transmit queue,
-                # and update the message.
-                del self._rtx_queue[tie_id]
-                self._tx_queue[tie_id] = tie_header_lifetime
+        # Decide how fast we want to send the message
+        if tie_id in self._queue:
+            (old_delay_ticks, old_tie_header_lifetime) = self._queue[tie_id]
+            if tie_header.seq_nr > old_tie_header_lifetime.header.seq_nr:
+                # Message is newer version than the one on the queue. Short delay.
+                new_delay_ticks = self._SHORT_DELAY_TICKS
             else:
-                # Not a newer version of the TIE, update the message on the slow retransmit queue.
-                self._rtx_queue[tie_id] = tie_header_lifetime
+                # Message is same versionas the one on the queue. Keep same delay as queued msg.
+                new_delay_ticks = old_delay_ticks
         else:
-            # Not in any queue yet. Add it to the intial fast transmit queue
-            self._tx_queue[tie_id] = tie_header_lifetime
+            # Message is not yet on queue. Short delay.
+            new_delay_ticks = self._SHORT_DELAY_TICKS
+        # Put message on queue with updated delay.
+        self._queue[tie_id] = (new_delay_ticks, tie_header_lifetime)
 
     def remove_tie_id(self, tie_id):
-        if tie_id in self._tx_queue:
-            del self._tx_queue[tie_id]
-        if tie_id in self._rtx_queue:
-            del self._rtx_queue[tie_id]
+        if tie_id in self._queue:
+            del self._queue[tie_id]
 
     def search_tie_id(self, tie_id):
-        value = self._tx_queue.get(tie_id)
-        if value:
-            return value
-        return self._tx_queue.get(tie_id)
+        result = self._queue.get(tie_id)
+        if result:
+            (_delay_ticks, tie_header_lifetime) = result
+            return tie_header_lifetime
+        return None
 
     def clear(self):
-        self._tx_queue.clear()
-        self._rtx_queue.clear()
+        self._queue.clear()
 
-    def need_fast_timer(self):
-        return len(self._tx_queue) > 0
+    def need_timer(self):
+        return len(self._queue) > 0
 
-    def need_slow_timer(self):
-        return len(self._rtx_queue) > 0
+    def service_queue(self):
+        # This is not the most efficient implementation in the world. We iterate over the entire
+        # queue every time tick. But that is okay. Most of the time, these queues are empty, and
+        # when they are not, they tend to be very short.
+        new_queue = collections.OrderedDict()
+        self.start_message()
+        for tie_id, value in self._queue.items():
+            (delay_ticks, tie_header_lifetime) = value
+            assert delay_ticks > 0
+            delay_ticks -= 1
+            if delay_ticks == 0:
+                self.add_to_message(tie_id, tie_header_lifetime)
+                delay_ticks = self._LONG_DELAY_TICKS
+            new_queue[tie_id] = (delay_ticks, tie_header_lifetime)
+        self.end_message()
+        self._queue = new_queue
 
-    def service_tx_queue(self):
-        self.service_queue(self._tx_queue)
-        # Move all items from the tx_queue to the rtx_queue
-        for tie_id, tie_header in self._tx_queue.items():
-            self._rtx_queue[tie_id] = tie_header
-        self._tx_queue.clear()
-
-    def service_rtx_queue(self):
-        self.service_queue(self._rtx_queue)
-
-    def _add_row_to_cli_table(self, tab, value, transmission):
-        if self._with_lifetime:
-            header = value.header
-            lifetime = value.remaining_lifetime
-        else:
-            header = value
-            lifetime = None
+    def _add_row_to_cli_table(self, tab, delay_ticks, tie_header_lifetime):
+        header = tie_header_lifetime.header
+        lifetime = tie_header_lifetime.remaining_lifetime
         row = [packet_common.direction_str(header.tieid.direction),
                header.tieid.originator,
                packet_common.tietype_str(header.tieid.tietype),
@@ -117,7 +117,7 @@ class _MsgQueueBase:
                header.seq_nr]
         if self._with_lifetime:
             row.append(lifetime)
-        row.append(transmission)
+        row.append(delay_ticks)
         tab.add_row(row)
 
     def cli_table(self):
@@ -125,12 +125,11 @@ class _MsgQueueBase:
         header_row = ["Direction", "Originator", "Type", "TIE Nr", "Seq Nr"]
         if self._with_lifetime:
             header_row.append(["Remaining", "Lifetime"])
-        header_row.append("Transmission")
+        header_row.append(["Delay", "Ticks"])
         tab.add_row(header_row)
-        for value in self._tx_queue.values():
-            self._add_row_to_cli_table(tab, value, "Initial")
-        for value in self._rtx_queue.values():
-            self._add_row_to_cli_table(tab, value, "Retransmission")
+        for value in self._queue.values():
+            (delay_ticks, tie_header_lifetime) = value
+            self._add_row_to_cli_table(tab, delay_ticks, tie_header_lifetime)
         return tab
 
 
@@ -139,125 +138,124 @@ class _TIEQueue(_MsgQueueBase):
     def __init__(self, interface):
         _MsgQueueBase.__init__(self, interface, with_lifetime=False)
 
-    def service_queue(self, queue):
+    def start_message(self):
+        pass
+
+    def end_message(self):
+        pass
+
+    def add_to_message(self, tie_id, _tie_header_lifetime):
+        # Send a separate TIE message each time this function is called.
+        # We only look at the TIE-ID in the queue and not at the header. If we have a more
+        # recent version of the TIE in the TIE-DB than the one requested in the queue, send the
+        # one we have.
         node = self._interface.node
-        for tie_id in queue.keys():
-            # We only look at the TIE-ID in the queue and not at the header. If we have a more
-            # recent version of the TIE in the TIE-DB than the one requested in the queue, send the
-            # one we have.
-            db_tie_packet_info = node.find_tie_packet_info(tie_id)
-            if db_tie_packet_info is not None:
-                ###@@@ DEBUG
-                if tie_id.tietype == 5 and node.name == "spine-1-1":
-                    if queue == self._tx_queue:
-                        queue_name = "fast"
-                    elif queue == self._rtx_queue:
-                        queue_name = "slow"
-                    self._interface._log.critical("[%s] send TIE %s on %s queue" %
-                                                (self._interface._log_id, str(db_tie_packet_info), queue_name))
-                ###@@@
-                self._interface.send_packet_info(db_tie_packet_info, flood=True)
+        db_tie_packet_info = node.find_tie_packet_info(tie_id)
+        if db_tie_packet_info is not None:
+            ###@@@ DEBUG
+            if tie_id.tietype == 5 and node.name == "spine-1-1":
+                self._interface._log.critical("[%s] send TIE %s" %
+                                            (self._interface._log_id, str(db_tie_packet_info)))
+            ###@@@
+            self._interface.send_packet_info(db_tie_packet_info, flood=True)
 
 
 class _TIEReqQueue(_MsgQueueBase):
 
     def __init__(self, interface):
         _MsgQueueBase.__init__(self, interface, with_lifetime=True)
+        self._tire_packet = None
 
-    def service_queue(self, queue):
-        if not queue:
-            return
-        interface = self._interface
-        node = interface.node
-        tire_packet = packet_common.make_tire_packet()
-        for tie_header_lifetime in queue.values():
-            # We don't request a TIE from our neighbor if the flooding scope rules say that the
-            # neighbor is not allowed to flood the TIE to us. Why? Because the neighbor is allowed
-            # to advertise extra TIEs in the TIDE, and if we request them we will get an
-            # oscillation.
-            (allowed, _reason) = node.flood_allowed_from_nbr_to_node(
-                tie_header=tie_header_lifetime.header,
-                neighbor_direction=interface.neighbor_direction(),
-                neighbor_system_id=interface.neighbor.system_id,
-                neighbor_level=interface.neighbor.level,
-                neighbor_is_top_of_fabric=interface.neighbor.top_of_fabric(),
-                node_system_id=node.system_id)
-            if allowed:
-                packet_common.add_tie_header_to_tire(tire_packet, tie_header_lifetime)
-            else:
-                # TODO: log message
-                pass
-        packet_content = encoding.ttypes.PacketContent(tire=tire_packet)
+    def start_message(self):
+        self._tire_packet = packet_common.make_tire_packet()
+
+    def end_message(self):
+        node = self._interface.node
+        packet_content = encoding.ttypes.PacketContent(tire=self._tire_packet)
         packet_header = encoding.ttypes.PacketHeader(sender=node.system_id,
                                                      level=node.level_value())
         protocol_packet = encoding.ttypes.ProtocolPacket(header=packet_header,
                                                          content=packet_content)
         self._interface.send_protocol_packet(protocol_packet, flood=True)
+        self._tire_packet = None
+
+    def add_to_message(self, _tie_id, tie_header_lifetime):
+        # We don't request a TIE from our neighbor if the flooding scope rules say that the
+        # neighbor is not allowed to flood the TIE to us. Why? Because the neighbor is allowed
+        # to advertise extra TIEs in the TIDE, and if we request them we will get an
+        # oscillation.
+        node = self._interface.node
+        (allowed, _reason) = node.flood_allowed_from_nbr_to_node(
+            tie_header=tie_header_lifetime.header,
+            neighbor_direction=self._interface.neighbor_direction(),
+            neighbor_system_id=self._interface.neighbor.system_id,
+            neighbor_level=self._interface.neighbor.level,
+            neighbor_is_top_of_fabric=self._interface.neighbor.top_of_fabric(),
+            node_system_id=node.system_id)
+        if allowed:
+            packet_common.add_tie_header_to_tire(self._tire_packet, tie_header_lifetime)
 
 
 class _TIEAckQueue(_MsgQueueBase):
 
     def __init__(self, interface):
         _MsgQueueBase.__init__(self, interface, with_lifetime=True)
+        self._tire_packet = None
 
-    def service_queue(self, queue):
-        if not queue:
-            return
+    def start_message(self):
+        self._tire_packet = packet_common.make_tire_packet()
+
+    def end_message(self):
         node = self._interface.node
-        tire_packet = packet_common.make_tire_packet()
-        for tie_header_lifetime in queue.values():
-            packet_common.add_tie_header_to_tire(tire_packet, tie_header_lifetime)
-        packet_content = encoding.ttypes.PacketContent(tire=tire_packet)
+        packet_content = encoding.ttypes.PacketContent(tire=self._tire_packet)
         packet_header = encoding.ttypes.PacketHeader(sender=node.system_id,
                                                      level=node.level_value())
         protocol_packet = encoding.ttypes.ProtocolPacket(header=packet_header,
                                                          content=packet_content)
         self._interface.send_protocol_packet(protocol_packet, flood=True)
+        self._tire_packet = None
+
+    def add_to_message(self, _tie_id, tie_header_lifetime):
+        packet_common.add_tie_header_to_tire(self._tire_packet, tie_header_lifetime)
 
 
 class MsgQueues:
 
-    _FAST_INITIAL_TRANSMIT_INTERVAL = 0.05
-    _SLOW_SUBSEQUENT_RETRANSMIT_INTERVAL = 1.0
+    _TICK_INTERVAL = 0.1
 
     def __init__(self, interface):
         self._tie_queue = _TIEQueue(interface)
         self._tie_req_queue = _TIEReqQueue(interface)
         self._tie_ack_queue = _TIEAckQueue(interface)
-        self._fast_timer = timer.Timer(
-            interval=self._FAST_INITIAL_TRANSMIT_INTERVAL,
-            expire_function=self._fast_initial_transmit_timer_expired,
-            periodic=True,
-            start=False)
-        self._slow_timer = timer.Timer(
-            interval=self._SLOW_SUBSEQUENT_RETRANSMIT_INTERVAL,
-            expire_function=self._slow_subsequent_retransmit_timer_expired,
+        self._tick_timer = timer.Timer(
+            interval=self._TICK_INTERVAL,
+            expire_function=self._tick_timer_expired,
             periodic=True,
             start=False)
 
     def add_to_tie_queue(self, tie_header):
         self._tie_queue.add_tie_header(tie_header)
-        self._start_or_stop_timers_as_needed()
+        self._start_or_stop_timer_as_needed()
 
     def remove_from_tie_queue(self, tie_id):
         self._tie_queue.remove_tie_id(tie_id)
-        self._start_or_stop_timers_as_needed()
+        self._start_or_stop_timer_as_needed()
 
     def add_to_tie_req_queue(self, tie_header_lifetime):
         self._tie_req_queue.add_tie_header_lifetime(tie_header_lifetime)
-        self._start_or_stop_timers_as_needed()
+        self._start_or_stop_timer_as_needed()
 
     def remove_from_tie_req_queue(self, tie_id):
         self._tie_req_queue.remove_tie_id(tie_id)
-        self._start_or_stop_timers_as_needed()
+        self._start_or_stop_timer_as_needed()
 
     def add_to_tie_ack_queue(self, tie_header_lifetime):
         self._tie_ack_queue.add_tie_header_lifetime(tie_header_lifetime)
-        self._start_or_stop_timers_as_needed()
+        self._start_or_stop_timer_as_needed()
 
     def remove_from_tie_ack_queue(self, tie_id):
         self._tie_ack_queue.remove_tie_id(tie_id)
-        self._start_or_stop_timers_as_needed()
+        self._start_or_stop_timer_as_needed()
 
     def search_tie_ack_queue(self, tie_id):
         return self._tie_ack_queue.search_tie_id(tie_id)
@@ -266,49 +264,32 @@ class MsgQueues:
         self._tie_queue.remove_tie_id(tie_id)
         self._tie_req_queue.remove_tie_id(tie_id)
         self._tie_ack_queue.remove_tie_id(tie_id)
-        self._start_or_stop_timers_as_needed()
+        self._start_or_stop_timer_as_needed()
 
     def clear_all_queues(self):
         self._tie_queue.clear()
         self._tie_req_queue.clear()
         self._tie_ack_queue.clear()
-        self._start_or_stop_timers_as_needed()
+        self._start_or_stop_timer_as_needed()
 
-    def _start_or_stop_timers_as_needed(self):
+    def _start_or_stop_timer_as_needed(self):
         # Start or stop fast timer for initial transmissions, as needed.
-        need_fast_timer = (self._tie_queue.need_fast_timer() or
-                           self._tie_req_queue.need_fast_timer() or
-                           self._tie_ack_queue.need_fast_timer())
-        if need_fast_timer:
-            # Start fast timer if it is not already running.
-            if not self._fast_timer.running():
-                self._fast_timer.start()
+        need_timer = (self._tie_queue.need_timer() or
+                      self._tie_req_queue.need_timer() or
+                      self._tie_ack_queue.need_timer())
+        if need_timer:
+            # Start timer if it is not already running.
+            if not self._tick_timer.running():
+                self._tick_timer.start()
         else:
-            # Stop fast timer if it is running.
-            if self._fast_timer.running():
-                self._fast_timer.stop()
-        # Start or stop slow timer for subsequent retransmissions, as needed.
-        need_slow_timer = (self._tie_queue.need_slow_timer() or
-                           self._tie_req_queue.need_slow_timer() or
-                           self._tie_ack_queue.need_slow_timer())
-        if need_slow_timer:
-            # Start slow timer if it is not already running.
-            if not self._slow_timer.running():
-                self._slow_timer.start()
-        else:
-            # Stop slow timer if it is running.
-            if self._slow_timer.running():
-                self._slow_timer.stop()
+            # Stop timer if it is running.
+            if self._tick_timer.running():
+                self._tick_timer.stop()
 
-    def _fast_initial_transmit_timer_expired(self):
-        self._tie_queue.service_tx_queue()
-        self._tie_req_queue.service_tx_queue()
-        self._tie_ack_queue.service_tx_queue()
-
-    def _slow_subsequent_retransmit_timer_expired(self):
-        self._tie_queue.service_rtx_queue()
-        self._tie_req_queue.service_rtx_queue()
-        self._tie_ack_queue.service_rtx_queue()
+    def _tick_timer_expired(self):
+        self._tie_queue.service_queue()
+        self._tie_req_queue.service_queue()
+        self._tie_ack_queue.service_queue()
 
     def _tie_table(self):
         return self._tie_queue.cli_table()
