@@ -672,7 +672,7 @@ We can look at spine-2-1's shortest path first (SPF) calculation to see which pr
 to positively disaggregate:
 
 <pre>
-super-1-2> show spf direction south
+super-1-2> <b>show spf direction south</b>
 South SPF Destinations:
 +-----------------+------+---------+-------------+------+--------------+---------------------+-------------------------------+
 | Destination     | Cost | Is Leaf | Predecessor | Tags | Disaggregate | IPv4 Next-hops      | IPv6 Next-hops                |
