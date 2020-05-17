@@ -1,6 +1,7 @@
 # pylint:disable=too-many-lines
 
 import enum
+import errno
 import logging
 import random
 import socket
@@ -323,8 +324,14 @@ class Interface:
                         self.log_tx_protocol_packet(logging.DEBUG, sock, "Send", packet_info)
                         self.bump_tx_counters(protocol_packet, sock, nr_bytes)
                     except socket.error as error:
+                        if error.errno == errno.ECONNREFUSED:
+                            # It is common to get connection refused when trying to to send a UDP
+                            # packet before we realize the receiver has closed it's socket.
+                            severity = logging.INFO
+                        else:
+                            severity = logging.ERROR
                         prelude = "Error {} sending".format(str(error))
-                        self.log_tx_protocol_packet(logging.ERROR, sock, prelude, packet_info)
+                        self.log_tx_protocol_packet(severity, sock, prelude, packet_info)
                         self.bump_tx_real_errors_counter(sock, nr_bytes)
 
     def choose_tx_packet_nr(self, address_family, packet_info):
