@@ -1816,6 +1816,10 @@ class Node:
         if self._floodred_log is not None:
             self._floodred_log.debug("[%s] %s" % (self.log_id, msg), *args)
 
+    def floodred_info(self, msg, *args):
+        if self._floodred_log is not None:
+            self._floodred_log.info("[%s] %s" % (self.log_id, msg), *args)
+
     def floodred_warning(self, msg, *args):
         if self._floodred_log is not None:
             self._floodred_log.warning("[%s] %s" % (self.log_id, msg), *args)
@@ -3234,8 +3238,8 @@ class Node:
                 grandparent.covered = True
             else:
                 grandparent.covered = False
-                self.floodred_warning("Grandparent system-id %s not redundantly covered by flooding"
-                                      "repeaters", utils.system_id_str(grandparent.sysid))
+                self.floodred_info("Grandparent system-id %s not redundantly covered by flooding"
+                                   "repeaters", utils.system_id_str(grandparent.sysid))
 
     def floodrep_update_intfs(self):
         # Do all activations before any de-activations (so that the de-activations can known whether

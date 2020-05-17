@@ -217,7 +217,7 @@ class Interface:
             self.partially_connected = None
             self.partially_connected_causes = None
         if not old_partially_connected and self.partially_connected:
-            self.warning("Neighbor became partially connected")
+            self.info("Neighbor became partially connected")
             reason = "Neighbor {} became partially connected".format(self._log_id)
             self.node.trigger_spf(reason)
         if old_partially_connected and not self.partially_connected:
