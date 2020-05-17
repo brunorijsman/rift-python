@@ -1,11 +1,40 @@
 # Negative-Only Disaggregation Feature Guide
 
-This is a variation of the
-[negative disaggregation feature guide](negative-disaggregation-feature-guide.md)
-that demonstrates `negative-only` disaggregation instead of the default
-`positive-and-negative` disaggregation.
+In the
+[positive disaggregation feature guide](positive-disaggregation-feature-guide.md)
+we described how positive disaggregation works.
 
-## Generating and starting the topology
+And in the
+[negative disaggregation feature guide](negative-disaggregation-feature-guide.md)
+we described how negative disaggregation works by default. That is: by default
+RIFT-Python only uses negative disaggregation at the top-of-fabric nodes for inter-plane
+failures, and uses positive disaggregation for everything else.
+
+In this feature guide, we describe how RIFT-Python works when `disaggregation` is configured to
+`negative-only` in the configuration file.
+In this mode, RIFT-Python does not use positive disaggregation anywhere and instead uses negative
+disaggregation everywhere.
+
+## Generating and starting a simple 2-level topology
+
+Before we get into more complex topologies, we use a very simple 2-level topology with 3 leaves
+and 3 spines to demonstrate how negative disaggregation can replace positive disaggregation.
+
+We use the following meta-topology file `meta_topology/clos_3leaf_3spine_negdisagg.yaml`:
+
+<pre>
+nr-leaf-nodes-per-pod: 3
+nr-spine-nodes-per-pod: 3
+disaggregation: negative-only
+</pre>
+
+We generate the topology file from the above meta-topology file:
+
+<pre>
+(env) $ <b>tools/config_generator.py meta_topology/clos_3leaf_3spine_negdisagg.yaml generated.yaml</b>
+</pre>
+
+## Generating and starting a complex multi-plane 3-level topology
 
 To enable negative-only disaggration we use the meta-topology file 
 `meta_topology/clos_3plane_3pod_3leaf_3spine_6super_negdisagg.yaml`
@@ -56,7 +85,84 @@ leaf-1-1> <b>show engine</b>
 +----------------------------------+---------------------+
 </pre>
 
-## Breaking the first link: negative disaggreation
+## Breaking a pod link: negative disaggreation instead of positive
+
+Let's begin with breaking a link inside pod-1. We want to look at this scenario first to fully
+understand how negative disaggregation can replace positive disaggregation in all cases.
+
+We break the link from leaf-1-1 to spine-1-1:
+
+<pre>
+leaf-1-1> <b>set interface if-1001a failure failed</b>
+</pre>
+
+Obviously the interface (i.e. the other side of the link) on spine-1-1 goes does as well:
+
+<pre>
+spine-1-1> <b>show interfaces</b>
++-----------+-------------------+-----------+-----------+
+| Interface | Neighbor          | Neighbor  | Neighbor  |
+| Name      | Name              | System ID | State     |
++-----------+-------------------+-----------+-----------+
+| if-101a   |                   |           | ONE_WAY   |
++-----------+-------------------+-----------+-----------+
+| if-101b   | leaf-1-2:if-1002a | 1002      | THREE_WAY |
++-----------+-------------------+-----------+-----------+
+| if-101c   | leaf-1-3:if-1003a | 1003      | THREE_WAY |
++-----------+-------------------+-----------+-----------+
+| if-101d   | super-1-1:if-1a   | 1         | THREE_WAY |
++-----------+-------------------+-----------+-----------+
+| if-101e   | super-1-2:if-2a   | 2         | THREE_WAY |
++-----------+-------------------+-----------+-----------+
+</pre>
+
+Spine-1-1 knows that the other two spines in the same pod (spine-1-2 and spine-1-3) have an
+extra south-bound adjacency. This is to say, spine-1-1 knows it is  missing a south-bound
+adjacency:
+
+<pre>
+spine-1-1> <b>show same-level-nodes</b>
++-----------+-------------+-------------+-------------+-------------+
+| Node      | North-bound | South-bound | Missing     | Extra       |
+| System ID | Adjacencies | Adjacencies | South-bound | South-bound |
+|           |             |             | Adjacencies | Adjacencies |
++-----------+-------------+-------------+-------------+-------------+
+| 102       | 3           | 1001        |             | 1001        |
+|           | 4           | 1002        |             |             |
+|           |             | 1003        |             |             |
++-----------+-------------+-------------+-------------+-------------+
+| 103       | 5           | 1001        |             | 1001        |
+|           | 6           | 1002        |             |             |
+|           |             | 1003        |             |             |
++-----------+-------------+-------------+-------------+-------------+
+</pre>
+
+The fact that spine-1-1 is missing a south-bound adjacency triggers spine-1-1 to do a negative
+disaggregation:
+
+@@@
+
+This negative disaggregation is received on all the leaves in pod-1, for example leaf-1-3:
+
+@@@
+
+Hence, leaf-1-3 installs a negative route in its RIB:
+
+@@@
+
+And the negative route in leaf-1-3's RIB is translated into a complementary positive route in its
+FIB:
+
+@@@
+
+
+If we were not in negative-only disaggregation mode, spine-1-1 would not have triggered a negative
+disaggregation in this scenario. Instead, spine-1-2 and spine-1-3 would each have triggered a
+positive disaggregation. But clearly, that is not happening now:
+
+@@@
+
+## Breaking the first spine-superspine link: negative disaggreation
 
 We will start with breaking one link from spine-1-1 to super-1-1. 
 RIFT-Python offers a handy set command to
@@ -73,7 +179,7 @@ negative disaggregation can replace positive disaggregation to recover from this
 
 ### Super-1-1
 
-As before, we see that the adjacency from super-1-1 to spine-1-1 goes down.
+We see that the adjacency from super-1-1 to spine-1-1 goes down.
 Super-1-1 still has adjacencies to spine-2-1 and spine-3-1, but not to spine-1-1 anymore.
 
 <pre>
@@ -211,22 +317,21 @@ super-1-1> <b>show same-level-nodes</b>
 +-----------+-------------+-------------+-------------+-------------+
 </pre>
 
-Here we can see that
-super-1-2 knows that super-1-1 (system ID 1) is another superspine node in the same plane, that it
+Here we can see that this node
+(super-1-1) knows that super-1-2 (system ID 2) is another superspine node in the same plane, that it
 has three south-bound adjacencies to spine-1-1 (system ID 101), spine-2-1 (system ID 104) and
 spine-3-1 (system ID 107). This means it has one extra south-bound adjacency, namely to node
-spine-1-1 (system ID 101) that this node (super-1-1) does't have.
+spine-1-1 (system ID 101), which this node (super-1-1) does't have.
 This is exactly the same information as what we already concluded from looking directly
 at the TIEs.
 
-The fact that super-1-1 is "missing" a south-bound adjancency as compared to super-1-2 triggers
-disaggregation.
-The default behavior of RIFT-Python is that super-1-2 will trigger positive disaggregation, as
-we saw in detail in the
-[negative disaggregation feature guide](negative-disaggregation-feature-guide.md).
-But in this guide we have configured the negative-only disaggregation mode.
-Hence, instead of super-1-2 triggering positive disaggregation ("send traffic to super-1-2!"),
-super-1-1 triggers negative disaggregation ("don't send trafic to super-1-1!")
+The fact that this node, super-1-1, is "missing" a south-bound adjancency as compared to super-1-2
+triggers a _negative_ disaggregation on this node.
+
+By default this would have caused a _positive_ disaggregation to happen on the other node,
+super-1-2. However, because `disaggregation` is configured to `negative-only`, in this case
+we do negative disaggregation on this node.
+
 
 @@@
  We can look at spine-1-1's shortest path first (SPF) calculation to see which prefixes it decides

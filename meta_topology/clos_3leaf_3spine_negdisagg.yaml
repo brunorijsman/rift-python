@@ -1,0 +1,3 @@
+nr-leaf-nodes-per-pod: 3
+nr-spine-nodes-per-pod: 3
+disaggregation: negative-only
