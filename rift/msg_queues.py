@@ -148,7 +148,7 @@ class _TIEQueue(_MsgQueueBase):
             db_tie_packet_info = node.find_tie_packet_info(tie_id)
             if db_tie_packet_info is not None:
                 ###@@@ DEBUG
-                if tie_id.tietype == 5:
+                if tie_id.tietype == 5 and node.name == "spine-1-1":
                     if queue == self._tx_queue:
                         queue_name = "fast"
                     elif queue == self._rtx_queue:
