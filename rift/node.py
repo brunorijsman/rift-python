@@ -964,7 +964,7 @@ class Node:
 
     def regenerate_my_neg_disagg_tie(self, fallen_leafs):
         ###@@@ DEBUG
-        self.log.error("[%s] regenerate_my_neg_disagg_tie" % self.log_id)
+        self.log.critical("[%s] regenerate_my_neg_disagg_tie" % self.log_id)
         # If the no fallen leafs are present and we were not already advertising
         # a negative disaggregation TIE, return.
         if not fallen_leafs and not self._my_neg_disagg_tie_info:
