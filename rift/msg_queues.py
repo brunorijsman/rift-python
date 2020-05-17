@@ -5,8 +5,8 @@ import table
 import timer
 
 _SHORT_DELAY_TICKS = 1
-_LONG_DELAY_TICKS = 10
-_TICK_INTERVAL = 0.1
+_LONG_DELAY_TICKS = 5
+_TICK_INTERVAL = 0.2
 
 class _MsgQueueBase:
 
