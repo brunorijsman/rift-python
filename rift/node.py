@@ -985,8 +985,6 @@ class Node:
 
             # Nothing new to announce, exit
             if not new_fallen_leafs and not recovered_leafs:
-                ###@@@ DEBUG
-                self.log.critical("[%s] regenerate_my_neg_disagg_tie NO CHANGE" % self.log_id)
                 return
 
         # We need regenerate a new prefix TIE for the negatively disaggregated prefixes.

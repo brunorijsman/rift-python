@@ -147,6 +147,15 @@ class _TIEQueue(_MsgQueueBase):
             # one we have.
             db_tie_packet_info = node.find_tie_packet_info(tie_id)
             if db_tie_packet_info is not None:
+                ###@@@ DEBUG
+                if tie_id.tietype == 5:
+                    if queue == self._tx_queue:
+                        queue_name = "fast"
+                    elif queue == self._rtx_queue:
+                        queue_name = "fast"
+                    self._interface._log.critical("[%s] send TIE %s on %s queue" %
+                                                (self._interface._log_id, str(tie_id), queue_name))
+                ###@@@
                 self._interface.send_packet_info(db_tie_packet_info, flood=True)
 
 
