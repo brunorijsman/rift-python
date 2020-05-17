@@ -293,8 +293,10 @@ class Interface:
             elif self._flood_tx_ipv6_socket:
                 socks = [self._flood_tx_ipv6_socket]
             else:
-                self.tx_warning("Could not send flood packet because interface has neither IPv4 "
-                                "nor IPv6 TX flood socket")
+                # It is normal not to have flooding sockets if we are not in state 3-way
+                if self.fsm.state == self.State.THREE_WAY:
+                    self.tx_warning("Could not send flood packet because interface has neither "
+                                    "IPv4 nor IPv6 TX flood socket")
                 return
         else:
             socks = []
