@@ -152,7 +152,7 @@ class _TIEQueue(_MsgQueueBase):
                     if queue == self._tx_queue:
                         queue_name = "fast"
                     elif queue == self._rtx_queue:
-                        queue_name = "fast"
+                        queue_name = "slow"
                     self._interface._log.critical("[%s] send TIE %s on %s queue" %
                                                 (self._interface._log_id, str(tie_id), queue_name))
                 ###@@@
