@@ -154,7 +154,7 @@ class _TIEQueue(_MsgQueueBase):
                     elif queue == self._rtx_queue:
                         queue_name = "slow"
                     self._interface._log.critical("[%s] send TIE %s on %s queue" %
-                                                (self._interface._log_id, str(tie_id), queue_name))
+                                                (self._interface._log_id, str(db_tie_packet_info), queue_name))
                 ###@@@
                 self._interface.send_packet_info(db_tie_packet_info, flood=True)
 
