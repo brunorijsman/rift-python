@@ -153,10 +153,12 @@ class Engine:
         return total_nr_nodes
 
     def read_global_configuration(self, config, attribute, default):
+        # TODO: Get rid of const
         if ('const' in config) and (config['const'] is not None) and (attribute in config['const']):
             return config['const'][attribute]
-        else:
-            return default
+        if attribute in config:
+            return config[attribute]
+        return default
 
     def create_configuration(self, passive_nodes):
         if 'authentication_keys' in self._config:
