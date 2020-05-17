@@ -33,8 +33,6 @@ class _MsgQueueBase:
     - Pacing messages (i.e. avoiding large bursts of messages).
     - Dynamic pacing, based on the drop rate inferred from gaps in the sequence number in received
       messages.
-    - More precise retransmits. Instead of having one slow timer tick, but retransmits into several
-      buckets and service them with a more fine-grained timer.
     """
 
     def __init__(self, interface, with_lifetime):
