@@ -4,11 +4,11 @@ import packet_common
 import table
 import timer
 
+_SHORT_DELAY_TICKS = 1
+_LONG_DELAY_TICKS = 10
+_TICK_INTERVAL = 0.1
 
 class _MsgQueueBase:
-
-    _SHORT_DELAY_TICKS = 1
-    _LONG_DELAY_TICKS = 10
 
     """
     The message queue base class (MsgQueueBase) is the base class that abstracts the common
@@ -63,13 +63,13 @@ class _MsgQueueBase:
             (old_delay_ticks, old_tie_header_lifetime) = self._queue[tie_id]
             if tie_header.seq_nr > old_tie_header_lifetime.header.seq_nr:
                 # Message is newer version than the one on the queue. Short delay.
-                new_delay_ticks = self._SHORT_DELAY_TICKS
+                new_delay_ticks = _SHORT_DELAY_TICKS
             else:
                 # Message is same versionas the one on the queue. Keep same delay as queued msg.
                 new_delay_ticks = old_delay_ticks
         else:
             # Message is not yet on queue. Short delay.
-            new_delay_ticks = self._SHORT_DELAY_TICKS
+            new_delay_ticks = _SHORT_DELAY_TICKS
         # Put message on queue with updated delay.
         self._queue[tie_id] = (new_delay_ticks, tie_header_lifetime)
 
@@ -102,7 +102,7 @@ class _MsgQueueBase:
             delay_ticks -= 1
             if delay_ticks == 0:
                 self.add_to_message(tie_id, tie_header_lifetime)
-                delay_ticks = self._LONG_DELAY_TICKS
+                delay_ticks = _LONG_DELAY_TICKS
             new_queue[tie_id] = (delay_ticks, tie_header_lifetime)
         self.end_message()
         self._queue = new_queue
@@ -117,7 +117,7 @@ class _MsgQueueBase:
                header.seq_nr]
         if self._with_lifetime:
             row.append(lifetime)
-        row.append(delay_ticks)
+        row.append("{:.2f}".format(delay_ticks * _TICK_INTERVAL))
         tab.add_row(row)
 
     def cli_table(self):
@@ -125,7 +125,7 @@ class _MsgQueueBase:
         header_row = ["Direction", "Originator", "Type", "TIE Nr", "Seq Nr"]
         if self._with_lifetime:
             header_row.append(["Remaining", "Lifetime"])
-        header_row.append(["Delay", "Ticks"])
+        header_row.append(["Send", "Delay"])
         tab.add_row(header_row)
         for value in self._queue.values():
             (delay_ticks, tie_header_lifetime) = value
@@ -155,7 +155,7 @@ class _TIEQueue(_MsgQueueBase):
             ###@@@ DEBUG
             if tie_id.tietype == 5 and node.name == "spine-1-1":
                 self._interface._log.critical("[%s] send TIE %s" %
-                                            (self._interface._log_id, str(db_tie_packet_info)))
+                                              (self._interface._log_id, str(db_tie_packet_info)))
             ###@@@
             self._interface.send_packet_info(db_tie_packet_info, flood=True)
 
@@ -221,14 +221,12 @@ class _TIEAckQueue(_MsgQueueBase):
 
 class MsgQueues:
 
-    _TICK_INTERVAL = 0.1
-
     def __init__(self, interface):
         self._tie_queue = _TIEQueue(interface)
         self._tie_req_queue = _TIEReqQueue(interface)
         self._tie_ack_queue = _TIEAckQueue(interface)
         self._tick_timer = timer.Timer(
-            interval=self._TICK_INTERVAL,
+            interval=_TICK_INTERVAL,
             expire_function=self._tick_timer_expired,
             periodic=True,
             start=False)
