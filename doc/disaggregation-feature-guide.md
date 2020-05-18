@@ -9,15 +9,14 @@ in this case 10.0.0.0/8.
 That less specific route is called an aggregate route.
 The process of replacing several specific routes with single aggregate route is called aggreation.
 The most extreme case of aggregation is replacing all routes in the route table with a
-default route 0.0.0.0.
+default route 0.0.0.0/0 (or ::0/0 in the case of IPv6).
 
 The most common use case for aggregation is to reduce the size of the route table by removing
 details where they are not needed. For example, within their own network, Internet Service
 Providers (ISPs) need specific routes to each of their customers. However, ISPs typically only
 advertise a single aggregate route for their entire address space to other ISPs.
 
-Most existing routing protocols (BGP, OSPF, ISIS, ...) allow you to manually configure aggregate
-prefixes.
+Most existing routing protocols (BGP, OSPF, ISIS, ...) allow you to manually configure aggregation.
 
 ## Disaggregation before RIFT
 
@@ -27,8 +26,9 @@ route) and splits it up into several more speficic routes.
 
 The most common use case for disaggregation is traffic engineering. For example, an enterprise
 that is BGP dual-homed to two service providers, may split their address space (described by an
-aggregate route) into two more speficic prefixes, and advertise one to each service provider.
-That way, incoming traffic is split across the two service providers.
+aggregate) into two more speficic prefixes, and advertise one to each service provider.
+That way, incoming traffic is split across the two service providers, even one service provider
+is always the shortest path.
 
 Most existing routing protocols (BGP, OSPF, ISIS, ...) provide mechanisms to manually configure
 disaggregation.
@@ -36,10 +36,10 @@ There exist so-called BGP optimizers that will automatically configure BGP disag
 traffic engineering purposes. These are separate appliances, not something that is build into
 the BGP protocol itself.
 
-# Routing in fat trees (RIFT)
+# The Routing in fat trees (RIFT) protocol
 
 Routing in Fat Trees (RIFT) is a new routing protocol being defined in the Internet Engineering
-Task Force (IETF).
+Task Force (IETF). It has an open source implementation and at least one commercial implementation.
 
 RIFT is optimized for large networks that have a highly structured topology known as a fat tree
 or Clos topology.
@@ -51,22 +51,27 @@ of the deficiences of OSPF, ISIS, and BGP for that use case.
 RIFT brings several innovations to the table, including:
 
  * RIFT is anisotropic: is a link-state protocol north-bound and a distance-vector protocol
-   south-bound. This combines the advantages of link-state with the advantags of distant-vector.
+   south-bound. This combines the advantages of link-state with the advantags of distance-vector
+   / path-vector.
+
+ * Scalability: RIFT supports large data center networks without the need for splitting the network
+   into multiple areas.
+
+ * Very fast convergence, even in very large networks.
 
  * Zero touch provisioning (ZTP) to virtually eliminate the need for configuration. This greatly
-   reduces operational costs and improves reliability.
+   reduces operational costs and improves reliability, for example by discovering cabling mistakes.
 
  * A built-in flooding reduction mechanism, which is necessary to handle the very rich connectivity
    in fat tree topologies.
 
  * Automatic aggregation. In the absence of failures, each node only needs a single equal-cost
-   multi-path (ECMP) default route pointing north.
+   multi-path (ECMP) default route pointing north. This reduces the size of the routing table
+   at the edge, and hence reduces the cost of top-of-rack switches.
 
  * Automatic disaggregation. In the even of a failure, the north-bound default route is
    automatically disaggregated into more specific routes, but only to the extent needed to route
    around the failure.
-
- * Very fast convergence, even in very large networks.
 
  * Model-based (Thrift) specification of the routing protocol messages. This speeds up development,
    enhances interoperability, and mosts importantly improves security by removing most message
@@ -74,20 +79,58 @@ RIFT brings several innovations to the table, including:
 
  * Much more (see [this presentation](https://www.slideshare.net/apnic/routing-in-fat-trees)).
 
-
 # Automatic disaggregation in RIFT
 
+In this guide we focus on one particular feature of RIFT, namely automatic disaggregation.
+Automatic disaggregation is one of the most novel and most interesting innovations in the RIFT
+protocol.
 
-Automatic disaggregation is one of the most novel and most interesting innovations in the Routing
-In Fat Trees (RIFT) protocol.
-There are actually two flavors of disaggregation in RIFT: positive disaggregation and negative
-disaggregation.
-The focus of this feature guide is negative disaggregation, but since it is closely related
-to positive disaggregation, we also briefly cover positive disaggregation.
-Positive disaggregation is discussed in greater detail in 
-[its own feature guide](positive-disaggregation-feature-guide.md).
+In most existing protocols (BGP, OSPF, ISIS) disaggregation requires extensive manual configuration.
+In RIFT, by contrast, disaggregation is fully automatic without need for any configuration.
 
-One of the best known characteristics of RIFT is that it is a link-state protocol north-bound and
+In most existing protocols, disaggregation is an optional feature that is mainly used for traffic
+engineering.
+RIFT, on the other hand, relies on disaggregation as an essential feature to recover from failures.
+In the absence of a failure, RIFT routers only have a default route for the north-bound direction.
+When a failure occurs, RIFT automatically triggers disaggregation to install more specific
+north-bound routes to route traffic around the failure.
+For that reason, disaggregation is always enabled in RIFT;
+it is not an optional feature and it cannot be disabled.
+
+There are actually two flavors of disaggregation in RIFT:
+
+ * Positive disaggregation is used to deal with most types of failures. It works the repair path
+   "attracting" traffic from the broken path. Positive disaggregation in RIFT works very similar to
+   how disaggregation works in existing protocols, except that it is triggered automatically
+   instead of configured manually.
+
+ * Negative disaggregation is used to deal with a very particular type of failure that only occurs
+   only in very large data center, to so-called multi-plane fat trees (we will explain what that is
+   later). It works by the bokren path "repelling" traffic towards the repair path. Negative
+   disaggregation uses completely new mechanisms that (as far as we know) do not have any equivalent
+   in existing protocols. 
+ 
+In this guide we describe how both of these flavors of disaggregation work from a RIFT protocol
+point of view (i.e. not tied to any particular implementation).
+
+There are two separate feature guides to describe the nitty-gritty details (including
+command-line interface examples) of disaggregation in the open source RIFT-Python implementation:
+
+ * The [positive disaggregation feature guide.](positive-disaggregation-feature-guide.md).
+
+ * The [negative disaggregation feature guide.](negative-disaggregation-feature-guide.md).
+
+A quick note on terminology before we proceed. In this document we use term node as a synonym for
+router or layer 3 switch. And we use terms leaf, spine, and superspine for the layers
+of nodes in a 3-layer fat tree topology. In a 3-layer topology, a superspine node is also known as
+a top-of-fabric node, and a a spine node is also known as a a top-of-pod node (where pod stands
+for point-of-deployment). Finally, we treat a fat tree topology as a synonym for a Clos topology,
+and we treat a 3-layer topology as a synonym for a 5-stage topology.
+
+# RIFT behavior in the absence of failures
+
+As mentioned before,
+one of the best known characteristics of RIFT is that it is a link-state protocol north-bound and
 a distance-vector protocol south-bound. 
 One consequence of that is that the RIFT route tables typically contain host /32 (for IPv4) or
 /128 (for IPv6) routes for all south-bound traffic,
@@ -98,14 +141,9 @@ The following figure shows typical RIFT route tables in a small 3-level fat tree
 The leaf nodes contain only a single north-bound default route. The superspine nodes contain
 only host-specific south-bound routes. And the spine nodes contain a mixture.
 
-A quick note on terminology before we proceed. In this document we use term node as a synonym for
-router or layer 3 switch. And we use terms leaf, spine, and superspine for the layers
-of nodes in a 3-layer fat tree topology. In a 3-layer topology, a superspine node is also known as
-a top-of-fabric node, and a a spine node is also known as a a top-of-pod node (where pod stands
-for point-of-deployment). Finally, we treat a fat tree topology as a synonym for a Clos topology,
-and we treat a 3-layer topology as a synonym for a 5-stage topology.
-
 ![RIFT Typical Route Tables](https://brunorijsman-public.s3-us-west-2.amazonaws.com/diagram-rift-typical-route-tables.png)
+
+# Disaggregation triggered by failures
 
 Automatic disaggregation (either the positive or the negative flavor) is what allows RIFT to get
 away with only using default routes for north-bound traffic.
@@ -171,6 +209,11 @@ avoided.
 To summarize: disaggregation per-se is not novel in RIFT; disaggregation already existed in
 other protocols prior to RIFT. The main two innovations in RIFT are
 (a) the fact that disaggregation is _automatic_ and (b) the concept of _negative_ disaggregation.
+
+# Positive disaggregation in RIFT
+
+
+====================================================================================================
 
 ## Positive disaggregation versus negative disaggregation
 
@@ -325,7 +368,13 @@ Negative disaggregation has two advantages relative to positive disaggregation:
  2. For this exact same reason, negative disaggregation avoids the transitory incast problem that
     we described above.
 
-# Choosing between positive and negative disaggregation
+# On the relationship between positive and negative disaggregation
+
+
+@@@
+
+
+
 
 By default, RIFT-Python behaves as follows:
 
