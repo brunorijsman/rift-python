@@ -275,20 +275,6 @@ By default, RIFT-Python behaves as follows:
 To summarize: by default RIFT-Python uses a combination of both positive and negative
 disaggregation.
 
-RIFT-Python has an optional `disaggregation` parameter in the configuration file that can have
-one of the following values:
-
-`positive-and-negative`: This is the default value and represents the default behavior as described
-above.
-
-`positive-only`: Only does items #1, #2, and #4 above. Does not do item #3 above.
-
-`negative-only`: Does items #2, #3, and #4 above. For item #1 above, the modified rule is: 
-Any node can _originate_ a negative disaggregate prefix TIE. This is triggered
-the observation that the originating node is missing a south-bound adjacency that present on
-some same-level node. In other words, this mode uses negative disaggregation for all use cases,
-including the ones that are normally solved by by positive disaggregation.
-
 # Negative disaggregation in the real world
 
 ## Multi-plane fabrics with east-west inter-plane links
@@ -527,11 +513,6 @@ spine-1-1> <b>show engine</b>
 | Disaggregation                   | positive-and-negative |
 +----------------------------------+-----------------------+
 </pre>
-
-It is actually quite interesting to see how RIFT-Python behaves in the `negative-only` 
-aggregation mode. In particular, it gives a better insight into the propagation rules for
-negative disaggregation.
-We describe this in [a separate guide](negative-only-disaggregation.md).
 
 ### Super-1-1
 

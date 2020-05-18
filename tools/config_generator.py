@@ -45,7 +45,6 @@ NODE_SCHEMA = {
 
 SCHEMA = {
     'inter-plane-east-west-links': {'required': False, 'type': 'boolean', 'default': True},
-    'disaggregation': {'required': False, 'type': 'disaggregation'},
     'nr-leaf-nodes-per-pod': {'required': True, 'type': 'integer', 'min': 1},
     'nr-pods': {'required': False, 'type': 'integer', 'min': 1, 'default': 1},
     'nr-spine-nodes-per-pod': {'required': True, 'type': 'integer', 'min': 1},
@@ -68,15 +67,6 @@ SCHEMA = {
         }
     }
 }
-
-class Validator(cerberus.Validator):
-
-    def _validate_type_disaggregation(self, value):
-        return isinstance(value, str) and value.lower() in ['positive-and-negative',
-                                                            'positive-only',
-                                                            'negative-only']
-
-
 
 SOUTH = 1
 NORTH = 2
@@ -502,8 +492,6 @@ class Node:
 
     def write_config_to_file(self, file, netns):
         if netns:
-            if self.group.fabric.disaggregation:
-                print("disaggregation:", self.group.fabric.disaggregation, file=file)
             print("shards:", file=file)
             print("  - id: 0", file=file)
             print("    nodes:", file=file)
@@ -1158,7 +1146,6 @@ class Fabric:
         self.nr_planes = META_CONFIG['nr-planes']
         self.inter_plane_east_west_links = META_CONFIG['inter-plane-east-west-links']
         self.nr_superspine_nodes = META_CONFIG.get('nr-superspine-nodes')
-        self.disaggregation = META_CONFIG.get('disaggregation')
         self.pods = []
         self.planes = []
         pods_y_pos = GLOBAL_Y_OFFSET
@@ -1262,8 +1249,6 @@ class Fabric:
                 fatal_error('Could not open output configuration file "{}"'.format(file_name))
 
     def write_config_to_file(self, file, netns):
-        if self.disaggregation:
-            print("disaggregation:", self.disaggregation, file=file)
         print("shards:", file=file)
         print("  - id: 0", file=file)
         print("    nodes:", file=file)
@@ -1736,7 +1721,7 @@ def parse_meta_configuration(file_name):
                 raise exception
     except IOError:
         fatal_error('Could not open input meta-configuration file "{}"'.format(file_name))
-    validator = Validator(SCHEMA)
+    validator = cerberus.Validator(SCHEMA)
     if not validator.validate(config, SCHEMA):
         pretty_printer = pprint.PrettyPrinter()
         pretty_printer.pprint(validator.errors)

@@ -77,11 +77,6 @@ class Engine:
             config,
             'flooding_reduction_similarity',
             constants.DEFAULT_FLOODING_REDUCTION_SIMILARITY)
-        disagg_str = self.read_global_configuration(
-            config,
-            'disaggregation',
-            constants.DEFAULT_DISAGGREGATION)
-        self.disaggregation = constants.disagg_from_str(disagg_str)
         self.floodred_system_random = random.randint(0, 0xffffffffffffffff)
         self.intf_traffic_stats_group = stats.Group()
         self.intf_security_stats_group = stats.Group()
@@ -229,7 +224,6 @@ class Engine:
         tab.add_row(["Flooding Reduction Redundancy", self.floodred_redundancy])
         tab.add_row(["Flooding Reduction Similarity", self.floodred_similarity])
         tab.add_row(["Flooding Reduction System Random", self.floodred_system_random])
-        tab.add_row(["Disaggregation", constants.disagg_str(self.disaggregation)])
         cli_session.print(tab.to_string())
 
     def command_show_engine_stats(self, cli_session, exclude_zero=False):

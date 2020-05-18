@@ -1,6 +1,0 @@
-nr-pods: 3
-nr-leaf-nodes-per-pod: 3
-nr-spine-nodes-per-pod: 3
-nr-superspine-nodes: 6
-nr-planes: 3
-disaggregation: negative-only
