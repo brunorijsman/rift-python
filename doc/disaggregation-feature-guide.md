@@ -1,13 +1,11 @@
-# The state of the art before RIFT
-
-## Aggregation before RIFT
+# Aggregation
 
 Aggregation is a concept that has existed in routing protocols since the dawn of time.
 If you have some specific routes, say 10.1.0.0/16, 10.2.0.0/16, and 10.3.0.0/16 that all point to
 the same next-hop then you can replace those routes with a single less specific route,
 in this case 10.0.0.0/8.
 That less specific route is called an aggregate route.
-The process of replacing several specific routes with single aggregate route is called aggreation.
+The process of replacing several specific routes with single aggregate route is called aggregation.
 The most extreme case of aggregation is replacing all routes in the route table with a
 default route 0.0.0.0/0 (or ::0/0 in the case of IPv6).
 
@@ -18,7 +16,7 @@ advertise a single aggregate route for their entire address space to other ISPs.
 
 Most existing routing protocols (BGP, OSPF, ISIS, ...) allow you to manually configure aggregation.
 
-## Disaggregation before RIFT
+# Disaggregation
 
 The concept of disaggregation has also been around for a long time.
 Disaggregation is the opposite of aggregation: it take a single less specific route (the aggregate
@@ -36,14 +34,13 @@ There exist so-called BGP optimizers that will automatically configure BGP disag
 traffic engineering purposes. These are separate appliances, not something that is build into
 the BGP protocol itself.
 
-# The Routing in fat trees (RIFT) protocol
+# The Routing In Fat Trees (RIFT) protocol
 
 Routing in Fat Trees (RIFT) is a new routing protocol being defined in the Internet Engineering
 Task Force (IETF). It has an open source implementation and at least one commercial implementation.
 
 RIFT is optimized for large networks that have a highly structured topology known as a fat tree
 or Clos topology.
-
 One of the main (but not the only) use cases for RIFT is to be a scalable and fast-converging
 interior gateway protocol (IGP) for the underlay in large-scale data centers. It addresses some
 of the deficiences of OSPF, ISIS, and BGP for that use case.
@@ -86,7 +83,7 @@ Automatic disaggregation is one of the most novel and most interesting innovatio
 protocol.
 
 In most existing protocols (BGP, OSPF, ISIS) disaggregation requires extensive manual configuration.
-In RIFT, by contrast, disaggregation is fully automatic without need for any configuration.
+In RIFT, by contrast, disaggregation is fully automatic without the need for any configuration.
 
 In most existing protocols, disaggregation is an optional feature that is mainly used for traffic
 engineering.
@@ -99,26 +96,27 @@ it is not an optional feature and it cannot be disabled.
 
 There are actually two flavors of disaggregation in RIFT:
 
- * Positive disaggregation is used to deal with most types of failures. It works the repair path
-   "attracting" traffic from the broken path. Positive disaggregation in RIFT works very similar to
+ * Positive disaggregation is used to deal with most types of failures. It works by the repair path
+   "attracting" traffic from the broken path by advertising a more specific route.
+   Positive disaggregation in RIFT works very similar to
    how disaggregation works in existing protocols, except that it is triggered automatically
    instead of configured manually.
 
  * Negative disaggregation is used to deal with a very particular type of failure that only occurs
-   only in very large data center, to so-called multi-plane fat trees (we will explain what that is
-   later). It works by the bokren path "repelling" traffic towards the repair path. Negative
+   only in very large data center, so-called multi-plane fat trees (we will explain what that is
+   later). It works by the broken path "repelling" traffic towards the repair path by advertising
+   a so-called negative route. Negative
    disaggregation uses completely new mechanisms that (as far as we know) do not have any equivalent
-   in existing protocols. 
+   in widely deployed existing protocols. 
  
 In this guide we describe how both of these flavors of disaggregation work from a RIFT protocol
 point of view (i.e. not tied to any particular implementation).
-
 There are two separate feature guides to describe the nitty-gritty details (including
 command-line interface examples) of disaggregation in the open source RIFT-Python implementation:
 
- * The [positive disaggregation feature guide.](positive-disaggregation-feature-guide.md).
+ * The [positive disaggregation feature guide](positive-disaggregation-feature-guide.md).
 
- * The [negative disaggregation feature guide.](negative-disaggregation-feature-guide.md).
+ * The [negative disaggregation feature guide](negative-disaggregation-feature-guide.md).
 
 A quick note on terminology before we proceed. In this document we use term node as a synonym for
 router or layer 3 switch. And we use terms leaf, spine, and superspine for the layers
@@ -127,15 +125,19 @@ a top-of-fabric node, and a a spine node is also known as a a top-of-pod node (w
 for point-of-deployment). Finally, we treat a fat tree topology as a synonym for a Clos topology,
 and we treat a 3-layer topology as a synonym for a 5-stage topology.
 
-# RIFT behavior in the absence of failures
+# RIFT route tables in the absence of failures
 
 As mentioned before,
 one of the best known characteristics of RIFT is that it is a link-state protocol north-bound and
 a distance-vector protocol south-bound. 
-One consequence of that is that the RIFT route tables typically contain host /32 (for IPv4) or
-/128 (for IPv6) routes for all south-bound traffic,
-and only fabric default routes for all north-bound traffic 
-(typically 0.0.0.0/0 and ::0/0, but it could be something more specific as well).
+One consequence of that is that the RIFT route tables typically contain:
+
+ * Specific routes for all south-bound traffic towards the servers attached to the leaf switches.
+   These are typically  host /32 (for IPv4) or /128 (for IPv6) routes, but it could be something
+   less specific as well.
+
+ * Fabric default routes for all north-bound traffic. These are 
+   typically 0.0.0.0/0 and ::0/0, but it could be something more specific as well.
 
 The following figure shows typical RIFT route tables in a small 3-level fat tree topology.
 The leaf nodes contain only a single north-bound default route. The superspine nodes contain
@@ -143,93 +145,94 @@ only host-specific south-bound routes. And the spine nodes contain a mixture.
 
 ![RIFT Typical Route Tables](https://brunorijsman-public.s3-us-west-2.amazonaws.com/diagram-rift-typical-route-tables.png)
 
-# Disaggregation triggered by failures
-
-Automatic disaggregation (either the positive or the negative flavor) is what allows RIFT to get
-away with only using default routes for north-bound traffic.
-The word disaggregate is simply a fancy word for using a more specific route instead of the default
-route.
-
 If there are no failures (no broken links and no broken nodes) anywhere in the topology, then
 default routes are just fine.
 Each node can just "spray" all north-bound traffic accross all parent nodes using a equal cost
 multi-path (ECMP) default route. The Clos topology guarantees that (in the absence of failures)
-it doesn't matter which parent nodes is chosen. Any parent node is able to reach the final
-destination at the same cost as any other parent node. Have a look at the topologies in this
-guide and spend a few minutes to convince yourself that this is indeed a true statement.
+it doesn't matter which parent node is chosen. Any parent node is able to reach the final
+destination at the same cost as any other parent node.
 
-However, we have to consider the unhappy scenario as well. What if one or more links or nodes
+As a concrete example, have a look at the above figure and
+consider the scenario that leaf-1-1 wants to send some traffic to leaf-2-2.
+Leaf-1-1 can pick either spine-1-1 or spine-1-2 as the next-hop for sending traffic to leaf-2-2.
+It doesn't matter which spine leaf-1-1 picks.
+Both spine-1-1 and spine-1-2 have a path to leaf-2-2, and one path is not better than the other
+(they are equal cost).
+Everything we have said is not only true for destination leaf-2-2, but for any destination leaf.
+For that reason, leaf-1-1 only needs a default route with ECMP next-hops spine-1-1 and spine-1-2.
+
+Similarly, spine-1-1 can send traffic destined for leaf-2-2 to either super-1 or super-2.
+Once again it, doesn't matter. So once again, the spines only need ECMP default routes for
+north-bound traffic.
+
+# RIFT TIE messages in the absence of failures
+
+Consider the following leaf-spine fabric:
+
+![RIFT Clos 3x3 No Failures](https://brunorijsman-public.s3-us-west-2.amazonaws.com/diagram-rift-clos-3-x-3-no-failure-default-only.png)
+
+We are interested in the RIFT messages that lead to a default route to be installed in the
+Routing Information Base (RIB) and Forwarding Information Base (FIB) of each leaf node.
+In this example, we are looking at leaf-1-1 in particular.
+
+All the RIFT nodes have exchanged Link Information Element (LIE) messages and have established
+adjacencies.
+
+Then, each spine node sends a South Prefix Toplogie Information Element (TIE) message to each
+of the leafs to advertise a default route.
+
+Thus, each leaf node receives a South-Prefix-TIE with a default route from each of its spine nodes.
+
+This results in each leaf node installing an ECMP default north-bound route that "sprays" all
+traffic over all three spine nodes. Technically, you could say that the route is a result of
+the leaf running a north-bound Shortest Path First (SPF) algorithm, but since South-TIEs are
+not propagated, it is a trivial SPF.
+
+Make a mental note of the fact that the traffic from leaf-1 to leaf-3 is spread equally across
+all three spine nodes. This will turn out to be important later on. (We are assuming here that
+the traffic consists of a sufficient number of flows, allowing ECMP hashing to do its job.)
+
+# RIFT disaggregation triggered by failures
+
+Needing only default routes in the happy case of no failures is all good and well, but we have
+to consider the unhappy scenario as well. What if one or more links or nodes
 are down? In this case a simple default route for all north-bound traffic is not going to work.
-To prevent blackholing, the traffic for certain destinations must avoid certain parents,
-and use certain alternative parents instead.
 
-That sentence was intentionally vague:
+Automatic disaggregation (either the positive or the negative flavor) is RIFT's mechanism for
+recovering from failures by installing more specific routes to circumvent the failure.
+The word disaggregation is simply a fancy word for using a more specific route instead of the default
+route.
 
- * Which destination prefixes exactly must follow a special path and cannot follow the default
-   route? In other words, which destination prefixes must be disaggregated? 
+To figure out how automatic disaggregation works exactly, we must delve into the following
+questions:
 
- * For those disaggregated routes, which subset of parent next-hops should these disaggregated
-   routes avoid? This is the question that negative disaggregation answers.
+ * How does RIFT know a failure occured?
 
- * Or equivalently, you might ask: which subset of alternative parent next-hops should these
-   disaggregated routes use instead? This is the question that positive disaggregation answers.
+ * How does RIFT know which prefixes are broken and need to be repaired using disaggregation?
+
+ * How does RIFT figure out what the good path is that use be used to repair the traffic?
+
+ * How does RIFT decide whether to use positive disaggregation (i.e. point the traffic towards the
+   good path) or negative disaggregation (i.e. point the traffic away from the broken path)?
+
+ * What is the exact mechanism that positive disaggregation uses to point traffic towards the good
+   path?
+
+ * What is the exact mechanism that negative disaggregation uses to point traffic away from the
+   broken path?
 
 The answer to these questions is complex. It depends on the topology of the network, where
 the prefixes are located in the network, and which links and nodes have failed at any particular
 moment in time.
 
-This is exactly the magical leap that RIFT took. It answers this question in a completely automated
-manner without the need for any manual a-priori configuration or any manual intervention when a
-failure occurs. In the absence of a failure, RIFT only installs ECMP default routes for all
-north-bound traffic. RIFT automatically detects link and node failures. When one or more failures
-occur, RIFT automatically decides which prefixes need to be disaggregated, whether positive or
-negative disaggregation should be used, automatically floods the disaggregated routes to those
-parts of the network where they are needed, and automatically installs the disaggregated routes
-into the route tables of the nodes where they are needed.
+We shall answer these questions separately for positive and negative disaggregation.
 
-As far as I know, no other widely used protocol (OSPF, ISIS, BGP, ...)
-is able to automatically disaggregate routes to re-route traffic around failures. 
-Some support _manual_ disaggregation, but not _automatic_. 
-Existing protocols tend to flood /32 and /128 host prefixes across the whole fabric,
-in both the north-bound and south-bound direction.
-
-On top of that, as far as I know, prior to RIFT no protocol supported the concept of _negative_
-disaggregation. In protocols prior to RIFT all disaggregation was _positive_. If traffic to a
-specific destination prefix needed to follow a non-default path, then the protocol would advertise
-specific routes pointing to all remaining feasible equal-cost paths. In contrast, RIFT supports the
-concept of _negative_ disaggregation: instead of advertising positive more specific routes pointing
-to the more preferred path, it advertises negative more specific routes advertising which paths
-should be avoided. This is particularly useful in topologies that have massive ECMP, such as
-Clos topologies. Consider a route that has 64-way ECMP, which is not uncommon in large datacenter
-topologies. Now consider that one of the 64 paths fails. With positive disaggregation, we would
-advertise 63 more specific routes to the remaining feasible paths. With negative disaggregation,
-we would only advertise one single more specific (negative) route reporting the single path to be
-avoided.
-
-To summarize: disaggregation per-se is not novel in RIFT; disaggregation already existed in
-other protocols prior to RIFT. The main two innovations in RIFT are
-(a) the fact that disaggregation is _automatic_ and (b) the concept of _negative_ disaggregation.
-
-# Positive disaggregation in RIFT
-
+# RIFT positive disaggregation
 
 ====================================================================================================
 
+
 ## Positive disaggregation versus negative disaggregation
-
-Consider the following toy example topology.
-
-![RIFT Clos 3x3 No Failures](https://brunorijsman-public.s3-us-west-2.amazonaws.com/diagram-rift-clos-3-x-3-no-failure-default-only.png)
-
-We are interested in how traffic gets from leaf-1 to leaf-3.
-
-In the absence of failures, each spine node advertises a default route to each leaf node.
-Each leaf node, including leaf-1, ends up with a single ECMP default route that sprays
-all traffic over all three spines.
-
-Make a mental note of the fact that the traffic from leaf-1 to leaf-3 is spread equally across
-all three spine nodes. This will turn out to be important later on. (We are assuming here that
-the traffic consists of a sufficient number of flows, allowing ECMP hashing to do its job.)
 
 ### Positive disaggregation
 
