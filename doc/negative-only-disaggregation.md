@@ -28,10 +28,56 @@ nr-spine-nodes-per-pod: 3
 disaggregation: negative-only
 </pre>
 
+This corresponds to the following topology:
+
+![clos_3leaf_3spine.pn](https://brunorijsman-public.s3-us-west-2.amazonaws.com/diagram-clos_3leaf_3spine.png)
+
 We generate the topology file from the above meta-topology file:
 
 <pre>
 (env) $ <b>tools/config_generator.py meta_topology/clos_3leaf_3spine_negdisagg.yaml generated.yaml</b>
+</pre>
+
+We start the topology in single-process mode as follows:
+
+<pre>
+(env) $ <b>python rift -i generated.yaml</b>
+</pre>
+
+We trigger disaggregation by breaking the link from leaf-1 to spine-1:
+
+<pre>
+leaf-1> <b>set interface if-1001a failure failed</b>
+</pre>
+
+As a result, spine-2 and spine-3 have an extra south-bound adjacency relative to spine-1:
+
+<pre>
+spine-1> <b>show same-level-nodes</b>
++-----------+-------------+-------------+-------------+-------------+
+| Node      | North-bound | South-bound | Missing     | Extra       |
+| System ID | Adjacencies | Adjacencies | South-bound | South-bound |
+|           |             |             | Adjacencies | Adjacencies |
++-----------+-------------+-------------+-------------+-------------+
+| 102       |             | 1001        |             | 1001        |
+|           |             | 1002        |             |             |
+|           |             | 1003        |             |             |
++-----------+-------------+-------------+-------------+-------------+
+| 103       |             | 1001        |             | 1001        |
+|           |             | 1002        |             |             |
+|           |             | 1003        |             |             |
++-----------+-------------+-------------+-------------+-------------+
+</pre>
+
+By default, this would cause nodes spine-2 and spine-3 to intitiate positive disaggregation.
+
+But in this case we have configured RIFT-Python to only use negative disaggregation.
+
+So, instead of thinking of spine-2 and spine-3 as having an extra south-bound adjacency
+relative to spine-1, we think of spine-1 as missing a south-bound adjacency.
+That causes spine-1 to initiate negative disagregation:
+
+<pre>
 </pre>
 
 ## Generating and starting a complex multi-plane 3-level topology
