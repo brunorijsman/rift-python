@@ -2,8 +2,8 @@
 
 Aggregation is a concept that has existed in routing protocols since the dawn of time.
 If you have some specific routes, say 10.1.0.0/16, 10.2.0.0/16, and 10.3.0.0/16 that all point to
-the same next-hop then you can replace those routes with a single less specific route,
-in this case 10.0.0.0/8.
+the same next-hop then you can summarize those routes with a single less specific route
+such as 10.0.0.0/8.
 That less specific route is called an aggregate route.
 The process of replacing several specific routes with single aggregate route is called aggregation.
 The most extreme case of aggregation is replacing all routes in the route table with a
@@ -23,14 +23,14 @@ Disaggregation is the opposite of aggregation: it take a single less specific ro
 route) and splits it up into several more speficic routes.
 
 The most common use case for disaggregation is traffic engineering. For example, an enterprise
-that is BGP dual-homed to two service providers, may split their address space (described by an
+that is BGP dual-homed to two service providers, may split its address space (described by an
 aggregate) into two more speficic prefixes, and advertise one to each service provider.
 That way, incoming traffic is split across the two service providers, even one service provider
 is always the shortest path.
 
 Most existing routing protocols (BGP, OSPF, ISIS, ...) provide mechanisms to manually configure
 disaggregation.
-There exist so-called BGP optimizers that will automatically configure BGP disaggregation for
+There exist so-called BGP optimizers that automatically configure BGP disaggregation for
 traffic engineering purposes. These are separate appliances, not something that is build into
 the BGP protocol itself.
 
@@ -42,8 +42,7 @@ Task Force (IETF). It has an open source implementation and at least one commerc
 RIFT is optimized for large networks that have a highly structured topology known as a fat tree
 or Clos topology.
 One of the main (but not the only) use cases for RIFT is to be a scalable and fast-converging
-interior gateway protocol (IGP) for the underlay in large-scale data centers. It addresses some
-of the deficiences of OSPF, ISIS, and BGP for that use case.
+interior gateway protocol (IGP) for the underlay in large-scale data centers.
 
 RIFT brings several innovations to the table, including:
 
@@ -56,11 +55,11 @@ RIFT brings several innovations to the table, including:
 
  * Very fast convergence, even in very large networks.
 
- * Zero touch provisioning (ZTP) to virtually eliminate the need for configuration. This greatly
-   reduces operational costs and improves reliability, for example by discovering cabling mistakes.
+ * Zero touch provisioning (ZTP) to virtually eliminate the need for configuration and auto-detect
+   miscabling.
 
- * A built-in flooding reduction mechanism, which is necessary to handle the very rich connectivity
-   in fat tree topologies.
+ * A built-in flooding reduction mechanism to eliminate flooding storms in densely connected
+   topologies such as fat trees.
 
  * Automatic aggregation. In the absence of failures, each node only needs a single equal-cost
    multi-path (ECMP) default route pointing north. This reduces the size of the routing table
@@ -76,7 +75,7 @@ RIFT brings several innovations to the table, including:
 
  * Much more (see [this presentation](https://www.slideshare.net/apnic/routing-in-fat-trees)).
 
-# Automatic disaggregation in RIFT
+# RIFT automatic disaggregation
 
 In this guide we focus on one particular feature of RIFT, namely automatic disaggregation.
 Automatic disaggregation is one of the most novel and most interesting innovations in the RIFT
@@ -103,7 +102,7 @@ There are actually two flavors of disaggregation in RIFT:
    instead of configured manually.
 
  * Negative disaggregation is used to deal with a very particular type of failure that only occurs
-   only in very large data center, so-called multi-plane fat trees (we will explain what that is
+   only in very large data centers, so-called multi-plane fat trees (we will explain what that is
    later). It works by the broken path "repelling" traffic towards the repair path by advertising
    a so-called negative route. Negative
    disaggregation uses completely new mechanisms that (as far as we know) do not have any equivalent
@@ -111,8 +110,9 @@ There are actually two flavors of disaggregation in RIFT:
  
 In this guide we describe how both of these flavors of disaggregation work from a RIFT protocol
 point of view (i.e. not tied to any particular implementation).
-There are two separate feature guides to describe the nitty-gritty details (including
-command-line interface examples) of disaggregation in the open source RIFT-Python implementation:
+The open source implementation of RIFT offers two features guides to describe the nitty-gritty
+details (including
+command-line interface examples) of disaggregation:
 
  * The [positive disaggregation feature guide](positive-disaggregation-feature-guide.md).
 
@@ -153,7 +153,7 @@ it doesn't matter which parent node is chosen. Any parent node is able to reach 
 destination at the same cost as any other parent node.
 
 As a concrete example, have a look at the above figure and
-consider the scenario that leaf-1-1 wants to send some traffic to leaf-2-2.
+consider the traffic from leaf-1-1 to leaf-2-2.
 Leaf-1-1 can pick either spine-1-1 or spine-1-2 as the next-hop for sending traffic to leaf-2-2.
 It doesn't matter which spine leaf-1-1 picks.
 Both spine-1-1 and spine-1-2 have a path to leaf-2-2, and one path is not better than the other
@@ -171,22 +171,22 @@ Consider the following leaf-spine fabric:
 
 ![RIFT Clos 3x3 No Failures](https://brunorijsman-public.s3-us-west-2.amazonaws.com/diagram-rift-clos-3-x-3-no-failure-default-only.png)
 
-We are interested in the RIFT messages that lead to a default route to be installed in the
+The following sequence of RIFT messages leads to the installation of a default route in the
 Routing Information Base (RIB) and Forwarding Information Base (FIB) of each leaf node.
 In this example, we are looking at leaf-1-1 in particular.
 
-All the RIFT nodes have exchanged Link Information Element (LIE) messages and have established
-adjacencies.
+ 1. All the RIFT nodes have exchanged Link Information Element (LIE) messages and have established
+    adjacencies.
 
-Then, each spine node sends a South Prefix Toplogie Information Element (TIE) message to each
-of the leafs to advertise a default route.
+ 2. Then, each spine node sends a South Prefix Toplogie Information Element (TIE) message to each
+    of the leafs to advertise a default route.
 
-Thus, each leaf node receives a South-Prefix-TIE with a default route from each of its spine nodes.
+ 3. Thus, each leaf node receives a South-Prefix-TIE with a default route from each of its spine nodes.
 
-This results in each leaf node installing an ECMP default north-bound route that "sprays" all
-traffic over all three spine nodes. Technically, you could say that the route is a result of
-the leaf running a north-bound Shortest Path First (SPF) algorithm, but since South-TIEs are
-not propagated, it is a trivial SPF.
+ 4. This results in each leaf node installing an ECMP default north-bound route that "sprays" all
+    traffic over all three spine nodes. Technically, you could say that the route is a result of
+    the leaf running a north-bound Shortest Path First (SPF) algorithm, but since South-TIEs are
+    not propagated, it is a trivial SPF.
 
 Make a mental note of the fact that the traffic from leaf-1 to leaf-3 is spread equally across
 all three spine nodes. This will turn out to be important later on. (We are assuming here that
@@ -208,9 +208,10 @@ questions:
 
  * How does RIFT know a failure occured?
 
- * How does RIFT know which prefixes are broken and need to be repaired using disaggregation?
+ * How does RIFT know which destination prefixes are broken and need to be repaired using
+   disaggregation?
 
- * How does RIFT figure out what the good path is that use be used to repair the traffic?
+ * How does RIFT figure out what the alternative path is that use be used to repair the traffic?
 
  * How does RIFT decide whether to use positive disaggregation (i.e. point the traffic towards the
    good path) or negative disaggregation (i.e. point the traffic away from the broken path)?
@@ -221,23 +222,12 @@ questions:
  * What is the exact mechanism that negative disaggregation uses to point traffic away from the
    broken path?
 
-The answer to these questions is complex. It depends on the topology of the network, where
-the prefixes are located in the network, and which links and nodes have failed at any particular
-moment in time.
-
 We shall answer these questions separately for positive and negative disaggregation.
 
 # RIFT positive disaggregation
 
-====================================================================================================
-
-
-## Positive disaggregation versus negative disaggregation
-
-### Positive disaggregation
-
-Now let us consider how positive disaggregation can recover from a link failure between spine-1
-and leaf-3 (indicated by the red cross).
+We will explain how positive disaggregation works using the following example, where the link
+between spine-1 and leaf-3 fails (as indicated by the red cross):
 
 ![RIFT Clos 3x3 Failures repaired by positive disaggregation](https://brunorijsman-public.s3-us-west-2.amazonaws.com/diagram-rift-clos-3-x-3-failure-pos-disagg.png)
 
@@ -246,21 +236,25 @@ Why not? Let's see what happens if leaf-1 sends a packet to leaf-3. The default 
 chance of sending the packet to spine-1, a 1/3rd chance for spine-2, and a 1/3rd chance for spine-3.
 If it happens to choose spine-1, the packet will be dropped, because spine-1 cannot get to leaf-3.
 
-Positive disaggregation deals with this situation as follows:
+Positive disaggregation detects and recovers from this failure as follows:
 
- 1. Spine-2 knows that its link to leaf-3 is still up. Spine-2 concludes: "I can still reach
-    leaf-3. If anyone wants to send traffic to any of the prefixes advertised by leaf-3, they can
-    safely give it to me, and I will deliver it to leaf-3." 
-    Note that _the prefixes advertised by leaf-3_ includes any hosts that are conncected to leaf-3
-    as well as overlay tunnel end-points that terminate on leaf-3.
+ 1. Spine-2 knows that its adjacency to leaf-3 is still up. Spine-2 concludes: "I can still reach
+    leaf-3."
 
- 2. Spine-2 also knows that the link from spine-1 to leaf-3 is down. How does spine-2 know this? 
+ 2. Spine-2 knows that it can reach any destination prefix that is on or behind leaf-3.
+    To be more precise, spine-2 knows that it can reach any prefix whose next-hop if leaf-3.
+
+ 3. Spine-2 knows that the adjacency from spine-1 to leaf-3 is down. How does spine-2 know this? 
     Because spine-2 can see the South-Node-TIE from spine-1 (it is reflected by the leaf nodes)
-    which contains spine-1's adjacencies. Spine-2 conludes: "Spine-1 cannot reach leaf-3. If anyone
-    wants to send traffic to leaf-3, they better not give it to leaf-1 because leaf-1 will blackhole
-    that traffic."
+    which contains spine-1's adjacencies.
+    Spine-2 concludes that "Spine-1 cannot reach leaf-3."
  
- 3. Spine-2, being a helpful and altruistic node thinks: "I must warn all the leaf nodes! I
+ 5. Spine-2 concludes that spine-1 cannot reach any destination prefix that is on or behind leaf-3.
+    This happens to be a correct conclusion in his simple topology, but it is a bit of an
+    oversimplification. We will get back to this step later on when we discuss a more complex
+    topology in another example below.
+ 
+ 6. Spine-2, being a helpful and altruistic node thinks: "I must warn all the leaf nodes! I
     must tell them that if they have any traffic to send to leaf-3, they better not give it to
     spine-1, but it is okay to give it to me!"
 
@@ -276,6 +270,9 @@ Positive disaggregation deals with this situation as follows:
 
  6. After everything has converged, the leaf nodes will end up with an ECMP 2.0.0.3/32 route
     for leaf-3 that ECMP's the traffic across spine-2 and spine-3 (but not spine-1).
+
+====================================================================================================
+
 
 Note that step 5 takes place independently and asynchronously on each spine nodes.
 Thus, as the positive disaggregation process is converging, the host-specific positive disaggregate
