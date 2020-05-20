@@ -238,27 +238,38 @@ If it happens to choose spine-1, the packet will be dropped, because spine-1 can
 
 Positive disaggregation detects and recovers from this failure as follows:
 
- 1. Spine-2 knows that its adjacency to leaf-3 is still up. Spine-2 concludes: "I can still reach
-    leaf-3."
+ 1. Spine-2 knows that its adjacency to leaf-3 is still up.
 
- 2. Spine-2 knows that it can reach any destination prefix that is on or behind leaf-3.
-    To be more precise, spine-2 knows that it can reach any prefix whose next-hop if leaf-3.
+ 2. Hence, spine-2 knows that it can reach any destination prefix whose next-hop is leaf-3.
 
  3. Spine-2 knows that the adjacency from spine-1 to leaf-3 is down. How does spine-2 know this? 
     Because spine-2 can see the South-Node-TIE from spine-1 (it is reflected by the leaf nodes)
     which contains spine-1's adjacencies.
-    Spine-2 concludes that "Spine-1 cannot reach leaf-3."
- 
- 5. Spine-2 concludes that spine-1 cannot reach any destination prefix that is on or behind leaf-3.
-    This happens to be a correct conclusion in his simple topology, but it is a bit of an
-    oversimplification. We will get back to this step later on when we discuss a more complex
-    topology in another example below.
- 
- 6. Spine-2, being a helpful and altruistic node thinks: "I must warn all the leaf nodes! I
-    must tell them that if they have any traffic to send to leaf-3, they better not give it to
-    spine-1, but it is okay to give it to me!"
 
- 4. How does spine-2 warn the other nodes? By advertising a host-specific 2.0.0.3/32 route for
+ 4. Hence, spine-2 knows that spine-1 cannot reach any destination via next-hop leaf-3.
+    Note that spine-2 might still be able to reach that same prefix via some next-hop. That
+    is not the case in the current example, but we will run into this scenario in the next
+    example.
+ 
+ 3. Spine-2 now looks at the next-hops for each of its south-bound routes.
+    Let's say spine-2 looks at the south-bound route for prefix P with next-hops NH1, NH2, ...,
+    NHn. If spine-2 knows that spine-1 does not have south-bound adjacencies with any of the leaf
+    nodes identified
+    by NH1, NH2, ...., NH3, then spine-2 concludes that spine-1 cannot reach prefix P.
+    In the current example, spine-2 concludes that spine-1 cannot reach any prefix whose
+    route has (only) leaf-3 as its next-hop. More concretely, spine-1 cannot reach any tunnel
+    termination point on leaf-3 nor any single-homed server attached to leaf-3.
+
+ 4. Spine-2 being a helpful and altruistic node thinks: "I must warn all the leaf nodes! I
+    must tell them that if they have any traffic to send to prefix P, they better not give it to
+    spine-1, but it is okay to give it to me!" Spine-2 does this for every prefix P that it has
+    discovered in step 3, i.e. for every prefix P that spine-2 can still reach but spine-1 not.
+
+ 5. How does spine-2 warn the other nodes? By advertising a more specific route (more specific
+    than the default route) 
+ 
+ 
+ host-specific 2.0.0.3/32 route for
     leaf-3 to all leaf nodes.
     This route is called a positive disaggregation route.
     It is a /32 host route, which is more specific than the /0 default route.
