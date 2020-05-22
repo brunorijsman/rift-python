@@ -409,6 +409,9 @@ These east-west inter-plane rings are never used to carry end-user payload traff
 used to carry RIFT routing protocol messages. As a result, these can be low-bandwidth links (e.g.
 1 Gbps instead of 100 Gbps).
 
+Note that the east-west interfaces at the leaf level can be used for forwarding end-user payload
+traffic.
+
 Normally, when RIFT runs a shortest-path first (SPF) calculation to compute the shortest path to
 each destination prefix, it does not include these top-of-fabric inter-plane east-west links in
 the topology. As far as the normal SPF is concerned, these links do not exist. This is what prevents
@@ -419,9 +422,44 @@ in which these top-of-fabric inter-plane east-west links are included. The resul
 SPF calculation are not used to populate the route tables. Instead, the result is only used to
 trigger negative disaggregation.
 
+This extra SPF is only run on top-of-fabric nodes that have at least one east-west interface.
+It is not run on another type of node, and as an optimization it can be skipped if the
+top-of-fabric node does not have any east-west interfaces.
 
+The top-of-fabric nodes compare the reachable prefixes that are discovered by the normal
+south-bound SPF run with the reachable prefixes that are discovered by the special south-bound
+SPF run that includes inter-plane east-west links.
 
+It is possible that the special SPF run discovers some extra reachable prefixes that were not
+reachable in the normal SPF run.
+In that set of extra reachable prefixes, negative disaggregation only considers prefixes that
+are advertised by leaves. Extra prefixes that are originated by spine or superspine nodes are
+discarded for technical reasons that we won't get into.
+The final set of extra reachable leaf prefixes is known as "the fallen leaves".
 
+For example, in the above topology:
+
+ * Super-1-1 cannot reach leaf-1-1 in the normal SPF run, i.e. using only north-south links.
+
+ * However, super-1-1 can reach leaf-1-1 in the special SPF, by using an east-west link. One
+   feasible route is super-1-1 -> super-2-1 -> spine-1-2 -> leaf-1-1.
+
+Super-1-1 has discovered that leaf-1-1 is a fallen leaf. What this really means is that spine-1-1
+has discovered that:
+
+ * Leaf-1-1 exists in the topology.
+
+ * Super-1-1 itself cannot reach leaf-1-1.
+
+ * But super-1-1 has discoved that at least one top-of-fabric node in another plane can reach
+   leaf-1-1.
+
+ * This is what triggers super-1-1 to inititiate negative disaggregation of all prefixes
+   originated by leaf-1-1 (we describe what that means in the next section).
+
+In this example topology super-1-1 and super-1-2 each discover leaf-1-1, leaf-1-2, and leaf-1-3
+as the set of fallen leafs. So, super-1-1 and super-1-2 will each initiate negative disaggregation
+for all prefixes originated by leaf-1-1, leaf-1-2, and leaf-1-3.
 
 ## Propagation of negative disaggregation
 
