@@ -241,18 +241,19 @@ If it happens to choose spine-1, the packet will be dropped, because spine-1 can
 Positive disaggregation detects and recovers from this failure as follows:
 
  1. Spine-2 knows exactly which south-bound ajacencies spine-1 has.
-    That's because all leaf nodes reflect spine-1's South-Node-TIE, which contains spine-1's
-    adjacencies.
+    This is because the leaf nodes reflect spine-1's South-Node-TIE, which contains spine-1's
+    adjacencies, to spine-2.
  
- 2. Spine-2 now looks at the next-hops for each of its own south-bound routes.
+ 2. Spine-2 investigates the next-hops for each of its own south-bound routes.
     Let's say spine-2 looks at the south-bound route for prefix P with next-hops NH1, NH2, ...,
     NHn. Spine-2 then asks itself the question: can spine-1 also reach prefix P?
 
- 3. The answer is "_Yes, spine-1 can reach P_" if spine-1 has an adjacency to at least one of
+ 3. The answer is "_Yes, spine-1 can reach prefix P_" if spine-1 has an adjacency to at least one of
     the next-hops NH1, NH2, ..., NHn. In this case spine-2 does nothing.
 
- 4. The anwer is "_No, spine-1 cannot reach P_" if spine-1 does not have any adjacency to any of
-    the next-hops NH1, NH2, ...., NHn. In that case, spine-2 triggers positive disaggregation:
+ 4. The anwer is "_No, spine-1 cannot reach prefix P_" if spine-1 does not have any adjacency to
+    any of the next-hops NH1, NH2, ...., NHn. In that case, spine-2 triggers positive
+    disaggregation:
 
     a. Spine-2 uses a "South Positive Disaggregation Prefix TIE" to advertise a specific route
        for prefix P south-bound to all leaves. In this example, spine-2 advertises a route
@@ -266,9 +267,12 @@ Positive disaggregation detects and recovers from this failure as follows:
     
  5. It's not just spine-2 that looks for broken links on spine-1 and routes around those failures
     using positive disaggregation.
-    In general, every node is monitoring every other node at the same level in this manner.
-    After this example has fully converged, the leaf nodes will end up with an ECMP 2.0.0.3/32 route
-    for leaf-3 that ECMP's the traffic across spine-2 and spine-3 (but not spine-1).
+    Spine-3 does the exact same thing.
+    In general, every node is constantly monitoring every other node at the same level in this
+    manner.
+    After this example has fully converged, the leaf nodes will end up with an ECMP route
+    for leaf-3 (i.e. for prefix 2.0.0.3/32) that ECMP's the traffic across spine-2 and spine-3
+    (but not spine-1).
 
 Note that step 5 takes place independently and asynchronously on each spine node.
 Thus, as the positive disaggregation process is converging, the host-specific positive disaggregate
@@ -277,11 +281,14 @@ ECMP next-hops where N is the number of spine nodes.
 
 This can be a problem. The traffic that used to be spread out over N nodes is temporarily 
 concentrated on a single spine node, then two spine nodes, until it is finally spread out
-again over N-1 spine nodes. This is referred to as the "transitory incast" problem. Later we will
+over N-1 spine nodes again. This is referred to as the "transitory incast" problem. Later we will
 see how negative disaggregation avoids this problem.
 
 ## Positive disaggregation on the superspine nodes
 
+We now consider positive disaggregation in a more complex scenario, namely the 3-level Clos fabric
+shown below:
+![RIFT Clos 6x6x3 1-Failure repaired by positive disaggregation](diagram-rift-clos-6x6x3-1-failure-pos-disagg)
 
 
 ====================================================================================================
