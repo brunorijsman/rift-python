@@ -1,4 +1,6 @@
-# Aggregation
+# Automatic disaggregation in the Routing in Fat Trees (RIFT) protocol
+
+## Aggregation
 
 Aggregation is a concept that has existed in routing protocols since the dawn of time.
 If you have some specific routes, say 10.1.0.0/16, 10.2.0.0/16, and 10.3.0.0/16 that all point to
@@ -16,7 +18,7 @@ advertise a single aggregate route for their entire address space to other ISPs.
 
 Most existing routing protocols (BGP, OSPF, ISIS, ...) allow you to manually configure aggregation.
 
-# Disaggregation
+## Disaggregation
 
 The concept of disaggregation has also been around for a long time.
 Disaggregation is the opposite of aggregation: it take a single less specific route (the aggregate
@@ -34,7 +36,7 @@ There exist so-called BGP optimizers that automatically configure BGP disaggrega
 traffic engineering purposes. These are separate appliances, not something that is build into
 the BGP protocol itself.
 
-# The Routing In Fat Trees (RIFT) protocol
+## The Routing In Fat Trees (RIFT) protocol
 
 Routing in Fat Trees (RIFT) is a new routing protocol being defined in the Internet Engineering
 Task Force (IETF). It has an open source implementation and at least one commercial implementation.
@@ -75,7 +77,7 @@ RIFT brings several innovations to the table, including:
 
  * Much more (see [this presentation](https://www.slideshare.net/apnic/routing-in-fat-trees)).
 
-# RIFT automatic disaggregation
+## RIFT automatic disaggregation
 
 In this guide we focus on one particular feature of RIFT, namely automatic disaggregation.
 Automatic disaggregation is one of the most novel and most interesting innovations in the RIFT
@@ -114,9 +116,9 @@ The open source implementation of RIFT offers two features guides to describe th
 details (including
 command-line interface examples) of disaggregation:
 
- * The [positive disaggregation feature guide](positive-disaggregation-feature-guide.md).
+ * The [RIFT-Python positive disaggregation feature guide](positive-disaggregation-feature-guide.md).
 
- * The [negative disaggregation feature guide](negative-disaggregation-feature-guide.md).
+ * The [RIFT-Python negative disaggregation feature guide](negative-disaggregation-feature-guide.md).
 
 A quick note on terminology before we proceed. In this document we use term node as a synonym for
 router or layer 3 switch. And we use terms leaf, spine, and superspine for the layers
@@ -125,7 +127,7 @@ a top-of-fabric node, and a a spine node is also known as a a top-of-pod node (w
 for point-of-deployment). Finally, we treat a fat tree topology as a synonym for a Clos topology,
 and we treat a 3-layer topology as a synonym for a 5-stage topology.
 
-# RIFT route tables in the absence of failures
+## RIFT route tables in the absence of failures
 
 As mentioned before,
 one of the best known characteristics of RIFT is that it is a link-state protocol north-bound and
@@ -165,7 +167,7 @@ Similarly, spine-1-1 can send traffic destined for leaf-2-2 to either super-1 or
 Once again it, doesn't matter. So once again, the spines only need ECMP default routes for
 north-bound traffic.
 
-# RIFT TIE messages in the absence of failures
+## RIFT TIE messages in the absence of failures
 
 Consider the following leaf-spine fabric:
 
@@ -192,7 +194,7 @@ Make a mental note of the fact that the traffic from leaf-1 to leaf-3 is spread 
 all three spine nodes. This will turn out to be important later on. (We are assuming here that
 the traffic consists of a sufficient number of flows, allowing ECMP hashing to do its job.)
 
-# RIFT disaggregation triggered by failures
+## RIFT disaggregation triggered by failures
 
 Needing only default routes in the happy case of no failures is all good and well, but we have
 to consider the unhappy scenario as well. What if one or more links or nodes
@@ -224,9 +226,9 @@ questions:
 
 We shall answer these questions separately for positive and negative disaggregation.
 
-# RIFT positive disaggregation
+## RIFT positive disaggregation
 
-## Positive disaggregation on the spine nodes
+### Positive disaggregation on the spine nodes
 
 We will explain how positive disaggregation works using the following example, where the link
 between spine-1 and leaf-3 fails (as indicated by the red cross):
@@ -284,7 +286,7 @@ concentrated on a single spine node, then two spine nodes, until it is finally s
 over N-1 spine nodes again. This is referred to as the "transitory incast" problem. Later we will
 see how negative disaggregation avoids this problem.
 
-## Positive disaggregation on the superspine nodes
+### Positive disaggregation on the superspine nodes
 
 We now consider positive disaggregation in a more complex scenario, namely a 3-level Clos fabric.
 
@@ -313,9 +315,9 @@ from a superspine, it does not propagate the TIE to the leaves. Each level in th
 own independent decission about which prefixes need to be positively disaggregated in the level
 below.
 
-# RIFT negative disaggregation
+## RIFT negative disaggregation
 
-## Why is negative disaggregation needed?
+### Why is negative disaggregation needed?
 
 In the vast majority of topologies and failure scenarios, RIFT only needs positive disaggregation
 to recover from link and node failures.
@@ -362,7 +364,7 @@ down adjacencies in pod-2, so positive disaggregation is not triggered in pod-2.
 
 We will now describe how negative disaggregation fixes this problem.
 
-## Negative disaggregation is the oposite of positive disaggregation
+### Negative disaggregation is the oposite of positive disaggregation
 
 As we have seen, positive disaggregation consists of two steps:
 
@@ -386,7 +388,7 @@ But in ultra-large topologies there could be more than 3 levels,
 in which case the top-of-fabric nodes are something above the superspine (e.g. super-super-spine or
 super-super-super-spine).
 
-## Triggering negative disaggregation
+### Triggering negative disaggregation
 
 How does a top-of-fabric node A detect that it itself is unable to reach some prefix P that another
 top-of-fabric node B is able to reach? In other words, what is the trigger for negative
@@ -410,7 +412,9 @@ used to carry RIFT routing protocol messages. As a result, these can be low-band
 1 Gbps instead of 100 Gbps).
 
 Note that the east-west interfaces at the leaf level can be used for forwarding end-user payload
-traffic.
+traffic. They are only used for certain types of RIFT control traffic. The RIFT scoped flooding
+rules give the exact details, but the important point is that all North TIEs are also flooded over
+these east-west links.
 
 Normally, when RIFT runs a shortest-path first (SPF) calculation to compute the shortest path to
 each destination prefix, it does not include these top-of-fabric inter-plane east-west links in
@@ -432,6 +436,7 @@ SPF run that includes inter-plane east-west links.
 
 It is possible that the special SPF run discovers some extra reachable prefixes that were not
 reachable in the normal SPF run.
+This is because (as we mentioned above) North TIEs are also flooded over the east-west links.
 In that set of extra reachable prefixes, negative disaggregation only considers prefixes that
 are advertised by leaves. Extra prefixes that are originated by spine or superspine nodes are
 discarded for technical reasons that we won't get into.
@@ -461,97 +466,126 @@ In this example topology super-1-1 and super-1-2 each discover leaf-1-1, leaf-1-
 as the set of fallen leafs. So, super-1-1 and super-1-2 will each initiate negative disaggregation
 for all prefixes originated by leaf-1-1, leaf-1-2, and leaf-1-3.
 
-## Propagation of negative disaggregation
+### Originating a negative disaggregation prefix
 
-## The concept of negative next-hops
+Once a top-of-fabric node has decidede to trigger negative disaggregation for a falled leaf prefix,
+as described in the previous section, it advertises a South Negative Disaggregation Prefix TIE
+containing that prefix, and floods that TIE to over all south-bound adjacencies, as shown below:
 
+![RIFT Negative Disaggregation Origination](https://brunorijsman-public.s3-us-west-2.amazonaws.com/diagram-rift-neg-disagg-origination.png)
 
-====================================================================================================
+As suggested by its name, a negative disaggregation prefix is the exact opposite of a positive
+disaggregation prefix:
 
+ * When a node N advertises a positive disaggregation prefix P it is saying:
+   "please give traffic destined for P to me instead of following the default route". Node N
+   is on the repair path and it is attracting traffic towards itself and away from the broken path.
 
+ * When a node N advertises a negative disaggregation prefix P it is saying:
+   "please do not give traffic destined for P to me, if you have some other route to P prefer
+   that other route, even if it is a less specific route such as the default route".
+   Node N is on the broken path and it is repelling traffic away from itsef and towards the repair
+   path.
 
-### Negative disaggregation
+### Propagation of negative disaggregation
 
-Now that we have seen how _positive_ disaggregation recovers from a link failure, let's see
-how _negative_ disaggregation could recover from the same link failure.
+When we discussed positive disaggregation, we mentioned that positive disaggregation prefix TIEs
+are never propagated.
 
-I carefully used the word _could_ in the previous sentence for a reason. 
-According to the current version of the RIFT specification, 
-RIFT currently always uses positive disaggregation to recover
-from this type of failure. Negative disaggregation is perfectly capabable of recovering from this
-failure as well, and that would even have advantages (which we will discuss). 
-But the RIFT specification
-as it is currently written, does not use negative disaggregation for this particular simple
-scenario.
-RIFT only uses negative disaggregation in quite complex failure scenarios
-involving multi-plane fabrics with inter-plane east-west links, which we will also cover after 
-covering the simpler scenario first.
+Negative disaggregation prefix TIEs, on the other hand, are propagated in certain circumstances.
+If, and only if, a node N receives receives a negative disaggregation prefix P from all of its
+north-bound parent nodes, then node N propagates the negative prefix P to all of its south-bound
+child nodes. This is shown in the following figure:
 
-So, in this section we will use the same failure scenario as before to explain how negative
-disaggregation works, even though RIFT would never use negative disaggregation in this particular
-scenario. We use this scenario anyway because it makes negative disaggregation much easier to
-understand than the much more complex realistic scenario that we will cover later on.
+![RIFT Negative Disaggregation Propagation](https://brunorijsman-public.s3-us-west-2.amazonaws.com/diagram-rift-neg-disagg-propagation.png)
 
-![RIFT Clos 3x3 Failures repaired by negative disaggregation](https://brunorijsman-public.s3-us-west-2.amazonaws.com/diagram-rift-clos-3-x-3-failure-neg-disagg.png)
+Here we can see that:
 
-Negative disaggregation recovers from this failure as follows:
+ * Spine-2-1 has received negative disaggregation prefixes for all the prefixes originated
+   by leaf-1-1, leaf-1-2, and leaf-1-3.
 
- 1. Spine-1 knows that the other spine routes are connected to leaf-3. How does spine-1 know this?
-    Because spine-1 can see the South-Node-TIE from the the other spines (they are reflected by the
-    leaf nodes) which contain leaf-3 as an adjacency. Spine-1 conludes: "Spine-2 and spine-3 can
-    reach leaf-3. If anyone wants to send traffic to any of the prefixes advertised by leaf-3 they
-    can give it to spine-2 or spine-3, and they will deliver it to leaf-3."
+ * Spine-2-1 has received all of the negative disaggregation prefixes from both super-1-1 and
+   super-1-2, i.e. from all of its north-bound parent nodes.
 
- 2. On the other hand, spine-1 also knows that it does not have any adjacency to leaf-3 itself. In
-    fact it may never have had any adjacency with leaf-3. Spine-1 concludes: "I myself cannot
-    reach leaf-3. If anyone wants to send traffic to any of the prefixes advertised by leaf-3
-    they better not give it me because I will blackhole it."
+ * Hence, spine-2-1 propagates all of these negative disaggregation prefixes
+   to all of its south-bound child nodes, namely leaf-2-1, leaf-2-2, and leaf-2-3.
 
- 3. Spine-1, also being a helpful and altruistic node thinks: "I must warn all the leaf nodes!
-    Evidently somewhere out there, there is this leaf-3 node, but I don't know how to get to it.
-    I must warn everyone not to send any traffic destined for leaf-3 to me."
+ * For the same reason, spine-3-1 propagate2 all of the negative disaggregation prefixes
+   to all of its south-bound child nodes, namely leaf-3-1, leaf-3-2, and leaf-3-3.
 
- 4. How does spine-1 warn the other nodes? By advertising a special kind of 
-    host-specific 2.0.0.3/32 route for
-    leaf-3 to all leaf nodes.
-    This route is called a negative disaggregation route.
-    Such a negative route has a very special meaning: it means "Please do _not_ send traffic
-    for this prefix to me. If you have another route to this same prefix that avoids me, use it,
-    even if that other route is less specific, e.g. the default route."
+### Storing negative disaggregation prefixes in the RIB
 
- 5. When the leaf nodes receive such a negative disaggregation route, it installs it as a
-    special route in the routing information base (RIB) with negative next-hops.
- 
- 6. This concept of a negative next-hop is a pure control-plane abstraction. In current forwarding
-    plane hardware there is no such thing as a negative next-hop. So, when RIB route is installed
-    in the FIB, we must translate the negative next-hop into an equivalent "complementary" set of
-    positive next-hops as follows:
+So far, we have explained what triggers a top-of-fabric node to originate a negative disaggregation
+prefix and under what circumstances a negative disaggregation prefix is propagated.
 
-    a. Start with the prefix of the negative route (2.0.0.3/32 in this case).
+What should a node do when it receives a negative disaggregation prefix?
+How should a node store these negative disaggregation prefixes in the route table?
 
-    b. Find the most specific aggregate route that covers this prefix (0.0.0.0/0 in this case).
+Recall what we said earlier: a negative disaggregation prefix P is used to repel traffic away
+from a next-hop instead of the normal behavior of "attracting" it to a next-hop. It means "don't
+send it to this next-hop" instead of the normal behavior of "do send it to this next-hop".
+How do we achieve this behavior in the route table?
 
-    c. Take the next-hops of the aggregate encompasing route (1.0.0.1, 1.0.0.2, and 1.0.0.3 in this
-       case).
+To achieve this behavior, RIFT introduces the concent of a negative next-hop in the 
+route table, which is more formally known as the routing information base (RIB).
+A negative next-hop in the RIB means don't send the traffic to this next-hop.
 
-    d. From this set of next-hops, remove the negative next-hops of the more specific negative
-       route (in this example we remove negative next-hop 1.0.0.1 which leave us with effective
-       next-hops 1.0.0.2 and 1.0.0.3).
+The following diagram shows the contents of the RIB on leaf-2-2:
 
-Steps 1 and 2 bring leaf-1 to the point that it realizes that there exists some destination prefix
-that it should be able to reach but that it can not actually reach. We described one particular
-mechanism, but later on we see a different mechanism for multi-plane topologies.
+![RIFT Negative Disaggregation RIB Example](https://brunorijsman-public.s3-us-west-2.amazonaws.com/diagram-rift-neg-disagg-rib.png)
 
-In step 6, there are some special rules to deal with the interaction between positive and
-negative disaggregation that we skip here for the sake of simplicity.
+Note that the introduction of the concept of a negative next-hop
+is a rather fundamental change in the infrastructure of a layer-3 router.
+In the architecture of many routers, the RIB is a central software module that is shared amongst all
+routing protocols. 
+The RIB is used not only by RIFT but also by BGP, OSPF, ISIS, RIP, static routes, etc.
 
-Negative disaggregation has two advantages relative to positive disaggregation:
+### Translating negative next-hops in the RIB into positive next-hops in the FIB
 
- 1. It is simpler in the sense that it greatly reduces the amount of routes that have to be
-    advertised to recover from a failure. Instead of N-1 nodes having to advertise a positive
-    disaggregate route, only 1 node has to advertise a negative disaggregate route.
- 
- 2. For this exact same reason, negative disaggregation avoids the transitory incast problem that
-    we described above.
+We have introduced the new concept of a negative next-hop in the RIB.
+But how is the router supposed to process a negative next-hop? Where is the router supposed to
+send the traffic to when it finds a route in the route table with a negative next-hop?
 
+There is no such thing as a negative next-hop in router hardware, at least not in current generation
+hardware. So it is necessary to translate negative next-hops in the RIB to normal
+(positive)) next-hops when the routes are installed in the hardware forwarding
+table, which is also known as the forwarding information base (FIB).
 
+The following diagram illustrates how this translation works:
+
+![RIFT Negative Disaggregation RIB To FIB Example](https://brunorijsman-public.s3-us-west-2.amazonaws.com/diagram-rift-neg-disagg-rib-to-fib.png)
+
+What is happening in this simple example is the following:
+
+ * We have a route to 3.0.1.1/32, which has a negative next-hop
+
+ * We find the most specific aggregate route that covers this route, which is the default route
+   0.0.0.0/0 in this case.
+
+ * We add up the next-hops of route 3.0.1.1/32 and 0.0.0.0/0, keeping in mind that a negative
+   and positive next-hop cancel each other out.
+
+We started with a route for 3.0.1.1/32 with negative next-hop 2.0.2.1. We translated the negative
+next-hop 2.0.2.1 into the complementary positive ECMP next-hops 2.0.2.2 and 2.0.2.3. These
+translated next-hops are stored in the FIB as shown below:
+
+![RIFT Negative Disaggregation RIB and FIB Example](https://brunorijsman-public.s3-us-west-2.amazonaws.com/diagram-rift-neg-disagg-rib-and-fib.png)
+
+The above example is the simplest and most common scenario. Pascal Thubert gave an excellent
+[presentation](https://datatracker.ietf.org/doc/slides-103-rift-negative-disaggregation/)
+on negative disaggregation at the IETF-103 in Bangkok that describes more complex
+scenarios as well.
+
+## Conclusion
+
+@@@
+
+## @@@ Thanks
+
+@@@
+
+## @@@ References
+
+@@@
+
+@@@ Add figure numbers
