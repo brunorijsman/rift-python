@@ -286,9 +286,87 @@ see how negative disaggregation avoids this problem.
 
 ## Positive disaggregation on the superspine nodes
 
-We now consider positive disaggregation in a more complex scenario, namely the 3-level Clos fabric
-shown below:
-![RIFT Clos 6x6x3 1-Failure repaired by positive disaggregation](diagram-rift-clos-6x6x3-1-failure-pos-disagg)
+We now consider positive disaggregation in a more complex scenario, namely a 3-level Clos fabric.
+
+First we consider a single failure, namely the super-1 to spine-1-3 link marked with the red
+cross below. In this single-failure scenario:
+
+ * Both super-2 and super-3 advertise a negative disaggregation route for spine-1-3
+   (prefix 2.0.1.3/32) because they detect that super-1 cannot reach spine-1-3 anymore.
+
+ * However, they do not advertise a negative disaggregation route for leaf-1-1 (3.0.1.1/32),
+   leaf-1-2 (3.0.1.2/32), or leaf-1-3 (3.0.1.3/32) because spine-1 can still reach the leaves
+   via other spine nodes (namely spine-1-1 or spine-1-2).
+
+![RIFT Clos 6x6x3 1-Failure repaired by positive disaggregation](https://brunorijsman-public.s3-us-west-2.amazonaws.com/diagram-rift-clos-6x6x3-1-failure-pos-disagg.png)
+
+Next, we consider a scenario with three failures that completely disconnect super-1 from pod-1,
+as shown below. In this case:
+
+ * Both super-2 and super-3 advertise negative disaggregation routes all prefixes in pod-1,
+   because they detect that super-1 cannot reach any spine next-hop in pod-1 anymore.
+
+![RIFT Clos 6x6x3 3-Failures repaired by positive disaggregation](https://brunorijsman-public.s3-us-west-2.amazonaws.com/diagram-rift-clos-6x6x3-3-failures-pos-disagg.png)
+
+Positive disaggregation TIEs are non-transitive: when a spine receives a negative route
+from a superspine, it does not propagate the TIE to the leaves. Each level in the fabric makes its
+own independent decission about which prefixes need to be positively disaggregated in the level
+below.
+
+# RIFT negative disaggregation
+
+## Why is negative disaggregation needed?
+
+In the vast majority of topologies and failure scenarios, RIFT only needs positive disaggregation
+to recover from link and node failures.
+However, in one particular topology, namely the multi-plane topology shown below, positive
+disaggregation does not work.
+
+@@@
+
+The above topology is called a multi-plane topology because each spine in a pod is connected
+to a separate "plane" of superspine nodes. This reduces the number of ports that is needed on the
+superspine nodes. The following 3-dimensional representation of the same topology makes it more
+clear why this is called a multi-plane topology (the different colors represent different planes):
+
+@@@
+
+Consider the scenario where the two links marked with red crosses above have failed, and consider
+traffic from leaf-2-2 to leaf-1-1:
+
+ * Leaf-2-2 has a north-bound default route with spine-2-1, spine-2-2, and spine-2-3 as ECMP
+   next-hops. 
+   
+ * Let's say leaf-2-2 picks spine-2-1 as the next-hop.
+
+ * Since spine-2-1 is in plane-1, it has a north-bound default route with super-1-1 and super-1-2
+   as ECMP next-hops (these are the superspines in plane-1).
+
+ * At this point it doesn't matter any more which next-hop spine-2-1 picks: neither super-1-1
+   nor super-1-2 are able to reach leaf-1-1.
+
+ * The traffic from leaf-2-2 to leaf-1-1 the traffic is blackholed.
+
+Note that the traffic from leaf-2-2 to leaf-1-1 was already doomed after leaf-2-2 chose spine-1-2
+as the first next-hop. At that point the traffic entered plane-1. But the failures have completely
+disconnected plane-1 from pod-1, we as soon as the traffic enters plane-1 it cannot reach any
+node in pod-1 anymore.
+
+Positive disaggregation cannot save the day in this scenario. To prevent leaf-2-2 from sending
+traffic to spine-1-2, it would be necessary for spine-2-2 and spine-2-3 to send positive
+disaggregation routes for all prefixes in pod-1. But that does not happen. There are zero
+down adjacencies in pod-2, so positive disaggregation is not triggered in pod-2.
+
+We will now describe how negative disaggregation fixes this problem.
+
+## Triggering negative disaggregation
+
+
+## The concept of negative routes
+
+
+## Propagation of negative disaggregation
+
 
 
 ====================================================================================================
