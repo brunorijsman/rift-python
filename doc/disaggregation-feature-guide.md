@@ -319,17 +319,20 @@ below.
 
 In the vast majority of topologies and failure scenarios, RIFT only needs positive disaggregation
 to recover from link and node failures.
-However, in one particular topology, namely the multi-plane topology shown below, positive
-disaggregation does not work.
+However, in one particular topology, namely the multi-plane topology, positive
+disaggregation does not work for some failure scenarios, for example the one shown below:
 
-@@@
+![RIFT Multi-Plane without E-W Links](https://brunorijsman-public.s3-us-west-2.amazonaws.com/diagram-rift-multiplane-noew.png)
 
 The above topology is called a multi-plane topology because each spine in a pod is connected
 to a separate "plane" of superspine nodes. This reduces the number of ports that is needed on the
 superspine nodes. The following 3-dimensional representation of the same topology makes it more
 clear why this is called a multi-plane topology (the different colors represent different planes):
 
-@@@
+![RIFT 3D Multi-Plane without E-W Links](https://brunorijsman-public.s3-us-west-2.amazonaws.com/diagram-rift-3d-planes-noew.png)
+
+Note that multi-plane topologies are only needed in the very largest of datacenters, so negative
+disaggregation is not an essential feature for small or medium datacenters.
 
 Consider the scenario where the two links marked with red crosses above have failed, and consider
 traffic from leaf-2-2 to leaf-1-1:
@@ -337,7 +340,7 @@ traffic from leaf-2-2 to leaf-1-1:
  * Leaf-2-2 has a north-bound default route with spine-2-1, spine-2-2, and spine-2-3 as ECMP
    next-hops. 
    
- * Let's say leaf-2-2 picks spine-2-1 as the next-hop.
+ * Let's say leaf-2-2 picks spine-2-1 as the next-hop (there is a 1 in 3 chance that this happens).
 
  * Since spine-2-1 is in plane-1, it has a north-bound default route with super-1-1 and super-1-2
    as ECMP next-hops (these are the superspines in plane-1).
@@ -359,14 +362,70 @@ down adjacencies in pod-2, so positive disaggregation is not triggered in pod-2.
 
 We will now describe how negative disaggregation fixes this problem.
 
+## Negative disaggregation is the oposite of positive disaggregation
+
+As we have seen, positive disaggregation consists of two steps:
+
+ 1. Node A detects that some other node B at the same level is unable to reach some prefix P.
+
+ 2. Node A originates a south-bound positive disaggregation prefix for P to "attact" the traffic
+    for P to itself. As a result of this traffic for P will prefer node A over B.
+
+Negative disaggregation works in the oposite way:
+
+ 1. Top-of-fabric node A detects that it itself is unable to reach some prefix P that another
+    top-of-fabric node B is able to reach.
+ 
+ 2. Node A originates a south-bound negative disaggregation prefix for P to "repel" the traffic
+    for P away from itself. As a result, traffic for P will prefer node B over node A.
+
+Now that we started discussing negative disaggregation, we switched from the term superspine to
+the term top-of-fabric. In the exmple 3-level topology, superspine nodes and top-of-fabric nodes
+are the same.
+But in ultra-large topologies there could be more than 3 levels,
+in which case the top-of-fabric nodes are something above the superspine (e.g. super-super-spine or
+super-super-super-spine).
+
 ## Triggering negative disaggregation
 
+How does a top-of-fabric node A detect that it itself is unable to reach some prefix P that another
+top-of-fabric node B is able to reach? In other words, what is the trigger for negative
+disaggregation?
 
-## The concept of negative routes
+To make this possible, RIFT requires that the planes in the top-of-fabric
+are connected to each other using east-west inter-plane rings as shown in the following diagram:
+
+![RIFT Multi-Plane with E-W Links](https://brunorijsman-public.s3-us-west-2.amazonaws.com/diagram-rift-multiplane.png)
+
+Note that are two "rings" that interconnect the planes: one ring containing super-1-1, super-2-1,
+and super-3-1, and another ring containing super-1-2, super-2-2, and super-2-3. As a result,
+each superspine node requires exactly two east-west links, independently of the fabric size.
+
+In the three dimensional representation it is a bit more clear why these are called rings:
+
+![RIFT 3D Multi-Plane with E-W Links](https://brunorijsman-public.s3-us-west-2.amazonaws.com/diagram-rift-3d-planes.png)
+
+These east-west inter-plane rings are never used to carry end-user payload traffic; they are only
+used to carry RIFT routing protocol messages. As a result, these can be low-bandwidth links (e.g.
+1 Gbps instead of 100 Gbps).
+
+Normally, when RIFT runs a shortest-path first (SPF) calculation to compute the shortest path to
+each destination prefix, it does not include these top-of-fabric inter-plane east-west links in
+the topology. As far as the normal SPF is concerned, these links do not exist. This is what prevents
+these links from being used for end-user payload traffic.
+
+However, for the purpose of negative disaggregation, RIFT runs an extra south-bound SPF calculation
+in which these top-of-fabric inter-plane east-west links are included. The results of this special
+SPF calculation are not used to populate the route tables. Instead, the result is only used to
+trigger negative disaggregation.
+
+
+
 
 
 ## Propagation of negative disaggregation
 
+## The concept of negative next-hops
 
 
 ====================================================================================================
@@ -457,34 +516,4 @@ Negative disaggregation has two advantages relative to positive disaggregation:
  2. For this exact same reason, negative disaggregation avoids the transitory incast problem that
     we described above.
 
-# On the relationship between positive and negative disaggregation
 
-
-@@@
-
-
-
-
-By default, RIFT-Python behaves as follows:
-
- 1. Any node can _originate_ a positive disaggregate prefix TIE. This is triggered
-    the observation that the originating node has a south-bound adjacency that is missing on
-    some same-level node.
-
- 2. Each node always processes all _received_ positive disaggregate TIEs, includes them in the SPF,
-    and installs them in the RIB and FIB as required.
-
- 3. Top-of-fabric nodes that have at least one east-west inter-fabric ring interface
-    can _originate_ a negative disaggregate prefix TIE. This is triggered by observing
-    a falled leaf node in the special south-bound SPF that includes east-west links.
-
- 4. Each node always processes all _received_ negative disaggregate TIEs:
- 
-    a. Includes them in the SPF, and installs them in the RIB and FIB as required.
-
-    b. Propagates them if required. This is triggered
-    by the fact that a negative disaggregate prefix TIE for a given prefix was received from all
-    parent routers.
-
-To summarize: by default RIFT-Python uses a combination of both positive and negative
-disaggregation.
