@@ -25,10 +25,10 @@ Disaggregation is the opposite of aggregation: it takes a single less specific r
 route) and splits it up into several more speficic routes.
 
 The most common use case for disaggregation is traffic engineering. For example, an enterprise
-that is BGP dual-homed to two service providers, may split its address space (described by an
+that is BGP dual-homed to two service providers may split its address space (described by an
 aggregate) into two more speficic prefixes, and advertise one to each service provider.
-That way, incoming traffic is split across the two service providers, even one service provider
-is always the shortest path.
+That way, incoming traffic is split across the two service providers, even if one service provider
+has a shorter incoming path than the other.
 
 Most existing routing protocols (BGP, OSPF, ISIS, ...) provide mechanisms to manually configure
 disaggregation.
@@ -39,7 +39,8 @@ the BGP protocol itself.
 ## The Routing In Fat Trees (RIFT) protocol
 
 Routing in Fat Trees (RIFT) is a new routing protocol being defined in the Internet Engineering
-Task Force (IETF). It has an open source implementation and at least one commercial implementation.
+Task Force (IETF). It has an open source implementation (RIFT-Python) and at least one commercial
+implementation (Juniper RIFT).
 
 RIFT is optimized for large networks that have a highly structured topology known as a fat tree
 or Clos topology.
@@ -57,15 +58,15 @@ RIFT brings several innovations to the table, including:
 
  * Very fast convergence, even in very large networks.
 
- * Zero touch provisioning (ZTP) to virtually eliminate the need for configuration and auto-detect
-   miscabling.
+ * Zero touch provisioning (ZTP) to virtually eliminate the need for configuration and to
+   auto-detect miscabling.
 
- * A built-in flooding reduction mechanism to eliminate flooding storms in densely connected
+ * A built-in flooding reduction mechanism to greatly reduce flooding traffic in densely connected
    topologies such as fat trees.
 
  * Automatic aggregation. In the absence of failures, each node only needs a single equal-cost
-   multi-path (ECMP) default route pointing north. This reduces the size of the routing table
-   at the edge, and hence reduces the cost of top-of-rack switches.
+   multi-path (ECMP) default route pointing north. This reduces the size of the route tables
+   at or close to the leaf nodes, and hence the cost of top-of-rack switches.
 
  * Automatic disaggregation. In the even of a failure, the north-bound default route is
    automatically disaggregated into more specific routes, but only to the extent needed to route
@@ -75,7 +76,7 @@ RIFT brings several innovations to the table, including:
    enhances interoperability, and mosts importantly improves security by removing most message
    parsing vulnerabilities.
 
- * Much more (see [this presentation](https://www.slideshare.net/apnic/routing-in-fat-trees)).
+ * Much more (see [this presentation that provides a general introduction to RIFT](https://www.slideshare.net/apnic/routing-in-fat-trees)).
 
 ## RIFT automatic disaggregation
 
@@ -98,52 +99,96 @@ it is not an optional feature and it cannot be disabled.
 There are actually two flavors of disaggregation in RIFT:
 
  * Positive disaggregation is used to deal with most types of failures. It works by the repair path
-   "attracting" traffic from the broken path by advertising a more specific route.
+   "attracting" traffic from the broken path by advertising more specific routes.
    Positive disaggregation in RIFT works very similar to
    how disaggregation works in existing protocols, except that it is triggered automatically
    instead of configured manually.
 
  * Negative disaggregation is used to deal with a very particular type of failure that only occurs
-   only in very large data centers, so-called multi-plane fat trees (we will explain what that is
-   later). It works by the broken path "repelling" traffic towards the repair path by advertising
-   a so-called negative route. Negative
+   only in very large data centers, so-called multi-plane fat trees (we will explain what
+   multi-plane means later on). 
+   Negative disaggregation works by the broken path "repelling" traffic towards the repair path by
+   advertising so-called negative routes. Negative
    disaggregation uses completely new mechanisms that (as far as we know) do not have any equivalent
    in widely deployed existing protocols. 
  
 In this guide we describe how both of these flavors of disaggregation work from a RIFT protocol
 point of view (i.e. not tied to any particular implementation).
-The open source implementation of RIFT offers two features guides to describe the nitty-gritty
-details (including
-command-line interface examples) of disaggregation:
+The following two feature guides desribe the command-line interface (CLI) for seeing disaggregation
+in action in the RIFT-Python open source implementation:
 
  * The [RIFT-Python positive disaggregation feature guide](positive-disaggregation-feature-guide.md).
 
  * The [RIFT-Python negative disaggregation feature guide](negative-disaggregation-feature-guide.md).
 
-A quick note on terminology before we proceed. In this document we use term node as a synonym for
-router or layer 3 switch. And we use terms leaf, spine, and superspine for the layers
-of nodes in a 3-layer fat tree topology. In a 3-layer topology, a superspine node is also known as
-a top-of-fabric node, and a a spine node is also known as a a top-of-pod node (where pod stands
-for point-of-deployment). Finally, we treat a fat tree topology as a synonym for a Clos topology,
-and we treat a 3-layer topology as a synonym for a 5-stage topology.
+## Terminology
+
+A quick note on terminology used in this paper before we proceed:
+
+ * A **node** is synonymous with a router or layer 3 switch. 
+
+ * A **fabric** is synonymous with a network.
+
+ * We use terms **leaf**, **spine**, and **superspine** for the layers of nodes in a 3-level fat
+   tree fabric.
+   
+ * A **top-of-fabric** (tof) node is the highest node in the hierarchy. In a 2-level
+   fabric the spine nodes are the top-of-fabric nodes. In a 3-level fabric the superspine nodes
+   are the top-of-fabric nodes.
+
+ * A **point-of-deployment** (pod) is a group of nodes that is only north-south connected to
+   nodes higher in the fabric hiearchy and not east-west connected to other pods. A pod can be
+   thought of as a "logical node" is typically deployed as a unit.
+
+ * A **top-of-pod** (top) node is the highest node in each pod. In 3-level fabrics, each pod is
+   2 levels and the spine nodes are the top nodes. In extremely large 4- or 5-level fabrics, the
+   pods themselves can be more than 2 levels.
+
+ * To be consistent with current networking literature, we treat **fat tree** topologies as roughly
+   synonymous with **Clos** topologies (although Clos topologies are historically a
+   circuit-switching concept, Clos topologies never have east-west links, and in Clos topologies
+   are links have the same capacity).
+
+ * A **2-level** fat tree topology corresponds to a **3-stage** Clos topology, a 3-level fat
+   tree topology corresponds to a 5-stage Clos topology, etc.
 
 ## RIFT route tables in the absence of failures
 
 As mentioned before,
 one of the best known characteristics of RIFT is that it is a link-state protocol north-bound and
 a distance-vector protocol south-bound. 
-One consequence of that is that the RIFT route tables typically contain:
+One consequence of this is that the RIFT route tables typically contain:
 
- * Specific routes for all south-bound traffic towards the servers attached to the leaf switches.
+ * Specific routes for all south-bound traffic.
    These are typically  host /32 (for IPv4) or /128 (for IPv6) routes, but it could be something
    less specific as well.
 
  * Fabric default routes for all north-bound traffic. These are 
    typically 0.0.0.0/0 and ::0/0, but it could be something more specific as well.
 
-The following figure shows typical RIFT route tables in a small 3-level fat tree topology.
+Figure 1 below shows typical RIFT route tables in a small 3-level fabric.
 The leaf nodes contain only a single north-bound default route. The superspine nodes contain
 only host-specific south-bound routes. And the spine nodes contain a mixture.
+
+To keep the figures simple and readable, this figure (and subsequent figures) only show the node
+loopback prefixes. In the real world, fabric addressing is a bit more complicated:
+
+ * In a real fabric there would be a rack of servers attached to each leaf node. Those servers
+   could be bare-metal servers, or they could host virtual machines or containers.
+
+ * If the network is flat (i.e. no overlay is used) then the leaf nodes would also advertise
+   the server addresses and/or the addresses of the virtual machines or containers.
+
+ * If the network uses overlays, RIFT would also advertise the overlay tunnel end-points, which
+   may be located on the leaf nodes or on the servers.
+
+ * The servers could also run RIFT; in that case the servers are the leaf nodes.
+
+ * The link interfaces would also have IP addresses (which are not shown in the figures). In IPv6
+   these would typically be link-local addresses. In IPv4 these would typically be /31 prefixes.
+   Alternatively, IPv4 could use the technique described in [RFC5549](https://tools.ietf.org/html/rfc5549)
+   to use IPv6 link-local next-hops for IPv4 prefixes. The link interface prefixes are typically
+   not advertised in RIFT; they are only used locally as next-hops.
 
 ![RIFT Typical Route Tables](https://brunorijsman-public.s3-us-west-2.amazonaws.com/diagram-rift-typical-route-tables.png)
 
@@ -152,22 +197,23 @@ only host-specific south-bound routes. And the spine nodes contain a mixture.
 If there are no failures (no broken links and no broken nodes) anywhere in the topology, then
 default routes are just fine.
 Each node can just "spray" all north-bound traffic accross all parent nodes using a equal cost
-multi-path (ECMP) default route. The Clos topology guarantees that (in the absence of failures)
+multi-path (ECMP) default route. The fat tree topology guarantees that (in the absence of failures)
 it doesn't matter which parent node is chosen. Any parent node is able to reach the final
 destination at the same cost as any other parent node.
 
-As a concrete example, have a look at the above figure and
+As a concrete example, have a look at figure 1 and
 consider the traffic from leaf-1-1 to leaf-2-2.
 Leaf-1-1 can pick either spine-1-1 or spine-1-2 as the next-hop for sending traffic to leaf-2-2.
 It doesn't matter which spine leaf-1-1 picks.
-Both spine-1-1 and spine-1-2 have a path to leaf-2-2, and one path is not better than the other
+Both spine-1-1 and spine-1-2 have a path to leaf-2-2, and one path is no better than the other
 (they are equal cost).
 Everything we have said is not only true for destination leaf-2-2, but for any destination leaf.
 For that reason, leaf-1-1 only needs a default route with ECMP next-hops spine-1-1 and spine-1-2.
 
 Similarly, spine-1-1 can send traffic destined for leaf-2-2 to either super-1 or super-2.
-Once again it, doesn't matter. So once again, the spines only need ECMP default routes for
+Once again it, doesn't matter. So, once again, the spines only need ECMP default routes for
 north-bound traffic.
+
 
 ## RIFT TIE messages in the absence of failures
 
@@ -175,15 +221,16 @@ Consider the following leaf-spine fabric:
 
 ![RIFT Clos 3x3 No Failures](https://brunorijsman-public.s3-us-west-2.amazonaws.com/diagram-rift-clos-3-x-3-no-failure-default-only.png)
 
-The following sequence of RIFT messages leads to the installation of a default route in the
-Routing Information Base (RIB) and Forwarding Information Base (FIB) of each leaf node.
+The following sequence of RIFT messages leads to the installation of a default north-bound route in
+the Routing Information Base (RIB) and Forwarding Information Base (FIB) of each leaf node.
 In this example, we are looking at leaf-1-1 in particular.
 
  1. All the RIFT nodes have exchanged Link Information Element (LIE) messages and have established
-    adjacencies.
+    adjacencies. RIFT LIE messages are similar to OSPF Hello packets.
 
- 2. Then, each spine node sends a South Prefix Toplogie Information Element (TIE) message to each
-    of the leafs to advertise a default route.
+ 2. Then, each spine node sends a South Prefix Toplogy Information Element (TIE) message to each
+    of the leafs to advertise a default route. RIFT TIE messages are similar to OSPF Link State
+    Update packets.
 
  3. Thus, each leaf node receives a South-Prefix-TIE with a default route from each of its spine nodes.
 
@@ -191,6 +238,11 @@ In this example, we are looking at leaf-1-1 in particular.
     traffic over all three spine nodes. Technically, you could say that the route is a result of
     the leaf running a north-bound Shortest Path First (SPF) algorithm, but since South-TIEs are
     not propagated, it is a trivial SPF.
+
+RIFT also has messages to make the TIE flooding reliable. RIFT Topology Information
+Description Element (TIDE) messages that are similar to OSPF Database Descriptor packets, and RIFT
+has Topology Information Request Element (TIRE) messages that are similar to OSPF Link State
+Request and Link State Acknowledgement packets combined.
 
 Make a mental note of the fact that the traffic from leaf-1 to leaf-3 is spread equally across
 all three spine nodes. This will turn out to be important later on. (We are assuming here that
@@ -215,15 +267,16 @@ questions:
  * How does RIFT know which destination prefixes are broken and need to be repaired using
    disaggregation?
 
- * How does RIFT figure out what the alternative path is that use be used to repair the traffic?
+ * How does RIFT figure out what alternative path to use to circumvent the traffic around
+   the failure?
 
- * How does RIFT decide whether to use positive disaggregation (i.e. point the traffic towards the
-   good path) or negative disaggregation (i.e. point the traffic away from the broken path)?
+ * How does RIFT decide whether to use positive disaggregation (i.e. attract traffic towards the
+   repair path) or negative disaggregation (i.e. repel traffic away from the broken path)?
 
- * What is the exact mechanism that positive disaggregation uses to point traffic towards the good
-   path?
+ * What is the exact mechanism that positive disaggregation uses to attract traffic towards the
+   repair path?
 
- * What is the exact mechanism that negative disaggregation uses to point traffic away from the
+ * What is the exact mechanism that negative disaggregation uses to repel traffic away from the
    broken path?
 
 We shall answer these questions separately for positive and negative disaggregation.
