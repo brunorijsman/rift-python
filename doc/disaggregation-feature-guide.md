@@ -396,7 +396,7 @@ clear why this is called a multi-plane topology (the different colors represent 
 
 ![RIFT 3D Multi-Plane without E-W Links](https://brunorijsman-public.s3-us-west-2.amazonaws.com/diagram-rift-3d-planes-noew.png)
 
-*Figure 6: The need for negative disaggregation (3 dimensional representation).*
+*Figure 6: A multi-plane RIFT topology (3-dimensional representation).*
 
 Note that multi-plane topologies are only needed in the very largest of datacenters, so negative
 disaggregation is not an essential feature for small or medium datacenters.
@@ -464,7 +464,7 @@ are connected to each other using east-west inter-plane rings as shown in the fo
 
 ![RIFT Multi-Plane with E-W Links](https://brunorijsman-public.s3-us-west-2.amazonaws.com/diagram-rift-multiplane.png)
 
-*Figure 6: A multi-plane RIFT topology with east-west inter-plane links.*
+*Figure 7: A multi-plane RIFT topology with east-west inter-plane links.*
 
 Note that are two "rings" that interconnect the planes: one ring containing super-1-1, super-2-1,
 and super-3-1, and another ring containing super-1-2, super-2-2, and super-2-3. As a result,
@@ -474,7 +474,7 @@ In the three dimensional representation it is a bit more clear why these are cal
 
 ![RIFT 3D Multi-Plane with E-W Links](https://brunorijsman-public.s3-us-west-2.amazonaws.com/diagram-rift-3d-planes.png)
 
-*Figure 7: A multi-plane RIFT topology with east-west inter-plane links (3-dimensional
+*Figure 8: A multi-plane RIFT topology with east-west inter-plane links (3-dimensional
 representation).*
 
 These east-west inter-plane rings are never used to carry end-user payload traffic; they are only
@@ -544,7 +544,7 @@ containing that prefix, and floods that TIE to over all south-bound adjacencies,
 
 ![RIFT Negative Disaggregation Origination](https://brunorijsman-public.s3-us-west-2.amazonaws.com/diagram-rift-neg-disagg-origination.png)
 
-*Figure 8: Originating south negative disaggregagation prefix TIEs.*
+*Figure 9: Originating south negative disaggregagation prefix TIEs.*
 
 As suggested by its name, a negative disaggregation prefix is the exact opposite of a positive
 disaggregation prefix:
@@ -571,7 +571,7 @@ child nodes. This is shown in the following figure:
 
 ![RIFT Negative Disaggregation Propagation](https://brunorijsman-public.s3-us-west-2.amazonaws.com/diagram-rift-neg-disagg-propagation.png)
 
-*Figure 9: Propagating south negative disaggregagation prefix TIEs.*
+*Figure 10: Propagating south negative disaggregagation prefix TIEs.*
 
 Here we can see that:
 
@@ -608,7 +608,7 @@ The following diagram shows the contents of the RIB on leaf-2-2:
 
 ![RIFT Negative Disaggregation RIB Example](https://brunorijsman-public.s3-us-west-2.amazonaws.com/diagram-rift-neg-disagg-rib.png)
 
-*Figure 10: Routes with negative next-hops in the RIB.*
+*Figure 11: Routes with negative next-hops in the RIB.*
 
 Note that the introduction of the concept of a negative next-hop
 is a rather fundamental change in the infrastructure of a layer-3 router.
@@ -631,7 +631,7 @@ The following diagram illustrates how this translation works:
 
 ![RIFT Negative Disaggregation RIB To FIB Example](https://brunorijsman-public.s3-us-west-2.amazonaws.com/diagram-rift-neg-disagg-rib-to-fib.png)
 
-*Figure 11: Translating negative next-hops in the RIB into positive next-hops in the FIB.*
+*Figure 12: Translating negative next-hops in the RIB into positive next-hops in the FIB.*
 
 What is happening in this simple example is the following:
 
@@ -649,7 +649,7 @@ translated next-hops are stored in the FIB as shown below:
 
 ![RIFT Negative Disaggregation RIB and FIB Example](https://brunorijsman-public.s3-us-west-2.amazonaws.com/diagram-rift-neg-disagg-rib-and-fib.png)
 
-*Figure 12: A RIFT RIB and FIB with negative to positive next-hop translation.*
+*Figure 13: A RIFT RIB and FIB with negative to positive next-hop translation.*
 
 The above example is the simplest and most common scenario. Pascal Thubert gave an excellent
 [presentation](https://datatracker.ietf.org/doc/slides-103-rift-negative-disaggregation/)
