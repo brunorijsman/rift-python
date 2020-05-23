@@ -578,14 +578,21 @@ scenarios as well.
 
 ## Conclusion
 
-@@@
+In this article we have:
 
-## @@@ Thanks
+ * Introduced the Routing in Fat Trees (RIFT) protocol.
 
-@@@
+ * Described how RIFT uses automatic aggregation (north-bound default routes) to reduce the size of
+   the route table.
 
-## @@@ References
+ * Described how RIFT uses automatic disaggregation to reroute traffic around failed links and
+   nodes.
 
-@@@
+ * Described the two types of disaggregation in RIFT:
 
-@@@ Add figure numbers
+   * Positive disaggregation, which attracts traffic to the repair path. Similarly to existing
+     routing protocols is works by advertising more specific routes, except that RIFT does this
+     automatically instead of as a result of manual configuration.
+
+   * Negative disaggregation, which repels traffic away from the broken path. This is a completely
+     novel approach that relies on the new construct of a "negative next-hop".
