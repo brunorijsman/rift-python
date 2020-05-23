@@ -25,9 +25,9 @@ The code is currently still a work in progress (see Feature List below for the s
 
   * [Disaggregation Feature Guide](doc/disaggregation-feature-guide.md)
 
-  * [Positive Disaggregation Feature Guide](doc/positive-disaggregation-feature-guide.md)
+    * [Positive Disaggregation Feature Guide](doc/positive-disaggregation-feature-guide.md)
 
-  * [Negative Disaggregation Feature Guide](doc/negative-disaggregation-feature-guide.md)
+    * [Negative Disaggregation Feature Guide](doc/negative-disaggregation-feature-guide.md)
     
   * [Security Feature Guide](doc/security-feature-guide.md)
 
