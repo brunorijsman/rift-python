@@ -21,7 +21,7 @@ Most existing routing protocols (BGP, OSPF, ISIS, ...) allow you to manually con
 ## Disaggregation
 
 The concept of disaggregation has also been around for a long time.
-Disaggregation is the opposite of aggregation: it take a single less specific route (the aggregate
+Disaggregation is the opposite of aggregation: it takes a single less specific route (the aggregate
 route) and splits it up into several more speficic routes.
 
 The most common use case for disaggregation is traffic engineering. For example, an enterprise
@@ -147,6 +147,8 @@ only host-specific south-bound routes. And the spine nodes contain a mixture.
 
 ![RIFT Typical Route Tables](https://brunorijsman-public.s3-us-west-2.amazonaws.com/diagram-rift-typical-route-tables.png)
 
+*Figure 1: Typical RIFT route tables.*
+
 If there are no failures (no broken links and no broken nodes) anywhere in the topology, then
 default routes are just fine.
 Each node can just "spray" all north-bound traffic accross all parent nodes using a equal cost
@@ -235,6 +237,8 @@ between spine-1 and leaf-3 fails (as indicated by the red cross):
 
 ![RIFT Clos 3x3 Failures repaired by positive disaggregation](https://brunorijsman-public.s3-us-west-2.amazonaws.com/diagram-rift-clos-3-x-3-failure-pos-disagg.png)
 
+*Figure 2: Positive disaggregation repairs a failure in a 2-level topology.*
+
 The first thing to observe is that having only a default route on leaf-1 is not good enough anymore.
 Why not? Let's see what happens if leaf-1 sends a packet to leaf-3. The default route has a 1/3rd
 chance of sending the packet to spine-1, a 1/3rd chance for spine-2, and a 1/3rd chance for spine-3.
@@ -302,6 +306,8 @@ cross below. In this single-failure scenario:
 
 ![RIFT Clos 6x6x3 1-Failure repaired by positive disaggregation](https://brunorijsman-public.s3-us-west-2.amazonaws.com/diagram-rift-clos-6x6x3-1-failure-pos-disagg.png)
 
+*Figure 3: Positive disaggregation repairs a single failure in a 3-level topology.*
+
 Next, we consider a scenario with three failures that completely disconnect super-1 from pod-1,
 as shown below. In this case:
 
@@ -309,6 +315,8 @@ as shown below. In this case:
    because they detect that super-1 cannot reach any spine next-hop in pod-1 anymore.
 
 ![RIFT Clos 6x6x3 3-Failures repaired by positive disaggregation](https://brunorijsman-public.s3-us-west-2.amazonaws.com/diagram-rift-clos-6x6x3-3-failures-pos-disagg.png)
+
+*Figure 4: Positive disaggregation repairs a disconnected pod in a 3-level topology.*
 
 Positive disaggregation TIEs are non-transitive: when a spine receives a negative route
 from a superspine, it does not propagate the TIE to the leaves. Each level in the fabric makes its
@@ -326,12 +334,16 @@ disaggregation does not work for some failure scenarios, for example the one sho
 
 ![RIFT Multi-Plane without E-W Links](https://brunorijsman-public.s3-us-west-2.amazonaws.com/diagram-rift-multiplane-noew.png)
 
+*Figure 5: The need for negative disaggregation.*
+
 The above topology is called a multi-plane topology because each spine in a pod is connected
 to a separate "plane" of superspine nodes. This reduces the number of ports that is needed on the
 superspine nodes. The following 3-dimensional representation of the same topology makes it more
 clear why this is called a multi-plane topology (the different colors represent different planes):
 
 ![RIFT 3D Multi-Plane without E-W Links](https://brunorijsman-public.s3-us-west-2.amazonaws.com/diagram-rift-3d-planes-noew.png)
+
+*Figure 6: The need for negative disaggregation (3 dimensional representation).*
 
 Note that multi-plane topologies are only needed in the very largest of datacenters, so negative
 disaggregation is not an essential feature for small or medium datacenters.
@@ -399,6 +411,8 @@ are connected to each other using east-west inter-plane rings as shown in the fo
 
 ![RIFT Multi-Plane with E-W Links](https://brunorijsman-public.s3-us-west-2.amazonaws.com/diagram-rift-multiplane.png)
 
+*Figure 6: A multi-plane RIFT topology with east-west inter-plane links.*
+
 Note that are two "rings" that interconnect the planes: one ring containing super-1-1, super-2-1,
 and super-3-1, and another ring containing super-1-2, super-2-2, and super-2-3. As a result,
 each superspine node requires exactly two east-west links, independently of the fabric size.
@@ -406,6 +420,9 @@ each superspine node requires exactly two east-west links, independently of the 
 In the three dimensional representation it is a bit more clear why these are called rings:
 
 ![RIFT 3D Multi-Plane with E-W Links](https://brunorijsman-public.s3-us-west-2.amazonaws.com/diagram-rift-3d-planes.png)
+
+*Figure 7: A multi-plane RIFT topology with east-west inter-plane links (3-dimensional
+representation).*
 
 These east-west inter-plane rings are never used to carry end-user payload traffic; they are only
 used to carry RIFT routing protocol messages. As a result, these can be low-bandwidth links (e.g.
@@ -474,6 +491,8 @@ containing that prefix, and floods that TIE to over all south-bound adjacencies,
 
 ![RIFT Negative Disaggregation Origination](https://brunorijsman-public.s3-us-west-2.amazonaws.com/diagram-rift-neg-disagg-origination.png)
 
+*Figure 8: Originating south negative disaggregagation prefix TIEs.*
+
 As suggested by its name, a negative disaggregation prefix is the exact opposite of a positive
 disaggregation prefix:
 
@@ -498,6 +517,8 @@ north-bound parent nodes, then node N propagates the negative prefix P to all of
 child nodes. This is shown in the following figure:
 
 ![RIFT Negative Disaggregation Propagation](https://brunorijsman-public.s3-us-west-2.amazonaws.com/diagram-rift-neg-disagg-propagation.png)
+
+*Figure 9: Propagating south negative disaggregagation prefix TIEs.*
 
 Here we can see that:
 
@@ -534,6 +555,8 @@ The following diagram shows the contents of the RIB on leaf-2-2:
 
 ![RIFT Negative Disaggregation RIB Example](https://brunorijsman-public.s3-us-west-2.amazonaws.com/diagram-rift-neg-disagg-rib.png)
 
+*Figure 10: Routes with negative next-hops in the RIB.*
+
 Note that the introduction of the concept of a negative next-hop
 is a rather fundamental change in the infrastructure of a layer-3 router.
 In the architecture of many routers, the RIB is a central software module that is shared amongst all
@@ -555,6 +578,8 @@ The following diagram illustrates how this translation works:
 
 ![RIFT Negative Disaggregation RIB To FIB Example](https://brunorijsman-public.s3-us-west-2.amazonaws.com/diagram-rift-neg-disagg-rib-to-fib.png)
 
+*Figure 11: Translating negative next-hops in the RIB into positive next-hops in the FIB.*
+
 What is happening in this simple example is the following:
 
  * We have a route to 3.0.1.1/32, which has a negative next-hop
@@ -570,6 +595,8 @@ next-hop 2.0.2.1 into the complementary positive ECMP next-hops 2.0.2.2 and 2.0.
 translated next-hops are stored in the FIB as shown below:
 
 ![RIFT Negative Disaggregation RIB and FIB Example](https://brunorijsman-public.s3-us-west-2.amazonaws.com/diagram-rift-neg-disagg-rib-and-fib.png)
+
+*Figure 12: A RIFT RIB and FIB with negative to positive next-hop translation.*
 
 The above example is the simplest and most common scenario. Pascal Thubert gave an excellent
 [presentation](https://datatracker.ietf.org/doc/slides-103-rift-negative-disaggregation/)
