@@ -334,10 +334,20 @@ The "<b>show disaggregation</b>" command all information related to automatic di
 
 It reports several tables:
 
- * The Same Level Nodes table reports which other nodes at the same level this node is aware of.
+ * The **Same Level Nodes** table reports which other nodes at the same level this node is aware of.
    It also reports which north-bound and south-bound adjacencies those nodes have. And finally
    it reports which south-bound adjacencies those nodes are missing as compared to this node.
    A missing south-bound adjacency triggers positive disaggregation.
+
+ * The **Partially Connected Interfaces** table reports which interfaces are partially connected
+   (i.e. the neighbor is not connected to the full set of same-level nodes) and which nodes
+   they are missing connectivity to.
+
+ * The **Positive Disaggregation TIEs** table report all positive disaggregation TIEs, both
+   received ones and originated ones.
+
+ * The **Negative Disaggregation TIEs** table report all negative disaggregation TIEs, both
+   received ones and originated ones.
 
 <!-- OUTPUT-START: agg_101> show disaggregation -->
 <pre>
