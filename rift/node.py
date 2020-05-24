@@ -1524,15 +1524,29 @@ class Node:
         cli_session.print(tab.to_string())
 
     def command_show_disaggregation(self, cli_session):
+        # Same Level Nodes
         cli_session.print("Same Level Nodes:")
         tab = self.same_level_nodes_table()
         cli_session.print(tab.to_string())
+        # Partially Connected Interfaces
         cli_session.print("Partially Connected Interfaces:")
         tab = table.Table()
         tab.add_row(["Name", "Nodes Causing Partial Connectivity"])
         for intf in self.interfaces_by_name.values():
             if intf.partially_connected:
                 tab.add_row([intf.name, intf.partially_connected_causes_str()])
+        cli_session.print(tab.to_string())
+        # Positive disaggregation TIEs
+        cli_session.print("Positive Disaggregation TIEs:")
+        tab = self.tie_db_table(
+            filter_tie_type=common.ttypes.TIETypeType.PositiveDisaggregationPrefixTIEType,
+            return_none_if_empty=False)
+        cli_session.print(tab.to_string())
+        # Negative disaggregation TIEs
+        cli_session.print("Negative Disaggregation TIEs:")
+        tab = self.tie_db_table(
+            filter_tie_type=common.ttypes.TIETypeType.NegativeDisaggregationPrefixTIEType,
+            return_none_if_empty=False)
         cli_session.print(tab.to_string())
 
     def command_show_security(self, cli_session):
@@ -2598,7 +2612,8 @@ class Node:
             tab.add_row(destination.cli_summary_attributes())
         return tab
 
-    def tie_db_table(self, filter_direction=None, filter_originator=None, filter_tie_type=None):
+    def tie_db_table(self, filter_direction=None, filter_originator=None, filter_tie_type=None,
+                     return_none_if_empty=True):
         tab = table.Table()
         found_something = False
         tab.add_row(self.cli_tie_db_summary_headers())
@@ -2614,7 +2629,7 @@ class Node:
             found_something = True
             tab.add_row(self.cli_tie_db_summary_attributes(tie_packet,
                                                            tie_packet_info.remaining_tie_lifetime))
-        if not found_something:
+        if not found_something and return_none_if_empty:
             return None
         return tab
 
