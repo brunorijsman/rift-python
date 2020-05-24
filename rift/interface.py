@@ -1604,26 +1604,30 @@ class Interface:
             i_am_fr_str
         ]
 
+    def partially_connected_str(self):
+        if self.partially_connected is None:
+            return "N/A"
+        if not self.partially_connected:
+            return "False"
+        return "True"
+
+    def partially_connected_causes_str(self):
+        if self.partially_connected is None:
+            return ""
+        if not self.partially_connected:
+            return ""
+        causes = []
+        count = 0
+        for sysid in self.partially_connected_causes:
+            count += 1
+            if count <= 3:
+                causes.append(self.node.node_descr(sysid))
+        if count > 3:
+            causes.append("and {} more".format(count - 3))
+        return causes
+
     def cli_details_table(self):
         tab = table.Table(separators=False)
-        if self.partially_connected is None:
-            partially_connected_str = 'N/A'
-            partially_connected_causes_str = ''
-        elif self.partially_connected:
-            partially_connected_str = 'True'
-            partially_connected_causes_str = ''
-            count = 0
-            for sysid in self.partially_connected_causes:
-                count += 1
-                if count > 1:
-                    partially_connected_causes_str += ', '
-                if count <= 3:
-                    partially_connected_causes_str += utils.system_id_str(sysid)
-            if count > 3:
-                partially_connected_causes_str += " and {} more".format(count - 3)
-        else:
-            partially_connected_str = 'False'
-            partially_connected_causes_str = ''
         tab.add_rows([
             ["Interface Name", self.name],
             ["Physical Interface Name", self.physical_interface_name],
@@ -1648,8 +1652,8 @@ class Interface:
             ["Received LIE Accepted or Rejected", self._lie_accept_or_reject],
             ["Received LIE Accept or Reject Reason", self._lie_accept_or_reject_rule],
             ["Neighbor is Flood Repeater", self.nbr_is_fr_str(self.floodred_nbr_is_fr)],
-            ["Neighbor is Partially Connected", partially_connected_str],
-            ["Nodes Causing Partial Connectivity", partially_connected_causes_str]
+            ["Neighbor is Partially Connected", self.partially_connected_str()],
+            ["Nodes Causing Partial Connectivity", self.partially_connected_causes_str()]
         ])
         return tab
 
