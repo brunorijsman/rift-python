@@ -2982,7 +2982,6 @@ class Node:
         # Mark the prefixes in the SPF table for which this router wants to do positive aggregation
         # (not to be confused with prefixes in this SPF tables which were received because some
         # north-bound router did positive disaggregation)
-
         for dest in self._spf_destinations[(constants.DIR_SOUTH, False)].values():
             if dest.dest_type != spf_dest.DEST_TYPE_PREFIX:
                 continue
@@ -2991,10 +2990,15 @@ class Node:
             else:
                 assert dest.prefix.ipv6prefix
                 nexthops = dest.ipv6_next_hops
+            all_nexthops_partial = True
+            at_least_one_nexthop = False
             for nexthop in nexthops:
+                at_least_one_nexthop = True
                 intf = self.interfaces_by_name[nexthop.interface]
-                if intf.partially_connected:
-                    dest.positively_disaggregate = True
+                if not intf.partially_connected:
+                    all_nexthops_partial = False
+            if all_nexthops_partial and at_least_one_nexthop:
+                dest.positively_disaggregate = True
 
     def interface_id_to_ipv4_next_hop(self, interface_id):
         if interface_id not in self.interfaces_by_id:
