@@ -338,7 +338,7 @@ It reports several tables:
    it reports which south-bound adjacencies those nodes are missing as compared to this node.
    A missing south-bound adjacency triggers positive disaggregation.
 
-<!-- OUTPUT-START: agg_101> show same-level-nodes -->
+<!-- OUTPUT-START: agg_101> show disaggregation -->
 <pre>
 agg_101> <b>show same-level-nodes</b>
 +-----------+-------------+-------------+-------------+
