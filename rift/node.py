@@ -1527,6 +1527,13 @@ class Node:
         cli_session.print("Same Level Nodes:")
         tab = self.same_level_nodes_table()
         cli_session.print(tab.to_string())
+        cli_session.print("Partially Connected Interfaces:")
+        tab = table.Table()
+        tab.add_row(["Name", "Nodes Causing Partial Connectivity"])
+        for intf in self.interfaces_by_name.values():
+            if intf.partially_connected:
+                tab.add_row([intf.name, intf.partially_connected_causes_str()])
+        cli_session.print(tab.to_string())
 
     def command_show_security(self, cli_session):
         cli_session.print("Security Keys:")
