@@ -482,8 +482,8 @@ class Node:
             common.ttypes.TieDirectionType.South: 0,
             common.ttypes.TieDirectionType.North: 0
         }
-        self.my_node_tie_packet_infos = {}  # Indexed by neighbor direction
-        self.peer_node_tie_packet_infos = {}  # Indexed by tie_id
+        self.my_node_tie_packet_infos = {}    # Indexed by neighbor direction
+        self.peer_node_tie_packet_infos = {}  # Same-level nodes, indexed by tie_id
         self._originating_default = False
         self._my_south_prefix_tie_packet_info = None
         self._my_north_prefix_tie_packet_info = None
@@ -2444,10 +2444,25 @@ class Node:
         partially_connected_causes = sorted(list(set(partially_connected_causes)))
         return (partially_connected, partially_connected_causes)
 
+    def node_descr(self, sysid):
+        # This is an expensive function, only intended to make show commands more readable
+        # by reporting the name of a node in addition to its system id (if the name is known)
+        node_name = None
+        ties = self.node_ties(constants.DIR_SOUTH, sysid)
+        if ties:
+            node_name = ties[0].element.node.name
+        else:
+            ties = self.node_ties(constants.DIR_NORTH, sysid)
+            if ties:
+                node_name = ties[0].element.node.name
+        if node_name:
+            return node_name + " (" + str(sysid) + ")"
+        return "(" + str(sysid) + ")"
+
     def same_level_nodes_table(self):
         tab = table.Table()
         tab.add_row([
-            ["Node", "System ID"],
+            ["Same-Level", "Node"],
             ["North-bound", "Adjacencies"],
             ["South-bound", "Adjacencies"],
             ["Missing", "South-bound", "Adjacencies"],
@@ -2462,7 +2477,7 @@ class Node:
             node_sysid = node_tie_packet.header.tieid.originator
             node_level = node_tie_packet.element.node.level
             if node_sysid not in nodes:
-                nodes[node_sysid] = ([], [])  # List of south-bound and north-bound adjacencies
+                nodes[node_sysid] = ([], [])
             for nbr_sysid, nbr_info in node_tie_packet.element.node.neighbors.items():
                 nbr_level = nbr_info.level
                 if nbr_level > node_level:
@@ -2480,17 +2495,23 @@ class Node:
         # Format collected information into table
         sorted_node_sysids = sorted(list(nodes.keys()))
         for node_sysid in sorted_node_sysids:
+            (node_north_adjacencies, node_south_adjacencies) = nodes[node_sysid]
             # Sort adjacencies and remove duplicates
-            node_north_adjacencies = sorted(list(set(nodes[node_sysid][0])))
-            node_south_adjacencies = sorted(list(set(nodes[node_sysid][1])))
+            node_north_adjacencies = sorted(node_north_adjacencies)
+            node_south_adjacencies = sorted(node_south_adjacencies)
             # Determine missing adjacencies
             missing_adjacencies = set(my_south_adjacencies) - set(node_south_adjacencies)
             missing_adjacencies = sorted(list(missing_adjacencies))
             # Determine missing adjacencies
             extra_adjacencies = set(node_south_adjacencies) - set(my_south_adjacencies)
             extra_adjacencies = sorted(list(extra_adjacencies))
+            # Convert system ids into descriptions
+            node_north_adjacencies = list(map(self.node_descr, node_north_adjacencies))
+            node_south_adjacencies = list(map(self.node_descr, node_south_adjacencies))
+            missing_adjacencies = list(map(self.node_descr, missing_adjacencies))
+            extra_adjacencies = list(map(self.node_descr, extra_adjacencies))
             # Add row to table
-            tab.add_row([node_sysid,
+            tab.add_row([self.node_descr(node_sysid),
                          node_north_adjacencies,
                          node_south_adjacencies,
                          missing_adjacencies,
