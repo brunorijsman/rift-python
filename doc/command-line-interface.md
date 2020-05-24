@@ -10,6 +10,7 @@
   * [set interface <i>interface</i> failure <i>failure</i>](#set-interface-interface-failure-failure)
   * [set level <i>level</i>](#set-level-level)
   * [set node <i>node</i>](#set-node-node)
+  * [show disaggregation](#show-disaggregation)
   * [show engine](#show-engine)
   * [show engine statistics](#show-engine-statistics)
   * [show engine statistics exclude-zero](#show-engine-statistics-exclude-zero)
