@@ -327,6 +327,31 @@ agg_101> <b>set node core_1</b>
 core_1> 
 </pre>
 
+### show disaggregation
+
+The "<b>show disaggregation</b>" command all information related to automatic disaggregation.
+
+It reports several tables:
+
+ * The Same Level Nodes table reports which other nodes at the same level this node is aware of.
+   It also reports which north-bound and south-bound adjacencies those nodes have. And finally
+   it reports which south-bound adjacencies those nodes are missing as compared to this node.
+   A missing south-bound adjacency triggers positive disaggregation.
+
+<!-- OUTPUT-START: agg_101> show same-level-nodes -->
+<pre>
+agg_101> <b>show same-level-nodes</b>
++-----------+-------------+-------------+-------------+
+| Node      | North-bound | South-bound | Missing     |
+| System ID | Adjacencies | Adjacencies | South-bound |
+|           |             |             | Adjacencies |
++-----------+-------------+-------------+-------------+
+| 102       | 1           | 1001        |             |
+|           |             | 1002        |             |
++-----------+-------------+-------------+-------------+
+</pre>
+<!-- OUTPUT-END -->
+
 ### show engine
 
 The "<b>show engine</b>" command shows the status of the RIFT engine, i.e. global information
@@ -1881,35 +1906,6 @@ agg_101> <b>show routes prefix ::/0 owner north-spf</b>
 +--------+-----------+----------------------------------+
 | ::/0   | North SPF | if_101_1 fe80::c6:b7ff:fe29:b43e |
 +--------+-----------+----------------------------------+
-</pre>
-<!-- OUTPUT-END -->
-
-### show same-level-nodes
-
-The "<b>show same-level-nodes</b>" shows the RIFT nodes in the the network that are at the same
-level as this RIFT node. For each of those same level nodes, it reports the north-bound and
-south-bound adjacencies of that node.
-
-This information is useful for debugging the following scenarios:
-
- * If none of the same-level-nodes has any north-bound adjacency, then that is a trigger for this
-   node advertising a south-bound default route.
-
- * The south-bound adjacencies of other same-level-nodes are a factor for deciding whether the
-   south-bound adjacencies of this node are "fully connected" or "partially connected", which in
-   turn is a factor in deciding which prefixes to positively disaggregate.
-
-<!-- OUTPUT-START: agg_101> show same-level-nodes -->
-<pre>
-agg_101> <b>show same-level-nodes</b>
-+-----------+-------------+-------------+-------------+
-| Node      | North-bound | South-bound | Missing     |
-| System ID | Adjacencies | Adjacencies | South-bound |
-|           |             |             | Adjacencies |
-+-----------+-------------+-------------+-------------+
-| 102       | 1           | 1001        |             |
-|           |             | 1002        |             |
-+-----------+-------------+-------------+-------------+
 </pre>
 <!-- OUTPUT-END -->
 

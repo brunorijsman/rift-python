@@ -1523,7 +1523,8 @@ class Node:
             tab = self._ipv6_fib.cli_table()
         cli_session.print(tab.to_string())
 
-    def command_show_same_level_nodes(self, cli_session):
+    def command_show_disaggregation(self, cli_session):
+        cli_session.print("Same Level Nodes:")
         tab = self.same_level_nodes_table()
         cli_session.print(tab.to_string())
 

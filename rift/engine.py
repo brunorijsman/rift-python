@@ -347,8 +347,8 @@ class Engine:
     def command_show_forwarding_family(self, cli_session, parameters):
         cli_session.current_node.command_show_forwarding_family(cli_session, parameters)
 
-    def command_show_same_level_nodes(self, cli_session):
-        cli_session.current_node.command_show_same_level_nodes(cli_session)
+    def command_show_disaggregation(self, cli_session):
+        cli_session.current_node.command_show_disaggregation(cli_session)
 
     def command_show_security(self, cli_session):
         cli_session.current_node.command_show_security(cli_session)
@@ -427,6 +427,7 @@ class Engine:
             "$level": command_set_level
         },
         "show": {
+            "disaggregation": command_show_disaggregation,
             "engine": {
                 "": command_show_engine,
                 "statistics": {
@@ -494,7 +495,6 @@ class Engine:
                 },
                 "$family": command_show_routes_family,
             },
-            "same-level-nodes": command_show_same_level_nodes,
             "security": command_show_security,
             "spf": {
                 "": command_show_spf,
