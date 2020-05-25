@@ -243,15 +243,15 @@ Negative Disaggregation TIEs:
 
 First we break the link between spine-1-1 and super-1-1 as shown in figure 2 below.
 
-@@@
- which triggers
-positive disaggregation in pod-1.
+This causes a rather complex sequence of events:
 
-@@@
-After the failure, leaf-1-2 and leaf-1-3 can no longer rely on their north-bound default route to
-reach leaf-1-1 because its ECMP next-hop set includes spine-1-1 which cannot reach leaf-1-1. 
-Positive disaggregation fixes the issue by causing spine-1-2 and spine-1-3 to advertise a
-host-specific route for leaf-1-1.
+ 1. It causes super-1-1 to intitiate negative disaggregation for the prefixes in pod-1 because
+    super-1-1 detects that those prefixes can be reached from other planes but not from its own
+    plane.
+
+ 2. It causes super-1-2 to initiate positive disaggregation for the prefixes in pod-1 because
+    super-1-2 can still reach those prefixes and super-1-2 also detects that super-1-1 (which
+    is a same-level-node in plane-1) can not reach those prefixes anymore.
 
 ![Topology Diagram](https://s3-us-west-2.amazonaws.com/brunorijsman-public/diagram-rift-neg-disagg-fg-orig-1-failure.png)
 
@@ -343,8 +343,9 @@ super-1-1> <b>show tie-db direction south originator 1 tie-type node</b>
 +-----------+------------+------+--------+--------+----------+-------------------------+
 </pre>
 
-Later we will return to super-1-1 to see what it is doing in terms of negative disaggregation, but
-first let's see what super-1-2 is doing in terms of the more familiar positive disaggregation.
+As mentioned before, the broken link causes both super-1-1 to trigger negative disaggregation and
+super-1-2 to trigger positive disaggregation. We will look at the positive disaggregation first and
+at the negative disaggregation later because it will turn out to be more complex.
 
 ### Super-1-2
 
