@@ -124,3 +124,12 @@ docker/requirements.txt
 # IDE settings
 # DO NOT add .vscode here. I DO want my VSC preferences version controlled.
 .idea/
+
+# Generated figures
+doc/figures/*.pdf
+doc/figures/*.png
+
+# Generated diagram
+diagram.html
+generated.yaml
+generated/*

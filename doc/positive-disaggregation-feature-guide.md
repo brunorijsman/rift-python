@@ -14,8 +14,6 @@ There is a separate
 
 The examples in this guide are based on the topology shown in figure 1 below.
 
-@@@ New figure without failure. Then one in pod, Then one in spine, Then two in spine
-
 ![Topology Diagram](https://s3-us-west-2.amazonaws.com/brunorijsman-public/diagram_clos_3pod_3leaf_3spine_4super.png)
 
 *Figure 1. Topology used in this feature guide.*
@@ -216,11 +214,9 @@ reach leaf-1-1 because its ECMP next-hop set includes spine-1-1 which cannot rea
 Positive disaggregation fixes the issue by causing spine-1-2 and spine-1-3 to advertise a
 host-specific route for leaf-1-1.
 
-@@@ New figure
+![Topology Diagram](https://s3-us-west-2.amazonaws.com/brunorijsman-public/diagram_clos_3pod_3leaf_3spine_4super_intra_pod_1_failure.png)
 
-![Topology Diagram](https://s3-us-west-2.amazonaws.com/brunorijsman-public/diagram_clos_3pod_3leaf_3spine_4super.png)
-
-*Figure 2. Failure causing positive disaggregation in pod-1.*
+*Figure 2. Failure causing intra-pod positive disaggregation in pod-1.*
 
 ### Leaf-1-1
 
