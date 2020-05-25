@@ -20,7 +20,7 @@ The examples in this guide are based on the topology shown in figure 1 below.
 
 ## Generating and starting the topology
 
-The above topology is describe by meta-topology `meta_topology/clos_3plane_3pod_3leaf_3spine_6super.yaml`.
+The above topology is described by meta-topology `meta_topology/clos_3plane_3pod_3leaf_3spine_6super.yaml`.
 Use the following commands to convert the meta-topology to topology and to start it in
 single-process mode:
 
