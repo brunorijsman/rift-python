@@ -32,7 +32,7 @@ single-process mode:
 
 ## The state of the fabric before triggering negative disaggregation
 
-Let us first look at the network before we break any links and before any positive disaggregation
+Let us first look at the fabric before we break any links and before any negative disaggregation
 happens.
 
 ### Spine-1-1
@@ -97,8 +97,6 @@ super-1-2 and observe that:
     namely a difference in reachable nodes between the normal south-bound SPF and the special
     south-bound SPF.
 
-@@@
-
  2. Super-1-2 does not have any partially connected south-bound interface. That means that every
     south-bound spine neighbor of super-1-2 is also fully connected to all the other superspines in
     plane-1, i.e. also connected to super-1-1.
@@ -146,9 +144,9 @@ Negative Disaggregation TIEs:
 
 ### Spine-2-1
 
-Spine-2-1 is in plane-1. It can reach leaf-1-3 over all superspines that are in plane-1 (note
-that spines and superspines are in a particular plane, but leafs are not). Thus, spine-2-1
-has:
+Spine-2-1 is in plane-1. It can reach the leaves in other pods over all superspines that are in
+plane-1 (note that spines and superspines are in a particular plane, but leaves are not). Thus, 
+spine-2-1 has:
 
  1. A north-bound default ECMPs over both superspines in plane-1, namely super-1-1 and super-1-2.
 
@@ -186,6 +184,7 @@ IPv6 Routes:
 
 ### Leaf-2-2
 
+We want to look at some arbitrary leaf in pod-2 and randomly pick leaf-2-2.
 At this point leaf-2-2 only has north-bound default route that ECMPs over spine-2-1, spine-2-2,
 and spine-2-3.
 
@@ -213,8 +212,7 @@ IPv6 Routes:
 We do not see any /32 routes on leaf-2-2 because there is no disaggregation happening.
 
 Just for completness sake, we can also verify that there are no disaggregation prefix TIEs on
-leaf-2-2. Note that we do not see the empty positive disaggregation prefix TIEs from the superspine
-nodes here because they are not propagated by the spine nodes.
+leaf-2-2.
 
 <pre>
 leaf-2-2> <b>show disaggregation</b>
@@ -241,179 +239,294 @@ Negative Disaggregation TIEs:
 +-----------+------------+------+--------+--------+----------+----------+
 </pre>
 
-@@@
-
 ## Breaking a link to trigger positive disaggregation within a pod
 
-First we break the link between leaf-1-1 and spine-1-1 as shown in figure 2 below, which triggers
+First we break the link between spine-1-1 and super-1-1 as shown in figure 2 below.
+
+@@@
+ which triggers
 positive disaggregation in pod-1.
 
+@@@
 After the failure, leaf-1-2 and leaf-1-3 can no longer rely on their north-bound default route to
 reach leaf-1-1 because its ECMP next-hop set includes spine-1-1 which cannot reach leaf-1-1. 
 Positive disaggregation fixes the issue by causing spine-1-2 and spine-1-3 to advertise a
 host-specific route for leaf-1-1.
 
-![Topology Diagram](https://s3-us-west-2.amazonaws.com/brunorijsman-public/diagram_clos_3pod_3leaf_3spine_4super_intra_pod_1_failure.png)
+![Topology Diagram](https://s3-us-west-2.amazonaws.com/brunorijsman-public/diagram-rift-neg-disagg-fg-orig-1-failure.png)
 
 *Figure 2. Failure causing intra-pod positive disaggregation in pod-1.*
 
-### Leaf-1-1
+### Spine-1-1
 
-The following command simulates a failure of the leaf-1-1 to spine-1-1 link:
+The following command simulates a failure of the spine-1-1 to super-1-1 link:
 
 <pre>
-leaf-1-1> <b>set interface if-1001a failure failed</b>
+spine-1-1> <b>set interface if-101d failure failed</b>
 </pre>
 
-We can see that leaf-1-1's adjacency to spine-1-1 goes down:
+We can see that spine-1-1's adjacency to super-1-1 goes down:
 
 <pre>
-leaf-1-1> <b>show interfaces</b>
+spine-1-1> <b>show interfaces</b>
 +-----------+-------------------+-----------+-----------+
 | Interface | Neighbor          | Neighbor  | Neighbor  |
 | Name      | Name              | System ID | State     |
 +-----------+-------------------+-----------+-----------+
-| if-1001a  |                   |           | ONE_WAY   |
+| if-101a   | leaf-1-1:if-1001a | 1001      | THREE_WAY |
 +-----------+-------------------+-----------+-----------+
-| if-1001b  | spine-1-2:if-102a | 102       | THREE_WAY |
+| if-101b   | leaf-1-2:if-1002a | 1002      | THREE_WAY |
 +-----------+-------------------+-----------+-----------+
-| if-1001c  | spine-1-3:if-103a | 103       | THREE_WAY |
+| if-101c   | leaf-1-3:if-1003a | 1003      | THREE_WAY |
++-----------+-------------------+-----------+-----------+
+| if-101d   |                   |           | ONE_WAY   |
++-----------+-------------------+-----------+-----------+
+| if-101e   | super-1-2:if-2a   | 2         | THREE_WAY |
 +-----------+-------------------+-----------+-----------+
 </pre>
 
-### Spine-1-1
+### Super-1-1
 
-Similarly, on spine-1-1 we can see that the adjacency to leaf-1-1 is down:
+Similarly, on super-1-1 we can see that the adjacency to spine-1-1 is down:
 
 <pre>
-spine-1-1> <b>show interfaces</b>
-+-----------------+--------------------------+-----------+-----------+
-| Interface       | Neighbor                 | Neighbor  | Neighbor  |
-| Name            | Name                     | System ID | State     |
-+-----------------+--------------------------+-----------+-----------+
-| veth-101a-1001a |                          |           | ONE_WAY   |
-+-----------------+--------------------------+-----------+-----------+
-| veth-101b-1002a | leaf-1-2:veth-1002a-101b | 1002      | THREE_WAY |
-+-----------------+--------------------------+-----------+-----------+
-| veth-101c-1003a | leaf-1-3:veth-1003a-101c | 1003      | THREE_WAY |
-+-----------------+--------------------------+-----------+-----------+
-| veth-101d-1a    | super-1:veth-1a-101d     | 1         | THREE_WAY |
-+-----------------+--------------------------+-----------+-----------+
-| veth-101e-2a    | super-2:veth-2a-101e     | 2         | THREE_WAY |
-+-----------------+--------------------------+-----------+-----------+
-| veth-101f-3a    | super-3:veth-3a-101f     | 3         | THREE_WAY |
-+-----------------+--------------------------+-----------+-----------+
-| veth-101g-4a    | super-4:veth-4a-101g     | 4         | THREE_WAY |
-+-----------------+--------------------------+-----------+-----------+
+super-1-1> <b>show interfaces</b>
++-----------+-------------------+-----------+-----------+
+| Interface | Neighbor          | Neighbor  | Neighbor  |
+| Name      | Name              | System ID | State     |
++-----------+-------------------+-----------+-----------+
+| if-1a     |                   |           | ONE_WAY   |
++-----------+-------------------+-----------+-----------+
+| if-1b     | spine-2-1:if-104d | 104       | THREE_WAY |
++-----------+-------------------+-----------+-----------+
+| if-1c     | spine-3-1:if-107d | 107       | THREE_WAY |
++-----------+-------------------+-----------+-----------+
+| if-1d     | super-2-1:if-3d   | 3         | THREE_WAY |
++-----------+-------------------+-----------+-----------+
+| if-1e     | super-3-1:if-5e   | 5         | THREE_WAY |
++-----------+-------------------+-----------+-----------+
 </pre>
-As a result, spine-1-1 does not advertise an adjacency with leaf-1-1 in its
-South-Node-TIE (notice that neighbor system IDs 1002 and 1003 are present but neighbor system 
-ID 1001 is missing):
+
+As a result, super-1-1 does not advertise an adjacency with spine-1-1 in its
+South-Node-TIE (notice that neighbor system IDs 104 and 107 are present but neighbor system 
+ID 101 is missing):
 
 <pre>
-spine-1-1> <b>show tie-db direction south originator 101</b>
-+-----------+------------+--------+--------+--------+----------+-------------------------+
-| Direction | Originator | Type   | TIE Nr | Seq Nr | Lifetime | Contents                |
-+-----------+------------+--------+--------+--------+----------+-------------------------+
-| South     | 101        | Node   | 1      | 9      | 604583   | Name: spine-1-1         |
-|           |            |        |        |        |          | Level: 23               |
-|           |            |        |        |        |          | Capabilities:           |
-|           |            |        |        |        |          |   Flood reduction: True |
-|           |            |        |        |        |          | Neighbor: 1             |
-|           |            |        |        |        |          |   Level: 24             |
-|           |            |        |        |        |          |   Cost: 1               |
-|           |            |        |        |        |          |   Bandwidth: 100 Mbps   |
-|           |            |        |        |        |          |   Link: 4-1             |
-|           |            |        |        |        |          | Neighbor: 2             |
-|           |            |        |        |        |          |   Level: 24             |
-|           |            |        |        |        |          |   Cost: 1               |
-|           |            |        |        |        |          |   Bandwidth: 100 Mbps   |
-|           |            |        |        |        |          |   Link: 5-1             |
-|           |            |        |        |        |          | Neighbor: 3             |
-|           |            |        |        |        |          |   Level: 24             |
-|           |            |        |        |        |          |   Cost: 1               |
-|           |            |        |        |        |          |   Bandwidth: 100 Mbps   |
-|           |            |        |        |        |          |   Link: 6-1             |
-|           |            |        |        |        |          | Neighbor: 4             |
-|           |            |        |        |        |          |   Level: 24             |
-|           |            |        |        |        |          |   Cost: 1               |
-|           |            |        |        |        |          |   Bandwidth: 100 Mbps   |
-|           |            |        |        |        |          |   Link: 7-1             |
-|           |            |        |        |        |          | Neighbor: 1002          |
-|           |            |        |        |        |          |   Level: 0              |
-|           |            |        |        |        |          |   Cost: 1               |
-|           |            |        |        |        |          |   Bandwidth: 100 Mbps   |
-|           |            |        |        |        |          |   Link: 2-1             |
-|           |            |        |        |        |          | Neighbor: 1003          |
-|           |            |        |        |        |          |   Level: 0              |
-|           |            |        |        |        |          |   Cost: 1               |
-|           |            |        |        |        |          |   Bandwidth: 100 Mbps   |
-|           |            |        |        |        |          |   Link: 3-1             |
-+-----------+------------+--------+--------+--------+----------+-------------------------+
-| South     | 101        | Prefix | 2      | 1      | 600946   | Prefix: 0.0.0.0/0       |
-|           |            |        |        |        |          |   Metric: 1             |
-|           |            |        |        |        |          | Prefix: ::/0            |
-|           |            |        |        |        |          |   Metric: 1             |
-+-----------+------------+--------+--------+--------+----------+-------------------------+
+super-1-1> <b>show tie-db direction south originator 1 tie-type node</b>
++-----------+------------+------+--------+--------+----------+-------------------------+
+| Direction | Originator | Type | TIE Nr | Seq Nr | Lifetime | Contents                |
++-----------+------------+------+--------+--------+----------+-------------------------+
+| South     | 1          | Node | 1      | 23     | 604523   | Name: super-1-1         |
+|           |            |      |        |        |          | Level: 24               |
+|           |            |      |        |        |          | Capabilities:           |
+|           |            |      |        |        |          |   Flood reduction: True |
+|           |            |      |        |        |          | Neighbor: 3             |
+|           |            |      |        |        |          |   Level: 24             |
+|           |            |      |        |        |          |   Cost: 1               |
+|           |            |      |        |        |          |   Bandwidth: 100 Mbps   |
+|           |            |      |        |        |          |   Link: 5-4             |
+|           |            |      |        |        |          | Neighbor: 5             |
+|           |            |      |        |        |          |   Level: 24             |
+|           |            |      |        |        |          |   Cost: 1               |
+|           |            |      |        |        |          |   Bandwidth: 100 Mbps   |
+|           |            |      |        |        |          |   Link: 4-5             |
+|           |            |      |        |        |          | Neighbor: 104           |
+|           |            |      |        |        |          |   Level: 23             |
+|           |            |      |        |        |          |   Cost: 1               |
+|           |            |      |        |        |          |   Bandwidth: 100 Mbps   |
+|           |            |      |        |        |          |   Link: 2-4             |
+|           |            |      |        |        |          | Neighbor: 107           |
+|           |            |      |        |        |          |   Level: 23             |
+|           |            |      |        |        |          |   Cost: 1               |
+|           |            |      |        |        |          |   Bandwidth: 100 Mbps   |
+|           |            |      |        |        |          |   Link: 3-4             |
++-----------+------------+------+--------+--------+----------+-------------------------+
 </pre>
 
+Later we will return to super-1-1 to see what it is doing in terms of negative disaggregation, but
+first let's see what super-1-2 is doing in terms of the more familiar positive disaggregation.
 
-### Spine-1-2
+### Super-1-2
 
-In the output of `show disaggregation` on spine-1-2 we observe the following:
+Breaking that single link causes super-1-2 to intiate positive disaggregation.
+In the output of `show disaggregation` on super-1-2 we observe the following:
 
- 1. Spine-1-2 has discovered that spine-1-1 is missing a south-bound adjancency to leaf-1-1.
+ 1. Super-1-2 has discovered that super-1-1 is missing a south-bound adjancency to spine-1-1.
 
- 2. Interface if-102a (which is connected to leaf-1-1) is "partially connected" and we see that
-    spine-1-1 is the cause of the partial connectivity. This means that leaf-1-1 is missing a
-    north-bound adjacency to spine-1-1.
+ 2. Interface if-2a (which is connected to spine-1-1) is "partially connected" and we see that
+    super-1-1 is the cause of the partial connectivity. This means that spine-1-1 is missing a
+    north-bound adjacency to super-1-1.
  
- 3. Spine-1-2 is originating a positive disaggregation prefix for 88.0.1.1/32, which is the loopback
-    of leaf-1-1.
+ 3. Super-1-2 is originating a positive disaggregation prefix for:
+ 
+    a. 88.1.1.1/32, which is the loopback of spine-1-1.
+
+    b. 88.0.1.1/32, 88.0.1.2/32, and 88.0.1.3/32, which are the loopbacks of leaf-1-1, leaf-1-2,
+       and leaf-1-3. These are being positively disggregated because super-1-1 cannot reach these
+       prefixes anymore. Prior to the failure super-1-1, being in plane-1, could only reach these
+       leaves via spine-1-1, which is the top-of-pod node in plane 1.
  
 <pre>
-spine-1-2> <b>show disaggregation</b>
+super-1-2> <b>show disaggregation</b>
 Same Level Nodes:
-+-----------------+-------------+-----------------+-----------------+-------------+
-| Same-Level      | North-bound | South-bound     | Missing         | Extra       |
-| Node            | Adjacencies | Adjacencies     | South-bound     | South-bound |
-|                 |             |                 | Adjacencies     | Adjacencies |
-+-----------------+-------------+-----------------+-----------------+-------------+
-| spine-1-1 (101) | super-1 (1) | leaf-1-2 (1002) | leaf-1-1 (1001) |             |
-|                 | super-2 (2) | leaf-1-3 (1003) |                 |             |
-|                 | super-3 (3) |                 |                 |             |
-|                 | super-4 (4) |                 |                 |             |
-+-----------------+-------------+-----------------+-----------------+-------------+
-| spine-1-3 (103) | super-1 (1) | leaf-1-1 (1001) |                 |             |
-|                 | super-2 (2) | leaf-1-2 (1002) |                 |             |
-|                 | super-3 (3) | leaf-1-3 (1003) |                 |             |
-|                 | super-4 (4) |                 |                 |             |
-+-----------------+-------------+-----------------+-----------------+-------------+
++---------------+-------------+-----------------+-----------------+-------------+
+| Same-Level    | North-bound | South-bound     | Missing         | Extra       |
+| Node          | Adjacencies | Adjacencies     | South-bound     | South-bound |
+|               |             |                 | Adjacencies     | Adjacencies |
++---------------+-------------+-----------------+-----------------+-------------+
+| super-1-1 (1) |             | spine-2-1 (104) | spine-1-1 (101) |             |
+|               |             | spine-3-1 (107) |                 |             |
++---------------+-------------+-----------------+-----------------+-------------+
 
 Partially Connected Interfaces:
-+---------+------------------------------------+
-| Name    | Nodes Causing Partial Connectivity |
-+---------+------------------------------------+
-| if-102a | spine-1-1 (101)                    |
-+---------+------------------------------------+
++-------+------------------------------------+
+| Name  | Nodes Causing Partial Connectivity |
++-------+------------------------------------+
+| if-2a | super-1-1 (1)                      |
++-------+------------------------------------+
 
 Positive Disaggregation TIEs:
-+-----------+------------+----------------+--------+--------+----------+-----------------------------+
-| Direction | Originator | Type           | TIE Nr | Seq Nr | Lifetime | Contents                    |
-+-----------+------------+----------------+--------+--------+----------+-----------------------------+
-| South     | 3          | Pos-Dis-Prefix | 3      | 2      | 600827   |                             |
-+-----------+------------+----------------+--------+--------+----------+-----------------------------+
-| South     | 4          | Pos-Dis-Prefix | 3      | 2      | 600827   |                             |
-+-----------+------------+----------------+--------+--------+----------+-----------------------------+
-| South     | 102        | Pos-Dis-Prefix | 3      | 1      | 604437   | Pos-Dis-Prefix: 88.0.1.1/32 |
-|           |            |                |        |        |          |   Metric: 2                 |
-+-----------+------------+----------------+--------+--------+----------+-----------------------------+
++-----------+------------+----------------+--------+--------+------------+-----------------------------+
+| Direction | Originator | Type           | TIE Nr | Seq Nr | Lifetime   | Contents                    |
++-----------+------------+----------------+--------+--------+------------+-----------------------------+
+| South     | 2          | Pos-Dis-Prefix | 3      | 4      | 4294966942 | Pos-Dis-Prefix: 88.0.1.1/32 |
+|           |            |                |        |        |            |   Metric: 3                 |
+|           |            |                |        |        |            | Pos-Dis-Prefix: 88.0.2.1/32 |
+|           |            |                |        |        |            |   Metric: 3                 |
+|           |            |                |        |        |            | Pos-Dis-Prefix: 88.0.3.1/32 |
+|           |            |                |        |        |            |   Metric: 3                 |
+|           |            |                |        |        |            | Pos-Dis-Prefix: 88.1.1.1/32 |
+|           |            |                |        |        |            |   Metric: 2                 |
++-----------+------------+----------------+--------+--------+------------+-----------------------------+
 
 Negative Disaggregation TIEs:
 +-----------+------------+------+--------+--------+----------+----------+
 | Direction | Originator | Type | TIE Nr | Seq Nr | Lifetime | Contents |
 +-----------+------------+------+--------+--------+----------+----------+
 </pre>
+
+### Super-1-1
+
+Now that we have seen that super-1-2 triggered positive disaggregation, let's return to super-1-1.
+From the output of the `show disaggregation` command we can conclude that:
+
+ 1. Super-1-1 has detected that super-1-2 has an extra south-bound adjacency. That is consistent
+    with the fact that super-1-2 has initiated positive disaggregation.
+
+ 2. Super-1-1 itself does not intiate positive disaggregation, because none of the same-level-nodes
+    have any missing south-bound adjacencies, or saying the same thing in a different way, none of
+    the interfaces are partially connected.
+
+ 3. We do see, however, that super-1-1 initiates negative disaggregation for leaf-1-1 (88.0.1.1/32),
+    leaf-1-2 (88.0.2.1/32), and leaf-1-3 (88.0.3.1.32), in other words, for all the leaves in pod-1.
+    We will explain why in a second.
+<pre>
+
+super-1-1> <b>show disaggregation</b>
+Same Level Nodes:
++---------------+-------------+-----------------+-------------+-----------------+
+| Same-Level    | North-bound | South-bound     | Missing     | Extra           |
+| Node          | Adjacencies | Adjacencies     | South-bound | South-bound     |
+|               |             |                 | Adjacencies | Adjacencies     |
++---------------+-------------+-----------------+-------------+-----------------+
+| super-1-2 (2) |             | spine-1-1 (101) |             | spine-1-1 (101) |
+|               |             | spine-2-1 (104) |             |                 |
+|               |             | spine-3-1 (107) |             |                 |
++---------------+-------------+-----------------+-------------+-----------------+
+
+Partially Connected Interfaces:
++------+------------------------------------+
+| Name | Nodes Causing Partial Connectivity |
++------+------------------------------------+
+
+Positive Disaggregation TIEs:
++-----------+------------+------+--------+--------+----------+----------+
+| Direction | Originator | Type | TIE Nr | Seq Nr | Lifetime | Contents |
++-----------+------------+------+--------+--------+----------+----------+
+
+Negative Disaggregation TIEs:
++-----------+------------+----------------+--------+--------+----------+-----------------------------+
+| Direction | Originator | Type           | TIE Nr | Seq Nr | Lifetime | Contents                    |
++-----------+------------+----------------+--------+--------+----------+-----------------------------+
+| South     | 1          | Neg-Dis-Prefix | 5      | 1      | 602649   | Neg-Dis-Prefix: 88.0.1.1/32 |
+|           |            |                |        |        |          |   Metric: 2147483647        |
+|           |            |                |        |        |          | Neg-Dis-Prefix: 88.0.2.1/32 |
+|           |            |                |        |        |          |   Metric: 2147483647        |
+|           |            |                |        |        |          | Neg-Dis-Prefix: 88.0.3.1/32 |
+|           |            |                |        |        |          |   Metric: 2147483647        |
++-----------+------------+----------------+--------+--------+----------+-----------------------------+
+</pre>
+
+Let's dive into to the question of why super-1-1 initiated negative disaggregation for all leaves
+in pod-1. The answer can be found in the output of `show spf`:
+
+@@@ explain large output, cut only relevant bits
+
+<pre>
+super-1-1> show spf
+SPF Statistics:
++---------------+-----+
+| SPF Runs      | 34  |
++---------------+-----+
+| SPF Deferrals | 118 |
++---------------+-----+
+
+South SPF Destinations:
++-----------------+------+---------+-------------+------+--------------+---------------------+-------------------------------+
+| Destination     | Cost | Is Leaf | Predecessor | Tags | Disaggregate | IPv4 Next-hops      | IPv6 Next-hops                |
+|                 |      |         | System IDs  |      |              |                     |                               |
++-----------------+------+---------+-------------+------+--------------+---------------------+-------------------------------+
+| 1 (super-1-1)   | 0    | False   |             |      |              |                     |                               |
++-----------------+------+---------+-------------+------+--------------+---------------------+-------------------------------+
+.                 .      .         .             .                     .                     .                               .
++-----------------+------+---------+-------------+------+--------------+---------------------+-------------------------------+
+| 1009 (leaf-3-3) | 2    | True    | 107         |      |              | if-1c 172.31.15.176 | if-1c fe80::84a:2ff:fe78:2746 |
++-----------------+------+---------+-------------+------+--------------+---------------------+-------------------------------+
+| 88.0.4.1/32     | 3    | True    | 1004        |      |              | if-1b 172.31.15.176 | if-1b fe80::84a:2ff:fe78:2746 |
++-----------------+------+---------+-------------+------+--------------+---------------------+-------------------------------+
+.                 .      .         .             .                     .                     .                               .
++-----------------+------+---------+-------------+------+--------------+---------------------+-------------------------------+
+| 88.2.1.1/32     | 1    | False   | 1           |      |              |                     |                               |
++-----------------+------+---------+-------------+------+--------------+---------------------+-------------------------------+
+
+[...]
+
+South SPF (with East-West Links) Destinations:
++-----------------+------+---------+-------------+------+--------------+---------------------+-------------------------------+
+| Destination     | Cost | Is Leaf | Predecessor | Tags | Disaggregate | IPv4 Next-hops      | IPv6 Next-hops                |
+|                 |      |         | System IDs  |      |              |                     |                               |
++-----------------+------+---------+-------------+------+--------------+---------------------+-------------------------------+
+| 1 (super-1-1)   | 0    | False   |             |      |              |                     |                               |
++-----------------+------+---------+-------------+------+--------------+---------------------+-------------------------------+
+.                 .      .         .             .                     .                     .                               .
++-----------------+------+---------+-------------+------+--------------+---------------------+-------------------------------+
+| 1009 (leaf-3-3) | 2    | True    | 107         |      |              | if-1c 172.31.15.176 | if-1c fe80::84a:2ff:fe78:2746 |
++-----------------+------+---------+-------------+------+--------------+---------------------+-------------------------------+
+| 88.0.1.1/32     | 4    | True    | 1001        |      | Negative     | if-1d 172.31.15.176 | if-1d fe80::84a:2ff:fe78:2746 |
+|                 |      |         |             |      |              | if-1e 172.31.15.176 | if-1e fe80::84a:2ff:fe78:2746 |
++-----------------+------+---------+-------------+------+--------------+---------------------+-------------------------------+
+| 88.0.2.1/32     | 4    | True    | 1002        |      | Negative     | if-1d 172.31.15.176 | if-1d fe80::84a:2ff:fe78:2746 |
+|                 |      |         |             |      |              | if-1e 172.31.15.176 | if-1e fe80::84a:2ff:fe78:2746 |
++-----------------+------+---------+-------------+------+--------------+---------------------+-------------------------------+
+| 88.0.3.1/32     | 4    | True    | 1003        |      | Negative     | if-1d 172.31.15.176 | if-1d fe80::84a:2ff:fe78:2746 |
+|                 |      |         |             |      |              | if-1e 172.31.15.176 | if-1e fe80::84a:2ff:fe78:2746 |
++-----------------+------+---------+-------------+------+--------------+---------------------+-------------------------------+
+| 88.0.4.1/32     | 3    | True    | 1004        |      |              | if-1b 172.31.15.176 | if-1b fe80::84a:2ff:fe78:2746 |
++-----------------+------+---------+-------------+------+--------------+---------------------+-------------------------------+
+.                 .      .         .             .                     .                     .                               .
+| 88.2.1.1/32     | 1    | False   | 1           |      |              |                     |                               |
++-----------------+------+---------+-------------+------+--------------+---------------------+-------------------------------+
+@@@ add missing
++-----------------+------+---------+-------------+------+--------------+---------------------+-------------------------------+
+| 88.2.5.1/32     | 2    | False   | 5           |      |              | if-1e 172.31.15.176 | if-1e fe80::84a:2ff:fe78:2746 |
++-----------------+------+---------+-------------+------+--------------+---------------------+-------------------------------+
+</pre>
+
+@@@ epxplain difference in spf is advertised, but only if leaf
+
+@@@ continue from here; first explain propagation (or lack there of at this point) and the route tables.
+
+@@@ add second failure; then show propagation, then show route tables
 
 ### Leaf-1-3
 
