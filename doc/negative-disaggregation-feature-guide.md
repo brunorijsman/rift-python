@@ -458,12 +458,12 @@ Negative Disaggregation TIEs:
 </pre>
 
 Let's dive into to the question of why super-1-1 initiated negative disaggregation for all leaves
-in pod-1. The answer can be found in the output of `show spf`:
-
-@@@ explain large output, cut only relevant bits
+in pod-1. The answer can be found in the output of `show spf`. The output of `show spf` is very
+long; in the following example we have removed most output except the relevant rows plus some
+context.
 
 <pre>
-super-1-1> show spf
+super-1-1> <b>show spf</b>
 SPF Statistics:
 +---------------+-----+
 | SPF Runs      | 34  |
@@ -485,6 +485,12 @@ South SPF Destinations:
 | 88.0.4.1/32     | 3    | True    | 1004        |      |              | if-1b 172.31.15.176 | if-1b fe80::84a:2ff:fe78:2746 |
 +-----------------+------+---------+-------------+------+--------------+---------------------+-------------------------------+
 .                 .      .         .             .                     .                     .                               .
++-----------------+------+---------+-------------+------+--------------+---------------------+-------------------------------+
+| 88.0.9.1/32     | 3    | True    | 1009        |      |              | if-1c 172.31.15.176 | if-1c fe80::84a:2ff:fe78:2746 |
++-----------------+------+---------+-------------+------+--------------+---------------------+-------------------------------+
+| 88.1.4.1/32     | 2    | False   | 104         |      |              | if-1b 172.31.15.176 | if-1b fe80::84a:2ff:fe78:2746 |
++-----------------+------+---------+-------------+------+--------------+---------------------+-------------------------------+
+| 88.1.7.1/32     | 2    | False   | 107         |      |              | if-1c 172.31.15.176 | if-1c fe80::84a:2ff:fe78:2746 |
 +-----------------+------+---------+-------------+------+--------------+---------------------+-------------------------------+
 | 88.2.1.1/32     | 1    | False   | 1           |      |              |                     |                               |
 +-----------------+------+---------+-------------+------+--------------+---------------------+-------------------------------+
@@ -514,15 +520,34 @@ South SPF (with East-West Links) Destinations:
 | 88.0.4.1/32     | 3    | True    | 1004        |      |              | if-1b 172.31.15.176 | if-1b fe80::84a:2ff:fe78:2746 |
 +-----------------+------+---------+-------------+------+--------------+---------------------+-------------------------------+
 .                 .      .         .             .                     .                     .                               .
++-----------------+------+---------+-------------+------+--------------+---------------------+-------------------------------+
+| 88.1.9.1/32     | 3    | False   | 109         |      |              | if-1e 172.31.15.176 | if-1e fe80::84a:2ff:fe78:2746 |
++-----------------+------+---------+-------------+------+--------------+---------------------+-------------------------------+
 | 88.2.1.1/32     | 1    | False   | 1           |      |              |                     |                               |
 +-----------------+------+---------+-------------+------+--------------+---------------------+-------------------------------+
-@@@ add missing
+| 88.2.3.1/32     | 2    | False   | 3           |      |              | if-1d 172.31.15.176 | if-1d fe80::84a:2ff:fe78:2746 |
 +-----------------+------+---------+-------------+------+--------------+---------------------+-------------------------------+
 | 88.2.5.1/32     | 2    | False   | 5           |      |              | if-1e 172.31.15.176 | if-1e fe80::84a:2ff:fe78:2746 |
 +-----------------+------+---------+-------------+------+--------------+---------------------+-------------------------------+
 </pre>
 
-@@@ epxplain difference in spf is advertised, but only if leaf
+As we can see, the special south SPF that does include the east-west inter-plane links finds some
+extra reachable destination prefixe that were not found by the normal south SPF that does not
+include the east-west inter-plane links.
+
+Some of those extra destinations prefixes were advertised by leaf nodes. In the above output there
+are three such prefixes: 88.0.1.1/32 (leaf-1-1), 88.0.2.1/32 (leaf-1-2), and 88.0.3.1/32
+(leaf-1-3). These are the prefixes for which super-1-1 has discovered that they are not reachable
+from plane-1 (using only north-south links) but are reachable from at least one other plane. Hence,
+super-1-1 will inititiate negative disaggregation for them. This is why they are markes as
+negative in the disaggregate collumn of the `show spf` output.
+
+The rest of these extra destinations were advertised by non-leaf nodes, in this case spine or
+superspine nodes. These non-leaf extra prefixes are not negatively disaggregated.
+
+
+
+
 
 @@@ continue from here; first explain propagation (or lack there of at this point) and the route tables.
 
