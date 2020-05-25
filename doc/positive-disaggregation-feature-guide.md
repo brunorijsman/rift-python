@@ -84,14 +84,14 @@ spine-1-1> <b>show interfaces</b>
 ### Spine-1-2
 
 We issue the `show disaggregation` command on anyone of the spine nodes in pod-1 to get a summary of
-what is happening in terms of dissaggregation in pod-1. In this example we choose node super-1-2
+what is happening in terms of dissaggregation in pod-1. In this example we choose node spine-1-2
 and observe that:
 
  1. There are no missing south-bound adjacencies. This means none of the other spine nodes in pod-1
-    have any missing (or extra, for that matter) south-bound adjacency as compared to spine-1-2.
+    have any missing (or extra, for that matter) south-bound adjacencies as compared to spine-1-2.
     All the spines in pod-1 have the same set of south-bound adjacencies.
 
- 2. Spine-1-2 does not have any partially connected south-bound interface. That means that every
+ 2. Spine-1-2 does not have any partially connected south-bound interfaces. That means that every
     south-bound leaf neighbor of spine-1-2 is also fully connected to all the other spines in the
     pod.
 

@@ -4,11 +4,10 @@ We assume you have already read the
 [Disaggregation Feature Guide](disaggregation-feature-guide.md),
 which describes what automatic disaggregation is, how automatic disaggregation works from a RIFT
 protocol point of view, and what the the difference between positive disaggregation and negative
-disaggregation is.
-This feature guide describes the nuts and bolts of using the RIFT-Python command line interface
-(CLI) to see negative disagregation in action.
-There is a separate
-[Positive Disaggregation Feature Guide](positive-disaggregation-feature-guide.md).
+disaggregation is. This feature guide describes the nuts and bolts of using the RIFT-Python command
+line interface (CLI) to see negative disagregation in action. There is a separate
+[Positive Disaggregation Feature Guide](positive-disaggregation-feature-guide.md), which you should
+read first.
 
 ## Example network
 
@@ -31,37 +30,14 @@ single-process mode:
 (env) $ <b>python rift --interactive generated.yaml</b>
 </pre>
 
-@@@
-
 ## The state of the fabric before triggering negative disaggregation
 
 Let us first look at the network before we break any links and before any positive disaggregation
 happens.
 
-### Leaf-1-1
-
-On leaf-1-1 all adjacencies are up:
-
-<pre>
-leaf-1-1> <b>show interfaces</b>
-+-----------+-------------------+-----------+-----------+
-| Interface | Neighbor          | Neighbor  | Neighbor  |
-| Name      | Name              | System ID | State     |
-+-----------+-------------------+-----------+-----------+
-| if-1001a  | spine-1-1:if-101a | 101       | THREE_WAY |
-+-----------+-------------------+-----------+-----------+
-| if-1001b  | spine-1-2:if-102a | 102       | THREE_WAY |
-+-----------+-------------------+-----------+-----------+
-| if-1001c  | spine-1-3:if-103a | 103       | THREE_WAY |
-+-----------+-------------------+-----------+-----------+
-</pre>
-
-Note: we don't spell out the `set node `<i>`node-name`</i> commands that are needed to go to right
-node that is implied by the CLI prompt in the example outputs.
-
 ### Spine-1-1
 
-On the other side, i.e. on spine-1-1, the adjacency to leaf-1-1 is up as well:
+On spine-1-1 all adjacencies are up:
 
 <pre>
 spine-1-1> <b>show interfaces</b>
@@ -75,61 +51,80 @@ spine-1-1> <b>show interfaces</b>
 +-----------+-------------------+-----------+-----------+
 | if-101c   | leaf-1-3:if-1003a | 1003      | THREE_WAY |
 +-----------+-------------------+-----------+-----------+
-| if-101d   | super-1:if-1a     | 1         | THREE_WAY |
+| if-101d   | super-1-1:if-1a   | 1         | THREE_WAY |
 +-----------+-------------------+-----------+-----------+
-| if-101e   | super-2:if-2a     | 2         | THREE_WAY |
-+-----------+-------------------+-----------+-----------+
-| if-101f   | super-3:if-3a     | 3         | THREE_WAY |
-+-----------+-------------------+-----------+-----------+
-| if-101g   | super-4:if-4a     | 4         | THREE_WAY |
+| if-101e   | super-1-2:if-2a   | 2         | THREE_WAY |
 +-----------+-------------------+-----------+-----------+
 </pre>
 
-### Spine-1-2
+Note: we don't spell out the `set node `<i>`node-name`</i> commands that are needed to go to right
+node that is implied by the CLI prompt in the example outputs.
 
-We issue the `show disaggregation` command on anyone of the spine nodes in pod-1 to get a summary of
-what is happening in terms of dissaggregation in pod-1. In this example we choose node super-1-2
-and observe that:
+### Super-1-1
 
- 1. There are no missing south-bound adjacencies. This means none of the other spine nodes in pod-1
-    have any missing (or extra, for that matter) south-bound adjacency as compared to spine-1-2.
-    All the spines in pod-1 have the same set of south-bound adjacencies.
-
- 2. Spine-1-2 does not have any partially connected south-bound interface. That means that every
-    south-bound leaf neighbor of spine-1-2 is also fully connected to all the other spines in the
-    pod.
-
- 3. Spine-1-2 is currently not originating any positive disaggregation prefixes.
-
- 4. Spine-1-2 currently does not have any positivate disaggregation prefixes from other nodes.
-    Interestingly, spine-1-1 does have two empty positive disaggregation prefix TIEs from nodes
-    super-3 (system ID 3) and super-4 (system ID 4). What this means is that those nodes sent
-    a positive disaggregation TIE at some point in the past and then flushed it. This is consistent
-    with the fact that both empty TIEs have sequence number 2. It is not unusual for transitory
-    disaggregation to occur while the topology is still partially connected during initial
-    convergence.
-
- 5. Spine-1-2 does not have any negative disaggregation prefixes (neither originated nor received)
-    in its TIE database. Negative disaggregation is discussed in a separate feature guide.
+On the other side, i.e. on super-1-1, the adjacency to spine-1-1 is up as well:
 
 <pre>
-spine-1-2> <b>show disaggregation</b>
+super-1-1> <b>show interfaces</b>
++-----------+-------------------+-----------+-----------+
+| Interface | Neighbor          | Neighbor  | Neighbor  |
+| Name      | Name              | System ID | State     |
++-----------+-------------------+-----------+-----------+
+| if-1a     | spine-1-1:if-101d | 101       | THREE_WAY |
++-----------+-------------------+-----------+-----------+
+| if-1b     | spine-2-1:if-104d | 104       | THREE_WAY |
++-----------+-------------------+-----------+-----------+
+| if-1c     | spine-3-1:if-107d | 107       | THREE_WAY |
++-----------+-------------------+-----------+-----------+
+| if-1d     | super-2-1:if-3d   | 3         | THREE_WAY |
++-----------+-------------------+-----------+-----------+
+| if-1e     | super-3-1:if-5e   | 5         | THREE_WAY |
++-----------+-------------------+-----------+-----------+
+</pre>
+
+### Super-1-2
+
+We issue the `show disaggregation` command on anyone of the superspine nodes to get a summary of
+what is happening in terms of dissaggregation in the top-of-fabric. In this example we choose node 
+super-1-2 and observe that:
+
+ 1. There are no missing south-bound adjacencies. This means none of the other superspine nodes in
+    plane-1 have any missing (or extra, for that matter) south-bound adjacencies as
+    compared to super-1-2. Both superspines in plane-1 have the same set of south-bound adjacencies.
+    Only superspines in the same plane are considered for the detection of missing south-bound
+    adjacencies. If any missing south-bound adjacencies are discovered, it may trigger positive
+    disaggregation. Negative disaggregation, as we will see, is triggered by something else,
+    namely a difference in reachable nodes between the normal south-bound SPF and the special
+    south-bound SPF.
+
+@@@
+
+ 2. Super-1-2 does not have any partially connected south-bound interface. That means that every
+    south-bound spine neighbor of super-1-2 is also fully connected to all the other superspines in
+    plane-1, i.e. also connected to super-1-1.
+
+ 3. Super-1-2 is currently not originating any positive disaggregation prefixes. Evidently it had
+    originated a positive disaggregation prefix in the past while the topology was converging.
+    But that transitory positive disaggregation prefix has since been flushed which is evident from
+    the empty TIE and sequence number 2.
+
+ 4. Super-1-2 currently does not have any positivate disaggregation prefixes from other nodes.
+
+ 5. Super-1-2 does not have any negative disaggregation prefixes (neither originated nor received)
+    in its TIE database.
+
+<pre>
+super-1-2> <b>show disaggregation</b>
 Same Level Nodes:
-+-----------------+-------------+-----------------+-------------+-------------+
-| Same-Level      | North-bound | South-bound     | Missing     | Extra       |
-| Node            | Adjacencies | Adjacencies     | South-bound | South-bound |
-|                 |             |                 | Adjacencies | Adjacencies |
-+-----------------+-------------+-----------------+-------------+-------------+
-| spine-1-1 (101) | super-1 (1) | leaf-1-1 (1001) |             |             |
-|                 | super-2 (2) | leaf-1-2 (1002) |             |             |
-|                 | super-3 (3) | leaf-1-3 (1003) |             |             |
-|                 | super-4 (4) |                 |             |             |
-+-----------------+-------------+-----------------+-------------+-------------+
-| spine-1-3 (103) | super-1 (1) | leaf-1-1 (1001) |             |             |
-|                 | super-2 (2) | leaf-1-2 (1002) |             |             |
-|                 | super-3 (3) | leaf-1-3 (1003) |             |             |
-|                 | super-4 (4) |                 |             |             |
-+-----------------+-------------+-----------------+-------------+-------------+
++---------------+-------------+-----------------+-------------+-------------+
+| Same-Level    | North-bound | South-bound     | Missing     | Extra       |
+| Node          | Adjacencies | Adjacencies     | South-bound | South-bound |
+|               |             |                 | Adjacencies | Adjacencies |
++---------------+-------------+-----------------+-------------+-------------+
+| super-1-1 (1) |             | spine-1-1 (101) |             |             |
+|               |             | spine-2-1 (104) |             |             |
+|               |             | spine-3-1 (107) |             |             |
++---------------+-------------+-----------------+-------------+-------------+
 
 Partially Connected Interfaces:
 +------+------------------------------------+
@@ -140,9 +135,7 @@ Positive Disaggregation TIEs:
 +-----------+------------+----------------+--------+--------+----------+----------+
 | Direction | Originator | Type           | TIE Nr | Seq Nr | Lifetime | Contents |
 +-----------+------------+----------------+--------+--------+----------+----------+
-| South     | 3          | Pos-Dis-Prefix | 3      | 2      | 604673   |          |
-+-----------+------------+----------------+--------+--------+----------+----------+
-| South     | 4          | Pos-Dis-Prefix | 3      | 2      | 604673   |          |
+| South     | 2          | Pos-Dis-Prefix | 3      | 2      | 603146   |          |
 +-----------+------------+----------------+--------+--------+----------+----------+
 
 Negative Disaggregation TIEs:
@@ -151,40 +144,80 @@ Negative Disaggregation TIEs:
 +-----------+------------+------+--------+--------+----------+----------+
 </pre>
 
-### Leaf-1-2
+### Spine-2-1
 
-Since leaf-1-2 can reach leaf-1-1 over any of the three spine nodes in pod-1, leaf-1-2 only
-has a north-bound default route with ECMP next-hops over spine-1-1, spine-1-2, and spine-1-3.
+Spine-2-1 is in plane-1. It can reach leaf-1-3 over all superspines that are in plane-1 (note
+that spines and superspines are in a particular plane, but leafs are not). Thus, spine-2-1
+has:
+
+ 1. A north-bound default ECMPs over both superspines in plane-1, namely super-1-1 and super-1-2.
+
+ 2. Normal south-bound specific routes to leaf-2-1, leaf-2-2, and leaf-2-3.
+
+ 3. No positive or negative disaggregation routes.
+
+ 4. For IPv6 there is only a default route because we did not assign any IPv6 addresses to the
+    loopbacks.
 
 <pre>
-leaf-1-2> <b>show routes</b>
+spine-2-1> <b>show routes</b>
+IPv4 Routes:
++-------------+-----------+-----------------------+
+| Prefix      | Owner     | Next-hops             |
++-------------+-----------+-----------------------+
+| 0.0.0.0/0   | North SPF | if-104d 172.31.15.176 |
+|             |           | if-104e 172.31.15.176 |
++-------------+-----------+-----------------------+
+| 88.0.4.1/32 | South SPF | if-104a 172.31.15.176 |
++-------------+-----------+-----------------------+
+| 88.0.5.1/32 | South SPF | if-104b 172.31.15.176 |
++-------------+-----------+-----------------------+
+| 88.0.6.1/32 | South SPF | if-104c 172.31.15.176 |
++-------------+-----------+-----------------------+
+
+IPv6 Routes:
++--------+-----------+---------------------------------+
+| Prefix | Owner     | Next-hops                       |
++--------+-----------+---------------------------------+
+| ::/0   | North SPF | if-104d fe80::84a:2ff:fe78:2746 |
+|        |           | if-104e fe80::84a:2ff:fe78:2746 |
++--------+-----------+---------------------------------+
+</pre>
+
+### Leaf-2-2
+
+At this point leaf-2-2 only has north-bound default route that ECMPs over spine-2-1, spine-2-2,
+and spine-2-3.
+
+<pre>
+leaf-2-2> <b>show routes</b>
 IPv4 Routes:
 +-----------+-----------+------------------------+
 | Prefix    | Owner     | Next-hops              |
 +-----------+-----------+------------------------+
-| 0.0.0.0/0 | North SPF | if-1002a 172.31.15.176 |
-|           |           | if-1002b 172.31.15.176 |
-|           |           | if-1002c 172.31.15.176 |
+| 0.0.0.0/0 | North SPF | if-1005a 172.31.15.176 |
+|           |           | if-1005b 172.31.15.176 |
+|           |           | if-1005c 172.31.15.176 |
 +-----------+-----------+------------------------+
 
 IPv6 Routes:
 +--------+-----------+----------------------------------+
 | Prefix | Owner     | Next-hops                        |
 +--------+-----------+----------------------------------+
-| ::/0   | North SPF | if-1002a fe80::84a:2ff:fe78:2746 |
-|        |           | if-1002b fe80::84a:2ff:fe78:2746 |
-|        |           | if-1002c fe80::84a:2ff:fe78:2746 |
+| ::/0   | North SPF | if-1005a fe80::84a:2ff:fe78:2746 |
+|        |           | if-1005b fe80::84a:2ff:fe78:2746 |
+|        |           | if-1005c fe80::84a:2ff:fe78:2746 |
 +--------+-----------+----------------------------------+
 </pre>
 
-We do not see any /32 routes on leaf-1-2 because there is no disaggregation happening.
+We do not see any /32 routes on leaf-2-2 because there is no disaggregation happening.
 
 Just for completness sake, we can also verify that there are no disaggregation prefix TIEs on
-leaf-1-2. Note that we do not see the empty positive disaggregation prefix TIEs from the superspine
+leaf-2-2. Note that we do not see the empty positive disaggregation prefix TIEs from the superspine
 nodes here because they are not propagated by the spine nodes.
 
 <pre>
-leaf-1-2> <b>show disaggregation</b>
+leaf-2-2> <b>show disaggregation</b>
 Same Level Nodes:
 +------------+-------------+-------------+-------------+-------------+
 | Same-Level | North-bound | South-bound | Missing     | Extra       |
@@ -207,6 +240,8 @@ Negative Disaggregation TIEs:
 | Direction | Originator | Type | TIE Nr | Seq Nr | Lifetime | Contents |
 +-----------+------------+------+--------+--------+----------+----------+
 </pre>
+
+@@@
 
 ## Breaking a link to trigger positive disaggregation within a pod
 
