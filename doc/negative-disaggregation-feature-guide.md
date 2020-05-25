@@ -408,7 +408,7 @@ Negative Disaggregation TIEs:
 
 ### Super-1-1
 
-Now that we have seen that super-1-2 triggered positive disaggregation, let's return to super-1-1.
+Now let's turn our eye towards super-1-1 and see how it triggers negative disaggregation.
 From the output of the `show disaggregation` command we can conclude that:
 
  1. Super-1-1 has detected that super-1-2 has an extra south-bound adjacency. That is consistent
@@ -458,8 +458,8 @@ Negative Disaggregation TIEs:
 +-----------+------------+----------------+--------+--------+----------+-----------------------------+
 </pre>
 
-Let's dive into to the question of why super-1-1 initiated negative disaggregation for all leaves
-in pod-1. The answer can be found in the output of `show spf`. The output of `show spf` is very
+The underlying reason for super-1-1 triggering negative disaggregation for all leaf prefixes
+in pod-1 can be found in the output of `show spf`. The output of `show spf` is very
 long; in the following example we have removed most output except the relevant rows plus some
 context.
 
@@ -545,6 +545,145 @@ negative in the disaggregate collumn of the `show spf` output.
 
 The rest of these extra destinations were advertised by non-leaf nodes, in this case spine or
 superspine nodes. These non-leaf extra prefixes are not negatively disaggregated.
+
+## Populating the route tables on spine-3-1
+
+We are interested to see what routes actually get installed in the route table as a result of
+the negative disaggregation prefix advertised by super-1-1 and the positive disaggregation prefix
+advertised by super-1-2. Apart from spine-1-1, there are two other nodes that are attached to
+both super-1-1 and super-1-2, i.e. that are in plane-1, namely spine-2-1 and spine-3-1. We could
+look at either, but we choose to look at spine-3-1.
+
+First, we use `show disaggregation` to confirm that spine-3-1 has received both the positive and
+the negative disaggrevation prefix TIEs:
+
+<pre>
+spine-3-1> <b>show disaggregation</b>
+Same Level Nodes:
++-----------------+-------------+-----------------+-------------+-------------+
+| Same-Level      | North-bound | South-bound     | Missing     | Extra       |
+| Node            | Adjacencies | Adjacencies     | South-bound | South-bound |
+|                 |             |                 | Adjacencies | Adjacencies |
++-----------------+-------------+-----------------+-------------+-------------+
+| spine-3-2 (108) | (3)         | leaf-3-1 (1007) |             |             |
+|                 | (4)         | leaf-3-2 (1008) |             |             |
+|                 |             | leaf-3-3 (1009) |             |             |
++-----------------+-------------+-----------------+-------------+-------------+
+| spine-3-3 (109) | (5)         | leaf-3-1 (1007) |             |             |
+|                 | (6)         | leaf-3-2 (1008) |             |             |
+|                 |             | leaf-3-3 (1009) |             |             |
++-----------------+-------------+-----------------+-------------+-------------+
+
+Partially Connected Interfaces:
++------+------------------------------------+
+| Name | Nodes Causing Partial Connectivity |
++------+------------------------------------+
+
+Positive Disaggregation TIEs:
++-----------+------------+----------------+--------+--------+----------+-----------------------------+
+| Direction | Originator | Type           | TIE Nr | Seq Nr | Lifetime | Contents                    |
++-----------+------------+----------------+--------+--------+----------+-----------------------------+
+| South     | 2          | Pos-Dis-Prefix | 3      | 1      | 602588   | Pos-Dis-Prefix: 88.0.1.1/32 |
+|           |            |                |        |        |          |   Metric: 3                 |
+|           |            |                |        |        |          | Pos-Dis-Prefix: 88.0.2.1/32 |
+|           |            |                |        |        |          |   Metric: 3                 |
+|           |            |                |        |        |          | Pos-Dis-Prefix: 88.0.3.1/32 |
+|           |            |                |        |        |          |   Metric: 3                 |
+|           |            |                |        |        |          | Pos-Dis-Prefix: 88.1.1.1/32 |
+|           |            |                |        |        |          |   Metric: 2                 |
++-----------+------------+----------------+--------+--------+----------+-----------------------------+
+
+Negative Disaggregation TIEs:
++-----------+------------+----------------+--------+--------+----------+-----------------------------+
+| Direction | Originator | Type           | TIE Nr | Seq Nr | Lifetime | Contents                    |
++-----------+------------+----------------+--------+--------+----------+-----------------------------+
+| South     | 1          | Neg-Dis-Prefix | 5      | 1      | 602587   | Neg-Dis-Prefix: 88.0.1.1/32 |
+|           |            |                |        |        |          |   Metric: 2147483647        |
+|           |            |                |        |        |          | Neg-Dis-Prefix: 88.0.2.1/32 |
+|           |            |                |        |        |          |   Metric: 2147483647        |
+|           |            |                |        |        |          | Neg-Dis-Prefix: 88.0.3.1/32 |
+|           |            |                |        |        |          |   Metric: 2147483647        |
++-----------+------------+----------------+--------+--------+----------+-----------------------------+
+<pre>
+
+Next, we use `show spf` to see how these positive and negative disaggregation prefixes are used
+in the shortest path first (SPF) calculation. We can see the the positive disaggregation prefix
+gets precedence over the negative disaggregation prefix:
+
+<pre>
+spine-3-1> show spf direction north
+North SPF Destinations:
++----------------------+------+---------+-------------+------+--------------+-----------------------+---------------------------------+
+| Destination          | Cost | Is Leaf | Predecessor | Tags | Disaggregate | IPv4 Next-hops        | IPv6 Next-hops                  |
+|                      |      |         | System IDs  |      |              |                       |                                 |
++----------------------+------+---------+-------------+------+--------------+-----------------------+---------------------------------+
+| 1 (super-1-1)        | 1    | False   | 107         |      |              | if-107d 172.31.15.176 | if-107d fe80::84a:2ff:fe78:2746 |
++----------------------+------+---------+-------------+------+--------------+-----------------------+---------------------------------+
+| 2 (super-1-2)        | 1    | False   | 107         |      |              | if-107e 172.31.15.176 | if-107e fe80::84a:2ff:fe78:2746 |
++----------------------+------+---------+-------------+------+--------------+-----------------------+---------------------------------+
+| 107 (spine-3-1)      | 0    | False   |             |      |              |                       |                                 |
++----------------------+------+---------+-------------+------+--------------+-----------------------+---------------------------------+
+| 0.0.0.0/0            | 2    | False   | 1           |      |              | if-107d 172.31.15.176 | if-107d fe80::84a:2ff:fe78:2746 |
+|                      |      |         | 2           |      |              | if-107e 172.31.15.176 | if-107e fe80::84a:2ff:fe78:2746 |
++----------------------+------+---------+-------------+------+--------------+-----------------------+---------------------------------+
+| 88.1.7.1/32          | 1    | False   | 107         |      |              |                       |                                 |
++----------------------+------+---------+-------------+------+--------------+-----------------------+---------------------------------+
+| ::/0                 | 2    | False   | 1           |      |              | if-107d 172.31.15.176 | if-107d fe80::84a:2ff:fe78:2746 |
+|                      |      |         | 2           |      |              | if-107e 172.31.15.176 | if-107e fe80::84a:2ff:fe78:2746 |
++----------------------+------+---------+-------------+------+--------------+-----------------------+---------------------------------+
+| 88.0.1.1/32 (Disagg) | 4    | False   | 2           |      | Positive     | if-107e 172.31.15.176 | if-107e fe80::84a:2ff:fe78:2746 |
++----------------------+------+---------+-------------+------+--------------+-----------------------+---------------------------------+
+| 88.0.2.1/32 (Disagg) | 4    | False   | 2           |      | Positive     | if-107e 172.31.15.176 | if-107e fe80::84a:2ff:fe78:2746 |
++----------------------+------+---------+-------------+------+--------------+-----------------------+---------------------------------+
+| 88.0.3.1/32 (Disagg) | 4    | False   | 2           |      | Positive     | if-107e 172.31.15.176 | if-107e fe80::84a:2ff:fe78:2746 |
++----------------------+------+---------+-------------+------+--------------+-----------------------+---------------------------------+
+| 88.1.1.1/32 (Disagg) | 3    | False   | 2           |      | Positive     | if-107e 172.31.15.176 | if-107e fe80::84a:2ff:fe78:2746 |
++----------------------+------+---------+-------------+------+--------------+-----------------------+---------------------------------+
+</pre>
+
+We use the `show routes` to view the RIB. We see the normal north-bound default route that ECMPs
+over super-1 and super-2. 
+We see more specific north-bound routes for spine-1-1 and all three leaves in pod-1 that sends
+traffic only to super-1-2 and not super-1-1.
+And finally, we see specific south-bound routes for three leaves in pod-2.
+
+<pre>
+spine-3-1> <b>show routes</b>
+IPv4 Routes:
++-------------+-----------+-----------------------+
+| Prefix      | Owner     | Next-hops             |
++-------------+-----------+-----------------------+
+| 0.0.0.0/0   | North SPF | if-107d 172.31.15.176 |
+|             |           | if-107e 172.31.15.176 |
++-------------+-----------+-----------------------+
+| 88.0.1.1/32 | North SPF | if-107e 172.31.15.176 |
++-------------+-----------+-----------------------+
+| 88.0.2.1/32 | North SPF | if-107e 172.31.15.176 |
++-------------+-----------+-----------------------+
+| 88.0.3.1/32 | North SPF | if-107e 172.31.15.176 |
++-------------+-----------+-----------------------+
+| 88.0.7.1/32 | South SPF | if-107a 172.31.15.176 |
++-------------+-----------+-----------------------+
+| 88.0.8.1/32 | South SPF | if-107b 172.31.15.176 |
++-------------+-----------+-----------------------+
+| 88.0.9.1/32 | South SPF | if-107c 172.31.15.176 |
++-------------+-----------+-----------------------+
+| 88.1.1.1/32 | North SPF | if-107e 172.31.15.176 |
++-------------+-----------+-----------------------+
+
+IPv6 Routes:
++--------+-----------+---------------------------------+
+| Prefix | Owner     | Next-hops                       |
++--------+-----------+---------------------------------+
+| ::/0   | North SPF | if-107d fe80::84a:2ff:fe78:2746 |
+|        |           | if-107e fe80::84a:2ff:fe78:2746 |
++--------+-----------+---------------------------------+
+</pre>
+
+
+
+## Negative disaggregation
+
 
 
 
