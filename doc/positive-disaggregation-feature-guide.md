@@ -525,3 +525,135 @@ IPv6 Routes:
 |        |           | if-1003c fe80::84a:2ff:fe78:2746 |
 +--------+-----------+----------------------------------+
 </pre>
+
+## Breaking a spine and a superspine to cause limited positive disaggregation
+
+Now we break the link between spine-1-1 and super-1 as shown in figure 3 below:
+
+![Topology Diagram](https://s3-us-west-2.amazonaws.com/brunorijsman-public/diagram_clos_3pod_3leaf_3spine_4super_inter_pod_1_failure.png)
+
+*Figure 3. Failure between a spine and superspine causing limited positive disaggregation.*
+
+### Spine-1-1
+
+On spine-1-1 we cause a (simulated) failure of the link to super-1:
+
+<pre>
+spine-1-1> <b>spine-1-1> set interface if-101d failure failed</b>
+</pre>
+
+The adjacency goes down:
+
+<pre>
+spine-1-1> show interfaces
++-----------+-------------------+-----------+-----------+
+| Interface | Neighbor          | Neighbor  | Neighbor  |
+| Name      | Name              | System ID | State     |
++-----------+-------------------+-----------+-----------+
+| if-101a   | leaf-1-1:if-1001a | 1001      | THREE_WAY |
++-----------+-------------------+-----------+-----------+
+| if-101b   | leaf-1-2:if-1002a | 1002      | THREE_WAY |
++-----------+-------------------+-----------+-----------+
+| if-101c   | leaf-1-3:if-1003a | 1003      | THREE_WAY |
++-----------+-------------------+-----------+-----------+
+| if-101d   |                   |           | ONE_WAY   |
++-----------+-------------------+-----------+-----------+
+| if-101e   | super-2:if-2a     | 2         | THREE_WAY |
++-----------+-------------------+-----------+-----------+
+| if-101f   | super-3:if-3a     | 3         | THREE_WAY |
++-----------+-------------------+-----------+-----------+
+| if-101g   | super-4:if-4a     | 4         | THREE_WAY |
++-----------+-------------------+-----------+-----------+
+</pre>
+
+### Super-2
+
+Now, let's see whether or not super-2 initiates positive disaggregation:
+
+<pre>
+super-2> <b>show disaggregation</b>
+Same Level Nodes:
++-------------+-------------+-----------------+-----------------+-------------+
+| Same-Level  | North-bound | South-bound     | Missing         | Extra       |
+| Node        | Adjacencies | Adjacencies     | South-bound     | South-bound |
+|             |             |                 | Adjacencies     | Adjacencies |
++-------------+-------------+-----------------+-----------------+-------------+
+| super-1 (1) |             | spine-1-2 (102) | spine-1-1 (101) |             |
+|             |             | spine-1-3 (103) |                 |             |
+|             |             | spine-2-1 (104) |                 |             |
+|             |             | spine-2-2 (105) |                 |             |
+|             |             | spine-2-3 (106) |                 |             |
+|             |             | spine-3-1 (107) |                 |             |
+|             |             | spine-3-2 (108) |                 |             |
+|             |             | spine-3-3 (109) |                 |             |
++-------------+-------------+-----------------+-----------------+-------------+
+| super-3 (3) |             | spine-1-1 (101) |                 |             |
+|             |             | spine-1-2 (102) |                 |             |
+|             |             | spine-1-3 (103) |                 |             |
+|             |             | spine-2-1 (104) |                 |             |
+|             |             | spine-2-2 (105) |                 |             |
+|             |             | spine-2-3 (106) |                 |             |
+|             |             | spine-3-1 (107) |                 |             |
+|             |             | spine-3-2 (108) |                 |             |
+|             |             | spine-3-3 (109) |                 |             |
++-------------+-------------+-----------------+-----------------+-------------+
+| super-4 (4) |             | spine-1-1 (101) |                 |             |
+|             |             | spine-1-2 (102) |                 |             |
+|             |             | spine-1-3 (103) |                 |             |
+|             |             | spine-2-1 (104) |                 |             |
+|             |             | spine-2-2 (105) |                 |             |
+|             |             | spine-2-3 (106) |                 |             |
+|             |             | spine-3-1 (107) |                 |             |
+|             |             | spine-3-2 (108) |                 |             |
+|             |             | spine-3-3 (109) |                 |             |
++-------------+-------------+-----------------+-----------------+-------------+
+
+Partially Connected Interfaces:
++-------+------------------------------------+
+| Name  | Nodes Causing Partial Connectivity |
++-------+------------------------------------+
+| if-2a | super-1 (1)                        |
++-------+------------------------------------+
+
+Positive Disaggregation TIEs:
++-----------+------------+----------------+--------+--------+----------+-----------------------------+
+| Direction | Originator | Type           | TIE Nr | Seq Nr | Lifetime | Contents                    |
++-----------+------------+----------------+--------+--------+----------+-----------------------------+
+| South     | 2          | Pos-Dis-Prefix | 3      | 1      | 604758   | Pos-Dis-Prefix: 88.1.1.1/32 |
+|           |            |                |        |        |          |   Metric: 2                 |
++-----------+------------+----------------+--------+--------+----------+-----------------------------+
+
+Negative Disaggregation TIEs:
++-----------+------------+------+--------+--------+----------+----------+
+| Direction | Originator | Type | TIE Nr | Seq Nr | Lifetime | Contents |
++-----------+------------+------+--------+--------+----------+----------+
+</pre>
+
+This is quite interesting (well, at least I think so)! We can see that:
+
+ 1. Super-2 has discovered that super-1 is missing a south-bound adjancency to spine-1-1.
+
+ 2. Interface if-2a (which is connected to spine-1-1) is "partially connected" and we see that
+    super-1 is the cause of the partial connectivity. This means that spine-1-1 is missing a
+    north-bound adjacency to super-1.
+ 
+ 3. Super-2 is originating a positive disaggregation prefix for 88.1.1.1/32, which is the loopback
+    of spine-1-1.
+
+ 4. Note, however, that super-2 is **not** originating any positive disaggregation prefixes for any
+    of the leaves leaf-1-1, leaf-1-2, or leaf-1-3. The reason for this is:
+
+    a. Super-2 knows that those leaves can be reached via spine-1-1 (it knows this because
+       of the next-hops of its own routes to those leaves).
+
+    b. And yes, it is true that super-1 cannot reach those leaves via spine-1-1 anymore.
+
+    c. But super-2 also knows that those same leaves can also be reached via spine-1-2 or spine-1-3
+       (once again, by looking at its own next-hops).
+
+    d. And, super-2 knows that super-1 can still reach spine-1-2 and spine-1-3.
+
+    e. Super-2 concludes that spine-1 can still reach the leaves, and there is no reason to trigger
+       positive disaggregation for the leaves.
+
+
