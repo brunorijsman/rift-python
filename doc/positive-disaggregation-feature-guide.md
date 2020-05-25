@@ -54,6 +54,9 @@ leaf-1-1> <b>show interfaces</b>
 +-----------+-------------------+-----------+-----------+
 </pre>
 
+Note: we don't spell out the `set node `<i>`node-name`</i> commands that are needed to go to right
+node that is implied by the CLI prompt in the example outputs.
+
 ### Spine-1-1
 
 On the other side, i.e. on spine-1-1, the adjacency to leaf-1-1 is up as well:
@@ -208,10 +211,10 @@ Negative Disaggregation TIEs:
 First we break the link between leaf-1-1 and spine-1-1 as shown in figure 2 below, which triggers
 positive disaggregation in pod-1.
 
-After the failure, leaf-1-2 and leaf-1-3 cannot rely on their north-bound route to reach leaf-1-1
-anymore because its ECMP next-hop set includes spine-1-1 which cannot reach leaf-1-1. Positive
-disaggregation fixes the issue by causing spine-1-2 and spine-1-3 to advertise a host-specific route
-for leaf-1-1.
+After the failure, leaf-1-2 and leaf-1-3 can no longer rely on their north-bound default route to
+reach leaf-1-1 because its ECMP next-hop set includes spine-1-1 which cannot reach leaf-1-1. 
+Positive disaggregation fixes the issue by causing spine-1-2 and spine-1-3 to advertise a
+host-specific route for leaf-1-1.
 
 @@@ New figure
 
@@ -268,80 +271,113 @@ spine-1-1> <b>show interfaces</b>
 | veth-101g-4a    | super-4:veth-4a-101g     | 4         | THREE_WAY |
 +-----------------+--------------------------+-----------+-----------+
 </pre>
-
-As a result, spine-1-1 does not advertise an adjacency with leaf-1-1 in its South-Node-TIE
-(notice that neighbor 1001 is missing):
-
-@@@ Why do I see negative disaggregation now???
+As a result, spine-1-1 does not advertise an adjacency with leaf-1-1 in its
+South-Node-TIE (notice that neighbor system IDs 1002 and 1003 are present but neighbor system 
+ID 1001 is missing):
 
 <pre>
-spine-1-1> <b>show tie-db</b>
-+-----------+------------+--------+--------+--------+----------+-----------------------+
-| Direction | Originator | Type   | TIE Nr | Seq Nr | Lifetime | Contents              |
-+-----------+------------+--------+--------+--------+----------+-----------------------+
-.           .            .        .        .        .          .                       .
-.           .            .        .        .        .          .                       .
-.           .            .        .        .        .          .                       .
-+-----------+------------+--------+--------+--------+----------+-----------------------+
-| South     | 101        | Node   | 1      | 11     | 603815   | Name: spine-1-1       |
-|           |            |        |        |        |          | Level: 1              |
-|           |            |        |        |        |          | Neighbor: 1           |
-|           |            |        |        |        |          |   Level: 2            |
-|           |            |        |        |        |          |   Cost: 1             |
-|           |            |        |        |        |          |   Bandwidth: 100 Mbps |
-|           |            |        |        |        |          |   Link: 4-1           |
-|           |            |        |        |        |          | Neighbor: 2           |
-|           |            |        |        |        |          |   Level: 2            |
-|           |            |        |        |        |          |   Cost: 1             |
-|           |            |        |        |        |          |   Bandwidth: 100 Mbps |
-|           |            |        |        |        |          |   Link: 5-1           |
-|           |            |        |        |        |          | Neighbor: 3           |
-|           |            |        |        |        |          |   Level: 2            |
-|           |            |        |        |        |          |   Cost: 1             |
-|           |            |        |        |        |          |   Bandwidth: 100 Mbps |
-|           |            |        |        |        |          |   Link: 6-1           |
-|           |            |        |        |        |          | Neighbor: 4           |
-|           |            |        |        |        |          |   Level: 2            |
-|           |            |        |        |        |          |   Cost: 1             |
-|           |            |        |        |        |          |   Bandwidth: 100 Mbps |
-|           |            |        |        |        |          |   Link: 7-1           |
-|           |            |        |        |        |          | Neighbor: 1002        |
-|           |            |        |        |        |          |   Level: 0            |
-|           |            |        |        |        |          |   Cost: 1             |
-|           |            |        |        |        |          |   Bandwidth: 100 Mbps |
-|           |            |        |        |        |          |   Link: 2-1           |
-|           |            |        |        |        |          | Neighbor: 1003        |
-|           |            |        |        |        |          |   Level: 0            |
-|           |            |        |        |        |          |   Cost: 1             |
-|           |            |        |        |        |          |   Bandwidth: 100 Mbps |
-|           |            |        |        |        |          |   Link: 3-1           |
-+-----------+------------+--------+--------+--------+----------+-----------------------+
-.           .            .        .        .        .          .                       .
-.           .            .        .        .        .          .                       .
-.           .            .        .        .        .          .                       .
+spine-1-1> <b>show tie-db direction south originator 101</b>
++-----------+------------+--------+--------+--------+----------+-------------------------+
+| Direction | Originator | Type   | TIE Nr | Seq Nr | Lifetime | Contents                |
++-----------+------------+--------+--------+--------+----------+-------------------------+
+| South     | 101        | Node   | 1      | 9      | 604583   | Name: spine-1-1         |
+|           |            |        |        |        |          | Level: 23               |
+|           |            |        |        |        |          | Capabilities:           |
+|           |            |        |        |        |          |   Flood reduction: True |
+|           |            |        |        |        |          | Neighbor: 1             |
+|           |            |        |        |        |          |   Level: 24             |
+|           |            |        |        |        |          |   Cost: 1               |
+|           |            |        |        |        |          |   Bandwidth: 100 Mbps   |
+|           |            |        |        |        |          |   Link: 4-1             |
+|           |            |        |        |        |          | Neighbor: 2             |
+|           |            |        |        |        |          |   Level: 24             |
+|           |            |        |        |        |          |   Cost: 1               |
+|           |            |        |        |        |          |   Bandwidth: 100 Mbps   |
+|           |            |        |        |        |          |   Link: 5-1             |
+|           |            |        |        |        |          | Neighbor: 3             |
+|           |            |        |        |        |          |   Level: 24             |
+|           |            |        |        |        |          |   Cost: 1               |
+|           |            |        |        |        |          |   Bandwidth: 100 Mbps   |
+|           |            |        |        |        |          |   Link: 6-1             |
+|           |            |        |        |        |          | Neighbor: 4             |
+|           |            |        |        |        |          |   Level: 24             |
+|           |            |        |        |        |          |   Cost: 1               |
+|           |            |        |        |        |          |   Bandwidth: 100 Mbps   |
+|           |            |        |        |        |          |   Link: 7-1             |
+|           |            |        |        |        |          | Neighbor: 1002          |
+|           |            |        |        |        |          |   Level: 0              |
+|           |            |        |        |        |          |   Cost: 1               |
+|           |            |        |        |        |          |   Bandwidth: 100 Mbps   |
+|           |            |        |        |        |          |   Link: 2-1             |
+|           |            |        |        |        |          | Neighbor: 1003          |
+|           |            |        |        |        |          |   Level: 0              |
+|           |            |        |        |        |          |   Cost: 1               |
+|           |            |        |        |        |          |   Bandwidth: 100 Mbps   |
+|           |            |        |        |        |          |   Link: 3-1             |
++-----------+------------+--------+--------+--------+----------+-------------------------+
+| South     | 101        | Prefix | 2      | 1      | 600946   | Prefix: 0.0.0.0/0       |
+|           |            |        |        |        |          |   Metric: 1             |
+|           |            |        |        |        |          | Prefix: ::/0            |
+|           |            |        |        |        |          |   Metric: 1             |
++-----------+------------+--------+--------+--------+----------+-------------------------+
 </pre>
 
-Spine-1-2 notices that spine-1-1 is not reporting leaf-1-1 as a neighbor.
-On spine-1-2 we can look at the other nodes that are on the same level as spine-1-2 (we call these
-same-level-nodes):
 
+### Spine-1-2
+
+In the output of `show disaggregation` on spine-1-2 we notice the following:
+
+ 1. Spine-1-2 has discovered that spine-1-1 is missing a south-bound adjancency to leaf-1-1.
+
+ 2. Interface if-102a (which is connected to leaf-1-1) is "partially connected" and we see that
+    spine-1-1 is the cause of the partial connectivity. This means that leaf-1-1 is missing a
+    north-bound adjacency to spine-1-1.
+ 
+ 3. Spine-1-2 is originating a positive disaggregation prefix for 88.0.1.1/32, which is the loopback
+    of leaf-1-1.
+ 
 <pre>
-spine-1-2> <b>show same-level-nodes</b>
-+-----------+-------------+-------------+-------------+
-| Node      | North-bound | South-bound | Missing     |
-| System ID | Adjacencies | Adjacencies | South-bound |
-|           |             |             | Adjacencies |
-+-----------+-------------+-------------+-------------+
-| 101       | 1           | 1002        | <b>1001</b>        |
-|           | 2           | 1003        |             |
-|           | 3           |             |             |
-|           | 4           |             |             |
-+-----------+-------------+-------------+-------------+
-| 103       | 1           | 1001        |             |
-|           | 2           | 1002        |             |
-|           | 3           | 1003        |             |
-|           | 4           |             |             |
-+-----------+-------------+-------------+-------------+
+spine-1-2> <b>show disaggregation</b>
+Same Level Nodes:
++-----------------+-------------+-----------------+-----------------+-------------+
+| Same-Level      | North-bound | South-bound     | Missing         | Extra       |
+| Node            | Adjacencies | Adjacencies     | South-bound     | South-bound |
+|                 |             |                 | Adjacencies     | Adjacencies |
++-----------------+-------------+-----------------+-----------------+-------------+
+| spine-1-1 (101) | super-1 (1) | leaf-1-2 (1002) | leaf-1-1 (1001) |             |
+|                 | super-2 (2) | leaf-1-3 (1003) |                 |             |
+|                 | super-3 (3) |                 |                 |             |
+|                 | super-4 (4) |                 |                 |             |
++-----------------+-------------+-----------------+-----------------+-------------+
+| spine-1-3 (103) | super-1 (1) | leaf-1-1 (1001) |                 |             |
+|                 | super-2 (2) | leaf-1-2 (1002) |                 |             |
+|                 | super-3 (3) | leaf-1-3 (1003) |                 |             |
+|                 | super-4 (4) |                 |                 |             |
++-----------------+-------------+-----------------+-----------------+-------------+
+
+Partially Connected Interfaces:
++---------+------------------------------------+
+| Name    | Nodes Causing Partial Connectivity |
++---------+------------------------------------+
+| if-102a | spine-1-1 (101)                    |
++---------+------------------------------------+
+
+Positive Disaggregation TIEs:
++-----------+------------+----------------+--------+--------+----------+-----------------------------+
+| Direction | Originator | Type           | TIE Nr | Seq Nr | Lifetime | Contents                    |
++-----------+------------+----------------+--------+--------+----------+-----------------------------+
+| South     | 3          | Pos-Dis-Prefix | 3      | 2      | 600827   |                             |
++-----------+------------+----------------+--------+--------+----------+-----------------------------+
+| South     | 4          | Pos-Dis-Prefix | 3      | 2      | 600827   |                             |
++-----------+------------+----------------+--------+--------+----------+-----------------------------+
+| South     | 102        | Pos-Dis-Prefix | 3      | 1      | 604437   | Pos-Dis-Prefix: 88.0.1.1/32 |
+|           |            |                |        |        |          |   Metric: 2                 |
++-----------+------------+----------------+--------+--------+----------+-----------------------------+
+
+Negative Disaggregation TIEs:
++-----------+------------+------+--------+--------+----------+----------+
+| Direction | Originator | Type | TIE Nr | Seq Nr | Lifetime | Contents |
++-----------+------------+------+--------+--------+----------+----------+
 </pre>
 
 We can see that:
