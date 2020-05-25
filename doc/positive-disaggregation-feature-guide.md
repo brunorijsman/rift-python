@@ -1,14 +1,14 @@
 # Positive Disaggregation Feature Guide
 
 We assume you have already read the
-[Disaggregation Feature Guide](disaggregation_feature_guide.md),
+[Disaggregation Feature Guide](disaggregation-feature-guide.md),
 which describes what automatic disaggregation is, how automatic disaggregation works from a RIFT
 protocol point of view, and what the the difference between positive disaggregation and negative
 disaggregation is.
 This feature guide describes the nuts and bolts of using the RIFT-Python command line interface
 (CLI) to see positive disagregation in action.
 There is a separate
-[Negative Disaggregation Feature Guide](negatite_disaggregation_feature_guide.md).
+[Negative Disaggregation Feature Guide](negative_disaggregation_feature_guide.md).
 
 ## Example network
 
