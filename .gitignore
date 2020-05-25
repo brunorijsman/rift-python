@@ -126,8 +126,8 @@ docker/requirements.txt
 .idea/
 
 # Generated figures
-doc/figures/*.pdf
-doc/figures/*.png
+doc/figures/*/*.pdf
+doc/figures/*/*.png
 
 # Generated diagram
 diagram.html
