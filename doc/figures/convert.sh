@@ -8,4 +8,4 @@ magick convert -density 300 -units pixelsperinch -trim +profile "icc" figures-po
 mv figures-positive-disaggregation-feature-guide-0.png diagram_clos_3pod_3leaf_3spine_4super.png
 mv figures-positive-disaggregation-feature-guide-1.png diagram_clos_3pod_3leaf_3spine_4super_intra_pod_1_failure.png
 mv figures-positive-disaggregation-feature-guide-2.png diagram_clos_3pod_3leaf_3spine_4super_inter_pod_1_failure.png
-mv figures-positive-disaggregation-feature-guide-3.png diagram_clos_3pod_3leaf_3spine_4super_intra_pod_4_failures.png
+mv figures-positive-disaggregation-feature-guide-3.png diagram_clos_3pod_3leaf_3spine_4super_inter_pod_3_failures.png

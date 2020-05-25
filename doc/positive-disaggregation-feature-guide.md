@@ -474,7 +474,7 @@ On leaf-1-3 we can see that the positive disaggregation stopped (both positive d
 TIEs have been flushed):
 
 <pre>
-leaf-1-3> show disaggregation
+leaf-1-3> <b>show disaggregation</b>
 Same Level Nodes:
 +------------+-------------+-------------+-------------+-------------+
 | Same-Level | North-bound | South-bound | Missing     | Extra       |
@@ -506,7 +506,7 @@ And we can observe that the more specific route to leaf-1-1 has been removed, le
 default route:
 
 <pre>
-leaf-1-3> show routes
+leaf-1-3> <b>show routes</b>
 IPv4 Routes:
 +-----------+-----------+------------------------+
 | Prefix    | Owner     | Next-hops              |
@@ -526,7 +526,7 @@ IPv6 Routes:
 +--------+-----------+----------------------------------+
 </pre>
 
-## Breaking a spine and a superspine to cause limited positive disaggregation
+## Breaking a spine and a superspine link to cause limited positive disaggregation
 
 Now we break the link between spine-1-1 and super-1 as shown in figure 3 below:
 
@@ -539,13 +539,13 @@ Now we break the link between spine-1-1 and super-1 as shown in figure 3 below:
 On spine-1-1 we cause a (simulated) failure of the link to super-1:
 
 <pre>
-spine-1-1> <b>spine-1-1> set interface if-101d failure failed</b>
+spine-1-1> <b>set interface if-101d failure failed</b>
 </pre>
 
 The adjacency goes down:
 
 <pre>
-spine-1-1> show interfaces
+spine-1-1> <b>show interfaces</b>
 +-----------+-------------------+-----------+-----------+
 | Interface | Neighbor          | Neighbor  | Neighbor  |
 | Name      | Name              | System ID | State     |
@@ -656,4 +656,317 @@ This is quite interesting (well, at least I think so)! We can see that:
     e. Super-2 concludes that spine-1 can still reach the leaves, and there is no reason to trigger
        positive disaggregation for the leaves.
 
+### Spine-3-3
 
+Over in pod-3, when we look at the route table on spine-3-3, we can see that:
+
+ 1. Spine-3-3 has a north-bound default route that ECMPs the traffic over all 4 superspines
+    in the fabric.
+
+ 2. Spine-3-3 has a single north-bound host-specific route for spine-1-1 (88.1.1.1/32) which ECMPs
+    the traffic over only 3 superspines (it avoids super-1). This is the result of positive
+    disaggregation. Note that there are no positive disaggregation IPv6 prefixes because we did
+    not configure any IPv6 loopbacks in this topology.
+
+ 3. Spine-3-3 has 3 south-bound host-specific routes to leaf-3-1, leaf-3-2, leaf-3-3. Even though
+    these are host-specific routes, it has nothing to do with disaggreation. The south-bound routes
+    are always specific routes.
+
+<pre>
+spine-3-3> <b>show routes</b>
+IPv4 Routes:
++-------------+-----------+-----------------------+
+| Prefix      | Owner     | Next-hops             |
++-------------+-----------+-----------------------+
+| 0.0.0.0/0   | North SPF | if-109d 172.31.15.176 |
+|             |           | if-109e 172.31.15.176 |
+|             |           | if-109f 172.31.15.176 |
+|             |           | if-109g 172.31.15.176 |
++-------------+-----------+-----------------------+
+| 88.0.7.1/32 | South SPF | if-109a 172.31.15.176 |
++-------------+-----------+-----------------------+
+| 88.0.8.1/32 | South SPF | if-109b 172.31.15.176 |
++-------------+-----------+-----------------------+
+| 88.0.9.1/32 | South SPF | if-109c 172.31.15.176 |
++-------------+-----------+-----------------------+
+| 88.1.1.1/32 | North SPF | if-109e 172.31.15.176 |
+|             |           | if-109f 172.31.15.176 |
+|             |           | if-109g 172.31.15.176 |
++-------------+-----------+-----------------------+
+
+IPv6 Routes:
++--------+-----------+---------------------------------+
+| Prefix | Owner     | Next-hops                       |
++--------+-----------+---------------------------------+
+| ::/0   | North SPF | if-109d fe80::84a:2ff:fe78:2746 |
+|        |           | if-109e fe80::84a:2ff:fe78:2746 |
+|        |           | if-109f fe80::84a:2ff:fe78:2746 |
+|        |           | if-109g fe80::84a:2ff:fe78:2746 |
++--------+-----------+---------------------------------+
+</pre>
+
+### Leaf-3-3
+
+When we look at the route table on leaf-3-3, we can see that:
+
+ 1. Leaf-3-3 has a north-bound default route that ECMPs the traffic over all 3 spines in the pod.
+
+ 2. Unlike what we saw on spine-3-3, there are no north-bound positive disaggregation prefixes. This
+    is because positive disaggregation TIEs are never propagated.
+
+ 3. Unlike what we saw on spine-3-3, there are no south-bound specific prefixes. This is because
+    there is nothing south of the leaf nodes.
+
+<pre>
+leaf-3-3> <b>show routes</b>
+IPv4 Routes:
++-----------+-----------+------------------------+
+| Prefix    | Owner     | Next-hops              |
++-----------+-----------+------------------------+
+| 0.0.0.0/0 | North SPF | if-1009a 172.31.15.176 |
+|           |           | if-1009b 172.31.15.176 |
+|           |           | if-1009c 172.31.15.176 |
++-----------+-----------+------------------------+
+
+IPv6 Routes:
++--------+-----------+----------------------------------+
+| Prefix | Owner     | Next-hops                        |
++--------+-----------+----------------------------------+
+| ::/0   | North SPF | if-1009a fe80::84a:2ff:fe78:2746 |
+|        |           | if-1009b fe80::84a:2ff:fe78:2746 |
+|        |           | if-1009c fe80::84a:2ff:fe78:2746 |
++--------+-----------+----------------------------------+
+</pre>
+
+## Completely disconnecting a pod from one superspine to cause full positive disaggregation
+
+Now we two more links (one on spine-1-2 and one on spine-1-3) to complete disconnect pod-1 from
+super-1 as shown in figure 4 below.
+But pod-1 is still connected to the other superspine nodes: super-2, super-3 and super-4.
+
+![Topology Diagram](https://brunorijsman-public.s3-us-west-2.amazonaws.com/diagram_clos_3pod_3leaf_3spine_4super_inter_pod_3_failures.png)
+
+*Figure 4. Completely disconnecting a pod from one superspine to cause full positive disaggregation.*
+
+### Spine-1-2
+
+On spine-1-2 we cause a (simulated) failure of the link to super-1:
+
+<pre>
+spine-1-2> <b>set interface if-102d failure failed</b>
+</pre>
+
+### Spine-1-3
+
+Similarly, on spine-1-3 we cause a (simulated) failure of the link to super-1:
+
+<pre>
+spine-1-3> <b>set interface if-103d failure failed</b>
+</pre>
+
+### Super-1
+
+On super-1, we can see that all south-bound adjacencies to pod-1 have gone down:
+
+<pre>
+super-1> <b>show interfaces</b>
++-----------+-------------------+-----------+-----------+
+| Interface | Neighbor          | Neighbor  | Neighbor  |
+| Name      | Name              | System ID | State     |
++-----------+-------------------+-----------+-----------+
+| if-1a     |                   |           | ONE_WAY   |
++-----------+-------------------+-----------+-----------+
+| if-1b     |                   |           | ONE_WAY   |
++-----------+-------------------+-----------+-----------+
+| if-1c     |                   |           | ONE_WAY   |
++-----------+-------------------+-----------+-----------+
+| if-1d     | spine-2-1:if-104d | 104       | THREE_WAY |
++-----------+-------------------+-----------+-----------+
+| if-1e     | spine-2-2:if-105d | 105       | THREE_WAY |
++-----------+-------------------+-----------+-----------+
+| if-1f     | spine-2-3:if-106d | 106       | THREE_WAY |
++-----------+-------------------+-----------+-----------+
+| if-1g     | spine-3-1:if-107d | 107       | THREE_WAY |
++-----------+-------------------+-----------+-----------+
+| if-1h     | spine-3-2:if-108d | 108       | THREE_WAY |
++-----------+-------------------+-----------+-----------+
+| if-1i     | spine-3-3:if-109d | 109       | THREE_WAY |
++-----------+-------------------+-----------+-----------+
+</pre>
+
+### Super-2
+
+Once again, we go back to super-2 to see what it does in terms of positive disaggregation:
+
+<pre>
+super-2> <b>show disaggregation</b>
+Same Level Nodes:
++-------------+-------------+-----------------+-----------------+-------------+
+| Same-Level  | North-bound | South-bound     | Missing         | Extra       |
+| Node        | Adjacencies | Adjacencies     | South-bound     | South-bound |
+|             |             |                 | Adjacencies     | Adjacencies |
++-------------+-------------+-----------------+-----------------+-------------+
+| super-1 (1) |             | spine-2-1 (104) | spine-1-1 (101) |             |
+|             |             | spine-2-2 (105) | spine-1-2 (102) |             |
+|             |             | spine-2-3 (106) | spine-1-3 (103) |             |
+|             |             | spine-3-1 (107) |                 |             |
+|             |             | spine-3-2 (108) |                 |             |
+|             |             | spine-3-3 (109) |                 |             |
++-------------+-------------+-----------------+-----------------+-------------+
+| super-3 (3) |             | spine-1-1 (101) |                 |             |
+|             |             | spine-1-2 (102) |                 |             |
+|             |             | spine-1-3 (103) |                 |             |
+|             |             | spine-2-1 (104) |                 |             |
+|             |             | spine-2-2 (105) |                 |             |
+|             |             | spine-2-3 (106) |                 |             |
+|             |             | spine-3-1 (107) |                 |             |
+|             |             | spine-3-2 (108) |                 |             |
+|             |             | spine-3-3 (109) |                 |             |
++-------------+-------------+-----------------+-----------------+-------------+
+| super-4 (4) |             | spine-1-1 (101) |                 |             |
+|             |             | spine-1-2 (102) |                 |             |
+|             |             | spine-1-3 (103) |                 |             |
+|             |             | spine-2-1 (104) |                 |             |
+|             |             | spine-2-2 (105) |                 |             |
+|             |             | spine-2-3 (106) |                 |             |
+|             |             | spine-3-1 (107) |                 |             |
+|             |             | spine-3-2 (108) |                 |             |
+|             |             | spine-3-3 (109) |                 |             |
++-------------+-------------+-----------------+-----------------+-------------+
+
+Partially Connected Interfaces:
++-------+------------------------------------+
+| Name  | Nodes Causing Partial Connectivity |
++-------+------------------------------------+
+| if-2a | super-1 (1)                        |
++-------+------------------------------------+
+| if-2b | super-1 (1)                        |
++-------+------------------------------------+
+| if-2c | super-1 (1)                        |
++-------+------------------------------------+
+
+Positive Disaggregation TIEs:
++-----------+------------+----------------+--------+--------+----------+-----------------------------+
+| Direction | Originator | Type           | TIE Nr | Seq Nr | Lifetime | Contents                    |
++-----------+------------+----------------+--------+--------+----------+-----------------------------+
+| South     | 2          | Pos-Dis-Prefix | 3      | 6      | 604755   | Pos-Dis-Prefix: 88.0.1.1/32 |
+|           |            |                |        |        |          |   Metric: 3                 |
+|           |            |                |        |        |          | Pos-Dis-Prefix: 88.0.2.1/32 |
+|           |            |                |        |        |          |   Metric: 3                 |
+|           |            |                |        |        |          | Pos-Dis-Prefix: 88.0.3.1/32 |
+|           |            |                |        |        |          |   Metric: 3                 |
+|           |            |                |        |        |          | Pos-Dis-Prefix: 88.1.1.1/32 |
+|           |            |                |        |        |          |   Metric: 2                 |
+|           |            |                |        |        |          | Pos-Dis-Prefix: 88.1.2.1/32 |
+|           |            |                |        |        |          |   Metric: 2                 |
+|           |            |                |        |        |          | Pos-Dis-Prefix: 88.1.3.1/32 |
+|           |            |                |        |        |          |   Metric: 2                 |
++-----------+------------+----------------+--------+--------+----------+-----------------------------+
+
+Negative Disaggregation TIEs:
++-----------+------------+------+--------+--------+----------+----------+
+| Direction | Originator | Type | TIE Nr | Seq Nr | Lifetime | Contents |
++-----------+------------+------+--------+--------+----------+----------+
+</pre>
+
+Now there is more positive disaggregation going on. We can see that:
+
+ 1. Super-2 has discovered that super-1 is missing a south-bound adjancency to spine-1-1, spine-1-2,
+    and spine-1-3.
+
+ 2. Interface if-2a (to spine-1-1), if-2b (to spine-1-2), and if-2c (to spine-1-3) are all
+    "partially connected" and we see that super-1 is the cause of the partial connectivity in each
+    case. This means that spine-1-1, spine-1-2, and spine-1-3 are all missing their north-bound
+    adjacency to super-1.
+ 
+ 3. Super-2 is originating a positive disaggregation prefixes for all addresses in pod-1: all
+    spine prefixes in pod-1 and all leaf prefixes in pod-1. This was not happening before we failed
+    the additional two interfaces. It is happening now because super-1 is now completely
+    disconnected from pod-1.
+
+Note that super-3 and super-4 are both doing the exact same thing as super-2.
+
+### Spine-3-3
+
+Over in pod-3, when we look at the route table on spine-3-3, we can see all the north-bound positive
+disaggregation prefixes from pod-1 (in addition to to normal north-bound default route and the normal
+south-bound routes).
+
+<pre>
+spine-3-3> <b>show routes</b>
+IPv4 Routes:
++-------------+-----------+-----------------------+
+| Prefix      | Owner     | Next-hops             |
++-------------+-----------+-----------------------+
+| 0.0.0.0/0   | North SPF | if-109d 172.31.15.176 |
+|             |           | if-109e 172.31.15.176 |
+|             |           | if-109f 172.31.15.176 |
+|             |           | if-109g 172.31.15.176 |
++-------------+-----------+-----------------------+
+| 88.0.1.1/32 | North SPF | if-109e 172.31.15.176 |
+|             |           | if-109f 172.31.15.176 |
+|             |           | if-109g 172.31.15.176 |
++-------------+-----------+-----------------------+
+| 88.0.2.1/32 | North SPF | if-109e 172.31.15.176 |
+|             |           | if-109f 172.31.15.176 |
+|             |           | if-109g 172.31.15.176 |
++-------------+-----------+-----------------------+
+| 88.0.3.1/32 | North SPF | if-109e 172.31.15.176 |
+|             |           | if-109f 172.31.15.176 |
+|             |           | if-109g 172.31.15.176 |
++-------------+-----------+-----------------------+
+| 88.0.7.1/32 | South SPF | if-109a 172.31.15.176 |
++-------------+-----------+-----------------------+
+| 88.0.8.1/32 | South SPF | if-109b 172.31.15.176 |
++-------------+-----------+-----------------------+
+| 88.0.9.1/32 | South SPF | if-109c 172.31.15.176 |
++-------------+-----------+-----------------------+
+| 88.1.1.1/32 | North SPF | if-109e 172.31.15.176 |
+|             |           | if-109f 172.31.15.176 |
+|             |           | if-109g 172.31.15.176 |
++-------------+-----------+-----------------------+
+| 88.1.2.1/32 | North SPF | if-109e 172.31.15.176 |
+|             |           | if-109f 172.31.15.176 |
+|             |           | if-109g 172.31.15.176 |
++-------------+-----------+-----------------------+
+| 88.1.3.1/32 | North SPF | if-109e 172.31.15.176 |
+|             |           | if-109f 172.31.15.176 |
+|             |           | if-109g 172.31.15.176 |
++-------------+-----------+-----------------------+
+
+IPv6 Routes:
++--------+-----------+---------------------------------+
+| Prefix | Owner     | Next-hops                       |
++--------+-----------+---------------------------------+
+| ::/0   | North SPF | if-109d fe80::84a:2ff:fe78:2746 |
+|        |           | if-109e fe80::84a:2ff:fe78:2746 |
+|        |           | if-109f fe80::84a:2ff:fe78:2746 |
+|        |           | if-109g fe80::84a:2ff:fe78:2746 |
++--------+-----------+---------------------------------+
+</pre>
+
+### Leaf-3-3
+
+As before, the route table on leaf-3-3 only contains a north-bound default route (for the same
+reasons as before):
+
+<pre>
+leaf-3-3> <b>show routes</b>
+IPv4 Routes:
++-----------+-----------+------------------------+
+| Prefix    | Owner     | Next-hops              |
++-----------+-----------+------------------------+
+| 0.0.0.0/0 | North SPF | if-1009a 172.31.15.176 |
+|           |           | if-1009b 172.31.15.176 |
+|           |           | if-1009c 172.31.15.176 |
++-----------+-----------+------------------------+
+
+IPv6 Routes:
++--------+-----------+----------------------------------+
+| Prefix | Owner     | Next-hops                        |
++--------+-----------+----------------------------------+
+| ::/0   | North SPF | if-1009a fe80::84a:2ff:fe78:2746 |
+|        |           | if-1009b fe80::84a:2ff:fe78:2746 |
+|        |           | if-1009c fe80::84a:2ff:fe78:2746 |
++--------+-----------+----------------------------------+
+</pre>
