@@ -546,13 +546,7 @@ negative in the disaggregate collumn of the `show spf` output.
 The rest of these extra destinations were advertised by non-leaf nodes, in this case spine or
 superspine nodes. These non-leaf extra prefixes are not negatively disaggregated.
 
-## Populating the route tables on spine-3-1
-
-We are interested to see what routes actually get installed in the route table as a result of
-the negative disaggregation prefix advertised by super-1-1 and the positive disaggregation prefix
-advertised by super-1-2. Apart from spine-1-1, there are two other nodes that are attached to
-both super-1-1 and super-1-2, i.e. that are in plane-1, namely spine-2-1 and spine-3-1. We could
-look at either, but we choose to look at spine-3-1.
+### None of the negative disaggregation prefixes is propagated
 
 First, we use `show disaggregation` to confirm that spine-3-1 has received both the positive and
 the negative disaggrevation prefix TIEs:
@@ -604,9 +598,29 @@ Negative Disaggregation TIEs:
 |           |            |                |        |        |          | Neg-Dis-Prefix: 88.0.3.1/32 |
 |           |            |                |        |        |          |   Metric: 2147483647        |
 +-----------+------------+----------------+--------+--------+----------+-----------------------------+
-<pre>
+</pre>
 
-Next, we use `show spf` to see how these positive and negative disaggregation prefixes are used
+One thing to notice is that neither the positive nor the negative disaggregation prefix TIE is
+propagated. Or actually, re-originated might be a better word. If the disaggregation TIE was
+being re-originated, we would have seens another TIE in the output of `show disaggregation`
+with originated system ID 101 (the system ID of spine-1-1).
+
+ * The positive disaggregation prefix TIE is not propagated because positive disaggregation prefix
+   TIEs are simply never propagated.
+
+ * The negative disaggregation prefix TIE is not propagated because it is only propagated when it is
+   is received from all parent nodes, which is not the case here. The negative disaggregation
+   prefixes are only received from parent super-1 and not (yet) from parent super-2.
+
+## Populating the route tables on spine-3-1
+
+We are interested to see what routes actually get installed in the route table as a result of
+the negative disaggregation prefix advertised by super-1-1 and the positive disaggregation prefix
+advertised by super-1-2. Apart from spine-1-1, there are two other nodes that are attached to
+both super-1-1 and super-1-2, i.e. that are in plane-1, namely spine-2-1 and spine-3-1. We could
+look at either, but we choose to look at spine-3-1.
+
+We use `show spf` to see how these positive and negative disaggregation prefixes are used
 in the shortest path first (SPF) calculation. We can see the the positive disaggregation prefix
 gets precedence over the negative disaggregation prefix:
 
@@ -680,6 +694,40 @@ IPv6 Routes:
 +--------+-----------+---------------------------------+
 </pre>
 
+And finally, we use `show forwarding` to see the exact same routes in the FIB:
+
+<pre>
+spine-3-1> <b>show forwarding<b>
+IPv4 Routes:
++-------------+-----------------------+
+| Prefix      | Next-hops             |
++-------------+-----------------------+
+| 0.0.0.0/0   | if-107e 172.31.15.176 |
+|             | if-107d 172.31.15.176 |
++-------------+-----------------------+
+| 88.0.1.1/32 | if-107e 172.31.15.176 |
++-------------+-----------------------+
+| 88.0.2.1/32 | if-107e 172.31.15.176 |
++-------------+-----------------------+
+| 88.0.3.1/32 | if-107e 172.31.15.176 |
++-------------+-----------------------+
+| 88.0.7.1/32 | if-107a 172.31.15.176 |
++-------------+-----------------------+
+| 88.0.8.1/32 | if-107b 172.31.15.176 |
++-------------+-----------------------+
+| 88.0.9.1/32 | if-107c 172.31.15.176 |
++-------------+-----------------------+
+| 88.1.1.1/32 | if-107e 172.31.15.176 |
++-------------+-----------------------+
+
+IPv6 Routes:
++--------+---------------------------------+
+| Prefix | Next-hops                       |
++--------+---------------------------------+
+| ::/0   | if-107e fe80::84a:2ff:fe78:2746 |
+|        | if-107d fe80::84a:2ff:fe78:2746 |
++--------+---------------------------------+
+</pre>
 
 
 ## Negative disaggregation
