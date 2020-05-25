@@ -31,7 +31,7 @@ single-process mode:
 (env) $ <b>python rift --interactive generated.yaml</b>
 </pre>
 
-## Before breaking the link: no positive disaggregation occurs
+## The state of the fabric before triggering positive disaggregation
 
 Let us first look at the network before we break any links and before any positive disaggregation
 happens.
@@ -206,7 +206,7 @@ Negative Disaggregation TIEs:
 +-----------+------------+------+--------+--------+----------+----------+
 </pre>
 
-## Positive disaggregation within a pod
+## Breaking a link to trigger positive disaggregation within a pod
 
 First we break the link between leaf-1-1 and spine-1-1 as shown in figure 2 below, which triggers
 positive disaggregation in pod-1.
@@ -325,7 +325,7 @@ spine-1-1> <b>show tie-db direction south originator 101</b>
 
 ### Spine-1-2
 
-In the output of `show disaggregation` on spine-1-2 we notice the following:
+In the output of `show disaggregation` on spine-1-2 we observe the following:
 
  1. Spine-1-2 has discovered that spine-1-1 is missing a south-bound adjancency to leaf-1-1.
 
@@ -380,238 +380,152 @@ Negative Disaggregation TIEs:
 +-----------+------------+------+--------+--------+----------+----------+
 </pre>
 
-We can see that:
+### Leaf-1-3
 
- * Spine-1-2 knows about two other nodes at the same level as itself: one with
-system ID 101 and one with system ID 103.
-
- * Same-level-node 103 (which is spine-1-3) has a full set of south-bound
- adjacencies with all of the leaf nodes in pod-1, which have system IDs 1001, 1002, and 1003.
-
- * However, same-level-node 101 (which is spine-1-1) is missing one south-bound adjacency,
- namely the adjacency with system ID 1001 (which is leaf-1-1). This reflects the fact that
- the link between spine-1-1 and leaf-1-1 is broken.
-
-Based on this information, spine-1-2 knows that leaf-1-1 (which has system ID 1001) is what we call
-"partially connected". Partially connected means that leaf-1-1 is connected to spine-1-2 itself,
-but not to at least one other node at the same level (spine-1-1, which has system ID 101,
-in this case).
+In the output of `show disaggregation` on leaf-1-3 we observe that leaf-1-3 has received positive
+disaggregation prefix 88.0.1.1/32 (which is the loopback of leaf-1-1) from both spine-1-2
+(system ID 102) and spine-1-3 (system ID 103).
 
 <pre>
-spine-1-2> show interface veth-102a-1001b
-Interface:
-+--------------------------------------+--------------------------------------------+
-| Interface Name                       | veth-102a-1001b                            |
-.                                      .                                            .
-.                                      .                                            .
-.                                      .                                            .
-| <b>Neighbor is Partially Connected</b>      | <b>True</b>                                       |
-| <b>Nodes Causing Partial Connectivity</b>   | <b>101</b>                                        |
-+--------------------------------------+--------------------------------------------+
-...
-</pre>
+leaf-1-3> <b>show disaggregation</b>
+Same Level Nodes:
++------------+-------------+-------------+-------------+-------------+
+| Same-Level | North-bound | South-bound | Missing     | Extra       |
+| Node       | Adjacencies | Adjacencies | South-bound | South-bound |
+|            |             |             | Adjacencies | Adjacencies |
++------------+-------------+-------------+-------------+-------------+
 
-At this point spine-1-2 knows that leaf-1-1 is partially connected. What is the implication of this
-partial connectivity?
+Partially Connected Interfaces:
++------+------------------------------------+
+| Name | Nodes Causing Partial Connectivity |
++------+------------------------------------+
 
-Well, let's see.
-
-Up until now, all spine nodes in pod-1 were only advertising default routes to the leaf nodes
-in pod-1.
-
-Let's consider the scenario that leaf-1-3 wants to send a packet to leaf-1-1.
-
-If we only have default routes, leaf-1-3 with only have a default route with ECMP next-hops over
-all three spines: spine-1-1, spine-1-2, and spine-1-3.
-
-There is a 1 in 3 probability that leaf-1-3 choses spine-1-1 to send a packet to leaf-1-1.
-This will not work: spine-1-1 is not able forward the packet to leaf-1-1 because of the broken link.
-
-Now, positive disaggregation comes to the rescue.
-
-When spine-1-2 runs it south-bound SPF, it calculates a specific (i.e. /32 in the case of IPv4) to
-each of the leaf nodes below it, including leaf-1-1.
-
-There is a show command to see the result of this SPF calculation:
-
-<pre>
-spine-1-2> <b>show spf</b>
-SPF Statistics:
-+---------------+----+
-| SPF Runs      | 8  |
-+---------------+----+
-| SPF Deferrals | 53 |
-+---------------+----+
-
-South SPF Destinations:
-+-----------------+------+-------------+------+--------------+-----------------------------+-------------------------------------------+
-| Destination     | Cost | Predecessor | Tags | Disaggregate | IPv4 Next-hops              | IPv6 Next-hops                            |
-|                 |      | System IDs  |      |              |                             |                                           |
-+-----------------+------+-------------+------+--------------+-----------------------------+-------------------------------------------+
-| 102 (spine-1-2) | 0    |             |      |              |                             |                                           |
-+-----------------+------+-------------+------+--------------+-----------------------------+-------------------------------------------+
-| 1001 (leaf-1-1) | 1    | 102         |      |              | veth-102a-1001b 99.3.4.3    | veth-102a-1001b fe80::c845:8eff:fe61:dca3 |
-+-----------------+------+-------------+------+--------------+-----------------------------+-------------------------------------------+
-| 1002 (leaf-1-2) | 1    | 102         |      |              | veth-102b-1002b 99.9.10.9   | veth-102b-1002b fe80::ec2d:d9ff:fe10:301f |
-+-----------------+------+-------------+------+--------------+-----------------------------+-------------------------------------------+
-| 1003 (leaf-1-3) | 1    | 102         |      |              | veth-102c-1003b 99.15.16.15 | veth-102c-1003b fe80::c024:8bff:feb5:e930 |
-+-----------------+------+-------------+------+--------------+-----------------------------+-------------------------------------------+
-| 88.0.1.1/32     | 2    | 1001        |      | <b>Positive</b>     | veth-102a-1001b 99.3.4.3    | veth-102a-1001b fe80::c845:8eff:fe61:dca3 |
-+-----------------+------+-------------+------+--------------+-----------------------------+-------------------------------------------+
-| 88.0.2.1/32     | 2    | 1002        |      |              | veth-102b-1002b 99.9.10.9   | veth-102b-1002b fe80::ec2d:d9ff:fe10:301f |
-+-----------------+------+-------------+------+--------------+-----------------------------+-------------------------------------------+
-| 88.0.3.1/32     | 2    | 1003        |      |              | veth-102c-1003b 99.15.16.15 | veth-102c-1003b fe80::c024:8bff:feb5:e930 |
-+-----------------+------+-------------+------+--------------+-----------------------------+-------------------------------------------+
-| 88.1.2.1/32     | 1    | 102         |      |              |                             |                                           |
-+-----------------+------+-------------+------+--------------+-----------------------------+-------------------------------------------+
-
-...
-</pre>
-
-There is something interesting in this output: the SPF entry for destination 88.0.1.1/32 (which
-is the loopback of leaf_1_1) is marked for "Positive" disaggregation.
-
-What happened here?
-
-Well, when spine-1-2 calculated the route to 88.0.1.1/32, it determine that interface
-veth-102a-1001b and next-hop 99.3.4.3 are the direct next-hop for the route.
-
-Interface veth-102a-1001b is the iterface to leaf-1-1, which as we observed before was marked as
-"partially connected".
-
-The fact that a south-bound route has a direct next-hop which is marked as partially connected
-is what triggers the positive disaggregation, and is what causes spine-1-2 to advertise the more
-specific route (88.0.1.1/32 in this case) as a positively disaggregated prefix to the southern
-neighbors (the leaves in this case).
-
-Now, let's jump over to leaf-1-3 (which we mentioned previously in the example of why a default
-route alone is not goog enough enymore).
-
-Leaf-1-3 did indeed receive a new TIE from spine-1-2 (and also from spine-1-3 for that matter)
-with positively disaggregated prefixes:
-
-<pre>
-leaf-1-3> show tie-db
+Positive Disaggregation TIEs:
 +-----------+------------+----------------+--------+--------+----------+-----------------------------+
 | Direction | Originator | Type           | TIE Nr | Seq Nr | Lifetime | Contents                    |
 +-----------+------------+----------------+--------+--------+----------+-----------------------------+
-.           .            .                .        .        .          .                             .
-.           .            .                .        .        .          .                             .
-.           .            .                .        .        .          .                             .
-+-----------+------------+----------------+--------+--------+----------+-----------------------------+
-| South     | 102        | Pos-Dis-Prefix | 3      | 1      | 602156   | Pos-Dis-Prefix: 88.0.1.1/32 |
+| South     | 102        | Pos-Dis-Prefix | 3      | 1      | 604008   | Pos-Dis-Prefix: 88.0.1.1/32 |
 |           |            |                |        |        |          |   Metric: 2                 |
 +-----------+------------+----------------+--------+--------+----------+-----------------------------+
-.           .            .                .        .        .          .                             .
-.           .            .                .        .        .          .                             .
-.           .            .                .        .        .          .                             .
-+-----------+------------+----------------+--------+--------+----------+-----------------------------+
-| South     | 103        | Pos-Dis-Prefix | 3      | 1      | 602156   | Pos-Dis-Prefix: 88.0.1.1/32 |
+| South     | 103        | Pos-Dis-Prefix | 3      | 1      | 604008   | Pos-Dis-Prefix: 88.0.1.1/32 |
 |           |            |                |        |        |          |   Metric: 2                 |
 +-----------+------------+----------------+--------+--------+----------+-----------------------------+
-.           .            .                .        .        .          .                             .
-.           .            .                .        .        .          .                             .
-.           .            .                .        .        .          .                             .
+
+Negative Disaggregation TIEs:
++-----------+------------+------+--------+--------+----------+----------+
+| Direction | Originator | Type | TIE Nr | Seq Nr | Lifetime | Contents |
++-----------+------------+------+--------+--------+----------+----------+
 </pre>
 
-These positively disaggregated prefixes participate normally in the SPF calculation:
-
-<pre>
-leaf-1-3> <b>show spf</b>
-SPF Statistics:
-+---------------+----+
-| SPF Runs      | 6  |
-+---------------+----+
-| SPF Deferrals | 19 |
-+---------------+----+
-
-South SPF Destinations:
-+-----------------+------+-------------+------+--------------+----------------+----------------+
-| Destination     | Cost | Predecessor | Tags | Disaggregate | IPv4 Next-hops | IPv6 Next-hops |
-|                 |      | System IDs  |      |              |                |                |
-+-----------------+------+-------------+------+--------------+----------------+----------------+
-| 1003 (leaf-1-3) | 0    |             |      |              |                |                |
-+-----------------+------+-------------+------+--------------+----------------+----------------+
-| 88.0.3.1/32     | 1    | 1003        |      |              |                |                |
-+-----------------+------+-------------+------+--------------+----------------+----------------+
-
-North SPF Destinations:
-+----------------------+------+-------------+------+--------------+-----------------------------+-------------------------------------------+
-| Destination          | Cost | Predecessor | Tags | Disaggregate | IPv4 Next-hops              | IPv6 Next-hops                            |
-|                      |      | System IDs  |      |              |                             |                                           |
-+----------------------+------+-------------+------+--------------+-----------------------------+-------------------------------------------+
-| 101 (spine-1-1)      | 1    | 1003        |      |              | veth-1003a-101c 99.13.14.14 | veth-1003a-101c fe80::f04d:cbff:fe55:e159 |
-+----------------------+------+-------------+------+--------------+-----------------------------+-------------------------------------------+
-| 102 (spine-1-2)      | 1    | 1003        |      |              | veth-1003b-102c 99.15.16.16 | veth-1003b-102c fe80::8050:b6ff:fe11:fc10 |
-+----------------------+------+-------------+------+--------------+-----------------------------+-------------------------------------------+
-| 103 (spine-1-3)      | 1    | 1003        |      |              | veth-1003c-103c 99.17.18.18 | veth-1003c-103c fe80::d48f:43ff:fe0a:edf6 |
-+----------------------+------+-------------+------+--------------+-----------------------------+-------------------------------------------+
-| 1003 (leaf-1-3)      | 0    |             |      |              |                             |                                           |
-+----------------------+------+-------------+------+--------------+-----------------------------+-------------------------------------------+
-| 0.0.0.0/0            | 2    | 101         |      |              | veth-1003a-101c 99.13.14.14 | veth-1003a-101c fe80::f04d:cbff:fe55:e159 |
-|                      |      | 102         |      |              | veth-1003b-102c 99.15.16.16 | veth-1003b-102c fe80::8050:b6ff:fe11:fc10 |
-|                      |      | 103         |      |              | veth-1003c-103c 99.17.18.18 | veth-1003c-103c fe80::d48f:43ff:fe0a:edf6 |
-+----------------------+------+-------------+------+--------------+-----------------------------+-------------------------------------------+
-| 88.0.3.1/32          | 1    | 1003        |      |              |                             |                                           |
-+----------------------+------+-------------+------+--------------+-----------------------------+-------------------------------------------+
-| ::/0                 | 2    | 101         |      |              | veth-1003a-101c 99.13.14.14 | veth-1003a-101c fe80::f04d:cbff:fe55:e159 |
-|                      |      | 102         |      |              | veth-1003b-102c 99.15.16.16 | veth-1003b-102c fe80::8050:b6ff:fe11:fc10 |
-|                      |      | 103         |      |              | veth-1003c-103c 99.17.18.18 | veth-1003c-103c fe80::d48f:43ff:fe0a:edf6 |
-+----------------------+------+-------------+------+--------------+-----------------------------+-------------------------------------------+
-| 88.0.1.1/32 <b>(Disagg)</b> | 3    | 102         |      |              | veth-1003b-102c 99.15.16.16 | veth-1003b-102c fe80::8050:b6ff:fe11:fc10 |
-|                      |      | 103         |      |              | veth-1003c-103c 99.17.18.18 | veth-1003c-103c fe80::d48f:43ff:fe0a:edf6 |
-+----------------------+------+-------------+------+--------------+-----------------------------+-------------------------------------------+
-</pre>
-
-Note that prefix 88.0.1.1/32 is marked with "(Disagg)". This means it is a prefix that was
-received in the Positive-Disaggregation-Prefix-TIE (as opposed to a normal Prefix-TIE). This is
-only mentioned for debugging; it does not influence the SPF calculation.
-
-I have to point out something to avoid confusion:
-
- * If the prefix in the destination column is marked with "(Disagg)", it means that the prefix was
-   disaggregated with a node north of this node.
-
- * If the column "Disaggregate" has the work "Positive" in it, it means that this node will
-   disaggregate the prefix.
-
-Finally, if we look at the route table of leaf-1-3, we see the more specific disaggregated prefix
-(in addition to the default route which is still there):
+This causes leaf-1-3 to install a more specific route to leaf-1-1 (88.0.1.1/32) in its route table
+with spine-1-2 and spine-1-3 (but not spine-1-1) as ECMP next-hops.
+The default route 0.0.0.0/0 with all three spines as ECMP next-hops is still there for all other
+traffic.
 
 <pre>
 leaf-1-3> <b>show route</b>
 IPv4 Routes:
-+-------------+-----------+-----------------------------+
-| Prefix      | Owner     | Next-hops                   |
-+-------------+-----------+-----------------------------+
-| 0.0.0.0/0   | North SPF | veth-1003a-101c 99.13.14.14 |
-|             |           | veth-1003b-102c 99.15.16.16 |
-|             |           | veth-1003c-103c 99.17.18.18 |
-+-------------+-----------+-----------------------------+
-| <b>88.0.1.1/32</b> | <b>North SPF</b> | <b>veth-1003b-102c 99.15.16.16</b> |
-|             |           | <b>veth-1003c-103c 99.17.18.18</b> |
-+-------------+-----------+-----------------------------+
++-------------+-----------+------------------------+
+| Prefix      | Owner     | Next-hops              |
++-------------+-----------+------------------------+
+| 0.0.0.0/0   | North SPF | if-1003a 172.31.15.176 |
+|             |           | if-1003b 172.31.15.176 |
+|             |           | if-1003c 172.31.15.176 |
++-------------+-----------+------------------------+
+| 88.0.1.1/32 | North SPF | if-1003b 172.31.15.176 |
+|             |           | if-1003c 172.31.15.176 |
++-------------+-----------+------------------------+
 
 IPv6 Routes:
-+--------+-----------+-------------------------------------------+
-| Prefix | Owner     | Next-hops                                 |
-+--------+-----------+-------------------------------------------+
-| ::/0   | North SPF | veth-1003a-101c fe80::f04d:cbff:fe55:e159 |
-|        |           | veth-1003b-102c fe80::8050:b6ff:fe11:fc10 |
-|        |           | veth-1003c-103c fe80::d48f:43ff:fe0a:edf6 |
-+--------+-----------+-------------------------------------------+
++--------+-----------+----------------------------------+
+| Prefix | Owner     | Next-hops                        |
++--------+-----------+----------------------------------+
+| ::/0   | North SPF | if-1003a fe80::84a:2ff:fe78:2746 |
+|        |           | if-1003b fe80::84a:2ff:fe78:2746 |
+|        |           | if-1003c fe80::84a:2ff:fe78:2746 |
++--------+-----------+----------------------------------+
 </pre>
 
-These more specific /32 routes fix the blackholing of the traffic to leaf-1-1:
+## Repairing the link to end positive disaggregation within a pod
 
- * When leaf-1-3 sends a packet to leaf-1-1 (destination address 80.0.1.1), it uses the more
-   specific route 80.0.1.1/32. That route has ECMP next-hops spine-1-2 and spine-1-3. However,
-   spine-1-1 is not a next-hop, so we avoid the spine that would blackhole the traffic.
+### Leaf-1-1
 
- * When leaf-1-3 sends packets to any other destination, it uses the default route which still
-   ECMPs the traffic over all three spines.
+We now repair the link from leaf-1-1 to spine-1-1:
 
-And there you have it, I present you: positive disaggregation! 
+<pre>
+leaf-1-1> <b>set interface if-1001a failure ok</b>
+</pre>
 
-As an execercise for the reader: repair the red link and verify that the positive disaggreggation
-goes away.
+The adjacency comes back up:
+
+<pre>
+leaf-1-1> <b>show interfaces</b>
++-----------+-------------------+-----------+-----------+
+| Interface | Neighbor          | Neighbor  | Neighbor  |
+| Name      | Name              | System ID | State     |
++-----------+-------------------+-----------+-----------+
+| if-1001a  | spine-1-1:if-101a | 101       | THREE_WAY |
++-----------+-------------------+-----------+-----------+
+| if-1001b  | spine-1-2:if-102a | 102       | THREE_WAY |
++-----------+-------------------+-----------+-----------+
+| if-1001c  | spine-1-3:if-103a | 103       | THREE_WAY |
++-----------+-------------------+-----------+-----------+
+</pre>
+
+### Leaf-1-3
+
+On leaf-1-3 we can see that the positive disaggregation stopped (both positive disaggregation prefix
+TIEs have been flushed):
+
+<pre>
+leaf-1-3> show disaggregation
+Same Level Nodes:
++------------+-------------+-------------+-------------+-------------+
+| Same-Level | North-bound | South-bound | Missing     | Extra       |
+| Node       | Adjacencies | Adjacencies | South-bound | South-bound |
+|            |             |             | Adjacencies | Adjacencies |
++------------+-------------+-------------+-------------+-------------+
+
+Partially Connected Interfaces:
++------+------------------------------------+
+| Name | Nodes Causing Partial Connectivity |
++------+------------------------------------+
+
+Positive Disaggregation TIEs:
++-----------+------------+----------------+--------+--------+----------+----------+
+| Direction | Originator | Type           | TIE Nr | Seq Nr | Lifetime | Contents |
++-----------+------------+----------------+--------+--------+----------+----------+
+| South     | 102        | Pos-Dis-Prefix | 3      | 2      | 604699   |          |
++-----------+------------+----------------+--------+--------+----------+----------+
+| South     | 103        | Pos-Dis-Prefix | 3      | 2      | 604699   |          |
++-----------+------------+----------------+--------+--------+----------+----------+
+
+Negative Disaggregation TIEs:
++-----------+------------+------+--------+--------+----------+----------+
+| Direction | Originator | Type | TIE Nr | Seq Nr | Lifetime | Contents |
++-----------+------------+------+--------+--------+----------+----------+
+</pre>
+
+And we can observe that the more specific route to leaf-1-1 has been removed, leaving only the
+default route:
+
+<pre>
+leaf-1-3> show routes
+IPv4 Routes:
++-----------+-----------+------------------------+
+| Prefix    | Owner     | Next-hops              |
++-----------+-----------+------------------------+
+| 0.0.0.0/0 | North SPF | if-1003a 172.31.15.176 |
+|           |           | if-1003b 172.31.15.176 |
+|           |           | if-1003c 172.31.15.176 |
++-----------+-----------+------------------------+
+
+IPv6 Routes:
++--------+-----------+----------------------------------+
+| Prefix | Owner     | Next-hops                        |
++--------+-----------+----------------------------------+
+| ::/0   | North SPF | if-1003a fe80::84a:2ff:fe78:2746 |
+|        |           | if-1003b fe80::84a:2ff:fe78:2746 |
+|        |           | if-1003c fe80::84a:2ff:fe78:2746 |
++--------+-----------+----------------------------------+
+</pre>
