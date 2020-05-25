@@ -8,7 +8,7 @@ disaggregation is.
 This feature guide describes the nuts and bolts of using the RIFT-Python command line interface
 (CLI) to see positive disagregation in action.
 There is a separate
-[Negative Disaggregation Feature Guide](negative_disaggregation_feature_guide.md).
+[Negative Disaggregation Feature Guide](negative-disaggregation-feature-guide.md).
 
 ## Example network
 
