@@ -858,10 +858,14 @@ super-1-2> <b>show interfaces</b>
 +-----------+-------------------+-----------+-----------+
 </pre>
 
-At this point super-1-2 has completely lost all north-south connectivity with pod-1.
-However, the special SPF shows that super-1-2 can still reach pod-1 via other planes
-crossing the inter-plane east-west links. Hence, super-1-1 triggers negative disaggregation
-for the leaf prefixes in pod-1:
+Previously, super-1-2 was positively disaggregating the prefixes in pod-1. That was because
+super-1-2 itself was still connected to pod-1, but super-1-2 has detected that super-1-1 was
+no longer connected to pod-1.
+
+However, at this point super-1-2 has completely lost all north-south connectivity with pod-1 and
+the special SPF shows that super-1-2 can still reach pod-1 via other planes
+crossing the inter-plane east-west links. Hence, super-1-1 stops triggering positive disaggregation
+and starts triggering negative disaggregation for the leaf prefixes in pod-1:
 
 <pre>
 super-1-2> <b>show disaggregation</b>
@@ -900,95 +904,22 @@ Negative Disaggregation TIEs:
 +-----------+------------+----------------+--------+--------+----------+-----------------------------+
 </pre>
 
-@@@
-
-### Super-1-2
-
-Breaking that single link causes super-1-2 to intiate positive disaggregation.
-In the output of `show disaggregation` on super-1-2 we observe the following:
-
- 1. Super-1-2 has discovered that super-1-1 is missing a south-bound adjancency to spine-1-1.
-
- 2. Interface if-2a (which is connected to spine-1-1) is "partially connected" and we see that
-    super-1-1 is the cause of the partial connectivity. This means that spine-1-1 is missing a
-    north-bound adjacency to super-1-1.
- 
- 3. Super-1-2 is originating a positive disaggregation prefix for:
- 
-    a. 88.1.1.1/32, which is the loopback of spine-1-1.
-
-    b. 88.0.1.1/32, 88.0.1.2/32, and 88.0.1.3/32, which are the loopbacks of leaf-1-1, leaf-1-2,
-       and leaf-1-3. These are being positively disggregated because super-1-1 cannot reach these
-       prefixes anymore. Prior to the failure super-1-1, being in plane-1, could only reach these
-       leaves via spine-1-1, which is the top-of-pod node in plane 1.
- 
-<pre>
-super-1-2> <b>show disaggregation</b>
-Same Level Nodes:
-+---------------+-------------+-----------------+-----------------+-------------+
-| Same-Level    | North-bound | South-bound     | Missing         | Extra       |
-| Node          | Adjacencies | Adjacencies     | South-bound     | South-bound |
-|               |             |                 | Adjacencies     | Adjacencies |
-+---------------+-------------+-----------------+-----------------+-------------+
-| super-1-1 (1) |             | spine-2-1 (104) | spine-1-1 (101) |             |
-|               |             | spine-3-1 (107) |                 |             |
-+---------------+-------------+-----------------+-----------------+-------------+
-
-Partially Connected Interfaces:
-+-------+------------------------------------+
-| Name  | Nodes Causing Partial Connectivity |
-+-------+------------------------------------+
-| if-2a | super-1-1 (1)                      |
-+-------+------------------------------------+
-
-Positive Disaggregation TIEs:
-+-----------+------------+----------------+--------+--------+------------+-----------------------------+
-| Direction | Originator | Type           | TIE Nr | Seq Nr | Lifetime   | Contents                    |
-+-----------+------------+----------------+--------+--------+------------+-----------------------------+
-| South     | 2          | Pos-Dis-Prefix | 3      | 4      | 4294966942 | Pos-Dis-Prefix: 88.0.1.1/32 |
-|           |            |                |        |        |            |   Metric: 3                 |
-|           |            |                |        |        |            | Pos-Dis-Prefix: 88.0.2.1/32 |
-|           |            |                |        |        |            |   Metric: 3                 |
-|           |            |                |        |        |            | Pos-Dis-Prefix: 88.0.3.1/32 |
-|           |            |                |        |        |            |   Metric: 3                 |
-|           |            |                |        |        |            | Pos-Dis-Prefix: 88.1.1.1/32 |
-|           |            |                |        |        |            |   Metric: 2                 |
-+-----------+------------+----------------+--------+--------+------------+-----------------------------+
-
-Negative Disaggregation TIEs:
-+-----------+------------+------+--------+--------+----------+----------+
-| Direction | Originator | Type | TIE Nr | Seq Nr | Lifetime | Contents |
-+-----------+------------+------+--------+--------+----------+----------+
-</pre>
-
 ### Super-1-1
 
-Now let's turn our eye towards super-1-1 and see how it triggers negative disaggregation.
-From the output of the `show disaggregation` command we can conclude that:
+Previously, super-1-1 was triggering negative disaggregation for the leaf prefixes in pod-1.
+Nothing changes in this respect; super-1-1 continues to do so:
 
- 1. Super-1-1 has detected that super-1-2 has an extra south-bound adjacency. That is consistent
-    with the fact that super-1-2 has initiated positive disaggregation.
-
- 2. Super-1-1 itself does not intiate positive disaggregation, because none of the same-level-nodes
-    have any missing south-bound adjacencies, or saying the same thing in a different way, none of
-    the interfaces are partially connected.
-
- 3. We do see, however, that super-1-1 initiates negative disaggregation for leaf-1-1 (88.0.1.1/32),
-    leaf-1-2 (88.0.2.1/32), and leaf-1-3 (88.0.3.1.32), in other words, for all the leaves in pod-1.
-    We will explain why in a second.
 <pre>
-
 super-1-1> <b>show disaggregation</b>
 Same Level Nodes:
-+---------------+-------------+-----------------+-------------+-----------------+
-| Same-Level    | North-bound | South-bound     | Missing     | Extra           |
-| Node          | Adjacencies | Adjacencies     | South-bound | South-bound     |
-|               |             |                 | Adjacencies | Adjacencies     |
-+---------------+-------------+-----------------+-------------+-----------------+
-| super-1-2 (2) |             | spine-1-1 (101) |             | spine-1-1 (101) |
-|               |             | spine-2-1 (104) |             |                 |
-|               |             | spine-3-1 (107) |             |                 |
-+---------------+-------------+-----------------+-------------+-----------------+
++---------------+-------------+-----------------+-------------+-------------+
+| Same-Level    | North-bound | South-bound     | Missing     | Extra       |
+| Node          | Adjacencies | Adjacencies     | South-bound | South-bound |
+|               |             |                 | Adjacencies | Adjacencies |
++---------------+-------------+-----------------+-------------+-------------+
+| super-1-2 (2) |             | spine-2-1 (104) |             |             |
+|               |             | spine-3-1 (107) |             |             |
++---------------+-------------+-----------------+-------------+-------------+
 
 Partially Connected Interfaces:
 +------+------------------------------------+
@@ -1004,7 +935,7 @@ Negative Disaggregation TIEs:
 +-----------+------------+----------------+--------+--------+----------+-----------------------------+
 | Direction | Originator | Type           | TIE Nr | Seq Nr | Lifetime | Contents                    |
 +-----------+------------+----------------+--------+--------+----------+-----------------------------+
-| South     | 1          | Neg-Dis-Prefix | 5      | 1      | 602649   | Neg-Dis-Prefix: 88.0.1.1/32 |
+| South     | 1          | Neg-Dis-Prefix | 5      | 1      | 558984   | Neg-Dis-Prefix: 88.0.1.1/32 |
 |           |            |                |        |        |          |   Metric: 2147483647        |
 |           |            |                |        |        |          | Neg-Dis-Prefix: 88.0.2.1/32 |
 |           |            |                |        |        |          |   Metric: 2147483647        |
@@ -1013,95 +944,9 @@ Negative Disaggregation TIEs:
 +-----------+------------+----------------+--------+--------+----------+-----------------------------+
 </pre>
 
-The underlying reason for super-1-1 triggering negative disaggregation for all leaf prefixes
-in pod-1 can be found in the output of `show spf`. The output of `show spf` is very
-long; in the following example we have removed most output except the relevant rows plus some
-context.
+@@@
 
-<pre>
-super-1-1> <b>show spf</b>
-SPF Statistics:
-+---------------+-----+
-| SPF Runs      | 34  |
-+---------------+-----+
-| SPF Deferrals | 118 |
-+---------------+-----+
-
-South SPF Destinations:
-+-----------------+------+---------+-------------+------+--------------+---------------------+-------------------------------+
-| Destination     | Cost | Is Leaf | Predecessor | Tags | Disaggregate | IPv4 Next-hops      | IPv6 Next-hops                |
-|                 |      |         | System IDs  |      |              |                     |                               |
-+-----------------+------+---------+-------------+------+--------------+---------------------+-------------------------------+
-| 1 (super-1-1)   | 0    | False   |             |      |              |                     |                               |
-+-----------------+------+---------+-------------+------+--------------+---------------------+-------------------------------+
-.                 .      .         .             .                     .                     .                               .
-+-----------------+------+---------+-------------+------+--------------+---------------------+-------------------------------+
-| 1009 (leaf-3-3) | 2    | True    | 107         |      |              | if-1c 172.31.15.176 | if-1c fe80::84a:2ff:fe78:2746 |
-+-----------------+------+---------+-------------+------+--------------+---------------------+-------------------------------+
-| 88.0.4.1/32     | 3    | True    | 1004        |      |              | if-1b 172.31.15.176 | if-1b fe80::84a:2ff:fe78:2746 |
-+-----------------+------+---------+-------------+------+--------------+---------------------+-------------------------------+
-.                 .      .         .             .                     .                     .                               .
-+-----------------+------+---------+-------------+------+--------------+---------------------+-------------------------------+
-| 88.0.9.1/32     | 3    | True    | 1009        |      |              | if-1c 172.31.15.176 | if-1c fe80::84a:2ff:fe78:2746 |
-+-----------------+------+---------+-------------+------+--------------+---------------------+-------------------------------+
-| 88.1.4.1/32     | 2    | False   | 104         |      |              | if-1b 172.31.15.176 | if-1b fe80::84a:2ff:fe78:2746 |
-+-----------------+------+---------+-------------+------+--------------+---------------------+-------------------------------+
-| 88.1.7.1/32     | 2    | False   | 107         |      |              | if-1c 172.31.15.176 | if-1c fe80::84a:2ff:fe78:2746 |
-+-----------------+------+---------+-------------+------+--------------+---------------------+-------------------------------+
-| 88.2.1.1/32     | 1    | False   | 1           |      |              |                     |                               |
-+-----------------+------+---------+-------------+------+--------------+---------------------+-------------------------------+
-
-[...]
-
-South SPF (with East-West Links) Destinations:
-+-----------------+------+---------+-------------+------+--------------+---------------------+-------------------------------+
-| Destination     | Cost | Is Leaf | Predecessor | Tags | Disaggregate | IPv4 Next-hops      | IPv6 Next-hops                |
-|                 |      |         | System IDs  |      |              |                     |                               |
-+-----------------+------+---------+-------------+------+--------------+---------------------+-------------------------------+
-| 1 (super-1-1)   | 0    | False   |             |      |              |                     |                               |
-+-----------------+------+---------+-------------+------+--------------+---------------------+-------------------------------+
-.                 .      .         .             .                     .                     .                               .
-+-----------------+------+---------+-------------+------+--------------+---------------------+-------------------------------+
-| 1009 (leaf-3-3) | 2    | True    | 107         |      |              | if-1c 172.31.15.176 | if-1c fe80::84a:2ff:fe78:2746 |
-+-----------------+------+---------+-------------+------+--------------+---------------------+-------------------------------+
-| 88.0.1.1/32     | 4    | True    | 1001        |      | Negative     | if-1d 172.31.15.176 | if-1d fe80::84a:2ff:fe78:2746 |
-|                 |      |         |             |      |              | if-1e 172.31.15.176 | if-1e fe80::84a:2ff:fe78:2746 |
-+-----------------+------+---------+-------------+------+--------------+---------------------+-------------------------------+
-| 88.0.2.1/32     | 4    | True    | 1002        |      | Negative     | if-1d 172.31.15.176 | if-1d fe80::84a:2ff:fe78:2746 |
-|                 |      |         |             |      |              | if-1e 172.31.15.176 | if-1e fe80::84a:2ff:fe78:2746 |
-+-----------------+------+---------+-------------+------+--------------+---------------------+-------------------------------+
-| 88.0.3.1/32     | 4    | True    | 1003        |      | Negative     | if-1d 172.31.15.176 | if-1d fe80::84a:2ff:fe78:2746 |
-|                 |      |         |             |      |              | if-1e 172.31.15.176 | if-1e fe80::84a:2ff:fe78:2746 |
-+-----------------+------+---------+-------------+------+--------------+---------------------+-------------------------------+
-| 88.0.4.1/32     | 3    | True    | 1004        |      |              | if-1b 172.31.15.176 | if-1b fe80::84a:2ff:fe78:2746 |
-+-----------------+------+---------+-------------+------+--------------+---------------------+-------------------------------+
-.                 .      .         .             .                     .                     .                               .
-+-----------------+------+---------+-------------+------+--------------+---------------------+-------------------------------+
-| 88.1.9.1/32     | 3    | False   | 109         |      |              | if-1e 172.31.15.176 | if-1e fe80::84a:2ff:fe78:2746 |
-+-----------------+------+---------+-------------+------+--------------+---------------------+-------------------------------+
-| 88.2.1.1/32     | 1    | False   | 1           |      |              |                     |                               |
-+-----------------+------+---------+-------------+------+--------------+---------------------+-------------------------------+
-| 88.2.3.1/32     | 2    | False   | 3           |      |              | if-1d 172.31.15.176 | if-1d fe80::84a:2ff:fe78:2746 |
-+-----------------+------+---------+-------------+------+--------------+---------------------+-------------------------------+
-| 88.2.5.1/32     | 2    | False   | 5           |      |              | if-1e 172.31.15.176 | if-1e fe80::84a:2ff:fe78:2746 |
-+-----------------+------+---------+-------------+------+--------------+---------------------+-------------------------------+
-</pre>
-
-As we can see, the special south SPF that does include the east-west inter-plane links finds some
-extra reachable destination prefixe that were not found by the normal south SPF that does not
-include the east-west inter-plane links.
-
-Some of those extra destinations prefixes were advertised by leaf nodes. In the above output there
-are three such prefixes: 88.0.1.1/32 (leaf-1-1), 88.0.2.1/32 (leaf-1-2), and 88.0.3.1/32
-(leaf-1-3). These are the prefixes for which super-1-1 has discovered that they are not reachable
-from plane-1 (using only north-south links) but are reachable from at least one other plane. Hence,
-super-1-1 will inititiate negative disaggregation for them. This is why they are markes as
-negative in the disaggregate collumn of the `show spf` output.
-
-The rest of these extra destinations were advertised by non-leaf nodes, in this case spine or
-superspine nodes. These non-leaf extra prefixes are not negatively disaggregated.
-
-### None of the negative disaggregation prefixes is propagated
+### Now the negative disaggregation prefixes are propagated
 
 First, we use `show disaggregation` to confirm that spine-3-1 has received both the positive and
 the negative disaggrevation prefix TIEs:
