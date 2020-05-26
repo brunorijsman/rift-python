@@ -733,16 +733,14 @@ IPv6 Routes:
 We proceed by breaking a second link in the fabric, this time the link between spine-1-1 and
 super-1-2 as shown in figure 3 below.
 
-@@@ This causes a rather complex sequence of events:
+Once again, this causes a rather complex sequence of events:
 
- 1. It causes super-1-1 to trigger negative disaggregation for the prefixes in pod-1 because
-    super-1-1 detects that those prefixes can be reached from other planes but not from its own
-    plane.
+ 1. Super-1-1 continues to trigger negative disaggregation as before.
 
- 2. It causes super-1-2 to trigger positive disaggregation for the prefixes in pod-1 because
-    super-1-2 can still reach those prefixes and super-1-2 also detects that super-1-1 (which
-    is a same-level-node in plane-1) can not reach those prefixes anymore.
-
+ 2. Super-1-2 switches from triggering positive disaggregation to negative disaggregation.
+    Previously super-1-2 was still connected to pod-1, but not it is completely disconnected
+    from pod-1.
+ 
 ![Topology Diagram](https://s3-us-west-2.amazonaws.com/brunorijsman-public/diagram-rift-neg-disagg-fg-orig-2-failures.png)
 
 *Figure 3. Second failure between spine-1-1 and super-1-2.*
@@ -944,12 +942,21 @@ Negative Disaggregation TIEs:
 +-----------+------------+----------------+--------+--------+----------+-----------------------------+
 </pre>
 
-@@@
-
 ### Now the negative disaggregation prefixes are propagated
 
-First, we use `show disaggregation` to confirm that spine-3-1 has received both the positive and
-the negative disaggrevation prefix TIEs:
+### Spine-3-1
+
+Previously we had noted that spine-3-1 received negative disaggregation prefix TIEs but did not
+propagate them. Now, the situation has changed, as shown in figure 4 below:
+
+![Topology Diagram](https://s3-us-west-2.amazonaws.com/brunorijsman-public/diagram-rift-neg-disagg-fg-prop-2-failures.png)
+
+*Figure 4. Propagation of negative disaggregation prefix TIEs.*
+
+The `show disaggregation` shows that spine-3-1 has received the same negative disaggregation
+prefixes from super-1 and super-2, i.e. from both of its parents nodes. This causes spine-3-1
+to propagate (or rather re-originate) the negativev disaggregation prefixes in its own TIE
+(the one with originator system ID 107).
 
 <pre>
 spine-3-1> <b>show disaggregation</b>
@@ -974,24 +981,31 @@ Partially Connected Interfaces:
 +------+------------------------------------+
 
 Positive Disaggregation TIEs:
-+-----------+------------+----------------+--------+--------+----------+-----------------------------+
-| Direction | Originator | Type           | TIE Nr | Seq Nr | Lifetime | Contents                    |
-+-----------+------------+----------------+--------+--------+----------+-----------------------------+
-| South     | 2          | Pos-Dis-Prefix | 3      | 1      | 602588   | Pos-Dis-Prefix: 88.0.1.1/32 |
-|           |            |                |        |        |          |   Metric: 3                 |
-|           |            |                |        |        |          | Pos-Dis-Prefix: 88.0.2.1/32 |
-|           |            |                |        |        |          |   Metric: 3                 |
-|           |            |                |        |        |          | Pos-Dis-Prefix: 88.0.3.1/32 |
-|           |            |                |        |        |          |   Metric: 3                 |
-|           |            |                |        |        |          | Pos-Dis-Prefix: 88.1.1.1/32 |
-|           |            |                |        |        |          |   Metric: 2                 |
-+-----------+------------+----------------+--------+--------+----------+-----------------------------+
++-----------+------------+----------------+--------+--------+----------+----------+
+| Direction | Originator | Type           | TIE Nr | Seq Nr | Lifetime | Contents |
++-----------+------------+----------------+--------+--------+----------+----------+
+| South     | 2          | Pos-Dis-Prefix | 3      | 2      | 601516   |          |
++-----------+------------+----------------+--------+--------+----------+----------+
 
 Negative Disaggregation TIEs:
 +-----------+------------+----------------+--------+--------+----------+-----------------------------+
 | Direction | Originator | Type           | TIE Nr | Seq Nr | Lifetime | Contents                    |
 +-----------+------------+----------------+--------+--------+----------+-----------------------------+
-| South     | 1          | Neg-Dis-Prefix | 5      | 1      | 602587   | Neg-Dis-Prefix: 88.0.1.1/32 |
+| South     | 1          | Neg-Dis-Prefix | 5      | 1      | 557048   | Neg-Dis-Prefix: 88.0.1.1/32 |
+|           |            |                |        |        |          |   Metric: 2147483647        |
+|           |            |                |        |        |          | Neg-Dis-Prefix: 88.0.2.1/32 |
+|           |            |                |        |        |          |   Metric: 2147483647        |
+|           |            |                |        |        |          | Neg-Dis-Prefix: 88.0.3.1/32 |
+|           |            |                |        |        |          |   Metric: 2147483647        |
++-----------+------------+----------------+--------+--------+----------+-----------------------------+
+| South     | 2          | Neg-Dis-Prefix | 5      | 1      | 601516   | Neg-Dis-Prefix: 88.0.1.1/32 |
+|           |            |                |        |        |          |   Metric: 2147483647        |
+|           |            |                |        |        |          | Neg-Dis-Prefix: 88.0.2.1/32 |
+|           |            |                |        |        |          |   Metric: 2147483647        |
+|           |            |                |        |        |          | Neg-Dis-Prefix: 88.0.3.1/32 |
+|           |            |                |        |        |          |   Metric: 2147483647        |
++-----------+------------+----------------+--------+--------+----------+-----------------------------+
+| South     | 107        | Neg-Dis-Prefix | 5      | 1      | 601517   | Neg-Dis-Prefix: 88.0.1.1/32 |
 |           |            |                |        |        |          |   Metric: 2147483647        |
 |           |            |                |        |        |          | Neg-Dis-Prefix: 88.0.2.1/32 |
 |           |            |                |        |        |          |   Metric: 2147483647        |
@@ -1000,90 +1014,115 @@ Negative Disaggregation TIEs:
 +-----------+------------+----------------+--------+--------+----------+-----------------------------+
 </pre>
 
-One thing to notice is that neither the positive nor the negative disaggregation prefix TIE is
-propagated. Or actually, re-originated might be a better word. If the disaggregation TIE was
-being re-originated, we would have seens another TIE in the output of `show disaggregation`
-with originated system ID 101 (the system ID of spine-1-1).
+## Populating the route tables on leaf-3-1
 
- * The positive disaggregation prefix TIE is not propagated because positive disaggregation prefix
-   TIEs are simply never propagated.
+We skip looking at the route table of spine-3-1 for now (we will come back to it); we look at the
+route table of leaf-3-1 first.
 
- * The negative disaggregation prefix TIE is not propagated because it is only propagated when it is
-   is received from all parent nodes, which is not the case here. The negative disaggregation
-   prefixes are only received from parent super-1 and not (yet) from parent super-2.
+The `show routes` command shows that leaf-3-1 has:
+
+ 1. A north-bound default route that ECMPs over all three spines in pod-3.
+ 
+ 2. Three north-bound specific routes for the leaves in pod-1, each a negative next-hop for
+    spine-3-1.
+
+<pre>
+leaf-3-1> show routes
+IPv4 Routes:
++-------------+-----------+---------------------------------+
+| Prefix      | Owner     | Next-hops                       |
++-------------+-----------+---------------------------------+
+| 0.0.0.0/0   | North SPF | if-1007a 172.31.15.176          |
+|             |           | if-1007b 172.31.15.176          |
+|             |           | if-1007c 172.31.15.176          |
++-------------+-----------+---------------------------------+
+| 88.0.1.1/32 | North SPF | Negative if-1007a 172.31.15.176 |
++-------------+-----------+---------------------------------+
+| 88.0.2.1/32 | North SPF | Negative if-1007a 172.31.15.176 |
++-------------+-----------+---------------------------------+
+| 88.0.3.1/32 | North SPF | Negative if-1007a 172.31.15.176 |
++-------------+-----------+---------------------------------+
+
+IPv6 Routes:
++--------+-----------+----------------------------------+
+| Prefix | Owner     | Next-hops                        |
++--------+-----------+----------------------------------+
+| ::/0   | North SPF | if-1007a fe80::84a:2ff:fe78:2746 |
+|        |           | if-1007b fe80::84a:2ff:fe78:2746 |
+|        |           | if-1007c fe80::84a:2ff:fe78:2746 |
++--------+-----------+----------------------------------+
+</pre>
+
+The `show forwarding` command shows that the negative next-hop (spine-3-1) has been translated
+into complementary positive next-hops (spine-3-2 and spine-3-3):
+
+<pre>
+leaf-3-1> <b>show forwarding</b>
+IPv4 Routes:
++-------------+------------------------+
+| Prefix      | Next-hops              |
++-------------+------------------------+
+| 0.0.0.0/0   | if-1007a 172.31.15.176 |
+|             | if-1007c 172.31.15.176 |
+|             | if-1007b 172.31.15.176 |
++-------------+------------------------+
+| 88.0.1.1/32 | if-1007b 172.31.15.176 |
+|             | if-1007c 172.31.15.176 |
++-------------+------------------------+
+| 88.0.2.1/32 | if-1007b 172.31.15.176 |
+|             | if-1007c 172.31.15.176 |
++-------------+------------------------+
+| 88.0.3.1/32 | if-1007b 172.31.15.176 |
+|             | if-1007c 172.31.15.176 |
++-------------+------------------------+
+
+IPv6 Routes:
++--------+----------------------------------+
+| Prefix | Next-hops                        |
++--------+----------------------------------+
+| ::/0   | if-1007a fe80::84a:2ff:fe78:2746 |
+|        | if-1007c fe80::84a:2ff:fe78:2746 |
+|        | if-1007b fe80::84a:2ff:fe78:2746 |
++--------+----------------------------------+
+</pre>
 
 ## Populating the route tables on spine-3-1
 
-We are interested to see what routes actually get installed in the route table as a result of
-the negative disaggregation prefix advertised by super-1-1 and the positive disaggregation prefix
-advertised by super-1-2. Apart from spine-1-1, there are two other nodes that are attached to
-both super-1-1 and super-1-2, i.e. that are in plane-1, namely spine-2-1 and spine-3-1. We could
-look at either, but we choose to look at spine-3-1.
+We now return to spine-3-1 to look at its route tables.
 
-We use `show spf` to see how these positive and negative disaggregation prefixes are used
-in the shortest path first (SPF) calculation. We can see the the positive disaggregation prefix
-gets precedence over the negative disaggregation prefix:
+The `show routes` command shows that spine-3-1 has:
 
-<pre>
-spine-3-1> show spf direction north
-North SPF Destinations:
-+----------------------+------+---------+-------------+------+--------------+-----------------------+---------------------------------+
-| Destination          | Cost | Is Leaf | Predecessor | Tags | Disaggregate | IPv4 Next-hops        | IPv6 Next-hops                  |
-|                      |      |         | System IDs  |      |              |                       |                                 |
-+----------------------+------+---------+-------------+------+--------------+-----------------------+---------------------------------+
-| 1 (super-1-1)        | 1    | False   | 107         |      |              | if-107d 172.31.15.176 | if-107d fe80::84a:2ff:fe78:2746 |
-+----------------------+------+---------+-------------+------+--------------+-----------------------+---------------------------------+
-| 2 (super-1-2)        | 1    | False   | 107         |      |              | if-107e 172.31.15.176 | if-107e fe80::84a:2ff:fe78:2746 |
-+----------------------+------+---------+-------------+------+--------------+-----------------------+---------------------------------+
-| 107 (spine-3-1)      | 0    | False   |             |      |              |                       |                                 |
-+----------------------+------+---------+-------------+------+--------------+-----------------------+---------------------------------+
-| 0.0.0.0/0            | 2    | False   | 1           |      |              | if-107d 172.31.15.176 | if-107d fe80::84a:2ff:fe78:2746 |
-|                      |      |         | 2           |      |              | if-107e 172.31.15.176 | if-107e fe80::84a:2ff:fe78:2746 |
-+----------------------+------+---------+-------------+------+--------------+-----------------------+---------------------------------+
-| 88.1.7.1/32          | 1    | False   | 107         |      |              |                       |                                 |
-+----------------------+------+---------+-------------+------+--------------+-----------------------+---------------------------------+
-| ::/0                 | 2    | False   | 1           |      |              | if-107d 172.31.15.176 | if-107d fe80::84a:2ff:fe78:2746 |
-|                      |      |         | 2           |      |              | if-107e 172.31.15.176 | if-107e fe80::84a:2ff:fe78:2746 |
-+----------------------+------+---------+-------------+------+--------------+-----------------------+---------------------------------+
-| 88.0.1.1/32 (Disagg) | 4    | False   | 2           |      | Positive     | if-107e 172.31.15.176 | if-107e fe80::84a:2ff:fe78:2746 |
-+----------------------+------+---------+-------------+------+--------------+-----------------------+---------------------------------+
-| 88.0.2.1/32 (Disagg) | 4    | False   | 2           |      | Positive     | if-107e 172.31.15.176 | if-107e fe80::84a:2ff:fe78:2746 |
-+----------------------+------+---------+-------------+------+--------------+-----------------------+---------------------------------+
-| 88.0.3.1/32 (Disagg) | 4    | False   | 2           |      | Positive     | if-107e 172.31.15.176 | if-107e fe80::84a:2ff:fe78:2746 |
-+----------------------+------+---------+-------------+------+--------------+-----------------------+---------------------------------+
-| 88.1.1.1/32 (Disagg) | 3    | False   | 2           |      | Positive     | if-107e 172.31.15.176 | if-107e fe80::84a:2ff:fe78:2746 |
-+----------------------+------+---------+-------------+------+--------------+-----------------------+---------------------------------+
-</pre>
+ 1. A north-bound default route that ECMPs over both superspines in plane-1.
+ 
+ 2. Three north-bound specific routes for the leaves in pod-1, each with to negative next-hops
+    for super-1-1 and super-1-2.
 
-We use the `show routes` to view the RIB. We see the normal north-bound default route that ECMPs
-over super-1 and super-2. 
-We see more specific north-bound routes for spine-1-1 and all three leaves in pod-1 that sends
-traffic only to super-1-2 and not super-1-1.
-And finally, we see specific south-bound routes for three leaves in pod-2.
+ 3. Three south-bound specific routes for the leaves in pod-3.
 
 <pre>
 spine-3-1> <b>show routes</b>
 IPv4 Routes:
-+-------------+-----------+-----------------------+
-| Prefix      | Owner     | Next-hops             |
-+-------------+-----------+-----------------------+
-| 0.0.0.0/0   | North SPF | if-107d 172.31.15.176 |
-|             |           | if-107e 172.31.15.176 |
-+-------------+-----------+-----------------------+
-| 88.0.1.1/32 | North SPF | if-107e 172.31.15.176 |
-+-------------+-----------+-----------------------+
-| 88.0.2.1/32 | North SPF | if-107e 172.31.15.176 |
-+-------------+-----------+-----------------------+
-| 88.0.3.1/32 | North SPF | if-107e 172.31.15.176 |
-+-------------+-----------+-----------------------+
-| 88.0.7.1/32 | South SPF | if-107a 172.31.15.176 |
-+-------------+-----------+-----------------------+
-| 88.0.8.1/32 | South SPF | if-107b 172.31.15.176 |
-+-------------+-----------+-----------------------+
-| 88.0.9.1/32 | South SPF | if-107c 172.31.15.176 |
-+-------------+-----------+-----------------------+
-| 88.1.1.1/32 | North SPF | if-107e 172.31.15.176 |
-+-------------+-----------+-----------------------+
++-------------+-----------+--------------------------------+
+| Prefix      | Owner     | Next-hops                      |
++-------------+-----------+--------------------------------+
+| 0.0.0.0/0   | North SPF | if-107d 172.31.15.176          |
+|             |           | if-107e 172.31.15.176          |
++-------------+-----------+--------------------------------+
+| 88.0.1.1/32 | North SPF | Negative if-107d 172.31.15.176 |
+|             |           | Negative if-107e 172.31.15.176 |
++-------------+-----------+--------------------------------+
+| 88.0.2.1/32 | North SPF | Negative if-107d 172.31.15.176 |
+|             |           | Negative if-107e 172.31.15.176 |
++-------------+-----------+--------------------------------+
+| 88.0.3.1/32 | North SPF | Negative if-107d 172.31.15.176 |
+|             |           | Negative if-107e 172.31.15.176 |
++-------------+-----------+--------------------------------+
+| 88.0.7.1/32 | South SPF | if-107a 172.31.15.176          |
++-------------+-----------+--------------------------------+
+| 88.0.8.1/32 | South SPF | if-107b 172.31.15.176          |
++-------------+-----------+--------------------------------+
+| 88.0.9.1/32 | South SPF | if-107c 172.31.15.176          |
++-------------+-----------+--------------------------------+
 
 IPv6 Routes:
 +--------+-----------+---------------------------------+
@@ -1094,7 +1133,11 @@ IPv6 Routes:
 +--------+-----------+---------------------------------+
 </pre>
 
-And finally, we use `show forwarding` to see the exact same routes in the FIB:
+When spine-3-1 translates the negative next-hops super-1-1 and super-1-2 to complementary positive
+next-hops, it ends up with an empty set of next-hops. This is because the encompassing parent route
+(the default route in this case) has precisely super-1-1 and super-1-2 as its ECMP next-hops.
+Indeed, the `show forwarding` command shows that the routes to the leaves in pod-1 don't have
+any next-hops, which means that they are essentially discard routes.
 
 <pre>
 spine-3-1> <b>show forwarding</b>
@@ -1105,19 +1148,17 @@ IPv4 Routes:
 | 0.0.0.0/0   | if-107e 172.31.15.176 |
 |             | if-107d 172.31.15.176 |
 +-------------+-----------------------+
-| 88.0.1.1/32 | if-107e 172.31.15.176 |
+| 88.0.1.1/32 |                       |
 +-------------+-----------------------+
-| 88.0.2.1/32 | if-107e 172.31.15.176 |
+| 88.0.2.1/32 |                       |
 +-------------+-----------------------+
-| 88.0.3.1/32 | if-107e 172.31.15.176 |
+| 88.0.3.1/32 |                       |
 +-------------+-----------------------+
 | 88.0.7.1/32 | if-107a 172.31.15.176 |
 +-------------+-----------------------+
 | 88.0.8.1/32 | if-107b 172.31.15.176 |
 +-------------+-----------------------+
 | 88.0.9.1/32 | if-107c 172.31.15.176 |
-+-------------+-----------------------+
-| 88.1.1.1/32 | if-107e 172.31.15.176 |
 +-------------+-----------------------+
 
 IPv6 Routes:
