@@ -838,67 +838,69 @@ Interface:
 
 ### Super-1-2
 
-@@@
-
-Similarly, on super-1-1 we can see that the adjacency to spine-1-1 is down:
+On super-1-2 the adjacency to spine-1-2 is down:
 
 <pre>
-super-1-1> <b>show interfaces</b>
+super-1-2> <b>show interfaces</b>
 +-----------+-------------------+-----------+-----------+
 | Interface | Neighbor          | Neighbor  | Neighbor  |
 | Name      | Name              | System ID | State     |
 +-----------+-------------------+-----------+-----------+
-| if-1a     |                   |           | ONE_WAY   |
+| if-2a     |                   |           | ONE_WAY   |
 +-----------+-------------------+-----------+-----------+
-| if-1b     | spine-2-1:if-104d | 104       | THREE_WAY |
+| if-2b     | spine-2-1:if-104e | 104       | THREE_WAY |
 +-----------+-------------------+-----------+-----------+
-| if-1c     | spine-3-1:if-107d | 107       | THREE_WAY |
+| if-2c     | spine-3-1:if-107e | 107       | THREE_WAY |
 +-----------+-------------------+-----------+-----------+
-| if-1d     | super-2-1:if-3d   | 3         | THREE_WAY |
+| if-2d     | super-2-2:if-4d   | 4         | THREE_WAY |
 +-----------+-------------------+-----------+-----------+
-| if-1e     | super-3-1:if-5e   | 5         | THREE_WAY |
+| if-2e     | super-3-2:if-6e   | 6         | THREE_WAY |
 +-----------+-------------------+-----------+-----------+
 </pre>
 
-As a result, super-1-1 does not advertise an adjacency with spine-1-1 in its
-South-Node-TIE (notice that neighbor system IDs 104 and 107 are present but neighbor system 
-ID 101 is missing):
+At this point super-1-2 has completely lost all north-south connectivity with pod-1.
+However, the special SPF shows that super-1-2 can still reach pod-1 via other planes
+crossing the inter-plane east-west links. Hence, super-1-1 triggers negative disaggregation
+for the leaf prefixes in pod-1:
 
 <pre>
-super-1-1> <b>show tie-db direction south originator 1 tie-type node</b>
-+-----------+------------+------+--------+--------+----------+-------------------------+
-| Direction | Originator | Type | TIE Nr | Seq Nr | Lifetime | Contents                |
-+-----------+------------+------+--------+--------+----------+-------------------------+
-| South     | 1          | Node | 1      | 23     | 604523   | Name: super-1-1         |
-|           |            |      |        |        |          | Level: 24               |
-|           |            |      |        |        |          | Capabilities:           |
-|           |            |      |        |        |          |   Flood reduction: True |
-|           |            |      |        |        |          | Neighbor: 3             |
-|           |            |      |        |        |          |   Level: 24             |
-|           |            |      |        |        |          |   Cost: 1               |
-|           |            |      |        |        |          |   Bandwidth: 100 Mbps   |
-|           |            |      |        |        |          |   Link: 5-4             |
-|           |            |      |        |        |          | Neighbor: 5             |
-|           |            |      |        |        |          |   Level: 24             |
-|           |            |      |        |        |          |   Cost: 1               |
-|           |            |      |        |        |          |   Bandwidth: 100 Mbps   |
-|           |            |      |        |        |          |   Link: 4-5             |
-|           |            |      |        |        |          | Neighbor: 104           |
-|           |            |      |        |        |          |   Level: 23             |
-|           |            |      |        |        |          |   Cost: 1               |
-|           |            |      |        |        |          |   Bandwidth: 100 Mbps   |
-|           |            |      |        |        |          |   Link: 2-4             |
-|           |            |      |        |        |          | Neighbor: 107           |
-|           |            |      |        |        |          |   Level: 23             |
-|           |            |      |        |        |          |   Cost: 1               |
-|           |            |      |        |        |          |   Bandwidth: 100 Mbps   |
-|           |            |      |        |        |          |   Link: 3-4             |
-+-----------+------------+------+--------+--------+----------+-------------------------+
+super-1-2> <b>show disaggregation</b>
+Same Level Nodes:
++---------------+-------------+-----------------+-------------+-------------+
+| Same-Level    | North-bound | South-bound     | Missing     | Extra       |
+| Node          | Adjacencies | Adjacencies     | South-bound | South-bound |
+|               |             |                 | Adjacencies | Adjacencies |
++---------------+-------------+-----------------+-------------+-------------+
+| super-1-1 (1) |             | spine-2-1 (104) |             |             |
+|               |             | spine-3-1 (107) |             |             |
++---------------+-------------+-----------------+-------------+-------------+
+
+Partially Connected Interfaces:
++------+------------------------------------+
+| Name | Nodes Causing Partial Connectivity |
++------+------------------------------------+
+
+Positive Disaggregation TIEs:
++-----------+------------+----------------+--------+--------+----------+----------+
+| Direction | Originator | Type           | TIE Nr | Seq Nr | Lifetime | Contents |
++-----------+------------+----------------+--------+--------+----------+----------+
+| South     | 2          | Pos-Dis-Prefix | 3      | 2      | 603937   |          |
++-----------+------------+----------------+--------+--------+----------+----------+
+
+Negative Disaggregation TIEs:
++-----------+------------+----------------+--------+--------+----------+-----------------------------+
+| Direction | Originator | Type           | TIE Nr | Seq Nr | Lifetime | Contents                    |
++-----------+------------+----------------+--------+--------+----------+-----------------------------+
+| South     | 2          | Neg-Dis-Prefix | 5      | 1      | 603937   | Neg-Dis-Prefix: 88.0.1.1/32 |
+|           |            |                |        |        |          |   Metric: 2147483647        |
+|           |            |                |        |        |          | Neg-Dis-Prefix: 88.0.2.1/32 |
+|           |            |                |        |        |          |   Metric: 2147483647        |
+|           |            |                |        |        |          | Neg-Dis-Prefix: 88.0.3.1/32 |
+|           |            |                |        |        |          |   Metric: 2147483647        |
++-----------+------------+----------------+--------+--------+----------+-----------------------------+
 </pre>
 
-As mentioned before, the broken link causes both super-1-1 to trigger negative disaggregation and
-super-1-2 to trigger positive disaggregation. We will look at the positive disaggregation first and
-at the negative disaggregation later because it will turn out to be more complex.
+@@@
 
 ### Super-1-2
 
