@@ -1376,10 +1376,13 @@ class Interface:
         result = self.node.process_rx_tide_packet(tide_packet)
         (request_tie_headers_lifetime, start_sending_tie_headers, stop_sending_tie_headers) = result
         for tie_header in start_sending_tie_headers:
+            print("{}: rx TIDE start {}".format(self.name, tie_header_lifetime))  ###@@@
             self.try_to_transmit_tie(tie_header)
-        for tie_header_lifetime in request_tie_headers_lifetime:
+        for tie_header_lifetime in request_tie_headers_lifetime:            
+            print("{}: rx TIDE request {}".format(self.name, tie_header_lifetime))  ###@@@
             self.request_tie(tie_header_lifetime)
         for tie_header in stop_sending_tie_headers:
+            print("{}: rx TIDE stop {}".format(self.name, tie_header_lifetime))  ###@@@
             self._queues.remove_from_all_queues(tie_header.tieid)
 
     def process_rx_tire_packet(self, tire_packet):
@@ -1387,10 +1390,13 @@ class Interface:
         result = self.node.process_rx_tire_packet(tire_packet)
         (request_tie_headers_lifetime, start_sending_tie_headers, acked_tie_headers) = result
         for tie_header in start_sending_tie_headers:
+            print("{}: rx TIRE start {}".format(self.name, tie_header_lifetime))  ###@@@
             self.try_to_transmit_tie(tie_header)
         for tie_header_lifetime in request_tie_headers_lifetime:
+            print("{}: rx TIRE request {}".format(self.name, tie_header_lifetime))  ###@@@
             self.request_tie(tie_header_lifetime)
         for tie_header in acked_tie_headers:
+            print("{}: rx TIRE acked {}".format(self.name, tie_header_lifetime))  ###@@@
             self.tie_been_acked(tie_header)
 
     def neighbor_direction(self):
@@ -1515,6 +1521,7 @@ class Interface:
                     pass
             else:
                 # No ACK in queue, send this TIE
+                print("{}: no ack in queue {}".format(self.name, tie_header))  ###@@@
                 self.tx_tie(tie_header)
 
     def tx_tie(self, tie_header):
@@ -1544,8 +1551,6 @@ class Interface:
             self._queues.remove_from_tie_ack_queue(tie_id)
             print("{}: request {}".format(self.name, tie_header_lifetime))  ###@@@
             self._queues.add_to_tie_req_queue(tie_header_lifetime)
-        else:
-            print("{}: request filtered {}".format(self.name, tie_header_lifetime))  ###@@@
 
     @property
     def state_name(self):
