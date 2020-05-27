@@ -2617,11 +2617,15 @@ class Node:
     def age_ties(self):
         expired_key_ids = []
         for tie_id, tie_packet_info in self.tie_packet_infos.items():
-            # Age only received TIEs (not locally originated TIEs)
-            if tie_packet_info.rx_intf:
-                tie_packet_info.remaining_tie_lifetime -= 1
-                if tie_packet_info.remaining_tie_lifetime <= 0:
-                    expired_key_ids.append(tie_id)
+            ###@@@ DEBUG
+            if tie_packet_info.remaining_tie_lifetime is None:
+                print("tie_packet_info = {}".format(tie_packet_info))
+                print("rx_intf = {}".format(rx_intf))
+                print("remaining_tie_lifetime = {}".format(remaining_tie_lifetime))
+            ###@@@ DEBUG
+            tie_packet_info.remaining_tie_lifetime -= 1
+            if tie_packet_info.remaining_tie_lifetime <= 0:
+                expired_key_ids.append(tie_id)
         for key_id in expired_key_ids:
             # TODO: log a message
             self.remove_tie(key_id)
