@@ -196,7 +196,7 @@ class _TIEQueue(_MsgQueueBase):
         node = self._interface.node
         db_tie_packet_info = node.find_tie_packet_info(tie_id)
         if db_tie_packet_info is not None:
-            if not self._debug_tie_id(tie_id):
+            if self._debug_tie_id(tie_id):
                 print("{}: interface {} send tie-id {} tie {}"
                       .format(self._interface.node.name, self._interface.name, tie_id,
                               db_tie_packet_info))
