@@ -73,8 +73,8 @@ class _MsgQueueBase:
             return
         if DEBUG_TIE_TYPE is not None and tie_id.tietype != DEBUG_TIE_TYPE:
             return
-        print("{}: {} {} queue, tie_id={} seq_nr={}".format(node_name, operation,
-                                                            self._name, tie_id, seq_nr))
+        print("{}: {} {} queue for interface {}, tie_id={} seq_nr={}"
+              .format(node_name, operation, self._name, self._interface.name, tie_id, seq_nr))
         stack = inspect.stack()
         stack = stack[:-6]
         for frame in stack[1:]:

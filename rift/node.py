@@ -2138,7 +2138,7 @@ class Node:
                 rx_tie_packet_info.remaining_tie_lifetime)
             comparison = compare_tie_header_lifetime_age(db_tie_lifetime, rx_tie_lifetime)
             if comparison < 0:
-                print("   db_tie is older") ###@@@
+                print("    db_tie is older") ###@@@
                 # We have an older version of the TIE, ...
                 if rx_tie_id.originator == self.system_id:
                     # Re-originate DB TIE with higher sequence number than the one in RX TIE
@@ -2151,7 +2151,7 @@ class Node:
                     # Flood the TIE
                     self.unsol_flood_tie_packet_info(rx_tie_packet_info)
             elif comparison > 0:
-                print("   db_tie is newer") ###@@@
+                print("    db_tie is newer") ###@@@
                 # We have a newer version of the TIE, send it
                 start_sending_tie_header = db_tie_packet.header
             else:
