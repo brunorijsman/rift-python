@@ -2106,7 +2106,7 @@ class Node:
             db_tie_packet = db_tie_packet_info.protocol_packet.content.tie
             db_tie_packet.header.seq_nr = rx_tie_header.seq_nr + 1
         self.store_tie_packet_info(db_tie_packet_info)
-        return db_tie_packet.header
+        return db_tie_packet_info.protocol_packet.content.tie.header
 
     def process_rx_tie_packet_info(self, rx_tie_packet_info):
         start_sending_tie_header = None
