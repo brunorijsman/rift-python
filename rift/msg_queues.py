@@ -61,20 +61,26 @@ class _MsgQueueBase:
         # Queue value is (delay_ticks, TIEHeaderWithLifeTime)
         self._queue = collections.OrderedDict()
 
-    def debug(self, operation, tie_id, seq_nr):
+    def _debug_tie_id(self, tie_id):
         if not DEBUG:
-            return
+            return False
         node_name = self._interface.node.name
         if DEBUG_NODE_NAME is not None and node_name != DEBUG_NODE_NAME:
-            return
+            return False
         if DEBUG_TIE_DIRECTION is not None and tie_id.direction != DEBUG_TIE_DIRECTION:
-            return
+            return False
         if DEBUG_TIE_ORIGINATOR is not None and tie_id.originator != DEBUG_TIE_ORIGINATOR:
-            return
+            return False
         if DEBUG_TIE_TYPE is not None and tie_id.tietype != DEBUG_TIE_TYPE:
+            return False
+        return True
+
+    def _debug(self, operation, tie_id, seq_nr):
+        if not self._debug_tie_id(tie_id):
             return
         print("{}: {} {} queue for interface {}, tie_id={} seq_nr={}"
-              .format(node_name, operation, self._name, self._interface.name, tie_id, seq_nr))
+              .format(self._interface.node.name, operation, self._name, self._interface.name,
+                      tie_id, seq_nr))
         stack = inspect.stack()
         stack = stack[:-6]
         for frame in stack[1:]:
@@ -190,6 +196,9 @@ class _TIEQueue(_MsgQueueBase):
         node = self._interface.node
         db_tie_packet_info = node.find_tie_packet_info(tie_id)
         if db_tie_packet_info is not None:
+            if not self._debug_tie_id(tie_id):
+                print("{}: interface {} send tie {}"
+                      .format(self._interface.node.name, self._interface.name, db_tie_packet_info))
             self._interface.send_packet_info(db_tie_packet_info, flood=True)
 
 
