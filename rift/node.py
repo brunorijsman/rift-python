@@ -2126,9 +2126,12 @@ class Node:
         else:
             db_tie_packet = db_tie_packet_info.protocol_packet.content.tie
             ###@@@
-            print("... rx_tie:")
-            print("    db_tie_header = {}".format(db_tie_packet.header))
-            print("    rx_tie_header = {}".format(rx_tie_header))
+            if (rx_tie_header.tieid.direction == common.ttypes.TieDirectionType.South and
+                rx_tie.header.tieid.originator == 2 and
+                rx_tie.header.tieid.tietype == common.ttypes.TIETypeType.NodeTIEType):
+                print("... rx_tie:")
+                print("    db_tie_header = {}".format(db_tie_packet.header))
+                print("    rx_tie_header = {}".format(rx_tie_header))
             ###@@@
             db_tie_lifetime = packet_common.expand_tie_header_with_lifetime(
                 db_tie_packet.header,
