@@ -30,6 +30,16 @@ START_NEWER = 4      # TIE-DB has newer version of TIE-ID than in TIDE/TIRE. Sta
 STOP_SAME = 5        # TIE-DB has same version of TIE-ID as in TIDE. Stop sending it.
 ACK = 6              # TIE-DB has same version of TIE-ID than in TIRE. Treat it as an ACK.
 
+def store_tie_packet(test_node, tie_packet, lifetime):
+    header = encoding.ttypes.PacketHeader(sender=test_node.system_id,
+                                          level=test_node.level_value())
+    content = encoding.ttypes.PacketContent(tie=tie_packet)
+    protocol_packet = encoding.ttypes.ProtocolPacket(header=header, content=content)
+    packet_info = packet_common.encode_protocol_packet(protocol_packet,
+                                                       test_node.active_origin_key)
+    packet_info.remaining_tie_lifetime = lifetime
+    test_node.store_tie_packet_info(packet_info)
+
 def test_compare_tie_header():
     # Exactly same
     header1 = packet_common.make_tie_header_with_lifetime(
@@ -136,7 +146,7 @@ def test_add_prefix_tie():
         prefix_tie_packet_1,
         packet_common.make_ipv6_prefix("1234:abcd::/64"),
         3)
-    test_node.store_tie_packet(prefix_tie_packet_1, 555)
+    store_tie_packet(test_node, prefix_tie_packet_1, 555)
     prefix_tie_packet_2 = packet_common.make_prefix_tie_packet(
         direction=common.ttypes.TieDirectionType.North,
         originator=777,
@@ -146,7 +156,7 @@ def test_add_prefix_tie():
         prefix_tie_packet_2,
         packet_common.make_ipv4_prefix("0.0.0.0/0"),
         10)
-    test_node.store_tie_packet(prefix_tie_packet_2, 0)
+    store_tie_packet(test_node, prefix_tie_packet_2, 0)
     db_packet_info = test_node.find_tie_packet_info(prefix_tie_packet_1.header.tieid)
     db_tie_packet = db_packet_info.protocol_packet.content.tie
     assert db_tie_packet == prefix_tie_packet_1
@@ -295,7 +305,7 @@ def make_test_node(db_tie_info_list=None):
                 seq_nr)
         else:
             assert False
-        test_node.store_tie_packet(db_tie_packet, lifetime)
+        store_tie_packet(test_node, db_tie_packet, lifetime)
     return test_node
 
 def make_rx_tie_packet(header_info):
@@ -508,7 +518,7 @@ def test_is_flood_allowed():
         originator=66,
         tie_nr=5,
         seq_nr=7)
-    test_node.store_tie_packet(node_66_tie_packet, 300)
+    store_tie_packet(test_node, node_66_tie_packet, 300)
     # Node 77 has higher level than me
     node_77_tie_packet = packet_common.make_node_tie_packet(
         name="node77",
@@ -517,7 +527,7 @@ def test_is_flood_allowed():
         originator=77,
         tie_nr=3,
         seq_nr=2)
-    test_node.store_tie_packet(node_77_tie_packet, 400)
+    store_tie_packet(test_node, node_77_tie_packet, 400)
     # Node 88 has lower level than me
     node_88_tie_packet = packet_common.make_node_tie_packet(
         name="node88",
@@ -526,7 +536,7 @@ def test_is_flood_allowed():
         originator=88,
         tie_nr=7,
         seq_nr=3)
-    test_node.store_tie_packet(node_88_tie_packet, 400)
+    store_tie_packet(test_node, node_88_tie_packet, 400)
     tx_tie_info_list = [
         # pylint:disable=bad-whitespace
         #                                                              Neighbor   Neighbor   I am    Allowed  Reason

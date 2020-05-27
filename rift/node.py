@@ -1844,15 +1844,6 @@ class Node:
         for intf in self.interfaces_by_name.values():
             intf.update_partially_connected()
 
-    def store_tie_packet(self, tie_packet, lifetime, rx_intf=None):
-        header = encoding.ttypes.PacketHeader(sender=self.system_id, level=self.level_value())
-        content = encoding.ttypes.PacketContent(tie=tie_packet)
-        protocol_packet = encoding.ttypes.ProtocolPacket(header=header, content=content)
-        packet_info = packet_common.encode_protocol_packet(protocol_packet, self.active_origin_key)
-        packet_info.rx_intf = rx_intf
-        packet_info.remaining_tie_lifetime = lifetime
-        self.store_tie_packet_info(packet_info)
-
     def store_tie_packet_info(self, tie_packet_info):
         tie_packet = tie_packet_info.protocol_packet.content.tie
         tie_id = tie_packet.header.tieid
@@ -2096,7 +2087,12 @@ class Node:
         according_empty_tie = encoding.ttypes.TIEPacket(
             header=new_tie_header,
             element=new_element)
-        return according_empty_tie
+        header = encoding.ttypes.PacketHeader(sender=self.system_id, level=self.level_value())
+        content = encoding.ttypes.PacketContent(tie=according_empty_tie)
+        protocol_packet = encoding.ttypes.ProtocolPacket(header=header, content=content)
+        packet_info = packet_common.encode_protocol_packet(protocol_packet, self.active_origin_key)
+        packet_info.remaining_tie_lifetime = common.constants.default_lifetime
+        return packet_info
 
     def bump_own_tie(self, db_tie_packet_info, rx_tie_header):
         if db_tie_packet_info is None:
@@ -2104,17 +2100,13 @@ class Node:
             # TIE in our database. Re-originate the "according" (same TIE ID) TIE, but then empty
             # (i.e. no neighbor, no prefixes, no key-values, etc.), with a higher sequence number,
             # and a short remaining life time
-            according_empty_tie_packet = self.make_according_empty_tie(rx_tie_header)
-            self.store_tie_packet(according_empty_tie_packet,
-                                  common.constants.purge_lifetime,
-                                  rx_intf=None)
-            return according_empty_tie_packet.header
+            db_tie_packet_info = self.make_according_empty_tie(rx_tie_header)
         else:
             # Re-originate DB TIE with higher sequence number than the one in RX TIE
             db_tie_packet = db_tie_packet_info.protocol_packet.content.tie
             db_tie_packet.header.seq_nr = rx_tie_header.seq_nr + 1
-            self.store_tie_packet(db_tie_packet, db_tie_packet_info.rx_intf)
-            return db_tie_packet.header
+        self.store_tie_packet_info(db_tie_packet_info)
+        return db_tie_packet.header
 
     def process_rx_tie_packet_info(self, rx_tie_packet_info):
         start_sending_tie_header = None
