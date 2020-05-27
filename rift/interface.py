@@ -1376,13 +1376,13 @@ class Interface:
         result = self.node.process_rx_tide_packet(tide_packet)
         (request_tie_headers_lifetime, start_sending_tie_headers, stop_sending_tie_headers) = result
         for tie_header in start_sending_tie_headers:
-            print("{}: rx TIDE start {}".format(self.name, tie_header_lifetime))  ###@@@
+            print("{}: rx TIDE start {}".format(self.name, tie_header))  ###@@@
             self.try_to_transmit_tie(tie_header)
         for tie_header_lifetime in request_tie_headers_lifetime:            
             print("{}: rx TIDE request {}".format(self.name, tie_header_lifetime))  ###@@@
             self.request_tie(tie_header_lifetime)
         for tie_header in stop_sending_tie_headers:
-            print("{}: rx TIDE stop {}".format(self.name, tie_header_lifetime))  ###@@@
+            print("{}: rx TIDE stop {}".format(self.name, tie_header))  ###@@@
             self._queues.remove_from_all_queues(tie_header.tieid)
 
     def process_rx_tire_packet(self, tire_packet):
