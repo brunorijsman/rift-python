@@ -61,9 +61,7 @@ class _MsgQueueBase:
         ###@@@ DEBUG
         if tie_id.tietype == common.ttypes.TIETypeType.NodeTIEType:
             print("{}: add {}".format(self._interface.name, tie_header))
-            curframe = inspect.currentframe()
-            calframe = inspect.getouterframes(curframe, 2)
-            print('call stack:', calframe[1])
+            print('call stack:', inspect.stack())
         ###@@@
         # Decide how fast we want to send the message
         if tie_id in self._queue:
@@ -85,9 +83,7 @@ class _MsgQueueBase:
             ###@@@ DEBUG
             if tie_id.tietype == common.ttypes.TIETypeType.NodeTIEType:
                 print("{}: act remove {}".format(self._interface.name, tie_id))
-                curframe = inspect.currentframe()
-                calframe = inspect.getouterframes(curframe, 2)
-                print('call stack:', calframe[1])
+                print('call stack:', inspect.stack())
             ###@@@
             del self._queue[tie_id]
         else:
