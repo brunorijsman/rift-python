@@ -2124,12 +2124,12 @@ class Node:
                 self.store_tie_packet_info(rx_tie_packet_info)
                 ack_tie_header = rx_tie_header
         else:
+            db_tie_packet = db_tie_packet_info.protocol_packet.content.tie
             ###@@@
             print("... rx_tie:")
             print("    db_tie_header = {}".format(db_tie_packet.header))
             print("    rx_tie_header = {}".format(rx_tie_header))
             ###@@@
-            db_tie_packet = db_tie_packet_info.protocol_packet.content.tie
             db_tie_lifetime = packet_common.expand_tie_header_with_lifetime(
                 db_tie_packet.header,
                 db_tie_packet_info.remaining_tie_lifetime)
