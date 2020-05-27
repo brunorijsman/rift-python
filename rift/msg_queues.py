@@ -61,7 +61,9 @@ class _MsgQueueBase:
         ###@@@ DEBUG
         if tie_id.tietype == common.ttypes.TIETypeType.NodeTIEType:
             print("{}: add {}".format(self._interface.name, tie_header))
+            print()
             traceback.print_stack()
+            print()
         ###@@@
         # Decide how fast we want to send the message
         if tie_id in self._queue:
@@ -83,15 +85,11 @@ class _MsgQueueBase:
             ###@@@ DEBUG
             if tie_id.tietype == common.ttypes.TIETypeType.NodeTIEType:
                 print("{}: act remove {}".format(self._interface.name, tie_id))
+                print()
                 traceback.print_stack()
+                print()
             ###@@@
             del self._queue[tie_id]
-        else:
-            ###@@@ DEBUG
-            if tie_id.tietype == common.ttypes.TIETypeType.NodeTIEType:
-                print("{}: try remove {}".format(self._interface.name, tie_id))
-            ###@@@
-
 
     def search_tie_id(self, tie_id):
         result = self._queue.get(tie_id)
