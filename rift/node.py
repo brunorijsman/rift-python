@@ -2131,6 +2131,7 @@ class Node:
                      rx_tie_header.tieid.tietype == common.ttypes.TIETypeType.NodeTIEType)
             if logit:
                 print("... rx_tie:")
+                print("    rx_intf = {}".format(tie_packet_info.rx_intf))
                 print("    db_tie_header = {}".format(db_tie_packet.header))
                 print("    rx_tie_header = {}".format(rx_tie_header))
             ###@@@
