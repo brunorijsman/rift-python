@@ -1,4 +1,5 @@
 import collections
+import inspect ###@@@
 import encoding.ttypes
 import packet_common
 import table
@@ -60,6 +61,9 @@ class _MsgQueueBase:
         ###@@@ DEBUG
         if tie_id.tietype == common.ttypes.TIETypeType.NodeTIEType:
             print("{}: add {}".format(self._interface.name, tie_header))
+            curframe = inspect.currentframe()
+            calframe = inspect.getouterframes(curframe, 2)
+            print('caller name:', calframe[1][3])
         ###@@@
         # Decide how fast we want to send the message
         if tie_id in self._queue:
@@ -81,6 +85,9 @@ class _MsgQueueBase:
             ###@@@ DEBUG
             if tie_id.tietype == common.ttypes.TIETypeType.NodeTIEType:
                 print("{}: act remove {}".format(self._interface.name, tie_id))
+                curframe = inspect.currentframe()
+                calframe = inspect.getouterframes(curframe, 2)
+                print('caller name:', calframe[1][3])
             ###@@@
             del self._queue[tie_id]
         else:
