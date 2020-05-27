@@ -1390,13 +1390,13 @@ class Interface:
         result = self.node.process_rx_tire_packet(tire_packet)
         (request_tie_headers_lifetime, start_sending_tie_headers, acked_tie_headers) = result
         for tie_header in start_sending_tie_headers:
-            print("{}: rx TIRE start {}".format(self.name, tie_header_lifetime))  ###@@@
+            print("{}: rx TIRE start {}".format(self.name, tie_header))  ###@@@
             self.try_to_transmit_tie(tie_header)
         for tie_header_lifetime in request_tie_headers_lifetime:
             print("{}: rx TIRE request {}".format(self.name, tie_header_lifetime))  ###@@@
             self.request_tie(tie_header_lifetime)
         for tie_header in acked_tie_headers:
-            print("{}: rx TIRE acked {}".format(self.name, tie_header_lifetime))  ###@@@
+            print("{}: rx TIRE acked {}".format(self.name, tie_header))  ###@@@
             self.tie_been_acked(tie_header)
 
     def neighbor_direction(self):
