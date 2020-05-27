@@ -2126,9 +2126,10 @@ class Node:
         else:
             db_tie_packet = db_tie_packet_info.protocol_packet.content.tie
             ###@@@
-            if (rx_tie_header.tieid.direction == common.ttypes.TieDirectionType.South and
+            logit = (rx_tie_header.tieid.direction == common.ttypes.TieDirectionType.South and
                     rx_tie_header.tieid.originator == 2 and
-                    rx_tie_header.tieid.tietype == common.ttypes.TIETypeType.NodeTIEType):
+                    rx_tie_header.tieid.tietype == common.ttypes.TIETypeType.NodeTIEType)
+            if logit:
                 print("... rx_tie:")
                 print("    db_tie_header = {}".format(db_tie_packet.header))
                 print("    rx_tie_header = {}".format(rx_tie_header))
@@ -2141,7 +2142,10 @@ class Node:
                 rx_tie_packet_info.remaining_tie_lifetime)
             comparison = compare_tie_header_lifetime_age(db_tie_lifetime, rx_tie_lifetime)
             if comparison < 0:
-                print("    db_tie is older") ###@@@
+                ###@@@
+                if logit:
+                    print("    db_tie is older")
+                ###@@@
                 # We have an older version of the TIE, ...
                 if rx_tie_id.originator == self.system_id:
                     # Re-originate DB TIE with higher sequence number than the one in RX TIE
