@@ -2333,6 +2333,7 @@ class Node:
                 continue
             # Put the packet on the transmit queue.
             flood_count += 1
+            print("{}: unsol flood {}".format(tx_intf.name, tie_packet.header))  ###@@@
             tx_intf.tx_tie(tie_packet.header)
         # Log to how many interfaces the TIE was flooded
         if flood_count > 0:

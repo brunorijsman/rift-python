@@ -1369,6 +1369,7 @@ class Interface:
             tie_header_lifetime = packet_common.expand_tie_header_with_lifetime(
                 ack_tie_header,
                 tie_packet_info.remaining_tie_lifetime)
+            print("{}: ack tx tie {}".format(self.name, tie_packet_info))  ###@@@        
             self.ack_tie(tie_header_lifetime)
 
     def process_rx_tide_packet(self, tide_packet):
@@ -1504,17 +1505,20 @@ class Interface:
             if ack_header_lifetime:
                 if ack_header_lifetime.header.seq_nr < tie_header.seq_nr:
                     # ACK for older TIE is in queue, remove ACK from queue and send newer TIE
+                    print("{}: replace older ack {}".format(self.name, tie_header))  ###@@@
                     self._queues.remove_from_tie_ack_queue(ack_header_lifetime.header.tieid)
                     self.tx_tie(tie_header)
                 else:
                     # ACK for newer TIE or same seq-nr TIE in in queue, keep ACK and don't send
                     # this older TIE
+                    print("{}: ack newer tie {}".format(self.name, tie_header))  ###@@@
                     pass
             else:
                 # No ACK in queue, send this TIE
                 self.tx_tie(tie_header)
 
     def tx_tie(self, tie_header):
+        print("{}: tx_tie {}".format(self.name, tie_header))  ###@@@
         self._queues.add_to_tie_queue(tie_header)
 
     def ack_tie(self, tie_header_lifetime):
@@ -1522,6 +1526,7 @@ class Interface:
         tie_id = tie_header_lifetime.header.tieid
         self._queues.remove_from_tie_queue(tie_id)
         self._queues.remove_from_tie_req_queue(tie_id)
+        print("{}: ack {}".format(self.name, tie_header_lifetime))  ###@@@
         self._queues.add_to_tie_ack_queue(tie_header_lifetime)
 
     def tie_been_acked(self, tie_header):
@@ -1537,7 +1542,10 @@ class Interface:
             tie_id = tie_header_lifetime.header.tieid
             self._queues.remove_from_tie_queue(tie_id)
             self._queues.remove_from_tie_ack_queue(tie_id)
+            print("{}: request {}".format(self.name, tie_header_lifetime))  ###@@@
             self._queues.add_to_tie_req_queue(tie_header_lifetime)
+        else:
+            print("{}: request filtered {}".format(self.name, tie_header_lifetime))  ###@@@
 
     @property
     def state_name(self):
