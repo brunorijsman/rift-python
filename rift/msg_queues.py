@@ -3,6 +3,7 @@ import encoding.ttypes
 import packet_common
 import table
 import timer
+import common.ttypes  ###@@@
 
 _SHORT_DELAY_TICKS = 1
 _LONG_DELAY_TICKS = 5
@@ -56,6 +57,10 @@ class _MsgQueueBase:
     def _add_tie_header_common(self, tie_header_lifetime):
         tie_header = tie_header_lifetime.header
         tie_id = tie_header.tieid
+        ###@@@ DEBUG
+        if tie_id.tietype == common.ttypes.TIETypeType.NodeTIEType:
+            print("{}: add {}".format(self._interface.name, tie_header))
+        ###@@@
         # Decide how fast we want to send the message
         if tie_id in self._queue:
             (old_delay_ticks, old_tie_header_lifetime) = self._queue[tie_id]
@@ -73,7 +78,17 @@ class _MsgQueueBase:
 
     def remove_tie_id(self, tie_id):
         if tie_id in self._queue:
+            ###@@@ DEBUG
+            if tie_id.tietype == common.ttypes.TIETypeType.NodeTIEType:
+                print("{}: act remove {}".format(self._interface.name, tie_id))
+            ###@@@
             del self._queue[tie_id]
+        else:
+            ###@@@ DEBUG
+            if tie_id.tietype == common.ttypes.TIETypeType.NodeTIEType:
+                print("{}: try remove {}".format(self._interface.name, tie_id))
+            ###@@@
+
 
     def search_tie_id(self, tie_id):
         result = self._queue.get(tie_id)
