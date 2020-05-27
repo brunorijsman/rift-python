@@ -128,32 +128,33 @@ class UdpRxHandler:
             return None
 
     def ready_to_read(self):
-        ###@@@
+        ###@@@ temp roll back
+        ###@@@ CONTINUE
         first = True
-        while True:
-            ancillary_size = socket.CMSG_LEN(self.MAX_SIZE)
-            try:
-                message, ancillary_messages, _msg_flags, from_info = \
-                    self.sock.recvmsg(self.MAX_SIZE, ancillary_size)
-            except (IOError, OSError) as err:
-                if first:
-                    self.warning("Socket receive failed: %s", err)
+        # while True:
+        ancillary_size = socket.CMSG_LEN(self.MAX_SIZE)
+        try:
+            message, ancillary_messages, _msg_flags, from_info = \
+                self.sock.recvmsg(self.MAX_SIZE, ancillary_size)
+        except (IOError, OSError) as err:
+            if first:
+                self.warning("Socket receive failed: %s", err)
+            return
+        first = False
+        if not MACOS:
+            rx_interface_index = None
+            for anc in ancillary_messages:
+                # pylint:disable=no-member
+                if anc[0] == socket.SOL_IP and anc[1] == socket.IP_PKTINFO:
+                    packet_info = in_pktinfo.from_buffer_copy(anc[2])
+                    rx_interface_index = packet_info.ipi_ifindex
+                elif anc[0] == socket.SOL_IPV6 and anc[1] == socket.IPV6_PKTINFO:
+                    packet_info = in6_pktinfo.from_buffer_copy(anc[2])
+                    rx_interface_index = packet_info.ipi6_ifindex
+            if rx_interface_index and (rx_interface_index != self._interface_index):
+                # Message received on "wrong" interface; ignore
                 return
-            first = False
-            if not MACOS:
-                rx_interface_index = None
-                for anc in ancillary_messages:
-                    # pylint:disable=no-member
-                    if anc[0] == socket.SOL_IP and anc[1] == socket.IP_PKTINFO:
-                        packet_info = in_pktinfo.from_buffer_copy(anc[2])
-                        rx_interface_index = packet_info.ipi_ifindex
-                    elif anc[0] == socket.SOL_IPV6 and anc[1] == socket.IPV6_PKTINFO:
-                        packet_info = in6_pktinfo.from_buffer_copy(anc[2])
-                        rx_interface_index = packet_info.ipi6_ifindex
-                if rx_interface_index and (rx_interface_index != self._interface_index):
-                    # Message received on "wrong" interface; ignore
-                    return
-            self._receive_function(message, from_info, self.sock)
+        self._receive_function(message, from_info, self.sock)
 
     @staticmethod
     def enable_addr_and_port_reuse(sock):

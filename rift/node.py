@@ -2126,15 +2126,15 @@ class Node:
         else:
             db_tie_packet = db_tie_packet_info.protocol_packet.content.tie
             ###@@@
-            logit = (rx_tie_header.tieid.direction == common.ttypes.TieDirectionType.South and
-                     rx_tie_header.tieid.originator == 2 and
-                     rx_tie_header.tieid.tietype == common.ttypes.TIETypeType.NodeTIEType)
-            if logit:
-                print("... rx_tie:")
-                print("    rx_intf = {}".format(rx_tie_packet_info.rx_intf.name))
-                print("    db_tie_header = {}".format(db_tie_packet.header))
-                print("    rx_tie_header = {}".format(rx_tie_header))
-                print("    rx_tie_packet_info = {}".format(rx_tie_packet_info))
+            # logit = (rx_tie_header.tieid.direction == common.ttypes.TieDirectionType.South and
+            #          rx_tie_header.tieid.originator == 2 and
+            #          rx_tie_header.tieid.tietype == common.ttypes.TIETypeType.NodeTIEType)
+            # if logit:
+            #     print("... rx_tie:")
+            #     print("    rx_intf = {}".format(rx_tie_packet_info.rx_intf.name))
+            #     print("    db_tie_header = {}".format(db_tie_packet.header))
+            #     print("    rx_tie_header = {}".format(rx_tie_header))
+            #     print("    rx_tie_packet_info = {}".format(rx_tie_packet_info))
             ###@@@
             db_tie_lifetime = packet_common.expand_tie_header_with_lifetime(
                 db_tie_packet.header,
@@ -2145,8 +2145,8 @@ class Node:
             comparison = compare_tie_header_lifetime_age(db_tie_lifetime, rx_tie_lifetime)
             if comparison < 0:
                 ###@@@
-                if logit:
-                    print("    db_tie is older")
+                # if logit:
+                #     print("    db_tie is older")
                 ###@@@
                 # We have an older version of the TIE, ...
                 if rx_tie_id.originator == self.system_id:
@@ -2160,11 +2160,11 @@ class Node:
                     # Flood the TIE
                     self.unsol_flood_tie_packet_info(rx_tie_packet_info)
             elif comparison > 0:
-                print("    db_tie is newer") ###@@@
+                # print("    db_tie is newer") ###@@@
                 # We have a newer version of the TIE, send it
                 start_sending_tie_header = db_tie_packet.header
             else:
-                print("   db_tie is same age") ###@@@
+                # print("   db_tie is same age") ###@@@
                 # We have the same version of the TIE, ACK it
                 ack_tie_header = db_tie_packet.header
         return (start_sending_tie_header, ack_tie_header)
