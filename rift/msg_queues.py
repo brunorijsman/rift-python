@@ -1,4 +1,5 @@
 import collections
+import inspect
 import encoding.ttypes
 import packet_common
 import table
@@ -8,6 +9,22 @@ import common.ttypes  ###@@@
 _SHORT_DELAY_TICKS = 1
 _LONG_DELAY_TICKS = 5
 _TICK_INTERVAL = 0.2
+
+# Set these to debug tie database synchronization
+###@@@
+# DEBUG = False                   # True to enable debugging
+# DEBUG_NODE_NAME = None          # None for all nodes, or name of specific node to debug
+# DEBUG_TIE_DIRECTION = None      # None for all directions, or direction constant
+# DEBUG_TIE_ORIGINATOR = None     # None for all originators, or system id or originator
+# DEBUG_TIE_TYPE = None           # None for all tie types, or tie type constant
+
+###@@@
+DEBUG = True
+DEBUG_NODE_NAME = None
+DEBUG_TIE_DIRECTION = common.ttypes.TieDirectionType.South
+DEBUG_TIE_ORIGINATOR = 2
+DEBUG_TIE_TYPE = common.ttypes.TIETypeType.NodeTIEType
+
 
 class _MsgQueueBase:
 
@@ -36,12 +53,31 @@ class _MsgQueueBase:
       messages.
     """
 
-    def __init__(self, interface, with_lifetime):
+    def __init__(self, name, interface, with_lifetime):
+        self._name = name
         self._interface = interface
         self._with_lifetime = with_lifetime
         # Queue key is TIE-ID
         # Queue value is (delay_ticks, TIEHeaderWithLifeTime)
         self._queue = collections.OrderedDict()
+
+    def debug(self, operation, tie_id, seq_nr):
+        if not DEBUG:
+            return
+        node_name = self._interface.node.name
+        if DEBUG_NODE_NAME is not None and node_name != DEBUG_NODE_NAME:
+            return
+        if DEBUG_TIE_DIRECTION is not None and tie_id.direction != DEBUG_TIE_DIRECTION:
+            return
+        if DEBUG_TIE_ORIGINATOR is not None and tie_id.originator != DEBUG_TIE_ORIGINATOR:
+            return
+        if DEBUG_TIE_TYPE is not None and tie_id.tietype != DEBUG_TIE_TYPE:
+            return
+        print("{}: {} queue, {} tie_id={} seq_nr={}".format(node_name, operation,
+                                                            self._name, tie_id, seq_nr))
+        stack = inspect.stack()
+        for frame in stack[1:]:
+            print("  {}:{}:{} ".format(frame.filename, frame.lineno, frame.function))
 
     def add_tie_header(self, tie_header):
         assert not self._with_lifetime
@@ -57,10 +93,6 @@ class _MsgQueueBase:
     def _add_tie_header_common(self, tie_header_lifetime):
         tie_header = tie_header_lifetime.header
         tie_id = tie_header.tieid
-        ###@@@ DEBUG
-        if tie_id.tietype == common.ttypes.TIETypeType.NodeTIEType:
-            print("{}: add {}".format(self._interface.name, tie_header))
-        ###@@@
         # Decide how fast we want to send the message
         if tie_id in self._queue:
             (old_delay_ticks, old_tie_header_lifetime) = self._queue[tie_id]
@@ -75,14 +107,12 @@ class _MsgQueueBase:
             new_delay_ticks = _SHORT_DELAY_TICKS
         # Put message on queue with updated delay.
         self._queue[tie_id] = (new_delay_ticks, tie_header_lifetime)
+        self.debug("add", tie_header.tieid, tie_header.seq_nr)
 
     def remove_tie_id(self, tie_id):
         if tie_id in self._queue:
-            ###@@@ DEBUG
-            if tie_id.tietype == common.ttypes.TIETypeType.NodeTIEType:
-                print("{}: act remove {}".format(self._interface.name, tie_id))
-            ###@@@
             del self._queue[tie_id]
+            self.debug("remove", tie_id, None)
 
     def search_tie_id(self, tie_id):
         result = self._queue.get(tie_id)
@@ -143,7 +173,7 @@ class _MsgQueueBase:
 class _TIEQueue(_MsgQueueBase):
 
     def __init__(self, interface):
-        _MsgQueueBase.__init__(self, interface, with_lifetime=False)
+        _MsgQueueBase.__init__(self, "tie", interface, with_lifetime=False)
 
     def start_message(self):
         pass
@@ -165,7 +195,7 @@ class _TIEQueue(_MsgQueueBase):
 class _TIEReqQueue(_MsgQueueBase):
 
     def __init__(self, interface):
-        _MsgQueueBase.__init__(self, interface, with_lifetime=True)
+        _MsgQueueBase.__init__(self, "req", interface, with_lifetime=True)
         self._tire_packet = None
 
     def start_message(self):
@@ -201,7 +231,7 @@ class _TIEReqQueue(_MsgQueueBase):
 class _TIEAckQueue(_MsgQueueBase):
 
     def __init__(self, interface):
-        _MsgQueueBase.__init__(self, interface, with_lifetime=True)
+        _MsgQueueBase.__init__(self, "ack", interface, with_lifetime=True)
         self._tire_packet = None
 
     def start_message(self):
@@ -243,10 +273,6 @@ class MsgQueues:
 
     def add_to_tie_req_queue(self, tie_header_lifetime):
         self._tie_req_queue.add_tie_header_lifetime(tie_header_lifetime)
-        ###@@@ DEBUG
-        if self._tie_ack_queue.search_tie_id(tie_header_lifetime.header.tieid):
-            print("added req also in ack")
-        ###@@@
         self._start_or_stop_timer_as_needed()
 
     def remove_from_tie_req_queue(self, tie_id):
@@ -255,10 +281,6 @@ class MsgQueues:
 
     def add_to_tie_ack_queue(self, tie_header_lifetime):
         self._tie_ack_queue.add_tie_header_lifetime(tie_header_lifetime)
-        ###@@@ DEBUG
-        if self._tie_req_queue.search_tie_id(tie_header_lifetime.header.tieid):
-            print("added ack also in req")
-        ###@@@
         self._start_or_stop_timer_as_needed()
 
     def remove_from_tie_ack_queue(self, tie_id):
