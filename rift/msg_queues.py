@@ -63,7 +63,7 @@ class _MsgQueueBase:
             print("{}: add {}".format(self._interface.name, tie_header))
             curframe = inspect.currentframe()
             calframe = inspect.getouterframes(curframe, 2)
-            print('caller name:', calframe[1][3])
+            print('call stack:', calframe[1])
         ###@@@
         # Decide how fast we want to send the message
         if tie_id in self._queue:
@@ -87,7 +87,7 @@ class _MsgQueueBase:
                 print("{}: act remove {}".format(self._interface.name, tie_id))
                 curframe = inspect.currentframe()
                 calframe = inspect.getouterframes(curframe, 2)
-                print('caller name:', calframe[1][3])
+                print('call stack:', calframe[1])
             ###@@@
             del self._queue[tie_id]
         else:
