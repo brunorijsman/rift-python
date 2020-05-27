@@ -249,6 +249,10 @@ class MsgQueues:
 
     def add_to_tie_req_queue(self, tie_header_lifetime):
         self._tie_req_queue.add_tie_header_lifetime(tie_header_lifetime)
+        ###@@@ DEBUG
+        if self._tie_ack_queue.search_tie_id(tie_header_lifetime.tie_header.tieid):
+            print("added req also in ack")
+        ###@@@
         self._start_or_stop_timer_as_needed()
 
     def remove_from_tie_req_queue(self, tie_id):
@@ -257,6 +261,10 @@ class MsgQueues:
 
     def add_to_tie_ack_queue(self, tie_header_lifetime):
         self._tie_ack_queue.add_tie_header_lifetime(tie_header_lifetime)
+        ###@@@ DEBUG
+        if self._tie_req_queue.search_tie_id(tie_header_lifetime.tie_header.tieid):
+            print("added ack also in req")
+        ###@@@
         self._start_or_stop_timer_as_needed()
 
     def remove_from_tie_ack_queue(self, tie_id):
