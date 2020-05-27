@@ -972,26 +972,21 @@ class Node:
         # a negative disaggregation TIE, return.
         if not fallen_leafs and not self._my_neg_disagg_tie_info:
             return
-
         if self._my_neg_disagg_tie_info:
             # Check that found fallen_leafs are equal to the ones specified
             # in the announced TIE
             protocol_packet = self._my_neg_disagg_tie_info.protocol_packet
             element = protocol_packet.content.tie.element
             tie_fallen_leafs = element.negative_disaggregation_prefixes.prefixes
-
             fallen_leafs_prefixes = fallen_leafs.keys()
             tie_prefixes = tie_fallen_leafs.keys()
-
             # Discover new fallen leaf nodes
             new_fallen_leafs = fallen_leafs_prefixes - tie_prefixes
             # Check if there are any recovered fallen leaf nodes
             recovered_leafs = tie_prefixes - fallen_leafs_prefixes
-
             # Nothing new to announce, exit
             if not new_fallen_leafs and not recovered_leafs:
                 return
-
         # We need regenerate a new prefix TIE for the negatively disaggregated prefixes.
         # Determine the sequence number.
         if self._my_neg_disagg_tie_info:
@@ -999,46 +994,32 @@ class Node:
             new_seq_nr = protocol_packet.content.tie.header.seq_nr + 1
         else:
             new_seq_nr = 1
-
         # Build the new prefix TIE.
         tie_header = packet_common.make_tie_header(
             direction=common.ttypes.TieDirectionType.South,
             originator=self.system_id,
             tie_type=common.ttypes.TIETypeType.NegativeDisaggregationPrefixTIEType,
             tie_nr=MY_NEG_DISAGG_TIE_NR,
-            seq_nr=new_seq_nr
-        )
-
+            seq_nr=new_seq_nr)
         fallen_leafs_attrs = {}
         for prefix, dest in fallen_leafs.items():
             fallen_leafs_attrs[prefix] = encoding.ttypes.PrefixAttributes(
                 common.constants.infinite_distance, dest.tags, None)
-
-        prefix_tie_element = encoding.ttypes.PrefixTIEElement(
-            prefixes=fallen_leafs_attrs
-        )
-
+        prefix_tie_element = encoding.ttypes.PrefixTIEElement(prefixes=fallen_leafs_attrs)
         tie_element = encoding.ttypes.TIEElement(
-            negative_disaggregation_prefixes=prefix_tie_element
-        )
-
+            negative_disaggregation_prefixes=prefix_tie_element)
         tie_packet = encoding.ttypes.TIEPacket(header=tie_header, element=tie_element)
-
         # Wrap the tie_packet into a protocol packet, and encode it into a packet_info
         packet_header = encoding.ttypes.PacketHeader(sender=self.system_id,
-                                                     level=self.level_value()
-                                                     )
+                                                     level=self.level_value())
         packet_content = encoding.ttypes.PacketContent()
-        protocol_packet = encoding.ttypes.ProtocolPacket(
-            header=packet_header,
-            content=packet_content
-        )
+        protocol_packet = encoding.ttypes.ProtocolPacket(header=packet_header,
+                                                         content=packet_content)
         protocol_packet.content.tie = tie_packet
         packet_info = packet_common.encode_protocol_packet(protocol_packet, self.active_origin_key)
         lifetime = common.constants.default_lifetime if fallen_leafs \
             else common.constants.purge_lifetime
         packet_common.set_lifetime(packet_info, lifetime)
-
         self._my_neg_disagg_tie_info = packet_info
         self.store_tie_packet_info(packet_info)
         self.info("Regenerated negative disaggregation TIE: %s", tie_packet)
@@ -2636,13 +2617,11 @@ class Node:
     def age_ties(self):
         expired_key_ids = []
         for tie_id, tie_packet_info in self.tie_packet_infos.items():
-            ###@@@ DEBUG
-            if tie_packet_info.remaining_tie_lifetime is None:
-                print("tie_packet_info = ", tie_packet_info)
-            ###@@@ 
-            tie_packet_info.remaining_tie_lifetime -= 1
-            if tie_packet_info.remaining_tie_lifetime <= 0:
-                expired_key_ids.append(tie_id)
+            # Age only received TIEs (not locally originated TIEs)
+            if tie_packet_info.rx_intf:
+                tie_packet_info.remaining_tie_lifetime -= 1
+                if tie_packet_info.remaining_tie_lifetime <= 0:
+                    expired_key_ids.append(tie_id)
         for key_id in expired_key_ids:
             # TODO: log a message
             self.remove_tie(key_id)
