@@ -2134,6 +2134,7 @@ class Node:
                 print("    rx_intf = {}".format(rx_tie_packet_info.rx_intf.name))
                 print("    db_tie_header = {}".format(db_tie_packet.header))
                 print("    rx_tie_header = {}".format(rx_tie_header))
+                print("    rx_tie_packet_info = {}".format(rx_tie_packet_info))
             ###@@@
             db_tie_lifetime = packet_common.expand_tie_header_with_lifetime(
                 db_tie_packet.header,
