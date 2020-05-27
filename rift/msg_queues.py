@@ -73,9 +73,10 @@ class _MsgQueueBase:
             return
         if DEBUG_TIE_TYPE is not None and tie_id.tietype != DEBUG_TIE_TYPE:
             return
-        print("{}: {} queue, {} tie_id={} seq_nr={}".format(node_name, operation,
+        print("{}: {} {} queue, tie_id={} seq_nr={}".format(node_name, operation,
                                                             self._name, tie_id, seq_nr))
         stack = inspect.stack()
+        stack = stack[:-6]
         for frame in stack[1:]:
             print("  {}:{}:{} ".format(frame.filename, frame.lineno, frame.function))
 
@@ -107,12 +108,12 @@ class _MsgQueueBase:
             new_delay_ticks = _SHORT_DELAY_TICKS
         # Put message on queue with updated delay.
         self._queue[tie_id] = (new_delay_ticks, tie_header_lifetime)
-        self.debug("add", tie_header.tieid, tie_header.seq_nr)
+        self.debug("add to", tie_header.tieid, tie_header.seq_nr)
 
     def remove_tie_id(self, tie_id):
         if tie_id in self._queue:
             del self._queue[tie_id]
-            self.debug("remove", tie_id, None)
+            self.debug("remove from", tie_id, None)
 
     def search_tie_id(self, tie_id):
         result = self._queue.get(tie_id)

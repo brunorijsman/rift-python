@@ -2124,6 +2124,11 @@ class Node:
                 self.store_tie_packet_info(rx_tie_packet_info)
                 ack_tie_header = rx_tie_header
         else:
+            ###@@@
+            print("... rx_tie:")
+            print("    db_tie_header = {}".format(db_tie_packet.header))
+            print("    rx_tie_header = {}".format(rx_tie_header))
+            ###@@@
             db_tie_packet = db_tie_packet_info.protocol_packet.content.tie
             db_tie_lifetime = packet_common.expand_tie_header_with_lifetime(
                 db_tie_packet.header,
@@ -2133,6 +2138,7 @@ class Node:
                 rx_tie_packet_info.remaining_tie_lifetime)
             comparison = compare_tie_header_lifetime_age(db_tie_lifetime, rx_tie_lifetime)
             if comparison < 0:
+                print("   db_tie is older") ###@@@
                 # We have an older version of the TIE, ...
                 if rx_tie_id.originator == self.system_id:
                     # Re-originate DB TIE with higher sequence number than the one in RX TIE
@@ -2145,9 +2151,11 @@ class Node:
                     # Flood the TIE
                     self.unsol_flood_tie_packet_info(rx_tie_packet_info)
             elif comparison > 0:
+                print("   db_tie is newer") ###@@@
                 # We have a newer version of the TIE, send it
                 start_sending_tie_header = db_tie_packet.header
             else:
+                print("   db_tie is same age") ###@@@
                 # We have the same version of the TIE, ACK it
                 ack_tie_header = db_tie_packet.header
         return (start_sending_tie_header, ack_tie_header)
