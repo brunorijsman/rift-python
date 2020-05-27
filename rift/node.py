@@ -2609,12 +2609,6 @@ class Node:
     def age_ties(self):
         expired_key_ids = []
         for tie_id, tie_packet_info in self.tie_packet_infos.items():
-            ###@@@ DEBUG
-            if tie_packet_info.remaining_tie_lifetime is None:
-                print("tie_packet_info = {}".format(tie_packet_info))
-                print("rx_intf = {}".format(tie_packet_info.rx_intf))
-                print("remaining_tie_lifetime = {}".format(tie_packet_info.remaining_tie_lifetime))
-            ###@@@ DEBUG
             tie_packet_info.remaining_tie_lifetime -= 1
             if tie_packet_info.remaining_tie_lifetime <= 0:
                 expired_key_ids.append(tie_id)
