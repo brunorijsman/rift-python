@@ -1369,7 +1369,7 @@ class Interface:
             tie_header_lifetime = packet_common.expand_tie_header_with_lifetime(
                 ack_tie_header,
                 tie_packet_info.remaining_tie_lifetime)
-            print("{}: ack tx tie {}".format(self.name, tie_packet_info))  ###@@@        
+            print("{}: ack tx tie {}".format(self.name, tie_packet_info))  ###@@@
             self.ack_tie(tie_header_lifetime)
 
     def process_rx_tide_packet(self, tide_packet):
@@ -1378,7 +1378,7 @@ class Interface:
         for tie_header in start_sending_tie_headers:
             print("{}: rx TIDE start {}".format(self.name, tie_header))  ###@@@
             self.try_to_transmit_tie(tie_header)
-        for tie_header_lifetime in request_tie_headers_lifetime:            
+        for tie_header_lifetime in request_tie_headers_lifetime:
             print("{}: rx TIDE request {}".format(self.name, tie_header_lifetime))  ###@@@
             self.request_tie(tie_header_lifetime)
         for tie_header in stop_sending_tie_headers:
@@ -1518,7 +1518,7 @@ class Interface:
                     # ACK for newer TIE or same seq-nr TIE in in queue, keep ACK and don't send
                     # this older TIE
                     print("{}: ack newer tie {}".format(self.name, tie_header))  ###@@@
-                    pass
+                    ###@@@ pass
             else:
                 # No ACK in queue, send this TIE
                 print("{}: no ack in queue {}".format(self.name, tie_header))  ###@@@
