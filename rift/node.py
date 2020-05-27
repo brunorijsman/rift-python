@@ -2127,8 +2127,8 @@ class Node:
             db_tie_packet = db_tie_packet_info.protocol_packet.content.tie
             ###@@@
             logit = (rx_tie_header.tieid.direction == common.ttypes.TieDirectionType.South and
-                    rx_tie_header.tieid.originator == 2 and
-                    rx_tie_header.tieid.tietype == common.ttypes.TIETypeType.NodeTIEType)
+                     rx_tie_header.tieid.originator == 2 and
+                     rx_tie_header.tieid.tietype == common.ttypes.TIETypeType.NodeTIEType)
             if logit:
                 print("... rx_tie:")
                 print("    db_tie_header = {}".format(db_tie_packet.header))
