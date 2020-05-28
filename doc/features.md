@@ -29,12 +29,12 @@
 | Add neighbor's same TIEs to acknowledge queue | Yes |
 | Re-transmit TIEs if they are not acknowledged | Yes |
 | Periodically serve all queues (TX, RTX, REQ, ACK) | Yes |
-| Propagate TIE packets without decoding and re-encoding | No |
+| Propagate TIE packets without decoding and re-encoding | Yes |
 | Send / Process Node TIE packets | Yes |
 | Send / Process North Prefix TIE packets (configured prefixes)  | Yes |
 | Send / Process South Prefix TIE packets (default prefixes)  | Yes |
 | Send / Process Positive Disaggregation TIE packets | Yes |
-| Send / Process Negative Disaggregation TIE packets | No |
+| Send / Process Negative Disaggregation TIE packets | Yes |
 | Send / Process Policy Guided Prefix TIE packets | No |
 | Send / Process Key Value TIE packets | No |
 | Process received TIDE packets | Yes |
@@ -71,7 +71,7 @@
 | Non-Equal-Cost Multi-Path (NECMP) | No |
 | Use non-best paths (Eppstein k-shortest) | No |
 | Route Calculation for Positive Disaggregation | Yes |
-| Route Calculation for Negative Disaggregation | No |
+| Route Calculation for Negative Disaggregation | Yes |
 | Routing Information Base (RIB) | Yes |
 | Forwarding Information Base (FIB) abstraction | Yes |
 | Store FIB routes into kernel route table (on Linux only) | Yes |
@@ -83,7 +83,7 @@
 | Attaching Prefixes  | Yes |
 | Attaching Policy-Guided Prefixes  | No |
 | Positive Disaggregation on Link & Node Failures  | Yes |
-| Negative Disaggregation on Link & Node Failures  | No |
+| Negative Disaggregation on Link & Node Failures  | Yes |
 | Stability Considerations  | No |
 | Further Mechanisms  | No |
 | Overload Bit  | No |
