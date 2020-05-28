@@ -203,7 +203,7 @@ class _TIEQueue(_MsgQueueBase):
             if DEBUG_PRINT and self._debug_tie_id(tie_id):
                 # Print a message for debugging
                 print("{} {}: interface {} send tie-id {} tie {}"
-                      .format(self.timestamp(), self._interface.node.name, self._interface.name,
+                      .format(self._timestamp(), self._interface.node.name, self._interface.name,
                               tie_id, db_tie_packet_info))
             if DEBUG_CHECK_TIE_ENCODING and self._debug_tie_id(tie_id):
                 # Check whehter the pre-computed encoded packet is correct.
@@ -215,7 +215,7 @@ class _TIEQueue(_MsgQueueBase):
                 else:
                     result = "INCORRECT"
                 print("{} {}: interface {} tie-id {} encoding is {}"
-                      .format(self.timestamp(), self._interface.node.name, self._interface.name,
+                      .format(self._timestamp(), self._interface.node.name, self._interface.name,
                               tie_id, result))
             self._interface.send_packet_info(db_tie_packet_info, flood=True)
 
