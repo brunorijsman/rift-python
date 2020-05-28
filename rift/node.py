@@ -2149,21 +2149,25 @@ class Node:
         tie_type = rx_tie_header.tieid.tietype
         if tie_type == common.ttypes.TIETypeType.NodeTIEType:
             header = self.regenerate_node_tie(direction, bump_seq_nr=rx_tie_header.seq_nr)
+            assert header is None or isinstance(header, common.ttypes.TIEHeader)  ###@@@
         elif tie_type == common.ttypes.TIETypeType.PrefixTIEType:
             if direction == common.ttypes.TieDirectionType.North:
                 header = self.regenerate_my_north_prefix_tie(bump_seq_nr=rx_tie_header.seq_nr)
+                assert header is None or isinstance(header, common.ttypes.TIEHeader)  ###@@@
             elif direction == common.ttypes.TieDirectionType.South:
                 header = self.regenerate_my_south_prefix_tie(bump_seq_nr=rx_tie_header.seq_nr)
+                assert header is None or isinstance(header, common.ttypes.TIEHeader)  ###@@@
             else:
                 assert False
         elif tie_type == common.ttypes.TIETypeType.PositiveDisaggregationPrefixTIEType:
             header = self.regenerate_my_pos_disagg_tie(bump_seq_nr=rx_tie_header.seq_nr)
+            assert header is None or isinstance(header, common.ttypes.TIEHeader)  ###@@@
         elif tie_type == common.ttypes.TIETypeType.NegativeDisaggregationPrefixTIEType:
             # TODO: more consistent naming. Cache the fallen leaves?
             header = self.update_neg_disagg_fallen_leafs(bump_seq_nr=rx_tie_header.seq_nr)
+            assert header is None or isinstance(header, common.ttypes.TIEHeader)  ###@@@
         else:
             assert False
-        assert header is None or isinstance(header, TIEHeader)  ###@@@
         return header
 
     def process_rx_tie_packet_info(self, rx_tie_packet_info):
