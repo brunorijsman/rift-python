@@ -855,11 +855,11 @@ class Node:
                           common.ttypes.TieDirectionType.North]:
             self.regenerate_node_tie(direction, interface_going_down)
 
-    def make_prefix_tie_protocol_packet(self, direction, seq_nr):
+    def make_prefix_tie_protocol_packet(self, direction, tie_nr, seq_nr):
         prefix_tie_packet = packet_common.make_prefix_tie_packet(
             direction=direction,
             originator=self.system_id,
-            tie_nr=MY_PREFIX_TIE_NR,
+            tie_nr=tie_nr,
             seq_nr=seq_nr)
         packet_header = encoding.ttypes.PacketHeader(
             sender=self.system_id,
@@ -894,8 +894,16 @@ class Node:
                 new_seq_nr = 1
         else:
             new_seq_nr = bump_seq_nr + 1
+        if self._my_north_prefix_tie_packet_info:
+            protocol_packet = self._my_north_prefix_tie_packet_info.protocol_packet
+            tie_packet = protocol_packet.content.tie
+            new_seq_nr = tie_packet.header.seq_nr + 1
+            new_tie_nr = tie_packet.header.tieid.tie_nr
+        else:
+            new_tie_nr = MY_PREFIX_TIE_NR
         protocol_packet = self.make_prefix_tie_protocol_packet(
             direction=common.ttypes.TieDirectionType.North,
+            tie_nr=new_tie_nr,
             seq_nr=new_seq_nr)
         tie_packet = protocol_packet.content.tie
         if 'v4prefixes' in config:
@@ -1129,7 +1137,7 @@ class Node:
         # If nothing changed and we are nog bumping, keep what we have.
         if (must_originate_default == self._originating_default and
                 self._my_south_prefix_tie_packet_info is not None and
-                bump_seq_nr is not None):
+                bump_seq_nr is None):
             protocol_packet = self._my_south_prefix_tie_packet_info.protocol_packet
             return protocol_packet.content.tie.header
         # Build a new TIE to originate
@@ -1142,8 +1150,16 @@ class Node:
                 new_seq_nr = 1
         else:
             new_seq_nr = bump_seq_nr + 1
+        if self._my_south_prefix_tie_packet_info:
+            protocol_packet = self._my_south_prefix_tie_packet_info.protocol_packet
+            tie_packet = protocol_packet.content.tie
+            new_seq_nr = tie_packet.header.seq_nr + 1
+            new_tie_nr = tie_packet.header.tieid.tie_nr
+        else:
+            new_tie_nr = MY_PREFIX_TIE_NR
         new_protocol_packet = self.make_prefix_tie_protocol_packet(
             direction=common.ttypes.TieDirectionType.South,
+            tie_nr=new_tie_nr,
             seq_nr=new_seq_nr)
         new_tie_packet = new_protocol_packet.content.tie
         if must_originate_default:
