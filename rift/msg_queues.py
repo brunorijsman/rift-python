@@ -209,14 +209,11 @@ class _TIEQueue(_MsgQueueBase):
                 # Check whehter the pre-computed encoded packet is correct.
                 check_packet_info = packet_common.encode_protocol_packet(
                     db_tie_packet_info.protocol_packet, self._interface.active_outer_key)
-                if (db_tie_packet_info.encoded_protocol_packet ==
+                if (db_tie_packet_info.encoded_protocol_packet !=
                         check_packet_info.encoded_protocol_packet):
-                    result = "correct"
-                else:
-                    result = "INCORRECT"
-                print("{} {}: interface {} tie-id {} encoding is {}"
-                      .format(self._timestamp(), self._interface.node.name, self._interface.name,
-                              tie_id, result))
+                    print("{} {}: interface {} tie-id {} encoding is INCORRECT"
+                          .format(self._timestamp(), self._interface.node.name,
+                                  self._interface.name, tie_id))
             self._interface.send_packet_info(db_tie_packet_info, flood=True)
 
 

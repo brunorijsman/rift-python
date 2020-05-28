@@ -810,8 +810,10 @@ class Node:
         protocol_packet.content.tie = node_tie_packet
         return protocol_packet
 
-    def regenerate_node_tie(self, direction, interface_going_down=None):
+    def regenerate_node_tie(self, direction, interface_going_down=None, bump_seq_nr=None):
         tie_nr = MY_NODE_TIE_NR
+        if bump_seq_nr is not None:
+            self.my_node_tie_seq_nrs[direction] = bump_seq_nr
         self.my_node_tie_seq_nrs[direction] += 1
         seq_nr = self.my_node_tie_seq_nrs[direction]
         protocol_packet = self.make_node_tie_protocol_packet(direction, tie_nr, seq_nr)
@@ -846,6 +848,7 @@ class Node:
         if self.level_value() is not None:
             self._parent_neighbors = dict(filter(lambda x: x[1].level > self.level_value(),
                                                  tie_packet.element.node.neighbors.items()))
+        return tie_packet.header
 
     def regenerate_my_node_ties(self, interface_going_down=None):
         for direction in [common.ttypes.TieDirectionType.South,
@@ -868,7 +871,7 @@ class Node:
         protocol_packet.content.tie = prefix_tie_packet
         return protocol_packet
 
-    def regenerate_my_north_prefix_tie(self):
+    def regenerate_my_north_prefix_tie(self, bump_seq_nr=None):
         config = self._config
         if ('v4prefixes' not in config) and ('v6prefixes' not in config):
             self._my_north_prefix_tie_packet_info = None
@@ -878,10 +881,22 @@ class Node:
                 tie_type=common.ttypes.TIETypeType.PrefixTIEType,
                 tie_nr=MY_PREFIX_TIE_NR)
             self.remove_tie(tie_id)
-            return
+            # If we never advertised the TIE, and we are not bumping, don't advertise anything.
+            # Otherwise, advertise an empty TIE.
+            if (self._my_north_prefix_tie_packet_info is None) and (bump_seq_nr is None):
+                return None
+        if bump_seq_nr is None:
+            if self._my_north_prefix_tie_packet_info:
+                protocol_packet = self._my_north_prefix_tie_packet_info.protocol_packet
+                tie_packet = protocol_packet.content.tie
+                new_seq_nr = tie_packet.header.seq_nr + 1
+            else:
+                new_seq_nr = 1
+        else:
+            new_seq_nr = bump_seq_nr + 1
         protocol_packet = self.make_prefix_tie_protocol_packet(
             direction=common.ttypes.TieDirectionType.North,
-            seq_nr=1)
+            seq_nr=new_seq_nr)
         tie_packet = protocol_packet.content.tie
         if 'v4prefixes' in config:
             for v4prefix in config['v4prefixes']:
@@ -903,8 +918,9 @@ class Node:
         self.store_tie_packet_info(self._my_north_prefix_tie_packet_info)
         self.info("Regenerated north prefix TIE: %s", tie_packet)
         self.unsol_flood_tie_packet_info(self._my_north_prefix_tie_packet_info)
+        return tie_packet.header.tieid
 
-    def regenerate_my_pos_disagg_tie(self):
+    def regenerate_my_pos_disagg_tie(self, bump_seq_nr=None):
         # Gather the set of (prefix, metric, tags) containing all prefixes which we should currently
         # advertise in our TIE.
         should_adv_disagg = {}
@@ -921,17 +937,24 @@ class Node:
             prefixes = element.positive_disaggregation_prefixes.prefixes
             for prefix, attr in prefixes.items():
                 do_adv_disagg[prefix] = attr
-        # If what we actually advertise is equal to what we should advertise, we are done.
-        if do_adv_disagg == should_adv_disagg:
-            return
+        # If what we actually advertise is equal to what we should advertise, we are done (unless
+        # we are bumping)
+        if (do_adv_disagg == should_adv_disagg) and (bump_seq_nr is None):
+            if self._my_pos_disagg_tie_packet_info:
+                protocol_packet = self._my_pos_disagg_tie_packet_info.protocol_packet
+                return protocol_packet.content.tie.header.tieid
+            return None
         # Something changed; we need regenerate a new prefix TIE for the positively disaggregated
         # prefixes.
         # Determine the sequence number.
-        if self._my_pos_disagg_tie_packet_info:
-            protocol_packet = self._my_pos_disagg_tie_packet_info.protocol_packet
-            new_seq_nr = protocol_packet.content.tie.header.seq_nr + 1
+        if bump_seq_nr is None:
+            if self._my_pos_disagg_tie_packet_info:
+                protocol_packet = self._my_pos_disagg_tie_packet_info.protocol_packet
+                new_seq_nr = protocol_packet.content.tie.header.seq_nr + 1
+            else:
+                new_seq_nr = 1
         else:
-            new_seq_nr = 1
+            new_seq_nr = bump_seq_nr + 1
         # Build the new prefix TIE.
         tie_header = packet_common.make_tie_header(
             direction=common.ttypes.TieDirectionType.South,
@@ -945,10 +968,11 @@ class Node:
             positive_disaggregation_prefixes=prefix_tie_element)
         tie_packet = encoding.ttypes.TIEPacket(header=tie_header, element=tie_element)
         # If the new TIE is empty and we were not already advertising a positive disaggregation
-        # TIE, then don't start now.
+        # TIE, then don't start now (unless we are bumping)
         if (not tie_packet.element.positive_disaggregation_prefixes.prefixes
-                and not self._my_pos_disagg_tie_packet_info):
-            return
+                and not self._my_pos_disagg_tie_packet_info
+                and bump_seq_nr is None):
+            return None
         # Wrap the tie_packet into a protocol packet, and encode it into a packet_info
         packet_header = encoding.ttypes.PacketHeader(
             sender=self.system_id,
@@ -966,12 +990,13 @@ class Node:
         self.store_tie_packet_info(packet_info)
         self.info("Regenerated positive disaggregation TIE: %s", tie_packet)
         self.unsol_flood_tie_packet_info(packet_info)
+        return tie_packet.header.tieid
 
-    def regenerate_my_neg_disagg_tie(self, fallen_leafs):
+    def regenerate_my_neg_disagg_tie(self, fallen_leafs, bump_seq_nr=None):
         # If the no fallen leafs are present and we were not already advertising
-        # a negative disaggregation TIE, return.
-        if not fallen_leafs and not self._my_neg_disagg_tie_info:
-            return
+        # a negative disaggregation TIE, return (unless we are bumping).
+        if not fallen_leafs and not self._my_neg_disagg_tie_info and bump_seq_nr is None:
+            return None
         if self._my_neg_disagg_tie_info:
             # Check that found fallen_leafs are equal to the ones specified
             # in the announced TIE
@@ -984,16 +1009,19 @@ class Node:
             new_fallen_leafs = fallen_leafs_prefixes - tie_prefixes
             # Check if there are any recovered fallen leaf nodes
             recovered_leafs = tie_prefixes - fallen_leafs_prefixes
-            # Nothing new to announce, exit
-            if not new_fallen_leafs and not recovered_leafs:
-                return
+            # Nothing new to announce, exit (unless we are bumping)
+            if not new_fallen_leafs and not recovered_leafs and bump_seq_nr is None:
+                return protocol_packet.content.tie.header
         # We need regenerate a new prefix TIE for the negatively disaggregated prefixes.
         # Determine the sequence number.
-        if self._my_neg_disagg_tie_info:
-            protocol_packet = self._my_neg_disagg_tie_info.protocol_packet
-            new_seq_nr = protocol_packet.content.tie.header.seq_nr + 1
+        if bump_seq_nr is None:
+            if self._my_neg_disagg_tie_info:
+                protocol_packet = self._my_neg_disagg_tie_info.protocol_packet
+                new_seq_nr = protocol_packet.content.tie.header.seq_nr + 1
+            else:
+                new_seq_nr = 1
         else:
-            new_seq_nr = 1
+            new_seq_nr = bump_seq_nr + 1
         # Build the new prefix TIE.
         tie_header = packet_common.make_tie_header(
             direction=common.ttypes.TieDirectionType.South,
@@ -1024,6 +1052,7 @@ class Node:
         self.store_tie_packet_info(packet_info)
         self.info("Regenerated negative disaggregation TIE: %s", tie_packet)
         self.unsol_flood_tie_packet_info(packet_info)
+        return tie_header.tieid
 
     def is_overloaded(self):
         # Is this node overloaded?
@@ -1076,7 +1105,7 @@ class Node:
         # always return True)
         return True
 
-    def regenerate_my_south_prefix_tie(self, interface_going_down=None):
+    def regenerate_my_south_prefix_tie(self, interface_going_down=None, bump_seq_nr=None):
         if self.is_overloaded():
             decision = (False, "This node is overloaded")
         elif not self.have_s_or_ew_adjacency(interface_going_down):
@@ -1090,43 +1119,54 @@ class Node:
         (must_originate_default, reason) = decision
         # If we don't want to originate a default now, and we never originated one in the past, then
         # we don't create a prefix TIE at all. But if we have ever originated one in the past, then
-        # we have to flush it by originating an empty prefix TIE.
-        if (not must_originate_default) and (self._my_south_prefix_tie_packet_info is None):
+        # we have to flush it by originating an empty prefix TIE. We also have to originate an
+        # empty TIE if we are bumping a received TIE.
+        if ((not must_originate_default) and
+                (self._my_south_prefix_tie_packet_info is None) and
+                (bump_seq_nr is None)):
             self.info("Don't originate south prefix TIE because: %s", reason)
-            return
-        if ((must_originate_default != self._originating_default) or
-                (self._my_south_prefix_tie_packet_info is None)):
-            self._originating_default = must_originate_default
-            if self._my_south_prefix_tie_packet_info is None:
-                next_seq_nr = 1
-            else:
+            return None
+        # If nothing changed and we are nog bumping, keep what we have.
+        if (must_originate_default == self._originating_default and
+                self._my_south_prefix_tie_packet_info is not None and
+                bump_seq_nr is not None):
+            protocol_packet = self._my_south_prefix_tie_packet_info.protocol_packet
+            return protocol_packet.content.tie.header
+        # Build a new TIE to originate
+        if bump_seq_nr is None:
+            if self._my_south_prefix_tie_packet_info:
                 protocol_packet = self._my_south_prefix_tie_packet_info.protocol_packet
                 tie_packet = protocol_packet.content.tie
-                next_seq_nr = tie_packet.header.seq_nr + 1
-            new_protocol_packet = self.make_prefix_tie_protocol_packet(
-                direction=common.ttypes.TieDirectionType.South,
-                seq_nr=next_seq_nr)
-            new_tie_packet = new_protocol_packet.content.tie
-            if must_originate_default:
-                # The specification does not mention what metric the default route should be
-                # originated with. Juniper originates with metric 1, so that is what I will do as
-                # well.
-                metric = 1
-                packet_common.add_ipv4_prefix_to_prefix_tie(
-                    new_tie_packet,
-                    packet_common.make_ipv4_prefix("0.0.0.0/0"),
-                    metric)
-                packet_common.add_ipv6_prefix_to_prefix_tie(
-                    new_tie_packet,
-                    packet_common.make_ipv6_prefix("::/0"),
-                    metric)
-            new_packet_info = packet_common.encode_protocol_packet(new_protocol_packet,
-                                                                   self.active_origin_key)
-            packet_common.set_lifetime(new_packet_info, common.constants.default_lifetime)
-            self._my_south_prefix_tie_packet_info = new_packet_info
-            self.store_tie_packet_info(self._my_south_prefix_tie_packet_info)
-            self.info("Regenerated south prefix TIE because %s: %s", reason, new_tie_packet)
-            self.unsol_flood_tie_packet_info(self._my_south_prefix_tie_packet_info)
+                new_seq_nr = tie_packet.header.seq_nr + 1
+            else:
+                new_seq_nr = 1
+        else:
+            new_seq_nr = bump_seq_nr + 1
+        new_protocol_packet = self.make_prefix_tie_protocol_packet(
+            direction=common.ttypes.TieDirectionType.South,
+            seq_nr=new_seq_nr)
+        new_tie_packet = new_protocol_packet.content.tie
+        if must_originate_default:
+            # The specification does not mention what metric the default route should be
+            # originated with. Juniper originates with metric 1, so that is what I will do as
+            # well.
+            metric = 1
+            packet_common.add_ipv4_prefix_to_prefix_tie(
+                new_tie_packet,
+                packet_common.make_ipv4_prefix("0.0.0.0/0"),
+                metric)
+            packet_common.add_ipv6_prefix_to_prefix_tie(
+                new_tie_packet,
+                packet_common.make_ipv6_prefix("::/0"),
+                metric)
+        new_packet_info = packet_common.encode_protocol_packet(new_protocol_packet,
+                                                               self.active_origin_key)
+        packet_common.set_lifetime(new_packet_info, common.constants.default_lifetime)
+        self._my_south_prefix_tie_packet_info = new_packet_info
+        self.store_tie_packet_info(self._my_south_prefix_tie_packet_info)
+        self.info("Regenerated south prefix TIE because %s: %s", reason, new_tie_packet)
+        self.unsol_flood_tie_packet_info(self._my_south_prefix_tie_packet_info)
+        return new_tie_packet.header.tieid
 
     def clear_all_generated_node_ties(self):
         for direction in [common.ttypes.TieDirectionType.South,
@@ -2095,18 +2135,33 @@ class Node:
         return packet_info
 
     def bump_own_tie(self, db_tie_packet_info, rx_tie_header):
+        # We received a TIE (rx_tie) which appears to be self-originated
         if db_tie_packet_info is None:
-            # We received a TIE (rx_tie) which appears to be self-originated, but we don't have that
-            # TIE in our database. Re-originate the "according" (same TIE ID) TIE, but then empty
-            # (i.e. no neighbor, no prefixes, no key-values, etc.), with a higher sequence number,
-            # and a short remaining life time
+            # But we don't have that TIE in our database. Re-originate the "according" (same TIE
+            # ID) TIE, but then empty (i.e. no neighbor, no prefixes, no key-values, etc.), with a
+            # higher sequence number, and a short remaining life time
             db_tie_packet_info = self.make_according_empty_tie(rx_tie_header)
-        else:
-            # Re-originate DB TIE with higher sequence number than the one in RX TIE
-            db_tie_packet = db_tie_packet_info.protocol_packet.content.tie
-            db_tie_packet.header.seq_nr = rx_tie_header.seq_nr + 1
-        self.store_tie_packet_info(db_tie_packet_info)
-        return db_tie_packet_info.protocol_packet.content.tie.header
+            self.store_tie_packet_info(db_tie_packet_info)
+            return db_tie_packet_info.protocol_packet.content.tie.header
+        # We do have it in the TIE DB. Regenerate the locally originated TIE using a sequence number
+        # that is one higher than the one in the received TIE.
+        direction = rx_tie_header.tieid.direction
+        if rx_tie_header.tietype == common.ttypes.TIETypeType.NodeTIEType:
+            return self.regenerate_node_tie(direction, bump_seq_nr=rx_tie_header.seq_nr)
+        if rx_tie_header.tietype == common.ttypes.TIETypeType.PrefixTIEType:
+            if direction == common.ttypes.TieDirectionType.North:
+                return self.regenerate_my_north_prefix_tie(bump_seq_nr=rx_tie_header.seq_nr)
+            if direction == common.ttypes.TieDirectionType.South:
+                return self.regenerate_my_south_prefix_tie(bump_seq_nr=rx_tie_header.seq_nr)
+            assert False
+        if rx_tie_header.tietype == common.ttypes.TIETypeType.PositiveDisaggregationPrefixTIEType:
+            return self.regenerate_my_pos_disagg_tie(bump_seq_nr=rx_tie_header.seq_nr)
+        if rx_tie_header.tietype == common.ttypes.TIETypeType.NegativeDisaggregationPrefixTIEType:
+            # TODO: more consistent naming. Cache the fallen leaves?
+            return self.update_neg_disagg_fallen_leafs(bump_seq_nr=rx_tie_header.seq_nr)
+        assert False
+        return None
+
 
     def process_rx_tie_packet_info(self, rx_tie_packet_info):
         start_sending_tie_header = None
@@ -3149,7 +3204,7 @@ class Node:
             return False
         return True
 
-    def update_neg_disagg_fallen_leafs(self):
+    def update_neg_disagg_fallen_leafs(self, bump_seq_nr=None):
         normal_southbound_run = self._spf_destinations[(constants.DIR_SOUTH, False)]
         special_southbound_run = self._spf_destinations[(constants.DIR_SOUTH, True)]
         normal_southbound_dests = dict(filter(self.is_leaf_prefix, normal_southbound_run.items()))
@@ -3158,7 +3213,7 @@ class Node:
         fallen_leafs = {prefix: special_southbound_dests[prefix] for prefix in difference}
         for prefix in fallen_leafs.values():
             prefix.negatively_disaggregate = True
-        self.regenerate_my_neg_disagg_tie(fallen_leafs)
+        self.regenerate_my_neg_disagg_tie(fallen_leafs, bump_seq_nr)
 
     def floodred_elect_repeaters(self):
         self.floodred_debug("Re-elect flood repeaters")
