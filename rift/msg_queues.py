@@ -4,7 +4,7 @@ import encoding.ttypes
 import packet_common
 import table
 import timer
-import common.ttypes  ###@@@
+# import common.ttypes  ###@@@
 
 _SHORT_DELAY_TICKS = 1
 _LONG_DELAY_TICKS = 5
