@@ -918,7 +918,7 @@ class Node:
         self.store_tie_packet_info(self._my_north_prefix_tie_packet_info)
         self.info("Regenerated north prefix TIE: %s", tie_packet)
         self.unsol_flood_tie_packet_info(self._my_north_prefix_tie_packet_info)
-        return tie_packet.header.tieid
+        return tie_packet.header
 
     def regenerate_my_pos_disagg_tie(self, bump_seq_nr=None):
         # Gather the set of (prefix, metric, tags) containing all prefixes which we should currently
@@ -1166,7 +1166,7 @@ class Node:
         self.store_tie_packet_info(self._my_south_prefix_tie_packet_info)
         self.info("Regenerated south prefix TIE because %s: %s", reason, new_tie_packet)
         self.unsol_flood_tie_packet_info(self._my_south_prefix_tie_packet_info)
-        return new_tie_packet.header.tieid
+        return new_tie_packet.header
 
     def clear_all_generated_node_ties(self):
         for direction in [common.ttypes.TieDirectionType.South,
