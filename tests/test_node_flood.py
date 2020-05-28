@@ -39,6 +39,14 @@ def store_tie_packet(test_node, tie_packet, lifetime):
                                                        test_node.active_origin_key)
     packet_info.remaining_tie_lifetime = lifetime
     test_node.store_tie_packet_info(packet_info)
+    tie_id = content.tie.header.tieid
+    if tie_id.originator == MY_SYSTEM_ID:
+        if tie_id.tietype == NODE:
+            # pylint: disable=protected-access
+            if tie_id.direction == SOUTH:
+                test_node._my_south_prefix_tie_packet_info = packet_info
+            elif tie_id.direction == NORTH:
+                test_node._my_north_prefix_tie_packet_info = packet_info
 
 def test_compare_tie_header():
     # Exactly same

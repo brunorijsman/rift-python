@@ -1153,7 +1153,6 @@ class Node:
         if self._my_south_prefix_tie_packet_info:
             protocol_packet = self._my_south_prefix_tie_packet_info.protocol_packet
             tie_packet = protocol_packet.content.tie
-            new_seq_nr = tie_packet.header.seq_nr + 1
             new_tie_nr = tie_packet.header.tieid.tie_nr
         else:
             new_tie_nr = MY_PREFIX_TIE_NR
