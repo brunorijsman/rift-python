@@ -2149,31 +2149,21 @@ class Node:
         tie_type = rx_tie_header.tieid.tietype
         if tie_type == common.ttypes.TIETypeType.NodeTIEType:
             header = self.regenerate_node_tie(direction, bump_seq_nr=rx_tie_header.seq_nr)
-            ###@@@
-            if header is not None and not isinstance(header, encoding.ttypes.TIEHeader):
-                print("*** header =", header)
-                print("*** header tpe =", type(header))
-                assert False
-            ###@@@
-            assert header is None or isinstance(header, encoding.ttypes.TIEHeader)  ###@@@
         elif tie_type == common.ttypes.TIETypeType.PrefixTIEType:
             if direction == common.ttypes.TieDirectionType.North:
                 header = self.regenerate_my_north_prefix_tie(bump_seq_nr=rx_tie_header.seq_nr)
-                assert header is None or isinstance(header, encoding.ttypes.TIEHeader)  ###@@@
             elif direction == common.ttypes.TieDirectionType.South:
                 header = self.regenerate_my_south_prefix_tie(bump_seq_nr=rx_tie_header.seq_nr)
-                assert header is None or isinstance(header, encoding.ttypes.TIEHeader)  ###@@@
             else:
                 assert False
         elif tie_type == common.ttypes.TIETypeType.PositiveDisaggregationPrefixTIEType:
             header = self.regenerate_my_pos_disagg_tie(bump_seq_nr=rx_tie_header.seq_nr)
-            assert header is None or isinstance(header, encoding.ttypes.TIEHeader)  ###@@@
         elif tie_type == common.ttypes.TIETypeType.NegativeDisaggregationPrefixTIEType:
             # TODO: more consistent naming. Cache the fallen leaves?
             header = self.update_neg_disagg_fallen_leafs(bump_seq_nr=rx_tie_header.seq_nr)
-            assert header is None or isinstance(header, encoding.ttypes.TIEHeader)  ###@@@
         else:
             assert False
+        assert header is None or isinstance(header, encoding.ttypes.TIEHeader)
         return header
 
     def process_rx_tie_packet_info(self, rx_tie_packet_info):
@@ -2193,17 +2183,6 @@ class Node:
                 ack_tie_header = rx_tie_header
         else:
             db_tie_packet = db_tie_packet_info.protocol_packet.content.tie
-            ###@@@
-            logit = (rx_tie_header.tieid.direction == common.ttypes.TieDirectionType.South and
-                     rx_tie_header.tieid.originator == 2 and
-                     rx_tie_header.tieid.tietype == common.ttypes.TIETypeType.NodeTIEType)
-            if logit:
-                print("... rx_tie:")
-                print("    rx_intf = {}".format(rx_tie_packet_info.rx_intf.name))
-                print("    db_tie_header = {}".format(db_tie_packet.header))
-                print("    rx_tie_header = {}".format(rx_tie_header))
-                print("    rx_tie_packet_info = {}".format(rx_tie_packet_info))
-            ###@@@
             db_tie_lifetime = packet_common.expand_tie_header_with_lifetime(
                 db_tie_packet.header,
                 db_tie_packet_info.remaining_tie_lifetime)
@@ -2212,10 +2191,6 @@ class Node:
                 rx_tie_packet_info.remaining_tie_lifetime)
             comparison = compare_tie_header_lifetime_age(db_tie_lifetime, rx_tie_lifetime)
             if comparison < 0:
-                ###@@@
-                if logit:
-                    print("    db_tie is older")
-                ###@@@
                 # We have an older version of the TIE, ...
                 if rx_tie_id.originator == self.system_id:
                     # Re-originate DB TIE with higher sequence number than the one in RX TIE
@@ -2228,17 +2203,9 @@ class Node:
                     # Flood the TIE
                     self.unsol_flood_tie_packet_info(rx_tie_packet_info)
             elif comparison > 0:
-                ###@@@
-                if logit:
-                    print("    db_tie is newer")
-                ###@@@
                 # We have a newer version of the TIE, send it
                 start_sending_tie_header = db_tie_packet.header
             else:
-                ###@@@
-                if logit:
-                    print("    db_tie is same age")
-                ###@@@
                 # We have the same version of the TIE, ACK it
                 ack_tie_header = db_tie_packet.header
         return (start_sending_tie_header, ack_tie_header)
