@@ -128,33 +128,29 @@ class UdpRxHandler:
             return None
 
     def ready_to_read(self):
-        ###@@@ temp roll back
-        ###@@@ CONTINUE
-        first = True
-        # while True:
-        ancillary_size = socket.CMSG_LEN(self.MAX_SIZE)
-        try:
-            message, ancillary_messages, _msg_flags, from_info = \
-                self.sock.recvmsg(self.MAX_SIZE, ancillary_size)
-        except (IOError, OSError) as err:
-            if first:
+        while True:
+            ancillary_size = socket.CMSG_LEN(self.MAX_SIZE)
+            try:
+                message, ancillary_messages, _msg_flags, from_info = \
+                    self.sock.recvmsg(self.MAX_SIZE, ancillary_size)
+            except (IOError, OSError) as err:
+                print("Read error:", err)  ###@@@
                 self.warning("Socket receive failed: %s", err)
-            return
-        first = False
-        if not MACOS:
-            rx_interface_index = None
-            for anc in ancillary_messages:
-                # pylint:disable=no-member
-                if anc[0] == socket.SOL_IP and anc[1] == socket.IP_PKTINFO:
-                    packet_info = in_pktinfo.from_buffer_copy(anc[2])
-                    rx_interface_index = packet_info.ipi_ifindex
-                elif anc[0] == socket.SOL_IPV6 and anc[1] == socket.IPV6_PKTINFO:
-                    packet_info = in6_pktinfo.from_buffer_copy(anc[2])
-                    rx_interface_index = packet_info.ipi6_ifindex
-            if rx_interface_index and (rx_interface_index != self._interface_index):
-                # Message received on "wrong" interface; ignore
                 return
-        self._receive_function(message, from_info, self.sock)
+            if not MACOS:
+                rx_interface_index = None
+                for anc in ancillary_messages:
+                    # pylint:disable=no-member
+                    if anc[0] == socket.SOL_IP and anc[1] == socket.IP_PKTINFO:
+                        packet_info = in_pktinfo.from_buffer_copy(anc[2])
+                        rx_interface_index = packet_info.ipi_ifindex
+                    elif anc[0] == socket.SOL_IPV6 and anc[1] == socket.IPV6_PKTINFO:
+                        packet_info = in6_pktinfo.from_buffer_copy(anc[2])
+                        rx_interface_index = packet_info.ipi6_ifindex
+                if rx_interface_index and (rx_interface_index != self._interface_index):
+                    # Message received on "wrong" interface; ignore
+                    return
+            self._receive_function(message, from_info, self.sock)
 
     @staticmethod
     def enable_addr_and_port_reuse(sock):
@@ -184,6 +180,11 @@ class UdpRxHandler:
         except (IOError, OSError) as err:
             self.warning("Could not bind IPv4 UDP socket to address %s port %d: %s",
                          self._local_ipv4_address, self._local_port, err)
+            return None
+        try:
+            sock.setblocking(0)
+        except (IOError, OSError) as err:
+            self.warning("Could set unicast receive IPv4 UDP to non-blocking mode: %s", err)
             return None
         return sock
 
@@ -220,6 +221,11 @@ class UdpRxHandler:
             except (IOError, OSError) as err:
                 # Warn, but keep going; this socket option is not supported on macOS
                 self.warning("Could not set IP_PKTINFO socket option: %s", err)
+        try:
+            sock.setblocking(0)
+        except (IOError, OSError) as err:
+            self.warning("Could set multicast receive IPv4 UDP to non-blocking mode: %s", err)
+            return None
         return sock
 
     def create_socket_ipv6_rx_ucast(self):
@@ -241,6 +247,11 @@ class UdpRxHandler:
         except (IOError, OSError) as err:
             self.warning("Could not bind IPv6 UDP socket to address %s port %d: %s",
                          self._local_ipv6_address, self._local_port, err)
+            return None
+        try:
+            sock.setblocking(0)
+        except (IOError, OSError) as err:
+            self.warning("Could set unicast receive IPv6 UDP to non-blocking mode: %s", err)
             return None
         return sock
 
@@ -286,4 +297,9 @@ class UdpRxHandler:
             except (IOError, OSError) as err:
                 # Warn, but keep going; this socket option is not supported on macOS
                 self.warning("Could not set IPV6_RECVPKTINFO socket option: %s", err)
+        try:
+            sock.setblocking(0)
+        except (IOError, OSError) as err:
+            self.warning("Could set multicast receive IPv6 UDP to non-blocking mode: %s", err)
+            return None
         return sock
