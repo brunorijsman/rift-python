@@ -21,12 +21,12 @@ _TICK_INTERVAL = 0.2
 # DEBUG_TIE_TYPE = None              # None for all tie types, or tie type constant
 
 ###@@@
-DEBUG_PRINT = True
+DEBUG_PRINT = False
 DEBUG_CHECK_TIE_ENCODING = True
 DEBUG_NODE_NAME = None
-DEBUG_TIE_DIRECTION = common.ttypes.TieDirectionType.South
-DEBUG_TIE_ORIGINATOR = 2
-DEBUG_TIE_TYPE = common.ttypes.TIETypeType.NodeTIEType
+DEBUG_TIE_DIRECTION = None
+DEBUG_TIE_ORIGINATOR = None
+DEBUG_TIE_TYPE = None
 
 class _MsgQueueBase:
 
