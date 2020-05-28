@@ -990,7 +990,7 @@ class Node:
         self.store_tie_packet_info(packet_info)
         self.info("Regenerated positive disaggregation TIE: %s", tie_packet)
         self.unsol_flood_tie_packet_info(packet_info)
-        return tie_packet.header.tieid
+        return tie_packet.header
 
     def regenerate_my_neg_disagg_tie(self, fallen_leafs, bump_seq_nr=None):
         # If the no fallen leafs are present and we were not already advertising
@@ -1052,7 +1052,7 @@ class Node:
         self.store_tie_packet_info(packet_info)
         self.info("Regenerated negative disaggregation TIE: %s", tie_packet)
         self.unsol_flood_tie_packet_info(packet_info)
-        return tie_header.tieid
+        return tie_header
 
     def is_overloaded(self):
         # Is this node overloaded?
