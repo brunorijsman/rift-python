@@ -1,4 +1,5 @@
 import ctypes
+import errno
 import platform
 import socket
 import struct
@@ -134,8 +135,11 @@ class UdpRxHandler:
                 message, ancillary_messages, _msg_flags, from_info = \
                     self.sock.recvmsg(self.MAX_SIZE, ancillary_size)
             except (IOError, OSError) as err:
-                print("Read error:", err)  ###@@@
-                self.warning("Socket receive failed: %s", err)
+                if err.args[0] == errno.EWOULDBLOCK:
+                    print("Would block")
+                else:
+                    print("Other error:", err)  ###@@@
+                    self.warning("Socket receive failed: %s", err)
                 return
             if not MACOS:
                 rx_interface_index = None
