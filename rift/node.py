@@ -2148,21 +2148,23 @@ class Node:
         direction = rx_tie_header.tieid.direction
         tie_type = rx_tie_header.tieid.tietype
         if tie_type == common.ttypes.TIETypeType.NodeTIEType:
-            return self.regenerate_node_tie(direction, bump_seq_nr=rx_tie_header.seq_nr)
-        if tie_type == common.ttypes.TIETypeType.PrefixTIEType:
+            header = self.regenerate_node_tie(direction, bump_seq_nr=rx_tie_header.seq_nr)
+        elif tie_type == common.ttypes.TIETypeType.PrefixTIEType:
             if direction == common.ttypes.TieDirectionType.North:
-                return self.regenerate_my_north_prefix_tie(bump_seq_nr=rx_tie_header.seq_nr)
-            if direction == common.ttypes.TieDirectionType.South:
-                return self.regenerate_my_south_prefix_tie(bump_seq_nr=rx_tie_header.seq_nr)
-            assert False
-        if tie_type == common.ttypes.TIETypeType.PositiveDisaggregationPrefixTIEType:
-            return self.regenerate_my_pos_disagg_tie(bump_seq_nr=rx_tie_header.seq_nr)
-        if tie_type == common.ttypes.TIETypeType.NegativeDisaggregationPrefixTIEType:
+                header = self.regenerate_my_north_prefix_tie(bump_seq_nr=rx_tie_header.seq_nr)
+            elif direction == common.ttypes.TieDirectionType.South:
+                header = self.regenerate_my_south_prefix_tie(bump_seq_nr=rx_tie_header.seq_nr)
+            else:
+                assert False
+        elif tie_type == common.ttypes.TIETypeType.PositiveDisaggregationPrefixTIEType:
+            header = self.regenerate_my_pos_disagg_tie(bump_seq_nr=rx_tie_header.seq_nr)
+        elif tie_type == common.ttypes.TIETypeType.NegativeDisaggregationPrefixTIEType:
             # TODO: more consistent naming. Cache the fallen leaves?
-            return self.update_neg_disagg_fallen_leafs(bump_seq_nr=rx_tie_header.seq_nr)
-        assert False
-        return None
-
+            header = self.update_neg_disagg_fallen_leafs(bump_seq_nr=rx_tie_header.seq_nr)
+        else:
+            assert False
+        assert header is None or isinstance(header, TIEHeader)  ###@@@
+        return header
 
     def process_rx_tie_packet_info(self, rx_tie_packet_info):
         start_sending_tie_header = None
@@ -3214,7 +3216,7 @@ class Node:
         fallen_leafs = {prefix: special_southbound_dests[prefix] for prefix in difference}
         for prefix in fallen_leafs.values():
             prefix.negatively_disaggregate = True
-        self.regenerate_my_neg_disagg_tie(fallen_leafs, bump_seq_nr)
+        return self.regenerate_my_neg_disagg_tie(fallen_leafs, bump_seq_nr)
 
     def floodred_elect_repeaters(self):
         self.floodred_debug("Re-elect flood repeaters")
