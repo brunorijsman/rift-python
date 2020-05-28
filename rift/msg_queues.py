@@ -4,7 +4,7 @@ import encoding.ttypes
 import packet_common
 import table
 import timer
-# import common.ttypes  ###@@@
+import common.ttypes  ###@@@
 
 _SHORT_DELAY_TICKS = 1
 _LONG_DELAY_TICKS = 5
@@ -12,20 +12,18 @@ _TICK_INTERVAL = 0.2
 
 # Set these to debug tie database synchronization
 ###@@@
-DEBUG = False                   # True to enable debugging
-DEBUG_NODE_NAME = None          # None for all nodes, or name of specific node to debug
-DEBUG_TIE_DIRECTION = None      # None for all directions, or direction constant
-DEBUG_TIE_ORIGINATOR = None     # None for all originators, or system id or originator
-DEBUG_TIE_TYPE = None           # None for all tie types, or tie type constant
+# DEBUG = False                   # True to enable debugging
+# DEBUG_NODE_NAME = None          # None for all nodes, or name of specific node to debug
+# DEBUG_TIE_DIRECTION = None      # None for all directions, or direction constant
+# DEBUG_TIE_ORIGINATOR = None     # None for all originators, or system id or originator
+# DEBUG_TIE_TYPE = None           # None for all tie types, or tie type constant
 
 ###@@@
-###@@@ CONTINUE
-# DEBUG = True
-# DEBUG_NODE_NAME = None
-# DEBUG_TIE_DIRECTION = common.ttypes.TieDirectionType.South
-# DEBUG_TIE_ORIGINATOR = 2
-# DEBUG_TIE_TYPE = common.ttypes.TIETypeType.NodeTIEType
-
+DEBUG = True
+DEBUG_NODE_NAME = None
+DEBUG_TIE_DIRECTION = common.ttypes.TieDirectionType.South
+DEBUG_TIE_ORIGINATOR = 2
+DEBUG_TIE_TYPE = common.ttypes.TIETypeType.NodeTIEType
 
 class _MsgQueueBase:
 
