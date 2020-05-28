@@ -1,4 +1,5 @@
 import collections
+import datetime
 import inspect
 import encoding.ttypes
 import packet_common
@@ -12,14 +13,16 @@ _TICK_INTERVAL = 0.2
 
 # Set these to debug tie database synchronization
 ###@@@
-# DEBUG = False                   # True to enable debugging
-# DEBUG_NODE_NAME = None          # None for all nodes, or name of specific node to debug
-# DEBUG_TIE_DIRECTION = None      # None for all directions, or direction constant
-# DEBUG_TIE_ORIGINATOR = None     # None for all originators, or system id or originator
-# DEBUG_TIE_TYPE = None           # None for all tie types, or tie type constant
+# DEBUG_PRINT = False                # True to enable debug printing
+# DEBUG_CHECK_TIE_ENCODING = False   # True to check whether pre-encoded TIEs are correct
+# DEBUG_NODE_NAME = None             # None for all nodes, or name of specific node to debug
+# DEBUG_TIE_DIRECTION = None         # None for all directions, or direction constant
+# DEBUG_TIE_ORIGINATOR = None        # None for all originators, or system id or originator
+# DEBUG_TIE_TYPE = None              # None for all tie types, or tie type constant
 
 ###@@@
-DEBUG = True
+DEBUG_PRINT = True
+DEBUG_CHECK_TIE_ENCODING = True
 DEBUG_NODE_NAME = None
 DEBUG_TIE_DIRECTION = common.ttypes.TieDirectionType.South
 DEBUG_TIE_ORIGINATOR = 2
@@ -61,8 +64,6 @@ class _MsgQueueBase:
         self._queue = collections.OrderedDict()
 
     def _debug_tie_id(self, tie_id):
-        if not DEBUG:
-            return False
         node_name = self._interface.node.name
         if DEBUG_NODE_NAME is not None and node_name != DEBUG_NODE_NAME:
             return False
@@ -74,12 +75,16 @@ class _MsgQueueBase:
             return False
         return True
 
+    @staticmethod
+    def _timestamp():
+        return datetime.datetime.now().strftime("%Y-%m-%d-%H:%M:%S.%f")
+
     def _debug(self, operation, tie_id, seq_nr):
-        if not self._debug_tie_id(tie_id):
+        if not DEBUG_PRINT or not self._debug_tie_id(tie_id):
             return
-        print("{}: {} {} queue for interface {}, tie_id={} seq_nr={}"
-              .format(self._interface.node.name, operation, self._name, self._interface.name,
-                      tie_id, seq_nr))
+        print("{} {}: {} {} queue for interface {}, tie_id={} seq_nr={}"
+              .format(self._timestamp(), self._interface.node.name, operation, self._name,
+                      self._interface.name, tie_id, seq_nr))
         stack = inspect.stack()
         stack = stack[:-6]
         for frame in stack[1:]:
@@ -195,10 +200,23 @@ class _TIEQueue(_MsgQueueBase):
         node = self._interface.node
         db_tie_packet_info = node.find_tie_packet_info(tie_id)
         if db_tie_packet_info is not None:
-            if self._debug_tie_id(tie_id):
-                print("{}: interface {} send tie-id {} tie {}"
-                      .format(self._interface.node.name, self._interface.name, tie_id,
-                              db_tie_packet_info))
+            if DEBUG_PRINT and self._debug_tie_id(tie_id):
+                # Print a message for debugging
+                print("{} {}: interface {} send tie-id {} tie {}"
+                      .format(self.timestamp(), self._interface.node.name, self._interface.name,
+                              tie_id, db_tie_packet_info))
+            if DEBUG_CHECK_TIE_ENCODING and self._debug_tie_id(tie_id):
+                # Check whehter the pre-computed encoded packet is correct.
+                check_packet_info = packet_common.encode_protocol_packet(
+                    db_tie_packet_info.protocol_packet, self._interface.active_outer_key)
+                if (db_tie_packet_info.encoded_protocol_packet ==
+                        check_packet_info.encoded_protocol_packet):
+                    result = "correct"
+                else:
+                    result = "INCORRECT"
+                print("{} {}: interface {} tie-id {} encoding is {}"
+                      .format(self.timestamp(), self._interface.node.name, self._interface.name,
+                              tie_id, result))
             self._interface.send_packet_info(db_tie_packet_info, flood=True)
 
 
