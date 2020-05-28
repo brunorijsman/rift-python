@@ -2149,6 +2149,12 @@ class Node:
         tie_type = rx_tie_header.tieid.tietype
         if tie_type == common.ttypes.TIETypeType.NodeTIEType:
             header = self.regenerate_node_tie(direction, bump_seq_nr=rx_tie_header.seq_nr)
+            ###@@@
+            if header is not None and not isinstance(header, common.ttypes.TIEHeader):
+                print("*** header =", header)
+                print("*** header tpe =", type(header))
+                assert False
+            ###@@@
             assert header is None or isinstance(header, common.ttypes.TIEHeader)  ###@@@
         elif tie_type == common.ttypes.TIETypeType.PrefixTIEType:
             if direction == common.ttypes.TieDirectionType.North:
