@@ -848,7 +848,6 @@ class Node:
         all_ok = True
         for fib_fam in parsed_fib_routes:
             for fib_route in fib_fam['rows'][1:]:
-                print("fib_route =", fib_route)  ###@@@
                 fib_prefix = fib_route[0][0]
                 if len(fib_route) >= 3:
                     fib_nexthops = fib_route[2]
@@ -1672,13 +1671,11 @@ class TelnetSession:
                 break
         # Send the command whose output we want to collect
         self.send_line(show_command)
-        print(">>", show_command)  ###@@@
         # Send a blank line to make sure we have a prompt followed by a newline at the end
         self.send_line('')
         # Look for echo of show command in output
         while True:
             line = self.read_line()
-            print("<<", line)  ###@@@
             if show_command in line:
                 break
         parsed_tables = []
