@@ -858,8 +858,8 @@ class Node:
                         self.report_check_result(
                             step, False, 'Different prefixes: RIB has {}, FIB has {}'
                             .format(rib_prefix, fib_prefix))
-                    rib_nhs = rib_routes[2]
-                    fib_nhs = rib_routes[1]
+                    rib_nhs = rib_route[2]
+                    fib_nhs = rib_route[1]
                     if len(rib_nhs) != len(fib_nhs):
                         self.report_check_result(
                             step, False, 'Different number of nexthops for route {}: '
