@@ -7,6 +7,7 @@ import os
 import pprint
 import random
 import stat
+import subprocess
 import sys
 import traceback
 
@@ -674,6 +675,8 @@ class Node:
 
     def check(self):
         print("**** Check node {}".format(self.name))
+        if not self.check_process_running():
+            return False
         if not self.connect_telnet():
             return False
         self.check_engine()
@@ -683,6 +686,16 @@ class Node:
         self.check_rib_south_specific_routes()
         self.check_rib_fib_consistency()
         self.check_fib_kernel_consistency()
+        return True
+
+    def check_process_running(self):
+        step = "RIFT process is running"
+        result = subprocess.run(['ip', 'netns', 'pids', self.ns_name], stdout=subprocess.PIPE)
+        if result.stdout == b'':
+            error = 'Show engine reported unexpected result for stand-alone'
+            self.report_check_result(step, False, error)
+            return False
+        self.report_check_result(step)
         return True
 
     def check_engine(self):
