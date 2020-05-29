@@ -600,7 +600,7 @@ class Node:
         print('echo "{}"'.format(progress), file=file)
         # Report the kill
         out_file = "/tmp/rift-python-output-" + self.name
-        print('echo "**** Kill Node ***" >> {}'.format(out_file), file=file)
+        print('echo "**** Stop Node ***" >> {}'.format(out_file), file=file)
         print('date >> {}'.format(out_file), file=file)
         # We use a big hammer: we kill -9 all processes in the the namespace
         self.write_kill_rift_to_file(file)
@@ -618,6 +618,11 @@ class Node:
 
     def write_kill_rift_to_file(self, file):
         ns_name = NETNS_PREFIX + str(self.global_node_id)
+        # Record the killing
+        out_file = "/tmp/rift-python-output-" + self.name
+        print('echo "**** Stop Node ***" >> {}'.format(out_file), file=file)
+        print('date >> {}'.format(out_file), file=file)
+        # Kill the process
         print("RIFT_PIDS=$(ip netns pids {})".format(ns_name), file=file)
         print("kill -9 $RIFT_PIDS >/dev/null 2>&1", file=file)
         print("wait $RIFT_PIDS >/dev/null 2>&1", file=file)
