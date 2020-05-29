@@ -830,12 +830,14 @@ class Node:
         # South-SPF route for the same prefix. So, we can simply check that the forwarding table
         # (FIB) is identical to the route table (RIB).
         step = "RIB and FIB are consistent"
+        okay = True
         try:
             parsed_rib = self.telnet_session.parse_show_output("show routes")
             parsed_fib = self.telnet_session.parse_show_output("show forwarding")
             if len(parsed_rib) != len(parsed_fib):
                 self.report_check_result(step, False,
                                          'RIB and FIB have different number of families')
+                okay = False
             for (rib_fam, fib_fam) in zip(parsed_rib, parsed_fib):
                 rib_title = rib_fam['title']
                 fib_title = fib_fam['title']
@@ -843,12 +845,15 @@ class Node:
                     self.report_check_result(
                         step, False, 'different family titles: RIB has {}, FIB has {}'
                         .format(rib_title, fib_title))
+                    okay = False
+                    continue
                 rib_routes = rib_fam['rows'][1:]
                 fib_routes = fib_fam['rows'][1:]
                 if len(rib_routes) != len(fib_routes):
                     self.report_check_result(
                         step, False, 'different number routes in family {}: RIB has {}, FIB has {}'
                         .format(rib_fam, len(rib_routes), len(fib_routes)))
+                    okay = False
                     continue
                 for (rib_route, fib_route) in zip(rib_routes, fib_routes):
                     rib_prefix = rib_route[0][0]
@@ -857,6 +862,7 @@ class Node:
                         self.report_check_result(
                             step, False, 'different prefixes: RIB has {}, FIB has {}'
                             .format(rib_prefix, fib_prefix))
+                        okay = False
                         continue
                     rib_nhs = rib_route[2]
                     fib_nhs = fib_route[1]
@@ -865,22 +871,27 @@ class Node:
                             step, False, 'different number of nexthops for route {}: '
                             'RIB has {}, FIB has {}'
                             .format(rib_prefix, len(rib_nhs), len(fib_nhs)))
+                        okay = False
                         continue
                     for (rib_nh, fib_nh) in zip(rib_nhs, fib_nhs):
                         if 'Negative' in rib_nh:
                             self.report_check_result(
                                 step, False, 'RIB has negative nexthop for route {}: {}'
                                 .format(rib_prefix, rib_nh))
+                            okay = False
                             continue
                         if rib_nh != fib_nh:
                             self.report_check_result(
                                 step, False, 'different nexthop for route {}: '
                                 'RIB has {}, FIB has {}'
                                 .format(rib_prefix, rib_nh, fib_nh))
+                            okay = False
                             continue
-                    ###@@@
         except RuntimeError as err:
             self.report_check_result(step, False, str(err))
+            okay = False
+        if okay:
+            self.report_check_result(step)
 
     def check_fib_kernel_consistency(self):
         step = "FIB and Kernel are consistent"
