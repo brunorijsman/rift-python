@@ -846,9 +846,9 @@ class Node:
         parsed_kernel_routes = \
             self.telnet_session.parse_show_output("show kernel routes table main")
         all_ok = True
-        print("parsed_fib_routes =", parsed_fib_routes)   ###@@@
         for fib_fam in parsed_fib_routes:
             for fib_route in fib_fam['rows'][1:]:
+                print("fib_route =", fib_route)  ###@@@
                 fib_prefix = fib_route[0][0]
                 fib_nexthops = fib_route[2]
                 if not self.check_route_in_kernel(step, fib_prefix, fib_nexthops,
