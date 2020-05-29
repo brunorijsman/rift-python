@@ -20,7 +20,8 @@ class FibRoute:
             "Next-hops"]
 
     def cli_summary_attributes(self):
+        all_next_hops = self.next_hops.sorted()
         return [
             packet_common.ip_prefix_str(self.prefix),
-            [str(next_hop) for next_hop in self.next_hops]
+            [str(next_hop) for next_hop in all_next_hops]
         ]
