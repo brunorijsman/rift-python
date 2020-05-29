@@ -833,13 +833,15 @@ class Node:
         try:
             parsed_rib = self.telnet_session.parse_show_output("show routes")
             parsed_fib = self.telnet_session.parse_show_output("show forwarding")
-            if parsed_rib == parsed_fib:
-                self.report_check_result(step)
-            else:
-                error = ('FIB is different than RIB:\n'
-                         'RIB = {}\n'
-                         'FIB = {}\n').format(parsed_fib, parsed_rib)
-                self.report_check_result(step, False, error)
+            for (rib_fam, fib_fam) in zip(parsed_rib, parsed_fib):
+                if rib_fam['title'] != fib_fam['title']:
+                    self.report_check_result(step, False, 'Different family titles: '
+                                             'RIB has {}, FIB has {}'.format(rib_fam['title'],
+                                                                             fib_fam['title']))
+                rib_routes = rib_fam['rows'][1:]
+                fib_routes = fib_fam['rows'][1:]
+                for (rib_route, fib_route) in zip(rib_routes, fib_routes):
+                    print(fib_route, ' *** ', rib_route)
         except RuntimeError as err:
             self.report_check_result(step, False, str(err))
 
