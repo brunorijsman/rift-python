@@ -850,6 +850,8 @@ class Node:
                         step, False, 'Different number routes in family {}: RIB has {}, FIB has {}'
                         .format(rib_fam, len(rib_routes), len(fib_routes)))
                 for (rib_route, fib_route) in zip(rib_routes, fib_routes):
+                    print("*** rib_route =", rib_route)
+                    print("*** fib_route =", fib_route)
                     rib_prefix = rib_route[0][0]
                     fib_prefix = fib_route[0][0]
                     if rib_prefix != fib_prefix:
