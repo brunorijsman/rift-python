@@ -834,20 +834,36 @@ class Node:
             parsed_rib = self.telnet_session.parse_show_output("show routes")
             parsed_fib = self.telnet_session.parse_show_output("show forwarding")
             for (rib_fam, fib_fam) in zip(parsed_rib, parsed_fib):
-                if rib_fam['title'] != fib_fam['title']:
-                    self.report_check_result(step, False, 'Different family titles: '
-                                             'RIB has {}, FIB has {}'.format(rib_fam['title'],
-                                                                             fib_fam['title']))
+                rib_title = rib_fam['title']
+                fib_title = fib_fam['title']
+                if rib_title != fib_title:
+                    self.report_check_result(
+                        step, False, 'Different family titles: RIB has {}, FIB has {}'
+                        .format(rib_title, fib_title))
                 rib_routes = rib_fam['rows'][1:]
                 fib_routes = fib_fam['rows'][1:]
                 for (rib_route, fib_route) in zip(rib_routes, fib_routes):
                     rib_prefix = rib_route[0][0]
                     fib_prefix = rib_route[0][0]
-                    if rib_prefix != fib_prefix + 'xxx':
+                    if rib_prefix != fib_prefix:
                         self.report_check_result(
                             step, False, 'Different prefixes: RIB has {}, FIB has {}'
                             .format(rib_prefix, fib_prefix))
-                    print(fib_route, ' *** ', rib_route)
+                    rib_nhifs = rib_fam['rows'][2]
+                    fib_nhifs = fib_fam['rows'][1]
+                    for (rib_nhif, fib_nhif) in zip(rib_nhifs, fib_nhifs):
+                        if rib_nhif != fib_nhif:
+                            self.report_check_result(
+                                step, False, 'Different nexthop interfaces: RIB has {}, FIB has {}'
+                                .format(rib_nhif, rib_nhif))
+                    rib_nhas = rib_fam['rows'][3]
+                    fib_nhas = fib_fam['rows'][2]
+                    for (rib_nha, fib_nha) in zip(rib_nhas, fib_nhas):
+                        if rib_nha != fib_nha:
+                            self.report_check_result(
+                                step, False, 'Different nexthop addresses: RIB has {}, FIB has {}'
+                                .format(rib_nha, rib_nha))
+                    ###@@@
         except RuntimeError as err:
             self.report_check_result(step, False, str(err))
 
