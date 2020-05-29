@@ -587,7 +587,7 @@ class Node:
         ns_name = NETNS_PREFIX + str(self.global_node_id)
         port_file = "/tmp/rift-python-telnet-port-" + self.name
         out_file = "/tmp/rift-python-output-" + self.name
-        print('echo "**** Restart Node ***" >> {}'.format(out_file), file=file)
+        print('echo "**** Start Node ***" >> {}'.format(out_file), file=file)
         print('date >> {}'.format(out_file), file=file)
         print("ip netns exec {} python3 rift "
               "--ipv4-multicast-loopback-disable "
@@ -598,6 +598,10 @@ class Node:
     def write_netns_stop_scr_to_file_1(self, file):
         progress = ("Stop RIFT-Python engine for node {}".format(self.name))
         print('echo "{}"'.format(progress), file=file)
+        # Report the kill
+        out_file = "/tmp/rift-python-output-" + self.name
+        print('echo "**** Kill Node ***" >> {}'.format(out_file), file=file)
+        print('date >> {}'.format(out_file), file=file)
         # We use a big hammer: we kill -9 all processes in the the namespace
         self.write_kill_rift_to_file(file)
         # Also clean up the port file
