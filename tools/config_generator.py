@@ -302,7 +302,7 @@ class Group:
         width_nodes = self.nr_nodes_in_widest_layer()
         width = width_nodes * NODE_X_SIZE
         width += (width_nodes - 1) * NODE_X_INTERVAL
-        width += 2 * GROUP_X_SPACER   # TODO: Change to GROUP_X_SPACER
+        width += 2 * GROUP_X_SPACER
         return width
 
     def y_size(self):
