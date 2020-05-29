@@ -1658,9 +1658,9 @@ class TelnetSession:
         return self.expect(".*> ", timeout)
 
     def parse_show_output(self, show_command):
-        # Send a marker (which will cause a command syntax error) and look for the echo. This is to
-        # avoid accidentally parsing output from some previous show command.
-        marker = "PARSE_SHOW_OUTPUT_MARKER"
+        # Send a marker (which will cause an error) and look for the echo. This is to avoid
+        # accidentally parsing output from some previous show command.
+        marker = "set node PARSE_SHOW_OUTPUT_MARKER"
         self.send_line(marker)
         while True:
             line = self.read_line()
