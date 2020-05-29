@@ -836,6 +836,9 @@ class Node:
             if parsed_rib == parsed_fib:
                 self.report_check_result(step)
             else:
+                error = ('FIB is different than RIB:\n'
+                         'RIB = {}\n'
+                         'FIB = {}\n').format(parsed_fib, parsed_rib)
                 self.report_check_result(step, False, "FIB is different than RIB")
         except RuntimeError as err:
             self.report_check_result(step, False, str(err))
