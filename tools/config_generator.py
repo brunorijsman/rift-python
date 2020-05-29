@@ -587,8 +587,8 @@ class Node:
         ns_name = NETNS_PREFIX + str(self.global_node_id)
         port_file = "/tmp/rift-python-telnet-port-" + self.name
         out_file = "/tmp/rift-python-output-" + self.name
-        print('echo "**** Restart Node ***" >> out_file')
-        print('date >> out_file')
+        print('echo "**** Restart Node ***" >> {}'.format(out_file), file=file)
+        print('date >> {}'.format(out_file), file=file)
         print("ip netns exec {} python3 rift "
               "--ipv4-multicast-loopback-disable "
               "--ipv6-multicast-loopback-disable "
