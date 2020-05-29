@@ -891,8 +891,8 @@ class Node:
         for fib_fam in parsed_fib_routes:
             for fib_route in fib_fam['rows'][1:]:
                 fib_prefix = fib_route[0][0]
-                if len(fib_route) >= 3:
-                    fib_nexthops = fib_route[2]
+                if len(fib_route) >= 2:
+                    fib_nexthops = fib_route[1]
                 else:
                     fib_nexthops = []
                 if not self.check_route_in_kernel(step, fib_prefix, fib_nexthops,
