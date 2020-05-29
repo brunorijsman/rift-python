@@ -841,6 +841,12 @@ class Node:
                 rib_routes = rib_fam['rows'][1:]
                 fib_routes = fib_fam['rows'][1:]
                 for (rib_route, fib_route) in zip(rib_routes, fib_routes):
+                    rib_prefix = rib_route[0][0]
+                    fib_prefix = rib_route[0][0]
+                    if rib_prefix != fib_prefix + 'xxx':
+                        self.report_check_result(
+                            step, False, 'Different prefixes: RIB has {}, FIB has {}'
+                            .format(rib_prefix, fib_prefix))
                     print(fib_route, ' *** ', rib_route)
         except RuntimeError as err:
             self.report_check_result(step, False, str(err))
