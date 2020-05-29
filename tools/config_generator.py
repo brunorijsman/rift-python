@@ -833,6 +833,9 @@ class Node:
         try:
             parsed_rib = self.telnet_session.parse_show_output("show routes")
             parsed_fib = self.telnet_session.parse_show_output("show forwarding")
+            if (len(parsed_rib) != len(parsed_fib)):
+                self.report_check_result(step, False,
+                                         'RIB and FIB have different number of families')
             for (rib_fam, fib_fam) in zip(parsed_rib, parsed_fib):
                 rib_title = rib_fam['title']
                 fib_title = fib_fam['title']
@@ -842,6 +845,10 @@ class Node:
                         .format(rib_title, fib_title))
                 rib_routes = rib_fam['rows'][1:]
                 fib_routes = fib_fam['rows'][1:]
+                if (len(rib_routes) != len(fib_routes)):
+                    self.report_check_result(
+                        step, False, 'Different number routes in family {}: RIB has {}, FIB has {}'
+                        .format(rib_fam, len(rib_routes), len(fib_routes)))
                 for (rib_route, fib_route) in zip(rib_routes, fib_routes):
                     rib_prefix = rib_route[0][0]
                     fib_prefix = fib_route[0][0]
@@ -849,20 +856,32 @@ class Node:
                         self.report_check_result(
                             step, False, 'Different prefixes: RIB has {}, FIB has {}'
                             .format(rib_prefix, fib_prefix))
-                    rib_nhifs = rib_fam['rows'][2]
-                    fib_nhifs = fib_fam['rows'][1]
+                    rib_nhifs = rib_routes[2]
+                    fib_nhifs = rib_routes[1]
+                    if (len(rib_nhifs) != len(fib_nhifs)):
+                        self.report_check_result(
+                            step, False, 'Different number of nexthop interfaces for route {}: '
+                            'RIB has {}, FIB has {}'
+                            .format(rib_prefix, len(rib_nhifs), len(fib_nhifs)))
                     for (rib_nhif, fib_nhif) in zip(rib_nhifs, fib_nhifs):
                         if rib_nhif != fib_nhif:
                             self.report_check_result(
-                                step, False, 'Different nexthop interfaces: RIB has {}, FIB has {}'
-                                .format(rib_nhif, rib_nhif))
-                    rib_nhas = rib_fam['rows'][3]
-                    fib_nhas = fib_fam['rows'][2]
+                                step, False, 'Different nexthop interface for route: '
+                                'RIB has {}, FIB has {}'
+                                .format(rib_prefix, rib_nhif, rib_nhif))
+                    rib_nhas = rib_routes[3]
+                    fib_nhas = rib_routes[2]
+                    if (len(rib_nhas) != len(fib_nhas)):
+                        self.report_check_result(
+                            step, False, 'Different number of nexthop addresses for route {}: '
+                            'RIB has {}, FIB has {}'
+                            .format(rib_prefix, len(rib_nhifs), len(fib_nhifs)))
                     for (rib_nha, fib_nha) in zip(rib_nhas, fib_nhas):
                         if rib_nha != fib_nha:
                             self.report_check_result(
-                                step, False, 'Different nexthop addresses: RIB has {}, FIB has {}'
-                                .format(rib_nha, rib_nha))
+                                step, False, 'Different nexthop addresses for route {}: '
+                                'RIB has {}, FIB has {}'
+                                .format(rib_prefix, rib_nha, rib_nha))
                     ###@@@
         except RuntimeError as err:
             self.report_check_result(step, False, str(err))
