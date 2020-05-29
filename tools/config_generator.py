@@ -692,7 +692,7 @@ class Node:
         step = "RIFT process is running"
         result = subprocess.run(['ip', 'netns', 'pids', self.ns_name], stdout=subprocess.PIPE)
         if result.stdout == b'':
-            error = 'Show engine reported unexpected result for stand-alone'
+            error = "RIFT process is not running in namespace {}".format(self.ns_name)
             self.report_check_result(step, False, error)
             return False
         self.report_check_result(step)
