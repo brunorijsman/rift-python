@@ -849,6 +849,7 @@ class Node:
                     self.report_check_result(
                         step, False, 'different number routes in family {}: RIB has {}, FIB has {}'
                         .format(rib_fam, len(rib_routes), len(fib_routes)))
+                    continue
                 for (rib_route, fib_route) in zip(rib_routes, fib_routes):
                     rib_prefix = rib_route[0][0]
                     fib_prefix = fib_route[0][0]
@@ -856,6 +857,7 @@ class Node:
                         self.report_check_result(
                             step, False, 'different prefixes: RIB has {}, FIB has {}'
                             .format(rib_prefix, fib_prefix))
+                        continue
                     rib_nhs = rib_route[2]
                     fib_nhs = fib_route[1]
                     if len(rib_nhs) != len(fib_nhs):
@@ -863,12 +865,19 @@ class Node:
                             step, False, 'different number of nexthops for route {}: '
                             'RIB has {}, FIB has {}'
                             .format(rib_prefix, len(rib_nhs), len(fib_nhs)))
+                        continue
                     for (rib_nh, fib_nh) in zip(rib_nhs, fib_nhs):
+                        if 'Negative' in rib_nh:
+                            self.report_check_result(
+                                step, False, 'RIB has negative nexthop for route {}: {}'
+                                .format(rib_prefix, rib_nh))
+                            continue
                         if rib_nh != fib_nh:
                             self.report_check_result(
                                 step, False, 'different nexthop for route {}: '
                                 'RIB has {}, FIB has {}'
                                 .format(rib_prefix, rib_nh, fib_nh))
+                            continue
                     ###@@@
         except RuntimeError as err:
             self.report_check_result(step, False, str(err))
