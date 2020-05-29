@@ -1683,7 +1683,7 @@ class TelnetSession:
                 # Reached prompt for next command; we are done
                 return parsed_tables
             else:
-                raise RuntimeError("Unrecognized format of show command output")
+                raise RuntimeError("Unrecognized format of show command output: {}".format(line))
 
     def parse_table(self, table_title):
         parsed_table = {}
