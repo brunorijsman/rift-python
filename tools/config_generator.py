@@ -844,7 +844,7 @@ class Node:
                 fib_routes = fib_fam['rows'][1:]
                 for (rib_route, fib_route) in zip(rib_routes, fib_routes):
                     rib_prefix = rib_route[0][0]
-                    fib_prefix = rib_route[0][0]
+                    fib_prefix = fib_route[0][0]
                     if rib_prefix != fib_prefix:
                         self.report_check_result(
                             step, False, 'Different prefixes: RIB has {}, FIB has {}'
