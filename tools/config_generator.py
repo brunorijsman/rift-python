@@ -586,11 +586,14 @@ class Node:
         print('echo "{}"'.format(progress_msg), file=file)
         ns_name = NETNS_PREFIX + str(self.global_node_id)
         port_file = "/tmp/rift-python-telnet-port-" + self.name
+        out_file = "/tmp/rift-python-output-" + self.name
+        print('echo "**** Restart Node ***" >> out_file')
+        print('date >> out_file')
         print("ip netns exec {} python3 rift "
               "--ipv4-multicast-loopback-disable "
               "--ipv6-multicast-loopback-disable "
-              "--telnet-port-file {} {} >/dev/null 2>&1 &"
-              .format(ns_name, port_file, self.config_file_name), file=file)
+              "--telnet-port-file {} {} >>{} 2>&1 &"
+              .format(ns_name, port_file, self.config_file_name, out_file), file=file)
 
     def write_netns_stop_scr_to_file_1(self, file):
         progress = ("Stop RIFT-Python engine for node {}".format(self.name))
