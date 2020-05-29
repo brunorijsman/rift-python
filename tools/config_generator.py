@@ -858,32 +858,19 @@ class Node:
                         self.report_check_result(
                             step, False, 'Different prefixes: RIB has {}, FIB has {}'
                             .format(rib_prefix, fib_prefix))
-                    rib_nhifs = rib_routes[2]
-                    fib_nhifs = rib_routes[1]
-                    if len(rib_nhifs) != len(fib_nhifs):
+                    rib_nhs = rib_routes[2]
+                    fib_nhs = rib_routes[1]
+                    if len(rib_nhs) != len(fib_nhs):
                         self.report_check_result(
-                            step, False, 'Different number of nexthop interfaces for route {}: '
+                            step, False, 'Different number of nexthops for route {}: '
                             'RIB has {}, FIB has {}'
-                            .format(rib_prefix, len(rib_nhifs), len(fib_nhifs)))
-                    for (rib_nhif, fib_nhif) in zip(rib_nhifs, fib_nhifs):
-                        if rib_nhif != fib_nhif:
+                            .format(rib_prefix, len(rib_nhs), len(fib_nhs)))
+                    for (rib_nh, fib_nh) in zip(rib_nhs, fib_nhs):
+                        if rib_nh != fib_nh:
                             self.report_check_result(
-                                step, False, 'Different nexthop interface for route {}: '
+                                step, False, 'Different nexthop for route {}: '
                                 'RIB has {}, FIB has {}'
-                                .format(rib_prefix, rib_nhif, rib_nhif))
-                    rib_nhas = rib_routes[3]
-                    fib_nhas = rib_routes[2]
-                    if len(rib_nhas) != len(fib_nhas):
-                        self.report_check_result(
-                            step, False, 'Different number of nexthop addresses for route {}: '
-                            'RIB has {}, FIB has {}'
-                            .format(rib_prefix, len(rib_nhifs), len(fib_nhifs)))
-                    for (rib_nha, fib_nha) in zip(rib_nhas, fib_nhas):
-                        if rib_nha != fib_nha:
-                            self.report_check_result(
-                                step, False, 'Different nexthop addresses for route {}: '
-                                'RIB has {}, FIB has {}'
-                                .format(rib_prefix, rib_nha, rib_nha))
+                                .format(rib_prefix, rib_nh, rib_nh))
                     ###@@@
         except RuntimeError as err:
             self.report_check_result(step, False, str(err))
