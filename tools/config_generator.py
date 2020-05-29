@@ -1378,20 +1378,25 @@ class Fabric:
     def write_progress_msg(self, file, message):
         print('echo "{}"'.format(message), file=file)
 
+    def write_netns_start_scr_to_file(file):
+        print('rm /tmp/rift-python-output-*', file=file)
+
     def write_netns_start_scr_to_file(self, file):
         # Note: Plane has to go first, because superspine to spine links are owned by the plane
         # group, not the pod group.
-        # Phase 1: create veth interfaces for links
+        # Phase 1: prologue for whole fabric
+        self.write_netns_start_scr_to_file(file)
+        # Phase 2: create veth interfaces for links
         for plane in self.planes:
             plane.write_netns_start_scr_to_file_1(file)
         for pod in self.pods:
             pod.write_netns_start_scr_to_file_1(file)
-        # Phase 2: create network namespaces for nodes
+        # Phase 3: create network namespaces for nodes
         for plane in self.planes:
             plane.write_netns_start_scr_to_file_2(file)
         for pod in self.pods:
             pod.write_netns_start_scr_to_file_2(file)
-        # Phase 3: start RIFT process
+        # Phase 4: start RIFT process
         for plane in self.planes:
             plane.write_netns_start_scr_to_file_3(file)
         for pod in self.pods:
