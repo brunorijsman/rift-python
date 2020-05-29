@@ -1382,7 +1382,7 @@ class Fabric:
         # Note: Plane has to go first, because superspine to spine links are owned by the plane
         # group, not the pod group.
         # Phase 1: prologue for whole fabric
-        print('rm /tmp/rift-python-output-*', file=file)
+        print('rm -f /tmp/rift-python-output-*', file=file)
         # Phase 2: create veth interfaces for links
         for plane in self.planes:
             plane.write_netns_start_scr_to_file_1(file)
