@@ -11,6 +11,7 @@ GREEN = '\u001b[32m'
 
 ARGS = None
 BASELINE_SECS = 10.0
+PING_PACKTES = 20
 
 MAX_RATE = 5.0
 
@@ -129,7 +130,8 @@ def measure_if_stats(ns_name):
 
 def ping(ns_name, source_lo_addr, dest_lo_addr):
     try:
-        result = subprocess.run(['ip', 'netns', 'exec', ns_name, 'ping', '-f', '-W1', '-c10',
+        result = subprocess.run(['ip', 'netns', 'exec', ns_name, 'ping', '-f', '-W1',
+                                 '-c{}'.format(PING_PACKTES),
                                  '-I', source_lo_addr, dest_lo_addr],
                                 stdout=subprocess.PIPE)
     except FileNotFoundError:
