@@ -27,6 +27,7 @@ def ping_interface_stats(source_ns, dest_ns, stats_ns):
         fatal_error('Statistics namespace "{}" does not exist'.format(stats_ns))
     if_stats_before = measure_if_stats(stats_ns)
     print(if_stats_before)
+    ping(source_ns, dest_ns)
 
 def namespace_exists(ns_name):
     try:
@@ -54,7 +55,6 @@ def measure_if_stats(ns_name):
         if "Link encap" not in line:
             continue
         if_name = line.split()[0]
-        print(if_name)
         while True:
             if not lines:
                 fatal_error("Missing RX or TX stats in output of ifconfig")
@@ -65,6 +65,26 @@ def measure_if_stats(ns_name):
                 tx_packets = line.split()[1].split(":")[1]
                 if_stats[if_name] = (rx_packets, tx_packets)
                 break
+
+def ping(source_ns, dest_ns):
+    source_lo_addr = get_loopback_address(source_ns)
+    print("source_lo_addr =", source_lo_addr)
+    dest_ns = get_loopback_address(source_ns)
+    print("dest_ns =", dest_ns)
+
+def get_loopback_address(ns_name):
+    try:
+        result = subprocess.run(['ip', 'netns', 'exec', ns_name, 'ip', 'addr', 'show', 'dev', 'lo'],
+                                stdout=subprocess.PIPE)
+    except FileNotFoundError:
+        fatal_error('"ip" command not found')
+    output = result.stdout.decode('ascii')
+    for line in output:
+        if "inet " in line and "scope global" in line:
+            address = line.split()[1]
+            return address
+    fatal_error('Could not determine loopback address for namespace "{}"'.format(ns_name))
+    return None  # Never reached
 
 def main():
     # pylint:disable=global-statement
