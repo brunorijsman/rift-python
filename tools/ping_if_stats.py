@@ -81,9 +81,9 @@ def get_loopback_address(ns_name):
     output = result.stdout.decode('ascii')
     lines = output.splitlines()
     for line in lines:
-        print(">>>", line)  ###@@@
         if "inet " in line and "scope global" in line:
-            address = line.split()[1]
+            prefix = line.split()[1]
+            address = prefix.split('/')[0]
             return address
     fatal_error('Could not determine loopback address for namespace "{}"'.format(ns_name))
     return None  # Never reached
