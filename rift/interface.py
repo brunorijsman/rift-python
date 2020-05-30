@@ -1,6 +1,7 @@
 # pylint:disable=too-many-lines
 
 import collections
+import datetime
 import enum
 import errno
 import logging
@@ -36,11 +37,17 @@ USE_SIMPLE_REQUEST_FILTERING = True
 class PacketTrace:
 
     def __init__(self, direction, packet_info):
+        self.timestamp = datetime.datetime.now()
         self.direction = direction
         self.packet_info = packet_info
 
-    def metadata_str(self):
-        return self.direction
+    def metadata_str(self, prev_packet):
+        meta_str = "direction=" + self.direction
+        meta_str += "  timestamp={}".format(self.timestamp.strftime("%Y-%m-%d-%H:%M:%S.%f"))
+        if prev_packet:
+            second_since_prev_packet = (prev_packet.timestamp - self.timestamp).total_seconds()
+            meta_str += "  seconds-since-prev={:.4f}".format(second_since_prev_packet)
+        return meta_str
 
 class Interface:
 
@@ -1902,10 +1909,12 @@ class Interface:
         cli_session.print("Last {} Packets Sent and Received on Interface:"
                           .format(self.MAX_PACKET_TRACE))
         tab = table.Table()
-        for packet_trace in self._packets:
-            lines = self.word_wrap(str(packet_trace.packet_info), 130)
-            lines = [packet_trace.metadata_str(), ""] + lines
+        prev_packet = None
+        for packet in self._packets:
+            lines = self.word_wrap(str(packet.packet_info), 130)
+            lines = [packet.metadata_str(prev_packet), ""] + lines
             tab.add_row([lines])
+            prev_packet = packet
         cli_session.print(tab.to_string())
 
     def command_show_intf_queues(self, cli_session):
