@@ -4,6 +4,8 @@ import argparse
 import subprocess
 import sys
 
+from rift.table import Table
+
 ARGS = None
 
 def parse_command_line_arguments():
@@ -26,8 +28,20 @@ def ping_interface_stats(source_ns, dest_ns, stats_ns):
     if not namespace_exists(stats_ns):
         fatal_error('Statistics namespace "{}" does not exist'.format(stats_ns))
     if_stats_before = measure_if_stats(stats_ns)
-    print(if_stats_before) ###@@@
-    ping(source_ns, dest_ns)
+    source_lo_addr = get_loopback_address(source_ns)
+    dest_lo_addr = get_loopback_address(dest_ns)
+    (packets_transmitted, packets_received) = ping(source_ns, source_lo_addr, dest_lo_addr)
+    if_stats_after = measure_if_stats(stats_ns)
+    tab = Table()
+    tab.add_row(['Source name space', source_ns])
+    tab.add_row(['Destination name space', dest_ns])
+    tab.add_row(['Source address', source_lo_addr])
+    tab.add_row(['Destination name space', dest_lo_addr])
+    tab.add_row(['Ping packets transmitted', packets_transmitted])
+    tab.add_row(['Ping packets received', packets_received])
+    tab.add_row(['Ping packets lost', packets_transmitted - packets_received])
+    print("Ping Statistics:")
+    print(tab.to_string())
 
 def namespace_exists(ns_name):
     try:
@@ -66,11 +80,23 @@ def measure_if_stats(ns_name):
                 if_stats[if_name] = (rx_packets, tx_packets)
                 break
 
-def ping(source_ns, dest_ns):
-    source_lo_addr = get_loopback_address(source_ns)
-    print("source_lo_addr =", source_lo_addr)
-    dest_lo_addr = get_loopback_address(dest_ns)
-    print("dest_lo_addr =", dest_lo_addr)
+def ping(ns_name, source_lo_addr, dest_lo_addr):
+    try:
+        result = subprocess.run(['ip', 'netns', 'exec', ns_name, 'ping', '-f', '-c10',
+                                 '-I', source_lo_addr, dest_lo_addr],
+                                stdout=subprocess.PIPE)
+    except FileNotFoundError:
+        fatal_error('"ping" command not found')
+    output = result.stdout.decode('ascii')
+    lines = output.splitlines()
+    for line in lines:
+        if "packets transmitted" in line:
+            split_line = line.split()
+            packets_transmitted = split_line[0]
+            packets_received = split_line[3]
+            return (packets_transmitted, packets_received)
+    fatal_error('Could not determine ping statistics for namespace "{}"'.format(ns_name))
+    return None  # Never reached
 
 def get_loopback_address(ns_name):
     try:
