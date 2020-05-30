@@ -99,7 +99,7 @@ def measure_if_stats(ns_name):
 
 def ping(ns_name, source_lo_addr, dest_lo_addr):
     try:
-        result = subprocess.run(['ip', 'netns', 'exec', ns_name, 'ping', '-f', '-c10',
+        result = subprocess.run(['ip', 'netns', 'exec', ns_name, 'ping', '-f', '-W1', '-c10',
                                  '-I', source_lo_addr, dest_lo_addr],
                                 stdout=subprocess.PIPE)
     except FileNotFoundError:
