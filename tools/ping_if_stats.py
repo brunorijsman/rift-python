@@ -40,7 +40,7 @@ def ping_interface_stats(source_ns, dest_ns, stats_ns):
     print("Destination name space   :", dest_ns)
     print("Statistics name space    :", stats_ns)
     print("Source address           :", source_lo_addr)
-    print("Destination address   :", dest_lo_addr)
+    print("Destination address      :", dest_lo_addr)
     print("Ping packets transmitted :", packets_transmitted)
     print("Ping packets received    :", packets_received)
     print("Ping packets lost        :", packets_transmitted - packets_received)
