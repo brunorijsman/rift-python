@@ -34,10 +34,12 @@ def one_interface_baseline_stats(stats_ns):
     if_stats_before = measure_if_stats(stats_ns)
     time.sleep(BASELINE_SECS)
     if_stats_after = measure_if_stats(stats_ns)
+    header_interface_stats()
     report_interface_stats(stats_ns, if_stats_before, if_stats_after)
     print()
 
 def all_interfaces_baseline_stats():
+    print("Statistics during {:.1f} second baseline test:\n".format(BASELINE_SECS))
     ns_list = all_namespaces()
     ns_list.sort()
     if_stats_before = {}
@@ -47,6 +49,7 @@ def all_interfaces_baseline_stats():
     time.sleep(BASELINE_SECS)
     for stats_ns in ns_list:
         if_stats_after[stats_ns] = measure_if_stats(stats_ns)
+    header_interface_stats()
     for stats_ns in ns_list:
         report_interface_stats(stats_ns, if_stats_before[stats_ns], if_stats_after[stats_ns])
     print()
@@ -64,6 +67,7 @@ def ping_interface_stats(source_ns, dest_ns, stats_ns):
     if_stats_before = measure_if_stats(stats_ns)
     (packets_transmitted, packets_received) = ping(source_ns, source_lo_addr, dest_lo_addr)
     if_stats_after = measure_if_stats(stats_ns)
+    header_interface_stats()
     report_interface_stats(stats_ns, if_stats_before, if_stats_after)
     print()
     print("Source name space        :", source_ns)
@@ -77,13 +81,15 @@ def ping_interface_stats(source_ns, dest_ns, stats_ns):
     color = GREEN if drops == 0 else RED
     print("Ping packets lost        : {}{}{}".format(color, drops, DEFAULT))
 
+def header_interface_stats():
+    print("Namespace           Interface           TX packets  TX Rate     RX packets  RX rate")
+    print("------------------  ------------------  ----------  ----------  ----------  ----------")
+
 def report_interface_stats(stats_ns, if_stats_before, if_stats_after):
     (time_before, counters_before) = if_stats_before
     (time_after, counters_after) = if_stats_after
     if_names = list(counters_before.keys())
     if_names.sort()
-    print("Namespace           Interface           TX packets  TX Rate     RX packets  RX rate")
-    print("------------------  ------------------  ----------  ----------  ----------  ----------")
     for if_name in if_names:
         delta_secs = time_after - time_before
         rx_packets = counters_after[if_name][0] - counters_before[if_name][0]
