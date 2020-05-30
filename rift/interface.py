@@ -1,5 +1,6 @@
 # pylint:disable=too-many-lines
 
+import collections
 import enum
 import errno
 import logging
@@ -32,11 +33,22 @@ USE_SIMPLE_REQUEST_FILTERING = True
 # TODO: Have a mechanism to detect that an interface comes into / goes out of existence
 # TODO: Have a mechanism to detect IPv4 or IPv6 address changes on an interface
 
+class PacketTrace:
+
+    def __init__(self, direction, packet_info):
+        self.direction = direction
+        self.packet_info = packet_info
+
+    def metadata_str(self):
+        return self.direction
+
 class Interface:
 
     UNDEFINED_OR_ANY_POD = 0
 
     INCREASE_TX_NONCE_LOCAL_HOLDDOWN_TIME = 60.0
+
+    MAX_PACKET_TRACE = 20
 
     def generate_advertised_name(self):
         return self.node.name + ':' + self.name
@@ -335,6 +347,14 @@ class Interface:
                         prelude = "Error {} sending".format(str(error))
                         self.log_tx_protocol_packet(severity, sock, prelude, packet_info)
                         self.bump_tx_real_errors_counter(sock, nr_bytes)
+                    else:
+                        # Sucessfully sent packet; trace it
+                        ###@@@ TODO: Create named tuple for the following
+                        ###@@@ TODO: Add timestamp
+                        ###@@@ TODO: Add address family
+                        ###@@@ TODO: Source and dest address and port
+                        packet_trace = PacketTrace("TX", packet_info)
+                        self._packets.appendleft(packet_trace)
 
     def choose_tx_packet_nr(self, address_family, packet_info):
         if not packet_info.protocol_packet:
@@ -936,6 +956,7 @@ class Interface:
         self._flood_rx_ipv4_handler = None
         self._flood_rx_ipv6_handler = None
         self._queues = msg_queues.MsgQueues(self)
+        self._packets = collections.deque([], self.MAX_PACKET_TRACE)
         self.floodred_nbr_is_fr = self.NbrIsFRState.NOT_APPLICABLE
         self.partially_connected = None
         self.partially_connected_causes = None
@@ -1225,6 +1246,8 @@ class Interface:
                           protocol_packet.header.major_version)
             return None
         self.check_rx_packet_nr(packet_info)
+        packet_trace = PacketTrace("RX", packet_info)
+        self._packets.appendleft(packet_trace)
         return packet_info
 
     def log_and_count_error(self, packet_info, nr_bytes):
@@ -1851,6 +1874,39 @@ class Interface:
                          header.seq_nr,
                          lifetime])
         return tab
+
+    @staticmethod
+    def word_wrap(long_line, width):
+        wrapped_lines = []
+        words = long_line.split()
+        current_line = ""
+        while words:
+            word = words[0]
+            words = words[1:]
+            room_for_space = 0 if current_line == "" else 1
+            if len(current_line) + room_for_space + len(word) > width:
+                wrapped_lines.append(current_line)
+                current_line = word
+            else:
+                if current_line != "":
+                    current_line += " "
+                current_line += word
+        if current_line != "":
+            wrapped_lines.append(current_line)
+        return wrapped_lines
+
+    def command_show_intf_packets(self, cli_session):
+        ###@@@ TODO: Pretty print
+        ###@@@ TODO: Report meta-data such as timedtamp
+        ###@@@ TODO: Not only TX but also RX
+        cli_session.print("Last {} Packets Sent and Received on Interface:"
+                          .format(self.MAX_PACKET_TRACE))
+        tab = table.Table()
+        for packet_trace in self._packets:
+            lines = self.word_wrap(str(packet_trace.packet_info), 130)
+            lines = [packet_trace.metadata_str(), ""] + lines
+            tab.add_row([lines])
+        cli_session.print(tab.to_string())
 
     def command_show_intf_queues(self, cli_session):
         self._queues.command_show_intf_queues(cli_session)

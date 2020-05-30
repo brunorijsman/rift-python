@@ -252,6 +252,9 @@ class Engine:
     def command_show_intf_fsm_vhis(self, cli_session, parameters):
         cli_session.current_node.command_show_intf_fsm_hist(cli_session, parameters, True)
 
+    def command_show_intf_packets(self, cli_session, parameters):
+        cli_session.current_node.command_show_intf_packets(cli_session, parameters)
+
     def command_show_intf_queues(self, cli_session, parameters):
         cli_session.current_node.command_show_intf_queues(cli_session, parameters)
 
@@ -451,6 +454,7 @@ class Engine:
                     "history": command_show_intf_fsm_nvhis,
                     "verbose-history": command_show_intf_fsm_vhis,
                 },
+                "packets": command_show_intf_packets,
                 "queues": command_show_intf_queues,
                 "security": command_show_intf_security,
                 "sockets": command_show_intf_sockets,
