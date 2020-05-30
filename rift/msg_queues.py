@@ -134,15 +134,18 @@ class _MsgQueueBase:
         # when they are not, they tend to be very short.
         new_queue = collections.OrderedDict()
         self.start_message()
+        added_at_least_one = False
         for tie_id, value in self._queue.items():
             (delay_ticks, tie_header_lifetime) = value
             assert delay_ticks > 0
             delay_ticks -= 1
             if delay_ticks == 0:
                 self.add_to_message(tie_id, tie_header_lifetime)
+                added_at_least_one = True
                 delay_ticks = _LONG_DELAY_TICKS
             new_queue[tie_id] = (delay_ticks, tie_header_lifetime)
-        self.end_message()
+        if added_at_least_one:
+            self.end_message()
         self._queue = new_queue
 
     def _add_row_to_cli_table(self, tab, delay_ticks, tie_header_lifetime):
