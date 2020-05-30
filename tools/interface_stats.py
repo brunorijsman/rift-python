@@ -5,6 +5,10 @@ import subprocess
 import sys
 import time
 
+DEFAULT = '\033[0m'
+RED = '\u001b[31m'
+GREEN = '\u001b[32m'
+
 ARGS = None
 BASELINE_SECS = 10.0
 
@@ -52,7 +56,9 @@ def ping_interface_stats(source_ns, dest_ns, stats_ns):
     print("Destination address      :", dest_lo_addr)
     print("Ping packets transmitted :", packets_transmitted)
     print("Ping packets received    :", packets_received)
-    print("Ping packets lost        :", packets_transmitted - packets_received)
+    drops = packets_transmitted - packets_received
+    color = GREEN if drops == 0 else RED
+    print("Ping packets lost        : {}{}{}".format(color, drops, DEFAULT))
 
 def report_interface_stats(stats_ns, if_stats_before, if_stats_after):
     (time_before, counters_before) = if_stats_before
