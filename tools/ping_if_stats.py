@@ -32,10 +32,10 @@ def namespace_exists(ns_name):
         result = subprocess.run(['ip', 'netns', 'list'], stdout=subprocess.PIPE)
     except FileNotFoundError:
         fatal_error('"ip" command not found')
-    print(result)
     output = result.stdout.decode('ascii')
     ns_list_with_ids = output.splitlines()
-    print(ns_list_with_ids)
+    ns_list = [ns.split()[0] for ns in  ns_list_with_ids]
+    print(ns_list)
     return True
 
 def main():
