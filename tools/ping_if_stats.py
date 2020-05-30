@@ -29,7 +29,7 @@ def ping_interface_stats(source_ns, dest_ns, stats_ns):
 
 def namespace_exists(ns_name):
     try:
-        result = subprocess.run(['ip', 'netns', 'pids', ns_name], stdout=subprocess.PIPE)
+        result = subprocess.run(['ip', 'netns', 'list'], stdout=subprocess.PIPE)
     except FileNotFoundError:
         fatal_error('"ip" command not found')
     print(result)
