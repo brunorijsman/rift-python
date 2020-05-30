@@ -20,11 +20,11 @@ def fatal_error(error_msg):
 
 def ping_interface_stats(source_ns, dest_ns, stats_ns):
     if not namespace_exists(source_ns):
-        fatal_error("Source namespace {} does not exist".format(source_ns))
+        fatal_error('Source namespace "{}" does not exist'.format(source_ns))
     if not namespace_exists(dest_ns):
-        fatal_error("Destination namespace {} does not exist".format(dest_ns))
+        fatal_error('Destination namespace "{}" does not exist'.format(dest_ns))
     if not namespace_exists(stats_ns):
-        fatal_error("Statistics namespace {} does not exist".format(stats_ns))
+        fatal_error('Statistics namespace "{}" does not exist'.format(stats_ns))
     ###@@@
 
 def namespace_exists(ns_name):
