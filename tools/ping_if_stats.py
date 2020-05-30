@@ -6,6 +6,7 @@ import sys
 import time
 
 ARGS = None
+BASELINE_SECS = 10.0
 
 def parse_command_line_arguments():
     parser = argparse.ArgumentParser(description='Ping interface statistics')
@@ -19,6 +20,16 @@ def fatal_error(error_msg):
     print(error_msg, file=sys.stderr)
     sys.exit(1)
 
+def baseline_stats(stats_ns):
+    if not namespace_exists(stats_ns):
+        fatal_error('Statistics namespace "{}" does not exist'.format(stats_ns))
+    print("Statistics during {:.1f} second baseline test:\n".format(BASELINE_SECS))
+    if_stats_before = measure_if_stats(stats_ns)
+    time.sleep(BASELINE_SECS)
+    if_stats_after = measure_if_stats(stats_ns)
+    report_interface_stats(if_stats_before, if_stats_after)
+    print()
+
 def ping_interface_stats(source_ns, dest_ns, stats_ns):
     if not namespace_exists(source_ns):
         fatal_error('Source namespace "{}" does not exist'.format(source_ns))
@@ -26,17 +37,14 @@ def ping_interface_stats(source_ns, dest_ns, stats_ns):
         fatal_error('Destination namespace "{}" does not exist'.format(dest_ns))
     if not namespace_exists(stats_ns):
         fatal_error('Statistics namespace "{}" does not exist'.format(stats_ns))
-    print("Statistics during 10 seconds before ping:\n")
-    if_stats_before = measure_if_stats(stats_ns)
-    time.sleep(10.0)
-    if_stats_after = measure_if_stats(stats_ns)
-    report_interface_stats(if_stats_before, if_stats_after)
-    print()
-
+    print("Statistics during ping test:\n")
     source_lo_addr = get_loopback_address(source_ns)
     dest_lo_addr = get_loopback_address(dest_ns)
     if_stats_before = measure_if_stats(stats_ns)
     (packets_transmitted, packets_received) = ping(source_ns, source_lo_addr, dest_lo_addr)
+    if_stats_after = measure_if_stats(stats_ns)
+    report_interface_stats(if_stats_before, if_stats_after)
+    print()
     print("Source name space        :", source_ns)
     print("Destination name space   :", dest_ns)
     print("Statistics name space    :", stats_ns)
@@ -45,10 +53,6 @@ def ping_interface_stats(source_ns, dest_ns, stats_ns):
     print("Ping packets transmitted :", packets_transmitted)
     print("Ping packets received    :", packets_received)
     print("Ping packets lost        :", packets_transmitted - packets_received)
-    print()
-    print("Statistics during ping:\n")
-    if_stats_after = measure_if_stats(stats_ns)
-    report_interface_stats(if_stats_before, if_stats_after)
 
 def report_interface_stats(if_stats_before, if_stats_after):
     if_names = list(if_stats_before.keys())
@@ -138,6 +142,7 @@ def main():
     source_ns = getattr(ARGS, 'source-ns')
     dest_ns = getattr(ARGS, 'dest-ns')
     stats_ns = getattr(ARGS, 'stats-ns')
+    baseline_stats(stats_ns)
     ping_interface_stats(source_ns, dest_ns, stats_ns)
 
 if __name__ == "__main__":
