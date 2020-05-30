@@ -31,6 +31,7 @@ def ping_interface_stats(source_ns, dest_ns, stats_ns):
     time.sleep(10.0)
     if_stats_after = measure_if_stats(stats_ns)
     report_interface_stats(if_stats_before, if_stats_after)
+    print()
 
     source_lo_addr = get_loopback_address(source_ns)
     dest_lo_addr = get_loopback_address(dest_ns)
@@ -48,7 +49,6 @@ def ping_interface_stats(source_ns, dest_ns, stats_ns):
     print("Statistics during ping:\n")
     if_stats_after = measure_if_stats(stats_ns)
     report_interface_stats(if_stats_before, if_stats_after)
-    print()
 
 def report_interface_stats(if_stats_before, if_stats_after):
     if_names = list(if_stats_before.keys())
