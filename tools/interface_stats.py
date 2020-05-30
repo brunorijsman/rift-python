@@ -78,7 +78,7 @@ def report_interface_stats(stats_ns, if_stats_before, if_stats_after, color_high
             tx_rate = float(tx_packets) / delta_secs
             if color_high_rates:
                 rx_color = GREEN if rx_rate <= MAX_RATE else RED
-                tx_color = GREEN if tx_rate <= MAX_RATE else reversed
+                tx_color = GREEN if tx_rate <= MAX_RATE else RED
             else:
                 rx_color = DEFAULT
                 tx_color = DEFAULT
