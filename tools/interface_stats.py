@@ -27,7 +27,7 @@ def fatal_error(error_msg):
     print(error_msg, file=sys.stderr)
     sys.exit(1)
 
-def baseline_stats(stats_ns):
+def one_interface_baseline_stats(stats_ns):
     if not namespace_exists(stats_ns):
         fatal_error('Statistics namespace "{}" does not exist'.format(stats_ns))
     print("Statistics during {:.1f} second baseline test:\n".format(BASELINE_SECS))
@@ -35,6 +35,20 @@ def baseline_stats(stats_ns):
     time.sleep(BASELINE_SECS)
     if_stats_after = measure_if_stats(stats_ns)
     report_interface_stats(stats_ns, if_stats_before, if_stats_after)
+    print()
+
+def all_interfaces_baseline_stats():
+    ns_list = all_namespaces()
+    ns_list.sort()
+    if_stats_before = {}
+    if_stats_after = {}
+    for stats_ns in ns_list:
+        if_stats_before[stats_ns] = measure_if_stats(stats_ns)
+    time.sleep(BASELINE_SECS)
+    for stats_ns in ns_list:
+        if_stats_after[stats_ns] = measure_if_stats(stats_ns)
+    for stats_ns in ns_list:
+        report_interface_stats(stats_ns, if_stats_before[stats_ns], if_stats_after[stats_ns])
     print()
 
 def ping_interface_stats(source_ns, dest_ns, stats_ns):
@@ -91,7 +105,7 @@ def report_interface_stats(stats_ns, if_stats_before, if_stats_after):
                       tx_packets, tx_color, tx_rate, DEFAULT,
                       rx_packets, rx_color, rx_rate, DEFAULT))
 
-def namespace_exists(ns_name):
+def all_namespaces():
     try:
         result = subprocess.run(['ip', 'netns', 'list'], stdout=subprocess.PIPE)
     except FileNotFoundError:
@@ -99,7 +113,10 @@ def namespace_exists(ns_name):
     output = result.stdout.decode('ascii')
     ns_list_with_ids = output.splitlines()
     ns_list = [ns.split()[0] for ns in  ns_list_with_ids]
-    return ns_name in ns_list
+    return ns_list
+
+def namespace_exists(ns_name):
+    return ns_name in all_namespaces()
 
 def measure_if_stats(ns_name):
     try:
@@ -163,19 +180,27 @@ def get_loopback_address(ns_name):
     fatal_error('Could not determine loopback address for namespace "{}"'.format(ns_name))
     return None  # Never reached
 
-def main():
-    # pylint:disable=global-statement
-    global ARGS
-    ARGS = parse_command_line_arguments()
-    stats_ns = getattr(ARGS, 'stats_ns')
-    baseline_stats(stats_ns)
-    # Optionally do ping
+def one_interface_stats(stats_ns):
+    one_interface_baseline_stats(stats_ns)
     dest_ns = getattr(ARGS, 'ping_dest_ns')
     if dest_ns:
         source_ns = getattr(ARGS, 'ping_source_ns')
         if not source_ns:
             source_ns = stats_ns
         ping_interface_stats(source_ns, dest_ns, stats_ns)
+
+def all_interfaces_stats():
+    all_interfaces_baseline_stats(stats_ns)
+
+def main():
+    # pylint:disable=global-statement
+    global ARGS
+    ARGS = parse_command_line_arguments()
+    stats_ns = getattr(ARGS, 'stats_ns')
+    if stats_ns:
+        one_interface_stats(stats_ns)
+    else:
+        all_interfaces_stats()
 
 if __name__ == "__main__":
     main()
