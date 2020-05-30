@@ -32,6 +32,7 @@ def ping_interface_stats(source_ns, dest_ns, stats_ns):
     if_stats_after = measure_if_stats(stats_ns)
     print("Source name space        :", source_ns)
     print("Destination name space   :", dest_ns)
+    print("Statistics name space    :", stats_ns)
     print("Source address           :", source_lo_addr)
     print("Destination name space   :", dest_lo_addr)
     print("Ping packets transmitted :", packets_transmitted)
