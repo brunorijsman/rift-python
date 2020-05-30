@@ -33,7 +33,7 @@ def baseline_stats(stats_ns):
     if_stats_before = measure_if_stats(stats_ns)
     time.sleep(BASELINE_SECS)
     if_stats_after = measure_if_stats(stats_ns)
-    report_interface_stats(stats_ns, if_stats_before, if_stats_after, True)
+    report_interface_stats(stats_ns, if_stats_before, if_stats_after)
     print()
 
 def ping_interface_stats(source_ns, dest_ns, stats_ns):
@@ -49,7 +49,7 @@ def ping_interface_stats(source_ns, dest_ns, stats_ns):
     if_stats_before = measure_if_stats(stats_ns)
     (packets_transmitted, packets_received) = ping(source_ns, source_lo_addr, dest_lo_addr)
     if_stats_after = measure_if_stats(stats_ns)
-    report_interface_stats(stats_ns, if_stats_before, if_stats_after, False)
+    report_interface_stats(stats_ns, if_stats_before, if_stats_after)
     print()
     print("Source name space        :", source_ns)
     print("Destination name space   :", dest_ns)
@@ -62,7 +62,7 @@ def ping_interface_stats(source_ns, dest_ns, stats_ns):
     color = GREEN if drops == 0 else RED
     print("Ping packets lost        : {}{}{}".format(color, drops, DEFAULT))
 
-def report_interface_stats(stats_ns, if_stats_before, if_stats_after, color_high_rates):
+def report_interface_stats(stats_ns, if_stats_before, if_stats_after):
     (time_before, counters_before) = if_stats_before
     (time_after, counters_after) = if_stats_after
     if_names = list(counters_before.keys())
@@ -76,12 +76,8 @@ def report_interface_stats(stats_ns, if_stats_before, if_stats_after, color_high
         if delta_secs > 0.0001:
             rx_rate = float(rx_packets) / delta_secs
             tx_rate = float(tx_packets) / delta_secs
-            if color_high_rates:
-                rx_color = GREEN if rx_rate <= MAX_RATE else RED
-                tx_color = GREEN if tx_rate <= MAX_RATE else RED
-            else:
-                rx_color = DEFAULT
-                tx_color = DEFAULT
+            rx_color = GREEN if rx_rate <= MAX_RATE else RED
+            tx_color = GREEN if tx_rate <= MAX_RATE else RED
             rx_rate = "{:.1f}".format(rx_rate)
             tx_rate = "{:.1f}".format(tx_rate)
         else:
