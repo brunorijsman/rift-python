@@ -4,7 +4,7 @@ import argparse
 import subprocess
 import sys
 
-from rift.table import Table
+from ..rift.table import Table
 
 ARGS = None
 
