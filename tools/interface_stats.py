@@ -9,7 +9,7 @@ ARGS = None
 BASELINE_SECS = 10.0
 
 def parse_command_line_arguments():
-    parser = argparse.ArgumentParser(description='Ping interface statistics')
+    parser = argparse.ArgumentParser(description='Interface statistics')
     parser.add_argument('source-ns', help='Ping source namespace name')
     parser.add_argument('dest-ns', help='Ping destination namespace name')
     parser.add_argument('stats-ns', help='Interface statistics namespace name')
