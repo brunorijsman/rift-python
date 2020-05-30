@@ -79,7 +79,8 @@ def get_loopback_address(ns_name):
     except FileNotFoundError:
         fatal_error('"ip" command not found')
     output = result.stdout.decode('ascii')
-    for line in output:
+    lines = output.splitlines()
+    for line in lines:
         print(">>>", line)  ###@@@
         if "inet " in line and "scope global" in line:
             address = line.split()[1]
