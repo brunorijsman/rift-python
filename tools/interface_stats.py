@@ -12,6 +12,8 @@ GREEN = '\u001b[32m'
 ARGS = None
 BASELINE_SECS = 10.0
 
+MAX_RATE = 5.0
+
 def parse_command_line_arguments():
     parser = argparse.ArgumentParser(description='Interface statistics')
     parser.add_argument('source-ns', help='Ping source namespace name')
@@ -31,7 +33,7 @@ def baseline_stats(stats_ns):
     if_stats_before = measure_if_stats(stats_ns)
     time.sleep(BASELINE_SECS)
     if_stats_after = measure_if_stats(stats_ns)
-    report_interface_stats(stats_ns, if_stats_before, if_stats_after)
+    report_interface_stats(stats_ns, if_stats_before, if_stats_after, True)
     print()
 
 def ping_interface_stats(source_ns, dest_ns, stats_ns):
@@ -47,7 +49,7 @@ def ping_interface_stats(source_ns, dest_ns, stats_ns):
     if_stats_before = measure_if_stats(stats_ns)
     (packets_transmitted, packets_received) = ping(source_ns, source_lo_addr, dest_lo_addr)
     if_stats_after = measure_if_stats(stats_ns)
-    report_interface_stats(stats_ns, if_stats_before, if_stats_after)
+    report_interface_stats(stats_ns, if_stats_before, if_stats_after, False)
     print()
     print("Source name space        :", source_ns)
     print("Destination name space   :", dest_ns)
@@ -60,7 +62,7 @@ def ping_interface_stats(source_ns, dest_ns, stats_ns):
     color = GREEN if drops == 0 else RED
     print("Ping packets lost        : {}{}{}".format(color, drops, DEFAULT))
 
-def report_interface_stats(stats_ns, if_stats_before, if_stats_after):
+def report_interface_stats(stats_ns, if_stats_before, if_stats_after, color_high_rates):
     (time_before, counters_before) = if_stats_before
     (time_after, counters_after) = if_stats_after
     if_names = list(counters_before.keys())
@@ -72,13 +74,25 @@ def report_interface_stats(stats_ns, if_stats_before, if_stats_after):
         rx_packets = counters_after[if_name][0] - counters_before[if_name][0]
         tx_packets = counters_after[if_name][1] - counters_before[if_name][1]
         if delta_secs > 0.0001:
-            rx_rate = "{:.1f}".format(float(rx_packets) / delta_secs)
-            tx_rate = "{:.1f}".format(float(tx_packets) / delta_secs)
+            rx_rate = float(rx_packets) / delta_secs
+            tx_rate = float(tx_packets) / delta_secs
+            if color_high_rates:
+                rx_color = GREEN if rx_rate <= MAX_RATE else RED
+                tx_color = GREEN if tx_rate <= MAX_RATE else reversed
+            else:
+                rx_color = DEFAULT
+                tx_color = DEFAULT
+            rx_rate = "{:.1f}".format(rx_rate)
+            tx_rate = "{:.1f}".format(tx_rate)
         else:
             rx_rate = "-"
             tx_rate = "-"
-        print("{:18s}  {:18s}  {:>10d}  {:>10s}  {:>10d}  {:>10s}"
-              .format(stats_ns, if_name, tx_packets, tx_rate, rx_packets, rx_rate))
+            rx_color = DEFAULT
+            tx_color = DEFAULT
+        print("{:18s}  {:18s}  {:>10d}  {}{:>10s}{}  {:>10d}  {}{:>10s}{}"
+              .format(stats_ns, if_name,
+                      tx_packets, tx_color, tx_rate, DEFAULT,
+                      rx_packets, rx_color, rx_rate, DEFAULT))
 
 def namespace_exists(ns_name):
     try:
