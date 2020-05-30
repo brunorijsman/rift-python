@@ -91,6 +91,8 @@ def report_interface_stats(stats_ns, if_stats_before, if_stats_after):
     if_names = list(counters_before.keys())
     if_names.sort()
     for if_name in if_names:
+        if if_name == "lo":
+            continue
         delta_secs = time_after - time_before
         rx_packets = counters_after[if_name][0] - counters_before[if_name][0]
         tx_packets = counters_after[if_name][1] - counters_before[if_name][1]
