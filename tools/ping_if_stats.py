@@ -38,7 +38,6 @@ def ping_interface_stats(source_ns, dest_ns, stats_ns):
     print("Ping packets received    :", packets_received)
     print("Ping packets lost        :", packets_transmitted - packets_received)
     print()
-    print(">>>", if_stats_before) ###@@@
     if_names = list(if_stats_before.keys())
     if_names.sort()
     print("Interface               TX packets  RX packets")
