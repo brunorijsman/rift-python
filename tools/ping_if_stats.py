@@ -41,10 +41,12 @@ def ping_interface_stats(source_ns, dest_ns, stats_ns):
     print(">>>", if_stats_before) ###@@@
     if_names = list(if_stats_before.keys())
     if_names.sort()
-    print("Interface                    TX packets  RX packets")
-    print("---------------------------  ----------  ----------")
+    print("Interface               TX packets  RX packets")
+    print("----------------------  ----------  ----------")
     for if_name in if_names:
-        print("{:30s}  {:12d}  {:12d}".format(if_name, 0, 0))
+        rx_packets = if_stats_after[if_name][0] - if_stats_before[if_name][0]
+        tx_packets = if_stats_after[if_name][1] - if_stats_before[if_name][1]
+        print("{:32s}  {:12d}  {:12d}".format(if_name, tx_packets, rx_packets))
 
 def namespace_exists(ns_name):
     try:
@@ -77,9 +79,9 @@ def measure_if_stats(ns_name):
                 fatal_error("Missing RX or TX stats in output of ifconfig")
             line = lines.pop(0)
             if "RX packets" in line:
-                rx_packets = line.split()[1].split(":")[1]
+                rx_packets = int(line.split()[1].split(":")[1])
             if "TX packets" in line:
-                tx_packets = line.split()[1].split(":")[1]
+                tx_packets = int(line.split()[1].split(":")[1])
                 if_stats[if_name] = (rx_packets, tx_packets)
                 break
 
