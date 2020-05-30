@@ -167,11 +167,15 @@ def main():
     # pylint:disable=global-statement
     global ARGS
     ARGS = parse_command_line_arguments()
-    source_ns = getattr(ARGS, 'ping_source_ns')
-    dest_ns = getattr(ARGS, 'ping_dest_ns')
     stats_ns = getattr(ARGS, 'stats_ns')
     baseline_stats(stats_ns)
-    ping_interface_stats(source_ns, dest_ns, stats_ns)
+    # Optionally do ping
+    dest_ns = getattr(ARGS, 'ping_dest_ns')
+    if dest_ns:
+        source_ns = getattr(ARGS, 'ping_source_ns')
+        if not source_ns:
+            source_ns = stats_ns
+        ping_interface_stats(source_ns, dest_ns, stats_ns)
 
 if __name__ == "__main__":
     main()
