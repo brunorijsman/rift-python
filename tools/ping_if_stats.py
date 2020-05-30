@@ -3,6 +3,7 @@
 import argparse
 import subprocess
 import sys
+import time
 
 ARGS = None
 
@@ -25,20 +26,31 @@ def ping_interface_stats(source_ns, dest_ns, stats_ns):
         fatal_error('Destination namespace "{}" does not exist'.format(dest_ns))
     if not namespace_exists(stats_ns):
         fatal_error('Statistics namespace "{}" does not exist'.format(stats_ns))
+    print("Statistics during 10 seconds before ping:\n")
     if_stats_before = measure_if_stats(stats_ns)
+    time.sleep(10.0)
+    if_stats_after = measure_if_stats(stats_ns)
+    report_interface_stats(if_stats_before, if_stats_after)
+
     source_lo_addr = get_loopback_address(source_ns)
     dest_lo_addr = get_loopback_address(dest_ns)
+    if_stats_before = measure_if_stats(stats_ns)
     (packets_transmitted, packets_received) = ping(source_ns, source_lo_addr, dest_lo_addr)
-    if_stats_after = measure_if_stats(stats_ns)
     print("Source name space        :", source_ns)
     print("Destination name space   :", dest_ns)
     print("Statistics name space    :", stats_ns)
     print("Source address           :", source_lo_addr)
-    print("Destination name space   :", dest_lo_addr)
+    print("Destination address   :", dest_lo_addr)
     print("Ping packets transmitted :", packets_transmitted)
     print("Ping packets received    :", packets_received)
     print("Ping packets lost        :", packets_transmitted - packets_received)
     print()
+    print("Statistics during ping:\n")
+    if_stats_after = measure_if_stats(stats_ns)
+    report_interface_stats(if_stats_before, if_stats_after)
+    print()
+
+def report_interface_stats(if_stats_before, if_stats_after):
     if_names = list(if_stats_before.keys())
     if_names.sort()
     print("Interface               TX packets  RX packets")
