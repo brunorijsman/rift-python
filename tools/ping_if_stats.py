@@ -57,12 +57,22 @@ def ping_interface_stats(source_ns, dest_ns, stats_ns):
 def report_interface_stats(stats_ns, if_stats_before, if_stats_after):
     if_names = list(if_stats_before.keys())
     if_names.sort()
-    print("Namespace               Interface               TX packets  RX packets")
-    print("----------------------  ----------------------  ----------  ----------")
+    print("Namespace           Interface           TX packets  TX Rate     RX packets  RX rate")
+    print("------------------  ------------------  ----------  ----------  ----------  ----------")
     for if_name in if_names:
-        rx_packets = if_stats_after[if_name][0] - if_stats_before[if_name][0]
-        tx_packets = if_stats_after[if_name][1] - if_stats_before[if_name][1]
-        print("{:22s}  {:22s}  {:10d}  {:10d}".format(stats_ns, if_name, tx_packets, rx_packets))
+        (time_before, counters_before) = if_stats_before
+        (time_after, counters_after) = if_stats_after
+        delta_secs = time_after - time_before
+        rx_packets = counters_after[if_name][0] - counters_before[if_name][0]
+        tx_packets = counters_after[if_name][1] - counters_before[if_name][1]
+        if delta_secs > 0.0001:
+            rx_rate = "{:.1f}".format(float(rx_packets) / delta_secs)
+            tx_rate = "{:.1f}".format(float(tx_packets) / delta_secs)
+        else:
+            rx_rate = "-"
+            tx_rate = "-"
+        print("{:18s}  {:18s}  {:10d}  {:10s}  {:10d}  {:10s}"
+              .format(stats_ns, if_name, tx_packets, tx_rate, rx_packets, rx_rate))
 
 def namespace_exists(ns_name):
     try:
@@ -81,11 +91,11 @@ def measure_if_stats(ns_name):
     except FileNotFoundError:
         fatal_error('"ifconfig" command not found')
     output = result.stdout.decode('ascii')
-    if_stats = {}
+    counters = {}
     lines = output.splitlines()
     while True:
         if not lines:
-            return if_stats
+            return (time.time(), counters)
         line = lines.pop(0)
         if "Link encap" not in line:
             continue
@@ -98,7 +108,7 @@ def measure_if_stats(ns_name):
                 rx_packets = int(line.split()[1].split(":")[1])
             if "TX packets" in line:
                 tx_packets = int(line.split()[1].split(":")[1])
-                if_stats[if_name] = (rx_packets, tx_packets)
+                counters[if_name] = (rx_packets, tx_packets)
                 break
 
 def ping(ns_name, source_lo_addr, dest_lo_addr):
