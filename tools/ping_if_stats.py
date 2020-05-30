@@ -25,7 +25,7 @@ def ping_interface_stats(source_ns, dest_ns, stats_ns):
         fatal_error('Destination namespace "{}" does not exist'.format(dest_ns))
     if not namespace_exists(stats_ns):
         fatal_error('Statistics namespace "{}" does not exist'.format(stats_ns))
-    ###@@@
+    _if_stats_before = measure_if_stats(stats_ns)
 
 def namespace_exists(ns_name):
     try:
@@ -36,6 +36,15 @@ def namespace_exists(ns_name):
     ns_list_with_ids = output.splitlines()
     ns_list = [ns.split()[0] for ns in  ns_list_with_ids]
     return ns_name in ns_list
+
+def measure_if_stats(ns_name):
+    try:
+        result = subprocess.run(['ip', 'netns', 'exec', ns_name, 'ifconfig'],
+                                stdout=subprocess.PIPE)
+    except FileNotFoundError:
+        fatal_error('"ifconfig" command not found')
+    output = result.stdout.decode('ascii')
+    print(output)
 
 def main():
     # pylint:disable=global-statement
