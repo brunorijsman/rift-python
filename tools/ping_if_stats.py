@@ -4,8 +4,6 @@ import argparse
 import subprocess
 import sys
 
-from ..rift.table import Table
-
 ARGS = None
 
 def parse_command_line_arguments():
@@ -32,16 +30,13 @@ def ping_interface_stats(source_ns, dest_ns, stats_ns):
     dest_lo_addr = get_loopback_address(dest_ns)
     (packets_transmitted, packets_received) = ping(source_ns, source_lo_addr, dest_lo_addr)
     if_stats_after = measure_if_stats(stats_ns)
-    tab = Table()
-    tab.add_row(['Source name space', source_ns])
-    tab.add_row(['Destination name space', dest_ns])
-    tab.add_row(['Source address', source_lo_addr])
-    tab.add_row(['Destination name space', dest_lo_addr])
-    tab.add_row(['Ping packets transmitted', packets_transmitted])
-    tab.add_row(['Ping packets received', packets_received])
-    tab.add_row(['Ping packets lost', packets_transmitted - packets_received])
-    print("Ping Statistics:")
-    print(tab.to_string())
+    print("Source name space        :", source_ns)
+    print("Destination name space   :", dest_ns)
+    print("Source address           :", source_lo_addr)
+    print("Destination name space   :", dest_lo_addr)
+    print("Ping packets transmitted :", packets_transmitted)
+    print("Ping packets received    :", packets_received)
+    print("Ping packets lost        :", packets_transmitted - packets_received)
 
 def namespace_exists(ns_name):
     try:
