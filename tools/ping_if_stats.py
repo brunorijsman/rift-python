@@ -26,7 +26,7 @@ def ping_interface_stats(source_ns, dest_ns, stats_ns):
     if not namespace_exists(stats_ns):
         fatal_error('Statistics namespace "{}" does not exist'.format(stats_ns))
     if_stats_before = measure_if_stats(stats_ns)
-    print(if_stats_before)
+    print(if_stats_before) ###@@@
     ping(source_ns, dest_ns)
 
 def namespace_exists(ns_name):
@@ -80,6 +80,7 @@ def get_loopback_address(ns_name):
         fatal_error('"ip" command not found')
     output = result.stdout.decode('ascii')
     for line in output:
+        print(">>>", line)  ###@@@
         if "inet " in line and "scope global" in line:
             address = line.split()[1]
             return address
