@@ -71,7 +71,7 @@ def report_interface_stats(stats_ns, if_stats_before, if_stats_after):
         else:
             rx_rate = "-"
             tx_rate = "-"
-        print("{:18s}  {:18s}  {:10d}  {:10s}  {:10d}  {:10s}"
+        print("{:18s}  {:18s}  {:>10d}  {:>10s}  {:>10d}  {:>10s}"
               .format(stats_ns, if_name, tx_packets, tx_rate, rx_packets, rx_rate))
 
 def namespace_exists(ns_name):
