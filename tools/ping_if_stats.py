@@ -27,7 +27,7 @@ def baseline_stats(stats_ns):
     if_stats_before = measure_if_stats(stats_ns)
     time.sleep(BASELINE_SECS)
     if_stats_after = measure_if_stats(stats_ns)
-    report_interface_stats(if_stats_before, if_stats_after)
+    report_interface_stats(stats_ns, if_stats_before, if_stats_after)
     print()
 
 def ping_interface_stats(source_ns, dest_ns, stats_ns):
@@ -43,7 +43,7 @@ def ping_interface_stats(source_ns, dest_ns, stats_ns):
     if_stats_before = measure_if_stats(stats_ns)
     (packets_transmitted, packets_received) = ping(source_ns, source_lo_addr, dest_lo_addr)
     if_stats_after = measure_if_stats(stats_ns)
-    report_interface_stats(if_stats_before, if_stats_after)
+    report_interface_stats(stats_ns, if_stats_before, if_stats_after)
     print()
     print("Source name space        :", source_ns)
     print("Destination name space   :", dest_ns)
@@ -54,15 +54,15 @@ def ping_interface_stats(source_ns, dest_ns, stats_ns):
     print("Ping packets received    :", packets_received)
     print("Ping packets lost        :", packets_transmitted - packets_received)
 
-def report_interface_stats(if_stats_before, if_stats_after):
+def report_interface_stats(stats_ns, if_stats_before, if_stats_after):
     if_names = list(if_stats_before.keys())
     if_names.sort()
-    print("Interface               TX packets  RX packets")
-    print("----------------------  ----------  ----------")
+    print("Namespace               Interface               TX packets  RX packets")
+    print("----------------------  ----------------------  ----------  ----------")
     for if_name in if_names:
         rx_packets = if_stats_after[if_name][0] - if_stats_before[if_name][0]
         tx_packets = if_stats_after[if_name][1] - if_stats_before[if_name][1]
-        print("{:22s}  {:10d}  {:10d}".format(if_name, tx_packets, rx_packets))
+        print("{:22s}  {:22s}  {:10d}  {:10d}".format(stats_ns, if_name, tx_packets, rx_packets))
 
 def namespace_exists(ns_name):
     try:
