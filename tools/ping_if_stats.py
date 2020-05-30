@@ -87,8 +87,8 @@ def ping(ns_name, source_lo_addr, dest_lo_addr):
     for line in lines:
         if "packets transmitted" in line:
             split_line = line.split()
-            packets_transmitted = split_line[0]
-            packets_received = split_line[3]
+            packets_transmitted = int(split_line[0])
+            packets_received = int(split_line[3])
             return (packets_transmitted, packets_received)
     fatal_error('Could not determine ping statistics for namespace "{}"'.format(ns_name))
     return None  # Never reached
