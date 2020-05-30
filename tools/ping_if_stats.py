@@ -25,7 +25,8 @@ def ping_interface_stats(source_ns, dest_ns, stats_ns):
         fatal_error('Destination namespace "{}" does not exist'.format(dest_ns))
     if not namespace_exists(stats_ns):
         fatal_error('Statistics namespace "{}" does not exist'.format(stats_ns))
-    _if_stats_before = measure_if_stats(stats_ns)
+    if_stats_before = measure_if_stats(stats_ns)
+    print(if_stats_before)
 
 def namespace_exists(ns_name):
     try:
@@ -54,6 +55,16 @@ def measure_if_stats(ns_name):
             continue
         if_name = line.split()[0]
         print(if_name)
+        while True:
+            if not lines:
+                fatal_error("Missing RX or TX stats in output of ifconfig")
+            line = lines.pop(0)
+            if "RX packets" in line:
+                rx_packets = line.split()[0].split(":")[1]
+            if "TX packets" in line:
+                tx_packets = line.split()[0].split(":")[1]
+                if_stats[if_name] = (rx_packets, tx_packets)
+                break
 
 def main():
     # pylint:disable=global-statement
