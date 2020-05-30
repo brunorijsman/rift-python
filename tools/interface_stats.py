@@ -190,7 +190,7 @@ def one_interface_stats(stats_ns):
         ping_interface_stats(source_ns, dest_ns, stats_ns)
 
 def all_interfaces_stats():
-    all_interfaces_baseline_stats(stats_ns)
+    all_interfaces_baseline_stats()
 
 def main():
     # pylint:disable=global-statement
