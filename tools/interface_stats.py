@@ -17,9 +17,9 @@ MAX_RATE = 5.0
 
 def parse_command_line_arguments():
     parser = argparse.ArgumentParser(description='Interface statistics')
-    parser.add_argument('source-ns', help='Ping source namespace name')
-    parser.add_argument('dest-ns', help='Ping destination namespace name')
-    parser.add_argument('stats-ns', help='Interface statistics namespace name')
+    parser.add_argument('--stats-ns', help='Statistics namespace name')
+    parser.add_argument('--ping-source-ns', help='Ping source namespace name')
+    parser.add_argument('--ping-dest-ns', help='Ping destination namespace name')
     args = parser.parse_args()
     return args
 
@@ -167,8 +167,8 @@ def main():
     # pylint:disable=global-statement
     global ARGS
     ARGS = parse_command_line_arguments()
-    source_ns = getattr(ARGS, 'source-ns')
-    dest_ns = getattr(ARGS, 'dest-ns')
+    source_ns = getattr(ARGS, 'ping-source-ns')
+    dest_ns = getattr(ARGS, 'ping-dest-ns')
     stats_ns = getattr(ARGS, 'stats-ns')
     baseline_stats(stats_ns)
     ping_interface_stats(source_ns, dest_ns, stats_ns)
