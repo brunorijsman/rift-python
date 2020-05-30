@@ -35,8 +35,7 @@ def namespace_exists(ns_name):
     output = result.stdout.decode('ascii')
     ns_list_with_ids = output.splitlines()
     ns_list = [ns.split()[0] for ns in  ns_list_with_ids]
-    print(ns_list)
-    return True
+    return ns_name in ns_list
 
 def main():
     # pylint:disable=global-statement
