@@ -44,7 +44,16 @@ def measure_if_stats(ns_name):
     except FileNotFoundError:
         fatal_error('"ifconfig" command not found')
     output = result.stdout.decode('ascii')
-    print(output)
+    if_stats = {}
+    lines = output.splitlines()
+    while True:
+        if not lines:
+            return if_stats
+        line = lines.pop(0)
+        if "Link encap" not in line:
+            continue
+        if_name = line.split()[0]
+        print(if_name)
 
 def main():
     # pylint:disable=global-statement
