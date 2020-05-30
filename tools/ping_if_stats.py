@@ -55,13 +55,13 @@ def ping_interface_stats(source_ns, dest_ns, stats_ns):
     print("Ping packets lost        :", packets_transmitted - packets_received)
 
 def report_interface_stats(stats_ns, if_stats_before, if_stats_after):
-    if_names = list(if_stats_before.keys())
+    (time_before, counters_before) = if_stats_before
+    (time_after, counters_after) = if_stats_after
+    if_names = list(counters_before.keys())
     if_names.sort()
     print("Namespace           Interface           TX packets  TX Rate     RX packets  RX rate")
     print("------------------  ------------------  ----------  ----------  ----------  ----------")
     for if_name in if_names:
-        (time_before, counters_before) = if_stats_before
-        (time_after, counters_after) = if_stats_after
         delta_secs = time_after - time_before
         rx_packets = counters_after[if_name][0] - counters_before[if_name][0]
         tx_packets = counters_after[if_name][1] - counters_before[if_name][1]
