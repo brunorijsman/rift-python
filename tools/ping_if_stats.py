@@ -34,7 +34,8 @@ def namespace_exists(ns_name):
         fatal_error('"ip" command not found')
     print(result)
     output = result.stdout.decode('ascii')
-    print(output)
+    ns_list_with_ids = output.splitlines()
+    print(ns_list_with_ids)
     return True
 
 def main():
