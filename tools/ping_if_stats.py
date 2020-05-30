@@ -45,7 +45,7 @@ def ping_interface_stats(source_ns, dest_ns, stats_ns):
     for if_name in if_names:
         rx_packets = if_stats_after[if_name][0] - if_stats_before[if_name][0]
         tx_packets = if_stats_after[if_name][1] - if_stats_before[if_name][1]
-        print("{:32s}  {:12d}  {:12d}".format(if_name, tx_packets, rx_packets))
+        print("{:22s}  {:12d}  {:12d}".format(if_name, tx_packets, rx_packets))
 
 def namespace_exists(ns_name):
     try:
