@@ -60,10 +60,9 @@ def measure_if_stats(ns_name):
                 fatal_error("Missing RX or TX stats in output of ifconfig")
             line = lines.pop(0)
             if "RX packets" in line:
-                print(line.split()[0])
-                rx_packets = line.split()[0].split(":")[1]
+                rx_packets = line.split()[1].split(":")[1]
             if "TX packets" in line:
-                tx_packets = line.split()[0].split(":")[1]
+                tx_packets = line.split()[1].split(":")[1]
                 if_stats[if_name] = (rx_packets, tx_packets)
                 break
 
