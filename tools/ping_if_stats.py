@@ -69,8 +69,8 @@ def measure_if_stats(ns_name):
 def ping(source_ns, dest_ns):
     source_lo_addr = get_loopback_address(source_ns)
     print("source_lo_addr =", source_lo_addr)
-    dest_ns = get_loopback_address(source_ns)
-    print("dest_ns =", dest_ns)
+    dest_lo_addr = get_loopback_address(dest_ns)
+    print("dest_lo_addr =", dest_lo_addr)
 
 def get_loopback_address(ns_name):
     try:
