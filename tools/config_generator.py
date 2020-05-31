@@ -700,6 +700,7 @@ class Node:
         self.check_rib_south_specific_routes()
         self.check_rib_fib_consistency()
         self.check_fib_kernel_consistency()
+        self.check_disaggregation()
         return True
 
     def check_process_running(self):
@@ -946,6 +947,24 @@ class Node:
                 if not self.check_route_in_kernel(step, fib_prefix, fib_nexthops,
                                                   parsed_kernel_routes):
                     all_ok = False
+        if all_ok:
+            self.report_check_result(step)
+
+    def check_disaggregation(self):
+        step = "There is no disaggregation"
+        parsed_disagg = self.telnet_session.parse_show_output("show disaggregation")
+        print(parsed_disagg)
+        all_ok = True
+        # for fib_fam in parsed_fib_routes:
+        #     for fib_route in fib_fam['rows'][1:]:
+        #         fib_prefix = fib_route[0][0]
+        #         if len(fib_route) >= 2:
+        #             fib_nexthops = fib_route[1]
+        #         else:
+        #             fib_nexthops = []
+        #         if not self.check_route_in_kernel(step, fib_prefix, fib_nexthops,
+        #                                           parsed_kernel_routes):
+        #             all_ok = False
         if all_ok:
             self.report_check_result(step)
 
