@@ -1037,7 +1037,7 @@ class Node:
             tie_nr = row[3][0]
             seq_nr = row[4][0]
             error = ("Unexpected entry in {} queue: direction={} originator={} tie-nr={} seq-nr={}"
-                     .format(queue_name, tie_type, direction, originator, tie_nr, seq_nr))
+                     .format(queue_name, direction, originator, tie_nr, seq_nr))
             self.report_check_result(step, False, error)
             all_ok = False
         return all_ok
