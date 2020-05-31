@@ -953,6 +953,7 @@ class Node:
     def check_disaggregation(self):
         step = "There is no disaggregation"
         parsed_disagg = self.telnet_session.parse_show_output("show disaggregation")
+        # Check no unexpected missing or extra adjacencies in same-level-nodes table
         same_level_nodes = parsed_disagg[0]
         for row in same_level_nodes['rows'][1:]:
             same_level_name = row[0][0]
@@ -960,6 +961,20 @@ class Node:
             for missing_adj in row[3]:
                 if missing_adj != '':
                     missing_adjs.append(missing_adj)
+            if missing_adjs:
+                error = ("Same-level node {} has missing adjacencies {}"
+                         .format(same_level_name, missing_adjs))
+                self.report_check_result(substep, False, error)
+                all_ok = False
+            extra_adjs = []
+            for extra_adj in row[4]:
+                if extra_adj != '':
+                    extra_adjs.append(extra_adj)
+            if extra_adjs:
+                error = ("Same-level node {} has extra adjacencies {}"
+                         .format(same_level_name, extra_adjs))
+                self.report_check_result(substep, False, error)
+                all_ok = False
             print(row)
             print(missing_adjs)
         _partial_interfaces = parsed_disagg[1]
