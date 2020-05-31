@@ -406,6 +406,7 @@ class Kernel:
                          self.af_str(family),
                          dst_prefix_str,
                          self.route_type_str(route["type"]),
+                         self.proto_str(route["proto"]),
                          oif_cell,
                          gateway_cell,
                          weight_cell])
