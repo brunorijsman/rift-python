@@ -1004,8 +1004,9 @@ class Node:
                 tie_type = row[2][0]
                 tie_nr = row[3][0]
                 seq_nr = row[4][0]
-                error = ("Unexpected {} TIE: direction={} originator={} tie-nr={} seq-nr={}"
-                         .format(tie_type, direction, originator, tie_nr, seq_nr))
+                error = ("Unexpected {} TIE: direction={} originator={} tie-nr={} "
+                         "seq-nr={} contents={}"
+                         .format(tie_type, direction, originator, tie_nr, seq_nr, contents))
                 self.report_check_result(step, False, error)
                 all_ok = False
         return all_ok
