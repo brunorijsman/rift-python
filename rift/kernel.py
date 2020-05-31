@@ -110,6 +110,15 @@ class Kernel:
             self.debug("Delete route to %s", prefix)
             return True
 
+    def del_all_rift_routes(self):
+        if not self.platform_supported or self._simulated_interfaces:
+            return
+        if self._table_nr == -1:
+            return
+        for route in self.ipr.get_routes():
+            ###@@@
+            print("*** startup del route = ", route)
+
     def nhop_to_kernel_args(self, nhop, dst):
         link = self.ipr.link_lookup(ifname=nhop.interface)
         if link == []:

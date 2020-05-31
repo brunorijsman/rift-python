@@ -406,6 +406,7 @@ class Node:
             self._kernel_route_table,
             self._kernel_log,
             self.log_id)
+        self.kernel.del_all_rift_routes()
         self.log.info("[%s] Create node", self.log_id)
         self._configured_level_symbol = self.get_config_attribute('level', 'undefined')
         parse_result = self.parse_level_symbol(self._configured_level_symbol)
