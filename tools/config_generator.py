@@ -955,7 +955,13 @@ class Node:
         parsed_disagg = self.telnet_session.parse_show_output("show disaggregation")
         same_level_nodes = parsed_disagg[0]
         for row in same_level_nodes['rows'][1:]:
+            same_level_name = row[0][0]
+            missing_adjs = []
+            for missing_adj in row[3]:
+                if missing_adj != '':
+                    missing_adjs.append(missing_adj)
             print(row)
+            print(missing_adjs)
         _partial_interfaces = parsed_disagg[1]
         _pos_disagg_ties = parsed_disagg[2]
         _neg_disagg_ties = parsed_disagg[3]
