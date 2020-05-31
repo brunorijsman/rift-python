@@ -723,10 +723,7 @@ class Node:
 
     def check_can_ping_all_leaves(self):
         step = "This leaf can ping all other leaves"
-
-
-
-
+        success = True
         for pod in self.group.fabric.pods:
             for other_leaf_node in pod.nodes_by_layer[LEAF_LAYER]:
                 if other_leaf_node == self:
@@ -736,34 +733,16 @@ class Node:
                         result = subprocess.run(['ip', 'netns', 'exec', self.ns_name, 'ping', '-f',
                                                  '-W1', '-c10', '-I', from_address, to_address],
                                                 stdout=subprocess.PIPE)
-                        print(from_address, to_address)
-                        print(result)
-
-        # output = result.stdout.decode('ascii')
-        # lines = output.splitlines()
-        # for line in lines:
-        #     if "packets transmitted" in line:
-        #         split_line = line.split()
-        #         packets_transmitted = int(split_line[0])
-        #         packets_received = int(split_line[3])
-        #         return (packets_transmitted, packets_received)
-        # fatal_error('Could not determine ping statistics for namespace "{}"'.format(ns_name))
-
-
-                        # self.write_netns_ping_to_file(file, from_node, from_address, to_node,
-                        #                                   to_address)
-
-
-                    # for from_address in from_node.lo_addresses:
-                    #     for to_address in to_node.lo_addresses:
-                    #         print("echo", file=file)
-                    #         self.write_netns_ping_to_file(file, from_node, from_address, to_node,
-                    #                                       to_address)
-
-
-        ###@@@
-        self.report_check_result(step)
-        return True
+                        if result.returncode != 0:
+                            error = 'Ping from {} {} to {} {} failed'.format(self.name,
+                                                                             from_address,
+                                                                             other_leaf.name,
+                                                                             to_address)
+                            self.report_check_result(step, False, error)
+                            success = False
+        if success:
+            self.report_check_result(step)
+        return success
 
     def check_interfaces_3way(self):
         step = "Adjacencies are 3-way"
