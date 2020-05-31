@@ -741,12 +741,12 @@ class Node:
         #         return (packets_transmitted, packets_received)
         # fatal_error('Could not determine ping statistics for namespace "{}"'.format(ns_name))
 
-        for to_node in self.group.fabric.nodes:
-            if to_node == self:
-                continue
-            if to_node.layer != LEAF_LAYER:
-                continue
-            print("Ping to", to_node.name)
+
+        for pod in self.group.fabric.pods:
+            for leaf_node in pod.nodes_by_layer[LEAF_LAYER]:
+                if leaf_node == self:
+                    continue
+                print("Ping to", to_node.name)
                     # for from_address in from_node.lo_addresses:
                     #     for to_address in to_node.lo_addresses:
                     #         print("echo", file=file)
