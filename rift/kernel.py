@@ -115,11 +115,12 @@ class Kernel:
             return
         if self._table_nr == -1:
             return
-        print("Del all old routes")  ###@@@
-        for route in self.ipr.get_routes():
-            ###@@@
-            print("*** startup del route = ", route)
-
+        routes = self.ipr.get_routes()
+        for route in routes :
+            if route["proto"] == RTPROT_RIFT:
+                dst_prefix_str = self.kernel_route_dst_prefix_str(route)
+                self.del_route(dst_prefix_str)
+            
     def nhop_to_kernel_args(self, nhop, dst):
         link = self.ipr.link_lookup(ifname=nhop.interface)
         if link == []:
@@ -401,7 +402,6 @@ class Kernel:
                          self.af_str(family),
                          dst_prefix_str,
                          self.route_type_str(route["type"]),
-                         self.proto_str(route["proto"]),
                          oif_cell,
                          gateway_cell,
                          weight_cell])
