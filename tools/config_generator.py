@@ -713,8 +713,6 @@ class Node:
     def check_leaf_to_leaf_pings(self):
         step = "Each leaf can ping all other leaves"
         ###@@@
-
-
         self.report_check_result(step)
         return True
 
