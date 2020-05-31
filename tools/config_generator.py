@@ -1030,7 +1030,7 @@ class Node:
 
     def report_queue_entries(self, step, queue_name, parsed_queue):
         all_ok = True
-        for row in parsed_queue['rows'][:]:
+        for row in parsed_queue['rows'][1:]:
             direction = row[0][0]
             originator = row[1][0]
             tie_type = row[2][0]
