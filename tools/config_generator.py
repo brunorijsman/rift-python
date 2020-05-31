@@ -1027,12 +1027,13 @@ class Node:
             all_ok = all_ok and self.report_queue_entries(tire_ack_queue)
         if all_ok:
             self.report_check_result(step)
-    
+
     def report_queue_entries(self, queue):
         all_ok = True
         ###@@@
-        for row in parsed_ties['rows'][:]:
+        for row in queue['rows'][:]:
             print(row)
+        return all_ok
 
     def check_route_in_kernel(self, step, prefix, nexthops, parsed_kernel_routes):
         # In the FIB, and ECMP route is one row with multiple nexthops. In the kernel, an ECMP route
