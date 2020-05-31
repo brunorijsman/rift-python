@@ -691,6 +691,7 @@ class Node:
             return False
         if not self.connect_telnet():
             return False
+        self.check_leaf_to_leaf_pings()
         self.check_engine()
         self.check_interfaces_3way()
         if not self.top_of_fabric:
@@ -710,13 +711,6 @@ class Node:
         self.report_check_result(step)
         return True
 
-    def check_leaf_to_leaf_pings(self):
-        step = "Each leaf can ping all other leaves"
-        ###@@@
-        self.report_check_result(step)
-        return True
-
-
     def check_engine(self):
         step = "RIFT engine is responsive"
         self.telnet_session.send_line("show engine")
@@ -725,6 +719,12 @@ class Node:
             self.report_check_result(step, False, error)
             return
         self.report_check_result(step)
+
+    def check_leaf_to_leaf_pings(self):
+        step = "Each leaf can ping all other leaves"
+        ###@@@
+        self.report_check_result(step)
+        return True
 
     def check_interfaces_3way(self):
         step = "Adjacencies are 3-way"
