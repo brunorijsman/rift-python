@@ -997,7 +997,7 @@ class Node:
     def report_non_empty_ties(self, step, parsed_ties):
         all_ok = True
         for row in parsed_ties['rows'][1:]:
-            contents = row[5][0]
+            contents = row[6][0]
             if contents != '':
                 direction = row[0][0]
                 originator = row[1][0]
