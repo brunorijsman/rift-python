@@ -975,9 +975,13 @@ class Node:
                          .format(same_level_name, extra_adjs))
                 self.report_check_result(step, False, error)
                 all_ok = False
+        # There are no partially connected interfaces
+        partial_interfaces = parsed_disagg[1]
+        for row in partial_interfaces['rows'][]:
+            ###@@@
             print(row)
-            print(missing_adjs)
-        _partial_interfaces = parsed_disagg[1]
+
+
         _pos_disagg_ties = parsed_disagg[2]
         _neg_disagg_ties = parsed_disagg[3]
         all_ok = True
