@@ -362,8 +362,11 @@ class MsgQueues:
         tab = self._tie_req_table()
         cli_session.print(tab.to_string())
         ###@@@
+        tab = Table()
+        cli_session.print("Timer status:")
         if self._tick_timer.running():
-            print("Tick timer is running")
+            tab.add_row(["Tick timer is running"])
         else:
-            print("Tick timer is not running")
+            tab.add_row(["Tick timer is not running"])
+        cli_session.print(tab.to_string())
         ###@@@
