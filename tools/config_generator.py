@@ -964,7 +964,7 @@ class Node:
             if missing_adjs:
                 error = ("Same-level node {} has missing adjacencies {}"
                          .format(same_level_name, missing_adjs))
-                self.report_check_result(substep, False, error)
+                self.report_check_result(step, False, error)
                 all_ok = False
             extra_adjs = []
             for extra_adj in row[4]:
@@ -973,7 +973,7 @@ class Node:
             if extra_adjs:
                 error = ("Same-level node {} has extra adjacencies {}"
                          .format(same_level_name, extra_adjs))
-                self.report_check_result(substep, False, error)
+                self.report_check_result(step, False, error)
                 all_ok = False
             print(row)
             print(missing_adjs)
