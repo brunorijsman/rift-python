@@ -1720,10 +1720,10 @@ class Fabric:
         okay = True
         for pod in self.pods:
             for node in pod.nodes:
-                okay = node.check() and okay
+                okay = okay and node.check() and okay
         for plane in self.planes:
             for node in plane.nodes:
-                okay = node.check() and okay
+                okay = okay and node.check() and okay
         return okay
 
     def pods_total_x_size(self):
