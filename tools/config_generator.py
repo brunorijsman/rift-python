@@ -746,7 +746,7 @@ class Node:
             for leaf_node in pod.nodes_by_layer[LEAF_LAYER]:
                 if leaf_node == self:
                     continue
-                print("Ping to", to_node.name)
+                print("Ping to", leaf_node.name)
                     # for from_address in from_node.lo_addresses:
                     #     for to_address in to_node.lo_addresses:
                     #         print("echo", file=file)
