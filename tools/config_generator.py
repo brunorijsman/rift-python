@@ -1967,9 +1967,10 @@ def main():
             fatal_error('Check command-line option only supported in netns-per-node mode')
         fabric.check()
         if CHECK_RESULT_FAIL == 0:
+            print("{}All checks passed successfully{}".format(GREEN, DEFAULT))
             sys.exit(0)
         else:
-            print("There were {}{} failures{}".format(RED, CHECK_RESULT_FAIL, DEFAULT))
+            print("{}{} checks failed{}".format(RED, CHECK_RESULT_FAIL, DEFAULT))
             sys.exit(1)
     if ARGS.netns_per_node:
         fabric.write_netns_configs_and_scripts()
