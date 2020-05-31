@@ -115,6 +115,7 @@ class Kernel:
             return
         if self._table_nr == -1:
             return
+        print("Del all old routes")  ###@@@
         for route in self.ipr.get_routes():
             ###@@@
             print("*** startup del route = ", route)
