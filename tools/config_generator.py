@@ -935,6 +935,14 @@ class Node:
 
     def check_fib_kernel_consistency(self):
         step = "FIB and Kernel are consistent"
+        all_ok = True
+        all_ok = all_okay and self.report_fib_routes_not_in_kernel(step)
+        all_ok = all_okay and report_kernel_routes_not_in_fib(step)
+        if all_ok:
+            self.report_check_result(step)
+
+    def report_fib_routes_not_in_kernel(self, step):
+        all_ok = True
         parsed_fib_routes = self.telnet_session.parse_show_output("show forwarding")
         parsed_kernel_routes = \
             self.telnet_session.parse_show_output("show kernel routes table main")
@@ -949,8 +957,30 @@ class Node:
                 if not self.check_route_in_kernel(step, fib_prefix, fib_nexthops,
                                                   parsed_kernel_routes):
                     all_ok = False
-        if all_ok:
-            self.report_check_result(step)
+        return all_ok
+
+    def report_kernel_routes_not_in_fib(self, step):
+        # We don't have to worry about the scenario that the FIB has a route for the same prefix
+        # but a different set of nexthops; that would already have been caught in
+        # report_fib_routes_not_in_kernel.
+        all_ok = True
+        kernel_routes = self.telnet_session.parse_show_output("show kernel routes table main")[0]
+        fib_routes = self.telnet_session.parse_show_output("show forwarding")
+        fib_v4_routes = fib_routes[0]
+        fib_v6_routes = fib_routes[1]
+        for kernel_route in kernel_routes['rows'][1:]:
+            family = kernel_route[1][0]
+            protocol = kernel_route[4][0]
+            if protocol == "RIFT":
+                kernel_prefix = kernel_route[2][0]
+                print("Check kernel route ", kernel_prefix)
+                ###@@@
+                # if family == "IPv4":
+                #     kernel_fam_route = kernel_routes[0]
+                # route_in_fib = False
+                # for fib_route in fib_routes['rows'][1:]:
+                #     fib_prefix = fib_route
+        return all_ok
 
     def check_disaggregation(self):
         step = "There is no disaggregation"
