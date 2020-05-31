@@ -959,7 +959,7 @@ class Node:
                     all_ok = False
         return all_ok
 
-    def report_kernel_routes_not_in_fib(self, _step):
+    def report_kernel_routes_not_in_fib(self, step):
         # We don't have to worry about the scenario that the FIB has a route for the same prefix
         # but a different set of nexthops; that would already have been caught in
         # report_fib_routes_not_in_kernel.
@@ -980,16 +980,17 @@ class Node:
                     check_fib_routes = fib_v6_routes
                 else:
                     assert False
+                found_in_fib = False
                 for fib_route in check_fib_routes['rows'][1:]:
                     print("fib_route =", fib_route)  ###@@@
-
-
-                ###@@@
-                # if family == "IPv4":
-                #     kernel_fam_route = kernel_routes[0]
-                # route_in_fib = False
-                # for fib_route in fib_routes['rows'][1:]:
-                #     fib_prefix = fib_route
+                    fib_prefix = fib_route[0][0]
+                    if kernel_prefix == fib_prefix:
+                        found_in_fib = True
+                        break
+                if not found_in_fib:
+                    error = ("Prefix {} present in Kernel but not in FIB".format(kernel_prefix))
+                    self.report_check_result(step, False, error)
+                    all_ok = False
         return all_ok
 
     def check_disaggregation(self):
