@@ -37,6 +37,8 @@ DEFAULT = '\033[0m'
 RED = '\u001b[31m'
 GREEN = '\u001b[32m'
 
+CHECK_RESULT_FAIL = 0
+
 NODE_SCHEMA = {
     'type': 'dict',
     'schema': {
@@ -1057,12 +1059,16 @@ class Node:
         return False
 
     def report_check_result(self, step, okay=True, error=None):
+        # pylint: disable=global-statement
+        global CHECK_RESULT_FAIL
         if okay:
             print(GREEN + "OK" + DEFAULT + "    {}".format(step))
         elif error:
             print(RED + "FAIL" + DEFAULT + "  {}: {}".format(step, error))
+            CHECK_RESULT_FAIL += 1
         else:
             print(RED + "FAIL" + DEFAULT + "  {}".format(step))
+            CHECK_RESULT_FAIL += 1
 
     def connect_telnet(self):
         step = "Can Telnet to RIFT process"
@@ -1965,6 +1971,7 @@ def main():
         if fabric.check():
             sys.exit(0)
         else:
+            print("There were {}{} failures{}".format(RED, CHECK_RESULT_FAIL, DEFAULT))
             sys.exit(1)
     if ARGS.netns_per_node:
         fabric.write_netns_configs_and_scripts()
