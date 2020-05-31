@@ -977,9 +977,11 @@ class Node:
                 all_ok = False
         # There are no partially connected interfaces
         partial_interfaces = parsed_disagg[1]
-        for row in partial_interfaces['rows'][0:]:
-            ###@@@
-            print(row)
+        for row in partial_interfaces['rows'][1:]:
+            interface_name = row[0][0]
+            error = ("Interface {} is partially connected".format(interface_name))
+            self.report_check_result(step, False, error)
+            all_ok = False
 
 
         _pos_disagg_ties = parsed_disagg[2]
