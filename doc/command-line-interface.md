@@ -983,6 +983,16 @@ agg_101> <b>show interface if_101_1001 fsm verbose-history</b>
 </pre>
 <!-- OUTPUT-END -->
 
+### show interface <i>interface</i> packets
+
+The "<b>show interface</b> <i>interface</i> <b>packets</b>" command shows a fully decoded trace
+of the 20 most recently sent and received RIFT packets on the interface.
+
+Example:
+
+<!-- OUTPUT-START: agg_101> show interface if_101_1 packets -->
+<!-- OUTPUT-END -->
+
 ### show interface <i>interface</i> queues
 
 The "<b>show interface</b> <i>interface</i> <b>queues</b>" command shows flooding queues:
