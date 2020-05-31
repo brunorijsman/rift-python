@@ -723,6 +723,37 @@ class Node:
 
     def check_can_ping_all_leaves(self):
         step = "This leaf can ping all other leaves"
+
+
+        # result = subprocess.run(['ip', 'netns', 'exec', ns_name, 'ping', '-f', '-W1',
+        #                          '-c{}'.format(PING_PACKTES),
+        #                          '-I', source_lo_addr, dest_lo_addr],
+        #                         stdout=subprocess.PIPE)
+        # except FileNotFoundError:
+        #     fatal_error('"ping" command not found')
+        # output = result.stdout.decode('ascii')
+        # lines = output.splitlines()
+        # for line in lines:
+        #     if "packets transmitted" in line:
+        #         split_line = line.split()
+        #         packets_transmitted = int(split_line[0])
+        #         packets_received = int(split_line[3])
+        #         return (packets_transmitted, packets_received)
+        # fatal_error('Could not determine ping statistics for namespace "{}"'.format(ns_name))
+
+        for to_node in self.group.fabric.nodes:
+            if to_node == self:
+                continue
+            if to_node.layer != LEAF_LAYER:
+                continue
+            print("Ping to", to_node.name)
+                    # for from_address in from_node.lo_addresses:
+                    #     for to_address in to_node.lo_addresses:
+                    #         print("echo", file=file)
+                    #         self.write_netns_ping_to_file(file, from_node, from_address, to_node,
+                    #                                       to_address)
+
+
         ###@@@
         self.report_check_result(step)
         return True
