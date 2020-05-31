@@ -22,6 +22,7 @@
   * [show interface <i>interface</i>](#show-interface-interface)
   * [show interface <i>interface</i> fsm history](#show-interface-interface-fsm-history)
   * [show interface <i>interface</i> fsm verbose-history](#show-interface-interface-fsm-verbose-history)
+  * [show interface <i>interface</i> packets](#show-interface-interface-packets)
   * [show interface <i>interface</i> queues](#show-interface-interface-queues)
   * [show interface <i>interface</i> sockets](#show-interface-interface-sockets)
   * [show interface <i>interface</i> statistics](#show-interface-interface-statistics)
