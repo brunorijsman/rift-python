@@ -1059,15 +1059,17 @@ class Node:
             parsed_queues = self.telnet_session.parse_show_output("show interface {} queues"
                                                                   .format(intf_name))
             tie_tx_queue = parsed_queues[0]
-            all_ok = all_ok and self.report_queue_entries(step, "TIE TX", tie_tx_queue)
+            all_ok = all_ok and self.report_queue_entries(step, intf_name, "TIE TX", tie_tx_queue)
             tire_req_queue = parsed_queues[0]
-            all_ok = all_ok and self.report_queue_entries(step, "TIRE REQ", tire_req_queue)
+            all_ok = all_ok and self.report_queue_entries(step, intf_name, "TIRE REQ",
+                                                          tire_req_queue)
             tire_ack_queue = parsed_queues[0]
-            all_ok = all_ok and self.report_queue_entries(step, "TIRE ACK", tire_ack_queue)
+            all_ok = all_ok and self.report_queue_entries(step, intf_name, "TIRE ACK",
+                                                          tire_ack_queue)
         if all_ok:
             self.report_check_result(step)
 
-    def report_queue_entries(self, step, queue_name, parsed_queue):
+    def report_queue_entries(self, step, intf_name, queue_name, parsed_queue):
         all_ok = True
         for row in parsed_queue['rows'][1:]:
             direction = row[0][0]
@@ -1075,9 +1077,10 @@ class Node:
             tie_type = row[2][0]
             tie_nr = row[3][0]
             seq_nr = row[4][0]
-            error = ("Unexpected entry in {} queue: direction={} originator={} tie-type={} "
-                     "tie-nr={} seq-nr={}"
-                     .format(queue_name, direction, originator, tie_type, tie_nr, seq_nr))
+            error = ("Unexpected entry in {} queue: interface={} direction={} originator={} "
+                     "tie-type={} tie-nr={} seq-nr={}"
+                     .format(queue_name, intf_name, direction, originator, tie_type, tie_nr,
+                             seq_nr))
             self.report_check_result(step, False, error)
             all_ok = False
         return all_ok
