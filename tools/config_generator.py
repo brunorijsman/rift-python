@@ -958,8 +958,8 @@ class Node:
 
 
         _partial_interfaces = parsed_disagg[1]
-        _pos_disagg_ties =  parsed_disagg[2]
-        _neg_disagg_ties =  parsed_disagg[3]
+        _pos_disagg_ties = parsed_disagg[2]
+        _neg_disagg_ties = parsed_disagg[3]
         all_ok = True
 
         ###@@@
