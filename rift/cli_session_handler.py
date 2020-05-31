@@ -339,7 +339,10 @@ class CliSessionHandler:
         return self._current_node
 
     def ready_to_read(self):
-        new_input_bytes = os.read(self._rx_fd, READ_CHUNK_SIZE)
+        try:
+            new_input_bytes = os.read(self._rx_fd, READ_CHUNK_SIZE)
+        except (ConnectionResetError, OSError, IOError, MemoryError):
+            new_input_bytes = None
         if not new_input_bytes:
             # Remote side closed session
             self.close()
