@@ -169,7 +169,12 @@ class _MsgQueueBase:
         header_row = ["Direction", "Originator", "Type", "TIE Nr", "Seq Nr"]
         if self._with_lifetime:
             header_row.append(["Remaining", "Lifetime"])
-        header_row.append(["Send", "Delay"])
+        ###@@@
+        if self.self._tick_timer.running():
+            header_row.append(["Send", "Delay", "RUNNING"])
+        else:
+            header_row.append(["Send", "Delay", "NOT RUNNING"])
+        ###@@@
         tab.add_row(header_row)
         for value in self._queue.values():
             (delay_ticks, tie_header_lifetime) = value
