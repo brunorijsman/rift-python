@@ -733,7 +733,7 @@ class Node:
                     continue
                 for from_address in self.lo_addresses:
                     for to_address in other_leaf_node.lo_addresses:
-                        result = subprocess.run(['ip', 'netns', 'exec', ns_name, 'ping', '-f',
+                        result = subprocess.run(['ip', 'netns', 'exec', node.ns_name, 'ping', '-f',
                                                  '-W1', '-c10', '-I', from_address, to_address],
                                                 stdout=subprocess.PIPE)
                         print(from_address, to_address)
