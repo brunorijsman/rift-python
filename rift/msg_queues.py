@@ -132,14 +132,17 @@ class _MsgQueueBase:
         # This is not the most efficient implementation in the world. We iterate over the entire
         # queue every time tick. But that is okay. Most of the time, these queues are empty, and
         # when they are not, they tend to be very short.
+        if not self._queue:
+            return
         new_queue = collections.OrderedDict()
-        self.start_message()
         added_at_least_one = False
         for tie_id, value in self._queue.items():
             (delay_ticks, tie_header_lifetime) = value
             assert delay_ticks > 0
             delay_ticks -= 1
             if delay_ticks == 0:
+                if not added_at_least_one:
+                    self.start_message()
                 self.add_to_message(tie_id, tie_header_lifetime)
                 added_at_least_one = True
                 delay_ticks = _LONG_DELAY_TICKS
