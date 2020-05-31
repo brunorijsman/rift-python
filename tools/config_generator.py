@@ -1020,19 +1020,26 @@ class Node:
             parsed_queues = self.telnet_session.parse_show_output("show interface {} queues"
                                                                   .format(intf_name))
             tie_tx_queue = parsed_queues[0]
-            all_ok = all_ok and self.report_queue_entries(tie_tx_queue)
+            all_ok = all_ok and self.report_queue_entries(step, "TIE TX", tie_tx_queue)
             tire_req_queue = parsed_queues[0]
-            all_ok = all_ok and self.report_queue_entries(tire_req_queue)
+            all_ok = all_ok and self.report_queue_entries(step, "TIRE REQ", tire_req_queue)
             tire_ack_queue = parsed_queues[0]
-            all_ok = all_ok and self.report_queue_entries(tire_ack_queue)
+            all_ok = all_ok and self.report_queue_entries(step, "TIRE ACK", tire_ack_queue)
         if all_ok:
             self.report_check_result(step)
 
-    def report_queue_entries(self, queue):
+    def report_queue_entries(self, step, queue_name, parsed_queue):
         all_ok = True
-        ###@@@
-        for row in queue['rows'][:]:
-            print(row)
+        for row in parsed_queue['rows'][:]:
+            direction = row[0][0]
+            originator = row[1][0]
+            tie_type = row[2][0]
+            tie_nr = row[3][0]
+            seq_nr = row[4][0]
+            error = ("Unexpected entry in {} queue: direction={} originator={} tie-nr={} seq-nr={}"
+                     .format(queue_name, tie_type, direction, originator, tie_nr, seq_nr))
+            self.report_check_result(step, False, error)
+            all_ok = False
         return all_ok
 
     def check_route_in_kernel(self, step, prefix, nexthops, parsed_kernel_routes):
