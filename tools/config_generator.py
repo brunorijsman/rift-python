@@ -891,7 +891,7 @@ class Node:
                 if len(rib_routes) != len(fib_routes):
                     self.report_check_result(
                         step, False, 'different number routes in family {}: RIB has {}, FIB has {}'
-                        .format(rib_fam, len(rib_routes), len(fib_routes)))
+                        .format(rib_fam.title, len(rib_routes), len(fib_routes)))
                     okay = False
                     continue
                 for (rib_route, fib_route) in zip(rib_routes, fib_routes):
