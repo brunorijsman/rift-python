@@ -973,7 +973,6 @@ class Node:
             protocol = kernel_route[4][0]
             if protocol == "RIFT":
                 kernel_prefix = kernel_route[2][0]
-                print("Check kernel route ", kernel_prefix)  ###@@@
                 if family == "IPv4":
                     check_fib_routes = fib_v4_routes
                 elif family == "IPv6":
@@ -982,7 +981,6 @@ class Node:
                     assert False
                 found_in_fib = False
                 for fib_route in check_fib_routes['rows'][1:]:
-                    print("fib_route =", fib_route)  ###@@@
                     fib_prefix = fib_route[0][0]
                     if kernel_prefix == fib_prefix:
                         found_in_fib = True
