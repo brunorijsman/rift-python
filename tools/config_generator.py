@@ -984,27 +984,31 @@ class Node:
             all_ok = False
         # There are no positive disaggregation prefix ties (empty ones to flush are allowed)
         pos_disagg_ties = parsed_disagg[2]
-        for row in pos_disagg_ties['rows'][0:]:
-            print(row)
-            ###@@@
-
-
-        _neg_disagg_ties = parsed_disagg[3]
+        if not self.report_non_empty_ties(step, pos_disagg_ties):
+            all_ok = False
+        # There are no negative disaggregation prefix ties (empty ones to flush are allowed)
+        neg_disagg_ties = parsed_disagg[3]
+        if not self.report_non_empty_ties(step, neg_disagg_ties):
+            all_ok = False
         all_ok = True
-
-        ###@@@
-        # for fib_fam in parsed_fib_routes:
-        #     for fib_route in fib_fam['rows'][1:]:
-        #         fib_prefix = fib_route[0][0]
-        #         if len(fib_route) >= 2:
-        #             fib_nexthops = fib_route[1]
-        #         else:
-        #             fib_nexthops = []
-        #         if not self.check_route_in_kernel(step, fib_prefix, fib_nexthops,
-        #                                           parsed_kernel_routes):
-        #             all_ok = False
         if all_ok:
             self.report_check_result(step)
+
+    def report_non_empty_ties(self, step, parsed_ties):
+        all_ok = True
+        for row in parsed_ties['rows'][1:]:
+            contents = row[5][0]
+            if contents != '':
+                direction = row[0][0]
+                originator = row[1][0]
+                tie_type = row[2][0]
+                tie_nr = row[3][0]
+                seq_nr = row[4][0]
+                error = ("Unexpected {} TIE: direction={} tie-nr={} seq-nr={}"
+                         .format(tie_type, direction, tie_nr, seq_nr))
+                self.report_check_result(step, False, error)
+                all_ok = False
+        return all_ok
 
     def check_route_in_kernel(self, step, prefix, nexthops, parsed_kernel_routes):
         # In the FIB, and ECMP route is one row with multiple nexthops. In the kernel, an ECMP route
