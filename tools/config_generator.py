@@ -977,7 +977,7 @@ class Node:
                 all_ok = False
         # There are no partially connected interfaces
         partial_interfaces = parsed_disagg[1]
-        for row in partial_interfaces['rows'][]:
+        for row in partial_interfaces['rows'][0:]:
             ###@@@
             print(row)
 
