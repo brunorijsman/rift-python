@@ -152,3 +152,4 @@
 | Automated Pytest Unit Tests | Yes |
 | Automated System Tests | Yes |
 | Automated Interoperability Tests | Yes, with Juniper RIFT |
+| Automated Chaos Tests | Yes |
