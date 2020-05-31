@@ -170,7 +170,7 @@ class _MsgQueueBase:
         if self._with_lifetime:
             header_row.append(["Remaining", "Lifetime"])
         ###@@@
-        if self.self._tick_timer.running():
+        if self._tick_timer.running():
             header_row.append(["Send", "Delay", "RUNNING"])
         else:
             header_row.append(["Send", "Delay", "NOT RUNNING"])
