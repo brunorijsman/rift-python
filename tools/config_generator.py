@@ -1718,10 +1718,10 @@ class Fabric:
     def check(self):
         for pod in self.pods:
             for node in pod.nodes:
-                node.check() and okay
+                node.check()
         for plane in self.planes:
             for node in plane.nodes:
-                node.check() and okay
+                node.check()
 
     def pods_total_x_size(self):
         total_x_size = 0
