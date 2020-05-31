@@ -36,18 +36,25 @@ USE_SIMPLE_REQUEST_FILTERING = True
 
 class PacketTrace:
 
-    def __init__(self, direction, packet_info):
+    def __init__(self, direction, local_address, remote_address, packet_info):
         self.timestamp = datetime.datetime.now()
         self.direction = direction
+        self.local_address = local_address
+        self.remote_address = remote_address
         self.packet_info = packet_info
 
-    def metadata_str(self, prev_packet):
+    def timestamp_str(self, prev_packet):
         meta_str = "direction=" + self.direction
         meta_str += "  timestamp={}".format(self.timestamp.strftime("%Y-%m-%d-%H:%M:%S.%f"))
         if prev_packet:
             second_since_prev_packet = (prev_packet.timestamp - self.timestamp).total_seconds()
             meta_str += "  seconds-since-prev={:.4f}".format(second_since_prev_packet)
         return meta_str
+
+    def addresses_str(self):
+        local_address_str = "{}:{}".format(self.local_address[0], self.local_address[1])
+        remote_address_str = "{}:{}".format(self.remote_address[0], self.remote_address[1])
+        return "local-address={}  remote_address={}".format(local_address_str, remote_address_str)
 
 class Interface:
 
@@ -356,11 +363,8 @@ class Interface:
                         self.bump_tx_real_errors_counter(sock, nr_bytes)
                     else:
                         # Sucessfully sent packet; trace it
-                        ###@@@ TODO: Create named tuple for the following
-                        ###@@@ TODO: Add timestamp
-                        ###@@@ TODO: Add address family
-                        ###@@@ TODO: Source and dest address and port
-                        packet_trace = PacketTrace("TX", packet_info)
+                        packet_trace = PacketTrace("TX", sock.getsockname(), sock.getpeername(),
+                                                   packet_info)
                         self._packets.appendleft(packet_trace)
 
     def choose_tx_packet_nr(self, address_family, packet_info):
@@ -1253,7 +1257,7 @@ class Interface:
                           protocol_packet.header.major_version)
             return None
         self.check_rx_packet_nr(packet_info)
-        packet_trace = PacketTrace("RX", packet_info)
+        packet_trace = PacketTrace("RX", sock.getsockname(), from_info, packet_info)
         self._packets.appendleft(packet_trace)
         return packet_info
 
@@ -1903,16 +1907,13 @@ class Interface:
         return wrapped_lines
 
     def command_show_intf_packets(self, cli_session):
-        ###@@@ TODO: Pretty print
-        ###@@@ TODO: Report meta-data such as timedtamp
-        ###@@@ TODO: Not only TX but also RX
         cli_session.print("Last {} Packets Sent and Received on Interface:"
                           .format(self.MAX_PACKET_TRACE))
         tab = table.Table()
         prev_packet = None
         for packet in self._packets:
             lines = self.word_wrap(str(packet.packet_info), 130)
-            lines = [packet.metadata_str(prev_packet), ""] + lines
+            lines = [packet.timestamp_str(prev_packet), packet.addresses_str(), ""] + lines
             tab.add_row([lines])
             prev_packet = packet
         cli_session.print(tab.to_string())
