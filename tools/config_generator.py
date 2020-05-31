@@ -966,14 +966,24 @@ class Node:
         all_ok = True
         kernel_routes = self.telnet_session.parse_show_output("show kernel routes table main")[0]
         fib_routes = self.telnet_session.parse_show_output("show forwarding")
-        _fib_v4_routes = fib_routes[0]
-        _fib_v6_routes = fib_routes[1]
+        fib_v4_routes = fib_routes[0]
+        fib_v6_routes = fib_routes[1]
         for kernel_route in kernel_routes['rows'][1:]:
-            _family = kernel_route[1][0]
+            family = kernel_route[1][0]
             protocol = kernel_route[4][0]
             if protocol == "RIFT":
                 kernel_prefix = kernel_route[2][0]
-                print("Check kernel route ", kernel_prefix)
+                print("Check kernel route ", kernel_prefix)  ###@@@
+                if family == "IPv4":
+                    check_fib_routes = fib_v4_routes
+                elif family == "IPv6":
+                    check_fib_routes = fib_v6_routes
+                else:
+                    assert False
+                for fib_route in check_fib_routes['rows'][1:]:
+                    print("fib_route =", fib_route)  ###@@@
+
+
                 ###@@@
                 # if family == "IPv4":
                 #     kernel_fam_route = kernel_routes[0]
