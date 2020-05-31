@@ -982,9 +982,13 @@ class Node:
             error = ("Interface {} is partially connected".format(interface_name))
             self.report_check_result(step, False, error)
             all_ok = False
+        # There are no positive disaggregation prefix ties (empty ones to flush are allowed)
+        pos_disagg_ties = parsed_disagg[2]
+        for row in pos_disagg_ties['rows'][0:]:
+            print(row)
+            ###@@@
 
 
-        _pos_disagg_ties = parsed_disagg[2]
         _neg_disagg_ties = parsed_disagg[3]
         all_ok = True
 
