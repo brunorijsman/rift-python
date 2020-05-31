@@ -117,9 +117,13 @@ class Kernel:
             return
         routes = self.ipr.get_routes()
         for route in routes:
-            if route["proto"] == RTPROT_RIFT:
-                prefix = packet_common.make_ip_prefix(self.kernel_route_dst_prefix_str(route))
-                self.del_route(prefix)
+            if route["proto"] != RTPROT_RIFT:
+                continue
+            route_table_nr = route.get_attr('RTA_TABLE')
+            if (self._table_nr is not None) and (self._table_nr != route_table_nr):
+                continue
+            prefix = packet_common.make_ip_prefix(self.kernel_route_dst_prefix_str(route))
+            self.del_route(prefix)
 
     def nhop_to_kernel_args(self, nhop, dst):
         link = self.ipr.link_lookup(ifname=nhop.interface)
