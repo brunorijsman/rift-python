@@ -736,7 +736,7 @@ class Node:
                         if result.returncode != 0:
                             error = 'Ping from {} {} to {} {} failed'.format(self.name,
                                                                              from_address,
-                                                                             other_leaf.name,
+                                                                             other_leaf_node.name,
                                                                              to_address)
                             self.report_check_result(step, False, error)
                             success = False
