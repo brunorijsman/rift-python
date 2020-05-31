@@ -748,12 +748,11 @@ class Node:
                     continue
                 for from_address in self.lo_addresses:
                     for to_address in other_leaf_node.lo_addresses:
-                        print("echo {} <> {}".format(from_address, to_address), file=file)
+                        print("ping {} <> {}".format(from_address, to_address))
                         # self.write_netns_ping_to_file(file, from_node, from_address, to_node,
                         #                                   to_address)
 
 
-                print("Ping to", leaf_node.name)
                     # for from_address in from_node.lo_addresses:
                     #     for to_address in to_node.lo_addresses:
                     #         print("echo", file=file)
