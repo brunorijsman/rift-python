@@ -703,6 +703,7 @@ class Node:
         self.check_rib_fib_consistency()
         self.check_fib_kernel_consistency()
         self.check_disaggregation()
+        self.check_queues()
 
     def check_process_running(self):
         step = "RIFT process is running"
@@ -953,6 +954,7 @@ class Node:
 
     def check_disaggregation(self):
         step = "There is no disaggregation"
+        all_ok = True
         parsed_disagg = self.telnet_session.parse_show_output("show disaggregation")
         # Check no unexpected missing or extra adjacencies in same-level-nodes table
         same_level_nodes = parsed_disagg[0]
@@ -991,9 +993,61 @@ class Node:
         neg_disagg_ties = parsed_disagg[3]
         if not self.report_non_empty_ties(step, neg_disagg_ties):
             all_ok = False
-        all_ok = True
         if all_ok:
             self.report_check_result(step)
+
+    def check_queues(self):
+        step = "The TIE/TIRE queues are empty"
+        all_ok = True
+        parsed_intfs = self.telnet_session.parse_show_output("show interfaces")
+        for parsed_intf in parsed_intfs[0]['rows'][1:]:
+            intf_name = parsed_intf[0][0]
+            parsed_queues = self.telnet_session.parse_show_output("show interface {} queues"
+                                                                  .format(intf_name))
+            print(parsed_queues)
+            ###@@@
+        if all_ok:
+            self.report_check_result(step)
+
+        ###@@@
+        # parsed_queues = self.telnet_session.parse_show_output("show ")
+        # # Check no unexpected missing or extra adjacencies in same-level-nodes table
+        # same_level_nodes = parsed_disagg[0]
+        # for row in same_level_nodes['rows'][1:]:
+        #     same_level_name = row[0][0]
+        #     missing_adjs = []
+        #     for missing_adj in row[3]:
+        #         if missing_adj != '':
+        #             missing_adjs.append(missing_adj)
+        #     if missing_adjs:
+        #         error = ("Same-level node {} has missing adjacencies {}"
+        #                  .format(same_level_name, missing_adjs))
+        #         self.report_check_result(step, False, error)
+        #         all_ok = False
+        #     extra_adjs = []
+        #     for extra_adj in row[4]:
+        #         if extra_adj != '':
+        #             extra_adjs.append(extra_adj)
+        #     if extra_adjs:
+        #         error = ("Same-level node {} has extra adjacencies {}"
+        #                  .format(same_level_name, extra_adjs))
+        #         self.report_check_result(step, False, error)
+        #         all_ok = False
+        # # There are no partially connected interfaces
+        # partial_interfaces = parsed_disagg[1]
+        # for row in partial_interfaces['rows'][1:]:
+        #     interface_name = row[0][0]
+        #     error = ("Interface {} is partially connected".format(interface_name))
+        #     self.report_check_result(step, False, error)
+        #     all_ok = False
+        # # There are no positive disaggregation prefix ties (empty ones to flush are allowed)
+        # pos_disagg_ties = parsed_disagg[2]
+        # if not self.report_non_empty_ties(step, pos_disagg_ties):
+        #     all_ok = False
+        # # There are no negative disaggregation prefix ties (empty ones to flush are allowed)
+        # neg_disagg_ties = parsed_disagg[3]
+        # if not self.report_non_empty_ties(step, neg_disagg_ties):
+        #     all_ok = False
 
     def report_non_empty_ties(self, step, parsed_ties):
         all_ok = True
