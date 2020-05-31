@@ -954,7 +954,8 @@ class Node:
         step = "There is no disaggregation"
         parsed_disagg = self.telnet_session.parse_show_output("show disaggregation")
         same_level_nodes = parsed_disagg[0]
-        print(same_level_nodes)
+        for row in same_level_nodes[1:]:
+            print(row)
 
 
         _partial_interfaces = parsed_disagg[1]
