@@ -169,12 +169,7 @@ class _MsgQueueBase:
         header_row = ["Direction", "Originator", "Type", "TIE Nr", "Seq Nr"]
         if self._with_lifetime:
             header_row.append(["Remaining", "Lifetime"])
-        ###@@@
-        if self._tick_timer.running():
-            header_row.append(["Send", "Delay", "RUNNING"])
-        else:
-            header_row.append(["Send", "Delay", "NOT RUNNING"])
-        ###@@@
+        header_row.append(["Send", "Delay"])
         tab.add_row(header_row)
         for value in self._queue.values():
             (delay_ticks, tie_header_lifetime) = value
@@ -366,3 +361,9 @@ class MsgQueues:
         cli_session.print("Acknowledge queue:")
         tab = self._tie_req_table()
         cli_session.print(tab.to_string())
+        ###@@@
+        if self._tick_timer.running():
+            print("Tick timer is running")
+        else:
+            print("Tick timer is not running")
+        ###@@@
