@@ -953,8 +953,16 @@ class Node:
     def check_disaggregation(self):
         step = "There is no disaggregation"
         parsed_disagg = self.telnet_session.parse_show_output("show disaggregation")
-        print(parsed_disagg)
+        same_level_nodes = parsed_disagg[0]
+        print(same_level_nodes)
+
+
+        _partial_interfaces = parsed_disagg[1]
+        _pos_disagg_ties =  parsed_disagg[2]
+        _neg_disagg_ties =  parsed_disagg[3]
         all_ok = True
+
+        ###@@@
         # for fib_fam in parsed_fib_routes:
         #     for fib_route in fib_fam['rows'][1:]:
         #         fib_prefix = fib_route[0][0]
