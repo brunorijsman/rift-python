@@ -725,12 +725,20 @@ class Node:
         step = "This leaf can ping all other leaves"
 
 
-        # result = subprocess.run(['ip', 'netns', 'exec', ns_name, 'ping', '-f', '-W1',
-        #                          '-c{}'.format(PING_PACKTES),
-        #                          '-I', source_lo_addr, dest_lo_addr],
-        #                         stdout=subprocess.PIPE)
-        # except FileNotFoundError:
-        #     fatal_error('"ping" command not found')
+
+
+        for pod in self.group.fabric.pods:
+            for other_leaf_node in pod.nodes_by_layer[LEAF_LAYER]:
+                if other_leaf_node == self:
+                    continue
+                for from_address in self.lo_addresses:
+                    for to_address in other_leaf_node.lo_addresses:
+                        result = subprocess.run(['ip', 'netns', 'exec', ns_name, 'ping', '-f',
+                                                 '-W1', '-c10', '-I', from_address, to_address],
+                                                stdout=subprocess.PIPE)
+                        print(from_address, to_address)
+                        print(result)
+
         # output = result.stdout.decode('ascii')
         # lines = output.splitlines()
         # for line in lines:
@@ -742,13 +750,6 @@ class Node:
         # fatal_error('Could not determine ping statistics for namespace "{}"'.format(ns_name))
 
 
-        for pod in self.group.fabric.pods:
-            for other_leaf_node in pod.nodes_by_layer[LEAF_LAYER]:
-                if other_leaf_node == self:
-                    continue
-                for from_address in self.lo_addresses:
-                    for to_address in other_leaf_node.lo_addresses:
-                        print("ping {} <> {}".format(from_address, to_address))
                         # self.write_netns_ping_to_file(file, from_node, from_address, to_node,
                         #                                   to_address)
 
