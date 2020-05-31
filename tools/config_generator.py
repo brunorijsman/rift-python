@@ -690,9 +690,9 @@ class Node:
     def check(self):
         print("**** Check node {}".format(self.name))
         if not self.check_process_running():
-            return False
+            return
         if not self.connect_telnet():
-            return False
+            return
         self.check_engine()
         if self.layer == LEAF_LAYER:
             self.check_can_ping_all_leaves()
@@ -703,7 +703,6 @@ class Node:
         self.check_rib_fib_consistency()
         self.check_fib_kernel_consistency()
         self.check_disaggregation()
-        return True
 
     def check_process_running(self):
         step = "RIFT process is running"
@@ -1717,14 +1716,12 @@ class Fabric:
         print(tab.to_string(), file=file)
 
     def check(self):
-        okay = True
         for pod in self.pods:
             for node in pod.nodes:
-                okay = okay and node.check() and okay
+                node.check() and okay
         for plane in self.planes:
             for node in plane.nodes:
-                okay = okay and node.check() and okay
-        return okay
+                node.check() and okay
 
     def pods_total_x_size(self):
         total_x_size = 0
@@ -1968,7 +1965,8 @@ def main():
     if ARGS.check:
         if not ARGS.netns_per_node:
             fatal_error('Check command-line option only supported in netns-per-node mode')
-        if fabric.check():
+        fabric.check()
+        if CHECK_RESULT_FAIL == 0:
             sys.exit(0)
         else:
             print("There were {}{} failures{}".format(RED, CHECK_RESULT_FAIL, DEFAULT))
