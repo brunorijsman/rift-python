@@ -375,5 +375,5 @@ class MsgQueues:
         tab = self._tie_req_table()
         cli_session.print(tab.to_string())
         cli_session.print("Acknowledge queue:")
-        tab = self._tie_req_table()
+        tab = self._tie_ack_table()
         cli_session.print(tab.to_string())
