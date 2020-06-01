@@ -848,9 +848,9 @@ class Node:
         new_tie_packet_info = packet_common.encode_protocol_packet(new_tie_protocol_packet,
                                                                    self.active_origin_key)
         if new_is_purge:
-            new_tie_packet_info.remaining_tie_lifetime = common.constants.default_lifetime
-        else:
             new_tie_packet_info.remaining_tie_lifetime = common.constants.purge_lifetime
+        else:
+            new_tie_packet_info.remaining_tie_lifetime = common.constants.default_lifetime
         # Update my TIE state.
         my_tie_state.current_tie_element = new_tie_element
         my_tie_state.current_is_purge = new_is_purge
