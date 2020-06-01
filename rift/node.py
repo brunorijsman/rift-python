@@ -881,8 +881,7 @@ class Node:
                 originator=self.system_id,
                 tie_type=common.ttypes.TIETypeType.PrefixTIEType,
                 tie_nr=MY_PREFIX_TIE_NR)
-            ###@@@ Don't remove, make empty with short lifetime to flush
-            ###@@@ Same for all other regenerators
+            # TODO: Don't remove, flush with short lifetime to flush (all regenerators)
             self.remove_tie(tie_id)
             # If we never advertised the TIE, and we are not bumping, don't advertise anything.
             # Otherwise, advertise an empty TIE.
@@ -994,7 +993,11 @@ class Node:
             content=packet_content)
         protocol_packet.content.tie = tie_packet
         packet_info = packet_common.encode_protocol_packet(protocol_packet, self.active_origin_key)
-        packet_common.set_lifetime(packet_info, common.constants.default_lifetime)
+        if should_adv_disagg:
+            lifetime = common.constants.default_lifetime
+        else:
+            lifetime = common.constants.purge_lifetime
+        packet_common.set_lifetime(packet_info, lifetime)
         # Make the newly constructed TIE the current positive disaggregation TIE and update the
         # database.
         self._my_pos_disagg_tie_packet_info = packet_info
@@ -1004,13 +1007,12 @@ class Node:
         return tie_packet.header
 
     def regenerate_my_neg_disagg_tie(self, fallen_leafs, bump_seq_nr=None):
-        # If the no fallen leafs are present and we were not already advertising
-        # a negative disaggregation TIE, return (unless we are bumping).
+        # If the no fallen leafs are present and we were not already advertising a negative
+        # disaggregation TIE, return (unless we are bumping).
         if not fallen_leafs and not self._my_neg_disagg_tie_info and bump_seq_nr is None:
             return None
         if self._my_neg_disagg_tie_info:
-            # Check that found fallen_leafs are equal to the ones specified
-            # in the announced TIE
+            # Check that found fallen_leafs are equal to the ones specified in the announced TIE
             protocol_packet = self._my_neg_disagg_tie_info.protocol_packet
             element = protocol_packet.content.tie.element
             tie_fallen_leafs = element.negative_disaggregation_prefixes.prefixes
@@ -1056,8 +1058,10 @@ class Node:
                                                          content=packet_content)
         protocol_packet.content.tie = tie_packet
         packet_info = packet_common.encode_protocol_packet(protocol_packet, self.active_origin_key)
-        lifetime = common.constants.default_lifetime if fallen_leafs \
-            else common.constants.purge_lifetime
+        if fallen_leafs:
+            lifetime = common.constants.default_lifetime
+        else:
+            lifetime = common.constants.purge_lifetime
         packet_common.set_lifetime(packet_info, lifetime)
         self._my_neg_disagg_tie_info = packet_info
         self.store_tie_packet_info(packet_info)

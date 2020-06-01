@@ -107,14 +107,6 @@ class _MsgQueueBase:
             # Message is not yet on queue. Short delay.
             new_delay_ticks = _SHORT_DELAY_TICKS
         # Put message on queue with updated delay.
-        ###@@@
-        # if tie_id in self._queue:
-        #     action = "Add TIE to"
-        # else:
-        #     action = "Update TIE in"
-        # print("{} TIE queue tie-id={} tie-header-lifetime={} delay-ticks={}"
-        #       .format(action, tie_id, tie_header_lifetime, new_delay_ticks))
-        ###@@@
         self._queue[tie_id] = (new_delay_ticks, tie_header_lifetime)
         self._debug("add to", tie_header.tieid, tie_header.seq_nr)
 
@@ -385,12 +377,3 @@ class MsgQueues:
         cli_session.print("Acknowledge queue:")
         tab = self._tie_req_table()
         cli_session.print(tab.to_string())
-        ###@@@
-        tab = table.Table()
-        cli_session.print("Timer status:")
-        if self._tick_timer.running():
-            tab.add_row(["Tick timer is running"])
-        else:
-            tab.add_row(["Tick timer is not running"])
-        cli_session.print(tab.to_string())
-        ###@@@
