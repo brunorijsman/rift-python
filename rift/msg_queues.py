@@ -146,13 +146,14 @@ class _MsgQueueBase:
         added_at_least_one = False
         for tie_id, value in self._queue.items():
             (delay_ticks, tie_header_lifetime) = value
+            assert tie_header_lifetime.header.tieid == tie_id
             assert delay_ticks > 0
             delay_ticks -= 1
             if delay_ticks == 0:
                 if not added_at_least_one:
                     self.start_message()
-                self.add_to_message(tie_id, tie_header_lifetime)
-                added_at_least_one = True
+                if self.add_to_message(tie_header_lifetime):
+                    added_at_least_one = True
                 delay_ticks = _LONG_DELAY_TICKS
             new_queue[tie_id] = (delay_ticks, tie_header_lifetime)
         if added_at_least_one:
@@ -196,29 +197,37 @@ class _TIEQueue(_MsgQueueBase):
     def end_message(self):
         pass
 
-    def add_to_message(self, tie_id, _tie_header_lifetime):
+    def add_to_message(self, tie_header_lifetime):
         # Send a separate TIE message each time this function is called.
         # We only look at the TIE-ID in the queue and not at the header. If we have a more
         # recent version of the TIE in the TIE-DB than the one requested in the queue, send the
         # one we have.
+        tie_id = tie_header_lifetime.header.tieid
         node = self._interface.node
         db_tie_packet_info = node.find_tie_packet_info(tie_id)
-        if db_tie_packet_info is not None:
+        if db_tie_packet_info is None:
             if DEBUG_PRINT and self._debug_tie_id(tie_id):
                 # Print a message for debugging
-                print("{} {}: interface {} send tie-id {} tie {}"
+                print("{} {}: interface {} could not send tie-id {} (not in tie-db)"
                       .format(self._timestamp(), self._interface.node.name, self._interface.name,
-                              tie_id, db_tie_packet_info))
-            if DEBUG_CHECK_TIE_ENCODING and self._debug_tie_id(tie_id):
-                # Check whehter the pre-computed encoded packet is correct.
-                check_packet_info = packet_common.encode_protocol_packet(
-                    db_tie_packet_info.protocol_packet, self._interface.active_outer_key)
-                if (db_tie_packet_info.encoded_protocol_packet !=
-                        check_packet_info.encoded_protocol_packet):
-                    print("{} {}: interface {} tie-id {} encoding is INCORRECT"
-                          .format(self._timestamp(), self._interface.node.name,
-                                  self._interface.name, tie_id))
-            self._interface.send_packet_info(db_tie_packet_info, flood=True)
+                              tie_id))
+                return False
+        if DEBUG_PRINT and self._debug_tie_id(tie_id):
+            # Print a message for debugging
+            print("{} {}: interface {} send tie-id {} tie {}"
+                  .format(self._timestamp(), self._interface.node.name, self._interface.name,
+                          tie_id, db_tie_packet_info))
+        if DEBUG_CHECK_TIE_ENCODING and self._debug_tie_id(tie_id):
+            # Check whehter the pre-computed encoded packet is correct.
+            check_packet_info = packet_common.encode_protocol_packet(
+                db_tie_packet_info.protocol_packet, self._interface.active_outer_key)
+            if (db_tie_packet_info.encoded_protocol_packet !=
+                    check_packet_info.encoded_protocol_packet):
+                print("{} {}: interface {} tie-id {} encoding is INCORRECT"
+                      .format(self._timestamp(), self._interface.node.name,
+                              self._interface.name, tie_id))
+        self._interface.send_packet_info(db_tie_packet_info, flood=True)
+        return True
 
 
 class _TIEReqQueue(_MsgQueueBase):
@@ -240,13 +249,14 @@ class _TIEReqQueue(_MsgQueueBase):
         self._interface.send_protocol_packet(protocol_packet, flood=True)
         self._tire_packet = None
 
-    def add_to_message(self, _tie_id, tie_header_lifetime):
+    def add_to_message(self, tie_header_lifetime):
         # We don't request a TIE from our neighbor if the flooding scope rules say that the
         # neighbor is not allowed to flood the TIE to us. Why? Because the neighbor is allowed
         # to advertise extra TIEs in the TIDE, and if we request them we will get an
         # oscillation.
+        tie_id = tie_header_lifetime.header.tieid
         node = self._interface.node
-        (allowed, _reason) = node.flood_allowed_from_nbr_to_node(
+        (allowed, reason) = node.flood_allowed_from_nbr_to_node(
             tie_header=tie_header_lifetime.header,
             neighbor_direction=self._interface.neighbor_direction(),
             neighbor_system_id=self._interface.neighbor.system_id,
@@ -255,6 +265,11 @@ class _TIEReqQueue(_MsgQueueBase):
             node_system_id=node.system_id)
         if allowed:
             packet_common.add_tie_header_to_tire(self._tire_packet, tie_header_lifetime)
+            return True
+        self._interface.warning(
+            "TIE %s, which was already in TIE send queue, could not be sent because %s",
+            tie_id, reason)
+        return False
 
 
 class _TIEAckQueue(_MsgQueueBase):
@@ -276,8 +291,9 @@ class _TIEAckQueue(_MsgQueueBase):
         self._interface.send_protocol_packet(protocol_packet, flood=True)
         self._tire_packet = None
 
-    def add_to_message(self, _tie_id, tie_header_lifetime):
+    def add_to_message(self, tie_header_lifetime):
         packet_common.add_tie_header_to_tire(self._tire_packet, tie_header_lifetime)
+        return True
 
 
 class MsgQueues:

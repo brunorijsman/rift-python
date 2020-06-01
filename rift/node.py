@@ -882,6 +882,7 @@ class Node:
                 tie_type=common.ttypes.TIETypeType.PrefixTIEType,
                 tie_nr=MY_PREFIX_TIE_NR)
             ###@@@ Don't remove, make empty with short lifetime to flush
+            ###@@@ Same for all other regenerators
             self.remove_tie(tie_id)
             # If we never advertised the TIE, and we are not bumping, don't advertise anything.
             # Otherwise, advertise an empty TIE.
@@ -1966,15 +1967,20 @@ class Node:
         self.regenerate_my_neg_disagg_tie(fallen_leafs)
 
     def remove_tie(self, tie_id):
+        # Remove the TIE from the TIE database (TIE-DB), if present
         # It is not an error to attempt to delete a TIE which is not in the database
         if tie_id in self.tie_packet_infos:
             del self.tie_packet_infos[tie_id]
             reason = "TIE " + packet_common.tie_id_str(tie_id) + " removed"
             self.trigger_spf(reason)
+        # Remove the TIE from the same-level-neighbor (peer) information, if present
         if tie_id in self.peer_node_tie_packet_infos:
             del self.peer_node_tie_packet_infos[tie_id]
             self.update_partially_conn_all_intfs()
             self.regenerate_my_south_prefix_tie()
+        # Remove the TIE from all interface queues, if present
+        for intf in self.interfaces_by_name.values():
+            intf.remove_tie_from_all_queues(tie_id)
 
     def find_tie_packet_info(self, tie_id):
         # Returns None if tie_id is not in database

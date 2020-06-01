@@ -1561,6 +1561,9 @@ class Interface:
     def tie_been_acked(self, tie_header):
         self._queues.remove_from_all_queues(tie_header.tieid)
 
+    def remove_tie_from_all_queues(self, tie_id):
+        self._queues.remove_from_all_queues(tie_id)
+
     def request_tie(self, tie_header_lifetime):
         assert tie_header_lifetime.__class__ == encoding.ttypes.TIEHeaderWithLifeTime
         (filtered, reason) = self.is_request_filtered(tie_header_lifetime.header)
