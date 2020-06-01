@@ -504,10 +504,10 @@ class Node:
                               common.ttypes.TIETypeType.PrefixTIEType,
                               MY_PREFIX_TIE_NR)
         self.add_my_tie_state(common.ttypes.TieDirectionType.South,
-                              common.ttypes.PositiveDisaggregationPrefixTIEType,
+                              common.ttypes.TIETypeType.PositiveDisaggregationPrefixTIEType,
                               MY_POS_DISAGG_TIE_NR)
         self.add_my_tie_state(common.ttypes.TieDirectionType.South,
-                              common.ttypes.NegativeDisaggregationPrefixTIEType,
+                              common.ttypes.TIETypeType.NegativeDisaggregationPrefixTIEType,
                               MY_NEG_DISAGG_TIE_NR)
         self.peer_node_tie_packet_infos = {}  # Same-level nodes, indexed by tie_id
         self._parent_neighbors = None
@@ -948,7 +948,7 @@ class Node:
             attributes = encoding.ttypes.PrefixAttributes(metric=1)
             v4_default_prefix = packet_common.make_ipv4_prefix("0.0.0.0/0")
             prefixes[v4_default_prefix] = attributes
-            v6_default_prefix = packet_common.make_ipv4_prefix("::/0")
+            v6_default_prefix = packet_common.make_ipv6_prefix("::/0")
             prefixes[v6_default_prefix] = attributes
         else:
             self.info("Don't originate south prefix TIE because: %s", reason)
