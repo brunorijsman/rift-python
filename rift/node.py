@@ -2036,13 +2036,12 @@ class Node:
         # We need to (re)originate the TIE with a higher sequence number to take back ownership.
         # Return the TIE header than needs to be put on the TIE transmit queue
         if db_tie_packet_info is None:
-            # But we don't have that TIE in our database.
-            # Originate a purge TIE with a higher seq-nr than the one received.
+            # But we don't have that TIE in our database. Originate a purge TIE with a higher
+            # seq-nr than the one received.
             tie_packet_info = self.bump_own_tie_purge_newer(rx_tie_header)
         else:
-            # We do have the TIE in our database.
-            # Reoriginate the existing TIE with a higher seq-nr than the one received.
-            db_tie_header = db_tie_packet_info.protocol_packet.content.tie.header
+            # We do have the TIE in our database. Reoriginate the existing TIE with a higher seq-nr
+            # than the one received.
             tie_packet_info = self.bump_own_tie_reoriginate_newer(db_tie_packet_info, rx_tie_header)
         # The caller will put the new TIE on the transmit queue of the interface where we received
         # the TIE or TIRE that triggered this. But we actually want this new TIE to be flooded
