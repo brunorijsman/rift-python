@@ -881,6 +881,7 @@ class Node:
                 originator=self.system_id,
                 tie_type=common.ttypes.TIETypeType.PrefixTIEType,
                 tie_nr=MY_PREFIX_TIE_NR)
+            ###@@@ Don't remove, make empty with short lifetime to flush
             self.remove_tie(tie_id)
             # If we never advertised the TIE, and we are not bumping, don't advertise anything.
             # Otherwise, advertise an empty TIE.
@@ -1183,15 +1184,6 @@ class Node:
         self.info("Regenerated south prefix TIE because %s: %s", reason, new_tie_packet)
         self.unsol_flood_tie_packet_info(self._my_south_prefix_tie_packet_info)
         return new_tie_packet.header
-
-    def clear_all_generated_node_ties(self):
-        for direction in [common.ttypes.TieDirectionType.South,
-                          common.ttypes.TieDirectionType.North]:
-            node_tie_packet_info = self.my_node_tie_packet_infos[direction]
-            if node_tie_packet_info is not None:
-                tie_packet = node_tie_packet_info.protocol_packet.content.tie
-                self.remove_tie(tie_packet.header)
-                self.my_node_tie_packet_infos[direction] = None
 
     def send_tides(self):
         # The current implementation prepares, encodes, and sends a unique TIDE packet for each
