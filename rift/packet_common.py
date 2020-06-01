@@ -795,14 +795,12 @@ def add_ipv6_prefix_to_prefix_tie(prefix_tie_packet, ipv6_prefix_string, metric,
 def make_node_tie_packet(name, level, direction, originator, tie_nr, seq_nr):
     tie_type = common.ttypes.TIETypeType.NodeTIEType
     tie_header = make_tie_header(direction, originator, tie_type, tie_nr, seq_nr)
-
     node_tie_element = encoding.ttypes.NodeTIEElement(
         level=level,
         neighbors={},
         capabilities=encoding.ttypes.NodeCapabilities(
             protocol_minor_version=encoding.constants.protocol_minor_version,
-            flood_reduction=True,
-        ),
+            flood_reduction=True),
         flags=None,         # TODO: Implement this
         name=name)
     tie_element = encoding.ttypes.TIEElement(node=node_tie_element)

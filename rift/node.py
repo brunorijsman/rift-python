@@ -34,6 +34,18 @@ MY_PREFIX_TIE_NR = 2
 MY_POS_DISAGG_TIE_NR = 3
 MY_NEG_DISAGG_TIE_NR = 5
 
+class MyTIEState:
+
+    def __init__(self, direction, tie_type, tie_nr):
+        self.direction = direction
+        self.tie_type = tie_type
+        self.tie_nr = tie_nr
+        self.current_tie_element = None
+        self.current_is_purge = True     # Never having originated is functionally the same as purge
+        self.current_packet_info = None
+        self.never_originated = True
+        self.next_seq_nr = 1
+
 
 # TODO: Make static method of Node
 def compare_tie_header_lifetime_age(header_lifetime_1, header_lifetime_2):
@@ -477,18 +489,28 @@ class Node:
         if 'interfaces' in config:
             for interface_config in self._config['interfaces']:
                 self.create_interface(interface_config)
-        self.my_node_tie_seq_nrs = {
-            common.ttypes.TieDirectionType.South: 0,
-            common.ttypes.TieDirectionType.North: 0
-        }
-        self.my_node_tie_packet_infos = {}    # Indexed by neighbor direction
-        self.peer_node_tie_packet_infos = {}  # Same-level nodes, indexed by tie_id
         self._originating_default = False
-        self._my_south_prefix_tie_packet_info = None
-        self._my_north_prefix_tie_packet_info = None
-        self._my_pos_disagg_tie_packet_info = None
+        self._my_tie_states = {}
+        self.add_my_tie_state(common.ttypes.TieDirectionType.South,
+                              common.ttypes.TIETypeType.NodeTIEType,
+                              MY_NODE_TIE_NR)
+        self.add_my_tie_state(common.ttypes.TieDirectionType.North,
+                              common.ttypes.TIETypeType.NodeTIEType,
+                              MY_NODE_TIE_NR)
+        self.add_my_tie_state(common.ttypes.TieDirectionType.South,
+                              common.ttypes.TIETypeType.PrefixTIEType,
+                              MY_PREFIX_TIE_NR)
+        self.add_my_tie_state(common.ttypes.TieDirectionType.North,
+                              common.ttypes.TIETypeType.PrefixTIEType,
+                              MY_PREFIX_TIE_NR)
+        self.add_my_tie_state(common.ttypes.TieDirectionType.South,
+                              common.ttypes.PositiveDisaggregationPrefixTIEType,
+                              MY_POS_DISAGG_TIE_NR)
+        self.add_my_tie_state(common.ttypes.TieDirectionType.South,
+                              common.ttypes.NegativeDisaggregationPrefixTIEType,
+                              MY_NEG_DISAGG_TIE_NR)
+        self.peer_node_tie_packet_infos = {}  # Same-level nodes, indexed by tie_id
         self._parent_neighbors = None
-        self._my_neg_disagg_tie_info = None
         self.tie_packet_infos = sortedcontainers.SortedDict()  # Indexed by tie_id
         self._last_received_tide_end = self.MIN_TIE_ID
         self._defer_spf_timer = None
@@ -548,6 +570,11 @@ class Node:
             periodic=True,
             start=True)
         self.fsm.start()
+
+    def add_my_tie_state(self, direction, tie_type, tie_nr):
+        my_tie_state = MyTIEState(direction, tie_type, tie_nr)
+        index = (direction, tie_type)
+        self._my_tie_states[index] = my_tie_state
 
     def key_id_to_key(self, key_id):
         if self.engine:
@@ -791,34 +818,85 @@ class Node:
                     (intf != interface_going_down)):
                 yield intf
 
-    def make_node_tie_protocol_packet(self, direction, tie_nr, seq_nr):
-        node_tie_packet = packet_common.make_node_tie_packet(
-            name=self.name,
-            level=self.level_value(),
-            direction=direction,
-            originator=self.system_id,
-            tie_nr=tie_nr,
-            seq_nr=seq_nr)
-        packet_header = encoding.ttypes.PacketHeader(
-            sender=self.system_id,
-            level=self.level_value())
-        packet_content = encoding.ttypes.PacketContent()
-        protocol_packet = encoding.ttypes.ProtocolPacket(
-            header=packet_header,
-            content=packet_content)
-        protocol_packet.content.tie = node_tie_packet
-        return protocol_packet
+    def regenerate_my_tie(self, direction, tie_type, new_tie_element, new_is_purge):
+        my_tie_state = self._my_tie_states[(direction, tie_type)]
+        # If new TIE is a purge, and we never advertised the TIE, do nothing
+        if new_is_purge and my_tie_state.never_originated:
+            return None
+        # If new TIE is a purge, and the current TIE is a purge, do nothing
+        if new_is_purge and my_tie_state.current_is_purge:
+            return None
+        # if the new TIE element is the same as the old TIE element, do nothing
+        # They can only be the same if both the old and the new are not purge
+        if (not new_is_purge and
+                not my_tie_state.current_is_purge and
+                new_tie_element == my_tie_state.current_tie_element):
+            return None
+        # Encode the new TIE
+        new_seq_nr = my_tie_state.next_seq_nr
+        tie_nr = my_tie_state.tie_nr
+        new_tie_header = packet_common.make_tie_header(direction, self.system_id, tie_type, tie_nr,
+                                                       new_seq_nr)
+        wrapped_new_tie_element = self.wrap_tie_element(tie_type, new_tie_element)
+        new_tie_packet = encoding.ttypes.TIEPacket(header=new_tie_header,
+                                                   element=wrapped_new_tie_element)
+        new_tie_packet_header = encoding.ttypes.PacketHeader(sender=self.system_id,
+                                                             level=self.level_value())
+        new_tie_packet_content = encoding.ttypes.PacketContent(tie=new_tie_packet)
+        new_tie_protocol_packet = encoding.ttypes.ProtocolPacket(header=new_tie_packet_header,
+                                                                 content=new_tie_packet_content)
+        new_tie_packet_info = packet_common.encode_protocol_packet(new_tie_protocol_packet,
+                                                                   self.active_origin_key)
+        if new_is_purge:
+            new_tie_packet_info.remaining_tie_lifetime = common.constants.default_lifetime
+        else:
+            new_tie_packet_info.remaining_tie_lifetime = common.constants.purge_lifetime
+        # Update my TIE state.
+        my_tie_state.current_tie_element = new_tie_element
+        my_tie_state.current_is_purge = new_is_purge
+        my_tie_state.current_packet_info = new_tie_packet_info
+        my_tie_state.never_originated = False
+        my_tie_state.next_seq_nr += 1
+        # Store the new TIE in the TIE database
+        self.store_tie_packet_info(new_tie_packet_info)
+        # Flood the new TIE packet
+        self.unsol_flood_tie_packet_info(new_tie_packet_info)
+        # Log a message
+        self.info("Regenerated %s TIE for direction %s: %s",
+                  packet_common.tietype_str(tie_type),
+                  packet_common.direction_str(direction),
+                  new_tie_packet_info)
+        # Return the header of the regenerated TIE
+        return new_tie_header
 
-    def regenerate_node_tie(self, direction, interface_going_down=None):
-        tie_nr = MY_NODE_TIE_NR
-        self.my_node_tie_seq_nrs[direction] += 1
-        seq_nr = self.my_node_tie_seq_nrs[direction]
-        protocol_packet = self.make_node_tie_protocol_packet(direction, tie_nr, seq_nr)
-        tie_packet = protocol_packet.content.tie
+    @staticmethod
+    def wrap_tie_element(tie_type, tie_element):
+        if tie_type == common.ttypes.TIETypeType.NodeTIEType:
+            return encoding.ttypes.TIEElement(node=tie_element)
+        if tie_type == common.ttypes.TIETypeType.PrefixTIEType:
+            return encoding.ttypes.TIEElement(prefixes=tie_element)
+        if tie_type == common.ttypes.TIETypeType.PositiveDisaggregationPrefixTIEType:
+            return encoding.ttypes.TIEElement(positive_disaggregation_prefixes=tie_element)
+        if tie_type == common.ttypes.TIETypeType.NegativeDisaggregationPrefixTIEType:
+            return encoding.ttypes.TIEElement(negative_disaggregation_prefixes=tie_element)
+        # TODO: Once we start originating key-value TIE, policy-guided-prefix TIEs, etc. add those
+        assert False
+        return None
+
+    def regenerate_my_node_tie(self, direction, interface_going_down=None):
+        neighbors = {}
+        version = encoding.constants.protocol_minor_version
+        capabilities = encoding.ttypes.NodeCapabilities(protocol_minor_version=version,
+                                                        flood_reduction=True)
+        node_tie_element = encoding.ttypes.NodeTIEElement(level=self.level_value(),
+                                                          neighbors=neighbors,
+                                                          capabilities=capabilities,
+                                                          flags=None,  # TODO: Implement this
+                                                          name=self.name)
         for intf in self.up_interfaces(interface_going_down):
-            # Did we already report the neighbor on the other end of this interface? This
-            # happens if we have multiple parallel interfaces to the same neighbor.
-            if intf.neighbor.system_id in tie_packet.element.node.neighbors:
+            # Did we already report the neighbor on the other end of this interface? This happens
+            # if we have multiple parallel interfaces to the same neighbor.
+            if intf.neighbor.system_id in neighbors:
                 continue
             # Gather all interfaces (link id pairs) from this node to the same neighbor. Once
             # again, this happens if we have multiple parallel interfaces to the same neighbor.
@@ -834,228 +912,112 @@ class Node:
                 cost=1,  # TODO: Take this from config file
                 link_ids=link_ids,
                 bandwidth=100)  # TODO: Take this from config file or interface
-            tie_packet.element.node.neighbors[intf.neighbor.system_id] = node_neighbor
-        packet_info = packet_common.encode_protocol_packet(protocol_packet, self.active_origin_key)
-        packet_common.set_lifetime(packet_info, common.constants.default_lifetime)
-        self.my_node_tie_packet_infos[direction] = packet_info
-        self.store_tie_packet_info(packet_info)
-        self.info("Regenerated node TIE for direction %s: %s",
-                  packet_common.direction_str(direction), tie_packet)
-        self.unsol_flood_tie_packet_info(packet_info)
+            neighbors[intf.neighbor.system_id] = node_neighbor
+        # Update parent neighbor list
         if self.level_value() is not None:
             self._parent_neighbors = dict(filter(lambda x: x[1].level > self.level_value(),
-                                                 tie_packet.element.node.neighbors.items()))
-        return tie_packet.header
+                                                 neighbors.items()))
+        return self.regenerate_my_tie(direction=direction,
+                                      tie_type=common.ttypes.TIETypeType.NodeTIEType,
+                                      new_tie_element=node_tie_element,
+                                      new_is_purge=False)
 
     def regenerate_my_node_ties(self, interface_going_down=None):
         for direction in [common.ttypes.TieDirectionType.South,
                           common.ttypes.TieDirectionType.North]:
-            self.regenerate_node_tie(direction, interface_going_down)
+            self.regenerate_my_node_tie(direction, interface_going_down)
 
-    def make_prefix_tie_protocol_packet(self, direction, tie_nr, seq_nr):
-        prefix_tie_packet = packet_common.make_prefix_tie_packet(
-            direction=direction,
-            originator=self.system_id,
-            tie_nr=tie_nr,
-            seq_nr=seq_nr)
-        packet_header = encoding.ttypes.PacketHeader(
-            sender=self.system_id,
-            level=self.level_value())
-        packet_content = encoding.ttypes.PacketContent()
-        protocol_packet = encoding.ttypes.ProtocolPacket(
-            header=packet_header,
-            content=packet_content)
-        protocol_packet.content.tie = prefix_tie_packet
-        return protocol_packet
+    def regenerate_my_south_prefix_tie(self, interface_going_down=None):
+        if self.is_overloaded():
+            decision = (False, "This node is overloaded")
+        elif not self.have_s_or_ew_adjacency(interface_going_down):
+            decision = (False, "This node has no south-bound or east-west adjacency")
+        elif self.other_nodes_are_overloaded():
+            decision = (True, "All other nodes at my level are overloaded")
+        elif self.other_nodes_have_no_n_adjacency():
+            decision = (True, "All other nodes at my level have no north-bound adjacencies")
+        elif self.have_n_spf_route_to_default():
+            decision = (True, "This node has computed reachability to a default route during N-SPF")
+        (must_originate_default, reason) = decision
+        prefixes = {}
+        prefix_tie_element = encoding.ttypes.PrefixTIEElement(prefixes=prefixes)
+        if must_originate_default:
+            is_purge = False
+            # The specification does not mention what metric the default route should be originated
+            # with. Juniper originates with metric 1, so that is what I will do as well.
+            attributes = encoding.ttypes.PrefixAttributes(metric=1)
+            v4_default_prefix = packet_common.make_ipv4_prefix("0.0.0.0/0")
+            prefixes[v4_default_prefix] = attributes
+            v6_default_prefix = packet_common.make_ipv4_prefix("::/0")
+            prefixes[v6_default_prefix] = attributes
+        else:
+            self.info("Don't originate south prefix TIE because: %s", reason)
+            is_purge = True
+        return self.regenerate_my_tie(direction=common.ttypes.TieDirectionType.South,
+                                      tie_type=common.ttypes.TIETypeType.PrefixTIEType,
+                                      new_tie_element=prefix_tie_element,
+                                      new_is_purge=is_purge)
 
     def regenerate_my_north_prefix_tie(self):
+        prefixes = {}
+        prefix_tie_element = encoding.ttypes.PrefixTIEElement(prefixes=prefixes)
+        is_purge = True
         config = self._config
-        if ('v4prefixes' not in config) and ('v6prefixes' not in config):
-            self._my_north_prefix_tie_packet_info = None
-            tie_id = packet_common.make_tie_id(
-                direction=common.ttypes.TieDirectionType.North,
-                originator=self.system_id,
-                tie_type=common.ttypes.TIETypeType.PrefixTIEType,
-                tie_nr=MY_PREFIX_TIE_NR)
-            # TODO: Don't remove, flush with short lifetime to flush (all regenerators)
-            self.remove_tie(tie_id)
-            # If current are not advertising the TIE, don't start advertising it
-            if self._my_north_prefix_tie_packet_info is None:
-                return None
-        if self._my_north_prefix_tie_packet_info:
-            protocol_packet = self._my_north_prefix_tie_packet_info.protocol_packet
-            tie_packet = protocol_packet.content.tie
-            new_seq_nr = tie_packet.header.seq_nr + 1
-        else:
-            new_seq_nr = 1
-        if self._my_north_prefix_tie_packet_info:
-            protocol_packet = self._my_north_prefix_tie_packet_info.protocol_packet
-            tie_packet = protocol_packet.content.tie
-            new_seq_nr = tie_packet.header.seq_nr + 1
-            new_tie_nr = tie_packet.header.tieid.tie_nr
-        else:
-            new_tie_nr = MY_PREFIX_TIE_NR
-        protocol_packet = self.make_prefix_tie_protocol_packet(
-            direction=common.ttypes.TieDirectionType.North,
-            tie_nr=new_tie_nr,
-            seq_nr=new_seq_nr)
-        tie_packet = protocol_packet.content.tie
         if 'v4prefixes' in config:
             for v4prefix in config['v4prefixes']:
                 prefix_str = v4prefix['address'] + "/" + str(v4prefix['mask'])
                 prefix = packet_common.make_ipv4_prefix(prefix_str)
                 metric = v4prefix['metric']
                 tags = set(v4prefix.get('tags', []))
-                packet_common.add_ipv4_prefix_to_prefix_tie(tie_packet, prefix, metric, tags)
+                attributes = encoding.ttypes.PrefixAttributes(metric=metric, tags=tags)
+                prefixes[prefix] = attributes
+                is_purge = False
         if 'v6prefixes' in config:
             for v6prefix in config['v6prefixes']:
                 prefix_str = v6prefix['address'] + "/" + str(v6prefix['mask'])
                 prefix = packet_common.make_ipv6_prefix(prefix_str)
                 metric = v6prefix['metric']
                 tags = set(v6prefix.get('tags', []))
-                packet_common.add_ipv6_prefix_to_prefix_tie(tie_packet, prefix, metric, tags)
-        packet_info = packet_common.encode_protocol_packet(protocol_packet, self.active_origin_key)
-        packet_common.set_lifetime(packet_info, common.constants.default_lifetime)
-        self._my_north_prefix_tie_packet_info = packet_info
-        self.store_tie_packet_info(self._my_north_prefix_tie_packet_info)
-        self.info("Regenerated north prefix TIE: %s", tie_packet)
-        self.unsol_flood_tie_packet_info(self._my_north_prefix_tie_packet_info)
-        return tie_packet.header
+                attributes = encoding.ttypes.PrefixAttributes(metric=metric, tags=tags)
+                prefixes[prefix] = attributes
+                is_purge = False
+        return self.regenerate_my_tie(direction=common.ttypes.TieDirectionType.North,
+                                      tie_type=common.ttypes.TIETypeType.PrefixTIEType,
+                                      new_tie_element=prefix_tie_element,
+                                      new_is_purge=is_purge)
 
     def regenerate_my_pos_disagg_tie(self):
-        # Gather the set of (prefix, metric, tags) containing all prefixes which we should currently
-        # advertise in our TIE.
-        should_adv_disagg = {}
+        prefixes = {}
+        prefix_tie_element = encoding.ttypes.PrefixTIEElement(prefixes=prefixes)
+        is_purge = True
         for dest in self._spf_destinations[(constants.DIR_SOUTH, False)].values():
             if dest.positively_disaggregate:
-                attr = encoding.ttypes.PrefixAttributes(dest.cost, dest.tags, None)
-                should_adv_disagg[dest.prefix] = attr
-        # Gather the set of (prefix, metric, tags) containing all prefixes which we currently
-        # actually do advertise.
-        do_adv_disagg = {}
-        if self._my_pos_disagg_tie_packet_info:
-            protocol_packet = self._my_pos_disagg_tie_packet_info.protocol_packet
-            element = protocol_packet.content.tie.element
-            prefixes = element.positive_disaggregation_prefixes.prefixes
-            for prefix, attr in prefixes.items():
-                do_adv_disagg[prefix] = attr
-        # If what we actually advertise is equal to what we should advertise, we are done
-        if do_adv_disagg == should_adv_disagg:
-            if self._my_pos_disagg_tie_packet_info:
-                protocol_packet = self._my_pos_disagg_tie_packet_info.protocol_packet
-                return protocol_packet.content.tie.header.tieid
-            return None
-        # Something changed; we need regenerate a new prefix TIE for the positively disaggregated
-        # prefixes. Determine the sequence number.
-        if self._my_pos_disagg_tie_packet_info:
-            protocol_packet = self._my_pos_disagg_tie_packet_info.protocol_packet
-            new_seq_nr = protocol_packet.content.tie.header.seq_nr + 1
-        else:
-            new_seq_nr = 1
-        # Build the new prefix TIE.
-        tie_header = packet_common.make_tie_header(
-            direction=common.ttypes.TieDirectionType.South,
-            originator=self.system_id,
-            tie_type=common.ttypes.TIETypeType.PositiveDisaggregationPrefixTIEType,
-            tie_nr=MY_POS_DISAGG_TIE_NR,
-            seq_nr=new_seq_nr)
-        prefix_tie_element = encoding.ttypes.PrefixTIEElement(
-            prefixes=should_adv_disagg)
-        tie_element = encoding.ttypes.TIEElement(
-            positive_disaggregation_prefixes=prefix_tie_element)
-        tie_packet = encoding.ttypes.TIEPacket(header=tie_header, element=tie_element)
-        # If the new TIE is empty and we were not already advertising a positive disaggregation
-        # TIE, then don't start now.
-        if (not tie_packet.element.positive_disaggregation_prefixes.prefixes
-                and not self._my_pos_disagg_tie_packet_info):
-            return None
-        # Wrap the tie_packet into a protocol packet, and encode it into a packet_info
-        packet_header = encoding.ttypes.PacketHeader(
-            sender=self.system_id,
-            level=self.level_value())
-        packet_content = encoding.ttypes.PacketContent()
-        protocol_packet = encoding.ttypes.ProtocolPacket(
-            header=packet_header,
-            content=packet_content)
-        protocol_packet.content.tie = tie_packet
-        packet_info = packet_common.encode_protocol_packet(protocol_packet, self.active_origin_key)
-        if should_adv_disagg:
-            lifetime = common.constants.default_lifetime
-        else:
-            lifetime = common.constants.purge_lifetime
-        packet_common.set_lifetime(packet_info, lifetime)
-        # Make the newly constructed TIE the current positive disaggregation TIE and update the
-        # database.
-        self._my_pos_disagg_tie_packet_info = packet_info
-        self.store_tie_packet_info(packet_info)
-        self.info("Regenerated positive disaggregation TIE: %s", tie_packet)
-        self.unsol_flood_tie_packet_info(packet_info)
-        return tie_packet.header
+                attributes = encoding.ttypes.PrefixAttributes(dest.cost, dest.tags, None)
+                prefixes[dest.prefix] = attributes
+                is_purge = False
+        tie_type = common.ttypes.TIETypeType.PositiveDisaggregationPrefixTIEType
+        return self.regenerate_my_tie(direction=common.ttypes.TieDirectionType.South,
+                                      tie_type=tie_type,
+                                      new_tie_element=prefix_tie_element,
+                                      new_is_purge=is_purge)
 
     def regenerate_my_neg_disagg_tie(self, fallen_leafs):
-        # If the no fallen leafs are present and we were not already advertising a negative
-        # disaggregation TIE, return.
-        if not fallen_leafs and not self._my_neg_disagg_tie_info:
-            return None
-        if self._my_neg_disagg_tie_info:
-            # Check that found fallen_leafs are equal to the ones specified in the announced TIE
-            protocol_packet = self._my_neg_disagg_tie_info.protocol_packet
-            element = protocol_packet.content.tie.element
-            tie_fallen_leafs = element.negative_disaggregation_prefixes.prefixes
-            fallen_leafs_prefixes = fallen_leafs.keys()
-            tie_prefixes = tie_fallen_leafs.keys()
-            # Discover new fallen leaf nodes
-            new_fallen_leafs = fallen_leafs_prefixes - tie_prefixes
-            # Check if there are any recovered fallen leaf nodes
-            recovered_leafs = tie_prefixes - fallen_leafs_prefixes
-            # Nothing new to announce, exit
-            ###@@@ Purge instead
-            if not new_fallen_leafs and not recovered_leafs:
-                return protocol_packet.content.tie.header
-        # We need regenerate a new prefix TIE for the negatively disaggregated prefixes.
-        # Determine the sequence number.
-        if self._my_neg_disagg_tie_info:
-            protocol_packet = self._my_neg_disagg_tie_info.protocol_packet
-            new_seq_nr = protocol_packet.content.tie.header.seq_nr + 1
-        else:
-            new_seq_nr = 1
-        # Build the new prefix TIE.
-        tie_header = packet_common.make_tie_header(
-            direction=common.ttypes.TieDirectionType.South,
-            originator=self.system_id,
-            tie_type=common.ttypes.TIETypeType.NegativeDisaggregationPrefixTIEType,
-            tie_nr=MY_NEG_DISAGG_TIE_NR,
-            seq_nr=new_seq_nr)
-        fallen_leafs_attrs = {}
+        prefixes = {}
+        prefix_tie_element = encoding.ttypes.PrefixTIEElement(prefixes=prefixes)
+        is_purge = True
+        infinity = common.constants.infinite_distance
         for prefix, dest in fallen_leafs.items():
-            fallen_leafs_attrs[prefix] = encoding.ttypes.PrefixAttributes(
-                common.constants.infinite_distance, dest.tags, None)
-        prefix_tie_element = encoding.ttypes.PrefixTIEElement(prefixes=fallen_leafs_attrs)
-        tie_element = encoding.ttypes.TIEElement(
-            negative_disaggregation_prefixes=prefix_tie_element)
-        tie_packet = encoding.ttypes.TIEPacket(header=tie_header, element=tie_element)
-        # Wrap the tie_packet into a protocol packet, and encode it into a packet_info
-        packet_header = encoding.ttypes.PacketHeader(sender=self.system_id,
-                                                     level=self.level_value())
-        packet_content = encoding.ttypes.PacketContent()
-        protocol_packet = encoding.ttypes.ProtocolPacket(header=packet_header,
-                                                         content=packet_content)
-        protocol_packet.content.tie = tie_packet
-        packet_info = packet_common.encode_protocol_packet(protocol_packet, self.active_origin_key)
-        if fallen_leafs:
-            lifetime = common.constants.default_lifetime
-        else:
-            lifetime = common.constants.purge_lifetime
-        packet_common.set_lifetime(packet_info, lifetime)
-        self._my_neg_disagg_tie_info = packet_info
-        self.store_tie_packet_info(packet_info)
-        self.info("Regenerated negative disaggregation TIE: %s", tie_packet)
-        self.unsol_flood_tie_packet_info(packet_info)
-        return tie_header
+            attributes = encoding.ttypes.PrefixAttributes(infinity, dest.tags)
+            prefixes[prefix] = attributes
+            is_purge = False
+        tie_type = common.ttypes.TIETypeType.NegativeDisaggregationPrefixTIEType
+        return self.regenerate_my_tie(direction=common.ttypes.TieDirectionType.South,
+                                      tie_type=tie_type,
+                                      new_tie_element=prefix_tie_element,
+                                      new_is_purge=is_purge)
 
     def is_overloaded(self):
-        # Is this node overloaded?
-        # In the current implementation, we are never overloaded.
+        # TODO: In the current implementation, we are never overloaded.
         return False
 
     def have_s_or_ew_adjacency(self, interface_going_down):
@@ -1103,69 +1065,6 @@ class Node:
         # TODO: We need to implement SPF (route calculation before we can implement this; for now
         # always return True)
         return True
-
-    def regenerate_my_south_prefix_tie(self, interface_going_down=None):
-        if self.is_overloaded():
-            decision = (False, "This node is overloaded")
-        elif not self.have_s_or_ew_adjacency(interface_going_down):
-            decision = (False, "This node has no south-bound or east-west adjacency")
-        elif self.other_nodes_are_overloaded():
-            decision = (True, "All other nodes at my level are overloaded")
-        elif self.other_nodes_have_no_n_adjacency():
-            decision = (True, "All other nodes at my level have no north-bound adjacencies")
-        elif self.have_n_spf_route_to_default():
-            decision = (True, "This node has computed reachability to a default route during N-SPF")
-        (must_originate_default, reason) = decision
-        # If we don't want to originate a default now, and we never originated one in the past, then
-        # we don't create a prefix TIE at all. But if we have ever originated one in the past, then
-        # we have to flush it by originating an empty prefix TIE.
-        if ((not must_originate_default) and (self._my_south_prefix_tie_packet_info is None)):
-            self.info("Don't originate south prefix TIE because: %s", reason)
-            return None
-        # If nothing changed, keep what we have.
-        if (must_originate_default == self._originating_default and
-                self._my_south_prefix_tie_packet_info is not None):
-            protocol_packet = self._my_south_prefix_tie_packet_info.protocol_packet
-            return protocol_packet.content.tie.header
-        # Build a new TIE to originate
-        if self._my_south_prefix_tie_packet_info:
-            protocol_packet = self._my_south_prefix_tie_packet_info.protocol_packet
-            tie_packet = protocol_packet.content.tie
-            new_seq_nr = tie_packet.header.seq_nr + 1
-        else:
-            new_seq_nr = 1
-        if self._my_south_prefix_tie_packet_info:
-            protocol_packet = self._my_south_prefix_tie_packet_info.protocol_packet
-            tie_packet = protocol_packet.content.tie
-            new_tie_nr = tie_packet.header.tieid.tie_nr
-        else:
-            new_tie_nr = MY_PREFIX_TIE_NR
-        new_protocol_packet = self.make_prefix_tie_protocol_packet(
-            direction=common.ttypes.TieDirectionType.South,
-            tie_nr=new_tie_nr,
-            seq_nr=new_seq_nr)
-        new_tie_packet = new_protocol_packet.content.tie
-        if must_originate_default:
-            # The specification does not mention what metric the default route should be
-            # originated with. Juniper originates with metric 1, so that is what I will do as
-            # well.
-            metric = 1
-            packet_common.add_ipv4_prefix_to_prefix_tie(
-                new_tie_packet,
-                packet_common.make_ipv4_prefix("0.0.0.0/0"),
-                metric)
-            packet_common.add_ipv6_prefix_to_prefix_tie(
-                new_tie_packet,
-                packet_common.make_ipv6_prefix("::/0"),
-                metric)
-        new_packet_info = packet_common.encode_protocol_packet(new_protocol_packet,
-                                                               self.active_origin_key)
-        packet_common.set_lifetime(new_packet_info, common.constants.default_lifetime)
-        self._my_south_prefix_tie_packet_info = new_packet_info
-        self.store_tie_packet_info(self._my_south_prefix_tie_packet_info)
-        self.info("Regenerated south prefix TIE because %s: %s", reason, new_tie_packet)
-        self.unsol_flood_tie_packet_info(self._my_south_prefix_tie_packet_info)
-        return new_tie_packet.header
 
     def send_tides(self):
         # The current implementation prepares, encodes, and sends a unique TIDE packet for each
