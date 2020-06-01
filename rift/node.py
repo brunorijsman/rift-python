@@ -2181,13 +2181,13 @@ class Node:
         new_seq_nr = rx_tie_header.seq_nr + 1
         purge_packet_info = self.make_purge_tie(tie_id, new_seq_nr)
         self.store_tie_packet_info(purge_packet_info)
-        return purge_packet_info.protocol_packet.content.tie.header
+        return purge_packet_info
 
     def bump_own_tie_reoriginate_newer(self, db_tie_packet_info, rx_tie_header):
         new_seq_nr = rx_tie_header.seq_nr + 1
         db_tie_packet_info.protocol_packet.content.tie.header.seq_nr = new_seq_nr
         packet_common.reencode_packet_info(db_tie_packet_info, self.active_origin_key)
-        return db_tie_packet_info.protocol_packet.content.tie.header
+        return db_tie_packet_info
 
     def process_rx_tie_packet_info(self, rx_tie_packet_info):
         start_sending_tie_header = None
