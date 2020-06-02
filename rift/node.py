@@ -837,7 +837,7 @@ class Node:
     def regenerate_my_tie(self, tie_id, new_tie_element, new_is_purge, force, seq_nr_must_exceed):
 
         ###@@@
-        if (tie_id.direction == 1 and tie_id.originator == 107 and tie_id.tietype == 2):
+        if (tie_id.direction == 1 and tie_id.tietype == 2):
             print("*** regenerate_my_tie")
             print("    tie_id =", tie_id)
             print("    new_tie_element =", new_tie_element)
@@ -2025,6 +2025,7 @@ class Node:
                         print(">>> header_lifetime_in_tide =", header_lifetime_in_tide)
                         print(">>> db_tie_header_lifetime =", db_tie_header_lifetime)
                         ###@@@
+                        ####@@@@ need to force
                         bumped_own_tie_header = self.bump_own_tie(db_tie_packet_info,
                                                                   header_in_tide)
                         if bumped_own_tie_header:
