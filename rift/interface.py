@@ -1407,7 +1407,7 @@ class Interface:
 
     def process_rx_tide_packet(self, tide_packet):
         ###@@@
-        print("+++ intf {} rx tide", self.name)
+        ###@@@ print("+++ intf {} rx tide", self.name)
         ###@@@
         result = self.node.process_rx_tide_packet(tide_packet)
         (request_tie_headers_lifetime, start_sending_tie_headers, stop_sending_tie_headers) = result

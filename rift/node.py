@@ -835,11 +835,28 @@ class Node:
     #     return my_tie_state.next_seq_nr
 
     def regenerate_my_tie(self, tie_id, new_tie_element, new_is_purge, force, seq_nr_must_exceed):
+
+        ###@@@
+        if (tie_id.direction == 1 and tie_id.originator == 107 and tie_id.tietype == 2):
+            print("*** regenerate_my_tie")
+            print("    tie_id =", tie_id)
+            print("    new_tie_element =", new_tie_element)
+            print("    new_is_purge =", new_is_purge)
+            print("    seq_nr_must_exceed =", new_is_purge)
+            debug = True
+        else:
+            debug = False
+        ###@@@
+
         # Get my TIE state. Create it if it doesn't already exist (this can happen when we need to
         # flush a TIE that we did not originate but another node claims we originated it).
         if not tie_id in self._my_tie_states:
             self.add_my_tie_state(tie_id)
         my_tie_state = self._my_tie_states[tie_id]
+        ###@@@
+        if (debug):
+            print("    my_tie_state.next_seq_nr =", my_tie_state.next_seq_nr)
+        ###@@@        
         # If the originated TIE did not change, don't send it out (unless forced)
         if not force:
             # If new TIE is a purge, and we never advertised the TIE, do nothing
@@ -881,7 +898,7 @@ class Node:
         my_tie_state.current_is_purge = new_is_purge
         my_tie_state.current_packet_info = new_tie_packet_info
         my_tie_state.never_originated = False
-        my_tie_state.next_seq_nr += new_seq_nr + 1
+        my_tie_state.next_seq_nr = new_seq_nr + 1
         # Store the new TIE in the TIE database
         self.store_tie_packet_info(new_tie_packet_info)
         # Flood the new TIE packet
@@ -889,6 +906,11 @@ class Node:
         # Log a message
         self.info("Regenerated TIE %s: %s", packet_common.tie_id_str(tie_id), new_tie_packet_info)
         # Return the header of the regenerated TIE
+        ###@@@
+        if (debug):
+            print("    new_tie_header =", new_tie_header)
+        ###@@@
+
         return new_tie_header
 
     @staticmethod
