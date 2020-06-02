@@ -2077,7 +2077,7 @@ class Node:
 
     def bump_own_tie_reoriginate_newer(self, db_tie_packet_info, rx_tie_header):
         direction = rx_tie_header.tieid.direction
-        tie_type = rx_tie_header.tieid.tie_type
+        tie_type = rx_tie_header.tieid.tietype
         new_seq_nr = self.bump_my_tie_seq_nr(direction, tie_type, rx_tie_header.seq_nr)
         db_tie_packet_info.protocol_packet.content.tie.header.seq_nr = new_seq_nr
         packet_common.reencode_packet_info(db_tie_packet_info, self.active_origin_key)
