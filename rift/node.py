@@ -819,6 +819,7 @@ class Node:
                 yield intf
 
     def bump_my_tie_seq_nr(self, direction, tie_type, must_exceed_seq_nr):
+        my_tie_state = self._my_tie_states[(direction, tie_type)]
         if must_exceed_seq_nr >= my_tie_state.next_seq_nr:
             must_exceed_seq_nr = must_exceed_seq_nr + 1
         return my_tie_state.next_seq_nr
@@ -2075,8 +2076,9 @@ class Node:
         return purge_packet_info
 
     def bump_own_tie_reoriginate_newer(self, db_tie_packet_info, rx_tie_header):
-        new_seq_nr = self.bump_my_tie_seq_nr(rx_tie_header.direction, rx_tie_header.tie_type,
-                                             rx_tie_header.seq_nr)
+        direction = rx_tie_header.tieid.direction
+        tie_type = rx_tie_header.tieid.tie_type
+        new_seq_nr = self.bump_my_tie_seq_nr(direction, tie_type, rx_tie_header.seq_nr)
         db_tie_packet_info.protocol_packet.content.tie.header.seq_nr = new_seq_nr
         packet_common.reencode_packet_info(db_tie_packet_info, self.active_origin_key)
         return db_tie_packet_info
