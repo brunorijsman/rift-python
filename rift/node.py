@@ -36,10 +36,8 @@ MY_NEG_DISAGG_TIE_NR = 5
 
 class MyTIEState:
 
-    def __init__(self, direction, tie_type, tie_nr):
-        self.direction = direction
-        self.tie_type = tie_type
-        self.tie_nr = tie_nr
+    def __init__(self, tie_id):
+        self.tie_id = tie_id
         self.current_tie_element = None
         self.current_is_purge = True     # Never having originated is functionally the same as purge
         self.current_packet_info = None
@@ -491,24 +489,36 @@ class Node:
                 self.create_interface(interface_config)
         self._originating_default = False
         self._my_tie_states = {}
-        self.add_my_tie_state(common.ttypes.TieDirectionType.South,
-                              common.ttypes.TIETypeType.NodeTIEType,
-                              MY_NODE_TIE_NR)
-        self.add_my_tie_state(common.ttypes.TieDirectionType.North,
-                              common.ttypes.TIETypeType.NodeTIEType,
-                              MY_NODE_TIE_NR)
-        self.add_my_tie_state(common.ttypes.TieDirectionType.South,
-                              common.ttypes.TIETypeType.PrefixTIEType,
-                              MY_PREFIX_TIE_NR)
-        self.add_my_tie_state(common.ttypes.TieDirectionType.North,
-                              common.ttypes.TIETypeType.PrefixTIEType,
-                              MY_PREFIX_TIE_NR)
-        self.add_my_tie_state(common.ttypes.TieDirectionType.South,
-                              common.ttypes.TIETypeType.PositiveDisaggregationPrefixTIEType,
-                              MY_POS_DISAGG_TIE_NR)
-        self.add_my_tie_state(common.ttypes.TieDirectionType.South,
-                              common.ttypes.TIETypeType.NegativeDisaggregationPrefixTIEType,
-                              MY_NEG_DISAGG_TIE_NR)
+        self.add_my_tie_state(
+            packet_common.make_tie_id(common.ttypes.TieDirectionType.South,
+                                      self.system_id,
+                                      common.ttypes.TIETypeType.NodeTIEType,
+                                      MY_NODE_TIE_NR))
+        self.add_my_tie_state(
+            packet_common.make_tie_id(common.ttypes.TieDirectionType.North,
+                                      self.system_id,
+                                      common.ttypes.TIETypeType.NodeTIEType,
+                                      MY_NODE_TIE_NR))
+        self.add_my_tie_state(
+            packet_common.make_tie_id(common.ttypes.TieDirectionType.South,
+                                      self.system_id,
+                                      common.ttypes.TIETypeType.PrefixTIEType,
+                                      MY_PREFIX_TIE_NR))
+        self.add_my_tie_state(
+            packet_common.make_tie_id(common.ttypes.TieDirectionType.North,
+                                      self.system_id,
+                                      common.ttypes.TIETypeType.PrefixTIEType,
+                                      MY_PREFIX_TIE_NR))
+        self.add_my_tie_state(
+            packet_common.make_tie_id(common.ttypes.TieDirectionType.South,
+                                      self.system_id,
+                                      common.ttypes.TIETypeType.PositiveDisaggregationPrefixTIEType,
+                                      MY_POS_DISAGG_TIE_NR))
+        self.add_my_tie_state(
+            packet_common.make_tie_id(common.ttypes.TieDirectionType.South,
+                                      self.system_id,
+                                      common.ttypes.TIETypeType.NegativeDisaggregationPrefixTIEType,
+                                      MY_NEG_DISAGG_TIE_NR))
         self.peer_node_tie_packet_infos = {}  # Same-level nodes, indexed by tie_id
         self._parent_neighbors = None
         self.tie_packet_infos = sortedcontainers.SortedDict()  # Indexed by tie_id
@@ -571,10 +581,9 @@ class Node:
             start=True)
         self.fsm.start()
 
-    def add_my_tie_state(self, direction, tie_type, tie_nr):
-        my_tie_state = MyTIEState(direction, tie_type, tie_nr)
-        index = (direction, tie_type)
-        self._my_tie_states[index] = my_tie_state
+    def add_my_tie_state(self, tie_id):
+        assert tie_id.originator == self.system_id
+        self._my_tie_states[tie_id] = MyTIEState(tie_id)
 
     def key_id_to_key(self, key_id):
         if self.engine:
@@ -818,32 +827,42 @@ class Node:
                     (intf != interface_going_down)):
                 yield intf
 
-    def bump_my_tie_seq_nr(self, direction, tie_type, must_exceed_seq_nr):
-        my_tie_state = self._my_tie_states[(direction, tie_type)]
-        if must_exceed_seq_nr >= my_tie_state.next_seq_nr:
-            must_exceed_seq_nr = must_exceed_seq_nr + 1
-        return my_tie_state.next_seq_nr
+    ###@@@ get rid of this
+    # def bump_my_tie_seq_nr(self, direction, tie_type, must_exceed_seq_nr):
+    #     my_tie_state = self._my_tie_states[(direction, tie_type)]
+    #     if must_exceed_seq_nr >= my_tie_state.next_seq_nr:
+    #         must_exceed_seq_nr = must_exceed_seq_nr + 1
+    #     return my_tie_state.next_seq_nr
 
-    def regenerate_my_tie(self, direction, tie_type, new_tie_element, new_is_purge):
-        my_tie_state = self._my_tie_states[(direction, tie_type)]
-        # If new TIE is a purge, and we never advertised the TIE, do nothing
-        if new_is_purge and my_tie_state.never_originated:
-            return None
-        # If new TIE is a purge, and the current TIE is a purge, do nothing
-        if new_is_purge and my_tie_state.current_is_purge:
-            return None
-        # if the new TIE element is the same as the old TIE element, do nothing
-        # They can only be the same if both the old and the new are not purge
-        if (not new_is_purge and
-                not my_tie_state.current_is_purge and
-                new_tie_element == my_tie_state.current_tie_element):
-            return None
+    def regenerate_my_tie(self, tie_id, new_tie_element, new_is_purge, force, seq_nr_must_exceed):
+        # Get my TIE state. Create it if it doesn't already exist (this can happen when we need to
+        # flush a TIE that we did not originate but another node claims we originated it).
+        if not tie_id in self.my_tie_states:
+            self.add_my_tie_state(tie_id)
+        my_tie_state = self._my_tie_states[tie_id]
+        # If the originated TIE did not change, don't send it out (unless forced)
+        if not force:
+            # If new TIE is a purge, and we never advertised the TIE, do nothing
+            if new_is_purge and my_tie_state.never_originated:
+                return None
+            # If new TIE is a purge, and the current TIE is a purge, do nothing
+            if new_is_purge and my_tie_state.current_is_purge:
+                return None
+            # if the new TIE element is the same as the old TIE element, do nothing
+            # They can only be the same if both the old and the new are not purge
+            if (not new_is_purge and
+                    not my_tie_state.current_is_purge and
+                    new_tie_element == my_tie_state.current_tie_element):
+                return None
+        # Pick the sequence number for the regenerated TIE
+        if seq_nr_must_exceed is not None and my_tie_state.next_seq_nr <= seq_nr_must_exceed:
+            new_seq_nr = seq_nr_must_exceed + 1
+        else:
+            new_seq_nr = my_tie_state.next_seq_nr
         # Encode the new TIE
-        new_seq_nr = my_tie_state.next_seq_nr
-        tie_nr = my_tie_state.tie_nr
-        new_tie_header = packet_common.make_tie_header(direction, self.system_id, tie_type, tie_nr,
-                                                       new_seq_nr)
-        wrapped_new_tie_element = self.wrap_tie_element(tie_type, new_tie_element)
+        new_tie_header = packet_common.make_tie_header(tie_id.direction, self.system_id,
+                                                       tie_id.tietype, tie_id.tie_nr, new_seq_nr)
+        wrapped_new_tie_element = self.wrap_tie_element(tie_id.tietype, new_tie_element)
         new_tie_packet = encoding.ttypes.TIEPacket(header=new_tie_header,
                                                    element=wrapped_new_tie_element)
         new_tie_packet_header = encoding.ttypes.PacketHeader(sender=self.system_id,
@@ -862,16 +881,13 @@ class Node:
         my_tie_state.current_is_purge = new_is_purge
         my_tie_state.current_packet_info = new_tie_packet_info
         my_tie_state.never_originated = False
-        my_tie_state.next_seq_nr += 1
+        my_tie_state.next_seq_nr += new_seq_nr + 1
         # Store the new TIE in the TIE database
         self.store_tie_packet_info(new_tie_packet_info)
         # Flood the new TIE packet
         self.unsol_flood_tie_packet_info(new_tie_packet_info)
         # Log a message
-        self.info("Regenerated %s TIE for direction %s: %s",
-                  packet_common.tietype_str(tie_type),
-                  packet_common.direction_str(direction),
-                  new_tie_packet_info)
+        self.info("Regenerated TIE %s: %s", packet_common.tieid_str(tie_id), new_tie_packet_info)
         # Return the header of the regenerated TIE
         return new_tie_header
 
@@ -889,7 +905,8 @@ class Node:
         assert False
         return None
 
-    def regenerate_my_node_tie(self, direction, interface_going_down=None):
+    def regenerate_my_node_tie(self, direction, interface_going_down=None, force=False,
+                               seq_nr_must_exceed=None):
         neighbors = {}
         version = encoding.constants.protocol_minor_version
         capabilities = encoding.ttypes.NodeCapabilities(protocol_minor_version=version,
@@ -923,17 +940,29 @@ class Node:
         if self.level_value() is not None:
             self._parent_neighbors = dict(filter(lambda x: x[1].level > self.level_value(),
                                                  neighbors.items()))
-        return self.regenerate_my_tie(direction=direction,
-                                      tie_type=common.ttypes.TIETypeType.NodeTIEType,
+        tie_id = packet_common.make_tie_id(direction=direction,
+                                           originator=self.system_id,
+                                           tie_type=common.ttypes.TIETypeType.NodeTIEType,
+                                           tie_nr=MY_NODE_TIE_NR)
+        return self.regenerate_my_tie(tie_id=tie_id,
                                       new_tie_element=node_tie_element,
-                                      new_is_purge=False)
+                                      new_is_purge=False,
+                                      force=force,
+                                      seq_nr_must_exceed=seq_nr_must_exceed)
+
+    def regenerate_my_south_node_tie(self, interface_going_down=None):
+        self.regenrate_my_node_tie(common.ttypes.TieDirectionType.South, interface_going_down)
+
+    def regenerate_my_north_node_tie(self, interface_going_down=None):
+        self.regenrate_my_node_tie(common.ttypes.TieDirectionType.North, interface_going_down)
 
     def regenerate_my_node_ties(self, interface_going_down=None):
         for direction in [common.ttypes.TieDirectionType.South,
                           common.ttypes.TieDirectionType.North]:
             self.regenerate_my_node_tie(direction, interface_going_down)
 
-    def regenerate_my_south_prefix_tie(self, interface_going_down=None):
+    def regenerate_my_south_prefix_tie(self, interface_going_down=None, force=False,
+                                       seq_nr_must_exceed=None):
         if self.is_overloaded():
             decision = (False, "This node is overloaded")
         elif not self.have_s_or_ew_adjacency(interface_going_down):
@@ -959,12 +988,17 @@ class Node:
         else:
             self.info("Don't originate south prefix TIE because: %s", reason)
             is_purge = True
-        return self.regenerate_my_tie(direction=common.ttypes.TieDirectionType.South,
-                                      tie_type=common.ttypes.TIETypeType.PrefixTIEType,
+        tie_id = packet_common.make_tie_id(direction=common.ttypes.TieDirectionType.South,
+                                           originator=self.system_id,
+                                           tie_type=common.ttypes.TIETypeType.PrefixTIEType,
+                                           tie_nr=MY_PREFIX_TIE_NR)
+        return self.regenerate_my_tie(tie_id=tie_id,
                                       new_tie_element=prefix_tie_element,
-                                      new_is_purge=is_purge)
+                                      new_is_purge=is_purge,
+                                      force=force,
+                                      seq_nr_must_exceed=seq_nr_must_exceed)
 
-    def regenerate_my_north_prefix_tie(self):
+    def regenerate_my_north_prefix_tie(self, force=False, seq_nr_must_exceed=None):
         prefixes = {}
         prefix_tie_element = encoding.ttypes.PrefixTIEElement(prefixes=prefixes)
         is_purge = True
@@ -987,12 +1021,17 @@ class Node:
                 attributes = encoding.ttypes.PrefixAttributes(metric=metric, tags=tags)
                 prefixes[prefix] = attributes
                 is_purge = False
-        return self.regenerate_my_tie(direction=common.ttypes.TieDirectionType.North,
-                                      tie_type=common.ttypes.TIETypeType.PrefixTIEType,
+        tie_id = packet_common.make_tie_id(direction=common.ttypes.TieDirectionType.North,
+                                           originator=self.system_id,
+                                           tie_type=common.ttypes.TIETypeType.PrefixTIEType,
+                                           tie_nr=MY_PREFIX_TIE_NR)
+        return self.regenerate_my_tie(tie_id=tie_id,
                                       new_tie_element=prefix_tie_element,
-                                      new_is_purge=is_purge)
+                                      new_is_purge=is_purge,
+                                      force=force,
+                                      seq_nr_must_exceed=seq_nr_must_exceed)
 
-    def regenerate_my_pos_disagg_tie(self):
+    def regenerate_my_pos_disagg_tie(self, force=False, seq_nr_must_exceed=None):
         prefixes = {}
         prefix_tie_element = encoding.ttypes.PrefixTIEElement(prefixes=prefixes)
         is_purge = True
@@ -1002,12 +1041,17 @@ class Node:
                 prefixes[dest.prefix] = attributes
                 is_purge = False
         tie_type = common.ttypes.TIETypeType.PositiveDisaggregationPrefixTIEType
-        return self.regenerate_my_tie(direction=common.ttypes.TieDirectionType.South,
-                                      tie_type=tie_type,
+        tie_id = packet_common.make_tie_id(direction=common.ttypes.TieDirectionType.South,
+                                           originator=self.system_id,
+                                           tie_type=tie_type,
+                                           tie_nr=MY_PREFIX_TIE_NR)
+        return self.regenerate_my_tie(tie_id=tie_id,
                                       new_tie_element=prefix_tie_element,
-                                      new_is_purge=is_purge)
+                                      new_is_purge=is_purge,
+                                      force=force,
+                                      seq_nr_must_exceed=seq_nr_must_exceed)
 
-    def regenerate_my_neg_disagg_tie(self, fallen_leafs):
+    def regenerate_my_neg_disagg_tie(self, fallen_leafs, force=False, seq_nr_must_exceed=None):
         prefixes = {}
         prefix_tie_element = encoding.ttypes.PrefixTIEElement(prefixes=prefixes)
         is_purge = True
@@ -1017,10 +1061,15 @@ class Node:
             prefixes[prefix] = attributes
             is_purge = False
         tie_type = common.ttypes.TIETypeType.NegativeDisaggregationPrefixTIEType
-        return self.regenerate_my_tie(direction=common.ttypes.TieDirectionType.South,
-                                      tie_type=tie_type,
+        tie_id = packet_common.make_tie_id(direction=common.ttypes.TieDirectionType.South,
+                                           originator=self.system_id,
+                                           tie_type=tie_type,
+                                           tie_nr=MY_PREFIX_TIE_NR)
+        return self.regenerate_my_tie(tie_id=tie_id,
                                       new_tie_element=prefix_tie_element,
-                                      new_is_purge=is_purge)
+                                      new_is_purge=is_purge,
+                                      force=force,
+                                      seq_nr_must_exceed=seq_nr_must_exceed)
 
     def is_overloaded(self):
         # TODO: In the current implementation, we are never overloaded.
@@ -1992,6 +2041,7 @@ class Node:
                     acked_tie_headers.append(db_tie_packet.header)
         return (request_tie_headers_lifetime, start_sending_tie_headers, acked_tie_headers)
 
+    ###@@@ do we still need this?
     def find_according_node_tie(self, tie_id):
         # We have to originate an empty node TIE for the purpose of purging it. Use the same
         # contents as the real node TIE that we actually originated, except don't report any
@@ -2002,6 +2052,7 @@ class Node:
         assert real_node_tie_packet_info is not None
         return real_node_tie_packet_info
 
+    ###@@@ get rid of this
     def make_purge_tie(self, tie_id, seq_nr):
         new_tie_header = packet_common.make_tie_header(tie_id.direction, tie_id.originator,
                                                        tie_id.tietype, tie_id.tie_nr, seq_nr)
@@ -2039,35 +2090,56 @@ class Node:
         packet_info.remaining_tie_lifetime = common.constants.purge_lifetime
         return packet_info
 
-    def bump_own_tie(self, db_tie_packet_info, rx_tie_header):
+    _REGENERATE_DISPATCH_TABLE = {
+        (common.ttypes.TieDirectionType.South,
+         common.ttypes.TIETypeType.NodeTIEType,
+         MY_NODE_TIE_NR): regenerate_my_south_node_tie,
+        (common.ttypes.TieDirectionType.South,
+         common.ttypes.TIETypeType.PrefixTIEType,
+         MY_NODE_TIE_NR): regenerate_my_south_prefix_tie,
+        (common.ttypes.TieDirectionType.South,
+         common.ttypes.TIETypeType.PositiveDisaggregationPrefixTIEType,
+         MY_NODE_TIE_NR): regenerate_my_pos_disagg_tie,
+        (common.ttypes.TieDirectionType.South,
+         common.ttypes.TIETypeType.NegativeDisaggregationPrefixTIEType,
+         MY_NODE_TIE_NR): regenerate_my_neg_disagg_tie,
+        (common.ttypes.TieDirectionType.North,
+         common.ttypes.TIETypeType.NodeTIEType,
+         MY_NODE_TIE_NR): regenerate_my_north_node_tie,
+        (common.ttypes.TieDirectionType.North,
+         common.ttypes.TIETypeType.PrefixTIEType,
+         MY_NODE_TIE_NR): regenerate_my_north_prefix_tie
+    }
+
+    ###@@@ don't need db_tie_packet_info? Do we?
+    def bump_own_tie(self, _db_tie_packet_info, rx_tie_header):
         # One of our neighbors claims to have a TIE in its database that was originated by us.
         # That "claim" could have arrived in the form of (a) a received TIE or (b) a TIE header
         # in a recived TIDE.
-        # We need to (re)originate the TIE with a higher sequence number to take back ownership.
-        # Return the TIE header than needs to be put on the TIE transmit queue
-        if db_tie_packet_info is None:
-            # But we don't have that TIE in our database. Originate a purge TIE with a higher
-            # seq-nr than the one received.
-            tie_packet_info = self.bump_own_tie_purge_newer(rx_tie_header)
-        else:
-            # We do have the TIE in our database. Reoriginate the existing TIE with a higher seq-nr
-            # than the one received.
-            db_tie_header = db_tie_packet_info.protocol_packet.content.tie.header
-            ###@@@
-            if rx_tie_header.seq_nr <= db_tie_header.seq_nr:
-                print("*** rx_tie_header =", rx_tie_header)
-                print("*** db_tie_header =", db_tie_header)
-            ###@@@
-            assert rx_tie_header.seq_nr > db_tie_header.seq_nr   ###@@@ >=
-            tie_packet_info = self.bump_own_tie_reoriginate_newer(db_tie_packet_info, rx_tie_header)
-        # The caller will put the new TIE on the transmit queue of the interface where we received
-        # the TIE or TIRE that triggered this. But we actually want this new TIE to be flooded
-        # on all appropriate interfaces instead of waiting for up to 10 second relying on TIDE
-        # synchronization on the other interfaces.
-        self.unsol_flood_tie_packet_info(tie_packet_info)
-        # Return the header of the new TIE
-        return tie_packet_info.protocol_packet.content.tie.header
+        # We need to (re)originate the TIE with a higher sequence number so that every node in the
+        # network will use our TIE and not the old one floating around.
 
+        rx_tie_id = rx_tie_header.tieid
+        dispatch_index = (rx_tie_id.direction, rx_tie_id.tietype, rx_tie_id.tie_nr)
+        if dispatch_index in self._REGENERATE_DISPATCH_TABLE:
+            regeneration_function = self._REGENERATE_DISPATCH_TABLE[dispatch_index]
+            ###@@@ set force to true
+            ###@@@ set seq_nr_must_exceed to value in received header
+            regenerated_tie_header = regeneration_function(force=True,
+                                                           seq_nr_must_exceed=rx_tie_id.seq_nr)
+            ###@@@
+            print("*** bump rx_tie_header={} regenerated_tie_header={}"
+                  .format(rx_tie_header, regenerated_tie_header))
+            ###@@@
+            return regenerated_tie_header
+
+        # If we get here it means that we never originated the TIE.
+        # ###@@@ TODO: flush it
+        assert False
+        return None
+
+
+    ###@@@ get rid of this
     def bump_own_tie_purge_newer(self, rx_tie_header):
         tie_id = rx_tie_header.tieid
         new_seq_nr = rx_tie_header.seq_nr + 1
@@ -2075,6 +2147,7 @@ class Node:
         self.store_tie_packet_info(purge_packet_info)
         return purge_packet_info
 
+    ###@@@ get rid of this
     def bump_own_tie_reoriginate_newer(self, db_tie_packet_info, rx_tie_header):
         direction = rx_tie_header.tieid.direction
         tie_type = rx_tie_header.tieid.tietype
