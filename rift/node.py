@@ -2120,6 +2120,11 @@ class Node:
         # network will use our TIE and not the old one floating around.
 
         rx_tie_id = rx_tie_header.tieid
+
+        ###@@@
+        print("*** bump rx_tie_header={}".format(rx_tie_header)))
+        ###@@@
+
         dispatch_index = (rx_tie_id.direction, rx_tie_id.tietype, rx_tie_id.tie_nr)
         if dispatch_index in self._REGENERATE_DISPATCH_TABLE:
             regeneration_function = self._REGENERATE_DISPATCH_TABLE[dispatch_index]
@@ -2128,13 +2133,13 @@ class Node:
             regenerated_tie_header = regeneration_function(force=True,
                                                            seq_nr_must_exceed=rx_tie_header.seq_nr)
             ###@@@
-            print("*** bump rx_tie_header={} regenerated_tie_header={}"
-                  .format(rx_tie_header, regenerated_tie_header))
+            print("*** bump regenerated_tie_header={}".format(rx_tie_header))
             ###@@@
             return regenerated_tie_header
 
         # If we get here it means that we never originated the TIE.
         # ###@@@ TODO: flush it
+        # ###@@@ TODO: is seq-nr properly range checked
         assert False
         return None
 
