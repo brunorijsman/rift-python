@@ -828,37 +828,12 @@ class Node:
                     (intf != interface_going_down)):
                 yield intf
 
-    ###@@@ get rid of this
-    # def bump_my_tie_seq_nr(self, direction, tie_type, must_exceed_seq_nr):
-    #     my_tie_state = self._my_tie_states[(direction, tie_type)]
-    #     if must_exceed_seq_nr >= my_tie_state.next_seq_nr:
-    #         must_exceed_seq_nr = must_exceed_seq_nr + 1
-    #     return my_tie_state.next_seq_nr
-
     def regenerate_my_tie(self, tie_id, new_tie_element, new_is_purge, force, seq_nr_must_exceed):
-
-        ###@@@
-        if (tie_id.direction == 1 and tie_id.tietype == 2):
-            print("*** regenerate_my_tie")
-            print("    tie_id =", tie_id)
-            print("    new_tie_element =", new_tie_element)
-            print("    new_is_purge =", new_is_purge)
-            print("    force =", force)
-            print("    seq_nr_must_exceed =", seq_nr_must_exceed)
-            debug = True
-        else:
-            debug = False
-        ###@@@
-
         # Get my TIE state. Create it if it doesn't already exist (this can happen when we need to
         # flush a TIE that we did not originate but another node claims we originated it).
         if not tie_id in self._my_tie_states:
             self.add_my_tie_state(tie_id)
         my_tie_state = self._my_tie_states[tie_id]
-        ###@@@
-        if debug:
-            print("    my_tie_state.next_seq_nr =", my_tie_state.next_seq_nr)
-        ###@@@
         # If the originated TIE did not change, don't send it out (unless forced)
         if not force:
             # If new TIE is a purge, and we never advertised the TIE, do nothing
@@ -908,11 +883,6 @@ class Node:
         # Log a message
         self.info("Regenerated TIE %s: %s", packet_common.tie_id_str(tie_id), new_tie_packet_info)
         # Return the header of the regenerated TIE
-        ###@@@
-        if debug:
-            print("    new_tie_header =", new_tie_header)
-        ###@@@
-
         return new_tie_header
 
     @staticmethod
@@ -2000,7 +1970,7 @@ class Node:
             if db_tie_packet_info is None:
                 if header_in_tide.tieid.originator == self.system_id:
                     # Self-originate an empty TIE with a higher sequence number.
-                    bumped_own_tie_header = self.bump_own_tie(None, header_in_tide)
+                    bumped_own_tie_header = self.bump_own_tie(header_in_tide)
                     if bumped_own_tie_header:
                         start_sending_tie_headers.append(bumped_own_tie_header)
                 else:
@@ -2024,13 +1994,7 @@ class Node:
                 if comparison < 0:
                     if header_in_tide.tieid.originator == self.system_id:
                         # Re-originate DB TIE with higher sequence number than the one in TIDE
-                        ###@@@
-                        print(">>> header_lifetime_in_tide =", header_lifetime_in_tide)
-                        print(">>> db_tie_header_lifetime =", db_tie_header_lifetime)
-                        ###@@@
-                        ####@@@@ need to force
-                        bumped_own_tie_header = self.bump_own_tie(db_tie_packet_info,
-                                                                  header_in_tide)
+                        bumped_own_tie_header = self.bump_own_tie(header_in_tide)
                         if bumped_own_tie_header:
                             start_sending_tie_headers.append(bumped_own_tie_header)
                     else:
@@ -2073,55 +2037,6 @@ class Node:
                     acked_tie_headers.append(db_tie_packet.header)
         return (request_tie_headers_lifetime, start_sending_tie_headers, acked_tie_headers)
 
-    ###@@@ do we still need this?
-    def find_according_node_tie(self, tie_id):
-        # We have to originate an empty node TIE for the purpose of purging it. Use the same
-        # contents as the real node TIE that we actually originated, except don't report any
-        # neighbors.
-        real_node_tie_id = copy.deepcopy(tie_id)
-        real_node_tie_id.tie_nr = MY_NODE_TIE_NR
-        real_node_tie_packet_info = self.find_tie_packet_info(real_node_tie_id)
-        assert real_node_tie_packet_info is not None
-        return real_node_tie_packet_info
-
-    ###@@@ get rid of this
-    def make_purge_tie(self, tie_id, seq_nr):
-        new_tie_header = packet_common.make_tie_header(tie_id.direction, tie_id.originator,
-                                                       tie_id.tietype, tie_id.tie_nr, seq_nr)
-        tie_type = tie_id.tietype
-        if tie_type == common.ttypes.TIETypeType.NodeTIEType:
-            real_node_tie_packet_info = self.find_according_node_tie(tie_id)
-            real_node_tie_packet = real_node_tie_packet_info.protocol_packet.content.tie
-            new_element = copy.deepcopy(real_node_tie_packet.element)
-            new_element.node.neighbors = {}
-        elif tie_type == common.ttypes.TIETypeType.PrefixTIEType:
-            empty_prefixes = encoding.ttypes.PrefixTIEElement()
-            new_element = encoding.ttypes.TIEElement(prefixes=empty_prefixes)
-        elif tie_type == common.ttypes.TIETypeType.PositiveDisaggregationPrefixTIEType:
-            empty_prefixes = encoding.ttypes.PrefixTIEElement()
-            new_element = encoding.ttypes.TIEElement(
-                positive_disaggregation_prefixes=empty_prefixes)
-        elif tie_type == common.ttypes.TIETypeType.NegativeDisaggregationPrefixTIEType:
-            empty_prefixes = encoding.ttypes.PrefixTIEElement()
-            new_element = encoding.ttypes.TIEElement(
-                negative_disaggregation_prefixes=empty_prefixes)
-        elif tie_type == common.ttypes.TIETypeType.PGPrefixTIEType:
-            # TODO: Policy guided prefixes are not yet in model in specification
-            assert False
-        elif tie_type == common.ttypes.TIETypeType.KeyValueTIEType:
-            empty_keyvalues = encoding.ttypes.KeyValueTIEElement()
-            new_element = encoding.ttypes.TIEElement(keyvalues=empty_keyvalues)
-            # TODO: Add support for TIE type external
-        else:
-            assert False
-        purge_tie = encoding.ttypes.TIEPacket(header=new_tie_header, element=new_element)
-        header = encoding.ttypes.PacketHeader(sender=self.system_id, level=self.level_value())
-        content = encoding.ttypes.PacketContent(tie=purge_tie)
-        protocol_packet = encoding.ttypes.ProtocolPacket(header=header, content=content)
-        packet_info = packet_common.encode_protocol_packet(protocol_packet, self.active_origin_key)
-        packet_info.remaining_tie_lifetime = common.constants.purge_lifetime
-        return packet_info
-
     _REGENERATE_DISPATCH_TABLE = {
         (common.ttypes.TieDirectionType.South,
          common.ttypes.TIETypeType.NodeTIEType,
@@ -2143,55 +2058,23 @@ class Node:
          MY_PREFIX_TIE_NR): regenerate_my_north_prefix_tie
     }
 
-    ###@@@ don't need db_tie_packet_info? Do we?
-    def bump_own_tie(self, _db_tie_packet_info, rx_tie_header):
+    def bump_own_tie(self, rx_tie_header):
         # One of our neighbors claims to have a TIE in its database that was originated by us.
         # That "claim" could have arrived in the form of (a) a received TIE or (b) a TIE header
         # in a recived TIDE.
         # We need to (re)originate the TIE with a higher sequence number so that every node in the
         # network will use our TIE and not the old one floating around.
-
         rx_tie_id = rx_tie_header.tieid
-
-        ###@@@
-        print("*** bump rx_tie_header={}".format(rx_tie_header))
-        ###@@@
-
         dispatch_index = (rx_tie_id.direction, rx_tie_id.tietype, rx_tie_id.tie_nr)
         if dispatch_index in self._REGENERATE_DISPATCH_TABLE:
             regeneration_function = self._REGENERATE_DISPATCH_TABLE[dispatch_index]
-            ###@@@ set force to true
-            ###@@@ set seq_nr_must_exceed to value in received header
             regenerated_tie_header = regeneration_function(
                 self=self, force=True, seq_nr_must_exceed=rx_tie_header.seq_nr)
-            ###@@@
-            print("*** bump regenerated_tie_header={}".format(regenerated_tie_header))
-            ###@@@
             return regenerated_tie_header
-
-        # If we get here it means that we never originated the TIE.
-        # ###@@@ TODO: flush it
-        # ###@@@ TODO: is seq-nr properly range checked
-        assert False
+        # If we get here it means that we never originated the TIE but someone else claims we
+        # originated.
+        # TODO: for now we ignore this, but we should probably flush it with a bumped sequence nr.
         return None
-
-
-    ###@@@ get rid of this
-    def bump_own_tie_purge_newer(self, rx_tie_header):
-        tie_id = rx_tie_header.tieid
-        new_seq_nr = rx_tie_header.seq_nr + 1
-        purge_packet_info = self.make_purge_tie(tie_id, new_seq_nr)
-        self.store_tie_packet_info(purge_packet_info)
-        return purge_packet_info
-
-    ###@@@ get rid of this
-    def bump_own_tie_reoriginate_newer(self, db_tie_packet_info, rx_tie_header):
-        direction = rx_tie_header.tieid.direction
-        tie_type = rx_tie_header.tieid.tietype
-        new_seq_nr = self.bump_my_tie_seq_nr(direction, tie_type, rx_tie_header.seq_nr)
-        db_tie_packet_info.protocol_packet.content.tie.header.seq_nr = new_seq_nr
-        packet_common.reencode_packet_info(db_tie_packet_info, self.active_origin_key)
-        return db_tie_packet_info
 
     def process_rx_tie_packet_info(self, rx_tie_packet_info):
         start_sending_tie_header = None
@@ -2203,7 +2086,7 @@ class Node:
         if db_tie_packet_info is None:
             if rx_tie_id.originator == self.system_id:
                 # Self-originate an empty TIE with a higher sequence number.
-                start_sending_tie_header = self.bump_own_tie(None, rx_tie_packet.header)
+                start_sending_tie_header = self.bump_own_tie(rx_tie_packet.header)
             else:
                 # We don't have this TIE in the database, store and ack it
                 self.store_tie_packet_info(rx_tie_packet_info)
@@ -2221,8 +2104,7 @@ class Node:
                 # We have an older version of the TIE, ...
                 if rx_tie_id.originator == self.system_id:
                     # Re-originate DB TIE with higher sequence number than the one in RX TIE
-                    start_sending_tie_header = self.bump_own_tie(db_tie_packet_info,
-                                                                 rx_tie_packet.header)
+                    start_sending_tie_header = self.bump_own_tie(rx_tie_packet.header)
                 else:
                     # We did not originate the TIE, store the newer version and ack it
                     self.store_tie_packet_info(rx_tie_packet_info)
