@@ -12,7 +12,7 @@ tools/cleanup
 rm -rf generated
 
 # Generate multi-process simulation
-tools/config_generator.py -c -n meta_topology/clos_3plane_3pod_3leaf_3spine_6super.yaml generated
+tools/config_generator.py -n meta_topology/clos_3plane_3pod_3leaf_3spine_6super.yaml generated
 
 # Start topology
 generated/start.sh
