@@ -2156,8 +2156,8 @@ class Node:
             regeneration_function = self._REGENERATE_DISPATCH_TABLE[dispatch_index]
             ###@@@ set force to true
             ###@@@ set seq_nr_must_exceed to value in received header
-            regenerated_tie_header = regeneration_function(force=True,
-                                                           seq_nr_must_exceed=rx_tie_header.seq_nr)
+            regenerated_tie_header = regeneration_function(
+                self, force=True, seq_nr_must_exceed=rx_tie_header.seq_nr)
             ###@@@
             print("*** bump regenerated_tie_header={}".format(rx_tie_header))
             ###@@@
