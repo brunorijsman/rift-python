@@ -1071,7 +1071,7 @@ class Node:
         tie_id = packet_common.make_tie_id(direction=common.ttypes.TieDirectionType.South,
                                            originator=self.system_id,
                                            tie_type=tie_type,
-                                           tie_nr=MY_PREFIX_TIE_NR)
+                                           tie_nr=MY_POS_DISAGG_TIE_NR)
         return self.regenerate_my_tie(tie_id=tie_id,
                                       new_tie_element=prefix_tie_element,
                                       new_is_purge=is_purge,
@@ -1091,7 +1091,7 @@ class Node:
         tie_id = packet_common.make_tie_id(direction=common.ttypes.TieDirectionType.South,
                                            originator=self.system_id,
                                            tie_type=tie_type,
-                                           tie_nr=MY_PREFIX_TIE_NR)
+                                           tie_nr=MY_NEG_DISAGG_TIE_NR)
         return self.regenerate_my_tie(tie_id=tie_id,
                                       new_tie_element=prefix_tie_element,
                                       new_is_purge=is_purge,
