@@ -2126,19 +2126,19 @@ class Node:
          MY_NODE_TIE_NR): regenerate_my_south_node_tie,
         (common.ttypes.TieDirectionType.South,
          common.ttypes.TIETypeType.PrefixTIEType,
-         MY_NODE_TIE_NR): regenerate_my_south_prefix_tie,
+         MY_PREFIX_TIE_NR): regenerate_my_south_prefix_tie,
         (common.ttypes.TieDirectionType.South,
          common.ttypes.TIETypeType.PositiveDisaggregationPrefixTIEType,
-         MY_NODE_TIE_NR): regenerate_my_pos_disagg_tie,
+         MY_POS_DISAGG_TIE_NR): regenerate_my_pos_disagg_tie,
         (common.ttypes.TieDirectionType.South,
          common.ttypes.TIETypeType.NegativeDisaggregationPrefixTIEType,
-         MY_NODE_TIE_NR): regenerate_my_neg_disagg_tie,
+         MY_NEG_DISAGG_TIE_NR): regenerate_my_neg_disagg_tie,
         (common.ttypes.TieDirectionType.North,
          common.ttypes.TIETypeType.NodeTIEType,
          MY_NODE_TIE_NR): regenerate_my_north_node_tie,
         (common.ttypes.TieDirectionType.North,
          common.ttypes.TIETypeType.PrefixTIEType,
-         MY_NODE_TIE_NR): regenerate_my_north_prefix_tie
+         MY_PREFIX_TIE_NR): regenerate_my_north_prefix_tie
     }
 
     ###@@@ don't need db_tie_packet_info? Do we?
