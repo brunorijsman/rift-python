@@ -2122,7 +2122,7 @@ class Node:
         rx_tie_id = rx_tie_header.tieid
 
         ###@@@
-        print("*** bump rx_tie_header={}".format(rx_tie_header)))
+        print("*** bump rx_tie_header={}".format(rx_tie_header))
         ###@@@
 
         dispatch_index = (rx_tie_id.direction, rx_tie_id.tietype, rx_tie_id.tie_nr)
