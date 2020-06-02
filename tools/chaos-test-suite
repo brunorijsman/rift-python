@@ -1,0 +1,35 @@
+#!/bin/bash
+
+# Make sure we are running in a virtual environment
+if [[ -z "${VIRTUAL_ENV}" ]]; then
+  echo "Virtual environment not activated"
+  exit 1
+fi
+
+# Clean up temporary files
+cd ${VIRTUAL_ENV}/..
+tools/cleanup
+rm -rf generated
+
+# Generate multi-process simulation
+tools/config_generator.py -c -n meta_topology/clos_3plane_3pod_3leaf_3spine_6super.yaml generated
+
+# Start topology
+generated/start.sh
+
+# Keep running a chaos test until something goes bad
+while true; do
+
+    # Check that everything converged correctly...
+    tools/config_generator.py -c -n meta_topology/clos_3plane_3pod_3leaf_3spine_6super.yaml \
+        generated
+
+    # ... if not, bail and leave in the failed state to debug
+    if [ $? -neq 0 ]; then
+        exit 1
+    fi
+    
+    # Run the chaos script
+    generated/chaos.sh
+
+done
