@@ -854,9 +854,9 @@ class Node:
             self.add_my_tie_state(tie_id)
         my_tie_state = self._my_tie_states[tie_id]
         ###@@@
-        if (debug):
+        if debug:
             print("    my_tie_state.next_seq_nr =", my_tie_state.next_seq_nr)
-        ###@@@        
+        ###@@@
         # If the originated TIE did not change, don't send it out (unless forced)
         if not force:
             # If new TIE is a purge, and we never advertised the TIE, do nothing
@@ -907,7 +907,7 @@ class Node:
         self.info("Regenerated TIE %s: %s", packet_common.tie_id_str(tie_id), new_tie_packet_info)
         # Return the header of the regenerated TIE
         ###@@@
-        if (debug):
+        if debug:
             print("    new_tie_header =", new_tie_header)
         ###@@@
 
