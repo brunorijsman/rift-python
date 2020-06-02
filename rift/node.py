@@ -837,7 +837,7 @@ class Node:
     def regenerate_my_tie(self, tie_id, new_tie_element, new_is_purge, force, seq_nr_must_exceed):
         # Get my TIE state. Create it if it doesn't already exist (this can happen when we need to
         # flush a TIE that we did not originate but another node claims we originated it).
-        if not tie_id in self.my_tie_states:
+        if not tie_id in self._my_tie_states:
             self.add_my_tie_state(tie_id)
         my_tie_state = self._my_tie_states[tie_id]
         # If the originated TIE did not change, don't send it out (unless forced)
@@ -887,7 +887,7 @@ class Node:
         # Flood the new TIE packet
         self.unsol_flood_tie_packet_info(new_tie_packet_info)
         # Log a message
-        self.info("Regenerated TIE %s: %s", packet_common.tieid_str(tie_id), new_tie_packet_info)
+        self.info("Regenerated TIE %s: %s", packet_common.tie_id_str(tie_id), new_tie_packet_info)
         # Return the header of the regenerated TIE
         return new_tie_header
 
