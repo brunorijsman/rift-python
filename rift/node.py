@@ -974,13 +974,13 @@ class Node:
 
     def regenerate_my_south_node_tie(self, interface_going_down=None, force=False,
                                      seq_nr_must_exceed=None):
-        self.regenrate_my_node_tie(common.ttypes.TieDirectionType.South, interface_going_down,
-                                   force, seq_nr_must_exceed)
+        self.regenerate_my_node_tie(common.ttypes.TieDirectionType.South, interface_going_down,
+                                    force, seq_nr_must_exceed)
 
     def regenerate_my_north_node_tie(self, interface_going_down=None, force=False,
                                      seq_nr_must_exceed=None):
-        self.regenrate_my_node_tie(common.ttypes.TieDirectionType.North, interface_going_down,
-                                   force, seq_nr_must_exceed)
+        self.regenerate_my_node_tie(common.ttypes.TieDirectionType.North, interface_going_down,
+                                    force, seq_nr_must_exceed)
 
     def regenerate_my_node_ties(self, interface_going_down=None):
         for direction in [common.ttypes.TieDirectionType.South,
