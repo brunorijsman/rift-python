@@ -534,6 +534,7 @@ class Node:
             (constants.DIR_NORTH, False): {},
             (constants.DIR_SOUTH, True): {}
         }
+        self._fallen_leaves = {}
         self._ipv4_fib = fib.ForwardingTable(
             constants.ADDRESS_FAMILY_IPV4,
             self.kernel,
@@ -1078,12 +1079,12 @@ class Node:
                                       force=force,
                                       seq_nr_must_exceed=seq_nr_must_exceed)
 
-    def regenerate_my_neg_disagg_tie(self, fallen_leafs, force=False, seq_nr_must_exceed=None):
+    def regenerate_my_neg_disagg_tie(self, force=False, seq_nr_must_exceed=None):
         prefixes = {}
         prefix_tie_element = encoding.ttypes.PrefixTIEElement(prefixes=prefixes)
         is_purge = True
         infinity = common.constants.infinite_distance
-        for prefix, dest in fallen_leafs.items():
+        for prefix, dest in self._fallen_leaves.items():
             attributes = encoding.ttypes.PrefixAttributes(infinity, dest.tags)
             prefixes[prefix] = attributes
             is_purge = False
@@ -1919,14 +1920,15 @@ class Node:
             else:
                 break
         # Associate each prefix to a spf destination at infinite distance
-        fallen_leafs = {prefix: spf_dest.make_prefix_dest(prefix, attrs.tags,
-                                                          cost=common.constants.infinite_distance,
-                                                          is_leaf=True,
-                                                          is_pos_disagg=False,
-                                                          is_neg_disagg=True)
-                        for prefix, attrs in current_neg_disagg_prefixes.items()}
+        self._fallen_leaves = {
+            prefix: spf_dest.make_prefix_dest(prefix, attrs.tags,
+                                              cost=common.constants.infinite_distance,
+                                              is_leaf=True,
+                                              is_pos_disagg=False,
+                                              is_neg_disagg=True)
+            for prefix, attrs in current_neg_disagg_prefixes.items()}
         # Regenerate the tie for the fallen leafs
-        self.regenerate_my_neg_disagg_tie(fallen_leafs)
+        self.regenerate_my_neg_disagg_tie()
 
     def remove_tie(self, tie_id):
         # Remove the TIE from the TIE database (TIE-DB), if present
@@ -2884,7 +2886,7 @@ class Node:
             self.spf_install_routes_in_rib(spf_direction)
         else:
             # Handle any fallen leaf if present
-            self.update_neg_disagg_fallen_leafs()
+            self.update_neg_disagg_top_of_fabric()
 
     def spf_add_candidates_from_node(self, node_system_id, node_cost, node_is_leaf, candidates,
                                      spf_direction, special_for_neg_disagg):
@@ -3209,16 +3211,16 @@ class Node:
             return False
         return True
 
-    def update_neg_disagg_fallen_leafs(self):
+    def update_neg_disagg_top_of_fabric(self):
         normal_southbound_run = self._spf_destinations[(constants.DIR_SOUTH, False)]
         special_southbound_run = self._spf_destinations[(constants.DIR_SOUTH, True)]
         normal_southbound_dests = dict(filter(self.is_leaf_prefix, normal_southbound_run.items()))
         special_southbound_dests = dict(filter(self.is_leaf_prefix, special_southbound_run.items()))
         difference = special_southbound_dests.keys() - normal_southbound_dests.keys()
-        fallen_leafs = {prefix: special_southbound_dests[prefix] for prefix in difference}
-        for prefix in fallen_leafs.values():
+        self._fallen_leaves = {prefix: special_southbound_dests[prefix] for prefix in difference}
+        for prefix in self._fallen_leaves.values():
             prefix.negatively_disaggregate = True
-        return self.regenerate_my_neg_disagg_tie(fallen_leafs)
+        return self.regenerate_my_neg_disagg_tie()
 
     def floodred_elect_repeaters(self):
         self.floodred_debug("Re-elect flood repeaters")
