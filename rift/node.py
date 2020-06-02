@@ -1939,6 +1939,10 @@ class Node:
                 if comparison < 0:
                     if header_in_tide.tieid.originator == self.system_id:
                         # Re-originate DB TIE with higher sequence number than the one in TIDE
+                        ###@@@
+                        print("*** header_lifetime_in_tide =", header_lifetime_in_tide)
+                        print("*** db_tie_header_lifetime =", db_tie_header_lifetime)
+                        ###@@@
                         bumped_own_tie_header = self.bump_own_tie(db_tie_packet_info,
                                                                   header_in_tide)
                         start_sending_tie_headers.append(bumped_own_tie_header)
