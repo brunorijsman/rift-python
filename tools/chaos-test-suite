@@ -20,6 +20,9 @@ generated/start.sh
 # Keep running a chaos test until something goes bad
 while true; do
 
+    # Let it converge for 30 seconds
+    sleep 30
+
     # Check that everything converged correctly...
     tools/config_generator.py -c -n meta_topology/clos_3plane_3pod_3leaf_3spine_6super.yaml \
         generated
