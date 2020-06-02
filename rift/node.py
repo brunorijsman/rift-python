@@ -1,7 +1,6 @@
 # pylint: disable=too-many-lines
 
 import collections
-import copy
 import enum
 import logging
 import os
