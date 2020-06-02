@@ -1068,6 +1068,29 @@ class Node:
                                       force=force,
                                       seq_nr_must_exceed=seq_nr_must_exceed)
 
+    def purge_not_my_tie(self, rx_tie_header):
+        tie_id = rx_tie_header.tieid
+        if tie_id.tietype == common.ttypes.TIETypeType.NodeTIEType:
+            version = encoding.constants.protocol_minor_version
+            capabilities = encoding.ttypes.NodeCapabilities(protocol_minor_version=version,
+                                                            flood_reduction=True)
+            tie_element = encoding.ttypes.NodeTIEElement(level=self.level_value(),
+                                                         capabilities=capabilities,
+                                                         flags=None,  # TODO: Implement this
+                                                         name=self.name)
+        elif tie_id.tietype in [common.ttypes.TIETypeType.PrefixTIEType,
+                                common.ttypes.TIETypeType.PositiveDisaggregationPrefixTIEType,
+                                common.ttypes.TIETypeType.NegativeDisaggregationPrefixTIEType]:
+            tie_element = encoding.ttypes.PrefixTIEElement()
+        else:
+            # TODO: Add support for key-value, policy-guided-prefix, etc.
+            return None
+        return self.regenerate_my_tie(tie_id=tie_id,
+                                      new_tie_element=tie_element,
+                                      new_is_purge=True,
+                                      force=True,
+                                      seq_nr_must_exceed=rx_tie_header.seq_nr)
+
     def is_overloaded(self):
         # TODO: In the current implementation, we are never overloaded.
         return False
@@ -2072,8 +2095,7 @@ class Node:
             return regenerated_tie_header
         # If we get here it means that we never originated the TIE but someone else claims we
         # originated.
-        # TODO: for now we ignore this, but we should probably flush it with a bumped sequence nr.
-        return None
+        return self.purge_not_my_tie(rx_tie_header)
 
     def process_rx_tie_packet_info(self, rx_tie_packet_info):
         start_sending_tie_header = None
