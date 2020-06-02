@@ -842,6 +842,7 @@ class Node:
             print("    tie_id =", tie_id)
             print("    new_tie_element =", new_tie_element)
             print("    new_is_purge =", new_is_purge)
+            print("    force =", force)
             print("    seq_nr_must_exceed =", seq_nr_must_exceed)
             debug = True
         else:
