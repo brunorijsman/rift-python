@@ -1998,8 +1998,8 @@ class Node:
                 if header_in_tide.tieid.originator == self.system_id:
                     # Self-originate an empty TIE with a higher sequence number.
                     bumped_own_tie_header = self.bump_own_tie(None, header_in_tide)
-                    ###@@@ can return None, but
-                    start_sending_tie_headers.append(bumped_own_tie_header)
+                    if bumped_own_tie_header:
+                        start_sending_tie_headers.append(bumped_own_tie_header)
                 else:
                     # We don't have the TIE, request it
                     # To request a a missing TIE, we have to set the seq_nr to 0. This is not
@@ -2027,7 +2027,8 @@ class Node:
                         ###@@@
                         bumped_own_tie_header = self.bump_own_tie(db_tie_packet_info,
                                                                   header_in_tide)
-                        start_sending_tie_headers.append(bumped_own_tie_header)
+                        if bumped_own_tie_header:
+                            start_sending_tie_headers.append(bumped_own_tie_header)
                     else:
                         # We have an older version of the TIE, request the newer version
                         request_tie_headers_lifetime.append(header_lifetime_in_tide)
