@@ -1998,6 +1998,7 @@ class Node:
                 if header_in_tide.tieid.originator == self.system_id:
                     # Self-originate an empty TIE with a higher sequence number.
                     bumped_own_tie_header = self.bump_own_tie(None, header_in_tide)
+                    ###@@@ can return None, but
                     start_sending_tie_headers.append(bumped_own_tie_header)
                 else:
                     # We don't have the TIE, request it
@@ -2159,7 +2160,7 @@ class Node:
             regenerated_tie_header = regeneration_function(
                 self=self, force=True, seq_nr_must_exceed=rx_tie_header.seq_nr)
             ###@@@
-            print("*** bump regenerated_tie_header={}".format(rx_tie_header))
+            print("*** bump regenerated_tie_header={}".format(regenerated_tie_header))
             ###@@@
             return regenerated_tie_header
 
