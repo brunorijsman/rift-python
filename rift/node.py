@@ -2157,7 +2157,7 @@ class Node:
             ###@@@ set force to true
             ###@@@ set seq_nr_must_exceed to value in received header
             regenerated_tie_header = regeneration_function(
-                self, force=True, seq_nr_must_exceed=rx_tie_header.seq_nr)
+                self=self, force=True, seq_nr_must_exceed=rx_tie_header.seq_nr)
             ###@@@
             print("*** bump regenerated_tie_header={}".format(rx_tie_header))
             ###@@@
