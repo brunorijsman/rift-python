@@ -44,7 +44,7 @@ while true; do
         ${GENERATED_DIR}
 
     # ... if not, bail and leave in the failed state to debug
-    if [ $? -neq 0 ]; then
+    if [ $? -ne 0 ]; then
         exit 1
     fi
     
