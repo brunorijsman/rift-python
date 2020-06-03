@@ -70,9 +70,12 @@ check_running_in_virtual_environment ()
     fi
 }
 
-cleanup_temporary_files ()
+cleanup ()
 {
     cd ${VIRTUAL_ENV}/..
+    if [[ -e ${GENERATED_DIR} ]]; then
+        ${GENERATED_DIR}/stop.sh
+    fi
     tools/cleanup
     rm -rf ${GENERATED_DIR}
 }
