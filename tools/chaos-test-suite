@@ -35,6 +35,7 @@ help ()
     echo "SYNOPSIS"
     echo
     echo "    chaos-test-suite [-?|-h|--help]"
+    echo "                     [-a|--check-again]"
     echo "                     [-c|--clean]"
     echo "                     [-r|--resume]"
     echo
