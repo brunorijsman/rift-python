@@ -8,6 +8,11 @@ RED=$(tput setaf 1)
 BLUE=$(tput setaf 4)
 BEEP=$(tput bel)
 
+FALSE=0
+TRUE=1
+
+RESUME=${FALSE}
+
 fatal_error ()
 {
     message="$1"
@@ -20,6 +25,42 @@ progress ()
     message="$1"
     echo "${BLUE}*** ${message} ***${NORMAL}"
 
+}
+
+help ()
+{
+    echo
+    echo "SYNOPSIS"
+    echo
+    echo "    chaos-test-suite [-?|-h|--help]"
+    echo "                     [-c|--clean]"
+    echo "                     [-r|--resume]"
+    echo
+    echo "OPTIONS"
+    echo
+    echo "  -?, -h, --help"
+    echo "      Print this help and exit"
+    echo
+    echo "  -c, --clean"
+    echo "      Clean all temporary files and ${GENERATED_DIR} directory from previous run"
+    echo
+    echo "  -r, --resume"
+    echo "      Resume the previously interrupted run"
+    echo
+    exit 0
+}
+
+parse_command_line_options ()
+{
+    while [[ "$#" -gt 0 ]]; do
+        case $1 in
+            -c|--clean) CLEAN=${TRUE} ;;
+            -?|-h|--help) help ;;
+            -r|--resume) RESUME=${TRUE} ;;
+            *) echo "Unknown parameter passed: $1"; exit 1 ;;
+        esac
+        shift
+    done
 }
 
 check_running_in_virtual_environment ()
@@ -78,6 +119,7 @@ wreak_chaos ()
     ${GENERATED_DIR}/chaos.sh
 }
 
+parse_command_line_options $@
 check_running_in_virtual_environment
 check_previous_run
 cleanup_temporary_files

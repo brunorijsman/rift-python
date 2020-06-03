@@ -129,7 +129,8 @@ docker/requirements.txt
 doc/figures/*/*.pdf
 doc/figures/*/*.png
 
-# Generated diagram
+# Generated diagram and topologies
 diagram.html
 generated.yaml
 generated/*
+__generated__/*
