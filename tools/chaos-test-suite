@@ -11,6 +11,7 @@ BEEP=$(tput bel)
 FALSE=0
 TRUE=1
 
+CLEAN=${FALSE}
 RESUME=${FALSE}
 
 fatal_error ()
