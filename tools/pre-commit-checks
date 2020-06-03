@@ -50,11 +50,13 @@ if ! pylint tools ; then
 fi
 
 # Run unit tests, system tests, and collect code coverage results
-# Exclude tests with __large__ in their name (they need more resources than a laptop has)
-if ! pytest --cov -k 'not __large__' tests ; then
-    echo "*** DO NOT COMMIT ***"
-    echo "Fix unit tests and/or system tests (all tests must pass)"
-    exit 1
+# On macOS, exclude tests with __large__ in their name (they need more resources than a laptop has)
+if [[ "$(uname -s)" == "Darwin" ]]; then
+    if ! pytest --cov -k 'not __large__' tests ; then
+        echo "*** DO NOT COMMIT ***"
+        echo "Fix unit tests and/or system tests (all tests must pass)"
+        exit 1
+    fi
 fi
 
 # Check documentation for completeness
