@@ -4,7 +4,7 @@ GENERATED_DIR="__generated__"
 CONVERGE_DELAY=30
 
 NORMAL=$(tput sgr0)
-RED=$(tput setaf 3)
+RED=$(tput setaf 1)
 BLUE=$(tput setaf 4)
 BEEP=$(tput bel)
 
