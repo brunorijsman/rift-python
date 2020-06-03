@@ -196,8 +196,8 @@ def test_add_prefix_tie():
             "|           |            |        |        |        |          |   Metric: 10           |\n"
             "+-----------+------------+--------+--------+--------+----------+------------------------+\n")
 
-def tie_headers_with_disposition(test_node, header_info_list, filter_dispositions):
-    tie_headers = []
+def tie_header_lifetimes_with_disposition(test_node, header_info_list, filter_dispositions):
+    tie_header_lifetimes = []
     for header_info in header_info_list:
         (direction, originator, _tietype, tie_nr, seq_nr, lifetime, disposition) = header_info
         if disposition in filter_dispositions:
@@ -211,7 +211,13 @@ def tie_headers_with_disposition(test_node, header_info_list, filter_disposition
                 lifetime = 0
             tie_header = packet_common.make_tie_header_with_lifetime(direction, originator, PREFIX, tie_nr,
                                                                      seq_nr, lifetime)
-            tie_headers.append(tie_header)
+            tie_header_lifetimes.append(tie_header)
+    return tie_header_lifetimes
+
+def tie_headers_with_disposition(test_node, header_info_list, filter_dispositions):
+    tie_header_lifetimes = tie_header_lifetimes_with_disposition(test_node, header_info_list,
+                                                                 filter_dispositions)
+    tie_headers = [tie_header_lifetime.header for tie_header_lifetime in tie_header_lifetimes]
     return tie_headers
 
 def check_process_tide_common(test_node, start_range, end_range, header_info_list):
@@ -229,26 +235,17 @@ def check_process_tide_common(test_node, start_range, end_range, header_info_lis
     # Process the TIDE packet
     result = test_node.process_rx_tide_packet(tide_packet)
     (request_tie_headers, start_sending_tie_headers, stop_sending_tie_headers) = result
-    # Check results
-    # TODO: more consistent style
-    compare_header_lists(
-        tie_headers_with_disposition(test_node, header_info_list, [REQUEST_MISSING, REQUEST_OLDER]),
-        request_tie_headers)
-    disposition = [e.header for e in
-                   tie_headers_with_disposition(test_node,
-                                                header_info_list,
-                                                [START_EXTRA, START_NEWER])]
-    compare_header_lists(
-        disposition,
-        start_sending_tie_headers)
-    disposition = [e.header for e in
-                   tie_headers_with_disposition(test_node,
-                                                header_info_list,
-                                                [STOP_SAME])
-                   ]
-    compare_header_lists(
-        disposition,
-        stop_sending_tie_headers)
+    # Check request_tie_headers
+    expected_tie_headers = tie_headers_with_disposition(test_node, header_info_list,
+                                                        [REQUEST_MISSING, REQUEST_OLDER])
+    compare_header_lists(expected_tie_headers, request_tie_headers)
+    # Check start_sending_tie_headers
+    expected_tie_headers = tie_headers_with_disposition(test_node, header_info_list, 
+                                                        [START_EXTRA, START_NEWER])
+    compare_header_lists(expected_tie_headers, start_sending_tie_headers)
+    # Check end_sending_tie_headers
+    expected_tie_headers = tie_headers_with_disposition(test_node, header_info_list, [STOP_SAME])
+    compare_header_lists(expected_tie_headers, stop_sending_tie_headers)
 
 def check_process_tide_1(test_node):
     start_range = packet_common.make_tie_id(SOUTH, 10, PREFIX, 1)
@@ -382,15 +379,16 @@ def check_process_tire_common(test_node, header_info_list):
     # Process the TIRE packet
     result = test_node.process_rx_tire_packet(tire)
     (request_tie_headers, start_sending_tie_headers, acked_tie_headers) = result
-    # Check results
-    compare_header_lists(tie_headers_with_disposition(test_node, header_info_list, [REQUEST_OLDER]),
-                         request_tie_headers)
-    disposition = [e.header for e in
-                   tie_headers_with_disposition(test_node, header_info_list, [START_NEWER])]
-    compare_header_lists(disposition, start_sending_tie_headers)
-    disposition = [e.header for e in
-                   tie_headers_with_disposition(test_node, header_info_list, [ACK])]
-    compare_header_lists(disposition, acked_tie_headers)
+    # Check request_tie_headers
+    expected_tie_headers = tie_headers_with_disposition(test_node, header_info_list,
+                                                        [REQUEST_MISSING, REQUEST_OLDER])
+    compare_header_lists(expected_tie_headers, request_tie_headers)
+    # Check start_sending_tie_headers
+    expected_tie_headers = tie_headers_with_disposition(test_node, header_info_list, [START_NEWER])
+    compare_header_lists(expected_tie_headers, start_sending_tie_headers)
+    # Check acked_tie_headers
+    expected_tie_headers = tie_headers_with_disposition(test_node, header_info_list, [ACK])
+    compare_header_lists(expected_tie_headers, acked_tie_headers)
 
 def check_process_tire(test_node):
     header_info_list = [
