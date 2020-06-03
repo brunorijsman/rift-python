@@ -57,6 +57,12 @@ if [[ "$(uname -s)" == "Darwin" ]]; then
         echo "Fix unit tests and/or system tests (all tests must pass)"
         exit 1
     fi
+else 
+    if ! pytest --cov tests ; then
+        echo "*** DO NOT COMMIT ***"
+        echo "Fix unit tests and/or system tests (all tests must pass)"
+        exit 1
+    fi
 fi
 
 # Check documentation for completeness
