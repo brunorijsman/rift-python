@@ -75,8 +75,10 @@ clean ()
 {
     cd ${VIRTUAL_ENV}/..
     if [[ -e ${GENERATED_DIR} ]]; then
+        progress "Stopping previous run of topology"
         ${GENERATED_DIR}/stop.sh
     fi
+    progress "Cleaning previous run scripts and temporary files"
     tools/cleanup
     rm -rf ${GENERATED_DIR}
 }
