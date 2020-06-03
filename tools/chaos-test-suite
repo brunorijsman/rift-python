@@ -70,17 +70,18 @@ check_running_in_virtual_environment ()
     fi
 }
 
+cleanup_temporary_files ()
+{
+    cd ${VIRTUAL_ENV}/..
+    tools/cleanup
+    rm -rf ${GENERATED_DIR}
+}
+
 check_previous_run ()
 {
     if [[ -e ${GENERATED_DIR} ]]; then
         fatal_error "Directory ${GENERATED_DIR} still exists from a previous run; clean it up first"
     fi
-}
-
-cleanup_temporary_files ()
-{
-    cd ${VIRTUAL_ENV}/..
-    tools/cleanup
 }
 
 generate_scripts ()
@@ -121,12 +122,17 @@ wreak_chaos ()
 
 parse_command_line_options $@
 check_running_in_virtual_environment
-check_previous_run
-cleanup_temporary_files
-generate_scripts
-start_topology
-while true; do
+if [[ RESUME == ${FALSE} ]]; then
+    if [[ CLEANUP == ${TRUE} ]]; then
+        cleanup
+    fi
+    check_previous_run
+    generate_scripts
+    start_topology
     let_converge
+fi
+while true; do
     check_convergence
     wreak_chaos
+    let_converge
 done
