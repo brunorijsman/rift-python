@@ -71,7 +71,7 @@ check_running_in_virtual_environment ()
     fi
 }
 
-cleanup ()
+clean ()
 {
     cd ${VIRTUAL_ENV}/..
     if [[ -e ${GENERATED_DIR} ]]; then
@@ -127,8 +127,8 @@ wreak_chaos ()
 parse_command_line_options $@
 check_running_in_virtual_environment
 if [[ ${RESUME} == ${FALSE} ]]; then
-    if [[ ${CLEANUP} == ${TRUE} ]]; then
-        cleanup
+    if [[ ${CLEAN} == ${TRUE} ]]; then
+        clean
     fi
     check_previous_run
     generate_scripts
