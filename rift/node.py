@@ -881,6 +881,12 @@ class Node:
         self.unsol_flood_tie_packet_info(new_tie_packet_info)
         # Log a message
         self.info("Regenerated TIE %s: %s", packet_common.tie_id_str(tie_id), new_tie_packet_info)
+        ###@@@
+        print("new_seq_nr =", new_seq_nr)
+        print("my_tie_state.next_seq_nr =", my_tie_state.next_seq_nr)
+        print("Regenerated TIE %s: %s", packet_common.tie_id_str(tie_id), new_tie_packet_info)
+        print()
+        ###@@@
         # Return the header of the regenerated TIE
         return new_tie_header
 
