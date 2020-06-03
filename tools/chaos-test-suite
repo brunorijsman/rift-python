@@ -11,6 +11,7 @@ BEEP=$(tput bel)
 FALSE=0
 TRUE=1
 
+CHECK_AGAIN=${FALSE}
 CLEAN=${FALSE}
 RESUME=${FALSE}
 
@@ -42,6 +43,9 @@ help ()
     echo "  -?, -h, --help"
     echo "      Print this help and exit"
     echo
+    echo "  -a, --check-again"
+    echo "      Run the convergence check again after an interrupted run"
+    echo
     echo "  -c, --clean"
     echo "      Clean all temporary files and ${GENERATED_DIR} directory from previous run"
     echo
@@ -55,6 +59,7 @@ parse_command_line_options ()
 {
     while [[ "$#" -gt 0 ]]; do
         case $1 in
+            -a|--check-again) CHECK_AGAIN=${TRUE} ;;
             -c|--clean) CLEAN=${TRUE} ;;
             -?|-h|--help) help ;;
             -r|--resume) RESUME=${TRUE} ;;
@@ -128,6 +133,10 @@ wreak_chaos ()
 
 parse_command_line_options $@
 check_running_in_virtual_environment
+if [[ ${CHECK_AGAIN} == ${TRUE} ]]; then
+    check_convergence
+    exit 0
+fi
 if [[ ${RESUME} == ${FALSE} ]]; then
     if [[ ${CLEAN} == ${TRUE} ]]; then
         clean
