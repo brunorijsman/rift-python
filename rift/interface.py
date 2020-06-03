@@ -1407,22 +1407,24 @@ class Interface:
 
     def process_rx_tide_packet(self, tide_packet):
         result = self.node.process_rx_tide_packet(tide_packet)
-        (request_tie_headers_lifetime, start_sending_tie_headers, stop_sending_tie_headers) = result
+        ###@@@ Done: requests are without lifetime
+        (request_tie_headers, start_sending_tie_headers, stop_sending_tie_headers) = result
         for tie_header in start_sending_tie_headers:
             self.try_to_transmit_tie(tie_header)
-        for tie_header_lifetime in request_tie_headers_lifetime:
-            self.request_tie(tie_header_lifetime)
+        for tie_header in request_tie_headers:
+            self.request_tie(tie_header)
         for tie_header in stop_sending_tie_headers:
             self._queues.remove_from_all_queues(tie_header.tieid)
 
     def process_rx_tire_packet(self, tire_packet):
         self.rx_debug("Receive TIRE packet %s", tire_packet)
         result = self.node.process_rx_tire_packet(tire_packet)
-        (request_tie_headers_lifetime, start_sending_tie_headers, acked_tie_headers) = result
+        ###@@@ Done: requests are without lifetime
+        (request_tie_headers, start_sending_tie_headers, acked_tie_headers) = result
         for tie_header in start_sending_tie_headers:
             self.try_to_transmit_tie(tie_header)
-        for tie_header_lifetime in request_tie_headers_lifetime:
-            self.request_tie(tie_header_lifetime)
+        for tie_header in request_tie_headers:
+            self.request_tie(tie_header)
         for tie_header in acked_tie_headers:
             self.tie_been_acked(tie_header)
 
@@ -1564,17 +1566,17 @@ class Interface:
     def remove_tie_from_all_queues(self, tie_id):
         self._queues.remove_from_all_queues(tie_id)
 
-    def request_tie(self, tie_header_lifetime):
-        assert tie_header_lifetime.__class__ == encoding.ttypes.TIEHeaderWithLifeTime
-        (filtered, reason) = self.is_request_filtered(tie_header_lifetime.header)
+    def request_tie(self, tie_header):
+        ###@@@ Done: no lifetime
+        assert tie_header.__class__ == encoding.ttypes.TIEHeader
+        (filtered, reason) = self.is_request_filtered(tie_header)
         outcome = "excluded" if filtered else "included"
-        self.tx_debug("Request TIE %s is %s in TIRE because %s",
-                      tie_header_lifetime, outcome, reason)
+        self.tx_debug("Request TIE %s is %s in TIRE because %s", tie_header, outcome, reason)
         if not filtered:
-            tie_id = tie_header_lifetime.header.tieid
+            tie_id = tie_header.tieid
             self._queues.remove_from_tie_queue(tie_id)
             self._queues.remove_from_tie_ack_queue(tie_id)
-            self._queues.add_to_tie_req_queue(tie_header_lifetime)
+            self._queues.add_to_tie_req_queue(tie_header)
 
     @property
     def state_name(self):

@@ -881,12 +881,12 @@ class Node:
         self.unsol_flood_tie_packet_info(new_tie_packet_info)
         # Log a message
         self.info("Regenerated TIE %s: %s", packet_common.tie_id_str(tie_id), new_tie_packet_info)
-        ###@@@
+        ###@@@ DEBUG
         print("new_seq_nr =", new_seq_nr)
         print("my_tie_state.next_seq_nr =", my_tie_state.next_seq_nr)
         print("Regenerated TIE %s: %s", packet_common.tie_id_str(tie_id), new_tie_packet_info)
         print()
-        ###@@@
+        ###@@@ DEBUG
         # Return the header of the regenerated TIE
         return new_tie_header
 
@@ -1959,7 +1959,8 @@ class Node:
             start_sending_tie_headers.append(db_tie_packet.header)
 
     def process_rx_tide_packet(self, tide_packet):
-        request_tie_headers_lifetime = []
+        ###@@@ Done: requests are without lifetime
+        request_tie_headers = []
         start_sending_tie_headers = []
         stop_sending_tie_headers = []
         # It is assumed TIDEs are sent and received in increasing order or range. If we observe
@@ -2006,11 +2007,10 @@ class Node:
                     # To request a a missing TIE, we have to set the seq_nr to 0. This is not
                     # mentioned in the RIFT draft, but it is described in ISIS ISO/IEC 10589:1992
                     # section 7.3.15.2 bullet b.4
-                    request_header = header_lifetime_in_tide
-                    request_header.header.seq_nr = 0
-                    request_header.header.origination_time = None
-                    request_header.remaining_lifetime = 0
-                    request_tie_headers_lifetime.append(request_header)
+                    request_header = header_lifetime_in_tide.header
+                    request_header.seq_nr = 0
+                    request_header.origination_time = None
+                    request_tie_headers.append(request_header)
             else:
                 db_tie_packet = db_tie_packet_info.protocol_packet.content.tie
                 db_tie_header = db_tie_packet.header
@@ -2027,7 +2027,7 @@ class Node:
                             start_sending_tie_headers.append(bumped_own_tie_header)
                     else:
                         # We have an older version of the TIE, request the newer version
-                        request_tie_headers_lifetime.append(header_lifetime_in_tide)
+                        request_tie_headers.append(header_lifetime_in_tide.header)
                 elif comparison > 0:
                     # We have a newer version of the TIE, send it
                     start_sending_tie_headers.append(db_tie_packet.header)
@@ -2038,10 +2038,11 @@ class Node:
         self.start_sending_db_ties_in_range(start_sending_tie_headers,
                                             last_processed_tie_id, minimum_inclusive,
                                             tide_packet.end_range, True)
-        return (request_tie_headers_lifetime, start_sending_tie_headers, stop_sending_tie_headers)
+        return (request_tie_headers, start_sending_tie_headers, stop_sending_tie_headers)
 
     def process_rx_tire_packet(self, tire_packet):
-        request_tie_headers_lifetime = []
+        ###@@@ Done: requests are without lifetime
+        request_tie_headers = []
         start_sending_tie_headers = []
         acked_tie_headers = []
         for header_lifetime_in_tire in tire_packet.headers:
@@ -2056,14 +2057,14 @@ class Node:
                                                              header_lifetime_in_tire)
                 if comparison < 0:
                     # We have an older version of the TIE, request the newer version
-                    request_tie_headers_lifetime.append(header_lifetime_in_tire)
+                    request_tie_headers.append(header_lifetime_in_tire.header)
                 elif comparison > 0:
                     # We have a newer version of the TIE, send it
                     start_sending_tie_headers.append(db_tie_packet.header)
                 else:
                     # We have the same version of the TIE, treat it as an ACK
                     acked_tie_headers.append(db_tie_packet.header)
-        return (request_tie_headers_lifetime, start_sending_tie_headers, acked_tie_headers)
+        return (request_tie_headers, start_sending_tie_headers, acked_tie_headers)
 
     _REGENERATE_DISPATCH_TABLE = {
         (common.ttypes.TieDirectionType.South,

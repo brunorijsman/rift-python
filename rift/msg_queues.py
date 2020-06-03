@@ -83,7 +83,8 @@ class _MsgQueueBase:
     def add_tie_header(self, tie_header):
         assert not self._with_lifetime
         assert tie_header.__class__ == encoding.ttypes.TIEHeader
-        tie_header_lifetime = encoding.ttypes.TIEHeaderWithLifeTime(header=tie_header)
+        tie_header_lifetime = encoding.ttypes.TIEHeaderWithLifeTime(
+            header=tie_header, remaining_lifetime=0)
         self._add_tie_header_common(tie_header_lifetime)
 
     def add_tie_header_lifetime(self, tie_header_lifetime):
@@ -225,7 +226,8 @@ class _TIEQueue(_MsgQueueBase):
 class _TIEReqQueue(_MsgQueueBase):
 
     def __init__(self, interface):
-        _MsgQueueBase.__init__(self, "req", interface, with_lifetime=True)
+        ###@@@ Done: Not with lifetime
+        _MsgQueueBase.__init__(self, "req", interface, with_lifetime=False)
         self._tire_packet = None
 
     def start_message(self):
@@ -241,26 +243,31 @@ class _TIEReqQueue(_MsgQueueBase):
         self._interface.send_protocol_packet(protocol_packet, flood=True)
         self._tire_packet = None
 
-    def add_to_message(self, tie_header_lifetime):
+    def add_to_message(self, tie_header_with_lifetime):
         # We don't request a TIE from our neighbor if the flooding scope rules say that the
         # neighbor is not allowed to flood the TIE to us. Why? Because the neighbor is allowed
         # to advertise extra TIEs in the TIDE, and if we request them we will get an
         # oscillation.
-        tie_id = tie_header_lifetime.header.tieid
+        ###@@@ Done without lifetime
+        tie_header = tie_header_with_lifetime.header
+        tie_id = tie_header.tieid
         node = self._interface.node
         (allowed, reason) = node.flood_allowed_from_nbr_to_node(
-            tie_header=tie_header_lifetime.header,
+            tie_header=tie_header,
             neighbor_direction=self._interface.neighbor_direction(),
             neighbor_system_id=self._interface.neighbor.system_id,
             neighbor_level=self._interface.neighbor.level,
             neighbor_is_top_of_fabric=self._interface.neighbor.top_of_fabric(),
             node_system_id=node.system_id)
         if allowed:
+            # TIE requests in a TIRE must have remaining lifetime zero
+            tie_header_lifetime = packet_common.expand_tie_header_with_lifetime(tie_header, 0)
             packet_common.add_tie_header_to_tire(self._tire_packet, tie_header_lifetime)
             return True
+        ###@@@ Done: proper queue name
         self._interface.warning(
-            "TIE %s, which was already in TIE send queue, could not be sent because %s",
-            tie_id, reason)
+            "TIE %s, which was in %s queue, could not be sent because %s", tie_id, self._name,
+            reason)
         return False
 
 
@@ -308,8 +315,9 @@ class MsgQueues:
         self._tie_queue.remove_tie_id(tie_id)
         self._start_or_stop_timer_as_needed()
 
-    def add_to_tie_req_queue(self, tie_header_lifetime):
-        self._tie_req_queue.add_tie_header_lifetime(tie_header_lifetime)
+    def add_to_tie_req_queue(self, tie_header):
+        ###@@@ Done: no lifetime
+        self._tie_req_queue.add_tie_header(tie_header)
         self._start_or_stop_timer_as_needed()
 
     def remove_from_tie_req_queue(self, tie_id):
