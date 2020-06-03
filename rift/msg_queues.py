@@ -226,7 +226,6 @@ class _TIEQueue(_MsgQueueBase):
 class _TIEReqQueue(_MsgQueueBase):
 
     def __init__(self, interface):
-        ###@@@ Done: Not with lifetime
         _MsgQueueBase.__init__(self, "req", interface, with_lifetime=False)
         self._tire_packet = None
 
@@ -248,7 +247,6 @@ class _TIEReqQueue(_MsgQueueBase):
         # neighbor is not allowed to flood the TIE to us. Why? Because the neighbor is allowed
         # to advertise extra TIEs in the TIDE, and if we request them we will get an
         # oscillation.
-        ###@@@ Done without lifetime
         tie_header = tie_header_with_lifetime.header
         tie_id = tie_header.tieid
         node = self._interface.node
@@ -264,7 +262,6 @@ class _TIEReqQueue(_MsgQueueBase):
             tie_header_lifetime = packet_common.expand_tie_header_with_lifetime(tie_header, 0)
             packet_common.add_tie_header_to_tire(self._tire_packet, tie_header_lifetime)
             return True
-        ###@@@ Done: proper queue name
         self._interface.warning(
             "TIE %s, which was in %s queue, could not be sent because %s", tie_id, self._name,
             reason)
@@ -316,7 +313,6 @@ class MsgQueues:
         self._start_or_stop_timer_as_needed()
 
     def add_to_tie_req_queue(self, tie_header):
-        ###@@@ Done: no lifetime
         self._tie_req_queue.add_tie_header(tie_header)
         self._start_or_stop_timer_as_needed()
 

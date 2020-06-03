@@ -1407,7 +1407,6 @@ class Interface:
 
     def process_rx_tide_packet(self, tide_packet):
         result = self.node.process_rx_tide_packet(tide_packet)
-        ###@@@ Done: requests are without lifetime
         (request_tie_headers, start_sending_tie_headers, stop_sending_tie_headers) = result
         for tie_header in start_sending_tie_headers:
             self.try_to_transmit_tie(tie_header)
@@ -1419,7 +1418,6 @@ class Interface:
     def process_rx_tire_packet(self, tire_packet):
         self.rx_debug("Receive TIRE packet %s", tire_packet)
         result = self.node.process_rx_tire_packet(tire_packet)
-        ###@@@ Done: requests are without lifetime
         (request_tie_headers, start_sending_tie_headers, acked_tie_headers) = result
         for tie_header in start_sending_tie_headers:
             self.try_to_transmit_tie(tie_header)
@@ -1567,7 +1565,6 @@ class Interface:
         self._queues.remove_from_all_queues(tie_id)
 
     def request_tie(self, tie_header):
-        ###@@@ Done: no lifetime
         assert tie_header.__class__ == encoding.ttypes.TIEHeader
         (filtered, reason) = self.is_request_filtered(tie_header)
         outcome = "excluded" if filtered else "included"

@@ -228,10 +228,9 @@ def check_process_tide_common(test_node, start_range, end_range, header_info_lis
             packet_common.add_tie_header_to_tide(tide_packet, tie_header)
     # Process the TIDE packet
     result = test_node.process_rx_tide_packet(tide_packet)
-    ###@@@ Done: requests are without lifetime
     (request_tie_headers, start_sending_tie_headers, stop_sending_tie_headers) = result
     # Check results
-    ###@@@ TODO: Layout and fix
+    # TODO: more consistent style
     compare_header_lists(
         tie_headers_with_disposition(test_node, header_info_list, [REQUEST_MISSING, REQUEST_OLDER]),
         request_tie_headers)
@@ -681,5 +680,4 @@ def test_trigger_spf():
     assert test_node._spf_triggers_deferred_count == 3
     assert test_node._spf_runs_count == 4
     # Check history
-    assert list(test_node._spf_trigger_history) == ["Test 5", "Test 4", "Test 3", "Test 2", 
-           "Test 1"]
+    assert list(test_node._spf_trigger_history) == ["Test 5", "Test 4", "Test 3", "Test 2", "Test 1"]

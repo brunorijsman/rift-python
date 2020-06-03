@@ -881,12 +881,6 @@ class Node:
         self.unsol_flood_tie_packet_info(new_tie_packet_info)
         # Log a message
         self.info("Regenerated TIE %s: %s", packet_common.tie_id_str(tie_id), new_tie_packet_info)
-        ###@@@ DEBUG
-        print("new_seq_nr =", new_seq_nr)
-        print("my_tie_state.next_seq_nr =", my_tie_state.next_seq_nr)
-        print("Regenerated TIE %s: %s", packet_common.tie_id_str(tie_id), new_tie_packet_info)
-        print()
-        ###@@@ DEBUG
         # Return the header of the regenerated TIE
         return new_tie_header
 
@@ -1959,7 +1953,6 @@ class Node:
             start_sending_tie_headers.append(db_tie_packet.header)
 
     def process_rx_tide_packet(self, tide_packet):
-        ###@@@ Done: requests are without lifetime
         request_tie_headers = []
         start_sending_tie_headers = []
         stop_sending_tie_headers = []
@@ -2041,7 +2034,6 @@ class Node:
         return (request_tie_headers, start_sending_tie_headers, stop_sending_tie_headers)
 
     def process_rx_tire_packet(self, tire_packet):
-        ###@@@ Done: requests are without lifetime
         request_tie_headers = []
         start_sending_tie_headers = []
         acked_tie_headers = []
