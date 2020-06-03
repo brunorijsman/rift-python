@@ -1,6 +1,11 @@
 #!/bin/bash
 
 GENERATED_DIR="__generated__"
+CONVERGE_DELAY=30
+
+DEFAULT="\033[0m"
+BLUE="\u001b[34m"
+
 
 # Make sure we are running in a virtual environment
 if [[ -z "${VIRTUAL_ENV}" ]]; then
@@ -19,19 +24,23 @@ cd ${VIRTUAL_ENV}/..
 tools/cleanup
 
 # Generate multi-process simulation
+print "${BLUE}Generating scipts in ${GENERATED_DIR}${DEFAULT}"
 tools/config_generator.py -n meta_topology/clos_3plane_3pod_3leaf_3spine_6super.yaml \
     ${GENERATED_DIR}
 
 # Start topology
+print "${BLUE}Starting topology${DEFAULT}"
 ${GENERATED_DIR}/start.sh
 
 # Keep running a chaos test until something goes bad
 while true; do
 
     # Let it converge for 30 seconds
-    sleep 30
+    print "${BLUE}Letting converge for ${CONVERGE_DELAY} seconds${DEFAULT}"
+    sleep ${CONVERGE_DELAY}
 
     # Check that everything converged correctly...
+    print "${BLUE}Checking convergence${DEFAULT}"
     tools/config_generator.py -c -n meta_topology/clos_3plane_3pod_3leaf_3spine_6super.yaml \
         ${GENERATED_DIR}
 
@@ -41,6 +50,7 @@ while true; do
     fi
     
     # Run the chaos script
+    print "${BLUE}Running chaos script${DEFAULT}"
     ${GENERATED_DIR}/chaos.sh
 
 done
