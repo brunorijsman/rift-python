@@ -196,7 +196,7 @@ def test_add_prefix_tie():
             "|           |            |        |        |        |          |   Metric: 10           |\n"
             "+-----------+------------+--------+--------+--------+----------+------------------------+\n")
 
-def tie_header_lifetimes_with_disposition(test_node, header_info_list, filter_dispositions):
+def tie_header_lts_with_disposition(test_node, header_info_list, filter_dispositions):
     tie_header_lifetimes = []
     for header_info in header_info_list:
         (direction, originator, _tietype, tie_nr, seq_nr, lifetime, disposition) = header_info
@@ -215,8 +215,8 @@ def tie_header_lifetimes_with_disposition(test_node, header_info_list, filter_di
     return tie_header_lifetimes
 
 def tie_headers_with_disposition(test_node, header_info_list, filter_dispositions):
-    tie_header_lifetimes = tie_header_lifetimes_with_disposition(test_node, header_info_list,
-                                                                 filter_dispositions)
+    tie_header_lifetimes = tie_header_lts_with_disposition(test_node, header_info_list,
+                                                           filter_dispositions)
     tie_headers = [tie_header_lifetime.header for tie_header_lifetime in tie_header_lifetimes]
     return tie_headers
 
@@ -240,7 +240,7 @@ def check_process_tide_common(test_node, start_range, end_range, header_info_lis
                                                         [REQUEST_MISSING, REQUEST_OLDER])
     compare_header_lists(expected_tie_headers, request_tie_headers)
     # Check start_sending_tie_headers
-    expected_tie_headers = tie_headers_with_disposition(test_node, header_info_list, 
+    expected_tie_headers = tie_headers_with_disposition(test_node, header_info_list,
                                                         [START_EXTRA, START_NEWER])
     compare_header_lists(expected_tie_headers, start_sending_tie_headers)
     # Check end_sending_tie_headers
