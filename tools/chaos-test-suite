@@ -4,52 +4,87 @@ GENERATED_DIR="__generated__"
 CONVERGE_DELAY=30
 
 NORMAL=$(tput sgr0)
+RED=$(tput setaf 3)
 BLUE=$(tput setaf 4)
+BEEP=$(tput bel)
 
-# Make sure we are running in a virtual environment
-if [[ -z "${VIRTUAL_ENV}" ]]; then
-  echo "Virtual environment not activated"
-  exit 1
-fi
-
-# Do we still have a directory from a previous run?
-if [[ -e ${GENERATED_DIR} ]]; then
-    echo "Directory ${GENERATED_DIR} still exists from a previous run; clean it up first"
+fatal_error ()
+{
+    message="$1"
+    echo "${RED}Error:${NORMAL} ${message}"
     exit 1
-fi
+}
 
-# Clean up temporary files
-cd ${VIRTUAL_ENV}/..
-tools/cleanup
+progress ()
+{
+    message="$1"
+    echo "${BLUE}*** ${message} ***${NORMAL}"
 
-# Generate multi-process simulation
-echo "${BLUE}Generating scipts in ${GENERATED_DIR}${NORMAL}"
-tools/config_generator.py -n meta_topology/clos_3plane_3pod_3leaf_3spine_6super.yaml \
+}
+
+check_running_in_virtual_environment ()
+{
+    if [[ -z "${VIRTUAL_ENV}" ]]; then
+        fatal_error "Virtual environment not activated"
+    fi
+}
+
+check_previous_run ()
+{
+    if [[ -e ${GENERATED_DIR} ]]; then
+        fatal_error "Directory ${GENERATED_DIR} still exists from a previous run; clean it up first"
+    fi
+}
+
+cleanup_temporary_files ()
+{
+    cd ${VIRTUAL_ENV}/..
+    tools/cleanup
+}
+
+generate_scripts ()
+{
+    progress "Generating scipts in ${GENERATED_DIR}"
+    tools/config_generator.py -n meta_topology/clos_3plane_3pod_3leaf_3spine_6super.yaml \
     ${GENERATED_DIR}
+}
 
-# Start topology
-echo "${BLUE}Starting topology${NORMAL}"
-${GENERATED_DIR}/start.sh
+start_topology ()
+{
+    progress "Starting topology"
+    ${GENERATED_DIR}/start.sh
+}
 
-# Keep running a chaos test until something goes bad
-while true; do
-
-    # Let it converge for 30 seconds
-    echo "${BLUE}Letting converge for ${CONVERGE_DELAY} seconds${NORMAL}"
+let_converge ()
+{
+    progress "Letting converge for ${CONVERGE_DELAY} seconds"
     sleep ${CONVERGE_DELAY}
+}
 
-    # Check that everything converged correctly...
-    echo "${BLUE}Checking convergence${NORMAL}"
+check_convergence ()
+{
+    progress "Checking convergence"
     tools/config_generator.py -c -n meta_topology/clos_3plane_3pod_3leaf_3spine_6super.yaml \
         ${GENERATED_DIR}
-
-    # ... if not, bail and leave in the failed state to debug
     if [ $? -ne 0 ]; then
-        exit 1
+        echo ${BEEP} ${BEEP} ${BEEP} ${BEEP} ${BEEP} ${BEEP} 
+        fatal_error "One more checks failed after convergence"
     fi
-    
-    # Run the chaos script
-    echo "${BLUE}Running chaos script${NORMAL}"
-    ${GENERATED_DIR}/chaos.sh
+}
 
+wreak_chaos ()
+{
+    progress "Wreaking chaos"
+    ${GENERATED_DIR}/chaos.sh
+}
+
+check_running_in_virtual_environment
+check_previous_run
+cleanup_temporary_files
+generate_scripts
+start_topology
+while true; do
+    let_converge
+    check_convergence
+    wreak_chaos
 done
