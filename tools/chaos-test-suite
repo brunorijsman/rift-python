@@ -161,10 +161,6 @@ setup_always ()
     check_on_linux
     check_running_in_virtual_environment
     parse_command_line_options $@
-    if [[ ${CHECK_AGAIN} == ${TRUE} ]]; then
-        check_convergence
-        exit 0
-    fi
 }
 
 setup_if_not_resuming ()
@@ -204,6 +200,10 @@ all_iterations ()
 }
 
 setup_always
+if [[ ${CHECK_AGAIN} == ${TRUE} ]]; then
+    check_convergence
+    exit 0
+fi
 if [[ ${RESUME} == ${FALSE} ]]; then
     setup_if_not_resuming
 fi
