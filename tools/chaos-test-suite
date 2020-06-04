@@ -188,12 +188,12 @@ all_iterations ()
     while true; do
         let iteration+=1
         msg="Iteration ${iteration}"
-        # if [[ ${ITERATIONS} != "FOREVER" ]]; then
-        #     if [[ ${iteration -gt ${ITERATIONS} ]]; then
-        #         break
-        #     fi
-        #     msg+=" of ${ITERATIONS}"
-        # fi
+        if [[ ${ITERATIONS} != "FOREVER" ]]; then
+            if [[ ${iteration -gt ${ITERATIONS} ]]; then
+                break
+            fi
+            msg+=" of ${ITERATIONS}"
+        fi
         report ${msg}
         one_iteration
     done
