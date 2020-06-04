@@ -169,6 +169,7 @@ setup_always ()
 
 setup_if_not_resuming ()
 {
+    echo "CLEAN = ${CLEAN}"  ###@@@
     if [[ ${CLEAN} == ${TRUE} ]]; then
         clean
     fi
