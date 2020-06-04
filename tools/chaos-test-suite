@@ -109,6 +109,7 @@ check_virtual_environment ()
     if [[ ${NEW_VENV} == ${TRUE} ]]; then
         if [[ -f env/bin/activate ]]; then
             source env/bin/activate
+            progress "New virtual environment activatesd"
         else
             fatal_error "Could not locate script to activate virtual environment"
         fi
