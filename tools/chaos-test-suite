@@ -189,11 +189,11 @@ all_iterations ()
         let iteration+=1
         msg="Iteration ${iteration}"
         if [[ ${ITERATIONS} != "FOREVER" ]]; then
-            if [[ ${iteration -gt ${ITERATIONS} ]]; then
+            if [[ ${iteration} -gt ${ITERATIONS} ]]; then
                 break
-            fi;
+            fi
             msg+=" of ${ITERATIONS}"
-        fi;
+        fi
         report ${msg}
         one_iteration
     done
