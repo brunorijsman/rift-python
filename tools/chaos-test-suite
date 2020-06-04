@@ -193,13 +193,14 @@ setup_if_not_resuming ()
     generate_scripts
     start_topology
     let_converge
+    check_convergence
 }
 
 one_iteration ()
 {
-    check_convergence
     wreak_chaos
     let_converge
+    check_convergence
 }
 
 all_iterations ()
