@@ -112,6 +112,7 @@ check_virtual_environment ()
         else
             fatal_error "Could not locate script to activate virtual environment"
         fi
+    fi
     if [[ -z "${VIRTUAL_ENV}" ]]; then
         fatal_error "Virtual environment not activated and cannot be activated"
     fi
