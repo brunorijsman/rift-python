@@ -178,8 +178,8 @@ wreak_chaos ()
 setup_always ()
 {
     check_on_linux
-    check_virtual_environment
     parse_command_line_options $@
+    check_virtual_environment
 }
 
 setup_if_not_resuming ()
