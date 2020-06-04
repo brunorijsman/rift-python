@@ -4,6 +4,9 @@ import time
 import collections
 import table
 
+# TODO: The way rates are currently computed (based on the last 10 changes) is complete nonsense.
+#       Change it to a bucket-based system that reports the rate of the last 10 seconds.
+
 RATE_HISTORY = 10            # Look at up to last N samples to calculate "recent rate"
 
 TIME_FUNCTION = time.time    # So that we can stub it for unit testing

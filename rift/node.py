@@ -1,5 +1,7 @@
 # pylint: disable=too-many-lines
 
+# TODO: Add a "show tie-origination" command to report MyTIEStates
+
 import collections
 import enum
 import logging

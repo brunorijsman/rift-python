@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# TODO: Change the chaos script on each iteration (keeping a backup of old ones for reproducability)
+# TODO: Command line argument to choose a list of topologies to chaos test
+
 GENERATED_DIR="__generated__"
 CONVERGE_DELAY=30
 
