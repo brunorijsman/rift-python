@@ -7,7 +7,7 @@ python:
   # TODO: make 3.7-dev work
   # - "3.7-dev"
 install:
-  - apt install -y coreutils
+  - sudo apt install -y coreutils
   - virtualenv env --python=python3
   - source env/bin/activate
   - pip install -r requirements.txt
