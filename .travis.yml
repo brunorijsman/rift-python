@@ -25,7 +25,7 @@ script:
     echo "Lint tests" && pylint tests && \
     echo "Lint tools" && pylint tools && \
     tools/update_cli_docs.py -c && \
-    sudo tools/chaos-test-suite --new-venv --iterations 5 && \
+    sudo tools/chaos-test-suite --new-venv --iterations 3 && \
     tools/interface_stats.py
   
 after_success:
