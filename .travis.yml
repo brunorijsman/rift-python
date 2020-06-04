@@ -18,11 +18,12 @@ install:
   # Insert list of interfaces and their addresses in log
   - ifconfig
 script:
+  - pytest --cov=rift tests
   - echo "lint rift" && pylint rift
   - echo "lint tests" && pylint tests
   - echo "lint tools" && pylint tools
   - echo "check cli docs" && tools/update_cli_docs.py -c
-  - pytest --cov=rift tests && sudo tools/chaos-test-suite --new-venv --iterations 3 && tools/interface_stats.py
+  - sudo tools/chaos-test-suite --new-venv --iterations 3 && tools/interface_stats.py
   
 after_success:
   - codecov
