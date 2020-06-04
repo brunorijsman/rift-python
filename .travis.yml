@@ -7,7 +7,6 @@ python:
   # TODO: make 3.7-dev work
   # - "3.7-dev"
 install:
-  - sudo apt install -y coreutils
   - virtualenv env --python=python3
   - source env/bin/activate
   - pip install -r requirements.txt
@@ -21,9 +20,9 @@ install:
 script:
   # We are strict; if the pylint score is not perfect, we fail the build
   - pytest --cov=rift tests && \
-    echo "Lint rift" && pylint rift && \
-    echo "Lint tests" && pylint tests && \
-    echo "Lint tools" && pylint tools && \
+    pylint rift && \
+    pylint tests && \
+    pylint tools && \
     tools/update_cli_docs.py -c && \
     sudo tools/chaos-test-suite --new-venv --iterations 3 && \
     tools/interface_stats.py
