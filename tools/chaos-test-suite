@@ -3,8 +3,6 @@
 # TODO: Change the chaos script on each iteration (keeping a backup of old ones for reproducability)
 # TODO: Command line argument to choose a list of topologies to chaos test
 
-SUDO=sudo
-
 GENERATED_DIR="__generated__"
 CONVERGE_DELAY=30
 
@@ -111,11 +109,11 @@ clean ()
     cd ${VIRTUAL_ENV}/..
     if [[ -e ${GENERATED_DIR} ]]; then
         progress "Stopping previous run of topology"
-        ${SUDO} ${GENERATED_DIR}/stop.sh
+        ${GENERATED_DIR}/stop.sh
     fi
     progress "Cleaning previous run scripts and temporary files"
-    ${SUDO} tools/cleanup
-    ${SUDO} rm -rf ${GENERATED_DIR}
+    tools/cleanup
+    rm -rf ${GENERATED_DIR}
 }
 
 check_previous_run ()
@@ -128,14 +126,14 @@ check_previous_run ()
 generate_scripts ()
 {
     progress "Generating scipts in ${GENERATED_DIR}"
-    ${SUDO} tools/config_generator.py -n meta_topology/clos_3plane_3pod_3leaf_3spine_6super.yaml \
+    tools/config_generator.py -n meta_topology/clos_3plane_3pod_3leaf_3spine_6super.yaml \
         ${GENERATED_DIR}
 }
 
 start_topology ()
 {
     progress "Starting topology"
-    ${SUDO} ${GENERATED_DIR}/start.sh
+    ${GENERATED_DIR}/start.sh
 }
 
 let_converge ()
@@ -147,7 +145,7 @@ let_converge ()
 check_convergence ()
 {
     progress "Checking convergence"
-    ${SUDO}  tools/config_generator.py -c -n \
+     tools/config_generator.py -c -n \
         meta_topology/clos_3plane_3pod_3leaf_3spine_6super.yaml ${GENERATED_DIR}
     if [ $? -ne 0 ]; then
         echo ${BEEP} ${BEEP} ${BEEP} ${BEEP} ${BEEP} ${BEEP} 
@@ -158,7 +156,7 @@ check_convergence ()
 wreak_chaos ()
 {
     progress "Wreaking chaos"
-    ${SUDO} ${GENERATED_DIR}/chaos.sh
+    ${GENERATED_DIR}/chaos.sh
 }
 
 setup_always ()
