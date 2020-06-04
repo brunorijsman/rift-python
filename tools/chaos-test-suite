@@ -17,6 +17,7 @@ TRUE=1
 CHECK_AGAIN=${FALSE}
 CLEAN=${FALSE}
 ITERATIONS="FOREVER"
+NEW_VENV=${FALSE}
 RESUME=${FALSE}
 
 fatal_error ()
@@ -60,6 +61,9 @@ help ()
     echo "  -i, --iterations ITERATIONS"
     echo "      Run this many iterations of the chaos test and exit (default: run forever)"
     echo
+    echo "  -n, -new-venv"
+    echo "      Activate a new Python virtual environment"
+    echo
     echo "  -r, --resume"
     echo "      Resume the previously interrupted run"
     echo
@@ -70,6 +74,9 @@ parse_command_line_options ()
 {
     while [[ "$#" -gt 0 ]]; do
         case $1 in
+            -?|-h|--help)
+                help
+                ;;
             -a|--check-again)
                 CHECK_AGAIN=${TRUE}
                 ;;
@@ -83,8 +90,8 @@ parse_command_line_options ()
                     fatal_error "Number of itrations is not a number: ${ITERATIONS}"
                 fi    
                 ;;
-            -?|-h|--help)
-                help
+            -n|--new-venv)
+                NEW_VENV=${TRUE}
                 ;;
             -r|--resume)
                 RESUME=${TRUE}
@@ -99,12 +106,14 @@ parse_command_line_options ()
 
 check_virtual_environment ()
 {
-    if [[ -z "${VIRTUAL_ENV}" ]]; then
+    if [[ ${NEW_VENV} == ${TRUE} ]]; then
         if [[ -f env/bin/activate ]]; then
             source env/bin/activate
         else
-            fatal_error "Virtual environment not activated and cannot be activated"
+            fatal_error "Could not locate script to activate virtual environment"
         fi
+    if [[ -z "${VIRTUAL_ENV}" ]]; then
+        fatal_error "Virtual environment not activated and cannot be activated"
     fi
 }
 
