@@ -16,21 +16,17 @@ install:
   # Python3 needs root and setuid to allow test_kernel to add routes to the kernel
   - sudo chown root env/bin/python3
   - sudo chmod u+s env/bin/python3
-  # Dito for chaos-test-suite -- it needs to create network namespaces
-  # TODO: This is not enough
-  # - sudo chown root tools/chaos-test-suite
-  # - sudo chmod u+s tools/chaos-test-suite
   # Insert list of interfaces and their addresses in log
   - ifconfig
 script:
   # We are strict; if the pylint score is not perfect, we fail the build
-  - pytest --cov=rift tests && \
-    echo "Lint rift" && pylint rift && \
-    echo "Lint tests" && pylint tests && \
-    echo "Lint tools" && pylint tools && \
-    tools/update_cli_docs.py -c
+  # - pytest --cov=rift tests && \
+  #   echo "Lint rift" && pylint rift && \
+  #   echo "Lint tests" && pylint tests && \
+  #   echo "Lint tools" && pylint tools && \
+  #   tools/update_cli_docs.py -c
   # TODO: Get this to work
-  # - tools/chaos-test-suite --iterations 5
+  - tools/chaos-test-suite --iterations 5
   
 after_success:
   - codecov
