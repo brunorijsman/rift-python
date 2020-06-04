@@ -27,7 +27,7 @@ script:
   #   echo "Lint tests" && pylint tests && \
   #   echo "Lint tools" && pylint tools && \
   #   tools/update_cli_docs.py -c && \
-  - tools/chaos-test-suite --iterations 5
+  - sudo tools/chaos-test-suite --iterations 5
   
 after_success:
   - codecov
