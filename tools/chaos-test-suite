@@ -209,4 +209,4 @@ if [[ ${RESUME} == ${FALSE} ]]; then
     setup_if_not_resuming
 fi
 all_iterations
-
+exit 0
