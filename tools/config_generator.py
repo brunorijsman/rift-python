@@ -12,6 +12,9 @@
 
 # TODO: During chaos test, when there is only 0 or 1 failures, do full leaf-to-leaf ping test
 
+# TODO: Add option to collect coverage data while running chaos scripts, and use it when running in
+#       Travis
+
 # pylint:disable=too-many-lines
 
 import argparse

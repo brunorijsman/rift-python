@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+# TODO: Document this script in online documentation
+
 import argparse
 import subprocess
 import sys

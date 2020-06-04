@@ -1,7 +1,10 @@
 #!/bin/bash
 
 # TODO: Change the chaos script on each iteration (keeping a backup of old ones for reproducability)
+
 # TODO: Command line argument to choose a list of topologies to chaos test
+
+# TODO: Document this script in online documentation
 
 GENERATED_DIR="__generated__"
 CONVERGE_DELAY=30
@@ -109,7 +112,7 @@ check_virtual_environment ()
     if [[ ${NEW_VENV} == ${TRUE} ]]; then
         if [[ -f env/bin/activate ]]; then
             source env/bin/activate
-            progress "New virtual environment activatesd"
+            progress "New virtual environment activated"
         else
             fatal_error "Could not locate script to activate virtual environment"
         fi
