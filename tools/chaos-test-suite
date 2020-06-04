@@ -199,7 +199,7 @@ all_iterations ()
     done
 }
 
-setup_always
+setup_always $@
 if [[ ${CHECK_AGAIN} == ${TRUE} ]]; then
     check_convergence
     exit 0
