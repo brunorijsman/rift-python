@@ -194,7 +194,7 @@ all_iterations ()
             fi
             msg+=" of ${ITERATIONS}"
         fi
-        report ${msg}
+        progress ${msg}
         one_iteration
     done
 }
