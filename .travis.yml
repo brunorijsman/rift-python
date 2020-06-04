@@ -19,7 +19,7 @@ install:
   - ifconfig
 script:
   # We are strict; if the pylint score is not perfect, we fail the build
-  - pytest --cov=rift tests && pylint rift && pylint tests && pylint tools && tools/update_cli_docs.py -c && tools/chaos-test-suite --iterations 5
+  - pytest --cov=rift tests && pylint rift && pylint tests && pylint tools && tools/update_cli_docs.py -c && sudo tools/chaos-test-suite --iterations 5
   
 after_success:
   - codecov
