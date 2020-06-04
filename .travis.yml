@@ -18,14 +18,13 @@ install:
   # Insert list of interfaces and their addresses in log
   - ifconfig
 script:
-  # We are strict; if the pylint score is not perfect, we fail the build
-  - pytest --cov=rift tests && \
-    pylint rift && \
-    pylint tests && \
-    pylint tools && \
-    tools/update_cli_docs.py -c && \
-    sudo tools/chaos-test-suite --new-venv --iterations 3 && \
-    tools/interface_stats.py
+  - pytest --cov=rift tests
+  - pylint rift
+  - pylint tests
+  - pylint tools
+  - tools/update_cli_docs.py -c
+  - sudo tools/chaos-test-suite --new-venv --iterations 3
+  - tools/interface_stats.py
   
 after_success:
   - codecov
