@@ -97,10 +97,14 @@ parse_command_line_options ()
     done
 }
 
-check_running_in_virtual_environment ()
+check_virtual_environment ()
 {
     if [[ -z "${VIRTUAL_ENV}" ]]; then
-        fatal_error "Virtual environment not activated"
+        if [[ -f env/bin/activate ]]; then
+            source env/bin/activate
+        else
+            fatal_error "Virtual environment not activated and cannot be activated"
+        fi
     fi
 }
 
@@ -162,7 +166,7 @@ wreak_chaos ()
 setup_always ()
 {
     check_on_linux
-    check_running_in_virtual_environment
+    check_virtual_environment
     parse_command_line_options $@
 }
 
