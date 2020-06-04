@@ -106,6 +106,7 @@ parse_command_line_options ()
 
 check_virtual_environment ()
 {
+    echo "NEW_VENV = ${NEW_VENV}"
     if [[ ${NEW_VENV} == ${TRUE} ]]; then
         if [[ -f env/bin/activate ]]; then
             source env/bin/activate
