@@ -197,6 +197,7 @@ all_iterations ()
         progress ${msg}
         one_iteration
     done
+    progress "All iterations passed successfully"
 }
 
 setup_always $@
