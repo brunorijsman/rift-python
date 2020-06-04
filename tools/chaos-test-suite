@@ -13,12 +13,13 @@ TRUE=1
 
 CHECK_AGAIN=${FALSE}
 CLEAN=${FALSE}
+ITERATIONS="FOREVER"
 RESUME=${FALSE}
 
 fatal_error ()
 {
     message="$1"
-    echo "${RED}Error:${NORMAL} ${message}"
+    echo "${RED}Error:${NORMAL} ${message}" >&2
     exit 1
 }
 
@@ -26,7 +27,13 @@ progress ()
 {
     message="$1"
     echo "${BLUE}*** ${message} ***${NORMAL}"
+}
 
+check_on_linux ()
+{
+    if [ $(uname) != "Linux" ]; then
+        fatal_error "This script can only be run on Linux (it needs network namespaces)"
+    fi
 }
 
 help ()
@@ -34,10 +41,7 @@ help ()
     echo
     echo "SYNOPSIS"
     echo
-    echo "    chaos-test-suite [-?|-h|--help]"
-    echo "                     [-a|--check-again]"
-    echo "                     [-c|--clean]"
-    echo "                     [-r|--resume]"
+    echo "    chaos-test-suite [OPTION]..."
     echo
     echo "OPTIONS"
     echo
@@ -50,6 +54,9 @@ help ()
     echo "  -c, --clean"
     echo "      Clean all temporary files and ${GENERATED_DIR} directory from previous run"
     echo
+    echo "  -i, --iterations ITERATIONS"
+    echo "      Run this many iterations of the chaos test and exit (default: run forever)"
+    echo
     echo "  -r, --resume"
     echo "      Resume the previously interrupted run"
     echo
@@ -60,11 +67,28 @@ parse_command_line_options ()
 {
     while [[ "$#" -gt 0 ]]; do
         case $1 in
-            -a|--check-again) CHECK_AGAIN=${TRUE} ;;
-            -c|--clean) CLEAN=${TRUE} ;;
-            -?|-h|--help) help ;;
-            -r|--resume) RESUME=${TRUE} ;;
-            *) echo "Unknown parameter passed: $1"; exit 1 ;;
+            -a|--check-again)
+                CHECK_AGAIN=${TRUE}
+                ;;
+            -c|--clean)
+                CLEAN=${TRUE}
+                ;;
+            -i|--iterations)
+                ITERATIONS="$2";
+                shift
+                if ! [[ ${ITERATIONS} =~ ^[0-9]+$ ]]; then
+                    fatal_error "Number of itrations is not a number: ${ITERATIONS}"
+                fi    
+                ;;
+            -?|-h|--help)
+                help
+                ;;
+            -r|--resume)
+                RESUME=${TRUE}
+                ;;
+            *)
+                fatal_error "Unknown parameter passed: $1"
+                ;;
         esac
         shift
     done
@@ -132,13 +156,20 @@ wreak_chaos ()
     ${GENERATED_DIR}/chaos.sh
 }
 
-parse_command_line_options $@
-check_running_in_virtual_environment
-if [[ ${CHECK_AGAIN} == ${TRUE} ]]; then
-    check_convergence
-    exit 0
-fi
-if [[ ${RESUME} == ${FALSE} ]]; then
+setup_always ()
+{
+    ##check_on_linux
+    check_running_in_virtual_environment
+    setup
+    parse_command_line_options $@
+    if [[ ${CHECK_AGAIN} == ${TRUE} ]]; then
+        check_convergence
+        exit 0
+    fi
+}
+
+setup_if_not_resuming ()
+{
     if [[ ${CLEAN} == ${TRUE} ]]; then
         clean
     fi
@@ -146,9 +177,35 @@ if [[ ${RESUME} == ${FALSE} ]]; then
     generate_scripts
     start_topology
     let_converge
-fi
-while true; do
+}
+
+one_iteration ()
+{
     check_convergence
     wreak_chaos
     let_converge
-done
+}
+
+all_iterations ()
+{
+    let iteration=0
+    while true; do
+        let iteration+=1
+        msg="Iteration ${iteration}"
+        if [[ ${ITERATIONS} != "FOREVER" ]]; then
+            if [[ ${iteration -gt ${ITERATIONS} ]]; then
+                break
+            fi
+            msg+=" of ${ITERATIONS}"
+        fi
+        report ${msg}
+        one_iteration
+    done
+}
+
+setup_always
+if [[ ${RESUME} == ${FALSE} ]]; then
+    setup_if_not_resuming
+fi
+all_iterations
+
