@@ -158,9 +158,8 @@ wreak_chaos ()
 
 setup_always ()
 {
-    ##check_on_linux
+    check_on_linux
     check_running_in_virtual_environment
-    setup
     parse_command_line_options $@
     if [[ ${CHECK_AGAIN} == ${TRUE} ]]; then
         check_convergence
@@ -192,12 +191,12 @@ all_iterations ()
     while true; do
         let iteration+=1
         msg="Iteration ${iteration}"
-        if [[ ${ITERATIONS} != "FOREVER" ]]; then
-            if [[ ${iteration -gt ${ITERATIONS} ]]; then
-                break
-            fi
-            msg+=" of ${ITERATIONS}"
-        fi
+        # if [[ ${ITERATIONS} != "FOREVER" ]]; then
+        #     if [[ ${iteration -gt ${ITERATIONS} ]]; then
+        #         break
+        #     fi
+        #     msg+=" of ${ITERATIONS}"
+        # fi
         report ${msg}
         one_iteration
     done
