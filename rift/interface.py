@@ -905,6 +905,7 @@ class Interface:
         else:
             self.physical_interface_name = self.name
         # TODO: Make the default metric/bandwidth depend on the speed of the interface
+        ###@@@ The default is wrong -- that is the default for bandwidth
         self._metric = self.get_config_attribute(config, 'metric',
                                                  common.constants.default_bandwidth)
         self._advertised_name = self.generate_advertised_name()
