@@ -1,7 +1,4 @@
 from enum import Enum
-import csv
-import io
-import itertools
 
 class Table:
 
@@ -94,24 +91,3 @@ class Table:
         if not self._separators:
             table_str += self.separator_string()
         return table_str
-
-    def to_csv_string(self):
-        output = io.StringIO()
-        writer = csv.writer(output)
-
-        if not self._rows:
-            return ""
-
-        for i, col in enumerate(self._rows[0]):
-            if isinstance(col, list):
-                self._rows[0][i] = ' '.join(col)
-        writer.writerow(self._rows[0])
-
-        for row in self._rows[1:]:
-            for i, col in enumerate(row):
-                if not isinstance(col, list):
-                    row[i] = [col]
-            for prod in itertools.product(*row):
-                writer.writerow(prod)
-
-        return output.getvalue()
