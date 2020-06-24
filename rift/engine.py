@@ -202,7 +202,7 @@ class Engine:
         self.intf_security_stats_group.clear()
         self.intf_lie_fsm_stats_group.clear()
         self.node_ztp_fsm_stats_group.clear()
-        scheduler.SCHEDULER.self.slip_count_10ms = 0
+        scheduler.SCHEDULER.slip_count_10ms = 0
         scheduler.SCHEDULER.slip_count_100ms = 0
         scheduler.SCHEDULER.slip_count_1000ms = 0
         scheduler.SCHEDULER.max_pending_events_proc_time = 0.0
@@ -240,7 +240,7 @@ class Engine:
                      "{:06f}".format(scheduler.SCHEDULER.max_expired_timers_proc_time)])
         tab.add_row(["Max select processing time",
                      "{:06f}".format(scheduler.SCHEDULER.max_select_proc_time)])
-        tab.add_row(["Max read-to-read processing time",
+        tab.add_row(["Max ready-to-read processing time",
                      "{:06f}".format(scheduler.SCHEDULER.max_ready_to_read_proc_time)])
         cli_session.print(tab.to_string())
 
