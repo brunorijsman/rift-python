@@ -160,7 +160,6 @@ class Node:
     def expire_offer(self, interface_name):
         if interface_name not in self._rx_offers:
             return
-
         old_offer = self._rx_offers[interface_name]
         new_compare_needed = not old_offer.removed
         old_offer.removed = True

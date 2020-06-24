@@ -387,11 +387,11 @@ class Fsm:
             row = [record.seq_nr, "{:06f}".format(time_delta)]
             if not verbose:
                 row.append(record.skipped)
-                row.extend([_state_to_name(record.from_state),
-                            _event_to_name(record.event),
-                            record.actions_and_pushed_events,
-                            _state_to_name(record.to_state),
-                            record.implicit])
+            row.extend([_state_to_name(record.from_state),
+                        _event_to_name(record.event),
+                        record.actions_and_pushed_events,
+                        _state_to_name(record.to_state),
+                        record.implicit])
             tab.add_row(row)
             prev_time = record.time
         return tab
