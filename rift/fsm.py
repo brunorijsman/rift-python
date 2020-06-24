@@ -368,15 +368,15 @@ class Fsm:
 
     def history_table(self, verbose):
         tab = table.Table()
-        tab.add_row([
-            ["Sequence", "Nr"],
-            ["Time", "Delta"],
-            ["Verbose", "Skipped"],
-            ["From", "State"],
-            "Event",
-            ["Actions and", "Pushed Events"],
-            ["To", "State"],
-            ["Implicit"]])
+        row = [["Sequence", "Nr"], ["Time", "Until", "Next"]]
+        if not verbose:
+            row.append(["Verbose", "Skipped"])
+        row.extend([["From", "State"],
+                    "Event",
+                    ["Actions and", "Pushed Events"],
+                    ["To", "State"],
+                    ["Implicit"]])
+        tab.add_row(row)
         prev_time = time.time()
         if verbose:
             records_to_show = self._verbose_records
@@ -384,15 +384,15 @@ class Fsm:
             records_to_show = self._records
         for record in records_to_show:
             time_delta = prev_time - record.time
-            tab.add_row([
-                record.seq_nr,
-                "{:06f}".format(time_delta),
-                record.skipped,
-                _state_to_name(record.from_state),
-                _event_to_name(record.event),
-                record.actions_and_pushed_events,
-                _state_to_name(record.to_state),
-                record.implicit])
+            row = [record.seq_nr, "{:06f}".format(time_delta)]
+            if not verbose:
+                row.append(record.skipped)
+                row.extend([_state_to_name(record.from_state),
+                            _event_to_name(record.event),
+                            record.actions_and_pushed_events,
+                            _state_to_name(record.to_state),
+                            record.implicit])
+            tab.add_row(row)
             prev_time = record.time
         return tab
 

@@ -425,7 +425,7 @@ class Node:
         self.top_of_fabric = top_of_fabric
         self.group_layer_node_id = group_layer_node_id
         self.given_y_pos = y_pos
-        byte2 = 88 + self.layer
+        byte2 = LIE_MCAST_ADDRESS_BYTE + self.layer
         byte3 = self.layer_node_id // 256
         byte4 = self.layer_node_id % 256
         self.rx_lie_ipv4_mcast_addr = self.generate_ipv4_address_str(224, byte2, byte3, byte4)
