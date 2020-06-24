@@ -51,7 +51,7 @@ class Scheduler:
                 ###@@@vvv
                 read_time = time.monotonic() - start_time
                 if read_time > 1.0:
-                    print("LONG READ TIME:", read_time)
+                    print("LONG READ TIME: read_time =", read_time, " rx_fd =", rx_fd)
                 ###@@@^^^
 
 
