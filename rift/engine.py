@@ -227,6 +227,14 @@ class Engine:
         tab.add_row(["Timer slips > 10ms", scheduler.SCHEDULER.slip_count_10ms])
         tab.add_row(["Timer slips > 100ms", scheduler.SCHEDULER.slip_count_100ms])
         tab.add_row(["Timer slips > 1000ms", scheduler.SCHEDULER.slip_count_1000ms])
+        tab.add_row(["Max pending events processing time",
+                     "{:06f}".format(scheduler.SCHEDULER.max_pending_events_proc_time)])
+        tab.add_row(["Max expired timers processing time",
+                     "{:06f}".format(scheduler.SCHEDULER.max_expired_timers_proc_time)])
+        tab.add_row(["Max select processing time",
+                     "{:06f}".format(scheduler.SCHEDULER.max_select_proc_time)])
+        tab.add_row(["Max read-to-read processing time",
+                     "{:06f}".format(scheduler.SCHEDULER.max_ready_to_read_proc_time)])
         cli_session.print(tab.to_string())
 
     def command_show_engine_stats(self, cli_session, exclude_zero=False):
