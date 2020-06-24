@@ -1,5 +1,6 @@
 # k=6 r=1
-# 12 pods x (6 leafs + 6 spines) + 36 superspines = 180 nodes total
+# 12 pods x (6 leafs-per-pod + 6 spines-per-pod) + 36 superspines = 180 nodes total
+# 12 pods x 6 leafs-per-pod x 6 server-ports-per-leaf = 432 server ports total
 nr-pods: 12
 nr-leaf-nodes-per-pod: 6
 nr-spine-nodes-per-pod: 6
