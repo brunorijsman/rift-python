@@ -29,30 +29,22 @@ class Scheduler:
             while Fsm.events_pending() or TIMER_SCHEDULER.expired_timers_pending():
                 Fsm.process_queued_events()
                 timeout = TIMER_SCHEDULER.trigger_all_expired_timers()
-            if timeout:
-                start_time = time.monotonic()
+            # Wait for ready to read or expired timer
+            start_time = time.monotonic()
             rx_ready, _, _ = select.select(self._rx_fds, [], [], timeout)
+            # Check for timer slips
             if timeout:
-                actual_select_time = time.monotonic() - start_time
-                if actual_select_time > timeout:
-                    slip_time = start_time - timeout
-                    if slip_time > 0.01:
-                        self.slip_count_10ms += 1
-                    if slip_time > 0.1:
-                        self.slip_count_100ms += 1
-                    if slip_time > 1.0:
-                        self.slip_count_1000ms += 1
+                duration = time.monotonic() - start_time
+                slip_time = duration - timeout
+                if slip_time > 0.01:
+                    self.slip_count_10ms += 1
+                if slip_time > 0.1:
+                    self.slip_count_100ms += 1
+                if slip_time > 1.0:
+                    self.slip_count_1000ms += 1
+            # Process all handlers that are ready to read
             for rx_fd in rx_ready:
-                ###@@@vvv
-                start_time = time.monotonic()
-                ###@@@^^^
                 handler = self._handlers_by_rx_fd[rx_fd]
                 handler.ready_to_read()
-                ###@@@vvv
-                read_time = time.monotonic() - start_time
-                if read_time > 1.0:
-                    print("LONG READ TIME: read_time =", read_time, " rx_fd =", rx_fd)
-                ###@@@^^^
-
 
 SCHEDULER = Scheduler()
