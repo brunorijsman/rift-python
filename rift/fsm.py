@@ -265,6 +265,10 @@ class Fsm:
             self.info_or_debug(verbose, "FSM push event, event=%s", event.name)
 
     @staticmethod
+    def events_pending():
+        return Fsm._chained_event_queue or Fsm._event_queue
+
+    @staticmethod
     def process_queued_events():
         while True:
             if Fsm._chained_event_queue:

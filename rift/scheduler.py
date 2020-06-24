@@ -38,10 +38,11 @@ class Scheduler:
 
     def run(self):
         while True:
-            # Process timers in two places because FSM event processing might cause timers to be
-            # created, and timer expire processing might cause FSM events to be queued.
-            timeout = TIMER_SCHEDULER.trigger_all_expired_timers()
-            Fsm.process_queued_events()
+            # This needs to be a loop because processing an event can create a timer and processing
+            # an expired timer can create an event.
+            while Fsm.events_pending() or TIMER_SCHEDULER.expired_timers_pending():
+                Fsm.process_queued_events()
+                timeout = TIMER_SCHEDULER.trigger_all_expired_timers()
             rx_ready, tx_ready, _ = select.select(self._rx_fds, self._tx_fds, [], timeout)
             for rx_fd in rx_ready:
                 handler = self._handlers_by_rx_fd[rx_fd]
