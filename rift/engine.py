@@ -202,6 +202,13 @@ class Engine:
         self.intf_security_stats_group.clear()
         self.intf_lie_fsm_stats_group.clear()
         self.node_ztp_fsm_stats_group.clear()
+        scheduler.SCHEDULER.self.slip_count_10ms = 0
+        scheduler.SCHEDULER..slip_count_100ms = 0
+        scheduler.SCHEDULER..slip_count_1000ms = 0
+        scheduler.SCHEDULER..max_pending_events_proc_time = 0.0
+        scheduler.SCHEDULER..max_expired_timers_proc_time = 0.0
+        scheduler.SCHEDULER..max_select_proc_time = 0.0
+        scheduler.SCHEDULER..max_ready_to_read_proc_time = 0.0
 
     def command_clear_intf_stats(self, cli_session, parameters):
         cli_session.current_node.command_clear_intf_stats(cli_session, parameters)
