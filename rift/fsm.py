@@ -6,7 +6,7 @@ import sortedcontainers
 import table
 import stats
 
-_MAX_RECORDS = 25
+_MAX_RECORDS = 100
 
 def _action_to_name(action):
     action_name = action.__name__
@@ -375,7 +375,8 @@ class Fsm:
     def history_table(self, verbose):
         tab = table.Table()
         row = [["Sequence", "Nr"],
-               ["Time", "Until", "Next"],
+               ["Time", "Since", "First"],
+               ["Time", "Since", "Prev"],
                ["Queue", "Time"],
                ["Processing", "Time"]]
         if not verbose:
@@ -386,15 +387,24 @@ class Fsm:
                     ["To", "State"],
                     ["Implicit"]])
         tab.add_row(row)
-        prev_time = time.monotonic()
         if verbose:
             records_to_show = self._verbose_records
         else:
             records_to_show = self._records
-        for record in records_to_show:
-            time_until_next = prev_time - record.time
+        if not records_to_show:
+            return tab
+        first_time = records_to_show[-1].time
+        for index, record in enumerate(records_to_show):
+            time_since_first = record.time - first_time
+            try:
+                prev_time = records_to_show[index + 1].time
+                time_since_prev = record.time - prev_time
+                time_since_prev_str = "{:06f}".format(time_since_prev)
+            except IndexError:
+                time_since_prev_str = ""
             row = [record.seq_nr,
-                   "{:06f}".format(time_until_next),
+                   "{:06f}".format(time_since_first),
+                   time_since_prev_str,
                    "{:06f}".format(record.queue_time),
                    "{:06f}".format(record.processing_time)]
             if not verbose:
