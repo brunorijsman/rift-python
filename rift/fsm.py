@@ -174,6 +174,7 @@ class FsmRecord:
         FsmRecord._next_seq_nr += 1
         self.time = time.time()
         self.queue_time = queue_time
+        self.processing_time = None
         self.skipped = 0
         self.from_state = from_state
         self.event = event
@@ -244,8 +245,10 @@ class Fsm:
         self.info("Start FSM, state=%s", self._state.name)
         # Record start state and start state entry actions as from-state=None, and event=None
         self._current_record = FsmRecord(self, None, None, False, 0.0)
+        start_time = time.time()
         self._current_record.to_state = self._state
         self.invoke_state_entry_actions(self._state)
+        self._current_record.processing_time = time.time() - start_time
         self.store_current_record()
 
     def push_event(self, event, event_data=None):
@@ -347,6 +350,7 @@ class Fsm:
         verbose = (event in self._verbose_events)
         queue_time = time.time() - schedule_time
         self._current_record = FsmRecord(self, from_state, event, verbose, queue_time)
+        start_time = time.time()
         if from_state in self._transitions:
             from_state_transitions = self._transitions[from_state]
         else:
@@ -365,13 +369,15 @@ class Fsm:
                     self.invoke_state_entry_actions(to_state)
         else:
             self._current_record.implicit = True
+        self._current_record.processing_time = time.time() - start_time
         self.store_current_record()
 
     def history_table(self, verbose):
         tab = table.Table()
         row = [["Sequence", "Nr"],
                ["Time", "Until", "Next"],
-               ["Queue", "Time"]]
+               ["Queue", "Time"],
+               ["Processing", "Time"]]
         if not verbose:
             row.append(["Verbose", "Skipped"])
         row.extend([["From", "State"],
@@ -389,7 +395,8 @@ class Fsm:
             time_until_next = prev_time - record.time
             row = [record.seq_nr,
                    "{:06f}".format(time_until_next),
-                   "{:06f}".format(record.queue_time)]
+                   "{:06f}".format(record.queue_time),
+                   "{:06f}".format(record.processing_time)]
             if not verbose:
                 row.append(record.skipped)
             row.extend([_state_to_name(record.from_state),
