@@ -425,10 +425,11 @@ class Node:
         self.top_of_fabric = top_of_fabric
         self.group_layer_node_id = group_layer_node_id
         self.given_y_pos = y_pos
-        self.rx_lie_ipv4_mcast_addr = self.generate_ipv4_address_str(
-            224, LIE_MCAST_ADDRESS_BYTE, self.layer, self.layer_node_id)
-        self.rx_lie_ipv6_mcast_addr = self.generate_ipv6_address_str(
-            "ff02", LIE_MCAST_ADDRESS_BYTE, self.layer, self.layer_node_id)
+        byte2 = 88 + self.layer
+        byte3 = self.layer_node_id // 256
+        byte4 = self.layer_node_id % 256
+        self.rx_lie_ipv4_mcast_addr = self.generate_ipv4_address_str(224, byte2, byte3, byte4)
+        self.rx_lie_ipv6_mcast_addr = self.generate_ipv6_address_str("ff02", byte2, byte3, byte4)
         self.interfaces = []
         self.ipv4_prefixes = []
         self.lo_addresses = []
@@ -474,8 +475,11 @@ class Node:
 
     def add_ipv4_loopbacks(self, count):
         for node_loopback_id in range(1, count+1):
-            address = self.generate_ipv4_address_str(
-                LOOPBACKS_ADDRESS_BYTE, self.layer, self.layer_node_id, node_loopback_id)
+            byte1 = LOOPBACKS_ADDRESS_BYTE + self.layer
+            byte2 = self.layer_node_id // 256
+            byte3 = self.layer_node_id % 256
+            byte4 = node_loopback_id
+            address = self.generate_ipv4_address_str(byte1, byte2, byte3, byte4)
             mask = "32"
             metric = "1"
             prefix = (address, mask, metric)
@@ -1213,9 +1217,15 @@ class Interface:
         self.rx_lie_port = 20000 + self.global_intf_id
         self.tx_lie_port = 20000 + self.peer_intf.global_intf_id
         self.rx_flood_port = 10000 + self.global_intf_id
-        lower = min(self.global_intf_id, self.peer_intf.global_intf_id)
-        upper = max(self.global_intf_id, self.peer_intf.global_intf_id)
-        self.addr = "99.{}.{}.{}/24".format(lower, upper, self.global_intf_id)
+        if self.global_intf_id < self.peer_intf.global_intf_id:
+            subnet = self.peer_intf.global_intf_id
+            byte4 = 1
+        else:
+            subnet = self.global_intf_id
+            byte4 = 2
+        byte2 = subnet // 256
+        byte3 = subnet % 256
+        self.addr = "99.{}.{}.{}/24".format(byte2, byte3, byte4)
 
     def node_intf_id_letter(self):
         return chr(ord('a') + self.node_intf_id - 1)
