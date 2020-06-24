@@ -7,7 +7,7 @@ class TimerScheduler:
         self._timers_by_expire_time = sortedcontainers.SortedDict()
 
     def now(self):
-        return time.time()
+        return time.monotonic()
 
     def schedule(self, timer):
         expire_time = timer.expire_time()

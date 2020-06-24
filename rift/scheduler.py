@@ -48,10 +48,10 @@ class Scheduler:
                 Fsm.process_queued_events()
                 timeout = TIMER_SCHEDULER.trigger_all_expired_timers()
             if timeout:
-                call_select_time = time.time()
+                call_select_time = time.monotonic()
             rx_ready, tx_ready, _ = select.select(self._rx_fds, self._tx_fds, [], timeout)
             if timeout:
-                actual_select_time = time.time() - call_select_time
+                actual_select_time = time.monotonic() - call_select_time
                 if actual_select_time > timeout:
                     slip_time = actual_select_time - timeout
                     if slip_time > 0.01:
