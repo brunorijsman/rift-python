@@ -611,6 +611,7 @@ class Node:
         print('echo "**** Start Node ***" >> {}'.format(out_file), file=file)
         print('date >> {}'.format(out_file), file=file)
         print("ip netns exec {} python3 rift "
+              "--log-level error "
               "--ipv4-multicast-loopback-disable "
               "--ipv6-multicast-loopback-disable "
               "--telnet-port-file {} {} >>{} 2>&1 &"
