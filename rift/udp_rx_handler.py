@@ -111,7 +111,7 @@ class UdpRxHandler:
             else:
                 self.sock = self.create_socket_ipv6_rx_ucast()
         if self.sock:
-            scheduler.SCHEDULER.register_handler(self, True, False)
+            scheduler.SCHEDULER.register_handler(self)
 
     def warning(self, msg, *args):
         self._log.warning("[%s] %s" % (self._log_id, msg), *args)
