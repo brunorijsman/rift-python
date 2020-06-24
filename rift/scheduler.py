@@ -47,6 +47,10 @@ class Scheduler:
             while Fsm.events_pending() or TIMER_SCHEDULER.expired_timers_pending():
                 Fsm.process_queued_events()
                 timeout = TIMER_SCHEDULER.trigger_all_expired_timers()
+                ###@@@
+                if timeout is not None and timeout > 2.0:
+                    print("Long timeout:", timeout)
+                ###@@@
             if timeout:
                 call_select_time = time.monotonic()
             rx_ready, tx_ready, _ = select.select(self._rx_fds, self._tx_fds, [], timeout)
