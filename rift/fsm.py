@@ -6,12 +6,6 @@ import sortedcontainers
 import table
 import stats
 
-# TODO: Check completeness of FSM
-# TODO: Report superfluous transitions (same effect in every state)
-# TODO: Report could-be-implicit transitions (no effect: no actions, no pushed events,
-#       back to same state)
-# TODO: Report implicit transitions
-
 _MAX_RECORDS = 25
 
 def _action_to_name(action):
@@ -174,11 +168,12 @@ class FsmRecord:
 
     _next_seq_nr = 1
 
-    def __init__(self, fsm, from_state, event, verbose):
+    def __init__(self, fsm, from_state, event, verbose, queue_time):
         self.fsm = fsm
         self.seq_nr = FsmRecord._next_seq_nr
         FsmRecord._next_seq_nr += 1
         self.time = time.time()
+        self.queue_time = queue_time
         self.skipped = 0
         self.from_state = from_state
         self.event = event
@@ -248,14 +243,14 @@ class Fsm:
         self._state = self._definition.initial_state
         self.info("Start FSM, state=%s", self._state.name)
         # Record start state and start state entry actions as from-state=None, and event=None
-        self._current_record = FsmRecord(self, None, None, False)
+        self._current_record = FsmRecord(self, None, None, False, 0.0)
         self._current_record.to_state = self._state
         self.invoke_state_entry_actions(self._state)
         self.store_current_record()
 
     def push_event(self, event, event_data=None):
         fsm = self
-        event_tuple = (fsm, event, event_data)
+        event_tuple = (fsm, event, event_data, time.time())
         if self._current_record is not None:
             # We are pushing an event to an FSM which is in the middle of executing a transaction.
             # We conclude that the FSM is executing an action which pushes an event back to the same
@@ -281,7 +276,8 @@ class Fsm:
             fsm = event_tuple[0]
             event = event_tuple[1]
             event_data = event_tuple[2]
-            fsm.process_event(event, event_data)
+            schedule_time = event_tuple[3]
+            fsm.process_event(event, event_data, schedule_time)
 
     def invoke_actions(self, actions, event_data=None):
         for action in actions:
@@ -340,12 +336,13 @@ class Fsm:
         self._event_transition_counters[triple].increase()
         self._current_record = None
 
-    def process_event(self, event, event_data):
+    def process_event(self, event, event_data, schedule_time):
         assert self._current_record is None
         self._event_counters[event].increase()
         from_state = self._state
         verbose = (event in self._verbose_events)
-        self._current_record = FsmRecord(self, from_state, event, verbose)
+        queue_time = time.time() - schedule_time
+        self._current_record = FsmRecord(self, from_state, event, verbose, queue_time)
         if from_state in self._transitions:
             from_state_transitions = self._transitions[from_state]
         else:
@@ -368,7 +365,9 @@ class Fsm:
 
     def history_table(self, verbose):
         tab = table.Table()
-        row = [["Sequence", "Nr"], ["Time", "Until", "Next"]]
+        row = [["Sequence", "Nr"],
+               ["Time", "Until", "Next"],
+               ["Queue", "Time"]]
         if not verbose:
             row.append(["Verbose", "Skipped"])
         row.extend([["From", "State"],
@@ -383,15 +382,17 @@ class Fsm:
         else:
             records_to_show = self._records
         for record in records_to_show:
-            time_delta = prev_time - record.time
-            row = [record.seq_nr, "{:06f}".format(time_delta)]
+            time_until_next = prev_time - record.time
+            row = [record.seq_nr,
+                   "{:06f}".format(time_until_next),
+                   "{:06f}".format(record.queue_time)]
             if not verbose:
                 row.append(record.skipped)
-                row.extend([_state_to_name(record.from_state),
-                            _event_to_name(record.event),
-                            record.actions_and_pushed_events,
-                            _state_to_name(record.to_state),
-                            record.implicit])
+            row.extend([_state_to_name(record.from_state),
+                        _event_to_name(record.event),
+                        record.actions_and_pushed_events,
+                        _state_to_name(record.to_state),
+                        record.implicit])
             tab.add_row(row)
             prev_time = record.time
         return tab
