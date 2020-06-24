@@ -1,0 +1,7 @@
+# k=6 r=1
+# 12 pods x (6 leafs + 6 spines) + 36 superspines = 180 nodes total
+nr-pods: 12
+nr-leaf-nodes-per-pod: 6
+nr-spine-nodes-per-pod: 6
+nr-superspine-nodes: 36
+nr-planes: 6

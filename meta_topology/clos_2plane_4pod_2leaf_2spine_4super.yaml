@@ -1,4 +1,4 @@
-# The topology that Mariano and Tomasso use in their paper
+# The topology that Mariano and Tomasso use in their paper: k=2 r=1
 nr-pods: 4
 nr-leaf-nodes-per-pod: 2
 nr-spine-nodes-per-pod: 2
