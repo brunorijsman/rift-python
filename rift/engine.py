@@ -224,6 +224,9 @@ class Engine:
         tab.add_row(["Flooding Reduction Redundancy", self.floodred_redundancy])
         tab.add_row(["Flooding Reduction Similarity", self.floodred_similarity])
         tab.add_row(["Flooding Reduction System Random", self.floodred_system_random])
+        tab.add_row(["Timer slips > 10ms", scheduler.SCHEDULER.slip_count_10ms])
+        tab.add_row(["Timer slips > 100ms", scheduler.SCHEDULER.slip_count_100ms])
+        tab.add_row(["Timer slips > 1000ms", scheduler.SCHEDULER.slip_count_1000ms])
         cli_session.print(tab.to_string())
 
     def command_show_engine_stats(self, cli_session, exclude_zero=False):
