@@ -30,6 +30,15 @@ class TimerScheduler:
         if timers_with_matching_expire == []:
             self._timers_by_expire_time.pop(expire_time)
 
+    def expired_timers_pending(self):
+        if not self._timers_by_expire_time:
+            return False
+        now = self.now()
+        next_expire_time = self._timers_by_expire_time.peekitem(0)[0]
+        if next_expire_time > now:
+            return False
+        return True
+
     def trigger_all_expired_timers(self):
         # Trigger all expired timers and return time until next expire
         now = self.now()
