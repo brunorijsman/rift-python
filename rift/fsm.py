@@ -6,7 +6,7 @@ import sortedcontainers
 import table
 import stats
 
-_MAX_RECORDS = 25
+_MAX_RECORDS = 100
 
 def _action_to_name(action):
     action_name = action.__name__
@@ -172,8 +172,9 @@ class FsmRecord:
         self.fsm = fsm
         self.seq_nr = FsmRecord._next_seq_nr
         FsmRecord._next_seq_nr += 1
-        self.time = time.time()
+        self.time = time.monotonic()
         self.queue_time = queue_time
+        self.processing_time = None
         self.skipped = 0
         self.from_state = from_state
         self.event = event
@@ -244,13 +245,15 @@ class Fsm:
         self.info("Start FSM, state=%s", self._state.name)
         # Record start state and start state entry actions as from-state=None, and event=None
         self._current_record = FsmRecord(self, None, None, False, 0.0)
+        start_time = time.monotonic()
         self._current_record.to_state = self._state
         self.invoke_state_entry_actions(self._state)
+        self._current_record.processing_time = time.monotonic() - start_time
         self.store_current_record()
 
     def push_event(self, event, event_data=None):
         fsm = self
-        event_tuple = (fsm, event, event_data, time.time())
+        event_tuple = (fsm, event, event_data, time.monotonic())
         if self._current_record is not None:
             # We are pushing an event to an FSM which is in the middle of executing a transaction.
             # We conclude that the FSM is executing an action which pushes an event back to the same
@@ -345,8 +348,9 @@ class Fsm:
         self._event_counters[event].increase()
         from_state = self._state
         verbose = (event in self._verbose_events)
-        queue_time = time.time() - schedule_time
+        queue_time = time.monotonic() - schedule_time
         self._current_record = FsmRecord(self, from_state, event, verbose, queue_time)
+        start_time = time.monotonic()
         if from_state in self._transitions:
             from_state_transitions = self._transitions[from_state]
         else:
@@ -365,13 +369,16 @@ class Fsm:
                     self.invoke_state_entry_actions(to_state)
         else:
             self._current_record.implicit = True
+        self._current_record.processing_time = time.monotonic() - start_time
         self.store_current_record()
 
     def history_table(self, verbose):
         tab = table.Table()
         row = [["Sequence", "Nr"],
-               ["Time", "Until", "Next"],
-               ["Queue", "Time"]]
+               ["Time", "Since", "First"],
+               ["Time", "Since", "Prev"],
+               ["Queue", "Time"],
+               ["Processing", "Time"]]
         if not verbose:
             row.append(["Verbose", "Skipped"])
         row.extend([["From", "State"],
@@ -380,16 +387,26 @@ class Fsm:
                     ["To", "State"],
                     ["Implicit"]])
         tab.add_row(row)
-        prev_time = time.time()
         if verbose:
             records_to_show = self._verbose_records
         else:
             records_to_show = self._records
-        for record in records_to_show:
-            time_until_next = prev_time - record.time
+        if not records_to_show:
+            return tab
+        first_time = records_to_show[-1].time
+        for index, record in enumerate(records_to_show):
+            time_since_first = record.time - first_time
+            try:
+                prev_time = records_to_show[index + 1].time
+                time_since_prev = record.time - prev_time
+                time_since_prev_str = "{:06f}".format(time_since_prev)
+            except IndexError:
+                time_since_prev_str = ""
             row = [record.seq_nr,
-                   "{:06f}".format(time_until_next),
-                   "{:06f}".format(record.queue_time)]
+                   "{:06f}".format(time_since_first),
+                   time_since_prev_str,
+                   "{:06f}".format(record.queue_time),
+                   "{:06f}".format(record.processing_time)]
             if not verbose:
                 row.append(record.skipped)
             row.extend([_state_to_name(record.from_state),

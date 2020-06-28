@@ -202,6 +202,13 @@ class Engine:
         self.intf_security_stats_group.clear()
         self.intf_lie_fsm_stats_group.clear()
         self.node_ztp_fsm_stats_group.clear()
+        scheduler.SCHEDULER.slip_count_10ms = 0
+        scheduler.SCHEDULER.slip_count_100ms = 0
+        scheduler.SCHEDULER.slip_count_1000ms = 0
+        scheduler.SCHEDULER.max_pending_events_proc_time = 0.0
+        scheduler.SCHEDULER.max_expired_timers_proc_time = 0.0
+        scheduler.SCHEDULER.max_select_proc_time = 0.0
+        scheduler.SCHEDULER.max_ready_to_read_proc_time = 0.0
 
     def command_clear_intf_stats(self, cli_session, parameters):
         cli_session.current_node.command_clear_intf_stats(cli_session, parameters)
@@ -224,6 +231,17 @@ class Engine:
         tab.add_row(["Flooding Reduction Redundancy", self.floodred_redundancy])
         tab.add_row(["Flooding Reduction Similarity", self.floodred_similarity])
         tab.add_row(["Flooding Reduction System Random", self.floodred_system_random])
+        tab.add_row(["Timer slips > 10ms", scheduler.SCHEDULER.slip_count_10ms])
+        tab.add_row(["Timer slips > 100ms", scheduler.SCHEDULER.slip_count_100ms])
+        tab.add_row(["Timer slips > 1000ms", scheduler.SCHEDULER.slip_count_1000ms])
+        tab.add_row(["Max pending events processing time",
+                     "{:06f}".format(scheduler.SCHEDULER.max_pending_events_proc_time)])
+        tab.add_row(["Max expired timers processing time",
+                     "{:06f}".format(scheduler.SCHEDULER.max_expired_timers_proc_time)])
+        tab.add_row(["Max select processing time",
+                     "{:06f}".format(scheduler.SCHEDULER.max_select_proc_time)])
+        tab.add_row(["Max ready-to-read processing time",
+                     "{:06f}".format(scheduler.SCHEDULER.max_ready_to_read_proc_time)])
         cli_session.print(tab.to_string())
 
     def command_show_engine_stats(self, cli_session, exclude_zero=False):

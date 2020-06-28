@@ -15,7 +15,7 @@ class CliListenHandler:
         self._sock.bind(('', port))
         self._sock.listen()
         self.port = self._sock.getsockname()[1]
-        scheduler.SCHEDULER.register_handler(self, True, False)
+        scheduler.SCHEDULER.register_handler(self)
 
     def close(self):
         scheduler.SCHEDULER.unregister_handler(self)
@@ -24,6 +24,7 @@ class CliListenHandler:
     def rx_fd(self):
         return self._sock.fileno()
 
+    # TODO: Need this?
     def tx_fd(self):
         return self._sock.fileno()
 

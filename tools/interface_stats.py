@@ -139,7 +139,7 @@ def measure_if_stats(ns_name):
     lines = output.splitlines()
     while True:
         if not lines:
-            return (time.time(), counters)
+            return (time.monotonic(), counters)
         line = lines.pop(0)
         if "Link encap" not in line:
             continue
