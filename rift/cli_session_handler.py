@@ -130,8 +130,6 @@ class CliSessionHandler:
         else:
             return token
 
-    # TODO: Mention parameter name for "show interface help"
-    # TODO: Handle "show interfaces help" in a better way
     def print_help_recursion(self, command_str, parse_subtree, prefix):
         if callable(parse_subtree):
             self.print(prefix + command_str)
