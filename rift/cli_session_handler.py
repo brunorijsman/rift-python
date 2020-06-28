@@ -65,7 +65,7 @@ class CliSessionHandler:
         if self._telnet:
             self.send_will_suppress_go_ahead()
             self.send_will_echo()
-        scheduler.SCHEDULER.register_handler(self, True, False)
+        scheduler.SCHEDULER.register_handler(self)
         self.print_prompt()
 
     def peername(self):

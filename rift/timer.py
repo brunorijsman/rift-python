@@ -1,16 +1,13 @@
-from datetime import datetime
-from sortedcontainers import SortedDict
+import time
+import sortedcontainers
 
 class TimerScheduler:
 
     def __init__(self):
-        self._epoch = datetime.now()
-        self._timers_by_expire_time = SortedDict()
+        self._timers_by_expire_time = sortedcontainers.SortedDict()
 
     def now(self):
-        absolute_now = datetime.now()
-        time_since_epoch = absolute_now - self._epoch
-        return time_since_epoch.total_seconds()
+        return time.monotonic()
 
     def schedule(self, timer):
         expire_time = timer.expire_time()
