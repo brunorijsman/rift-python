@@ -30,6 +30,9 @@ after_success:
   - codecov
 
 after_failure:
-  - tail -1000 rift_expect.log
-  - tail -1000 rift_telnet_expect.log
-  - tail -1000 test_telnet_expect.log
+  - echo "Failures in rift_expect.log:"
+  - grep "Did not find expected pattern" rift_expect.log --color -B 50 -A 20
+  - echo "Failures in rift_telnet_expect.log:"
+  - grep "Did not find expected pattern" rift_telnet_expect.log --color -B 50 -A 20
+  - echo "Failures in test_telnet_expect.log:"
+  - grep "Did not find expected pattern" test_telnet_expect.log --color -B 50 -A 20
