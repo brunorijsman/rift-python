@@ -64,9 +64,6 @@ class Interface:
         return self.node.name + ':' + self.name
 
     def get_mtu(self):
-        # TODO: Find a portable (or even non-portable) way to get the interface MTU
-        # TODO: Find a way to be informed whenever the interface MTU changes
-        # TODO: Check the hard-coded MTU value: 1400 or 1500
         mtu = 1400
         return mtu
 
