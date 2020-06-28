@@ -1,5 +1,12 @@
 # Feature List
 
+## Supported version
+
+| --- | --- |
+| RIFT draft version |  |
+| Thrift data model version | 2.0 |
+
+
 ## Adjacencies
 
 | Feature | Supported |
