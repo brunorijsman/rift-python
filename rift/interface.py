@@ -29,8 +29,6 @@ from encoding.constants import protocol_minor_version
 USE_SIMPLE_REQUEST_FILTERING = True
 
 # TODO: Implement configuration of POD numbers
-# TODO: Have a mechanism to detect that an interface comes into / goes out of existence
-# TODO: Have a mechanism to detect IPv4 or IPv6 address changes on an interface
 
 class PacketTrace:
 
