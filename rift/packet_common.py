@@ -977,7 +977,6 @@ def element_str(tietype, element):
     elif tietype == common.ttypes.TIETypeType.NegativeDisaggregationPrefixTIEType:
         return prefixes_str("Neg-Dis-Prefix:", element.negative_disaggregation_prefixes)
     elif tietype == common.ttypes.TIETypeType.PGPrefixTIEType:
-        # TODO: PG Prefixes not yet in model
         return unknown_element_str(element)
     elif tietype == common.ttypes.TIETypeType.KeyValueTIEType:
         return key_value_element_str(element.keyvalues)

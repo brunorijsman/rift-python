@@ -28,9 +28,7 @@ from encoding.constants import protocol_minor_version
 
 USE_SIMPLE_REQUEST_FILTERING = True
 
-# TODO: LIEs arriving with a TTL larger than 1 MUST be ignored.
 # TODO: Implement configuration of POD numbers
-# TODO: Send LIE packets with network control precedence.
 # TODO: Have a mechanism to detect that an interface comes into / goes out of existence
 # TODO: Have a mechanism to detect IPv4 or IPv6 address changes on an interface
 
@@ -1923,15 +1921,6 @@ class Interface:
 
     def command_show_intf_queues(self, cli_session):
         self._queues.command_show_intf_queues(cli_session)
-
-    # TODO: Set TTL as follows:
-    # ttl_bin = struct.pack('@i', MYTTL)
-    # if addrinfo[0] == socket.AF_INET: # IPv4
-    #     s.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, ttl_bin)
-    # else:
-    #     s.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_MULTICAST_HOPS, ttl_bin)
-
-    # TODO: Set TOS and Priority
 
     @staticmethod
     def enable_addr_and_port_reuse(sock):
