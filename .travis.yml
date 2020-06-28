@@ -1,11 +1,11 @@
 language: python
+
 python:
   - "3.5"
-  - "3.5-dev"
   - "3.6"
-  - "3.6-dev"
-  # TODO: make 3.7-dev work
-  # - "3.7-dev"
+  - "3.7"
+  - "3.8"
+
 install:
   - virtualenv env --python=python3
   - source env/bin/activate
@@ -17,6 +17,7 @@ install:
   - sudo chmod u+s env/bin/python3
   # Insert list of interfaces and their addresses in log
   - ifconfig
+
 script:
   - pytest --cov=rift tests
   - echo "lint rift" && pylint rift
