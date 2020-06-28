@@ -101,7 +101,6 @@
 | Label Binding  | No | [47](https://github.com/brunorijsman/rift-python/issues/47)] |
 | Segment Routing Support with RIFT  | No | [48](https://github.com/brunorijsman/rift-python/issues/48) |
 | Leaf to Leaf Procedures  | No | [40](https://github.com/brunorijsman/rift-python/issues/40) |
-| Other End-to-End Services  | No | TODO |
 | Address Family and Multi Topology Considerations  | Yes | |
 | Reachability of Internal Nodes in the Fabric  | Yes | |
 | One-Hop Healing of Levels with East-West Links  | No | [40](https://github.com/brunorijsman/rift-python/issues/40) |
