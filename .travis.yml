@@ -19,8 +19,7 @@ install:
   - ifconfig
 
 script:
-###  - pytest --cov=rift tests
-  - pytest --cov=rift tests/test_sys_2n_l0_l1.py
+  - pytest --cov=rift tests
   - tail -1000 rift_expect.log
   - grep "Did not find expected pattern" rift_expect.log --color -B 50 -A 20
   - tail -1000 rift_telnet_expect.log
