@@ -143,7 +143,6 @@ SCHEMA = {
 }
 
 def default_interface_name():
-    # TODO: dynamically discover interface name
     return 'en0'
 
 DEFAULT_CONFIG = {
