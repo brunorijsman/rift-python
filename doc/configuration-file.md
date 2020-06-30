@@ -25,5 +25,3 @@ file "two_by_two_by_two.yaml" contains 10 simulated nodes with names core_1, cor
 The exact syntax of the configuration file is provided in the next section.
 
 ## Configuration File Syntax
-
-TODO

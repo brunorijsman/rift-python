@@ -125,19 +125,15 @@ class Interface:
                          Interface.NbrIsFRState.PENDING_FALSE]
 
     def action_store_hal(self):
-        # TODO: Need to implement ZTP state machine first
         pass
 
     def action_store_hat(self):
-        # TODO: Need to implement ZTP state machine first
         pass
 
     def action_store_hals(self):
-        # TODO: Need to implement ZTP state machine first
         pass
 
     def action_update_level(self):
-        # TODO: Need to implement ZTP state machine and/or configuration first
         pass
 
     def action_start_flooding(self):
