@@ -533,13 +533,6 @@ class Interface:
                 self.fsm.push_event(self.Event.MULTIPLE_NEIGHBORS)
 
     def check_minor_change(self, new_neighbor):
-        # TODO: what if link_mtu_size changes?
-        # TODO: what if pod changes?
-        # TODO: what if capabilities changes?
-        # TODO: what if holdtime changes?
-        # TODO: what if not_a_ztp_offer changes?
-        # TODO: what if you_are_flood_repeater changes?
-        # TODO: what if label changes?
         minor_change = False
         if new_neighbor.flood_port != self.neighbor.flood_port:
             msg = ("Neighbor flood-port changed from {} to {}"
