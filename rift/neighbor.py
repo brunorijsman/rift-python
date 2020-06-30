@@ -2,8 +2,6 @@ import common.constants
 import table
 import utils
 
-# TODO: Store both IPv4 and IPv6 address of neighbor
-
 class Neighbor:
 
     def __init__(self, lie_protocol_packet, neighbor_address, neighbor_port):
