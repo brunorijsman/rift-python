@@ -1423,10 +1423,6 @@ class Interface:
         else:
             return constants.DIR_EAST_WEST
 
-    def is_flood_reduced(self, _tie_header):
-        # TODO: Implement this
-        return False
-
     # The basic idea for the next two functions (is_request_allowed_...) is that we should not
     # request any TIEs from our neighbor if the neighbor is not allowed to send the TIE to us
     # according to the scoping rules. If have two different implementations of this.
