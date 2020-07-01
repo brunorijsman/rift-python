@@ -18,8 +18,6 @@ import scheduler
 import stats
 import table
 
-# TODO: Make sure that there is always at least one node (and hence always a current node)
-
 OLD_TERMINAL_SETTINGS = None
 
 def make_terminal_unbuffered():
