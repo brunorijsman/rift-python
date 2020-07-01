@@ -9,8 +9,6 @@ import time
 
 import netifaces
 
-# TODO: Avoid duplicate code in udp_rx_handler
-
 # pylint:disable=no-member
 
 MACOS = platform.system() == "Darwin"
