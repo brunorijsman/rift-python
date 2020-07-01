@@ -2696,18 +2696,13 @@ class Node:
 
     def spf_run(self):
         self._spf_runs_count += 1
-        # TODO: Currently we simply always run both North-SPF and South-SPF, but maybe we can be
-        # more intelligent about selectively triggering North-SPF and South-SPF separately.
-
         # Run normal SPFs (south and north)
         self.spf_run_direction(constants.DIR_SOUTH, special_for_neg_disagg=False)
         self.spf_run_direction(constants.DIR_NORTH, special_for_neg_disagg=False)
-
         # Run special SPF (southbound) for negative disaggregation only if current node is a ToF
         # and it has at least an E-W link
         if self.top_of_fabric() and self.have_ew_adjacency():
             self.spf_run_direction(constants.DIR_SOUTH, special_for_neg_disagg=True)
-
         self.floodred_elect_repeaters()
         self.regenerate_my_pos_disagg_tie()
 
