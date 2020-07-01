@@ -24,10 +24,6 @@ class CliListenHandler:
     def rx_fd(self):
         return self._sock.fileno()
 
-    # TODO: Need this?
-    def tx_fd(self):
-        return self._sock.fileno()
-
     def ready_to_read(self):
         (session_sock, _remote_address) = self._sock.accept()
         CliSessionHandler(
