@@ -306,7 +306,7 @@ def check_show_tie_db_dir_orig_type(res):
     res.wait_prompt()
 
 def check_set_level(_res):
-    # TODO: Not implemented properly yet. This test fails.
+    # Not implemented properly yet. This test fails. See issue #78
     # res.sendline("set node level 2")
     # res.wait_prompt()
     # res.sendline("show nodes level")
