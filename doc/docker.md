@@ -333,7 +333,7 @@ that the kernel tests will pass inTravis as well.
 
 ## Realistic Testing of Multi-Node Topologies in Docker
 
-TODO: This is an area still under development. In the future additional and tools and scripts will
+Note: This is an area still under development. In the future additional and tools and scripts will
 be added to make this easier.
 
 As mentioned [before](#running-tests-in-docker), when you run a multi-node topology system test
