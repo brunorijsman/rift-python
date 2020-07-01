@@ -3331,8 +3331,6 @@ class FloodRedGrandparent:
         self.covered = False
 
     def add_parent(self, parent):
-        # Add parent of this node, i.e. child of grandparent
-        # TODO: Don't need this if my e-mail is correct
         self.parents.append(parent)
 
     @staticmethod
