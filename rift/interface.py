@@ -617,8 +617,6 @@ class Interface:
         #   as "removed offers" for debugging.
         # - warning: If True, log a warning message, if False, log an info message.
         #
-        # TODO: Add counters for each of these conditions
-        #
         header = protocol_packet.header
         lie = protocol_packet.content.lie
         if not header:
