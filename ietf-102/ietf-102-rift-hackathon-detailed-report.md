@@ -115,7 +115,6 @@ content-x86_64-public/publisher_key.pub.pkcs8
 content-x86_64-public/MANIFEST.enc
 content-x86_64-public/topology/
 [...]
-content-x86_64-public/TODO.md
 content-x86_64-public/CHANGELOG.md
 content-x86_64-public/FAQ.md
 </pre>
