@@ -88,7 +88,7 @@ class UdpRxHandler:
         self._interface_name = interface_name
         self._local_port = local_port
         self._ipv4 = ipv4                             # IPv4 if True, IPv6 if False
-        self._remote_address = remote_address   # TODO: Should we connect to the neighbor for ucast?
+        self._remote_address = remote_address
         self._multicast_address = multicast_address   # Unicast socket if None
         self._receive_function = receive_function
         self._log = log
