@@ -795,7 +795,6 @@ class Node:
         self.report_check_result(step, okay)
 
     def check_rib_south_specific_routes(self):
-        # TODO: Once we add support for IPv6 loopbacks, also check those
         step = "South-bound specific routes are present"
         okay = True
         direction = constants.DIR_SOUTH
