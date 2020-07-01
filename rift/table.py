@@ -25,8 +25,6 @@ class Table:
         return [line]
 
     def determine_column_widths(self):
-        # TODO: First pass: ignore extended columns
-        # TODO: If necessary, grow columns to make extended columns fit
         self._column_widths = {}
         for row in self._rows:
             column_nr = 0
