@@ -22,8 +22,6 @@ class SPFDest:
     # Each possible destination in SPF calculation is represented by an SPFDest object. There are
     # two types of destinations: node destinations and prefix destinations.
 
-    # TODO: Add support for Non-Equal Cost Multi-Path (NECMP)
-
     def __init__(self, dest_type, system_id, name, prefix, tags, cost, is_leaf):
         # Type of the SPFDest: DEST_TYPE_xxx
         self.dest_type = dest_type
