@@ -28,8 +28,6 @@ from encoding.constants import protocol_minor_version
 
 USE_SIMPLE_REQUEST_FILTERING = True
 
-# TODO: Implement configuration of POD numbers
-
 class PacketTrace:
 
     def __init__(self, direction, local_address, remote_address, packet_info):
