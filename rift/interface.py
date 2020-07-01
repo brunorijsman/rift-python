@@ -166,7 +166,7 @@ class Interface:
             local_port=rx_flood_port,
             ipv4=True,
             multicast_address=None,
-            remote_address="0.0.0.0",  # TODO: Permissive... use neighbor address?
+            remote_address="0.0.0.0",
             receive_function=self.receive_flood_message,
             log=self._rx_log,
             log_id=self._log_id)
