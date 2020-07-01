@@ -1,7 +1,5 @@
 #!/bin/bash
 
-# TODO: Command line argument to choose a list of topologies to chaos test
-
 # TODO: Document this script in online documentation
 
 GENERATED_DIR="__generated__"
