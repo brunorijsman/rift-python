@@ -1318,10 +1318,8 @@ class Interface:
             event_data = (protocol_packet, from_info)
             self.fsm.push_event(self.Event.LIE_RECEIVED, event_data)
         else:
-            # TODO: Missing contents for port counter
             self.rx_warning("Received packet without LIE content on LIE port (ignored)")
         if protocol_packet.content.tie:
-            # TODO: Wrong contents for port counter
             self.rx_warning("Received TIE packet on LIE port (ignored)")
         if protocol_packet.content.tide:
             self.rx_warning("Received TIDE packet on LIE port (ignored)")
