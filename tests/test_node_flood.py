@@ -335,7 +335,6 @@ def make_rx_tie_packet(header_info):
     return rx_tie_packet
 
 def test_process_tide():
-    # TODO: Also have other TIEs than prefix TIEs
     packet_common.add_missing_methods_to_thrift()
     db_tie_info_list = [
         # pylint:disable=bad-whitespace
