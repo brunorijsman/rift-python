@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
 
-# TODO: If a RIFT process crashes, retrieve the crashdump from /etc/rift-python-output-... and
-#       report it.
-
 # TODO: Add check to verify that there is not an excessive rate of packets on each interface
 #       after convergence (this requires that rate reporting if made sane first)
 
