@@ -1,7 +1,5 @@
 #!/bin/bash
 
-# TODO: Document this script in online documentation
-
 GENERATED_DIR="__generated__"
 CONVERGE_DELAY=30
 
