@@ -131,7 +131,6 @@ class FsmDefinition:
             push_event_names = "-"
         tab.add_row([from_state_name, event_name, to_state_name, action_names, push_event_names])
 
-    # TODO: Add a way to report this
     def _add_missing_transition_to_table(self, tab, from_state, event):
         from_state_name = from_state.name
         event_name = event.name
