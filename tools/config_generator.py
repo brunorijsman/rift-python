@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
 
-# TODO: Add check to verify that there is not an excessive rate of packets on each interface
-#       after convergence (this requires that rate reporting if made sane first)
-
 # TODO: Add a check to look for WARNING/ERROR/CRITICAL messages in log
 
 # TODO: Have a separate log file per process when running in multi-process simulation
