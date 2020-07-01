@@ -422,7 +422,6 @@ class Interface:
         self.bump_family_counter(sock, self._tx_ipv4_real_errors_counter,
                                  self._tx_ipv6_real_errors_counter, nr_bytes)
 
-    # TODO: This is not called anywhere (need error callback in handler)
     def bump_rx_real_errors_counter(self, sock, nr_bytes):
         self.bump_family_counter(sock, self._rx_ipv4_real_errors_counter,
                                  self._rx_ipv6_real_errors_counter, nr_bytes)
