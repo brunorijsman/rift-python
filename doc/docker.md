@@ -179,12 +179,12 @@ and immediately places you in the CLI:
 <pre>
 (env) $ <b>./docker-rift</b>
 2ca54a23b8ab1> <b>show interfaces</b>
-+-----------+----------+-----------+----------+
-| Interface | Neighbor | Neighbor  | Neighbor |
-| Name      | Name     | System ID | State    |
-+-----------+----------+-----------+----------+
-| en0       |          |           | ONE_WAY  |
-+-----------+----------+-----------+----------+
++-----------+----------+-----------+----------+-------------------+-------+
+| Interface | Neighbor | Neighbor  | Neighbor | Time in           | Flaps |
+| Name      | Name     | System ID | State    | State             |       |
++-----------+----------+-----------+----------+-------------------+-------+
+| en0       |          |           | ONE_WAY  | 0d 00h:00m:07.85s | 0     |
++-----------+----------+-----------+----------+-------------------+-------+
 </pre>
 
 Use the `stop` CLI command to exit the container.
