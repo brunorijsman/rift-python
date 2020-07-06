@@ -34,3 +34,18 @@ def system_id_str(system_id):
         return "{:d}".format(system_id)
     else:
         return "{:016x}".format(system_id)
+
+def secs_to_dmhs_str(secs):
+    mins = 0
+    hours = 0
+    days = 0
+    if secs >= 60.0:
+        mins = int(secs / 60.0)
+        secs -= mins * 60.0
+    if mins >= 60:
+        hours = mins // 60
+        mins %= 60
+    if hours >= 24:
+        days = hours // 24
+        hours %= 24
+    return "{:d}d {:02d}h:{:02d}m:{:05.2f}s".format(days, hours, mins, secs)

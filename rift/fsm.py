@@ -5,6 +5,7 @@ import sortedcontainers
 
 import table
 import stats
+import utils
 
 _MAX_RECORDS = 100
 
@@ -222,6 +223,7 @@ class Fsm:
         self._state_actions = definition.state_actions
         self._verbose_events = definition.verbose_events
         self._state = None
+        self._last_state_change_time = time.time()
         self._action_handler = action_handler
         self._records = collections.deque([], _MAX_RECORDS)
         self._verbose_records = collections.deque([], _MAX_RECORDS)
@@ -230,6 +232,8 @@ class Fsm:
         self._stats_group = stats.Group(sum_stats_group)
         self._event_counters = {}
         self._init_event_counters()             # Indexed by event
+        self._state_entry_counters = {}         # Indexed by state
+        self._state_exit_counters = {}          # Indexed by state
         self._transition_counters = {}          # Indexed by (from_state, to_state)
         self._event_transition_counters = {}    # Indexed by (from_state, event, to_state)
         self.info("Create FSM")
@@ -241,12 +245,13 @@ class Fsm:
 
     def start(self):
         self._state = self._definition.initial_state
+        self._last_state_change_time = time.time()
         self.info("Start FSM, state=%s", self._state.name)
         # Record start state and start state entry actions as from-state=None, and event=None
         self._current_record = FsmRecord(self, None, None, False, 0.0)
         start_time = time.monotonic()
         self._current_record.to_state = self._state
-        self.invoke_state_entry_actions(self._state)
+        self.state_entry_actions_and_counter(self._state)
         self._current_record.processing_time = time.monotonic() - start_time
         self.store_current_record()
 
@@ -294,12 +299,25 @@ class Fsm:
             else:
                 action(self._action_handler)
 
-    def invoke_state_entry_actions(self, state):
+    def state_entry_actions_and_counter(self, state):
+        # Update state entry counter
+        if state not in self._state_entry_counters:
+            description = "Enter {}".format(_state_to_name(state))
+            self._state_entry_counters[state] = stats.Counter(self._stats_group, description,
+                                                              "Entry", "Entries")
+        self._state_entry_counters[state].increase()
+        # Invoke the state entry actions
         if state in self._state_actions:
             (state_entry_actions, _) = self._state_actions[state]
             self.invoke_actions(state_entry_actions)
 
-    def invoke_state_exit_actions(self, state):
+    def state_exit_actions_and_counter(self, state):
+        # Update state exit counter
+        if state not in self._state_exit_counters:
+            description = "Exit {}".format(_state_to_name(state))
+            self._state_exit_counters[state] = stats.Counter(self._stats_group, description, "Exit")
+        self._state_exit_counters[state].increase()
+        # Invoke the state exit actions
         if state in self._state_actions:
             (_, state_exit_actions) = self._state_actions[state]
             self.invoke_actions(state_exit_actions)
@@ -363,9 +381,10 @@ class Fsm:
             if to_state is not None:
                 self._current_record.to_state = to_state
                 if to_state != self._state:
-                    self.invoke_state_exit_actions(self._state)
+                    self.state_exit_actions_and_counter(self._state)
                     self._state = to_state
-                    self.invoke_state_entry_actions(to_state)
+                    self._last_state_change_time = time.time()
+                    self.state_entry_actions_and_counter(to_state)
         else:
             self._current_record.implicit = True
         self._current_record.processing_time = time.monotonic() - start_time
@@ -426,3 +445,19 @@ class Fsm:
     @property
     def state(self):
         return self._state
+
+    def number_of_state_entries(self, state):
+        if state in self._state_entry_counters:
+            return self._state_entry_counters[state].value()
+        else:
+            return 0
+
+    def number_of_state_exits(self, state):
+        if state in self._state_exit_counters:
+            return self._state_exit_counters[state].value()
+        else:
+            return 0
+
+    def time_in_current_state_str(self):
+        secs_in_current_state = time.time() - self._last_state_change_time
+        return utils.secs_to_dmhs_str(secs_in_current_state)

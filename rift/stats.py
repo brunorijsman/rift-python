@@ -3,25 +3,11 @@ import time
 
 import collections
 import table
+import utils
 
 RATE_HISTORY = 10            # Look at up to last N samples to calculate "recent rate"
 
 TIME_FUNCTION = time.time    # So that we can stub it for unit testing
-
-def secs_to_dmhs_str(secs):
-    mins = 0
-    hours = 0
-    days = 0
-    if secs >= 60.0:
-        mins = int(secs / 60.0)
-        secs -= mins * 60.0
-    if mins >= 60:
-        hours = mins // 60
-        mins %= 60
-    if hours >= 24:
-        days = hours // 24
-        hours %= 24
-    return "{:d}d {:02d}h:{:02d}m:{:05.2f}s".format(days, hours, mins, secs)
 
 class Group:
 
@@ -169,7 +155,7 @@ class StatBase:
             return ''
         (newest_sample_time, _) = self._samples[-1]
         secs = TIME_FUNCTION() - newest_sample_time
-        return secs_to_dmhs_str(secs)
+        return utils.secs_to_dmhs_str(secs)
 
 class MultiCounter(StatBase):
 
@@ -178,6 +164,9 @@ class MultiCounter(StatBase):
 
     def add(self, add_values):
         self.add_values(add_values)
+
+    def values(self):
+        return self._values
 
 class Counter(StatBase):
 
@@ -193,3 +182,6 @@ class Counter(StatBase):
 
     def increase(self):
         self.add_values([1])
+
+    def value(self):
+        return self._values[0]

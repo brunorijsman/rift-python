@@ -882,7 +882,7 @@ class Interface:
         else:
             self.physical_interface_name = self.name
         # TODO: Make the default metric/bandwidth depend on the speed of the interface
-        ###@@@ The default is wrong -- that is the default for bandwidth
+        # TODO: The default is wrong -- that is the default for bandwidth
         self._metric = self.get_config_attribute(config, 'metric',
                                                  common.constants.default_bandwidth)
         self._advertised_name = self.generate_advertised_name()
@@ -1547,6 +1547,9 @@ class Interface:
             self._queues.remove_from_tie_ack_queue(tie_id)
             self._queues.add_to_tie_req_queue(tie_header)
 
+    def number_of_flaps(self):
+        return self.fsm.number_of_state_exits(self.State.THREE_WAY)
+
     @property
     def state_name(self):
         if self.fsm.state is None:
@@ -1560,21 +1563,24 @@ class Interface:
             ["Interface", "Name"],
             ["Neighbor", "Name"],
             ["Neighbor", "System ID"],
-            ["Neighbor", "State"]]
+            ["Neighbor", "State"],
+            ["Time in", "State"],
+            ["Flaps"]]
 
     def cli_summary_attributes(self):
         if self.neighbor:
-            return [
-                self.name,
-                self.neighbor.name,
-                utils.system_id_str(self.neighbor.system_id),
-                self.state_name]
+            neighbor_name = self.neighbor.name
+            neighbor_sys_id = utils.system_id_str(self.neighbor.system_id)
         else:
-            return [
-                self.name,
-                "",
-                "",
-                self.state_name]
+            neighbor_name = ""
+            neighbor_sys_id = ""
+        return [
+            self.name,
+            neighbor_name,
+            neighbor_sys_id,
+            self.state_name,
+            self.fsm.time_in_current_state_str(),
+            self.number_of_flaps()]
 
     @staticmethod
     def cli_floodred_summary_headers():
@@ -1657,6 +1663,8 @@ class Interface:
             ["POD", self._pod],
             ["Failure", self.failure_str()],
             ["State", self.state_name],
+            ["Time in State", self.fsm.time_in_current_state_str()],
+            ["Flaps", self.number_of_flaps()],
             ["Received LIE Accepted or Rejected", self._lie_accept_or_reject],
             ["Received LIE Accept or Reject Reason", self._lie_accept_or_reject_rule],
             ["Neighbor is Flood Repeater", self.nbr_is_fr_str(self.floodred_nbr_is_fr)],

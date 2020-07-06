@@ -274,15 +274,6 @@ def test_sum_multi_counter():
     assert counter_rx_bar.value_display_str() == "5 Packets, 50 Bytes"
     assert counter_tx_bar.value_display_str() == "6 Packets, 60 Bytes"
 
-def test_secs_to_dmhs_str():
-    assert stats.secs_to_dmhs_str(0.0) == "0d 00h:00m:00.00s"
-    assert stats.secs_to_dmhs_str(0.01) == "0d 00h:00m:00.01s"
-    assert stats.secs_to_dmhs_str(59.99) == "0d 00h:00m:59.99s"
-    assert stats.secs_to_dmhs_str(60.00) == "0d 00h:01m:00.00s"
-    assert stats.secs_to_dmhs_str(72.34) == "0d 00h:01m:12.34s"
-    assert stats.secs_to_dmhs_str(45296.78) == "0d 12h:34m:56.78s"
-    assert stats.secs_to_dmhs_str(218096.78) == "2d 12h:34m:56.78s"
-
 def test_sum_group():
     sum_group = stats.Group()
     group_1 = stats.Group(sum_group)
