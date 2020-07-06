@@ -336,12 +336,12 @@ If you open the file `rift_expect.log` and scroll to the bottom, you might see s
 *** Expect: [|] if1 +[|] +[|] .* +[|] ONE_WAY +[|]
 
 show interfaces
-+-----------+-----------+-----------+-----------+
-| Interface | Neighbor  | Neighbor  | Neighbor  |
-| Name      | Name      | System ID | State     |
-+-----------+-----------+-----------+-----------+
-| if1       | node2-if1 | 2         | THREE_WAY |
-+-----------+-----------+-----------+-----------+
++-----------+-----------+-----------+-----------+-------------------+-------+
+| Interface | Neighbor  | Neighbor  | Neighbor  | Time in           | Flaps |
+| Name      | Name      | System ID | State     | State             |       |
++-----------+-----------+-----------+-----------+-------------------+-------+
+| if1       | node2-if1 | 2         | THREE_WAY | 0d 00h:00m:01.52s | 0     |
++-----------+-----------+-----------+-----------+-------------------+-------+
 
 node1> 
 
@@ -371,12 +371,12 @@ This line shows the actual output. Here we see that we actually got `THREE_WAY` 
 
 <pre>
 show interfaces
-+-----------+-----------+-----------+-----------+
-| Interface | Neighbor  | Neighbor  | Neighbor  |
-| Name      | Name      | System ID | State     |
-+-----------+-----------+-----------+-----------+
-| if1       | node2-if1 | 2         | THREE_WAY |
-+-----------+-----------+-----------+-----------+
++-----------+-----------+-----------+-----------+-------------------+-------+
+| Interface | Neighbor  | Neighbor  | Neighbor  | Time in           | Flaps |
+| Name      | Name      | System ID | State     | State             |       |
++-----------+-----------+-----------+-----------+-------------------+-------+
+| if1       | node2-if1 | 2         | THREE_WAY | 0d 00h:00m:01.52s | 0     |
++-----------+-----------+-----------+-----------+-------------------+-------+
 </pre>
 
 The following lines show the call stack where the test failure occurred:

@@ -153,49 +153,49 @@ leaf1> <b>show nodes</b>
 +--------+--------+---------+
 
 leaf1> <b>show interfaces</b>
-+-----------+------------+-----------+-----------+
-| Interface | Neighbor   | Neighbor  | Neighbor  |
-| Name      | Name       | System ID | State     |
-+-----------+------------+-----------+-----------+
-| if1       | spine1-if1 | 9         | THREE_WAY |
-+-----------+------------+-----------+-----------+
-| if2       | spine2-if1 | 10        | THREE_WAY |
-+-----------+------------+-----------+-----------+
-| if3       | spine3-if1 | 11        | THREE_WAY |
-+-----------+------------+-----------+-----------+
-| if4       | spine4-if1 | 12        | THREE_WAY |
-+-----------+------------+-----------+-----------+
-| if5       | spine5-if1 | 13        | THREE_WAY |
-+-----------+------------+-----------+-----------+
-| if6       | spine6-if1 | 14        | THREE_WAY |
-+-----------+------------+-----------+-----------+
-| if7       | spine7-if1 | 15        | THREE_WAY |
-+-----------+------------+-----------+-----------+
-| if8       | spine8-if1 | 16        | THREE_WAY |
-+-----------+------------+-----------+-----------+
++-----------+-----------------+-----------+-----------+-------------------+-------+
+| Interface | Neighbor        | Neighbor  | Neighbor  | Time in           | Flaps |
+| Name      | Name            | System ID | State     | State             |       |
++-----------+-----------------+-----------+-----------+-------------------+-------+
+| if-1001a  | spine-1:if-101a | 101       | THREE_WAY | 0d 00h:00m:07.84s | 0     |
++-----------+-----------------+-----------+-----------+-------------------+-------+
+| if-1001b  | spine-2:if-102a | 102       | THREE_WAY | 0d 00h:00m:07.83s | 0     |
++-----------+-----------------+-----------+-----------+-------------------+-------+
+| if-1001c  | spine-3:if-103a | 103       | THREE_WAY | 0d 00h:00m:07.82s | 0     |
++-----------+-----------------+-----------+-----------+-------------------+-------+
+| if-1001d  | spine-4:if-104a | 104       | THREE_WAY | 0d 00h:00m:07.81s | 0     |
++-----------+-----------------+-----------+-----------+-------------------+-------+
+| if-1001e  | spine-5:if-105a | 105       | THREE_WAY | 0d 00h:00m:07.81s | 0     |
++-----------+-----------------+-----------+-----------+-------------------+-------+
+| if-1001f  | spine-6:if-106a | 106       | THREE_WAY | 0d 00h:00m:07.80s | 0     |
++-----------+-----------------+-----------+-----------+-------------------+-------+
+| if-1001g  | spine-7:if-107a | 107       | THREE_WAY | 0d 00h:00m:07.79s | 0     |
++-----------+-----------------+-----------+-----------+-------------------+-------+
+| if-1001h  | spine-8:if-108a | 108       | THREE_WAY | 0d 00h:00m:07.78s | 0     |
++-----------+-----------------+-----------+-----------+-------------------+-------+
 
 leaf1> <b>set node spine3</b>
 spine3> <b>show interfaces</b>
-+-----------+-----------+-----------+-----------+
-| Interface | Neighbor  | Neighbor  | Neighbor  |
-| Name      | Name      | System ID | State     |
-+-----------+-----------+-----------+-----------+
-| if1       | leaf1-if3 | 1         | THREE_WAY |
-+-----------+-----------+-----------+-----------+
-| if2       | leaf2-if3 | 2         | THREE_WAY |
-+-----------+-----------+-----------+-----------+
-| if3       | leaf3-if3 | 3         | THREE_WAY |
-+-----------+-----------+-----------+-----------+
-| if4       | leaf4-if3 | 4         | THREE_WAY |
-+-----------+-----------+-----------+-----------+
-| if5       | leaf5-if3 | 5         | THREE_WAY |
-+-----------+-----------+-----------+-----------+
-| if6       | leaf6-if3 | 6         | THREE_WAY |
-+-----------+-----------+-----------+-----------+
-| if7       | leaf7-if3 | 7         | THREE_WAY |
-+-----------+-----------+-----------+-----------+
-| if8       | leaf8-if3 | 8         | THREE_WAY |
-+-----------+-----------+-----------+-----------+
++-----------+-----------------+-----------+-----------+-------------------+-------+
+| Interface | Neighbor        | Neighbor  | Neighbor  | Time in           | Flaps |
+| Name      | Name            | System ID | State     | State             |       |
++-----------+-----------------+-----------+-----------+-------------------+-------+
+| if-103a   | leaf-1:if-1001c | 1001      | THREE_WAY | 0d 00h:00m:34.49s | 0     |
++-----------+-----------------+-----------+-----------+-------------------+-------+
+| if-103b   | leaf-2:if-1002c | 1002      | THREE_WAY | 0d 00h:00m:34.48s | 0     |
++-----------+-----------------+-----------+-----------+-------------------+-------+
+| if-103c   | leaf-3:if-1003c | 1003      | THREE_WAY | 0d 00h:00m:34.47s | 0     |
++-----------+-----------------+-----------+-----------+-------------------+-------+
+| if-103d   | leaf-4:if-1004c | 1004      | THREE_WAY | 0d 00h:00m:34.46s | 0     |
++-----------+-----------------+-----------+-----------+-------------------+-------+
+| if-103e   | leaf-5:if-1005c | 1005      | THREE_WAY | 0d 00h:00m:34.46s | 0     |
++-----------+-----------------+-----------+-----------+-------------------+-------+
+| if-103f   | leaf-6:if-1006c | 1006      | THREE_WAY | 0d 00h:00m:34.45s | 0     |
++-----------+-----------------+-----------+-----------+-------------------+-------+
+| if-103g   | leaf-7:if-1007c | 1007      | THREE_WAY | 0d 00h:00m:34.44s | 0     |
++-----------+-----------------+-----------+-----------+-------------------+-------+
+| if-103h   | leaf-8:if-1008c | 1008      | THREE_WAY | 0d 00h:00m:34.43s | 0     |
++-----------+-----------------+-----------+-----------+-------------------+-------+
 </pre>
 
 Note: If you get the following error, then see the next subsection on file descriptors for a solution.
@@ -252,39 +252,43 @@ The following files are generated in the output directory:
 
 <pre>
 (env) $ <b>ls -1 generated_2c_8x8_dir/</b>
-connect-leaf1.sh
-connect-leaf2.sh
-connect-leaf3.sh
-connect-leaf4.sh
-connect-leaf5.sh
-connect-leaf6.sh
-connect-leaf7.sh
-connect-leaf8.sh
-connect-spine1.sh
-connect-spine2.sh
-connect-spine3.sh
-connect-spine4.sh
-connect-spine5.sh
-connect-spine6.sh
-connect-spine7.sh
-connect-spine8.sh
-leaf1.yaml
-leaf2.yaml
-leaf3.yaml
-leaf4.yaml
-leaf5.yaml
-leaf6.yaml
-leaf7.yaml
-leaf8.yaml
-spine1.yaml
-spine2.yaml
-spine3.yaml
-spine4.yaml
-spine5.yaml
-spine6.yaml
-spine7.yaml
-spine8.yaml
+allocations.txt
+chaos.sh
+check.sh
+connect-leaf-1.sh
+connect-leaf-2.sh
+connect-leaf-3.sh
+connect-leaf-4.sh
+connect-leaf-5.sh
+connect-leaf-6.sh
+connect-leaf-7.sh
+connect-leaf-8.sh
+connect-spine-1.sh
+connect-spine-2.sh
+connect-spine-3.sh
+connect-spine-4.sh
+connect-spine-5.sh
+connect-spine-6.sh
+connect-spine-7.sh
+connect-spine-8.sh
+leaf-1.yaml
+leaf-2.yaml
+leaf-3.yaml
+leaf-4.yaml
+leaf-5.yaml
+leaf-6.yaml
+leaf-7.yaml
+leaf-8.yaml
+spine-1.yaml
+spine-2.yaml
+spine-3.yaml
+spine-4.yaml
+spine-5.yaml
+spine-6.yaml
+spine-7.yaml
+spine-8.yaml
 start.sh
+stop.sh
 </pre>
 
 The purpose of the generated files is as follows:
@@ -301,17 +305,19 @@ IP addresses, and starts the RIFT-Python engine for each node. The output looks 
 number at the beginning of each line is the percentage complete):
 
 <pre>
-(env) $ <b>./generated_2c_8x8_dir/start.sh </b>
-[000] Create veth pair veth-1-2 - veth-2-1
-[002] Create veth pair veth-3-4 - veth-4-3
-[...]
-[086] Create veth pair veth-125-126 - veth-126-125
-[088] Create veth pair veth-127-128 - veth-128-127
-[089] Create netns netns-1
-[090] Create netns netns-2
-[...]
-[099] Create netns netns-15
-[100] Create netns netns-16
+(env) $ <b>./generated_2c_8x8_dir/start.sh</b>
+Create veth pair veth-1001a-101a and veth-101a-1001a for link from leaf-1:if-1001a to spine-1:if-101a
+...
+Create veth pair veth-1008g-107h and veth-107h-1008g for link from leaf-8:if-1008g to spine-7:if-107h
+Create veth pair veth-1008h-108h and veth-108h-1008h for link from leaf-8:if-1008h to spine-8:if-108h
+Create network namespace netns-1001 for node leaf-1
+...
+Create network namespace netns-107 for node spine-7
+Create network namespace netns-108 for node spine-8
+Start RIFT-Python engine for node leaf-1
+...
+Start RIFT-Python engine for node spine-7
+Start RIFT-Python engine for node spine-8
 </pre>
 
 Note: the `start.sh` script can only run on Linux. If you use MacOS, you must first start a 
@@ -321,19 +327,28 @@ docker container and run both `config_generate.py` and `start.sh` in there:
 (env) $ <b>cd docker</b>
 (env) $ <b>./docker-shell</b>
 root@d22f9e82f9b0:/# <b>cd /host</b>
-root@d22f9e82f9b0:/host# <b>./generated_2c_8x8_dir/start.sh </b>
-[000] Create veth pair veth-1-2 - veth-2-1
-[002] Create veth pair veth-3-4 - veth-4-3
-[...]
+root@d22f9e82f9b0:/host# <b>./generated_2c_8x8_dir/start.sh</b>
+Create veth pair veth-1001a-101a and veth-101a-1001a for link from leaf-1:if-1001a to spine-1:if-101a
+...
+Create veth pair veth-1008g-107h and veth-107h-1008g for link from leaf-8:if-1008g to spine-7:if-107h
+Create veth pair veth-1008h-108h and veth-108h-1008h for link from leaf-8:if-1008h to spine-8:if-108h
+Create network namespace netns-1001 for node leaf-1
+...
+Create network namespace netns-107 for node spine-7
+Create network namespace netns-108 for node spine-8
+Start RIFT-Python engine for node leaf-1
+...
+Start RIFT-Python engine for node spine-7
+Start RIFT-Python engine for node spine-8
 </pre>
 
-See the Docker](doc/docker.md) chapter for details on Docker usage in RIFT-Python.
+See the [Docker](doc/docker.md) chapter for details on Docker usage in RIFT-Python.
 
 Once you have run `start.sh` to start the topology, you can use `connect-*.sh` to start a Telnet
 session to any of the running nodes. For example:
 
 <pre>
-root@d22f9e82f9b0:/host# <b>./generated_2c_8x8_dir/connect-spine3.sh </b>
+root@d22f9e82f9b0:/host# <b>./generated_2c_8x8_dir/connect-spine-3.sh</b>
 Trying ::1...
 Trying 127.0.0.1...
 Connected to localhost.
