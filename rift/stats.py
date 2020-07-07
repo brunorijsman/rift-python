@@ -1,11 +1,10 @@
 import operator
 import time
 
-import collections
 import table
 import utils
 
-RATE_HISTORY = 10            # Look at up to last N samples to calculate "recent rate"
+RATE_HISTORY_SECS = 10       # Compute the rate of the past 10 seconds
 
 TIME_FUNCTION = time.time    # So that we can stub it for unit testing
 
@@ -56,7 +55,7 @@ class Group:
         tab.add_row([
             "Description",
             "Value",
-            ["Last Rate", "Over Last {} Changes".format(RATE_HISTORY)],
+            ["Rate Over", "Last {} Seconds".format(RATE_HISTORY_SECS)],
             ["Last Change"]
         ])
         tab.add_rows(rows)
@@ -73,9 +72,11 @@ class StatBase:
             units_plural = list(map(lambda word: word + 's', units_singular))
         assert isinstance(units_plural, list)
         assert len(units_singular) == len(units_plural)
-        self._units_singular = units_singular
         self._units_plural = units_plural
         self._nr_values = len(self._units_singular)
+        self._change_history_buckets = None
+        self._last_shift_time = None
+        self._last_change_time = None
         if sum_stats is None:
             self._sum_stats = []
         else:
@@ -88,8 +89,18 @@ class StatBase:
         return StatBase(None, self._description, self._units_singular, self._units_plural, None)
 
     def clear(self):
-        self._values = [0] * self._nr_values
-        self._samples = collections.deque([], RATE_HISTORY)
+        # Current values.
+        zero_values = [0] * self._nr_values
+        self._values = zero_values
+        self._last_change_time = None
+        # To compute the rates of the values, we keep a list of "history buckets" that contain the
+        # recent value deltas per second. There is one history bucket for the current partial
+        # second in progress, and RATE_HISTORY_SECS additional buckets for completed full seconds.
+        nr_buckets = RATE_HISTORY_SECS + 1
+        self._change_history_buckets = [zero_values] * nr_buckets
+        # Shift the history buckets every second. Rather that running a timer and actually doing
+        # this every second, we "catch up" whenever we write to or read from the history buckets.
+        self._last_shift_time = TIME_FUNCTION()
 
     def add_to_group(self, group):
         # This is to allow sum counters to be created first, and added to a group later so that
@@ -102,15 +113,41 @@ class StatBase:
     def add_sum_stat(self, sum_stat):
         self._sum_stats.append(sum_stat)
 
+    def _shift_history_buckets_if_needed(self):
+        now = TIME_FUNCTION()
+        secs_since_last_shift = now - self._last_shift_time
+        if secs_since_last_shift < 1.0:
+            return
+        nr_buckets = RATE_HISTORY_SECS + 1
+        shift_nr_buckets = int(secs_since_last_shift)
+        zero_values = [0] * self._nr_values
+        if shift_nr_buckets >= nr_buckets:
+            new_buckets = [zero_values] * nr_buckets
+        else:
+            keep_nr_buckets = nr_buckets - shift_nr_buckets
+            keep_buckets = self._change_history_buckets[:keep_nr_buckets]
+            pad_buckets = [zero_values] * shift_nr_buckets
+            new_buckets = pad_buckets + keep_buckets
+        self._change_history_buckets = new_buckets
+        # Record the shift as having happened at the time that it was scheduled to happen, not
+        # necessarily at the current time. This is needed to make the next shift happen at the
+        # correct time.
+        self._last_shift_time += float(shift_nr_buckets)
+
+    def _record_change_in_history_buckets(self, add_values):
+        self._shift_history_buckets_if_needed()
+        self._change_history_buckets[0] = list(map(operator.add, self._change_history_buckets[0],
+                                                   add_values))
+
     def add_values(self, add_values):
         assert isinstance(add_values, list)
         assert len(add_values) == len(self._values)
         # pylint:disable=attribute-defined-outside-init
         self._values = list(map(operator.add, self._values, add_values))
-        sample = (TIME_FUNCTION(), self._values)
-        self._samples.append(sample)
+        self._record_change_in_history_buckets(add_values)
         for sum_stat in self._sum_stats:
             sum_stat.add_values(add_values)
+        self._last_change_time = TIME_FUNCTION()
 
     def is_zero(self):
         return all(value == 0 for value in self._values)
@@ -129,32 +166,23 @@ class StatBase:
         return ", ".join(value_strs)
 
     def rate_display_str(self):
-        nr_samples = len(self._samples)
-        if nr_samples < 2:
-            return ''
-        (oldest_sample_time, oldest_sample_values) = self._samples[0]
-        (newest_sample_time, newest_sample_values) = self._samples[-1]
-        assert len(oldest_sample_values) == len(newest_sample_values)
-        assert len(oldest_sample_values) >= 1
-        time_diff = newest_sample_time - oldest_sample_time
-        assert time_diff >= 0.0
-        rate_strs = []
-        zipped_list = zip(oldest_sample_values, newest_sample_values, self._units_plural)
-        for oldest_sample_value, newest_sample_value, unit in zipped_list:
-            value_diff = newest_sample_value - oldest_sample_value
-            if time_diff == 0.0:
-                rate_str = "Infinite {}/Sec".format(unit)
-            else:
-                rate = value_diff / time_diff
-                rate_str = "{:.2f} {}/Sec".format(rate, unit)
-            rate_strs.append(rate_str)
+        self._shift_history_buckets_if_needed()
+        # Add up the deltas over the last RATE_HISTORY_SECS but skip the "current second in
+        # progress" because it is a partial second.
+        sum_values = [0] * self._nr_values
+        nr_buckets = RATE_HISTORY_SECS + 1
+        for bnr in range(1, nr_buckets):
+            sum_values = list(map(operator.add, sum_values, self._change_history_buckets[bnr]))
+        count_to_rate = lambda count: float(count) / float(RATE_HISTORY_SECS)
+        rate_values = list(map(count_to_rate, sum_values))
+        rate_values_and_units = zip(rate_values, self._units_plural)
+        rate_strs = ["{:.2f} {}/Sec".format(rate, unit) for (rate, unit) in rate_values_and_units]
         return ", ".join(rate_strs)
 
     def last_change_display_str(self):
-        if not self._samples:
+        if self._last_change_time is None:
             return ''
-        (newest_sample_time, _) = self._samples[-1]
-        secs = TIME_FUNCTION() - newest_sample_time
+        secs = TIME_FUNCTION() - self._last_change_time
         return utils.secs_to_dmhs_str(secs)
 
 class MultiCounter(StatBase):
