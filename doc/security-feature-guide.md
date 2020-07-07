@@ -11,7 +11,8 @@ RIFT-Python supports the following security features:
    * "Outer authentication" is used to validate that a directly connected neighbor is properly
      authenticated.
  
-   * Select one key as the active_authentication_key that is used to compute the outer security           fingerprints in sent messages, and to validate the outer security fingerprint in received
+   * Select one key as the active_authentication_key that is used to compute the outer security
+     fingerprints in sent messages, and to validate the outer security fingerprint in received
      messages.
 
    * Optionally select zero or more additional accept_authentication_keys that are used to validate
@@ -29,7 +30,8 @@ RIFT-Python supports the following security features:
      properly authenticated.
  
    * Select one key as the active_origin_authentication_key that is used to compute the origin
-     security fingerprints in sent TIE messages, and to validate the origin security fingerprint in received TIE messages.
+     security fingerprints in sent TIE messages, and to validate the origin security fingerprint in
+     received TIE messages.
 
    * Optionally select zero or more additional accept_origin_authentication_keys that are used to
      validate the origin security fingerprint in received TIE messages (in addition to the
@@ -204,7 +206,8 @@ outer key-id is zero, and the sent outer fingerprint is empty.
 
 For key roll-over scenarios you can configure a list of accept_authentication_keys.
 
-Nodes always send packets with an outer key-id and outer fingerprint that is determined by the active_authentication_key as described above.
+Nodes always send packets with an outer key-id and outer fingerprint that is determined by the
+active_authentication_key as described above.
 
 If the outer key-id and fingerprint in received packet cannot be validated using the
 active_authentication_key then the node will attempt a secondary validation using the keys in
@@ -311,7 +314,8 @@ the sent origin key-id is zero, and the sent origin fingerprint is empty.
 
 For key roll-over scenarios you can configure a list of accept_origin_authentication_keys.
 
-Nodes always send packets with an origin key-id and origin fingerprint that is determined by the active_origin_authentication_key as described above.
+Nodes always send packets with an origin key-id and origin fingerprint that is determined by the
+active_origin_authentication_key as described above.
 
 If the origin key-id and fingerprint in received TIE packet cannot be validated using the
 active_origin_authentication_key then the node will attempt a secondary validation using the keys in
@@ -352,7 +356,8 @@ the key IDs in the keys section (see the ["configure keys"](configure-keys) sect
 
 Key validation is "strict": if a TIE packet is received with an origin key-id that does not
 match the key-id of the active_origin_authentication_key and also does not match the key-id of any
-of the keys in accept_origin_authentication_keys, then the packet is rejected (discarded) due to an authentication error.
+of the keys in accept_origin_authentication_keys, then the packet is rejected (discarded) due to an
+authentication error.
 That said, if accept_origin_authentication_keys contains key-id zero, the node will accept TIE
 packets with origin key-id 0 and an empty origin fingerprint (i.e. packets will null origin
 authentication).
@@ -542,8 +547,8 @@ Misordered packets are reported in the output of "show ... statistics" for examp
 node-1> <b>show interface if1 statistics</b>
 Traffic:
 +---------------------------------------------------+------------------------+------------------------------------+-------------------+
-| Description                                       | Value                  | Last Rate                          | Last Change       |
-|                                                   |                        | Over Last 10 Changes               |                   |
+| Description                                       | Value                  | Rate Over                          | Last Change       |
+|                                                   |                        | Last 10 Seconds                    |                   |
 +---------------------------------------------------+------------------------+------------------------------------+-------------------+
 .                                                   .                        .                                    .                   .
 .                                                   .                        .                                    .                   .
@@ -616,8 +621,8 @@ Origin Keys:
 
 Security Statistics:
 +------------------------------------------------+-------------------------+-------------------------------------+-------------------+
-| Description                                    | Value                   | Last Rate                           | Last Change       |
-|                                                |                         | Over Last 10 Changes                |                   |
+| Description                                    | Value                   | Rate Over                           | Last Change       |
+|                                                |                         | Last 10 Seconds                     |                   |
 +------------------------------------------------+-------------------------+-------------------------------------+-------------------+
 | Missing outer security envelope                | 0 Packets, 0 Bytes      |                                     |                   |
 +------------------------------------------------+-------------------------+-------------------------------------+-------------------+
@@ -687,8 +692,8 @@ Nonces:
 
 Security Statistics:
 +------------------------------------------------+-------------------------+------------------------------------+-------------------+
-| Description                                    | Value                   | Last Rate                          | Last Change       |
-|                                                |                         | Over Last 10 Changes               |                   |
+| Description                                    | Value                   | Rate Over                          | Last Change       |
+|                                                |                         | Last 10 Seconds                    |                   |
 +------------------------------------------------+-------------------------+------------------------------------+-------------------+
 | Missing outer security envelope                | 0 Packets, 0 Bytes      |                                    |                   |
 +------------------------------------------------+-------------------------+------------------------------------+-------------------+
