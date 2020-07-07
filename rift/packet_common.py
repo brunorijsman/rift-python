@@ -674,7 +674,7 @@ PREFIX_TIE_ELEMENT_FIXES = [
 
 PROTOCOL_PACKET_FIXES = [
     ('header', [
-        ('major_version', 16),
+        ('major_version', 8),
         ('minor_version', 16),
         ('sender', 64),
         ('level', 16)]),
