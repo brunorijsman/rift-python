@@ -1,7 +1,6 @@
 import operator
 import time
 
-import collections
 import table
 import utils
 
@@ -138,7 +137,7 @@ class StatBase:
     def _record_change_in_history_buckets(self, add_values):
         self._shift_history_buckets_if_needed()
         self._change_history_buckets[0] = list(map(operator.add, self._change_history_buckets[0],
-                                               add_values))
+                                                   add_values))
 
     def add_values(self, add_values):
         assert isinstance(add_values, list)
