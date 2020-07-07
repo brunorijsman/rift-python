@@ -1,3 +1,5 @@
+# pylint:disable=too-many-lines
+
 import copy
 import ipaddress
 import struct
@@ -615,21 +617,25 @@ def fix_packet_after_decode(packet, fixes):
     fix_struct(packet, fixes, False)
 
 TIEID_FIXES = [
-    ('originator', 64), ('tie_nr', 32)
+    ('originator', 64),
+    ('tie_nr', 32)
 ]
 
 TIMESTAMP_FIXES = [
-    ('AS_sec', 64), ('AS_nsec', 32)
+    ('AS_sec', 64),
+    ('AS_nsec', 32)
 ]
 
 TIE_HEADER_FIXES = [
-    ('tieid', TIEID_FIXES), ('seq_nr', 32),
+    ('tieid', TIEID_FIXES),
+    ('seq_nr', 64),
     ('origination_time', TIMESTAMP_FIXES),
     ('origination_lifetime', 32)
 ]
 
 TIE_HEADER_WITH_LIFETIME_FIXES = [
-    ('header', TIE_HEADER_FIXES), ('remaining_lifetime', 32),
+    ('header', TIE_HEADER_FIXES),
+    ('remaining_lifetime', 32),
 ]
 
 LINK_ID_PAIR_FIXES = [
@@ -638,7 +644,10 @@ LINK_ID_PAIR_FIXES = [
 ]
 
 NODE_NEIGHBORS_TIE_ELEMENT_FIXES = [
-    ('level', 16), ('cost', 32), ('link_ids', LINK_ID_PAIR_FIXES), ('bandwidth', 32)
+    ('level', 16),
+    ('cost', 32),
+    ('link_ids', LINK_ID_PAIR_FIXES),
+    ('bandwidth', 32)
 ]
 
 IP_PREFIX_FIXES = [
@@ -654,7 +663,8 @@ IP_PREFIX_FIXES = [
 PREFIX_ATTRIBUTES_FIXES = [
     ('metric', 32), ('tags', 64),
     ('monotonic_clock', [
-        ('timestamp', TIMESTAMP_FIXES), ('transactionid', 8)
+        ('timestamp', TIMESTAMP_FIXES),
+        ('transactionid', 8)
     ])
 ]
 
@@ -664,12 +674,16 @@ PREFIX_TIE_ELEMENT_FIXES = [
 
 PROTOCOL_PACKET_FIXES = [
     ('header', [
-        ('major_version', 16), ('minor_version', 16),
-        ('sender', 64), ('level', 16)]),
+        ('major_version', 8),
+        ('minor_version', 16),
+        ('sender', 64),
+        ('level', 16)]),
     ('content', [
         ('lie', [
             ('local_id', 32),              # Draft doesn't mention this needs to treated as unsigned
-            ('flood_port', 16), ('link_mtu_size', 32), ('link_bandwidth', 32),
+            ('flood_port', 16),
+            ('link_mtu_size', 32),
+            ('link_bandwidth', 32),
             ('neighbor', [
                 ('originator', 64),
                 ('remote_id', 32)          # Draft doesn't mention this needs to treated as unsigned

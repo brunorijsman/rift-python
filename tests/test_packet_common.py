@@ -119,7 +119,7 @@ def test_fix_lie_packet():
     packet_common.add_missing_methods_to_thrift()
     lie_protocol_packet = encoding.ttypes.ProtocolPacket(
         header=encoding.ttypes.PacketHeader(
-            major_version=packet_common.MAX_U16,
+            major_version=packet_common.MAX_U8,
             minor_version=packet_common.MAX_U16,
             sender=packet_common.MAX_U64,
             level=packet_common.MAX_U16
@@ -168,7 +168,7 @@ def test_fix_tide_packet():
     packet_common.add_missing_methods_to_thrift()
     tide_protocol_packet = encoding.ttypes.ProtocolPacket(
         header=encoding.ttypes.PacketHeader(
-            major_version=packet_common.MAX_U16,
+            major_version=packet_common.MAX_U8,
             minor_version=packet_common.MAX_U16,
             sender=packet_common.MAX_U64,
             level=packet_common.MAX_U16
@@ -200,7 +200,7 @@ def test_fix_tire_packet():
     packet_common.add_missing_methods_to_thrift()
     tire_protocol_packet = encoding.ttypes.ProtocolPacket(
         header=encoding.ttypes.PacketHeader(
-            major_version=packet_common.MAX_U16,
+            major_version=packet_common.MAX_U8,
             minor_version=packet_common.MAX_U16,
             sender=packet_common.MAX_U64,
             level=packet_common.MAX_U16
@@ -230,7 +230,7 @@ def test_fix_node_tie_packet():
     packet_common.add_missing_methods_to_thrift()
     tie_protocol_packet = encoding.ttypes.ProtocolPacket(
         header=encoding.ttypes.PacketHeader(
-            major_version=packet_common.MAX_U16,
+            major_version=packet_common.MAX_U8,
             minor_version=packet_common.MAX_U16,
             sender=packet_common.MAX_U64,
             level=packet_common.MAX_U16
@@ -280,7 +280,7 @@ def test_fix_prefixes_tie_packet():
     packet_common.add_missing_methods_to_thrift()
     tie_protocol_packet = encoding.ttypes.ProtocolPacket(
         header=encoding.ttypes.PacketHeader(
-            major_version=packet_common.MAX_U16,
+            major_version=packet_common.MAX_U8,
             minor_version=packet_common.MAX_U16,
             sender=packet_common.MAX_U64,
             level=packet_common.MAX_U16
@@ -314,7 +314,7 @@ def test_fix_positive_disaggregation_prefixes_tie_packet():
     packet_common.add_missing_methods_to_thrift()
     tie_protocol_packet = encoding.ttypes.ProtocolPacket(
         header=encoding.ttypes.PacketHeader(
-            major_version=packet_common.MAX_U16,
+            major_version=packet_common.MAX_U8,
             minor_version=packet_common.MAX_U16,
             sender=packet_common.MAX_U64,
             level=packet_common.MAX_U16
@@ -348,7 +348,7 @@ def test_fix_negative_disaggregation_prefixes_tie_packet():
     packet_common.add_missing_methods_to_thrift()
     tie_protocol_packet = encoding.ttypes.ProtocolPacket(
         header=encoding.ttypes.PacketHeader(
-            major_version=packet_common.MAX_U16,
+            major_version=packet_common.MAX_U8,
             minor_version=packet_common.MAX_U16,
             sender=packet_common.MAX_U64,
             level=packet_common.MAX_U16
@@ -382,7 +382,7 @@ def test_fix_external_prefixes_tie_packet():
     packet_common.add_missing_methods_to_thrift()
     tie_protocol_packet = encoding.ttypes.ProtocolPacket(
         header=encoding.ttypes.PacketHeader(
-            major_version=packet_common.MAX_U16,
+            major_version=packet_common.MAX_U8,
             minor_version=packet_common.MAX_U16,
             sender=packet_common.MAX_U64,
             level=packet_common.MAX_U16
@@ -416,7 +416,7 @@ def test_fix_key_value_tie_packet():
     packet_common.add_missing_methods_to_thrift()
     tie_protocol_packet = encoding.ttypes.ProtocolPacket(
         header=encoding.ttypes.PacketHeader(
-            major_version=packet_common.MAX_U16,
+            major_version=packet_common.MAX_U8,
             minor_version=packet_common.MAX_U16,
             sender=packet_common.MAX_U64,
             level=packet_common.MAX_U16

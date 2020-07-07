@@ -2,10 +2,9 @@
 
 ## Supported version
 
-| --- | --- |
-| RIFT draft version |  |
-| Thrift data model version | 2.0 |
+RIFT draft version: [draft-ietf-rift-rift-12](https://tools.ietf.org/pdf/draft-ietf-rift-rift-12.pdf)
 
+Thrift data model version: 4.1
 
 ## Adjacencies
 
