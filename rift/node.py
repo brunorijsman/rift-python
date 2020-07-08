@@ -16,6 +16,7 @@ import common.constants
 import constants
 import encoding.ttypes
 import fib
+import fib_route
 import fsm
 import interface
 import kernel
@@ -1490,7 +1491,7 @@ class Node:
             cli_session.print("Prefix {} not present".format(prefix))
             return
         tab = table.Table()
-        tab.add_row(rib_route.RibRoute.cli_summary_headers())
+        tab.add_row(fib_route.FibRoute.cli_summary_headers())
         tab.add_row(rte.cli_summary_attributes())
         cli_session.print(tab.to_string())
 

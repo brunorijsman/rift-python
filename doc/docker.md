@@ -2,16 +2,17 @@
 
 ## Why Docker?
 
-For the most part, RIFT-Python can be developed, tested, and used on any platform that supports
-Python: not just Linux, but also macOS, Windows, and BSD.
+RIFT-Python can be developed, tested, and used on macOS Mojave (10.14), macOS Catalina (10.15), and
+Ubuntu Xenial (16.04) Linux. Since it is written in Python, it _should_ also work on other platforms
+including Windows and other Linux distributions, but we have not tested that.
 
 However, the current implementation of RIFT-Python only supports installing routes in the kernel
 route table on Linux. RIFT-Python will still run on other platforms, but it won't install routes
 into the kernel and all `show kernel ...` CLI commands will return an error message.
 
-To allow developers who use macOS or Windows as their development platform to test RIFT-Python
-interaction with the Linux kernel, we have added some convenience scripts to run RIFT-Python
-in a Linux container using Docker.
+To allow developers who use macOS as their development platform to test RIFT-Python interaction
+with the Linux kernel, we have added some convenience scripts to run RIFT-Python in a Linux
+container using Docker.
 
 ## Installing Docker
 
@@ -23,40 +24,29 @@ and install Docker in your development environment.
 The RIFT-Python repository contains a subdirectory `docker` which contains scripts for creating
 and starting a docker container image.
 
+If you have not already done so, go to the root directory of the rift-python repository and
+activate the Python virtual environment:
+
+<pre>
+$ <b>cd ~/rift-python</b>
+$ <b>source env/bin/activate</b>
+(env) $
+</pre>
+
 To create the RIFT-Python docker image use the `docker-build` shell script:
 
 <pre>
-(env) $ <b>./docker-build</b>
-Sending build context to Docker daemon  6.656kB
-Step 1/8 : FROM ubuntu:latest
-latest: Pulling from library/ubuntu
-32802c0cfa4d: Pull complete 
-da1315cffa03: Pull complete 
-fa83472a3562: Pull complete 
-f85999a86bef: Pull complete 
-Digest: sha256:6d0e0c26489e33f5a6f0020edface2727db9489744ecc9b4f50c7fa671f23c49
-Status: Downloaded newer image for ubuntu:latest
- ---> 93fd78260bd1
-Step 2/8 : RUN apt-get update
- ---> Running in 79d24e89579c
-Get:1 http://archive.ubuntu.com/ubuntu bionic InRelease [242 kB]
-Get:2 http://security.ubuntu.com/ubuntu bionic-security InRelease [83.2 kB]
-[...]
- ---> 612d5fabc8dd
-Step 8/8 : VOLUME /host
- ---> Running in 8bbf68097bf2
-Removing intermediate container 8bbf68097bf2
- ---> 0e70ec6cfcb8
-Successfully built 0e70ec6cfcb8
+(env) $ <b>docker/docker-build</b>
+(env) $ docker/docker-build 
+Sending build context to Docker daemon  9.216kB
+Step 1/14 : FROM ubuntu:16.04
+16.04: Pulling from library/ubuntu
+6aa38bd67045: Pull complete 
+...
+Removing intermediate container b6aaef1614ed
+ ---> 5f31dd71fd5f
+Successfully built 5f31dd71fd5f
 Successfully tagged rift-python:latest
-</pre>
-
-You must activate the virtual environment before running the `docker-build` shell script:
-
-<pre>
-$ <b>cd ${HOME}/rift-python</b>
-$ <b>source env/bin/activate</b>
-(env) $ 
 </pre>
 
 When you run the `docker-build` script for the first time, it takes almost 4 minutes to complete
@@ -67,8 +57,8 @@ You can verify that the docker image was created using the `docker images` comma
 <pre>
 (env) $ <b>docker images</b>
 REPOSITORY          TAG                 IMAGE ID            CREATED             SIZE
-rift-python         latest              0e70ec6cfcb8        3 minutes ago       522MB
-ubuntu              latest              93fd78260bd1        4 weeks ago         86.2MB
+rift-python         latest              f8be1435a49d        5 minutes ago       554MB
+ubuntu              16.04               c522ac0d6194        33 hours ago        126MB
 </pre>
 
 ## The /host Directory in the RIFT-Python Docker Container
@@ -100,11 +90,11 @@ There are two scripts for starting a RIFT-Python Docker container:
 The `docker-shell` script starts a container running the bash shell:
 
 <pre>
-(env) $ ./docker-shell 
+(env) $ docker/docker-shell 
 root@ee292d55bf57:/# 
 </pre>
 
-At this point you are in an Ubuntu Linux environment and you can execute any ol' Linux command:
+At this point you are in an Ubuntu Linux environment and you can execute any Linux command:
 
 <pre>
 root@ee292d55bf57:/# <b>uname</b>
@@ -127,14 +117,20 @@ Observe that while running in Docker, RIFT-Python does support the `show kernel 
 <pre>
 node1> <b>show kernel routes table main</b>
 Kernel Routes:
-+-------+---------+---------------+---------+----------+-----------+------------+--------+
-| Table | Address | Destination   | Type    | Protocol | Outgoing  | Gateway    | Weight |
-|       | Family  |               |         |          | Interface |            |        |
-+-------+---------+---------------+---------+----------+-----------+------------+--------+
-| Main  | IPv4    | 0.0.0.0/0     | Unicast | Boot     | eth0      | 172.17.0.1 |        |
-+-------+---------+---------------+---------+----------+-----------+------------+--------+
-| Main  | IPv4    | 172.17.0.0/16 | Unicast | Kernel   | eth0      |            |        |
-+-------+---------+---------------+---------+----------+-----------+------------+--------+
++-------+---------+-----------------+---------+----------+-----------+---------------+--------+
+| Table | Address | Destination     | Type    | Protocol | Outgoing  | Gateway       | Weight |
+|       | Family  |                 |         |          | Interface |               |        |
++-------+---------+-----------------+---------+----------+-----------+---------------+--------+
+| Main  | IPv4    | 0.0.0.0/0       | Unicast | Boot     | eth0      | 172.17.0.1    |        |
++-------+---------+-----------------+---------+----------+-----------+---------------+--------+
+| Main  | IPv4    | 172.17.0.0/16   | Unicast | Kernel   | eth0      |               |        |
++-------+---------+-----------------+---------+----------+-----------+---------------+--------+
+| Main  | IPv6    | ::/0            | Unicast | Boot     | eth0      | 2001:db8:1::1 |        |
++-------+---------+-----------------+---------+----------+-----------+---------------+--------+
+| Main  | IPv6    | 2001:db8:1::/64 | Unicast | Kernel   | eth0      |               |        |
++-------+---------+-----------------+---------+----------+-----------+---------------+--------+
+| Main  | IPv6    | fe80::/64       | Unicast | Kernel   | eth0      |               |        |
++-------+---------+-----------------+---------+----------+-----------+---------------+--------+
 </pre>
 
 Still, when you run a multi-node topology in a Docker container, you might be surprised that
@@ -149,27 +145,26 @@ node1> <b>show route prefix 2.2.2.2/32</b>
 +------------+-----------+----------------+
 
 node1> <b>show forwarding prefix 2.2.2.2/32</b>
-+------------+-----------+----------------+
-| Prefix     | Owner     | Next-hops      |
-+------------+-----------+----------------+
-| 2.2.2.2/32 | South SPF | if1 172.17.0.2 |
-+------------+-----------+----------------+
++------------+----------------+
+| Prefix     | Next-hops      |
++------------+----------------+
+| 2.2.2.2/32 | if1 172.17.0.2 |
++------------+----------------+
 
 node1> <b>show kernel route table main prefix 2.2.2.2/32</b>
 Prefix "2.2.2.2/32" in table "Main" not present in kernel route table
 </pre>
 
-
-
 There are two reasons for this behavior:
 
  * While there are multiple nodes in a multi-node topology, there is only a single kernel to
    install routes into.
+
  * The interface names that are used in multi-node topologies are fictitious (e.g. "if1") and
    do not correspond to real interfaces that are known by the kernel.
 
 Ways to get around both issues are discussed 
-[below](#realistic-testing-of-multi-node-topologies-in-docker)
+[below](#multi-process-testing-of-multi-node-topologies-in-docker)
 
 ### Starting a Container Running RIFT
 
@@ -177,7 +172,7 @@ The `docker-rift` script starts a container running a single stand-alone instanc
 and immediately places you in the CLI:
 
 <pre>
-(env) $ <b>./docker-rift</b>
+(env) $ <b>docker/docker-rift</b>
 2ca54a23b8ab1> <b>show interfaces</b>
 +-----------+----------+-----------+----------+-------------------+-------+
 | Interface | Neighbor | Neighbor  | Neighbor | Time in           | Flaps |
@@ -194,10 +189,20 @@ Use the `stop` CLI command to exit the container.
 Above, we described how to start RIFT-Python "as usual" from inside the Docker container.
 You can also run unit tests and system tests "as usual" from inside the container.
 
-To start a single unit test "as usual" from inside the Docker container, use the following steps:
+First remove all cached .pyc files, otherwhise running the test from inside the container will
+report an error because the filenames of the Python files are different in the container because
+of the directory mapping:
 
 <pre>
-(env) $ <b>./docker-shell</b>
+(env) $ <b>rm -rf rift/__pycache__</b>
+(env) $ <b>rm -rf tests/__pycache__</b>
+</pre>
+
+Then, start a single unit test "as usual" from inside the Docker container, using the following
+steps:
+
+<pre>
+(env) $ <b>docker/docker-shell</b>
 root@faf75d4aa679:/# <b>cd /host</b>
 root@faf75d4aa679:/host# <b>pytest tests/test_table.py</b>
 ======================================================= test session starts ========================================================
@@ -329,51 +334,141 @@ means that the kernel integration will be tested there are well.
 
 If you only run `pre-commit-checks`
 in your macOS or Windows host environment (and not in the Docker container), you cannot be sure 
-that the kernel tests will pass inTravis as well.
+that the kernel tests will pass in Travis as well.
 
-## Realistic Testing of Multi-Node Topologies in Docker
+## Multi-Process Testing of Multi-Node Topologies in Docker
 
-Note: This is an area still under development. In the future additional and tools and scripts will
-be added to make this easier.
+The following example demonstrates how to run a multi-process topology in Docker.
 
-As mentioned [before](#running-tests-in-docker), when you run a multi-node topology system test
-in a Docker container, RIFT-Python typically still does not properly install routes in the kernel
-route table because there is only one kernel and because the interface names are not real.
-
-One way to work around these issues is to:
-
- * Use multiple network name spaces in the Docker container.
- * Interconnect the network name spaces using virtual Ethernet interfaces (veth pairs)
- * Run a separate RIFT-Python process in each name space.
-
-Here is an example sequence of shell command to achieve this (once again, we will provide tools
-and scripts to make this easier in the future):
+Start a docker shell:
 
 <pre>
-ip link add dev veth-a1 type veth peer name veth-a2
-ip link add dev veth-b1 type veth peer name veth-b2
-ip netns add netns-1
-ip link set veth-a1 netns netns-1
-ip netns exec netns-1 ip link set dev veth-a1 up
-ip netns exec netns-1 ip addr add 99.99.1.1/24 dev veth-a1
-ip link set veth-b1 netns netns-1
-ip netns exec netns-1 ip link set dev veth-b1 up
-ip netns exec netns-1 ip addr add 99.99.2.1/24 dev veth-b1
-ip netns exec netns-1 ip link set dev lo up
-ip netns exec netns-1 ip addr add 88.88.1.1/32 dev lo
-ip netns add netns-2
-ip link set veth-a2 netns netns-2
-ip netns exec netns-2 ip link set dev veth-a2 up
-ip netns exec netns-2 ip addr add 99.99.1.2/24 dev veth-a2
-ip link set veth-b2 netns netns-2
-ip netns exec netns-2 ip link set dev veth-b2 up
-ip netns exec netns-2 ip addr add 99.99.2.2/24 dev veth-b2
-ip netns exec netns-2 ip link set dev lo up
-ip netns exec netns-2 ip addr add 88.88.2.1/32 dev lo
-cd /host
-ip netns exec netns-1 python3 rift --multicast-loopback-disable topology/real_1.yaml &
-ip netns exec netns-2 python3 rift -i --multicast-loopback-disable -l debug topology/real_2.yaml
+(env) $ <b>docker/docker-shell</b>
+root@6bc97a203594:/# 
 </pre>
 
+Generate shell scripts and configuration files from the meta-topology file:
 
+<pre>
+root@6bc97a203594:/# <b>cd /host</b>
+root@6bc97a203594:/host# <b>tools/config_generator.py -n meta_topology/2c_3x2.yaml generated</b>
+</pre>
 
+Depending on your laptop, you will typically only be able to run fairly small topologies. If you
+need to run large topologies, use a suitably powerful AWS instance.
+
+Start the topology:
+
+<pre>
+root@76acd2ce9f8c:/host# <b>generated/start.sh</b>
+Create veth pair veth-1001a-101a and veth-101a-1001a for link from leaf-1:if-1001a to spine-1:if-101a
+Create veth pair veth-1001b-102a and veth-102a-1001b for link from leaf-1:if-1001b to spine-2:if-102a
+Create veth pair veth-1002a-101b and veth-101b-1002a for link from leaf-2:if-1002a to spine-1:if-101b
+Create veth pair veth-1002b-102b and veth-102b-1002b for link from leaf-2:if-1002b to spine-2:if-102b
+Create veth pair veth-1003a-101c and veth-101c-1003a for link from leaf-3:if-1003a to spine-1:if-101c
+Create veth pair veth-1003b-102c and veth-102c-1003b for link from leaf-3:if-1003b to spine-2:if-102c
+Create network namespace netns-1001 for node leaf-1
+Create network namespace netns-1002 for node leaf-2
+Create network namespace netns-1003 for node leaf-3
+Create network namespace netns-101 for node spine-1
+Create network namespace netns-102 for node spine-2
+Start RIFT-Python engine for node leaf-1
+Start RIFT-Python engine for node leaf-2
+Start RIFT-Python engine for node leaf-3
+Start RIFT-Python engine for node spine-1
+Start RIFT-Python engine for node spine-2
+</pre>
+
+Connect to one of the nodes, in this example node spine-2:
+
+<pre>
+root@76acd2ce9f8c:/host# <b>generated/connect-spine-2.sh</b>
+Trying ::1...
+Trying 127.0.0.1...
+Connected to localhost.
+Escape character is '^]'.
+spine-2> 
+</pre>
+
+You can see that in this multi-process topology, routes are actually installed in the kernel:
+
+<pre>
+spine-2> <b>show route prefix 88.0.1.1/32</b>
++-------------+-----------+--------------------------+
+| Prefix      | Owner     | Next-hops                |
++-------------+-----------+--------------------------+
+| 88.0.1.1/32 | South SPF | veth-102a-1001b 99.0.4.1 |
++-------------+-----------+--------------------------+
+
+spine-2> <b>show forwarding prefix 88.0.1.1/32</b>
++-------------+--------------------------+
+| Prefix      | Next-hops                |
++-------------+--------------------------+
+| 88.0.1.1/32 | veth-102a-1001b 99.0.4.1 |
++-------------+--------------------------+
+
+spine-2> <b>show kernel routes table main prefix 88.0.1.1/32</b>
++--------------------------+---------------------------+
+| Table                    | Main                      |
+| Address Family           | IPv4                      |
+| Destination              | 88.0.1.1/32               |
+| Type                     | Unicast                   |
+| Protocol                 | RIFT                      |
+| Scope                    | Universe                  |
+| Next-hops                | veth-102a-1001b 99.0.4.1  |
+| Priority                 | 199                       |
+| Preference               |                           |
+| Preferred Source Address |                           |
+| Source                   |                           |
+| Flow                     |                           |
+| Encapsulation Type       |                           |
+| Encapsulation            |                           |
+| Metrics                  |                           |
+| Type of Service          | 0                         |
+| Flags                    | 0                         |
++--------------------------+---------------------------+
+</pre>
+
+Exit out of the CLI:
+
+<pre>
+spine-2> <b>exit</b>
+Connection closed by foreign host.
+root@76acd2ce9f8c:/host# 
+</pre>
+
+Stop the topology:
+
+<pre>
+root@76acd2ce9f8c:/host# <b>generated/stop.sh </b>
+Stop RIFT-Python engine for node leaf-1
+Delete interface veth-1001a-101a for node leaf-1
+Delete interface veth-1001b-102a for node leaf-1
+Stop RIFT-Python engine for node leaf-2
+Delete interface veth-1002a-101b for node leaf-2
+Delete interface veth-1002b-102b for node leaf-2
+Stop RIFT-Python engine for node leaf-3
+Delete interface veth-1003a-101c for node leaf-3
+Delete interface veth-1003b-102c for node leaf-3
+Stop RIFT-Python engine for node spine-1
+Delete interface veth-101a-1001a for node spine-1
+Delete interface veth-101b-1002a for node spine-1
+Delete interface veth-101c-1003a for node spine-1
+Stop RIFT-Python engine for node spine-2
+Delete interface veth-102a-1001b for node spine-2
+Delete interface veth-102b-1002b for node spine-2
+Delete interface veth-102c-1003b for node spine-2
+Delete network namespace netns-1001 for node leaf-1
+Delete network namespace netns-1002 for node leaf-2
+Delete network namespace netns-1003 for node leaf-3
+Delete network namespace netns-101 for node spine-1
+Delete network namespace netns-102 for node spine-2
+</pre>
+
+Exit out of the container (which also stops the container):
+
+<pre>
+root@76acd2ce9f8c:/host# <b>exit</b>
+exit
+(env) $ 
+</pre>
