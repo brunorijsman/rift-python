@@ -34,6 +34,7 @@ META_CONFIG = None
 ARGS = None
 
 DEFAULT_NR_IPV4_LOOPBACKS = 1
+DEFAULT_NR_PARALLEL_LINKS = 1
 DEFAULT_CHAOS_NR_LINK_EVENTS = 20
 DEFAULT_CHAOS_NR_NODE_EVENTS = 5
 DEFAULT_CHAOS_EVENT_INTERVAL = 3.0  # seconds
@@ -55,6 +56,13 @@ NODE_SCHEMA = {
     }
 }
 
+LINK_SCHEMA = {
+    'type': 'dict',
+    'schema': {
+        'nr-parallel-links': {'type': 'integer', 'min': 1, 'default': DEFAULT_NR_PARALLEL_LINKS}
+    }
+}
+
 SCHEMA = {
     'inter-plane-east-west-links': {'required': False, 'type': 'boolean', 'default': True},
     'nr-leaf-nodes-per-pod': {'required': True, 'type': 'integer', 'min': 1},
@@ -65,6 +73,9 @@ SCHEMA = {
     'leafs': NODE_SCHEMA,
     'spines': NODE_SCHEMA,
     'superspines': NODE_SCHEMA,
+    'leaf-spine-links': LINK_SCHEMA,
+    'spine-superspine-links': LINK_SCHEMA,
+    'inter-plane-links': LINK_SCHEMA,
     'chaos': {
         'type': 'dict',
         'schema': {
@@ -216,8 +227,8 @@ class Group:
         self.nodes_by_layer[layer].append(node)
         return node
 
-    def create_link(self, from_node, to_node, inter_plane_loop_nr=None):
-        link = Link(from_node, to_node, inter_plane_loop_nr)
+    def create_link(self, from_node, to_node, link_nr_in_parallel_bundle, inter_plane_loop_nr=None):
+        link = Link(from_node, to_node, link_nr_in_parallel_bundle, inter_plane_loop_nr)
         self.links.append(link)
         return link
 
@@ -349,7 +360,9 @@ class Pod(Group):
         self.nr_superspine_nodes = 0
         self.create_leaf_nodes()
         self.create_spine_nodes()
-        self.create_leaf_spine_links()
+        links_config = META_CONFIG.get('leaf-spine-links', {})
+        nr_parallel_links = links_config.get('nr-parallel-links', DEFAULT_NR_PARALLEL_LINKS)
+        self.create_leaf_spine_links(nr_parallel_links)
 
     def create_leaf_nodes(self):
         y_pos = self.y_pos() + GROUP_Y_SPACER + NODE_Y_SIZE + NODE_Y_INTERVAL
@@ -373,10 +386,11 @@ class Pod(Group):
             node.add_ipv4_loopbacks(self.spine_nr_ipv4_loopbacks)
             self.spine_nodes.append(node)
 
-    def create_leaf_spine_links(self):
+    def create_leaf_spine_links(self, nr_parallel_links):
         for leaf_node in self.leaf_nodes:
             for spine_node in self.spine_nodes:
-                _link = self.create_link(leaf_node, spine_node)
+                for link_nr_in_parallel_bundle in range(1, nr_parallel_links + 1):
+                    _link = self.create_link(leaf_node, spine_node, link_nr_in_parallel_bundle)
 
 class Plane(Group):
 
@@ -1263,9 +1277,10 @@ class Interface:
 
 class Link:
 
-    def __init__(self, node1, node2, inter_plane_loop_nr=None):
+    def __init__(self, node1, node2, link_nr_in_parallel_bundle, inter_plane_loop_nr=None):
         self.node1 = node1
         self.node2 = node2
+        self.link_nr_in_parallel_bundle = link_nr_in_parallel_bundle
         self.east_west = node1.layer == node2.layer
         self.inter_plane_loop_nr = inter_plane_loop_nr
         self.intf1 = node1.create_interface()
@@ -1310,18 +1325,23 @@ class Link:
         file.write('</g>\n')
 
     def write_ew_graphics_to_file(self, file):
+        links_config = META_CONFIG.get('inter-plane-links', {})
+        nr_parallel_links = links_config.get('nr-parallel-links', DEFAULT_NR_PARALLEL_LINKS)
         x_pos1 = self.intf1.x_pos()
         x_pos2 = self.intf2.x_pos()
         intf_y_pos = self.intf1.y_pos()
-        loop_y_spacer = self.inter_plane_loop_nr * INTER_PLANE_Y_LOOP_SPACER
+        loop_y_spacer = self.inter_plane_loop_nr * (INTER_PLANE_Y_LOOP_SPACER * nr_parallel_links)
+        loop_y_spacer += (nr_parallel_links - 1) * INTER_PLANE_Y_INTERLINE_SPACER
+        in_bundle_offset = (self.link_nr_in_parallel_bundle - 1) * INTER_PLANE_Y_INTERLINE_SPACER
         from_group_id = self.node1.group.class_group_id
         to_group_id = self.node2.group.class_group_id
         last_to_first = from_group_id > to_group_id
-        line_y_spacer = INTER_PLANE_Y_INTERLINE_SPACER if last_to_first else 0
+        line_y_spacer = INTER_PLANE_Y_INTERLINE_SPACER * nr_parallel_links if last_to_first else 0
         line_y_pos = (intf_y_pos
                       - INTER_PLANE_Y_FIRST_LINE_SPACER    # Up to top of superspine box
                       - GROUP_Y_SPACER                     # Spacer between box and east-west links
                       - loop_y_spacer                      # Spacer between different loops
+                      - in_bundle_offset                   # Offset within group of parallel links
                       - line_y_spacer)                     # Spacer for link going back to first
         file.write('<g class="link">\n')
         file.write('<polyline '
@@ -1415,8 +1435,11 @@ class Fabric:
         self.planes = []
         pods_y_pos = GLOBAL_Y_OFFSET
         # Make room for inter-plane east-west links if needed
-        total_y_spacer_per_loop = INTER_PLANE_Y_LOOP_SPACER + INTER_PLANE_Y_INTERLINE_SPACER
+        links_config = META_CONFIG.get('inter-plane-links', {})
+        nr_ew_parallel_links = links_config.get('nr-parallel-links', DEFAULT_NR_PARALLEL_LINKS)
         if self.nr_planes > 1 and self.inter_plane_east_west_links:
+            total_y_spacer_per_loop = (INTER_PLANE_Y_LOOP_SPACER + 
+                                    INTER_PLANE_Y_INTERLINE_SPACER * nr_ew_parallel_links)
             pods_y_pos += (INTER_PLANE_Y_FIRST_LINE_SPACER
                            + self.nr_inter_plane_loops() * total_y_spacer_per_loop)
         # Only generate superspine nodes and planes if there is more than one pod
@@ -1445,23 +1468,27 @@ class Fabric:
             plane.x_center_shift = plane_x_center_shift
         # If there are any superspines, create the links to them.
         if self.nr_superspine_nodes:
+            links_config = META_CONFIG.get('spine-superspine-links', {})
+            nr_ns_parallel_links = links_config.get('nr-parallel-links', DEFAULT_NR_PARALLEL_LINKS)
             if self.nr_planes > 1:
-                self.create_links_ns_multi_plane()
+                self.create_spine_super_links_mp(nr_ns_parallel_links)
                 if self.inter_plane_east_west_links:
-                    self.create_links_ew_multi_plane()
+                    self.create_links_ew_multi_plane(nr_ew_parallel_links)
             else:
-                self.create_links_ns_single_plane()
+                self.create_spine_super_links_sp(nr_ns_parallel_links)
 
-    def create_links_ns_single_plane(self):
+    def create_spine_super_links_sp(self, nr_parallel_links):
         # Superspine-to-spine north-south links (single plane)
         assert len(self.planes) == 1
         plane = self.planes[0]
         for superspine_node in plane.nodes:
             for pod in self.pods:
                 for spine_node in pod.nodes_by_layer[SPINE_LAYER]:
-                    _link = plane.create_link(superspine_node, spine_node)
+                    for link_nr_in_parallel_bundle in range(1, nr_parallel_links + 1):
+                        _link = plane.create_link(superspine_node, spine_node,
+                                                  link_nr_in_parallel_bundle)
 
-    def create_links_ns_multi_plane(self):
+    def create_spine_super_links_mp(self, nr_parallel_links):
         # Superspine-to-spine north-south links (multi-plane)
         for plane_index, plane in enumerate(self.planes):
             for superspine_node in plane.nodes:
@@ -1472,9 +1499,11 @@ class Fabric:
                     end_spine_index = start_spine_index + spine_nodes_per_plane
                     for spine_index in range(start_spine_index, end_spine_index):
                         spine_node = spine_nodes[spine_index]
-                        _link = plane.create_link(superspine_node, spine_node)
+                        for link_nr_in_parallel_bundle in range(1, nr_parallel_links + 1):
+                            _link = plane.create_link(superspine_node, spine_node,
+                                                      link_nr_in_parallel_bundle)
 
-    def create_links_ew_multi_plane(self):
+    def create_links_ew_multi_plane(self, nr_parallel_links):
         # Plane-to-plane east-west links within superspine (multi-plane)
         # Create each inter-plane loop.
         for inter_plane_loop_nr in range(0, self.nr_inter_plane_loops()):
@@ -1486,7 +1515,9 @@ class Fabric:
                 (from_superspine, from_plane) = from_superspine_and_plane
                 to_superspine_and_plane = superspines_and_planes[(index + 1) % loop_length]
                 (to_superspine, _to_plane) = to_superspine_and_plane
-                _link = from_plane.create_link(from_superspine, to_superspine, inter_plane_loop_nr)
+                for link_nr_in_parallel_bundle in range(1, nr_parallel_links + 1):
+                    _link = from_plane.create_link(from_superspine, to_superspine,
+                                                   link_nr_in_parallel_bundle, inter_plane_loop_nr)
             # Swap the last two interfaces the first superspine in the loop for nicer visual
             first_superspine = superspines_and_planes[0][0]
             interfaces = first_superspine.interfaces
