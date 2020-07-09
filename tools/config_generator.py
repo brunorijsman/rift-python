@@ -98,6 +98,9 @@ LEAF_LAYER = 0
 SPINE_LAYER = 1
 SUPERSPINE_LAYER = 2
 
+LINK_TYPE_NORTH_SOUTH = 1
+LINK_TYPE_INTER_PLANE = 2
+
 GLOBAL_X_OFFSET = 10
 GLOBAL_Y_OFFSET = 10
 SUPERSPINE_TO_POD_Y_INTERVAL = 140
@@ -227,8 +230,9 @@ class Group:
         self.nodes_by_layer[layer].append(node)
         return node
 
-    def create_link(self, from_node, to_node, link_nr_in_parallel_bundle, inter_plane_loop_nr=None):
-        link = Link(from_node, to_node, link_nr_in_parallel_bundle, inter_plane_loop_nr)
+    def create_link(self, from_node, to_node, link_type, link_nr_in_parallel_bundle,
+                    inter_plane_loop_nr=None):
+        link = Link(from_node, to_node, link_type, link_nr_in_parallel_bundle, inter_plane_loop_nr)
         self.links.append(link)
         return link
 
@@ -390,7 +394,8 @@ class Pod(Group):
         for leaf_node in self.leaf_nodes:
             for spine_node in self.spine_nodes:
                 for link_nr_in_parallel_bundle in range(1, nr_parallel_links + 1):
-                    _link = self.create_link(leaf_node, spine_node, link_nr_in_parallel_bundle)
+                    _link = self.create_link(leaf_node, spine_node, LINK_TYPE_NORTH_SOUTH,
+                                             link_nr_in_parallel_bundle)
 
 class Plane(Group):
 
@@ -494,9 +499,9 @@ class Node:
             self.ipv4_prefixes.append(prefix)
             self.lo_addresses.append(address)
 
-    def create_interface(self):
+    def create_interface(self, link):
         node_intf_id = len(self.interfaces) + 1
-        interface = Interface(self, node_intf_id)
+        interface = Interface(self, node_intf_id, link)
         self.interfaces.append(interface)
         return interface
 
@@ -504,13 +509,44 @@ class Node:
         # Of all the interfaces on the node in the same direction as the given interface, what
         # is the index of the interface? Is it the 0th, the 1st, the 2nd, etc. interface in that
         # particular direction? Note that the index is zero-based.
+        if interface.link.link_type == LINK_TYPE_NORTH_SOUTH:
+            return self.north_south_interface_dir_index(interface)
+        if interface.link.link_type == LINK_TYPE_INTER_PLANE:
+            return self.inter_plane_interface_dir_index(interface)
+        assert False
+        return None
+
+    def north_south_interface_dir_index(self, interface):
         index = 0
         for check_interface in self.interfaces:
             if check_interface == interface:
                 return index
             if check_interface.direction == interface.direction:
                 index += 1
+        assert False
         return None
+
+    def inter_plane_interface_goes_east(self, interface):
+        assert interface.node == self
+        my_group_id = self.group.class_group_id
+        peer_group_id = interface.peer_intf.node.group.class_group_id
+        goes_east = my_group_id < peer_group_id
+        return goes_east
+
+    def inter_plane_interface_dir_index(self, interface):
+        links_config = META_CONFIG.get('inter-plane-links', {})
+        nr_parallel_links = links_config.get('nr-parallel-links', DEFAULT_NR_PARALLEL_LINKS)
+        offset = interface.link.link_nr_in_parallel_bundle - 1
+        right_half = self.inter_plane_interface_goes_east(interface)
+        if interface.link.is_interplane_last_to_first():
+            right_half = not right_half
+        if right_half:
+            index = nr_parallel_links                   # Start on right half of node
+            index += nr_parallel_links - offset - 1     # Links in bundle go right to left
+        else:
+            index = 0                                   # Start on left half of node
+            index += offset                             # Links in bundle go left to right
+        return index
 
     def interface_dir_count(self, direction):
         # How many interfaces in the given direction does this node have?
@@ -1203,8 +1239,9 @@ class Interface:
 
     next_global_intf_id = 1
 
-    def __init__(self, node, node_intf_id):
+    def __init__(self, node, node_intf_id, link):
         self.node = node
+        self.link = link
         self.global_intf_id = Interface.next_global_intf_id       # Globally unique ID for interface
         Interface.next_global_intf_id += 1
         self.node_intf_id = node_intf_id   # ID for interface, only unique within scope of interface
@@ -1277,19 +1314,28 @@ class Interface:
 
 class Link:
 
-    def __init__(self, node1, node2, link_nr_in_parallel_bundle, inter_plane_loop_nr=None):
+    def __init__(self, node1, node2, link_type, link_nr_in_parallel_bundle,
+                 inter_plane_loop_nr=None):
         self.node1 = node1
         self.node2 = node2
+        self.link_type = link_type
         self.link_nr_in_parallel_bundle = link_nr_in_parallel_bundle
         self.east_west = node1.layer == node2.layer
         self.inter_plane_loop_nr = inter_plane_loop_nr
-        self.intf1 = node1.create_interface()
-        self.intf2 = node2.create_interface()
+        self.intf1 = node1.create_interface(self)
+        self.intf2 = node2.create_interface(self)
         self.intf1.set_peer_intf(self.intf2)
         self.intf2.set_peer_intf(self.intf1)
 
     def description(self):
         return self.intf1.name() + "-" + self.intf2.name()
+
+    def is_interplane_last_to_first(self):
+        assert self.link_type == LINK_TYPE_INTER_PLANE
+        from_group_id = self.node1.group.class_group_id
+        to_group_id = self.node2.group.class_group_id
+        last_to_first = from_group_id > to_group_id
+        return last_to_first
 
     def write_netns_start_scr_to_file(self, file):
         veth1_name = self.intf1.veth_name()
@@ -1332,10 +1378,12 @@ class Link:
         intf_y_pos = self.intf1.y_pos()
         loop_y_spacer = self.inter_plane_loop_nr * (INTER_PLANE_Y_LOOP_SPACER * nr_parallel_links)
         loop_y_spacer += (nr_parallel_links - 1) * INTER_PLANE_Y_INTERLINE_SPACER
-        in_bundle_offset = (self.link_nr_in_parallel_bundle - 1) * INTER_PLANE_Y_INTERLINE_SPACER
-        from_group_id = self.node1.group.class_group_id
-        to_group_id = self.node2.group.class_group_id
-        last_to_first = from_group_id > to_group_id
+        last_to_first = self.is_interplane_last_to_first()
+        if last_to_first:
+            in_bundle_offset = nr_parallel_links - self.link_nr_in_parallel_bundle
+        else:
+            in_bundle_offset = self.link_nr_in_parallel_bundle - 1
+        in_bundle_offset *= INTER_PLANE_Y_INTERLINE_SPACER
         line_y_spacer = INTER_PLANE_Y_INTERLINE_SPACER * nr_parallel_links if last_to_first else 0
         line_y_pos = (intf_y_pos
                       - INTER_PLANE_Y_FIRST_LINE_SPACER    # Up to top of superspine box
@@ -1486,6 +1534,7 @@ class Fabric:
                 for spine_node in pod.nodes_by_layer[SPINE_LAYER]:
                     for link_nr_in_parallel_bundle in range(1, nr_parallel_links + 1):
                         _link = plane.create_link(superspine_node, spine_node,
+                                                  LINK_TYPE_NORTH_SOUTH,
                                                   link_nr_in_parallel_bundle)
 
     def create_spine_super_links_mp(self, nr_parallel_links):
@@ -1501,6 +1550,7 @@ class Fabric:
                         spine_node = spine_nodes[spine_index]
                         for link_nr_in_parallel_bundle in range(1, nr_parallel_links + 1):
                             _link = plane.create_link(superspine_node, spine_node,
+                                                      LINK_TYPE_NORTH_SOUTH,
                                                       link_nr_in_parallel_bundle)
 
     def create_links_ew_multi_plane(self, nr_parallel_links):
@@ -1517,6 +1567,7 @@ class Fabric:
                 (to_superspine, _to_plane) = to_superspine_and_plane
                 for link_nr_in_parallel_bundle in range(1, nr_parallel_links + 1):
                     _link = from_plane.create_link(from_superspine, to_superspine,
+                                                   LINK_TYPE_INTER_PLANE,
                                                    link_nr_in_parallel_bundle, inter_plane_loop_nr)
             # Swap the last two interfaces the first superspine in the loop for nicer visual
             first_superspine = superspines_and_planes[0][0]
