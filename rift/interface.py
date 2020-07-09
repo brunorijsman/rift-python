@@ -871,7 +871,6 @@ class Interface:
 
     def __init__(self, parent_node, config):
         # pylint:disable=too-many-statements
-        # TODO: process bandwidth field in config
         self.node = parent_node
         self._engine = parent_node.engine
         self.name = config['name']
@@ -882,9 +881,21 @@ class Interface:
         else:
             self.physical_interface_name = self.name
         # TODO: Make the default metric/bandwidth depend on the speed of the interface
-        # TODO: The default is wrong -- that is the default for bandwidth
         self._metric = self.get_config_attribute(config, 'metric',
-                                                 common.constants.default_bandwidth)
+                                                 common.constants.default_distance)
+        self._configured_bandwith = self.get_config_attribute(config, 'bandwidth', None)
+        # The following method for determining the speed of an interface only works on Linux
+        try:
+            with open("/sys/class/net/{}/speed".format(self.name)) as speed_file:
+                self._discovered_bandwith = int(speed_file.readline())
+        except (OSError, ValueError):
+            self._discovered_bandwith = None
+        if self._configured_bandwith is not None:
+            self._bandwith = self._configured_bandwith
+        elif self._discovered_bandwith is not None:
+            self._bandwith = self._discovered_bandwith
+        else:
+            self._bandwith = common.constants.default_bandwidth
         self._advertised_name = self.generate_advertised_name()
         self._ipv4_address = utils.interface_ipv4_address(self.physical_interface_name)
         self._ipv6_address = utils.interface_ipv6_address(self.physical_interface_name)
@@ -1650,6 +1661,7 @@ class Interface:
             ["Interface IPv6 Address", self._ipv6_address],
             ["Interface Index", self._interface_index],
             ["Metric", self._metric],
+            ["Bandwidth", str(self._bandwith) + " Mbpps"],
             ["LIE Receive IPv4 Multicast Address", self._rx_lie_ipv4_mcast_address],
             ["LIE Receive IPv6 Multicast Address", self._rx_lie_ipv6_mcast_address],
             ["LIE Receive Port", self._rx_lie_port],
