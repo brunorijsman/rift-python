@@ -1,0 +1,11 @@
+nr-pods: 3
+nr-leaf-nodes-per-pod: 3
+nr-spine-nodes-per-pod: 3
+nr-superspine-nodes: 6
+nr-planes: 3
+leaf-spine-links:
+    nr-parallel-links: 4
+spine-superspine-links:
+    nr-parallel-links: 3
+inter-plane-links:
+    nr-parallel-links: 2
