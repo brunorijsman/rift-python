@@ -1438,8 +1438,8 @@ class Fabric:
         links_config = META_CONFIG.get('inter-plane-links', {})
         nr_ew_parallel_links = links_config.get('nr-parallel-links', DEFAULT_NR_PARALLEL_LINKS)
         if self.nr_planes > 1 and self.inter_plane_east_west_links:
-            total_y_spacer_per_loop = (INTER_PLANE_Y_LOOP_SPACER + 
-                                    INTER_PLANE_Y_INTERLINE_SPACER * nr_ew_parallel_links)
+            total_y_spacer_per_loop = (INTER_PLANE_Y_LOOP_SPACER +
+                                       INTER_PLANE_Y_INTERLINE_SPACER * nr_ew_parallel_links)
             pods_y_pos += (INTER_PLANE_Y_FIRST_LINE_SPACER
                            + self.nr_inter_plane_loops() * total_y_spacer_per_loop)
         # Only generate superspine nodes and planes if there is more than one pod
