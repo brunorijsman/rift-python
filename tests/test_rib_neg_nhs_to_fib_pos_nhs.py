@@ -73,8 +73,8 @@ def run_before_every_test_case():
 
 def test_default_route_only():
     # Test slide 55 in Pascal's "negative disaggregation" presentation:
-    # Just a default route with positive next-hops; there are no more specific routes
     rt = mkrt()
+    # Just a default route with positive next-hops; there are no more specific routes
     default_prefix = "0.0.0.0/0"
     default_next_hops = [mknh_pos("if0", "10.0.0.1"),
                          mknh_pos("if1", "10.0.0.2"),
@@ -87,8 +87,8 @@ def test_default_route_only():
 
 def test_parent_with_negative_child():
     # Test slide 56 in Pascal's "negative disaggregation" presentation:
-    # Start with a parent default route with some positive next-hops
     rt = mkrt()
+    # Start with a parent default route with some positive next-hops
     default_prefix = "0.0.0.0/0"
     default_next_hops = [mknh_pos("if0", "10.0.0.1"),
                          mknh_pos("if1", "10.0.0.2"),
@@ -114,8 +114,8 @@ def test_parent_with_negative_child():
 
 def test_parent_with_two_negative_children():
     # Test slide 57 in Pascal's "negative disaggregation" presentation:
-    # Start a parent default route with some positive nexthops
     rt = mkrt()
+    # Start a parent default route with some positive nexthops
     default_prefix = "0.0.0.0/0"
     default_next_hops = [mknh_pos("if0", "10.0.0.1"),
                          mknh_pos("if1", "10.0.0.2"),
@@ -153,8 +153,8 @@ def test_remove_pos_next_hop_from_parent_update_child():
     # Test slide 58 in Pascal's "negative disaggregation" presentation.
     # Delete a nexthop from a parent route, and check that the computed complementary nexthops in
     # the child routes are properly updated.
-    # Create a parent default route with positive nexthops
     rt = mkrt()
+    # Create a parent default route with positive nexthops
     default_prefix = "0.0.0.0/0"
     default_next_hops = [mknh_pos("if0", "10.0.0.1"),
                          mknh_pos("if1", "10.0.0.2"),
@@ -217,8 +217,8 @@ def test_remove_pos_next_hop_from_parent_update_child():
 
 def test_parent_with_negative_child_and_negative_grandchild():
     # Test slides 59 in Pascal's "negative disaggregation" presentation.
-    # Start with a parent default route with some positive next-hops
     rt = mkrt()
+    # Start with a parent default route with some positive next-hops
     default_prefix = "0.0.0.0/0"
     default_next_hops = [mknh_pos("if0", "10.0.0.1"),
                          mknh_pos("if1", "10.0.0.2"),
@@ -254,8 +254,8 @@ def test_parent_with_negative_child_and_negative_grandchild():
 
 def test_remove_pos_next_hop_from_parent_update_grand_child():
     # Test slide 60 in Pascal's "negative disaggregation" presentation.
-    # Start with a parent default route with some positive next-hops
     rt = mkrt()
+    # Start with a parent default route with some positive next-hops
     default_prefix = "0.0.0.0/0"
     default_next_hops = [mknh_pos("if0", "10.0.0.1"),
                          mknh_pos("if1", "10.0.0.2"),
@@ -307,8 +307,8 @@ def test_remove_pos_next_hop_from_parent_update_grand_child():
 
 def test_recover_default_next_hop_with_subnet_disagg():
     # Slide 60 and recover of the failed next hops
-    # Start with a parent default route with some positive next-hops
     rt = mkrt()
+    # Start with a parent default route with some positive next-hops
     default_prefix = "0.0.0.0/0"
     default_next_hops = [mknh_pos("if0", "10.0.0.1"),
                          mknh_pos("if1", "10.0.0.2"),
@@ -368,8 +368,8 @@ def test_recover_default_next_hop_with_subnet_disagg():
 
 def test_remove_default_route():
     # Test that the child routes are removed from the FIB when the parent route is removed
-    # Start with a parent default route with some positive next-hops
     rt = mkrt()
+    # Start with a parent default route with some positive next-hops
     default_prefix = "0.0.0.0/0"
     default_next_hops = [mknh_pos("if0", "10.0.0.1"),
                          mknh_pos("if1", "10.0.0.2"),
@@ -419,8 +419,8 @@ def test_remove_default_route():
 def test_discard_child_from_fib_when_no_next_hops_left():
     # Tests if a route becomes unreachable (i.e. becomes a discard route) after all next hops are
     # negatively disaggregated
-    # Start with a parent default route with some positive next-hops
     rt = mkrt()
+    # Start with a parent default route with some positive next-hops
     default_prefix = "0.0.0.0/0"
     default_next_hops = [mknh_pos("if0", "10.0.0.1"),
                          mknh_pos("if1", "10.0.0.2"),
@@ -448,8 +448,8 @@ def test_discard_child_from_fib_when_no_next_hops_left():
 
 def test_restore_child_from_to_when_neg_next_hop_removed():
     # Tests if an unreachable route becomes reachable after a negative disaggregation is removed
-    # Start with a parent default route with some positive next-hops
     rt = mkrt()
+    # Start with a parent default route with some positive next-hops
     default_prefix = "0.0.0.0/0"
     default_next_hops = [mknh_pos("if0", "10.0.0.1"),
                          mknh_pos("if1", "10.0.0.2"),
@@ -488,8 +488,8 @@ def test_restore_child_from_to_when_neg_next_hop_removed():
 def test_remove_grand_child_from_fib_when_no_next_hops_left_due_to_inheritance():
     # Test that a grand-child route is removed from the FIB when it has no next-hops left because
     # the child route (i.e. the parent of the grand-child route) removed all next-hops.
-    # Start with a parent default route with some positive next-hops
     rt = mkrt()
+    # Start with a parent default route with some positive next-hops
     default_prefix = "0.0.0.0/0"
     default_next_hops = [mknh_pos("if0", "10.0.0.1"),
                          mknh_pos("if1", "10.0.0.2"),
@@ -532,8 +532,8 @@ def test_keep_grand_child_in_fib_extra_positive_next_hop():
     # - A child route removes all of the next-hops with negative next-hops
     # - The grand-child route adds a new positive next-hops, completely separate from the ones
     #   that the child and parent used.
-    # Start with a parent default route with some positive next-hops
     rt = mkrt()
+    # Start with a parent default route with some positive next-hops
     default_prefix = "0.0.0.0/0"
     default_next_hops = [mknh_pos("if0", "10.0.0.1"),
                          mknh_pos("if1", "10.0.0.2"),
@@ -574,8 +574,8 @@ def test_keep_grand_child_in_fib_replace_positive_next_hop():
     # - A child route removes all of the next-hops with negative next-hops
     # - The grand-child route puts one of the removed next-hops explicitly back with a positive
     #   next-hop.
-    # Start with a parent default route with some positive next-hops
     rt = mkrt()
+    # Start with a parent default route with some positive next-hops
     default_prefix = "0.0.0.0/0"
     default_next_hops = [mknh_pos("if0", "10.0.0.1"),
                          mknh_pos("if1", "10.0.0.2"),
@@ -614,8 +614,8 @@ def test_add_two_parent_routes_same_destination_different_owners():
     # Add two parent routes with different owners to the same destination; test that the
     # south-SPF parent route is preferred and used by children for negative to positive next-hop
     # conversion.
-    # Add a north-SPF parent default route with some positive next-hops
     rt = mkrt()
+    # Add a north-SPF parent default route with some positive next-hops
     default_prefix = "0.0.0.0/0"
     north_spf_default_next_hops = [mknh_pos("if0", "10.0.0.1"),
                                    mknh_pos("if1", "10.0.0.2"),
@@ -663,8 +663,8 @@ def test_add_two_child_routes_same_destination_different_owners():
     # Add two child routes with different owners to the same destination. Test that the
     # south-SPF child route is preferred. Test that the parent FIB route is used, even if the parent
     # FIB route came from a north-SPF RIB route.
-    # Add a north-SPF parent default route with some positive next-hops
     rt = mkrt()
+    # Add a north-SPF parent default route with some positive next-hops
     default_prefix = "0.0.0.0/0"
     north_spf_default_next_hops = [mknh_pos("if0", "10.0.0.1"),
                                    mknh_pos("if1", "10.0.0.2"),
@@ -699,8 +699,8 @@ def test_superfluous_positive_next_hop():
     # Test that installation of a superfluous route in the FIB is prevented when the child's FIB
     # next-hops are the same as the parent's next-hops because.
     # Specific scenario: the child has the exact same positive next-hops as the parent.
-    # Start with a parent default route with some positive next-hops
     rt = mkrt()
+    # Start with a parent default route with some positive next-hops
     default_prefix = "0.0.0.0/0"
     default_next_hops = [mknh_pos("if0", "10.0.0.1"),
                          mknh_pos("if1", "10.0.0.2"),
@@ -732,8 +732,8 @@ def test_superfluous_negative_next_hop():
     # next-hops are the same as the parent's next-hops because.
     # Specific scenario: the child has negative next-hops that don't actually remove any next-hops
     # from the set of positive next-hops of the parent.
-    # Start with a parent default route with some positive next-hops
     rt = mkrt()
+    # Start with a parent default route with some positive next-hops
     default_prefix = "0.0.0.0/0"
     default_next_hops = [mknh_pos("if0", "10.0.0.1"),
                          mknh_pos("if1", "10.0.0.2"),
@@ -778,8 +778,8 @@ def test_superfluous_discard_parent_also_discard():
     # next-hops are the same as the parent's next-hops because.
     # Specific scenario: a child ends up with a discard route, but its parent also is a discard
     # route
-    # Start with a parent default route with some positive next-hops
     rt = mkrt()
+    # Start with a parent default route with some positive next-hops
     default_prefix = "0.0.0.0/0"
     default_next_hops = [mknh_pos("if0", "10.0.0.1"),
                          mknh_pos("if1", "10.0.0.2"),
@@ -822,8 +822,8 @@ def test_superfluous_discard_no_parent():
     # Test that installation of a superfluous route in the FIB is prevented when the child's FIB
     # next-hops are the same as the parent's next-hops because.
     # Specific scenario: the child ends up with a discard route, but there is no parent
-    # Create a so-called child route that only has some negative next-hops, but not parent route
     rt = mkrt()
+    # Create a so-called child route that only has some negative next-hops, but not parent route
     child_prefix = "10.0.0.0/16"
     child_rib_next_hops = [mknh_neg("if0", "10.0.0.1"),
                            mknh_neg("if1", "10.0.0.2")]
@@ -848,189 +848,45 @@ def test_superfluous_discard_no_parent():
                            mknh_pos("if3", "10.0.0.4")]
     check_fib_route(rt, child_prefix, child_fib_next_hops)
 
-# # Deep nesting of more specific routes: parent, child, grand child, grand-grand child, ...
-# def test_prop_deep_nesting():
-#     add_missing_methods_to_thrift()
-#     rt = mkrt()
-#     # Default route
-#     new_default_next_hops = [mknh("if0", "10.0.0.1"), mknh("if1", "10.0.0.2"),
-#                              mknh("if2", "10.0.0.3"), mknh("if3", "10.0.0.4"),
-#                              mknh("if4", "10.0.0.5")]
-#     new_default_route = mkr(DEFAULT_PREFIX, new_default_next_hops)
-#     rt.put_route(new_default_route)
-#     # Child route
-#     child_prefix = '1.0.0.0/8'
-#     child_route = mkr(child_prefix, [], [mknh("if0", "10.0.0.1")])
-#     rt.put_route(child_route)
-#     # Grand child route
-#     g_child_prefix = '1.128.0.0/9'
-#     g_child_route = mkr(g_child_prefix, [], [mknh("if1", "10.0.0.2")])
-#     rt.put_route(g_child_route)
-#     # Grand-grand child route
-#     gg_child_prefix = '1.192.0.0/10'
-#     gg_child_route = mkr(gg_child_prefix, [], [mknh("if2", "10.0.0.3")])
-#     rt.put_route(gg_child_route)
-#     # Grand-grand-grand child route
-#     ggg_child_prefix = '1.224.0.0/11'
-#     ggg_child_route = mkr(ggg_child_prefix, [], [mknh("if3", "10.0.0.4")])
-#     rt.put_route(ggg_child_route)
-#     # Grand-grand-grand-grand child route
-#     gggg_child_prefix = '1.240.0.0/12'
-#     gggg_child_route = mkr(gggg_child_prefix, [], [mknh("if4", "10.0.0.5")])
-#     rt.put_route(gggg_child_route)
-
-#     # Default route asserts
-#     assert rt.destinations.get(DEFAULT_PREFIX).best_route == new_default_route
-#     assert rt.destinations.get(DEFAULT_PREFIX).best_route.next_hops == \
-#            {mknh("if0", "10.0.0.1"), mknh("if1", "10.0.0.2"), mknh("if2", "10.0.0.3"),
-#             mknh("if3", "10.0.0.4"), mknh("if4", "10.0.0.5")}
-#     assert set(rt.fib.routes[mkp(DEFAULT_PREFIX)].next_hops) == new_default_route.next_hops
-#     # Child route asserts
-#     assert rt.destinations.get(child_prefix).best_route == child_route
-#     assert rt.destinations.get(child_prefix).best_route.next_hops == \
-#            {mknh("if1", "10.0.0.2"), mknh("if2", "10.0.0.3"), mknh("if3", "10.0.0.4"),
-#             mknh("if4", "10.0.0.5")}
-#     assert set(rt.fib.routes[mkp(child_prefix)].next_hops) == child_route.next_hops
-#     # Grand-child route asserts
-#     assert rt.destinations.get(g_child_prefix).best_route == g_child_route
-#     assert rt.destinations.get(g_child_prefix).best_route.next_hops == \
-#            {mknh("if2", "10.0.0.3"), mknh("if3", "10.0.0.4"), mknh("if4", "10.0.0.5")}
-#     assert set(rt.fib.routes[mkp(g_child_prefix)].next_hops) == g_child_route.next_hops
-#     # Grand-grand child route asserts
-#     assert rt.destinations.get(gg_child_prefix).best_route == gg_child_route
-#     assert rt.destinations.get(gg_child_prefix).best_route.next_hops == \
-#            {mknh("if3", "10.0.0.4"), mknh("if4", "10.0.0.5")}
-#     assert set(rt.fib.routes[mkp(gg_child_prefix)].next_hops) == gg_child_route.next_hops
-#     # Grand-grand-grand child route asserts
-#     assert rt.destinations.get(ggg_child_prefix).best_route == ggg_child_route
-#     assert rt.destinations.get(ggg_child_prefix).best_route.next_hops == {mknh("if4", "10.0.0.5")}
-#     assert set(rt.fib.routes[mkp(ggg_child_prefix)].next_hops) == ggg_child_route.next_hops
-#     # Grand-grand-grand-grand child route asserts
-#     assert rt.destinations.get(gggg_child_prefix).best_route == gggg_child_route
-#     assert rt.destinations.get(gggg_child_prefix).best_route.next_hops == set()
-#     assert set(rt.fib.routes[mkp(gggg_child_prefix)].next_hops) == gggg_child_route.next_hops
-
-#     # Delete if2 from default route
-#     new_default_route = mkr(DEFAULT_PREFIX, [mknh("if0", "10.0.0.1"), mknh("if1", "10.0.0.2"),
-#                                                 mknh("if3", "10.0.0.4"), mknh("if4", "10.0.0.5")])
-#     rt.put_route(new_default_route)
-
-#     # Default route asserts
-#     assert rt.destinations.get(DEFAULT_PREFIX).best_route == new_default_route
-#     assert rt.destinations.get(DEFAULT_PREFIX).best_route.next_hops == \
-#            {mknh("if0", "10.0.0.1"), mknh("if1", "10.0.0.2"),
-#             mknh("if3", "10.0.0.4"), mknh("if4", "10.0.0.5")}
-#     assert set(rt.fib.routes[mkp(DEFAULT_PREFIX)].next_hops) == new_default_route.next_hops
-#     # Child route asserts
-#     assert rt.destinations.get(child_prefix).best_route == child_route
-#     assert rt.destinations.get(child_prefix).best_route.next_hops == \
-#            {mknh("if1", "10.0.0.2"), mknh("if3", "10.0.0.4"), mknh("if4", "10.0.0.5")}
-#     assert set(rt.fib.routes[mkp(child_prefix)].next_hops) == child_route.next_hops
-#     # Grand-child route asserts
-#     assert rt.destinations.get(g_child_prefix).best_route == g_child_route
-#     assert rt.destinations.get(g_child_prefix).best_route.next_hops == \
-#            {mknh("if3", "10.0.0.4"), mknh("if4", "10.0.0.5")}
-#     assert set(rt.fib.routes[mkp(g_child_prefix)].next_hops) == g_child_route.next_hops
-#     # Grand-grand child route asserts
-#     assert rt.destinations.get(gg_child_prefix).best_route == gg_child_route
-#     assert rt.destinations.get(gg_child_prefix).best_route.next_hops == \
-#            {mknh("if3", "10.0.0.4"), mknh("if4", "10.0.0.5")}
-#     assert set(rt.fib.routes[mkp(gg_child_prefix)].next_hops) == gg_child_route.next_hops
-#     # Grand-grand-grand child route asserts
-#     assert rt.destinations.get(ggg_child_prefix).best_route == ggg_child_route
-#     assert rt.destinations.get(ggg_child_prefix).best_route.next_hops == {mknh("if4", "10.0.0.5")}
-#     assert set(rt.fib.routes[mkp(ggg_child_prefix)].next_hops) == ggg_child_route.next_hops
-#     # Grand-grand-grand-grand child route asserts
-#     assert rt.destinations.get(gggg_child_prefix).best_route == gggg_child_route
-#     assert rt.destinations.get(gggg_child_prefix).best_route.next_hops == set()
-#     assert set(rt.fib.routes[mkp(gggg_child_prefix)].next_hops) == gggg_child_route.next_hops
-
-#     rt.del_route(mkp(DEFAULT_PREFIX), S)
-#     # Default route asserts
-#     assert not rt.destinations.has_key(DEFAULT_PREFIX)
-#     # Child route asserts
-#     assert rt.destinations.get(child_prefix).best_route == child_route
-#     assert rt.destinations.get(child_prefix).best_route.next_hops == set()
-#     assert set(rt.fib.routes[mkp(child_prefix)].next_hops) == set()
-#     # Grand-child route asserts
-#     assert rt.destinations.get(g_child_prefix).best_route == g_child_route
-#     assert rt.destinations.get(g_child_prefix).best_route.next_hops == set()
-#     assert set(rt.fib.routes[mkp(g_child_prefix)].next_hops) == set()
-#     # Grand-grand child route asserts
-#     assert rt.destinations.get(gg_child_prefix).best_route == gg_child_route
-#     assert rt.destinations.get(gg_child_prefix).best_route.next_hops == set()
-#     assert set(rt.fib.routes[mkp(gg_child_prefix)].next_hops) == set()
-#     # Grand-grand-grand child route asserts
-#     assert rt.destinations.get(ggg_child_prefix).best_route == ggg_child_route
-#     assert rt.destinations.get(ggg_child_prefix).best_route.next_hops == set()
-#     assert set(rt.fib.routes[mkp(ggg_child_prefix)].next_hops) == set()
-#     # Grand-grand-grand-grand child route asserts
-#     assert rt.destinations.get(gggg_child_prefix).best_route == gggg_child_route
-#     assert rt.destinations.get(gggg_child_prefix).best_route.next_hops == set()
-#     assert set(rt.fib.routes[mkp(gggg_child_prefix)].next_hops) == set()
-
-#     rt.del_route(mkp(child_prefix), S)
-#     # Child route asserts
-#     assert not rt.destinations.has_key(child_prefix)
-#     # Grand-child route asserts
-#     assert rt.destinations.get(g_child_prefix).best_route == g_child_route
-#     assert rt.destinations.get(g_child_prefix).best_route.next_hops == set()
-#     assert set(rt.fib.routes[mkp(g_child_prefix)].next_hops) == set()
-#     # Grand-grand child route asserts
-#     assert rt.destinations.get(gg_child_prefix).best_route == gg_child_route
-#     assert rt.destinations.get(gg_child_prefix).best_route.next_hops == set()
-#     assert set(rt.fib.routes[mkp(gg_child_prefix)].next_hops) == set()
-#     # Grand-grand-grand child route asserts
-#     assert rt.destinations.get(ggg_child_prefix).best_route == ggg_child_route
-#     assert rt.destinations.get(ggg_child_prefix).best_route.next_hops == set()
-#     assert set(rt.fib.routes[mkp(ggg_child_prefix)].next_hops) == set()
-#     # Grand-grand-grand-grand child route asserts
-#     assert rt.destinations.get(gggg_child_prefix).best_route == gggg_child_route
-#     assert rt.destinations.get(gggg_child_prefix).best_route.next_hops == set()
-#     assert set(rt.fib.routes[mkp(gggg_child_prefix)].next_hops) == set()
-
-#     rt.del_route(mkp(g_child_prefix), S)
-#     # Grand-child route asserts
-#     assert not rt.destinations.has_key(g_child_prefix)
-#     # Grand-grand child route asserts
-#     assert rt.destinations.get(gg_child_prefix).best_route == gg_child_route
-#     assert rt.destinations.get(gg_child_prefix).best_route.next_hops == set()
-#     assert set(rt.fib.routes[mkp(gg_child_prefix)].next_hops) == set()
-#     # Grand-grand-grand child route asserts
-#     assert rt.destinations.get(ggg_child_prefix).best_route == ggg_child_route
-#     assert rt.destinations.get(ggg_child_prefix).best_route.next_hops == set()
-#     assert set(rt.fib.routes[mkp(ggg_child_prefix)].next_hops) == set()
-#     # Grand-grand-grand-grand child route asserts
-#     assert rt.destinations.get(gggg_child_prefix).best_route == gggg_child_route
-#     assert rt.destinations.get(gggg_child_prefix).best_route.next_hops == set()
-#     assert set(rt.fib.routes[mkp(gggg_child_prefix)].next_hops) == set()
-
-#     rt.del_route(mkp(gg_child_prefix), S)
-#     # Grand-child route asserts
-#     assert not rt.destinations.has_key(gg_child_prefix)
-#     # Grand-grand-grand child route asserts
-#     assert rt.destinations.get(ggg_child_prefix).best_route == ggg_child_route
-#     assert rt.destinations.get(ggg_child_prefix).best_route.next_hops == set()
-#     assert set(rt.fib.routes[mkp(ggg_child_prefix)].next_hops) == set()
-#     # Grand-grand-grand-grand child route asserts
-#     assert rt.destinations.get(gggg_child_prefix).best_route == gggg_child_route
-#     assert rt.destinations.get(gggg_child_prefix).best_route.next_hops == set()
-#     assert set(rt.fib.routes[mkp(gggg_child_prefix)].next_hops) == set()
-
-#     rt.del_route(mkp(ggg_child_prefix), S)
-#     # Grand-child route asserts
-#     assert not rt.destinations.has_key(ggg_child_prefix)
-#     # Grand-grand-grand-grand child route asserts
-#     assert rt.destinations.get(gggg_child_prefix).best_route == gggg_child_route
-#     assert rt.destinations.get(gggg_child_prefix).best_route.next_hops == set()
-#     assert set(rt.fib.routes[mkp(gggg_child_prefix)].next_hops) == set()
-
-#     rt.del_route(mkp(gggg_child_prefix), S)
-#     # Grand-grand-grand-grand child route asserts
-#     assert not rt.destinations.has_key(gggg_child_prefix)
-
-#     assert not rt.destinations.keys()
-#     assert not rt.fib.routes.keys()
+def test_prop_deep_nesting():
+    # Deep nesting of more specific routes: parent, child, grand child, grand-grand child, ...
+    #
+    #   default         0.0.0.0/0 -> if0, if1, if2, if3, if4   [if0, if1, if2, if3, if4]
+    #                    |
+    #   child            +--- 1.0.0.0/8 -> ~if1   [if0, if2, if3, if4]
+    #                          |
+    #   g_child                +--- 1.128.0.0/9 -> ~if0, if5   [if2, if3, if4, if5]
+    #                                |
+    #   gg_child                     +--- 1.192.0.0/10 -> if1, ~if3   [if1, if2, if4, if5]
+    #                                      |
+    #   ggg_child                          +--- 1.224.0.0/11 -> ~if1, ~if5   [if2, if4]
+    #                                            |
+    #   gggg_child                               +--- 1.240.0.0/12 -> if3   [if3]
+    #
+    rt = mkrt()
+    # Add default route
+    default_prefix = "0.0.0.0/0"
+    default_rib_next_hops = [mknh_pos("if0", "10.0.0.1"),
+                             mknh_pos("if1", "10.0.0.2"),
+                             mknh_pos("if2", "10.0.0.3"),
+                             mknh_pos("if3", "10.0.0.4"),
+                             mknh_pos("if4", "10.0.0.5")]
+    default_route = mkr(default_prefix, default_rib_next_hops)
+    rt.put_route(default_route)
+    check_rib_route(rt, default_prefix, default_rib_next_hops)
+    default_fib_next_hops = default_rib_next_hops
+    check_fib_route(rt, default_prefix, default_fib_next_hops)
+    # Add child
+    child_prefix = "1.0.0.0/8"
+    child_rib_next_hops = [mknh_neg("if0", "10.0.0.1")]
+    child_route = mkr(child_prefix, child_rib_next_hops)
+    rt.put_route(child_route)
+    check_rib_route(rt, child_prefix, child_rib_next_hops)
+    child_fib_next_hops = [mknh_pos("if1", "10.0.0.2"),
+                           mknh_pos("if2", "10.0.0.3"),
+                           mknh_pos("if3", "10.0.0.4"),
+                           mknh_pos("if4", "10.0.0.5")]
+    check_fib_route(rt, child_prefix, child_fib_next_hops)
 
 
 # def test_prop_nesting_with_siblings():
