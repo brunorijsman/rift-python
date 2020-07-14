@@ -26,8 +26,7 @@ class FibRoute:
         interfaces = [nh.interface if nh.interface is not None else "" for nh in self.next_hops]
         addresses = [nh.address if nh.address is not None else "" for nh in self.next_hops]
         weights = [nh.weight if nh.weight is not None else "" for nh in self.next_hops]
-        return [ip_prefix_str(self.prefix), 
+        return [ip_prefix_str(self.prefix),
                 interfaces,
                 addresses,
                 weights]
-
