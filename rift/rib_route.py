@@ -1,99 +1,61 @@
-import common
-import constants
-import packet_common
+from constants import owner_str
+from packet_common import ip_prefix_str
 
 
 class RibRoute:
     """
-    An object that represents a prefix route for a Destination in the RIB.
-    It keeps track of positive and negative next hops and it also computes the real next hops
-    to install in the kernel.
-    Attributes of this class are:
-        - prefix: prefix associated to this route
-        - owner: owner of this route
-        - destination: Destination object which contains this route
-        - stale: boolean that marks the route as stale
-        - positive_next_hops: set of positive next hops for the prefix
-        - negative_next_hops: set of negative next hops for the prefix
+    A route in the routing information base (RIB).
     """
 
-    def __init__(self, prefix, owner, positive_next_hops, negative_next_hops=None):
-        assert isinstance(prefix, common.ttypes.IPPrefixType)
+    def __init__(self, prefix, owner, next_hops):
         self.prefix = prefix
         self.owner = owner
-        self.destination = None
+        self.destination = None   # The destination is set in Destination.put_route ###@@@
         self.stale = False
+        self.next_hops = next_hops
 
-        self.positive_next_hops = set(positive_next_hops)
-        self.negative_next_hops = set(negative_next_hops) if negative_next_hops else set()
+    def compute_fib_next_hops(self):
+        fib_next_hops = []
+        for rib_next_hop in self.next_hops:
+            if rib_next_hop.negative:
+                # Negative RIB next-hop; compute complementary positive next-hops for FIB
+                parent_destination = self.destination.parent_destination()
+                if parent_destination is None:
+                    continue
+                parent_route = parent_destination.best_route()
+                parent_fib_next_hops = parent_route.compute_fib_next_hops()
+                for parent_fib_next_hop in parent_fib_next_hops:
+                    if (parent_fib_next_hop.interface != rib_next_hop.interface or
+                            parent_fib_next_hop.address != rib_next_hop.address):
+                        fib_next_hops.append(parent_fib_next_hop)
+            else:
+                # Positive RIB next-hop; keep as-is in FIB
+                fib_next_hops.append(rib_next_hop)
+        ###@@@ TODO: This is where we should do the bandwidth adjustment for the weights
+        return fib_next_hops
 
-    @property
-    def next_hops(self):
-        """
-        :return: the computed next hops for the route ready to be installed in the kernel.
-        """
-        return self._compute_next_hops()
-
-    def _compute_next_hops(self):
-        """
-        Computes the the real next hops set for this prefix.
-        Real next hops set is the set of next hops that can be used to reach this prefix. (the ones
-        to be installed in the kernel)
-        :return: the set of real next hops
-        """
-        # The route does not have any negative next hops; there is no disaggregation to be done.
-        if not self.negative_next_hops:
-            return self.positive_next_hops
-
-        # Get the parent prefix destination object from the RIB
-        # If there are no parents for the current prefix, then return the positive next hops set.
-        # This only occurs when the prefix is the default (0.0.0.0/0)
-        parent_prefix_dest = self.destination.parent_prefix_dest
-        if parent_prefix_dest is None:
-            return self.positive_next_hops
-
-        # Compute the complementary next hops of the negative next hops.
-        complementary_next_hops = parent_prefix_dest.best_route.next_hops - self.negative_next_hops
-        return self.positive_next_hops.union(complementary_next_hops)
-
-    def _get_nexthops_sorted(self):
-        all_next_hops = []
-        for positive_next_hop in self.positive_next_hops:
-            all_next_hops.append((positive_next_hop, True))
-        for negative_next_hop in self.negative_next_hops:
-            all_next_hops.append((negative_next_hop, False))
-        all_next_hops.sort()
-        return all_next_hops
-
-    @staticmethod
-    def _nexthop_str(nexthop):
-        (address, is_positive) = nexthop
-        if is_positive:
-            return str(address)
-        else:
-            return "Negative " + str(address)
-
-    @staticmethod
-    def _all_nexthops_str(all_nexthops):
-        return ", ".join(map(RibRoute._nexthop_str, all_nexthops))
-
-    def __str__(self):
-        all_next_hops = self._get_nexthops_sorted()
-        return "%s: %s -> %s" % (constants.owner_str(self.owner),
-                                 packet_common.ip_prefix_str(self.prefix),
-                                 self._all_nexthops_str(all_next_hops))
+    def __repr__(self):
+        next_hops_str = ", ".join([str(next_hop) for next_hop in sorted(self.next_hops)])
+        return "%s: %s -> %s" % (owner_str(self.owner), ip_prefix_str(self.prefix), next_hops_str)
 
     @staticmethod
     def cli_summary_headers():
         return [
             "Prefix",
             "Owner",
-            "Next-hops"]
+            ["Next-hop", "Negative"],
+            ["Next-hop", "Interface"],
+            ["Next-hop", "Address"],
+            ["Next-hop", "Weight"]]
 
     def cli_summary_attributes(self):
-        all_next_hops = self._get_nexthops_sorted()
-        return [
-            packet_common.ip_prefix_str(self.prefix),
-            constants.owner_str(self.owner),
-            [self._nexthop_str(nexthop) for nexthop in all_next_hops]
-        ]
+        negatives = ["Negative" if nh.negative else "" for nh in self.next_hops]
+        interfaces = [nh.interface if nh.interface is not None else "" for nh in self.next_hops]
+        addresses = [nh.address if nh.address is not None else "" for nh in self.next_hops]
+        weights = [nh.weight if nh.weight is not None else "" for nh in self.next_hops]
+        return [ip_prefix_str(self.prefix), 
+                owner_str(self.owner),
+                negatives,
+                interfaces,
+                addresses,
+                weights]
