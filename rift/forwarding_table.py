@@ -38,7 +38,7 @@ class ForwardingTable:
     def del_route(self, prefix):
         # Returns True if the route was present in the table and False if not.
         assert_prefix_address_family(prefix, self.address_family)
-        if prefix not in self.routes:
+        if prefix not in self.fib_routes:
             self.debug("Attempted delete %s (not present)", prefix)
             return False
         self.debug("Delete %s", prefix)

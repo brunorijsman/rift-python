@@ -76,6 +76,8 @@ def check_rib_route(rt, prefix_str, exp_next_hops):
     assert sorted(best_rib_route.next_hops) == sorted(exp_next_hops)
 
 def check_rib_route_absent(rt, prefix_str):
+    if prefix_str in rt.destinations:
+        print("****", rt.destinations[prefix_str])
     assert prefix_str not in rt.destinations
 
 def check_fib_route(rt, prefix_str, exp_next_hops):
@@ -391,7 +393,7 @@ def test_recover_default_next_hop_with_subnet_disagg():
     check_fib_route(rt, default_prefix, default_next_hops)
 
 def test_remove_default_route():
-    # First create a parent default route with a child and grand-child, then remove the default.
+    # Test that the child routes are removed from the FIB when the parent route is removed
     # Start with a parent default route with some positive next-hops
     rt = mkrt()
     default_prefix = "0.0.0.0/0"
@@ -427,48 +429,17 @@ def test_remove_default_route():
     # Go back to the parent, and check it's next-hops haven't changed
     check_fib_route(rt, default_prefix, default_next_hops)
     # Delete the default route
-    rt.del_route(default_prefix, OWNER_S_SPF)
+    rt.del_route(mkp(default_prefix), OWNER_S_SPF)
     # Check all routes (parent, child, grand-child) are gone
-    check_rib_route_absent(default_prefix)
-    check_fib_route_absent(default_prefix)
-    check_rib_route_absent(child_prefix)
-    check_fib_route_absent(child_prefix)
-    check_rib_route_absent(grand_child_prefix)
-    check_fib_route_absent(grand_child_prefix)
+    check_rib_route_absent(rt, default_prefix)
+    check_fib_route_absent(rt, default_prefix)
+    check_rib_route(rt, child_prefix, child_rib_next_hops)
+    check_fib_route_absent(rt, child_prefix)
+    check_rib_route(rt, grand_child_prefix, grand_child_rib_next_hops)
+    check_fib_route_absent(rt, grand_child_prefix)
 
-
-
-
-
-
-    # rt = mkrt()
-    # default_route = mkr(DEFAULT_PREFIX, DEFAULT_NEXT_HOPS)
-    # rt.put_route(default_route)
-    # first_neg_route = mkr(FIRST_NEG_DISAGG_PREFIX, [], FIRST_NEG_DISAGG_NEXT_HOPS)
-    # rt.put_route(first_neg_route)
-    # subnet_disagg_route = mkr(SUBNET_NEG_DISAGG_PREFIX, [], SUBNET_NEG_DISAGG_NEXT_HOPS)
-    # rt.put_route(subnet_disagg_route)
-    # rt.del_route(mkp(DEFAULT_PREFIX), S)
-    # # Test for default
-    # assert not rt.destinations.has_key(DEFAULT_PREFIX)
-    # assert DEFAULT_PREFIX not in rt.fib.routes
-    # # Test for 10.0.0.0/16
-    # assert rt.destinations.get(FIRST_NEG_DISAGG_PREFIX).parent_prefix_dest is None
-    # assert rt.destinations.get(FIRST_NEG_DISAGG_PREFIX).best_route.positive_next_hops == set()
-    # assert rt.destinations.get(FIRST_NEG_DISAGG_PREFIX).best_route.negative_next_hops == \
-    #        {mknh('if0', "10.0.0.1")}
-    # assert rt.destinations.get(FIRST_NEG_DISAGG_PREFIX).best_route.next_hops == set()
-    # assert set(rt.fib.routes[mkp(FIRST_NEG_DISAGG_PREFIX)].next_hops) == set()
-    # # Test for 10.0.10.0/24
-    # assert rt.destinations.get(SUBNET_NEG_DISAGG_PREFIX).best_route.positive_next_hops == set()
-    # assert rt.destinations.get(SUBNET_NEG_DISAGG_PREFIX).best_route.negative_next_hops == \
-    #        {mknh("if1", "10.0.0.2")}
-    # assert rt.destinations.get(SUBNET_NEG_DISAGG_PREFIX).best_route.next_hops == set()
-    # assert set(rt.fib.routes[mkp(SUBNET_NEG_DISAGG_PREFIX)].next_hops) == set()
-
-
-# Tests if a route becomes unreachable after all next hops are negatively disaggregated
 def test_neg_disagg_fib_unreachable():
+    # Tests if a route becomes unreachable after all next hops are negatively disaggregated
     rt = mkrt()
     default_route = mkr(DEFAULT_PREFIX, DEFAULT_NEXT_HOPS)
     rt.put_route(default_route)
@@ -909,8 +880,7 @@ def test_prop_nesting_with_siblings():
     #
     #   1.0.0.0/8 -> S1, S2, S3, S4, S5, S6, S7
     #    |
-    #    +--- 1.1.0.0/16 ->
-    # S1
+    #    +--- 1.1.0.0/16 -> S1
     #    |     |
     #    |     +--- 1.1.1.0/24 -> ~S2
     #    |     |

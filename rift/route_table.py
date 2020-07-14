@@ -44,14 +44,19 @@ class RouteTable:
             destination = self.destinations.get(prefix_str)
         best_changed = destination.put_route(rib_route)
         if best_changed:
-            self.update_fib(prefix)
+            child_prefix_strs = self.destinations.children(prefix_str)
+            self.update_fib(prefix, child_prefix_strs)
 
     def del_route(self, prefix, owner):
         assert_prefix_address_family(prefix, self.address_family)
         prefix_str = ip_prefix_str(prefix)
         if self.destinations.has_key(prefix_str):
             destination = self.destinations.get(prefix_str)
+            child_prefix_strs = self.destinations.children(prefix_str)
             deleted, best_changed = destination.del_route(owner)
+            # If that was the last route for the destination, delete the destination itself
+            if not destination.rib_routes:
+                del self.destinations[prefix_str]
         else:
             deleted = False
             best_changed = False
@@ -60,10 +65,12 @@ class RouteTable:
         else:
             self.debug("Attempted delete %s (not present)", prefix)
         if best_changed:
-            self.update_fib(prefix)
+            self.update_fib(prefix, child_prefix_strs)
         return deleted
 
-    def update_fib(self, prefix):
+    def update_fib(self, prefix, child_prefix_strs):
+        # The child_prefix_strs have to be passed as a parameter, because they need to be collected
+        # before the parent is potentially deleted by the calling function.
         # Locate the best RIB route for the prefix (None if there is no RIB route for the prefix).
         prefix_str = ip_prefix_str(prefix)
         if self.destinations.has_key(prefix_str):
@@ -87,12 +94,12 @@ class RouteTable:
         # Recursively update the FIB for all child routes: their negative next-hops, if any, may
         # have to be recomputed if a parent route changed.
         prefix_str = str(prefix)
-        child_prefix_strs = self.destinations.children(prefix_str)
         for child_prefix_str in child_prefix_strs:
             child_destination = self.destinations[child_prefix_str]
             child_rib_route = child_destination.best_route()
             child_prefix = child_rib_route.prefix
-            self.update_fib(child_prefix)
+            grand_child_prefix_strs = self.destinations.children(child_prefix_str)
+            self.update_fib(child_prefix, grand_child_prefix_strs)
 
     def all_routes(self):
         for prefix in self.destinations:

@@ -13,6 +13,9 @@ class Destination:
         self.prefix = prefix
         self.rib_routes = []
 
+    def __repr__(self):
+        return str(self.__dict__)
+
     def parent_destination(self):
         parent_prefix = self.rib.destinations.parent(ip_prefix_str(self.prefix))
         if parent_prefix is None:
@@ -20,7 +23,9 @@ class Destination:
         return self.rib.destinations.get(parent_prefix)
 
     def best_route(self):
-        return self.rib_routes[0]
+        if self.rib_routes:
+            return self.rib_routes[0]
+        return None
 
     def get_route(self, owner):
         for rib_route in self.rib_routes:
