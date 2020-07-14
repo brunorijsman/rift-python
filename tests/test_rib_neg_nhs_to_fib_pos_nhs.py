@@ -415,7 +415,6 @@ def test_remove_default_route():
     check_fib_route(rt, grand_child_prefix, no_next_hops)
 
 def test_discard_child_from_fib_when_no_next_hops_left():
-    ###@@@
     # Tests if a route becomes unreachable (i.e. becomes a discard route) after all next hops are
     # negatively disaggregated
     # Start with a parent default route with some positive next-hops
@@ -662,52 +661,36 @@ def test_add_two_child_routes_same_destination_different_owners():
     # south-SPF child route is preferred. Test that the parent FIB route is used, even if the parent
     # FIB route came from a north-SPF RIB route.
     # Add a north-SPF parent default route with some positive next-hops
-    ###@@@
-    pass
-
-# # Add two destination with different owner to the same destination, test that the S_SPF route
-# # is preferred. Then add subnet destination and check that they inherits the preferred one
-# def test_add_two_route_same_destination_with_subnet():
-#     add_missing_methods_to_thrift()
-#     rt = mkrt()
-#     default_route = mkr(DEFAULT_PREFIX, N, DEFAULT_NEXT_HOPS)
-#     rt.put_route(default_route)
-#     best_default_route = mkr(DEFAULT_PREFIX,
-#                              [mknh("if0", "10.0.0.1"), mknh("if1", "10.0.0.2"),
-#                               mknh("if2", "10.0.0.3")])
-#     rt.put_route(best_default_route)
-#     first_neg_route = mkr(FIRST_NEG_DISAGG_PREFIX, [], FIRST_NEG_DISAGG_NEXT_HOPS)
-#     rt.put_route(first_neg_route)
-#     subnet_disagg_route = mkr(SUBNET_NEG_DISAGG_PREFIX, [], SUBNET_NEG_DISAGG_NEXT_HOPS)
-#     rt.put_route(subnet_disagg_route)
-#     # Test for default
-#     assert rt.destinations.get(DEFAULT_PREFIX).best_route == best_default_route
-#     assert rt.destinations.get(DEFAULT_PREFIX).best_route.positive_next_hops == \
-#            {mknh('if0', "10.0.0.1"), mknh("if1", "10.0.0.2"), mknh("if2", "10.0.0.3")}
-#     assert rt.destinations.get(DEFAULT_PREFIX).best_route.negative_next_hops == set()
-#     assert rt.destinations.get(DEFAULT_PREFIX).best_route.next_hops == \
-#            {mknh('if0', "10.0.0.1"), mknh("if1", "10.0.0.2"), mknh("if2", "10.0.0.3")}
-#     assert set(rt.fib.routes[mkp(DEFAULT_PREFIX)].next_hops) == best_default_route.next_hops
-#     # Test for 10.0.0.0/16
-#     assert rt.destinations.get(FIRST_NEG_DISAGG_PREFIX).best_route == first_neg_route
-#     assert rt.destinations.get(FIRST_NEG_DISAGG_PREFIX).best_route.positive_next_hops == set()
-#     assert rt.destinations.get(FIRST_NEG_DISAGG_PREFIX).best_route.negative_next_hops == \
-#            {mknh('if0', "10.0.0.1")}
-#     assert rt.destinations.get(FIRST_NEG_DISAGG_PREFIX).best_route.next_hops == {
-#         mknh("if1", "10.0.0.2"), mknh("if2", "10.0.0.3")}
-#     assert set(rt.fib.routes[mkp(FIRST_NEG_DISAGG_PREFIX)].next_hops) == \
-#            first_neg_route.next_hops
-#     # Test for 10.0.10.0/24
-#     assert rt.destinations.get(SUBNET_NEG_DISAGG_PREFIX).best_route == subnet_disagg_route
-#     assert rt.destinations.get(SUBNET_NEG_DISAGG_PREFIX).best_route.positive_next_hops == set()
-#     assert rt.destinations.get(SUBNET_NEG_DISAGG_PREFIX).best_route.negative_next_hops == \
-#            {mknh("if1", "10.0.0.2")}
-#     assert rt.destinations.get(SUBNET_NEG_DISAGG_PREFIX).best_route.next_hops == \
-#            {mknh("if2", "10.0.0.3")}
-#     assert set(
-#         rt.fib.routes[mkp(SUBNET_NEG_DISAGG_PREFIX)].next_hops) == subnet_disagg_route.next_hops
-
-
+    rt = mkrt()
+    default_prefix = "0.0.0.0/0"
+    north_spf_default_next_hops = [mknh_pos('if0', "10.0.0.1"),
+                                   mknh_pos("if1", "10.0.0.2"),
+                                   mknh_pos("if2", "10.0.0.3"),
+                                   mknh_pos("if3", "10.0.0.4")]
+    north_spf_default_route = mkr(default_prefix, north_spf_default_next_hops, OWNER_N_SPF)
+    rt.put_route(north_spf_default_route)
+    check_rib_route(rt, default_prefix, north_spf_default_next_hops, OWNER_N_SPF)
+    # Add a north-SPF child route with a negative next-hop
+    child_prefix = "10.0.0.0/16"
+    north_spf_child_rib_next_hops = [mknh_neg('if2', "10.0.0.3")]
+    child_route = mkr(child_prefix, north_spf_child_rib_next_hops, OWNER_N_SPF)
+    rt.put_route(child_route)
+    check_rib_route(rt, child_prefix, north_spf_child_rib_next_hops, OWNER_N_SPF)
+    # Check that RIB to FIB next-hop conversion uses the north-SPF parent and the north-SPF child
+    north_spf_child_fib_next_hops = [mknh_pos('if0', "10.0.0.1"),
+                                     mknh_pos("if1", "10.0.0.2"),
+                                     mknh_pos("if3", "10.0.0.4")]
+    check_fib_route(rt, child_prefix, north_spf_child_fib_next_hops)
+    # Add a south-SPF child route with a different negative next-hop
+    south_spf_child_rib_next_hops = [mknh_neg('if1', "10.0.0.2")]
+    child_route = mkr(child_prefix, south_spf_child_rib_next_hops, OWNER_S_SPF)
+    rt.put_route(child_route)
+    check_rib_route(rt, child_prefix, south_spf_child_rib_next_hops, OWNER_S_SPF)
+    # Check that RIB to FIB next-hop conversion uses the north-SPF parent and the north-SPF child
+    south_spf_child_fib_next_hops = [mknh_pos('if0', "10.0.0.1"),
+                                     mknh_pos("if2", "10.0.0.3"),
+                                     mknh_pos("if3", "10.0.0.4")]
+    check_fib_route(rt, child_prefix, south_spf_child_fib_next_hops)
 
 
 # # Test that a subnet X that becomes equal to its parent destination is removed and that its
