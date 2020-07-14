@@ -42,31 +42,6 @@ def mknh_neg(interface_str, address_str):
         address = make_ip_address(address_str)
     return NextHop(True, interface_str, address, None)
 
-DEFAULT_PREFIX = "0.0.0.0/0"
-DEFAULT_NEXT_HOPS = [mknh_pos('if0', "10.0.0.1"),
-                     mknh_pos("if1", "10.0.0.2"),
-                     mknh_pos("if2", "10.0.0.3"),
-                     mknh_pos("if3", "10.0.0.4")]
-
-FIRST_NEG_DISAGG_PREFIX = "10.0.0.0/16"
-FIRST_NEG_DISAGG_NEXT_HOPS = [mknh_neg('if0', "10.0.0.1")]
-
-SECOND_NEG_DISAGG_PREFIX = "10.1.0.0/16"
-SECOND_NEG_DISAGG_NEXT_HOPS = [mknh_neg("if3", "10.0.0.4")]
-
-SUBNET_NEG_DISAGG_PREFIX = "10.0.10.0/24"
-SUBNET_NEG_DISAGG_NEXT_HOPS = [mknh_neg("if1", "10.0.0.2")]
-
-UNREACHABLE_PREFIX = "200.0.0.0/16"
-UNREACHABLE_NEXT_HOPS = [mknh_pos('if0', "10.0.0.1"),
-                         mknh_pos("if1", "10.0.0.2"),
-                         mknh_pos("if2", "10.0.0.3"),
-                         mknh_pos("if3", "10.0.0.4")]
-
-LEAF_PREFIX = "20.0.0.0/16"
-LEAF_PREFIX_NEXT_HOPS = [mknh_neg("eth0", "10.0.1.1"),
-                         mknh_pos("eth1", "10.0.1.2")]
-
 def check_rib_route(rt, prefix_str, exp_next_hops):
     assert prefix_str in rt.destinations
     best_rib_route = rt.destinations[prefix_str].best_route()
@@ -76,8 +51,10 @@ def check_rib_route(rt, prefix_str, exp_next_hops):
     assert sorted(best_rib_route.next_hops) == sorted(exp_next_hops)
 
 def check_rib_route_absent(rt, prefix_str):
+    ###@@@
     if prefix_str in rt.destinations:
-        print("****", rt.destinations[prefix_str])
+        print("****RIB***", rt.destinations[prefix_str])
+    ###@@@
     assert prefix_str not in rt.destinations
 
 def check_fib_route(rt, prefix_str, exp_next_hops):
@@ -92,6 +69,10 @@ def check_fib_route(rt, prefix_str, exp_next_hops):
 def check_fib_route_absent(rt, prefix_str):
     prefix = make_ip_prefix(prefix_str)
     fib = rt.fib
+    ###@@@
+    if prefix in fib.fib_routes:
+        print("****FIB***", fib.fib_routes[prefix])
+    ###@@@
     assert prefix not in fib.fib_routes
 
 @fixture(autouse=True)
@@ -438,20 +419,33 @@ def test_remove_default_route():
     check_rib_route(rt, grand_child_prefix, grand_child_rib_next_hops)
     check_fib_route_absent(rt, grand_child_prefix)
 
-def test_neg_disagg_fib_unreachable():
+def test_remove_child_from_fib_when_no_next_hops_left():
     # Tests if a route becomes unreachable after all next hops are negatively disaggregated
+    # Start with a parent default route with some positive next-hops
     rt = mkrt()
-    default_route = mkr(DEFAULT_PREFIX, DEFAULT_NEXT_HOPS)
+    default_prefix = "0.0.0.0/0"
+    default_next_hops = [mknh_pos('if0', "10.0.0.1"),
+                         mknh_pos("if1", "10.0.0.2"),
+                         mknh_pos("if2", "10.0.0.3"),
+                         mknh_pos("if3", "10.0.0.4")]
+    default_route = mkr(default_prefix, default_next_hops)
     rt.put_route(default_route)
-    unreachable_route = mkr(UNREACHABLE_PREFIX, [], UNREACHABLE_NEXT_HOPS)
-    rt.put_route(unreachable_route)
-    assert rt.destinations.get(UNREACHABLE_PREFIX).best_route.positive_next_hops == set()
-    assert rt.destinations.get(UNREACHABLE_PREFIX).best_route.negative_next_hops == \
-           {mknh('if0', "10.0.0.1"), mknh("if1", "10.0.0.2"), mknh("if2", "10.0.0.3"),
-            mknh("if3", "10.0.0.4")}
-    assert rt.destinations.get(UNREACHABLE_PREFIX).best_route.next_hops == set()
-    assert set(rt.fib.routes[mkp(UNREACHABLE_PREFIX)].next_hops) == unreachable_route.next_hops
-
+    check_rib_route(rt, default_prefix, default_next_hops)
+    check_fib_route(rt, default_prefix, default_next_hops)
+    # Add a more specific child route with negative next-hops for all of the parent's positive
+    # next-hops.
+    child_prefix = "10.0.0.0/16"
+    child_rib_next_hops = [mknh_neg('if0', "10.0.0.1"),
+                           mknh_neg("if1", "10.0.0.2"),
+                           mknh_neg("if2", "10.0.0.3"),
+                           mknh_neg("if3", "10.0.0.4")]
+    child_route = mkr(child_prefix, child_rib_next_hops)
+    rt.put_route(child_route)
+    check_rib_route(rt, child_prefix, child_rib_next_hops)
+    # Check that the child route is absent from the FIB (even though it is present in the RIB)
+    check_fib_route_absent(rt, child_prefix)
+    # Go back to the parent, and check it's next-hops haven't changed
+    check_fib_route(rt, default_prefix, default_next_hops)
 
 # Tests if an unreachable route becomes reachable after a negative disaggregation is removed
 def test_neg_disagg_fib_unreachable_recover():

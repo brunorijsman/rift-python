@@ -66,4 +66,6 @@ class NextHop:
             return True
         if (self.weight is not None) and (other.weight is None):
             return False
+        if (self.weight is None) and (other.weight is None):
+            return False
         return self.weight < other.weight

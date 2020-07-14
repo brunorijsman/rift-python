@@ -16,21 +16,25 @@ class RibRoute:
 
     def compute_fib_next_hops(self):
         fib_next_hops = []
+        # First take all the positive next-hops of this route
         for rib_next_hop in self.next_hops:
-            if rib_next_hop.negative:
-                # Negative RIB next-hop; compute complementary positive next-hops for FIB
-                parent_destination = self.destination.parent_destination()
-                if parent_destination is None:
-                    continue
-                parent_route = parent_destination.best_route()
-                parent_fib_next_hops = parent_route.compute_fib_next_hops()
-                for parent_fib_next_hop in parent_fib_next_hops:
-                    if (parent_fib_next_hop.interface != rib_next_hop.interface or
-                            parent_fib_next_hop.address != rib_next_hop.address):
-                        fib_next_hops.append(parent_fib_next_hop)
-            else:
-                # Positive RIB next-hop; keep as-is in FIB
-                fib_next_hops.append(rib_next_hop)
+            if not rib_next_hop.negative:
+                if rib_next_hop not in fib_next_hops:
+                    fib_next_hops.append(rib_next_hop)
+        # Then add the complement of all negative next-hops of this route = parent FIB route
+        # next-hops minus this RIB route negative next-hops.
+        parent_destination = self.destination.parent_destination()
+        if parent_destination is not None:
+            parent_route = parent_destination.best_route()
+            complementary_next_hops = parent_route.compute_fib_next_hops()
+            for rib_next_hop in self.next_hops:
+                if rib_next_hop.negative:
+                    for index, complementary_next_hop in enumerate(complementary_next_hops):
+                        if (complementary_next_hop.interface == rib_next_hop.interface and
+                                complementary_next_hop.address == rib_next_hop.address):
+                            del complementary_next_hops[index]
+                            break
+            fib_next_hops.extend(complementary_next_hops)
         ###@@@ TODO: This is where we should do the bandwidth adjustment for the weights
         return fib_next_hops
 
