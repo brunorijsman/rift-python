@@ -45,7 +45,7 @@ class RibRoute:
                 if rib_next_hop.negative:
                     index = self.index_of_nh_with_intf_and_addr(complementary_next_hops,
                                                                 rib_next_hop.interface,
-                                                                rib_next_hop.adress)
+                                                                rib_next_hop.address)
                     if index is not None:
                         del complementary_next_hops[index]
             # Add the complementary positive next-hops to the FIB next-hops (avoiding duplicates)
