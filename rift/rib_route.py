@@ -24,30 +24,43 @@ class RibRoute:
         return None
 
     def compute_fib_next_hops(self):
-        fib_next_hops = []
-        # First take all the positive next-hops of this route
+        # Gather all positive and negative next-hops
+        positive_next_hops = []
+        negative_next_hops = []
         for rib_next_hop in self.next_hops:
-            if not rib_next_hop.negative:
-                if rib_next_hop not in fib_next_hops:
-                    fib_next_hops.append(rib_next_hop)
-        # Then add the complement of all negative next-hops of this route = parent FIB route
-        # next-hops minus this RIB route negative next-hops.
+            if rib_next_hop.negative:
+                negative_next_hops.append(rib_next_hop)
+            else:
+                positive_next_hops.append(rib_next_hop)
+        # Start with the positive next-hops in the FIB
+        fib_next_hops = positive_next_hops
+
+        # We need the parent FIB next hops to (a) potentially compute the complement of the negative
+        # next-hops and (b) to determine whether this route is superfluous
         parent_destination = self.destination.parent_destination()
         if parent_destination is None:
-            parent_fib_next_hops = []
+            parent_route = None
+            parent_fib_next_hops = None
         else:
             # Compute the set of positive next-hops that are the complement of the routes set of
             # negative next-hops.
             parent_route = parent_destination.best_route()
             parent_fib_next_hops = parent_route.compute_fib_next_hops()
-            complementary_next_hops = copy(parent_fib_next_hops)
-            for rib_next_hop in self.next_hops:
-                if rib_next_hop.negative:
-                    index = self.index_of_nh_with_intf_and_addr(complementary_next_hops,
-                                                                rib_next_hop.interface,
-                                                                rib_next_hop.address)
-                    if index is not None:
-                        del complementary_next_hops[index]
+        # If (and only if) there is at least one negative next-hop, compute the complementary
+        # positive next-hops
+        if negative_next_hops:
+            # Compute the complementary next-hops
+            if parent_fib_next_hops is None:
+                complementary_next_hops = []
+            else:
+                complementary_next_hops = copy(parent_fib_next_hops)
+                for rib_next_hop in self.next_hops:
+                    if rib_next_hop.negative:
+                        index = self.index_of_nh_with_intf_and_addr(complementary_next_hops,
+                                                                    rib_next_hop.interface,
+                                                                    rib_next_hop.address)
+                        if index is not None:
+                            del complementary_next_hops[index]
             # Add the complementary positive next-hops to the FIB next-hops (avoiding duplicates)
             for complementary_next_hop in complementary_next_hops:
                 index = self.index_of_nh_with_intf_and_addr(fib_next_hops,
@@ -59,8 +72,9 @@ class RibRoute:
         # then we declare this route to be "superfluous" and we don't install it in the FIB.
         # Note: next_hops = [] means this route is a discard route, next_hops = None means this
         # route is a superfluous route.
-        if sorted(fib_next_hops) == sorted(parent_fib_next_hops):
-            fib_next_hops = None
+        if parent_fib_next_hops is not None:
+            if sorted(fib_next_hops) == sorted(parent_fib_next_hops):
+                fib_next_hops = None
         ###@@@ TODO: This is where we should do the bandwidth adjustment for the weights
         return fib_next_hops
 

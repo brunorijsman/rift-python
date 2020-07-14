@@ -207,12 +207,13 @@ def test_remove_pos_next_hop_from_parent_update_child():
     rt.put_route(new2_default_route)
     check_rib_route(rt, default_prefix, new2_default_next_hops)
     check_fib_route(rt, default_prefix, new2_default_next_hops)
-    # Check updated negative to positive next-hop conversion in FIB for both child routes
+    # Check updated negative to positive next-hop conversion in FIB for the first child
     first_child_new2_fib_next_hops = [mknh_pos("if1", "10.0.0.2")]
     check_fib_route(rt, first_child_prefix, first_child_new2_fib_next_hops)
-    second_child_new2_fib_next_hops = [mknh_pos("if0", "10.0.0.1"),
-                                       mknh_pos("if1", "10.0.0.2")]
-    check_fib_route(rt, second_child_prefix, second_child_new2_fib_next_hops)
+    # Check updated negative to positive next-hop conversion in FIB for the second child; the
+    # second child ends up with the exact same set of next-hops as the parent route, so it is
+    # superfluous.
+    check_fib_route_absent(rt, second_child_prefix)
 
 def test_parent_with_negative_child_and_negative_grandchild():
     # Test slides 59 in Pascal's "negative disaggregation" presentation.
@@ -410,9 +411,10 @@ def test_remove_default_route():
     check_rib_route(rt, child_prefix, child_rib_next_hops)
     no_next_hops = []
     check_fib_route(rt, child_prefix, no_next_hops)
-    # Check that the grand-child route is present in the RIB and a discard route in the FIB
+    # Check that the grand-child route is present in the RIB and absent from the FIB because it
+    # is a superfluous route (grand-child is discard, but it parent -the child- is also discard)
     check_rib_route(rt, grand_child_prefix, grand_child_rib_next_hops)
-    check_fib_route(rt, grand_child_prefix, no_next_hops)
+    check_fib_route_absent(rt, grand_child_prefix)
 
 def test_discard_child_from_fib_when_no_next_hops_left():
     # Tests if a route becomes unreachable (i.e. becomes a discard route) after all next hops are
@@ -518,8 +520,9 @@ def test_remove_grand_child_from_fib_when_no_next_hops_left_due_to_inheritance()
     # Check that the child route in the FIB is now a discard route
     no_next_hops = []
     check_fib_route(rt, child_prefix, no_next_hops)
-    # Check that the grand-child route in the FIB is now also discard route
-    check_fib_route(rt, grand_child_prefix, no_next_hops)
+    # Check that the grand-child route in the FIB is now absent because it is superfluous (it
+    # would have been a discard route, but it's parent -the child route- is also a discard route)
+    check_fib_route_absent(rt, grand_child_prefix)
     # Go back to the parent, and check it's next-hops haven't changed
     check_fib_route(rt, default_prefix, default_next_hops)
 
@@ -707,22 +710,22 @@ def test_superfluous_positive_next_hop():
     rt.put_route(default_route)
     check_rib_route(rt, default_prefix, default_next_hops)
     check_fib_route(rt, default_prefix, default_next_hops)
-    # Add a more specific child route with some positive next-hops that are a subset of the parent's
-    # positive next-hops
+    # Add a more specific child route with the exact same set of positive next-hops as the parent
     child_prefix = "10.0.0.0/16"
-    child_rib_next_hops = [mknh_pos("if0", "10.0.0.1"),
-                           mknh_pos("if2", "10.0.0.3")]
+    child_rib_next_hops = default_next_hops
     child_route = mkr(child_prefix, child_rib_next_hops)
     rt.put_route(child_route)
     check_rib_route(rt, child_prefix, child_rib_next_hops)
     # Check that the negative route is not installed in the FIB because it is superfluous
     check_fib_route_absent(rt, child_prefix)
+    ###@@@ no longer superfluous
 
 def test_superfluous_negative_next_hop():
     # Test that installation of a superfluous route in the FIB is prevented when the child's FIB
     # next-hops are the same as the parent's next-hops because.
     # Specific scenario: the child has negative next-hops that don't actually remove any next-hops
     # from the set of positive next-hops of the parent.
+    # Start with a parent default route with some positive next-hops
     rt = mkrt()
     default_prefix = "0.0.0.0/0"
     default_next_hops = [mknh_pos("if0", "10.0.0.1"),
@@ -741,16 +744,55 @@ def test_superfluous_negative_next_hop():
     child_route = mkr(child_prefix, child_rib_next_hops)
     rt.put_route(child_route)
     check_rib_route(rt, child_prefix, child_rib_next_hops)
-    # Check that the negative route is not installed in the FIB because it is superfluous
+    # Check that the negative child route is not installed in the FIB because it is superfluous
     check_fib_route_absent(rt, child_prefix)
+    ###@@@ no longer superfluous
 
 def test_superfluous_discard_parent_also_discard():
     # Test that installation of a superfluous route in the FIB is prevented when the child's FIB
     # next-hops are the same as the parent's next-hops because.
     # Specific scenario: a child ends up with a discard route, but its parent also is a discard
     # route
-    ###@@@
-    pass
+    # Start with a parent default route with some positive next-hops
+    rt = mkrt()
+    default_prefix = "0.0.0.0/0"
+    default_next_hops = [mknh_pos("if0", "10.0.0.1"),
+                         mknh_pos("if1", "10.0.0.2"),
+                         mknh_pos("if2", "10.0.0.3"),
+                         mknh_pos("if3", "10.0.0.4")]
+    default_route = mkr(default_prefix, default_next_hops)
+    rt.put_route(default_route)
+    check_rib_route(rt, default_prefix, default_next_hops)
+    check_fib_route(rt, default_prefix, default_next_hops)
+    # Add a more specific child route with negative next-hops for all of the parent's positive
+    # next-hops.
+    child_prefix = "10.0.0.0/16"
+    child_rib_next_hops = [mknh_neg("if0", "10.0.0.1"),
+                           mknh_neg("if1", "10.0.0.2"),
+                           mknh_neg("if2", "10.0.0.3"),
+                           mknh_neg("if3", "10.0.0.4")]
+    child_route = mkr(child_prefix, child_rib_next_hops)
+    rt.put_route(child_route)
+    check_rib_route(rt, child_prefix, child_rib_next_hops)
+    # Check that the child route in the FIB is now a discard route
+    no_next_hops = []
+    check_fib_route(rt, child_prefix, no_next_hops)
+    # Create a discard grand-child route (empty list of next-hops means discard)
+    grand_child_prefix = "10.0.1.0/24"
+    grand_child_rib_next_hops = []
+    grand_child_route = mkr(grand_child_prefix, grand_child_rib_next_hops)
+    rt.put_route(grand_child_route)
+    check_rib_route(rt, grand_child_prefix, grand_child_rib_next_hops)
+    # Check that the grand-child route is not installed in the FIB because it is superfluous
+    check_fib_route_absent(rt, grand_child_prefix)
+    # Remove the child route
+    rt.del_route(mkp(child_prefix), OWNER_S_SPF)
+    # Check that the child route is now absent from the FIB
+    check_fib_route_absent(rt, child_prefix)
+    # The grand-child route is now not superfluous anymore and should be installed as a discard
+    # route
+    ###@@@ FAILS
+    check_fib_route(rt, grand_child_prefix, no_next_hops)
 
 def test_superfluous_discard_no_parent():
     # Test that installation of a superfluous route in the FIB is prevented when the child's FIB
@@ -758,37 +800,6 @@ def test_superfluous_discard_no_parent():
     # Specific scenario: the child ends up with a discard route, but there is no parent
     ###@@@
     pass
-
-def test_no_longer_superfluous():
-    # Test that a route that used to be superfluous but later becomes non-superfluous is installed
-    # in the RIB when it becomes non-superfluous
-    ###@@@
-    pass
-
-# # Test that a subnet X that becomes equal to its parent destination is removed and that its
-# # child subnet Y changes the parent destination to the one of X
-# def test_remove_superfluous_subnet_recursive():
-#     add_missing_methods_to_thrift()
-#     rt = mkrt()
-#     default_route = mkr(DEFAULT_PREFIX, DEFAULT_NEXT_HOPS)
-#     rt.put_route(default_route)
-#     first_disagg_route = mkr(FIRST_NEG_DISAGG_PREFIX, [], FIRST_NEG_DISAGG_NEXT_HOPS)
-#     rt.put_route(first_disagg_route)
-#     subnet_disagg_route = mkr(SUBNET_NEG_DISAGG_PREFIX, [], SUBNET_NEG_DISAGG_NEXT_HOPS)
-#     rt.put_route(subnet_disagg_route)
-#     rt.del_route(mkp(FIRST_NEG_DISAGG_PREFIX), S)
-#     assert not rt.destinations.has_key(FIRST_NEG_DISAGG_PREFIX)
-#     assert FIRST_NEG_DISAGG_PREFIX not in rt.fib.routes
-#     assert rt.destinations.get(SUBNET_NEG_DISAGG_PREFIX).best_route.positive_next_hops == set()
-#     assert rt.destinations.get(SUBNET_NEG_DISAGG_PREFIX).best_route.negative_next_hops == \
-#            {mknh("if1", "10.0.0.2")}
-#     assert rt.destinations.get(SUBNET_NEG_DISAGG_PREFIX).best_route.next_hops == \
-#            {mknh("if0", "10.0.0.1"), mknh("if2", "10.0.0.3"), mknh("if3", "10.0.0.4")}
-#     assert set(
-#         rt.fib.routes[mkp(SUBNET_NEG_DISAGG_PREFIX)].next_hops) == subnet_disagg_route.next_hops
-#     assert rt.destinations.get(SUBNET_NEG_DISAGG_PREFIX).parent_prefix_dest == \
-#            rt.destinations.get(DEFAULT_PREFIX)
-
 
 # # Deep nesting of more specific routes: parent, child, grand child, grand-grand child, ...
 # def test_prop_deep_nesting():

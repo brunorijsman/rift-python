@@ -82,7 +82,6 @@ class RouteTable:
         # list [] it means it is a discard route. If the next-hops is None it means there should not
         # be a FIB route.
         if rib_route:
-            prefix = rib_route.prefix
             fib_next_hops = rib_route.compute_fib_next_hops()
         else:
             fib_next_hops = None
@@ -94,7 +93,6 @@ class RouteTable:
             self.fib.del_route(prefix)
         # Recursively update the FIB for all child routes: their negative next-hops, if any, may
         # have to be recomputed if a parent route changed.
-        prefix_str = str(prefix)
         for child_prefix_str in child_prefix_strs:
             child_destination = self.destinations[child_prefix_str]
             child_rib_route = child_destination.best_route()
