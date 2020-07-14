@@ -524,6 +524,88 @@ def test_remove_grand_child_from_fib_when_no_next_hops_left_due_to_inheritance()
     # Go back to the parent, and check it's next-hops haven't changed
     check_fib_route(rt, default_prefix, default_next_hops)
 
+def test_keep_grand_child_in_fib_extra_positive_next_hop():
+    # Test that a grand-child route is present in the FIB in the following scenario:
+    # - A parent route has some positive next-hops
+    # - A child route removes all of the next-hops with negative next-hops
+    # - The grand-child route adds a new positive next-hops, completely separate from the ones
+    #   that the child and parent used.
+    # Start with a parent default route with some positive next-hops
+    rt = mkrt()
+    default_prefix = "0.0.0.0/0"
+    default_next_hops = [mknh_pos('if0', "10.0.0.1"),
+                         mknh_pos("if1", "10.0.0.2"),
+                         mknh_pos("if2", "10.0.0.3"),
+                         mknh_pos("if3", "10.0.0.4")]
+    default_route = mkr(default_prefix, default_next_hops)
+    rt.put_route(default_route)
+    check_rib_route(rt, default_prefix, default_next_hops)
+    check_fib_route(rt, default_prefix, default_next_hops)
+    # Add a more specific child route with negative next-hops for all of the parent's positive
+    # next-hops.
+    child_prefix = "10.0.0.0/16"
+    child_rib_next_hops = [mknh_neg('if0', "10.0.0.1"),
+                           mknh_neg("if1", "10.0.0.2"),
+                           mknh_neg("if2", "10.0.0.3"),
+                           mknh_neg("if3", "10.0.0.4")]
+    child_route = mkr(child_prefix, child_rib_next_hops)
+    rt.put_route(child_route)
+    check_rib_route(rt, child_prefix, child_rib_next_hops)
+    # Add an even more specific grand-child route with a positive next-hops that puts one of the
+    # next-hops that was removed by its parent (i.e. by the child-route) explicitly back.
+    grand_child_prefix = "10.0.10.0/24"
+    grand_child_next_hops = [mknh_pos('if4', "10.0.0.5")]
+    grand_child_route = mkr(grand_child_prefix, grand_child_next_hops)
+    rt.put_route(grand_child_route)
+    check_rib_route(rt, grand_child_prefix, grand_child_next_hops)
+    # Check that the child route is absent from the FIB
+    check_fib_route_absent(rt, child_prefix)
+    # Check that the grand-child route is present from the FIB
+    check_fib_route(rt, grand_child_prefix, grand_child_next_hops)
+    # Go back to the parent, and check it's next-hops haven't changed
+    check_fib_route(rt, default_prefix, default_next_hops)
+
+def test_keep_grand_child_in_fib_readd_positive_next_hop():
+    # Test that a grand-child route is present in the FIB in the following scenario:
+    # - A parent route has some positive next-hops
+    # - A child route removes all of the next-hops with negative next-hops
+    # - The grand-child route puts one of the removed next-hops explicitly back with a positive
+    #   next-hop.
+    # Start with a parent default route with some positive next-hops
+    rt = mkrt()
+    default_prefix = "0.0.0.0/0"
+    default_next_hops = [mknh_pos('if0', "10.0.0.1"),
+                         mknh_pos("if1", "10.0.0.2"),
+                         mknh_pos("if2", "10.0.0.3"),
+                         mknh_pos("if3", "10.0.0.4")]
+    default_route = mkr(default_prefix, default_next_hops)
+    rt.put_route(default_route)
+    check_rib_route(rt, default_prefix, default_next_hops)
+    check_fib_route(rt, default_prefix, default_next_hops)
+    # Add a more specific child route with negative next-hops for all of the parent's positive
+    # next-hops.
+    child_prefix = "10.0.0.0/16"
+    child_rib_next_hops = [mknh_neg('if0', "10.0.0.1"),
+                           mknh_neg("if1", "10.0.0.2"),
+                           mknh_neg("if2", "10.0.0.3"),
+                           mknh_neg("if3", "10.0.0.4")]
+    child_route = mkr(child_prefix, child_rib_next_hops)
+    rt.put_route(child_route)
+    check_rib_route(rt, child_prefix, child_rib_next_hops)
+    # Add an even more specific grand-child route with a positive next-hops that puts one of the
+    # next-hops that was removed by its parent (i.e. by the child-route) explicitly back.
+    grand_child_prefix = "10.0.10.0/24"
+    grand_child_next_hops = [mknh_pos('if1', "10.0.0.2")]
+    grand_child_route = mkr(grand_child_prefix, grand_child_next_hops)
+    rt.put_route(grand_child_route)
+    check_rib_route(rt, grand_child_prefix, grand_child_next_hops)
+    # Check that the child route is absent from the FIB
+    check_fib_route_absent(rt, child_prefix)
+    # Check that the grand-child route is present from the FIB
+    check_fib_route(rt, grand_child_prefix, grand_child_next_hops)
+    # Go back to the parent, and check it's next-hops haven't changed
+    check_fib_route(rt, default_prefix, default_next_hops)
+
 # Slide 61 from the perspective of L3
 def test_pos_neg_disagg():
     add_missing_methods_to_thrift()
