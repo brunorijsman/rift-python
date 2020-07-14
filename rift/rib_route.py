@@ -72,6 +72,9 @@ class RibRoute:
         if parent_fib_next_hops is not None:
             if sorted(fib_next_hops) == sorted(parent_fib_next_hops):
                 fib_next_hops = None
+        # Special case: discard next-hop without a parent is also superfluous
+        if parent_fib_next_hops is None and fib_next_hops == []:
+            fib_next_hops = None
         return fib_next_hops
 
     def __repr__(self):

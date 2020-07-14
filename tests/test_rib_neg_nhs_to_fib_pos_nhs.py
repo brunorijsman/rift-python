@@ -407,10 +407,10 @@ def test_remove_default_route():
     # Check that the parent route is absent from the RIB and FIB
     check_rib_route_absent(rt, default_prefix)
     check_fib_route_absent(rt, default_prefix)
-    # Check that the child route is present in the RIB and a discard route in the FIB
+    # Check that the child route is present in the RIB and also absent from the FIB (it is
+    # superfluous because it is a discard route without a parent route)
     check_rib_route(rt, child_prefix, child_rib_next_hops)
-    no_next_hops = []
-    check_fib_route(rt, child_prefix, no_next_hops)
+    check_fib_route_absent(rt, child_prefix)
     # Check that the grand-child route is present in the RIB and absent from the FIB because it
     # is a superfluous route (grand-child is discard, but it parent -the child- is also discard)
     check_rib_route(rt, grand_child_prefix, grand_child_rib_next_hops)
@@ -830,9 +830,23 @@ def test_superfluous_discard_no_parent():
     child_route = mkr(child_prefix, child_rib_next_hops)
     rt.put_route(child_route)
     check_rib_route(rt, child_prefix, child_rib_next_hops)
-    # Check that the child child route is absent from the FIB
+    # Check that the child child route is absent from the FIB because it is superfluous (it is a
+    # discard route without a parent route)
     check_fib_route_absent(rt, child_prefix)
-    ###@@@
+    # Add a default route with some positive next-hops
+    default_prefix = "0.0.0.0/0"
+    default_next_hops = [mknh_pos("if0", "10.0.0.1"),
+                         mknh_pos("if1", "10.0.0.2"),
+                         mknh_pos("if2", "10.0.0.3"),
+                         mknh_pos("if3", "10.0.0.4")]
+    default_route = mkr(default_prefix, default_next_hops)
+    rt.put_route(default_route)
+    check_rib_route(rt, default_prefix, default_next_hops)
+    check_fib_route(rt, default_prefix, default_next_hops)
+    # The child route (which is now really a child route) is no longer superfluous
+    child_fib_next_hops = [mknh_pos("if2", "10.0.0.3"),
+                           mknh_pos("if3", "10.0.0.4")]
+    check_fib_route(rt, child_prefix, child_fib_next_hops)
 
 # # Deep nesting of more specific routes: parent, child, grand child, grand-grand child, ...
 # def test_prop_deep_nesting():
