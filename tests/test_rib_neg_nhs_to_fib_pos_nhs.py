@@ -76,7 +76,7 @@ def test_default_route_only():
     # Just a default route with positive next-hops; there are no more specific routes
     rt = mkrt()
     default_prefix = "0.0.0.0/0"
-    default_next_hops = [mknh_pos('if0', "10.0.0.1"),
+    default_next_hops = [mknh_pos("if0", "10.0.0.1"),
                          mknh_pos("if1", "10.0.0.2"),
                          mknh_pos("if2", "10.0.0.3"),
                          mknh_pos("if3", "10.0.0.4")]
@@ -90,7 +90,7 @@ def test_parent_with_negative_child():
     # Start with a parent default route with some positive next-hops
     rt = mkrt()
     default_prefix = "0.0.0.0/0"
-    default_next_hops = [mknh_pos('if0', "10.0.0.1"),
+    default_next_hops = [mknh_pos("if0", "10.0.0.1"),
                          mknh_pos("if1", "10.0.0.2"),
                          mknh_pos("if2", "10.0.0.3"),
                          mknh_pos("if3", "10.0.0.4")]
@@ -100,7 +100,7 @@ def test_parent_with_negative_child():
     check_fib_route(rt, default_prefix, default_next_hops)
     # Add a more specific child route with a negative next-hop
     child_prefix = "10.0.0.0/16"
-    child_rib_next_hops = [mknh_neg('if0', "10.0.0.1")]
+    child_rib_next_hops = [mknh_neg("if0", "10.0.0.1")]
     child_route = mkr(child_prefix, child_rib_next_hops)
     rt.put_route(child_route)
     check_rib_route(rt, child_prefix, child_rib_next_hops)
@@ -117,7 +117,7 @@ def test_parent_with_two_negative_children():
     # Start a parent default route with some positive nexthops
     rt = mkrt()
     default_prefix = "0.0.0.0/0"
-    default_next_hops = [mknh_pos('if0', "10.0.0.1"),
+    default_next_hops = [mknh_pos("if0", "10.0.0.1"),
                          mknh_pos("if1", "10.0.0.2"),
                          mknh_pos("if2", "10.0.0.3"),
                          mknh_pos("if3", "10.0.0.4")]
@@ -127,13 +127,13 @@ def test_parent_with_two_negative_children():
     check_fib_route(rt, default_prefix, default_next_hops)
     # Add first more specific child route with a negative next-hop
     first_child_prefix = "10.0.0.0/16"
-    first_child_rib_next_hops = [mknh_neg('if0', "10.0.0.1")]
+    first_child_rib_next_hops = [mknh_neg("if0", "10.0.0.1")]
     first_child_route = mkr(first_child_prefix, first_child_rib_next_hops)
     rt.put_route(first_child_route)
     check_rib_route(rt, first_child_prefix, first_child_rib_next_hops)
     # Add second more specific child route with a negative next-hop
     second_child_prefix = "10.1.0.0/16"
-    second_child_rib_next_hops = [mknh_neg('if3', "10.0.0.4")]
+    second_child_rib_next_hops = [mknh_neg("if3", "10.0.0.4")]
     second_child_route = mkr(second_child_prefix, second_child_rib_next_hops)
     rt.put_route(second_child_route)
     check_rib_route(rt, second_child_prefix, second_child_rib_next_hops)
@@ -156,7 +156,7 @@ def test_remove_pos_next_hop_from_parent_update_child():
     # Create a parent default route with positive nexthops
     rt = mkrt()
     default_prefix = "0.0.0.0/0"
-    default_next_hops = [mknh_pos('if0', "10.0.0.1"),
+    default_next_hops = [mknh_pos("if0", "10.0.0.1"),
                          mknh_pos("if1", "10.0.0.2"),
                          mknh_pos("if2", "10.0.0.3"),
                          mknh_pos("if3", "10.0.0.4")]
@@ -166,13 +166,13 @@ def test_remove_pos_next_hop_from_parent_update_child():
     check_fib_route(rt, default_prefix, default_next_hops)
     # Add first more specific child route with a negative next-hop
     first_child_prefix = "10.0.0.0/16"
-    first_child_rib_next_hops = [mknh_neg('if0', "10.0.0.1")]
+    first_child_rib_next_hops = [mknh_neg("if0", "10.0.0.1")]
     first_child_route = mkr(first_child_prefix, first_child_rib_next_hops)
     rt.put_route(first_child_route)
     check_rib_route(rt, first_child_prefix, first_child_rib_next_hops)
     # Add second more specific child route with a negative next-hop
     second_child_prefix = "10.1.0.0/16"
-    second_child_rib_next_hops = [mknh_neg('if3', "10.0.0.4")]
+    second_child_rib_next_hops = [mknh_neg("if3", "10.0.0.4")]
     second_child_route = mkr(second_child_prefix, second_child_rib_next_hops)
     rt.put_route(second_child_route)
     check_rib_route(rt, second_child_prefix, second_child_rib_next_hops)
@@ -186,7 +186,7 @@ def test_remove_pos_next_hop_from_parent_update_child():
                                   mknh_pos("if2", "10.0.0.3")]
     check_fib_route(rt, second_child_prefix, second_child_fib_next_hops)
     # Remove one positive next-hop (if2 10.0.0.3) from the default route
-    new1_default_next_hops = [mknh_pos('if0', "10.0.0.1"),
+    new1_default_next_hops = [mknh_pos("if0", "10.0.0.1"),
                               mknh_pos("if1", "10.0.0.2"),
                               mknh_pos("if3", "10.0.0.4")]
     new1_default_route = mkr(default_prefix, new1_default_next_hops)
@@ -201,7 +201,7 @@ def test_remove_pos_next_hop_from_parent_update_child():
                                        mknh_pos("if1", "10.0.0.2")]
     check_fib_route(rt, second_child_prefix, second_child_new1_fib_next_hops)
     # Remove another positive next-hop (if3 10.0.0.4) from the default route
-    new2_default_next_hops = [mknh_pos('if0', "10.0.0.1"),
+    new2_default_next_hops = [mknh_pos("if0", "10.0.0.1"),
                               mknh_pos("if1", "10.0.0.2")]
     new2_default_route = mkr(default_prefix, new2_default_next_hops)
     rt.put_route(new2_default_route)
@@ -219,7 +219,7 @@ def test_parent_with_negative_child_and_negative_grandchild():
     # Start with a parent default route with some positive next-hops
     rt = mkrt()
     default_prefix = "0.0.0.0/0"
-    default_next_hops = [mknh_pos('if0', "10.0.0.1"),
+    default_next_hops = [mknh_pos("if0", "10.0.0.1"),
                          mknh_pos("if1", "10.0.0.2"),
                          mknh_pos("if2", "10.0.0.3"),
                          mknh_pos("if3", "10.0.0.4")]
@@ -229,13 +229,13 @@ def test_parent_with_negative_child_and_negative_grandchild():
     check_fib_route(rt, default_prefix, default_next_hops)
     # Add a more specific child route with a negative next-hop
     child_prefix = "10.0.0.0/16"
-    child_rib_next_hops = [mknh_neg('if0', "10.0.0.1")]
+    child_rib_next_hops = [mknh_neg("if0", "10.0.0.1")]
     child_route = mkr(child_prefix, child_rib_next_hops)
     rt.put_route(child_route)
     check_rib_route(rt, child_prefix, child_rib_next_hops)
     # Add an even more specific grand-child route with a negative next-hop
     grand_child_prefix = "10.0.10.0/24"
-    grand_child_rib_next_hops = [mknh_neg('if1', "10.0.0.2")]
+    grand_child_rib_next_hops = [mknh_neg("if1", "10.0.0.2")]
     grand_child_route = mkr(grand_child_prefix, grand_child_rib_next_hops)
     rt.put_route(grand_child_route)
     check_rib_route(rt, grand_child_prefix, grand_child_rib_next_hops)
@@ -256,7 +256,7 @@ def test_remove_pos_next_hop_from_parent_update_grand_child():
     # Start with a parent default route with some positive next-hops
     rt = mkrt()
     default_prefix = "0.0.0.0/0"
-    default_next_hops = [mknh_pos('if0', "10.0.0.1"),
+    default_next_hops = [mknh_pos("if0", "10.0.0.1"),
                          mknh_pos("if1", "10.0.0.2"),
                          mknh_pos("if2", "10.0.0.3"),
                          mknh_pos("if3", "10.0.0.4")]
@@ -266,13 +266,13 @@ def test_remove_pos_next_hop_from_parent_update_grand_child():
     check_fib_route(rt, default_prefix, default_next_hops)
     # Add a more specific child route with a negative next-hop
     child_prefix = "10.0.0.0/16"
-    child_rib_next_hops = [mknh_neg('if0', "10.0.0.1")]
+    child_rib_next_hops = [mknh_neg("if0", "10.0.0.1")]
     child_route = mkr(child_prefix, child_rib_next_hops)
     rt.put_route(child_route)
     check_rib_route(rt, child_prefix, child_rib_next_hops)
     # Add an even more specific grand-child route with a negative next-hop
     grand_child_prefix = "10.0.10.0/24"
-    grand_child_rib_next_hops = [mknh_neg('if1', "10.0.0.2")]
+    grand_child_rib_next_hops = [mknh_neg("if1", "10.0.0.2")]
     grand_child_route = mkr(grand_child_prefix, grand_child_rib_next_hops)
     rt.put_route(grand_child_route)
     check_rib_route(rt, grand_child_prefix, grand_child_rib_next_hops)
@@ -288,7 +288,7 @@ def test_remove_pos_next_hop_from_parent_update_grand_child():
     # Go back to the parent, and check it's next-hops haven't changed
     check_fib_route(rt, default_prefix, default_next_hops)
     # Remove one positive next-hop (if2 10.0.0.3) from the default route
-    new1_default_next_hops = [mknh_pos('if0', "10.0.0.1"),
+    new1_default_next_hops = [mknh_pos("if0", "10.0.0.1"),
                               mknh_pos("if1", "10.0.0.2"),
                               mknh_pos("if3", "10.0.0.4")]
     new1_default_route = mkr(default_prefix, new1_default_next_hops)
@@ -309,7 +309,7 @@ def test_recover_default_next_hop_with_subnet_disagg():
     # Start with a parent default route with some positive next-hops
     rt = mkrt()
     default_prefix = "0.0.0.0/0"
-    default_next_hops = [mknh_pos('if0', "10.0.0.1"),
+    default_next_hops = [mknh_pos("if0", "10.0.0.1"),
                          mknh_pos("if1", "10.0.0.2"),
                          mknh_pos("if2", "10.0.0.3"),
                          mknh_pos("if3", "10.0.0.4")]
@@ -319,13 +319,13 @@ def test_recover_default_next_hop_with_subnet_disagg():
     check_fib_route(rt, default_prefix, default_next_hops)
     # Add a more specific child route with a negative next-hop
     child_prefix = "10.0.0.0/16"
-    child_rib_next_hops = [mknh_neg('if0', "10.0.0.1")]
+    child_rib_next_hops = [mknh_neg("if0", "10.0.0.1")]
     child_route = mkr(child_prefix, child_rib_next_hops)
     rt.put_route(child_route)
     check_rib_route(rt, child_prefix, child_rib_next_hops)
     # Add an even more specific grand-child route with a negative next-hop
     grand_child_prefix = "10.0.10.0/24"
-    grand_child_rib_next_hops = [mknh_neg('if1', "10.0.0.2")]
+    grand_child_rib_next_hops = [mknh_neg("if1", "10.0.0.2")]
     grand_child_route = mkr(grand_child_prefix, grand_child_rib_next_hops)
     rt.put_route(grand_child_route)
     check_rib_route(rt, grand_child_prefix, grand_child_rib_next_hops)
@@ -341,7 +341,7 @@ def test_recover_default_next_hop_with_subnet_disagg():
     # Go back to the parent, and check it's next-hops haven't changed
     check_fib_route(rt, default_prefix, default_next_hops)
     # Remove one positive next-hop (if2 10.0.0.3) from the default route
-    new1_default_next_hops = [mknh_pos('if0', "10.0.0.1"),
+    new1_default_next_hops = [mknh_pos("if0", "10.0.0.1"),
                               mknh_pos("if1", "10.0.0.2"),
                               mknh_pos("if3", "10.0.0.4")]
     new1_default_route = mkr(default_prefix, new1_default_next_hops)
@@ -370,7 +370,7 @@ def test_remove_default_route():
     # Start with a parent default route with some positive next-hops
     rt = mkrt()
     default_prefix = "0.0.0.0/0"
-    default_next_hops = [mknh_pos('if0', "10.0.0.1"),
+    default_next_hops = [mknh_pos("if0", "10.0.0.1"),
                          mknh_pos("if1", "10.0.0.2"),
                          mknh_pos("if2", "10.0.0.3"),
                          mknh_pos("if3", "10.0.0.4")]
@@ -380,13 +380,13 @@ def test_remove_default_route():
     check_fib_route(rt, default_prefix, default_next_hops)
     # Add a more specific child route with a negative next-hop
     child_prefix = "10.0.0.0/16"
-    child_rib_next_hops = [mknh_neg('if0', "10.0.0.1")]
+    child_rib_next_hops = [mknh_neg("if0", "10.0.0.1")]
     child_route = mkr(child_prefix, child_rib_next_hops)
     rt.put_route(child_route)
     check_rib_route(rt, child_prefix, child_rib_next_hops)
     # Add an even more specific grand-child route with a negative next-hop
     grand_child_prefix = "10.0.10.0/24"
-    grand_child_rib_next_hops = [mknh_neg('if1', "10.0.0.2")]
+    grand_child_rib_next_hops = [mknh_neg("if1", "10.0.0.2")]
     grand_child_route = mkr(grand_child_prefix, grand_child_rib_next_hops)
     rt.put_route(grand_child_route)
     check_rib_route(rt, grand_child_prefix, grand_child_rib_next_hops)
@@ -420,7 +420,7 @@ def test_discard_child_from_fib_when_no_next_hops_left():
     # Start with a parent default route with some positive next-hops
     rt = mkrt()
     default_prefix = "0.0.0.0/0"
-    default_next_hops = [mknh_pos('if0', "10.0.0.1"),
+    default_next_hops = [mknh_pos("if0", "10.0.0.1"),
                          mknh_pos("if1", "10.0.0.2"),
                          mknh_pos("if2", "10.0.0.3"),
                          mknh_pos("if3", "10.0.0.4")]
@@ -431,7 +431,7 @@ def test_discard_child_from_fib_when_no_next_hops_left():
     # Add a more specific child route with negative next-hops for all of the parent's positive
     # next-hops.
     child_prefix = "10.0.0.0/16"
-    child_rib_next_hops = [mknh_neg('if0', "10.0.0.1"),
+    child_rib_next_hops = [mknh_neg("if0", "10.0.0.1"),
                            mknh_neg("if1", "10.0.0.2"),
                            mknh_neg("if2", "10.0.0.3"),
                            mknh_neg("if3", "10.0.0.4")]
@@ -449,7 +449,7 @@ def test_restore_child_from_to_when_neg_next_hop_removed():
     # Start with a parent default route with some positive next-hops
     rt = mkrt()
     default_prefix = "0.0.0.0/0"
-    default_next_hops = [mknh_pos('if0', "10.0.0.1"),
+    default_next_hops = [mknh_pos("if0", "10.0.0.1"),
                          mknh_pos("if1", "10.0.0.2"),
                          mknh_pos("if2", "10.0.0.3"),
                          mknh_pos("if3", "10.0.0.4")]
@@ -460,7 +460,7 @@ def test_restore_child_from_to_when_neg_next_hop_removed():
     # Add a more specific child route with negative next-hops for all of the parent's positive
     # next-hops.
     child_prefix = "10.0.0.0/16"
-    child_rib_next_hops = [mknh_neg('if0', "10.0.0.1"),
+    child_rib_next_hops = [mknh_neg("if0", "10.0.0.1"),
                            mknh_neg("if1", "10.0.0.2"),
                            mknh_neg("if2", "10.0.0.3"),
                            mknh_neg("if3", "10.0.0.4")]
@@ -473,7 +473,7 @@ def test_restore_child_from_to_when_neg_next_hop_removed():
     # Go back to the parent, and check it's next-hops haven't changed
     check_fib_route(rt, default_prefix, default_next_hops)
     # Remove one of the negative next-hops of the child route (namely if2 10.0.0.3)
-    new_child_rib_next_hops = [mknh_neg('if0', "10.0.0.1"),
+    new_child_rib_next_hops = [mknh_neg("if0", "10.0.0.1"),
                                mknh_neg("if1", "10.0.0.2"),
                                mknh_neg("if3", "10.0.0.4")]
     child_route = mkr(child_prefix, new_child_rib_next_hops)
@@ -489,7 +489,7 @@ def test_remove_grand_child_from_fib_when_no_next_hops_left_due_to_inheritance()
     # Start with a parent default route with some positive next-hops
     rt = mkrt()
     default_prefix = "0.0.0.0/0"
-    default_next_hops = [mknh_pos('if0', "10.0.0.1"),
+    default_next_hops = [mknh_pos("if0", "10.0.0.1"),
                          mknh_pos("if1", "10.0.0.2"),
                          mknh_pos("if2", "10.0.0.3"),
                          mknh_pos("if3", "10.0.0.4")]
@@ -500,7 +500,7 @@ def test_remove_grand_child_from_fib_when_no_next_hops_left_due_to_inheritance()
     # Add a more specific child route with negative next-hops for all of the parent's positive
     # next-hops.
     child_prefix = "10.0.0.0/16"
-    child_rib_next_hops = [mknh_neg('if0', "10.0.0.1"),
+    child_rib_next_hops = [mknh_neg("if0", "10.0.0.1"),
                            mknh_neg("if1", "10.0.0.2"),
                            mknh_neg("if2", "10.0.0.3"),
                            mknh_neg("if3", "10.0.0.4")]
@@ -511,7 +511,7 @@ def test_remove_grand_child_from_fib_when_no_next_hops_left_due_to_inheritance()
     # the other next-hops that could potentially be inherited from the default were already removed
     # by the child route.
     grand_child_prefix = "10.0.10.0/24"
-    grand_child_rib_next_hops = [mknh_neg('if1', "10.0.0.2")]
+    grand_child_rib_next_hops = [mknh_neg("if1", "10.0.0.2")]
     grand_child_route = mkr(grand_child_prefix, grand_child_rib_next_hops)
     rt.put_route(grand_child_route)
     check_rib_route(rt, grand_child_prefix, grand_child_rib_next_hops)
@@ -532,7 +532,7 @@ def test_keep_grand_child_in_fib_extra_positive_next_hop():
     # Start with a parent default route with some positive next-hops
     rt = mkrt()
     default_prefix = "0.0.0.0/0"
-    default_next_hops = [mknh_pos('if0', "10.0.0.1"),
+    default_next_hops = [mknh_pos("if0", "10.0.0.1"),
                          mknh_pos("if1", "10.0.0.2"),
                          mknh_pos("if2", "10.0.0.3"),
                          mknh_pos("if3", "10.0.0.4")]
@@ -543,7 +543,7 @@ def test_keep_grand_child_in_fib_extra_positive_next_hop():
     # Add a more specific child route with negative next-hops for all of the parent's positive
     # next-hops.
     child_prefix = "10.0.0.0/16"
-    child_rib_next_hops = [mknh_neg('if0', "10.0.0.1"),
+    child_rib_next_hops = [mknh_neg("if0", "10.0.0.1"),
                            mknh_neg("if1", "10.0.0.2"),
                            mknh_neg("if2", "10.0.0.3"),
                            mknh_neg("if3", "10.0.0.4")]
@@ -553,7 +553,7 @@ def test_keep_grand_child_in_fib_extra_positive_next_hop():
     # Add an even more specific grand-child route with a positive next-hops that puts one of the
     # next-hops that was removed by its parent (i.e. by the child-route) explicitly back.
     grand_child_prefix = "10.0.10.0/24"
-    grand_child_next_hops = [mknh_pos('if4', "10.0.0.5")]
+    grand_child_next_hops = [mknh_pos("if4", "10.0.0.5")]
     grand_child_route = mkr(grand_child_prefix, grand_child_next_hops)
     rt.put_route(grand_child_route)
     check_rib_route(rt, grand_child_prefix, grand_child_next_hops)
@@ -574,7 +574,7 @@ def test_keep_grand_child_in_fib_replace_positive_next_hop():
     # Start with a parent default route with some positive next-hops
     rt = mkrt()
     default_prefix = "0.0.0.0/0"
-    default_next_hops = [mknh_pos('if0', "10.0.0.1"),
+    default_next_hops = [mknh_pos("if0", "10.0.0.1"),
                          mknh_pos("if1", "10.0.0.2"),
                          mknh_pos("if2", "10.0.0.3"),
                          mknh_pos("if3", "10.0.0.4")]
@@ -585,7 +585,7 @@ def test_keep_grand_child_in_fib_replace_positive_next_hop():
     # Add a more specific child route with negative next-hops for all of the parent's positive
     # next-hops.
     child_prefix = "10.0.0.0/16"
-    child_rib_next_hops = [mknh_neg('if0', "10.0.0.1"),
+    child_rib_next_hops = [mknh_neg("if0", "10.0.0.1"),
                            mknh_neg("if1", "10.0.0.2"),
                            mknh_neg("if2", "10.0.0.3"),
                            mknh_neg("if3", "10.0.0.4")]
@@ -595,7 +595,7 @@ def test_keep_grand_child_in_fib_replace_positive_next_hop():
     # Add an even more specific grand-child route with a positive next-hops that puts one of the
     # next-hops that was removed by its parent (i.e. by the child-route) explicitly back.
     grand_child_prefix = "10.0.10.0/24"
-    grand_child_next_hops = [mknh_pos('if1', "10.0.0.2")]
+    grand_child_next_hops = [mknh_pos("if1", "10.0.0.2")]
     grand_child_route = mkr(grand_child_prefix, grand_child_next_hops)
     rt.put_route(grand_child_route)
     check_rib_route(rt, grand_child_prefix, grand_child_next_hops)
@@ -614,7 +614,7 @@ def test_add_two_parent_routes_same_destination_different_owners():
     # Add a north-SPF parent default route with some positive next-hops
     rt = mkrt()
     default_prefix = "0.0.0.0/0"
-    north_spf_default_next_hops = [mknh_pos('if0', "10.0.0.1"),
+    north_spf_default_next_hops = [mknh_pos("if0", "10.0.0.1"),
                                    mknh_pos("if1", "10.0.0.2"),
                                    mknh_pos("if2", "10.0.0.3")]
     north_spf_default_route = mkr(default_prefix, north_spf_default_next_hops, OWNER_N_SPF)
@@ -624,17 +624,17 @@ def test_add_two_parent_routes_same_destination_different_owners():
     check_fib_route(rt, default_prefix, north_spf_default_next_hops)
     # Add a more specific child route with a negative next-hop
     child_prefix = "10.0.0.0/16"
-    child_rib_next_hops = [mknh_neg('if2', "10.0.0.3")]
+    child_rib_next_hops = [mknh_neg("if2", "10.0.0.3")]
     child_route = mkr(child_prefix, child_rib_next_hops)
     rt.put_route(child_route)
     check_rib_route(rt, child_prefix, child_rib_next_hops)
     # Check that the child route used the north-SPF default route to convert negative next-hops
     # to positive next-hops.
-    child_fib_next_hops = [mknh_pos('if0', "10.0.0.1"),
+    child_fib_next_hops = [mknh_pos("if0", "10.0.0.1"),
                            mknh_pos("if1", "10.0.0.2")]
     check_fib_route(rt, child_prefix, child_fib_next_hops)
     # Add a south-SPF parent default route with some different (overlapping) positive next-hops
-    south_spf_default_next_hops = [mknh_pos('if1', "10.0.0.2"),
+    south_spf_default_next_hops = [mknh_pos("if1", "10.0.0.2"),
                                    mknh_pos("if2", "10.0.0.3"),
                                    mknh_pos("if3", "10.0.0.4")]
     south_spf_default_route = mkr(default_prefix, south_spf_default_next_hops, OWNER_S_SPF)
@@ -645,7 +645,7 @@ def test_add_two_parent_routes_same_destination_different_owners():
     check_fib_route(rt, default_prefix, south_spf_default_next_hops)
     # Check that the child route now uses the south-SPF default route to convert negative next-hops
     # to positive next-hops.
-    new_child_fib_next_hops = [mknh_pos('if1', "10.0.0.2"),
+    new_child_fib_next_hops = [mknh_pos("if1", "10.0.0.2"),
                                mknh_pos("if3", "10.0.0.4")]
     check_fib_route(rt, child_prefix, new_child_fib_next_hops)
     # Remove the south-SPF parent default route again
@@ -663,7 +663,7 @@ def test_add_two_child_routes_same_destination_different_owners():
     # Add a north-SPF parent default route with some positive next-hops
     rt = mkrt()
     default_prefix = "0.0.0.0/0"
-    north_spf_default_next_hops = [mknh_pos('if0', "10.0.0.1"),
+    north_spf_default_next_hops = [mknh_pos("if0", "10.0.0.1"),
                                    mknh_pos("if1", "10.0.0.2"),
                                    mknh_pos("if2", "10.0.0.3"),
                                    mknh_pos("if3", "10.0.0.4")]
@@ -672,26 +672,82 @@ def test_add_two_child_routes_same_destination_different_owners():
     check_rib_route(rt, default_prefix, north_spf_default_next_hops, OWNER_N_SPF)
     # Add a north-SPF child route with a negative next-hop
     child_prefix = "10.0.0.0/16"
-    north_spf_child_rib_next_hops = [mknh_neg('if2', "10.0.0.3")]
+    north_spf_child_rib_next_hops = [mknh_neg("if2", "10.0.0.3")]
     child_route = mkr(child_prefix, north_spf_child_rib_next_hops, OWNER_N_SPF)
     rt.put_route(child_route)
     check_rib_route(rt, child_prefix, north_spf_child_rib_next_hops, OWNER_N_SPF)
     # Check that RIB to FIB next-hop conversion uses the north-SPF parent and the north-SPF child
-    north_spf_child_fib_next_hops = [mknh_pos('if0', "10.0.0.1"),
+    north_spf_child_fib_next_hops = [mknh_pos("if0", "10.0.0.1"),
                                      mknh_pos("if1", "10.0.0.2"),
                                      mknh_pos("if3", "10.0.0.4")]
     check_fib_route(rt, child_prefix, north_spf_child_fib_next_hops)
     # Add a south-SPF child route with a different negative next-hop
-    south_spf_child_rib_next_hops = [mknh_neg('if1', "10.0.0.2")]
+    south_spf_child_rib_next_hops = [mknh_neg("if1", "10.0.0.2")]
     child_route = mkr(child_prefix, south_spf_child_rib_next_hops, OWNER_S_SPF)
     rt.put_route(child_route)
     check_rib_route(rt, child_prefix, south_spf_child_rib_next_hops, OWNER_S_SPF)
     # Check that RIB to FIB next-hop conversion uses the north-SPF parent and the north-SPF child
-    south_spf_child_fib_next_hops = [mknh_pos('if0', "10.0.0.1"),
+    south_spf_child_fib_next_hops = [mknh_pos("if0", "10.0.0.1"),
                                      mknh_pos("if2", "10.0.0.3"),
                                      mknh_pos("if3", "10.0.0.4")]
     check_fib_route(rt, child_prefix, south_spf_child_fib_next_hops)
 
+def test_superfluous_positive_next_hop():
+    # Test that installation of a superfluous route in the FIB is prevented when the child's FIB
+    # next-hops are the same as the parent's next-hops because.
+    # Specific scenario: the child has the exact same positive next-hops as the parent.
+    # Start with a parent default route with some positive next-hops
+    rt = mkrt()
+    default_prefix = "0.0.0.0/0"
+    default_next_hops = [mknh_pos("if0", "10.0.0.1"),
+                         mknh_pos("if1", "10.0.0.2"),
+                         mknh_pos("if2", "10.0.0.3"),
+                         mknh_pos("if3", "10.0.0.4")]
+    default_route = mkr(default_prefix, default_next_hops)
+    rt.put_route(default_route)
+    check_rib_route(rt, default_prefix, default_next_hops)
+    check_fib_route(rt, default_prefix, default_next_hops)
+    # Add a more specific child route with some positive next-hops that are a subset of the parent's
+    # positive next-hops
+    child_prefix = "10.0.0.0/16"
+    child_rib_next_hops = [mknh_pos("if0", "10.0.0.1"),
+                           mknh_pos("if2", "10.0.0.3")]
+    child_route = mkr(child_prefix, child_rib_next_hops)
+    rt.put_route(child_route)
+    check_rib_route(rt, child_prefix, child_rib_next_hops)
+    # Check that the negative route is not installed in the FIB because it is superfluous
+    check_fib_route_absent(rt, child_prefix)
+
+    ###@@@
+
+def test_superfluous_negative_next_hop():
+    # Test that installation of a superfluous route in the FIB is prevented when the child's FIB
+    # next-hops are the same as the parent's next-hops because.
+    # Specific scenario: the child has negative next-hops that don't actually remove any next-hops
+    # from the set of positive next-hops of the parent.
+    ###@@@
+    pass
+
+def test_superfluous_discard_parent_also_discard():
+    # Test that installation of a superfluous route in the FIB is prevented when the child's FIB
+    # next-hops are the same as the parent's next-hops because.
+    # Specific scenario: a child ends up with a discard route, but its parent also is a discard
+    # route
+    ###@@@
+    pass
+
+def test_superfluous_discard_no_parent():
+    # Test that installation of a superfluous route in the FIB is prevented when the child's FIB
+    # next-hops are the same as the parent's next-hops because.
+    # Specific scenario: the child ends up with a discard route, but there is no parent
+    ###@@@
+    pass
+
+def test_no_longer_superfluous():
+    # Test that a route that used to be superfluous but later becomes non-superfluous is installed
+    # in the RIB when it becomes non-superfluous
+    ###@@@
+    pass
 
 # # Test that a subnet X that becomes equal to its parent destination is removed and that its
 # # child subnet Y changes the parent destination to the one of X
@@ -711,7 +767,7 @@ def test_add_two_child_routes_same_destination_different_owners():
 #     assert rt.destinations.get(SUBNET_NEG_DISAGG_PREFIX).best_route.negative_next_hops == \
 #            {mknh("if1", "10.0.0.2")}
 #     assert rt.destinations.get(SUBNET_NEG_DISAGG_PREFIX).best_route.next_hops == \
-#            {mknh('if0', "10.0.0.1"), mknh("if2", "10.0.0.3"), mknh("if3", "10.0.0.4")}
+#            {mknh("if0", "10.0.0.1"), mknh("if2", "10.0.0.3"), mknh("if3", "10.0.0.4")}
 #     assert set(
 #         rt.fib.routes[mkp(SUBNET_NEG_DISAGG_PREFIX)].next_hops) == subnet_disagg_route.next_hops
 #     assert rt.destinations.get(SUBNET_NEG_DISAGG_PREFIX).parent_prefix_dest == \
@@ -723,14 +779,14 @@ def test_add_two_child_routes_same_destination_different_owners():
 #     add_missing_methods_to_thrift()
 #     rt = mkrt()
 #     # Default route
-#     new_default_next_hops = [mknh('if0', "10.0.0.1"), mknh("if1", "10.0.0.2"),
+#     new_default_next_hops = [mknh("if0", "10.0.0.1"), mknh("if1", "10.0.0.2"),
 #                              mknh("if2", "10.0.0.3"), mknh("if3", "10.0.0.4"),
 #                              mknh("if4", "10.0.0.5")]
 #     new_default_route = mkr(DEFAULT_PREFIX, new_default_next_hops)
 #     rt.put_route(new_default_route)
 #     # Child route
 #     child_prefix = '1.0.0.0/8'
-#     child_route = mkr(child_prefix, [], [mknh('if0', "10.0.0.1")])
+#     child_route = mkr(child_prefix, [], [mknh("if0", "10.0.0.1")])
 #     rt.put_route(child_route)
 #     # Grand child route
 #     g_child_prefix = '1.128.0.0/9'
@@ -752,7 +808,7 @@ def test_add_two_child_routes_same_destination_different_owners():
 #     # Default route asserts
 #     assert rt.destinations.get(DEFAULT_PREFIX).best_route == new_default_route
 #     assert rt.destinations.get(DEFAULT_PREFIX).best_route.next_hops == \
-#            {mknh('if0', "10.0.0.1"), mknh("if1", "10.0.0.2"), mknh("if2", "10.0.0.3"),
+#            {mknh("if0", "10.0.0.1"), mknh("if1", "10.0.0.2"), mknh("if2", "10.0.0.3"),
 #             mknh("if3", "10.0.0.4"), mknh("if4", "10.0.0.5")}
 #     assert set(rt.fib.routes[mkp(DEFAULT_PREFIX)].next_hops) == new_default_route.next_hops
 #     # Child route asserts
@@ -781,14 +837,14 @@ def test_add_two_child_routes_same_destination_different_owners():
 #     assert set(rt.fib.routes[mkp(gggg_child_prefix)].next_hops) == gggg_child_route.next_hops
 
 #     # Delete if2 from default route
-#     new_default_route = mkr(DEFAULT_PREFIX, [mknh('if0', "10.0.0.1"), mknh("if1", "10.0.0.2"),
+#     new_default_route = mkr(DEFAULT_PREFIX, [mknh("if0", "10.0.0.1"), mknh("if1", "10.0.0.2"),
 #                                                 mknh("if3", "10.0.0.4"), mknh("if4", "10.0.0.5")])
 #     rt.put_route(new_default_route)
 
 #     # Default route asserts
 #     assert rt.destinations.get(DEFAULT_PREFIX).best_route == new_default_route
 #     assert rt.destinations.get(DEFAULT_PREFIX).best_route.next_hops == \
-#            {mknh('if0', "10.0.0.1"), mknh("if1", "10.0.0.2"),
+#            {mknh("if0", "10.0.0.1"), mknh("if1", "10.0.0.2"),
 #             mknh("if3", "10.0.0.4"), mknh("if4", "10.0.0.5")}
 #     assert set(rt.fib.routes[mkp(DEFAULT_PREFIX)].next_hops) == new_default_route.next_hops
 #     # Child route asserts
@@ -926,10 +982,10 @@ def test_add_two_child_routes_same_destination_different_owners():
 
 #     rt.put_route(mkr("1.2.1.0/24", [], [mknh("if4", "10.0.0.5")]))
 #     rt.put_route(mkr("1.1.2.0/24", [], [mknh("if2", "10.0.0.3")]))
-#     rt.put_route(mkr("1.1.0.0/16", [], [mknh('if0', "10.0.0.1")]))
+#     rt.put_route(mkr("1.1.0.0/16", [], [mknh("if0", "10.0.0.1")]))
 #     rt.put_route(mkr("1.1.1.0/24", [], [mknh("if1", "10.0.0.2")]))
 #     rt.put_route(mkr("1.2.0.0/16", [], [mknh("if3", "10.0.0.4")]))
-#     rt.put_route(mkr("1.0.0.0/8", [mknh('if0', "10.0.0.1"), mknh("if1", "10.0.0.2"),
+#     rt.put_route(mkr("1.0.0.0/8", [mknh("if0", "10.0.0.1"), mknh("if1", "10.0.0.2"),
 #                                        mknh("if2", "10.0.0.3"), mknh("if3", "10.0.0.4"),
 #                                        mknh("if4", "10.0.0.5"), mknh("if5", "10.0.0.6"),
 #                                        mknh("if6", "10.0.0.7")]))
@@ -937,16 +993,16 @@ def test_add_two_child_routes_same_destination_different_owners():
 
 #     # Testing only rib and fib next hops
 #     assert rt.destinations.get('1.0.0.0/8').best_route.next_hops == \
-#            {mknh('if0', "10.0.0.1"), mknh("if1", "10.0.0.2"), mknh("if2", "10.0.0.3"),
+#            {mknh("if0", "10.0.0.1"), mknh("if1", "10.0.0.2"), mknh("if2", "10.0.0.3"),
 #             mknh("if3", "10.0.0.4"), mknh("if4", "10.0.0.5"), mknh("if5", "10.0.0.6"),
 #             mknh("if6", "10.0.0.7")}
 #     assert set(rt.fib.routes[mkp('1.0.0.0/8')].next_hops) == \
-#            {mknh('if0', "10.0.0.1"), mknh("if1", "10.0.0.2"), mknh("if2", "10.0.0.3"),
+#            {mknh("if0", "10.0.0.1"), mknh("if1", "10.0.0.2"), mknh("if2", "10.0.0.3"),
 #             mknh("if3", "10.0.0.4"), mknh("if4", "10.0.0.5"), mknh("if5", "10.0.0.6"),
 #             mknh("if6", "10.0.0.7")}
 
 #     assert rt.destinations.get('1.1.0.0/16').best_route.negative_next_hops == \
-#            {mknh('if0', "10.0.0.1")}
+#            {mknh("if0", "10.0.0.1")}
 #     assert rt.destinations.get('1.1.0.0/16').best_route.next_hops == \
 #            {mknh("if1", "10.0.0.2"), mknh("if2", "10.0.0.3"), mknh("if3", "10.0.0.4"),
 #             mknh("if4", "10.0.0.5"), mknh("if5", "10.0.0.6"), mknh("if6", "10.0.0.7")}
@@ -975,45 +1031,45 @@ def test_add_two_child_routes_same_destination_different_owners():
 #     assert rt.destinations.get('1.2.0.0/16').best_route.negative_next_hops == \
 #            {mknh("if3", "10.0.0.4")}
 #     assert rt.destinations.get('1.2.0.0/16').best_route.next_hops == \
-#            {mknh('if0', "10.0.0.1"), mknh("if1", "10.0.0.2"), mknh("if2", "10.0.0.3"),
+#            {mknh("if0", "10.0.0.1"), mknh("if1", "10.0.0.2"), mknh("if2", "10.0.0.3"),
 #             mknh("if4", "10.0.0.5"), mknh("if5", "10.0.0.6"), mknh("if6", "10.0.0.7")}
 #     assert set(rt.fib.routes[mkp('1.2.0.0/16')].next_hops) == \
-#            {mknh('if0', "10.0.0.1"), mknh("if1", "10.0.0.2"), mknh("if2", "10.0.0.3"),
+#            {mknh("if0", "10.0.0.1"), mknh("if1", "10.0.0.2"), mknh("if2", "10.0.0.3"),
 #             mknh("if4", "10.0.0.5"), mknh("if5", "10.0.0.6"), mknh("if6", "10.0.0.7")}
 
 #     assert rt.destinations.get('1.2.1.0/24').best_route.negative_next_hops == \
 #            {mknh("if4", "10.0.0.5")}
 #     assert rt.destinations.get('1.2.1.0/24').best_route.next_hops == \
-#            {mknh('if0', "10.0.0.1"), mknh("if1", "10.0.0.2"), mknh("if2", "10.0.0.3"),
+#            {mknh("if0", "10.0.0.1"), mknh("if1", "10.0.0.2"), mknh("if2", "10.0.0.3"),
 #             mknh("if5", "10.0.0.6"), mknh("if6", "10.0.0.7")}
 #     assert set(rt.fib.routes[mkp('1.2.1.0/24')].next_hops) == \
-#            {mknh('if0', "10.0.0.1"), mknh("if1", "10.0.0.2"), mknh("if2", "10.0.0.3"),
+#            {mknh("if0", "10.0.0.1"), mknh("if1", "10.0.0.2"), mknh("if2", "10.0.0.3"),
 #             mknh("if5", "10.0.0.6"), mknh("if6", "10.0.0.7")}
 
 #     assert rt.destinations.get('1.2.2.0/24').best_route.negative_next_hops == \
 #            {mknh("if5", "10.0.0.6")}
 #     assert rt.destinations.get('1.2.2.0/24').best_route.next_hops == \
-#            {mknh('if0', "10.0.0.1"), mknh("if1", "10.0.0.2"), mknh("if2", "10.0.0.3"),
+#            {mknh("if0", "10.0.0.1"), mknh("if1", "10.0.0.2"), mknh("if2", "10.0.0.3"),
 #             mknh("if4", "10.0.0.5"), mknh("if6", "10.0.0.7")}
 #     assert set(rt.fib.routes[mkp('1.2.2.0/24')].next_hops) == \
-#            {mknh('if0', "10.0.0.1"), mknh("if1", "10.0.0.2"), mknh("if2", "10.0.0.3"),
+#            {mknh("if0", "10.0.0.1"), mknh("if1", "10.0.0.2"), mknh("if2", "10.0.0.3"),
 #             mknh("if4", "10.0.0.5"), mknh("if6", "10.0.0.7")}
 
 #     # Delete nexthop if2 from the parent route 0.0.0.0/0.
-#     rt.put_route(mkr('1.0.0.0/8', [mknh('if0', "10.0.0.1"), mknh("if1", "10.0.0.2"),
+#     rt.put_route(mkr('1.0.0.0/8', [mknh("if0", "10.0.0.1"), mknh("if1", "10.0.0.2"),
 #                                        mknh("if3", "10.0.0.4"), mknh("if4", "10.0.0.5"),
 #                                        mknh("if5", "10.0.0.6"), mknh("if6", "10.0.0.7")]))
 
 #     # Testing only rib and fib next hops
 #     assert rt.destinations.get('1.0.0.0/8').best_route.next_hops == \
-#            {mknh('if0', "10.0.0.1"), mknh("if1", "10.0.0.2"), mknh("if3", "10.0.0.4"),
+#            {mknh("if0", "10.0.0.1"), mknh("if1", "10.0.0.2"), mknh("if3", "10.0.0.4"),
 #             mknh("if4", "10.0.0.5"), mknh("if5", "10.0.0.6"), mknh("if6", "10.0.0.7")}
 #     assert set(rt.fib.routes[mkp('1.0.0.0/8')].next_hops) == \
-#            {mknh('if0', "10.0.0.1"), mknh("if1", "10.0.0.2"), mknh("if3", "10.0.0.4"),
+#            {mknh("if0", "10.0.0.1"), mknh("if1", "10.0.0.2"), mknh("if3", "10.0.0.4"),
 #             mknh("if4", "10.0.0.5"), mknh("if5", "10.0.0.6"), mknh("if6", "10.0.0.7")}
 
 #     assert rt.destinations.get('1.1.0.0/16').best_route.negative_next_hops == \
-#            {mknh('if0', "10.0.0.1")}
+#            {mknh("if0", "10.0.0.1")}
 #     assert rt.destinations.get('1.1.0.0/16').best_route.next_hops == \
 #            {mknh("if1", "10.0.0.2"), mknh("if3", "10.0.0.4"), mknh("if4", "10.0.0.5"),
 #             mknh("if5", "10.0.0.6"), mknh("if6", "10.0.0.7")}
@@ -1042,28 +1098,28 @@ def test_add_two_child_routes_same_destination_different_owners():
 #     assert rt.destinations.get('1.2.0.0/16').best_route.negative_next_hops == \
 #            {mknh("if3", "10.0.0.4")}
 #     assert rt.destinations.get('1.2.0.0/16').best_route.next_hops == \
-#            {mknh('if0', "10.0.0.1"), mknh("if1", "10.0.0.2"), mknh("if4", "10.0.0.5"),
+#            {mknh("if0", "10.0.0.1"), mknh("if1", "10.0.0.2"), mknh("if4", "10.0.0.5"),
 #             mknh("if5", "10.0.0.6"), mknh("if6", "10.0.0.7")}
 #     assert set(rt.fib.routes[mkp('1.2.0.0/16')].next_hops) == \
-#            {mknh('if0', "10.0.0.1"), mknh("if1", "10.0.0.2"), mknh("if4", "10.0.0.5"),
+#            {mknh("if0", "10.0.0.1"), mknh("if1", "10.0.0.2"), mknh("if4", "10.0.0.5"),
 #             mknh("if5", "10.0.0.6"), mknh("if6", "10.0.0.7")}
 
 #     assert rt.destinations.get('1.2.1.0/24').best_route.negative_next_hops == \
 #            {mknh("if4", "10.0.0.5")}
 #     assert rt.destinations.get('1.2.1.0/24').best_route.next_hops == \
-#            {mknh('if0', "10.0.0.1"), mknh("if1", "10.0.0.2"), mknh("if5", "10.0.0.6"),
+#            {mknh("if0", "10.0.0.1"), mknh("if1", "10.0.0.2"), mknh("if5", "10.0.0.6"),
 #             mknh("if6", "10.0.0.7")}
 #     assert set(rt.fib.routes[mkp('1.2.1.0/24')].next_hops) == \
-#            {mknh('if0', "10.0.0.1"), mknh("if1", "10.0.0.2"), mknh("if5", "10.0.0.6"),
+#            {mknh("if0", "10.0.0.1"), mknh("if1", "10.0.0.2"), mknh("if5", "10.0.0.6"),
 #             mknh("if6", "10.0.0.7")}
 
 #     assert rt.destinations.get('1.2.2.0/24').best_route.negative_next_hops == \
 #            {mknh("if5", "10.0.0.6")}
 #     assert rt.destinations.get('1.2.2.0/24').best_route.next_hops == \
-#            {mknh('if0', "10.0.0.1"), mknh("if1", "10.0.0.2"), mknh("if4", "10.0.0.5"),
+#            {mknh("if0", "10.0.0.1"), mknh("if1", "10.0.0.2"), mknh("if4", "10.0.0.5"),
 #             mknh("if6", "10.0.0.7")}
 #     assert set(rt.fib.routes[mkp('1.2.2.0/24')].next_hops) == \
-#            {mknh('if0', "10.0.0.1"), mknh("if1", "10.0.0.2"), mknh("if4", "10.0.0.5"),
+#            {mknh("if0", "10.0.0.1"), mknh("if1", "10.0.0.2"), mknh("if4", "10.0.0.5"),
 #             mknh("if6", "10.0.0.7")}
 
 #     # Delete all routes from the RIB.
