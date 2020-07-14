@@ -6,16 +6,12 @@ class NextHop:
     """
 
     def __init__(self, negative, interface, address, weight):
-        if negative:
-            ###@@@ Remove these defensive asserts once done
-            # Negative next-hops must not have a weight
-            assert weight is None
         self.negative = negative
         self.interface = interface      # May be None, meaning discard route
         self.address = address          # May be None, for unnumbered interfaces
         self.weight = weight            # May be None, only used for NECMP
 
-    def __str__(self):
+    def __repr__(self):
         parts = []
         if self.negative:
             parts.append("Negative")
@@ -27,19 +23,16 @@ class NextHop:
             parts.append("({})".format(self.weight))
         return " ".join(parts)
 
-    ###@@@ Need this?
-    # def __eq__(self, other):
-    #     if self.negative != other.negative:
-    #         return False
-    #     if self.interface != other.interface:
-    #         return False
-    #     if self.address != other.address:
-    #         return False
-    #     if self.weight != other.weight:
-    #         return False
-    #     return True
-
     def __lt__(self, other):
+        # Sort by negative (which may be None)
+        if (self.negative is None) and (other.negative is not None):
+            return True
+        if (self.negative is not None) and (other.negative is None):
+            return False
+        if self.negative < other.negative:
+            return True
+        if self.negative > other.negative:
+            return False
         # Sort by interface name (which may be None)
         if (self.interface is None) and (other.interface is not None):
             return True
@@ -61,14 +54,10 @@ class NextHop:
         if self.address < other.address:
             return True
         if self.address > other.address:
-            return True
+            return False
         # Sort by weight (which may be None)
         if (self.weight is None) and (other.weight is not None):
             return True
         if (self.weight is not None) and (other.weight is None):
             return False
         return self.weight < other.weight
-
-###@@@ need this?
-    # def __hash__(self):
-    #     return hash((self.negative, self.interface, self.address, self.weight))
