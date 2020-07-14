@@ -78,15 +78,16 @@ class RouteTable:
             rib_route = destination.best_route()
         else:
             rib_route = None
-        # Determine the next-hops for the corresponding FIB route (None if there should not be a
-        # FIB route).
+        # Determine the next-hops for the corresponding FIB route. If the next-hops is an empty
+        # list [] it means it is a discard route. If the next-hops is None it means there should not
+        # be a FIB route.
         if rib_route:
             prefix = rib_route.prefix
             fib_next_hops = rib_route.compute_fib_next_hops()
         else:
             fib_next_hops = None
         # Update the FIB route accordingly.
-        if fib_next_hops:
+        if fib_next_hops is not None:
             fib_route = FibRoute(prefix, fib_next_hops)
             self.fib.put_route(fib_route)
         else:

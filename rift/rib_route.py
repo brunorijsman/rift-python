@@ -42,24 +42,34 @@ class RibRoute:
         next_hops_str = ", ".join([str(next_hop) for next_hop in sorted(self.next_hops)])
         return "%s: %s -> %s" % (owner_str(self.owner), ip_prefix_str(self.prefix), next_hops_str)
 
+    def is_discard_route(self):
+        return not self.next_hops
+
     @staticmethod
     def cli_summary_headers():
         return [
             "Prefix",
             "Owner",
-            ["Next-hop", "Negative"],
+            ["Next-hop", "Type"],
             ["Next-hop", "Interface"],
             ["Next-hop", "Address"],
             ["Next-hop", "Weight"]]
 
     def cli_summary_attributes(self):
-        negatives = ["Negative" if nh.negative else "" for nh in self.next_hops]
+        if self.is_discard_route():
+            return [ip_prefix_str(self.prefix),
+                    owner_str(self.owner),
+                    "Discard",
+                    "",
+                    "",
+                    ""]
+        types = ["Negative" if nh.negative else "Positive" for nh in self.next_hops]
         interfaces = [nh.interface if nh.interface is not None else "" for nh in self.next_hops]
         addresses = [nh.address if nh.address is not None else "" for nh in self.next_hops]
         weights = [nh.weight if nh.weight is not None else "" for nh in self.next_hops]
         return [ip_prefix_str(self.prefix),
                 owner_str(self.owner),
-                negatives,
+                types,
                 interfaces,
                 addresses,
                 weights]
