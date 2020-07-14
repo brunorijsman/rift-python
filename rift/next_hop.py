@@ -23,6 +23,12 @@ class NextHop:
             parts.append("({})".format(self.weight))
         return " ".join(parts)
 
+    def __eq__(self, other):
+        return (self.negative == other.negative and
+                self.interface == other.interface and
+                self.address == other.address and
+                self.weight == other.weight)
+
     def __lt__(self, other):
         # Sort by negative (which may be None)
         if (self.negative is None) and (other.negative is not None):
