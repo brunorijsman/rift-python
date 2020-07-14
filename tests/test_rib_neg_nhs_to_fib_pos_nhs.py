@@ -485,27 +485,44 @@ def test_restore_child_from_to_when_neg_next_hop_removed():
     new_child_fib_next_hops = [mknh_pos("if2", "10.0.0.3")]
     check_fib_route(rt, child_prefix, new_child_fib_next_hops)
 
-# Tests if a subnet of an unreachable route (negative disaggregated) is removed from the FIB
-def test_add_subnet_disagg_recursive_unreachable():
+def test_remove_grand_child_from_fib_when_no_next_hops_left_due_to_inheritance():
+    # Test that a grand-child route is removed from the FIB when it has no next-hops left because
+    # the child route (i.e. the parent of the grand-child route) removed all next-hops.
+    # Start with a parent default route with some positive next-hops
     rt = mkrt()
-    default_route = mkr(DEFAULT_PREFIX, DEFAULT_NEXT_HOPS)
+    default_prefix = "0.0.0.0/0"
+    default_next_hops = [mknh_pos('if0', "10.0.0.1"),
+                         mknh_pos("if1", "10.0.0.2"),
+                         mknh_pos("if2", "10.0.0.3"),
+                         mknh_pos("if3", "10.0.0.4")]
+    default_route = mkr(default_prefix, default_next_hops)
     rt.put_route(default_route)
-    first_neg_route = mkr(FIRST_NEG_DISAGG_PREFIX, [], FIRST_NEG_DISAGG_NEXT_HOPS)
-    rt.put_route(first_neg_route)
-    subnet_disagg_route = mkr(SUBNET_NEG_DISAGG_PREFIX, [], SUBNET_NEG_DISAGG_NEXT_HOPS)
-    rt.put_route(subnet_disagg_route)
-    first_neg_unreach = mkr(FIRST_NEG_DISAGG_PREFIX, [], UNREACHABLE_NEXT_HOPS)
-    rt.put_route(first_neg_unreach)
-    assert rt.destinations.get(FIRST_NEG_DISAGG_PREFIX).best_route.positive_next_hops == set()
-    assert rt.destinations.get(FIRST_NEG_DISAGG_PREFIX).best_route.negative_next_hops == \
-           {mknh('if0', "10.0.0.1"), mknh("if1", "10.0.0.2"), mknh("if2", "10.0.0.3"),
-            mknh("if3", "10.0.0.4")}
-    assert rt.destinations.get(FIRST_NEG_DISAGG_PREFIX).best_route.next_hops == set()
-    assert set(rt.fib.routes[mkp(FIRST_NEG_DISAGG_PREFIX)].next_hops) == \
-           first_neg_unreach.next_hops
-    assert rt.destinations.has_key(SUBNET_NEG_DISAGG_PREFIX)
-    assert SUBNET_NEG_DISAGG_PREFIX not in rt.fib.routes
-
+    check_rib_route(rt, default_prefix, default_next_hops)
+    check_fib_route(rt, default_prefix, default_next_hops)
+    # Add a more specific child route with negative next-hops for all of the parent's positive
+    # next-hops.
+    child_prefix = "10.0.0.0/16"
+    child_rib_next_hops = [mknh_neg('if0', "10.0.0.1"),
+                           mknh_neg("if1", "10.0.0.2"),
+                           mknh_neg("if2", "10.0.0.3"),
+                           mknh_neg("if3", "10.0.0.4")]
+    child_route = mkr(child_prefix, child_rib_next_hops)
+    rt.put_route(child_route)
+    check_rib_route(rt, child_prefix, child_rib_next_hops)
+    # Add an even more specific grand-child route with only one negative next-hop of its own, but
+    # the other next-hops that could potentially be inherited from the default were already removed
+    # by the child route.
+    grand_child_prefix = "10.0.10.0/24"
+    grand_child_rib_next_hops = [mknh_neg('if1', "10.0.0.2")]
+    grand_child_route = mkr(grand_child_prefix, grand_child_rib_next_hops)
+    rt.put_route(grand_child_route)
+    check_rib_route(rt, grand_child_prefix, grand_child_rib_next_hops)
+    # Check that the child route is absent from the FIB
+    check_fib_route_absent(rt, child_prefix)
+    # Check that the grand-child route is also absent from the FIB
+    check_fib_route_absent(rt, grand_child_prefix)
+    # Go back to the parent, and check it's next-hops haven't changed
+    check_fib_route(rt, default_prefix, default_next_hops)
 
 # Slide 61 from the perspective of L3
 def test_pos_neg_disagg():
