@@ -625,29 +625,6 @@ def test_pos_neg_disagg():
     assert set(rt.fib.routes[mkp(LEAF_PREFIX)].next_hops) == leaf_route.next_hops
 
 
-# Given a prefix X with N negative next hops
-# Given a prefix Y, subnet of X, with M negative next hops and a positive next hop L included in N
-# Results that next hops of Y include L
-def test_pos_neg_disagg_recursive():
-    add_missing_methods_to_thrift()
-    rt = mkrt()
-    default_route = mkr(DEFAULT_PREFIX, DEFAULT_NEXT_HOPS)
-    rt.put_route(default_route)
-    first_neg_route = mkr(FIRST_NEG_DISAGG_PREFIX, [], FIRST_NEG_DISAGG_NEXT_HOPS)
-    rt.put_route(first_neg_route)
-    subnet_disagg_route = mkr(SUBNET_NEG_DISAGG_PREFIX, [mknh("if0", "10.0.0.1")],
-                              SUBNET_NEG_DISAGG_NEXT_HOPS)
-    rt.put_route(subnet_disagg_route)
-    assert rt.destinations.get(SUBNET_NEG_DISAGG_PREFIX).best_route.positive_next_hops == \
-           {mknh("if0", "10.0.0.1")}
-    assert rt.destinations.get(SUBNET_NEG_DISAGG_PREFIX).best_route.negative_next_hops == \
-           {mknh("if1", "10.0.0.2")}
-    assert rt.destinations.get(SUBNET_NEG_DISAGG_PREFIX).best_route.next_hops == \
-           {mknh("if0", "10.0.0.1"), mknh("if2", "10.0.0.3"), mknh("if3", "10.0.0.4")}
-    assert set(
-        rt.fib.routes[mkp(SUBNET_NEG_DISAGG_PREFIX)].next_hops) == subnet_disagg_route.next_hops
-
-
 # Add two destination with different owner to the same destination,
 # test that the S_SPF route is preferred
 def test_add_two_route_same_destination():
