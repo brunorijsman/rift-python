@@ -34,22 +34,19 @@ class RibRoute:
                 positive_next_hops.append(rib_next_hop)
         # Start with the positive next-hops in the FIB
         fib_next_hops = positive_next_hops
-
         # We need the parent FIB next hops to (a) potentially compute the complement of the negative
-        # next-hops and (b) to determine whether this route is superfluous
+        # next-hops and (b) to determine whether this route is superfluous because it has the exact
+        # same FIB next-hops as its parent
         parent_destination = self.destination.parent_destination()
         if parent_destination is None:
             parent_route = None
             parent_fib_next_hops = None
         else:
-            # Compute the set of positive next-hops that are the complement of the routes set of
-            # negative next-hops.
             parent_route = parent_destination.best_route()
             parent_fib_next_hops = parent_route.compute_fib_next_hops()
         # If (and only if) there is at least one negative next-hop, compute the complementary
         # positive next-hops
         if negative_next_hops:
-            # Compute the complementary next-hops
             if parent_fib_next_hops is None:
                 complementary_next_hops = []
             else:
@@ -75,7 +72,6 @@ class RibRoute:
         if parent_fib_next_hops is not None:
             if sorted(fib_next_hops) == sorted(parent_fib_next_hops):
                 fib_next_hops = None
-        ###@@@ TODO: This is where we should do the bandwidth adjustment for the weights
         return fib_next_hops
 
     def __repr__(self):

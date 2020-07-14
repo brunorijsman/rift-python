@@ -718,7 +718,14 @@ def test_superfluous_positive_next_hop():
     check_rib_route(rt, child_prefix, child_rib_next_hops)
     # Check that the negative route is not installed in the FIB because it is superfluous
     check_fib_route_absent(rt, child_prefix)
-    ###@@@ no longer superfluous
+    # Remove the default route
+    rt.del_route(mkp(default_prefix), OWNER_S_SPF)
+    check_rib_route_absent(rt, default_prefix)
+    check_fib_route_absent(rt, default_prefix)
+    # Now the child route is no longer superfluous
+    check_rib_route(rt, child_prefix, child_rib_next_hops)
+    child_fib_next_hops = child_rib_next_hops
+    check_fib_route(rt, child_prefix, child_fib_next_hops)
 
 def test_superfluous_negative_next_hop():
     # Test that installation of a superfluous route in the FIB is prevented when the child's FIB
@@ -744,9 +751,27 @@ def test_superfluous_negative_next_hop():
     child_route = mkr(child_prefix, child_rib_next_hops)
     rt.put_route(child_route)
     check_rib_route(rt, child_prefix, child_rib_next_hops)
-    # Check that the negative child route is not installed in the FIB because it is superfluous
+    # Check that the negative child route is not installed in the FIB because it is superfluous:
+    # it has the exact same FIB next-hops as its parent, the default route
     check_fib_route_absent(rt, child_prefix)
-    ###@@@ no longer superfluous
+    # Add a new next-hop to the default route that does match one of the negative next-hops of the
+    # child route
+    new_default_next_hops = [mknh_pos("if0", "10.0.0.1"),
+                             mknh_pos("if1", "10.0.0.2"),
+                             mknh_pos("if2", "10.0.0.3"),
+                             mknh_pos("if3", "10.0.0.4"),
+                             mknh_pos("if4", "10.0.0.5")]
+    new_default_route = mkr(default_prefix, new_default_next_hops)
+    rt.put_route(new_default_route)
+    check_rib_route(rt, default_prefix, new_default_next_hops)
+    check_fib_route(rt, default_prefix, new_default_next_hops)
+    # The child route is not superfluous anymore, since it's FIB next-hops are now different from
+    # the FIB next-hops of its parent
+    child_fib_next_hops = [mknh_pos("if0", "10.0.0.1"),
+                           mknh_pos("if1", "10.0.0.2"),
+                           mknh_pos("if2", "10.0.0.3"),
+                           mknh_pos("if3", "10.0.0.4")]
+    check_fib_route(rt, child_prefix, child_fib_next_hops)
 
 def test_superfluous_discard_parent_also_discard():
     # Test that installation of a superfluous route in the FIB is prevented when the child's FIB
@@ -791,15 +816,23 @@ def test_superfluous_discard_parent_also_discard():
     check_fib_route_absent(rt, child_prefix)
     # The grand-child route is now not superfluous anymore and should be installed as a discard
     # route
-    ###@@@ FAILS
     check_fib_route(rt, grand_child_prefix, no_next_hops)
 
 def test_superfluous_discard_no_parent():
     # Test that installation of a superfluous route in the FIB is prevented when the child's FIB
     # next-hops are the same as the parent's next-hops because.
     # Specific scenario: the child ends up with a discard route, but there is no parent
+    # Create a so-called child route that only has some negative next-hops, but not parent route
+    rt = mkrt()
+    child_prefix = "10.0.0.0/16"
+    child_rib_next_hops = [mknh_neg("if0", "10.0.0.1"),
+                           mknh_neg("if1", "10.0.0.2")]
+    child_route = mkr(child_prefix, child_rib_next_hops)
+    rt.put_route(child_route)
+    check_rib_route(rt, child_prefix, child_rib_next_hops)
+    # Check that the child child route is absent from the FIB
+    check_fib_route_absent(rt, child_prefix)
     ###@@@
-    pass
 
 # # Deep nesting of more specific routes: parent, child, grand child, grand-grand child, ...
 # def test_prop_deep_nesting():
