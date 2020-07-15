@@ -27,8 +27,9 @@ import yaml
 sys.path.append("rift")
 
 # pylint:disable=wrong-import-position
-import constants
-import table
+from constants import DIR_SOUTH, DIR_NORTH, DIR_EAST_WEST
+from table import Table
+from next_hops import NextHop
 
 META_CONFIG = None
 ARGS = None
@@ -827,27 +828,27 @@ class Node:
     def check_rib_north_default_route(self):
         step = "North-bound default routes are present"
         okay = True
-        direction = constants.DIR_NORTH
-        ipv4_nexthops = self.gather_nexthops(direction, True)
+        direction = DIR_NORTH
+        ipv4_next_hops = self.gather_next_hops(direction, True)
         parsed_rib_ipv4_routes = self.telnet_session.parse_show_output("show routes family ipv4")
-        okay = self.check_route_in_rib("0.0.0.0/0", direction, ipv4_nexthops,
+        okay = self.check_route_in_rib("0.0.0.0/0", direction, ipv4_next_hops,
                                        parsed_rib_ipv4_routes) and okay
-        ipv6_nexthops = self.gather_nexthops(direction, False)
+        ipv6_next_hops = self.gather_next_hops(direction, False)
         parsed_rib_ipv6_routes = self.telnet_session.parse_show_output("show routes family ipv6")
-        okay = self.check_route_in_rib("::/0", direction, ipv6_nexthops,
+        okay = self.check_route_in_rib("::/0", direction, ipv6_next_hops,
                                        parsed_rib_ipv6_routes) and okay
         self.report_check_result(step, okay)
 
     def check_rib_south_specific_routes(self):
         step = "South-bound specific routes are present"
         okay = True
-        direction = constants.DIR_SOUTH
+        direction = DIR_SOUTH
         ipv4_lo_addresses = self.gather_southern_loopbacks()
         parsed_rib_ipv4_routes = self.telnet_session.parse_show_output("show routes family ipv4")
         for ipv4_lo_address in ipv4_lo_addresses:
-            ipv4_nexthops = self.southern_loopback_nexthops(ipv4_lo_address, True)
+            ipv4_next_hops = self.southern_loopback_next_hops(ipv4_lo_address, True)
             ipv4_prefix = ipv4_lo_address + "/32"
-            okay = self.check_route_in_rib(ipv4_prefix, direction, ipv4_nexthops,
+            okay = self.check_route_in_rib(ipv4_prefix, direction, ipv4_next_hops,
                                            parsed_rib_ipv4_routes) and okay
         self.report_check_result(step, okay)
 
@@ -858,71 +859,71 @@ class Node:
         else:
             ipv4_loopback_prefixes = []
         for intf in self.interfaces:
-            if self.interface_direction(intf) == constants.DIR_SOUTH:
+            if self.interface_direction(intf) == DIR_SOUTH:
                 south_node = intf.peer_intf.node
                 ipv4_loopback_prefixes += south_node.lo_addresses
                 ipv4_loopback_prefixes += south_node.gather_southern_loopbacks()
         ipv4_loopback_prefixes = list(set(ipv4_loopback_prefixes))   # Remove duplicates
         return ipv4_loopback_prefixes
 
-    def southern_loopback_nexthops(self, loopback_address, include_ipv4_address):
-        nexthops = []
+    def southern_loopback_next_hops(self, loopback_address, include_ipv4_address):
+        next_hops = []
         for intf in self.interfaces:
-            if self.interface_direction(intf) == constants.DIR_SOUTH:
+            if self.interface_direction(intf) == DIR_SOUTH:
                 south_node = intf.peer_intf.node
                 intf_southern_loopbacks = south_node.gather_southern_loopbacks(True)
                 if loopback_address in intf_southern_loopbacks:
-                    nexthops.append(self.interface_nexthop(intf, include_ipv4_address))
-        return nexthops
+                    next_hops.append(self.interface_next_hop(intf, include_ipv4_address))
+        return next_hops
 
     def interface_direction(self, interface):
         if self.layer > interface.peer_intf.node.layer:
-            return constants.DIR_SOUTH
+            return DIR_SOUTH
         elif self.layer < interface.peer_intf.node.layer:
-            return constants.DIR_NORTH
+            return DIR_NORTH
         else:
-            return constants.DIR_EAST_WEST
+            return DIR_EAST_WEST
 
-    def gather_nexthops(self, direction, include_ipv4_address):
-        nexthops = []
+    def gather_next_hops(self, direction, include_ipv4_address):
+        next_hops = []
         for intf in self.interfaces:
             if self.interface_direction(intf) == direction:
-                nexthops.append(self.interface_nexthop(intf, include_ipv4_address))
-        nexthops = list(set(nexthops))   # Remove duplicates
-        return nexthops
+                next_hops.append(self.interface_next_hop(intf, include_ipv4_address))
+        next_hops = list(set(next_hops))   # Remove duplicates
+        return next_hops
 
-    def interface_nexthop(self, intf, include_ipv4_address):
-        nexthop_intf = intf.veth_name()
+    def interface_next_hop(self, intf, include_ipv4_address):
+        next_hop_intf = intf.veth_name()
         if include_ipv4_address:
-            nexthop_ipv4_address = intf.peer_intf.addr.split('/')[0] # Strip off /prefix-len
-            nexthop = "{} {}".format(nexthop_intf, nexthop_ipv4_address)
+            next_hop_ipv4_address = intf.peer_intf.addr.split('/')[0] # Strip off /prefix-len
+            next_hop = "{} {}".format(next_hop_intf, next_hop_ipv4_address)
         else:
-            nexthop = "{}".format(nexthop_intf)
-        return nexthop
+            next_hop = "{}".format(next_hop_intf)
+        return next_hop
 
-    def check_route_in_rib(self, prefix, direction, nexthops, parsed_rib_routes):
-        if direction == constants.DIR_SOUTH:
+    def check_route_in_rib(self, prefix, direction, next_hops, parsed_rib_routes):
+        if direction == DIR_SOUTH:
             owner = "South SPF"
         else:
-            assert direction == constants.DIR_NORTH
+            assert direction == DIR_NORTH
             owner = "North SPF"
-        substep = "Route prefix {} owner {} nexthops {} in RIB".format(prefix, owner, nexthops)
-        sorted_nexthops = sorted(nexthops)
+        substep = "Route prefix {} owner {} next-hops {} in RIB".format(prefix, owner, next_hops)
+        sorted_next_hops = sorted(next_hops)
         for rib_route in parsed_rib_routes[0]['rows'][1:]:
             rib_prefix = rib_route[0][0]
             rib_owner = rib_route[1][0]
             if prefix == rib_prefix and owner == rib_owner:
-                rib_nexthops = rib_route[2]
+                rib_next_hops = rib_route[2]
                 if ':' in prefix:
-                    # For IPv6 routes, we only check the nexthop interface and not the link-local
-                    # nexthop address
-                    rib_nexthops = [nh.split(' ')[0] for nh in rib_nexthops]
-                sorted_rib_nexthops = sorted(rib_nexthops)
-                if sorted_nexthops == sorted_rib_nexthops:
+                    # For IPv6 routes, we only check the next-hop interface and not the link-local
+                    # next-hop address
+                    rib_next_hops = [nh.split(' ')[0] for nh in rib_next_hops]
+                sorted_rib_next_hops = sorted(rib_next_hops)
+                if sorted_next_hops == sorted_rib_next_hops:
                     return True
                 else:
-                    error = ("Nexthops mismatch; expected {} but RIB has {}"
-                             .format(sorted_nexthops, sorted_rib_nexthops))
+                    error = ("Next-hops mismatch; expected {} but RIB has {}"
+                             .format(sorted_next_hops, sorted_rib_next_hops))
                     self.report_check_result(substep, False, error)
                     return False
         self.report_check_result(substep, False, "Route missing")
@@ -971,7 +972,7 @@ class Node:
                     fib_nhs = fib_route[1]
                     if len(rib_nhs) != len(fib_nhs):
                         self.report_check_result(
-                            step, False, 'different number of nexthops for route {}: '
+                            step, False, 'different number of next-hops for route {}: '
                             'RIB has {}, FIB has {}'
                             .format(rib_prefix, len(rib_nhs), len(fib_nhs)))
                         okay = False
@@ -979,13 +980,13 @@ class Node:
                     for (rib_nh, fib_nh) in zip(rib_nhs, fib_nhs):
                         if 'Negative' in rib_nh:
                             self.report_check_result(
-                                step, False, 'RIB has negative nexthop for route {}: {}'
+                                step, False, 'RIB has negative next-hop for route {}: {}'
                                 .format(rib_prefix, rib_nh))
                             okay = False
                             continue
                         if rib_nh != fib_nh:
                             self.report_check_result(
-                                step, False, 'different nexthop for route {}: '
+                                step, False, 'different next-hop for route {}: '
                                 'RIB has {}, FIB has {}'
                                 .format(rib_prefix, rib_nh, fib_nh))
                             okay = False
@@ -1014,17 +1015,17 @@ class Node:
             for fib_route in fib_fam['rows'][1:]:
                 fib_prefix = fib_route[0][0]
                 if len(fib_route) >= 2:
-                    fib_nexthops = fib_route[1]
+                    fib_next_hops = fib_route[1]
                 else:
-                    fib_nexthops = []
-                if not self.check_route_in_kernel(step, fib_prefix, fib_nexthops,
+                    fib_next_hops = []
+                if not self.check_route_in_kernel(step, fib_prefix, fib_next_hops,
                                                   parsed_kernel_routes):
                     all_ok = False
         return all_ok
 
     def report_kernel_routes_not_in_fib(self, step):
         # We don't have to worry about the scenario that the FIB has a route for the same prefix
-        # but a different set of nexthops; that would already have been caught in
+        # but a different set of next-hops; that would already have been caught in
         # report_fib_routes_not_in_kernel.
         all_ok = True
         kernel_routes = self.telnet_session.parse_show_output("show kernel routes table main")[0]
@@ -1148,46 +1149,46 @@ class Node:
             all_ok = False
         return all_ok
 
-    def check_route_in_kernel(self, step, prefix, nexthops, parsed_kernel_routes):
-        # In the FIB, and ECMP route is one row with multiple nexthops. In the kernel, an ECMP route
-        # may be one row with multuple nexthops or may be multiple rows with the same prefix (the
+    def check_route_in_kernel(self, step, prefix, next_hops, parsed_kernel_routes):
+        # In the FIB, and ECMP route is one row with multiple next-hops. In the kernel, an ECMP route
+        # may be one row with multuple next-hops or may be multiple rows with the same prefix (the
         # former appears to be the case for IPv4 and the latter appears to be the case for IPv6)
         partial_match = False
-        remaining_fib_nexthops = nexthops
+        remaining_fib_next_hops = next_hops
         for kernel_route in parsed_kernel_routes[0]['rows'][1:]:
             kernel_prefix = kernel_route[2][0]
-            kernel_nexthop_intfs = kernel_route[5]
-            kernel_nexthop_addrs = kernel_route[6]
-            kernel_nexthops = [intf + ' ' + addr for (intf, addr) in zip(kernel_nexthop_intfs,
-                                                                         kernel_nexthop_addrs)]
+            kernel_next_hop_intfs = kernel_route[5]
+            kernel_next_hop_addrs = kernel_route[6]
+            kernel_next_hops = [intf + ' ' + addr for (intf, addr) in zip(kernel_next_hop_intfs,
+                                                                         kernel_next_hop_addrs)]
             if kernel_prefix == prefix:
-                sorted_kernel_nexthops = sorted(kernel_nexthops)
-                sorted_fib_nexthops = sorted(nexthops)
-                if len(kernel_nexthops) == 1:
-                    # If the kernel has a single nexthop, look for a partial match
-                    kernel_nexthop = kernel_nexthops[0]
-                    if kernel_nexthop in remaining_fib_nexthops:
-                        remaining_fib_nexthops.remove(kernel_nexthop)
-                        if remaining_fib_nexthops == []:
+                sorted_kernel_next_hops = sorted(kernel_next_hops)
+                sorted_fib_next_hops = sorted(next_hops)
+                if len(kernel_next_hops) == 1:
+                    # If the kernel has a single next-hop, look for a partial match
+                    kernel_next_hop = kernel_next_hops[0]
+                    if kernel_next_hop in remaining_fib_next_hops:
+                        remaining_fib_next_hops.remove(kernel_next_hop)
+                        if remaining_fib_next_hops == []:
                             return True
                         else:
                             partial_match = True
                     else:
-                        err = ("Route {} has nexthop {} in kernel but not in FIB"
-                               .format(prefix, kernel_nexthop))
+                        err = ("Route {} has next-hop {} in kernel but not in FIB"
+                               .format(prefix, kernel_next_hop))
                         self.report_check_result(step, False, err)
                         return False
-                elif sorted_kernel_nexthops == sorted_fib_nexthops:
-                    # If the kernel has a multiple nexthops, look for an exact match
+                elif sorted_kernel_next_hops == sorted_fib_next_hops:
+                    # If the kernel has a multiple next-hops, look for an exact match
                     return True
                 else:
-                    err = ("Route {} has nexthops {} in kernel but {} in FIB"
-                           .format(prefix, kernel_nexthops, nexthops))
+                    err = ("Route {} has next-hops {} in kernel but {} in FIB"
+                           .format(prefix, kernel_next_hops, next_hops))
                     self.report_check_result(step, False, err)
                     return False
         if partial_match:
-            err = ("Route {} in FIB has extra nexthops {} which are missing in kernel"
-                   .format(prefix, remaining_fib_nexthops))
+            err = ("Route {} in FIB has extra next-hops {} which are missing in kernel"
+                   .format(prefix, remaining_fib_next_hops))
         else:
             err = "Route {} is in FIB but not in kernel".format(prefix)
         self.report_check_result(step, False, err)
@@ -1870,7 +1871,7 @@ class Fabric:
             fatal_error('Could not open allocations file "{}"'.format(file_name))
 
     def write_allocations_to_file(self, file):
-        tab = table.Table()
+        tab = Table()
         tab.add_row([
             ["Node", "Name"],
             ["Loopback", "Address"],

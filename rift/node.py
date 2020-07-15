@@ -2943,18 +2943,18 @@ class Node:
             if dest.dest_type != spf_dest.DEST_TYPE_PREFIX:
                 continue
             if dest.prefix.ipv4prefix:
-                nexthops = dest.ipv4_next_hops
+                next_hops = dest.ipv4_next_hops
             else:
                 assert dest.prefix.ipv6prefix
-                nexthops = dest.ipv6_next_hops
-            all_nexthops_partial = True
-            at_least_one_nexthop = False
-            for nexthop in nexthops:
-                at_least_one_nexthop = True
-                intf = self.interfaces_by_name[nexthop.interface]
+                next_hops = dest.ipv6_next_hops
+            all_next_hops_partial = True
+            at_least_one_next_hop = False
+            for next_hop in next_hops:
+                at_least_one_next_hop = True
+                intf = self.interfaces_by_name[next_hop.interface]
                 if not intf.partially_connected:
-                    all_nexthops_partial = False
-            if all_nexthops_partial and at_least_one_nexthop:
+                    all_next_hops_partial = False
+            if all_next_hops_partial and at_least_one_next_hop:
                 dest.positively_disaggregate = True
 
     def interface_id_to_ipv4_next_hop(self, interface_id):

@@ -115,7 +115,7 @@ def test_parent_with_negative_child():
 def test_parent_with_two_negative_children():
     # Test slide 57 in Pascal's "negative disaggregation" presentation:
     rt = mkrt()
-    # Start a parent default route with some positive nexthops
+    # Start a parent default route with some positive next-hops
     default_prefix = "0.0.0.0/0"
     default_next_hops = [mknh_pos("if0", "10.0.0.1"),
                          mknh_pos("if1", "10.0.0.2"),
@@ -151,10 +151,10 @@ def test_parent_with_two_negative_children():
 
 def test_remove_pos_next_hop_from_parent_update_child():
     # Test slide 58 in Pascal's "negative disaggregation" presentation.
-    # Delete a nexthop from a parent route, and check that the computed complementary nexthops in
+    # Delete a next-hop from a parent route, and check that the computed complementary next-hops in
     # the child routes are properly updated.
     rt = mkrt()
-    # Create a parent default route with positive nexthops
+    # Create a parent default route with positive next-hops
     default_prefix = "0.0.0.0/0"
     default_next_hops = [mknh_pos("if0", "10.0.0.1"),
                          mknh_pos("if1", "10.0.0.2"),
