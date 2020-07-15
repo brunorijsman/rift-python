@@ -24,7 +24,7 @@ class ForwardingTable:
     def get_route(self, prefix):
         assert_prefix_address_family(prefix, self.address_family)
         if prefix in self.fib_routes:
-            return self.rib_routes[prefix]
+            return self.fib_routes[prefix]
         else:
             return None
 

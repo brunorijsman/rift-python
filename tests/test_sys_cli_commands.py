@@ -60,13 +60,13 @@ def check_show_flooding_reduction(res):
 def check_show_forwarding(res):
     res.sendline("show forwarding")
     res.table_expect("IPv4 Routes:")
-    res.table_expect("| 2.2.1.0/24 | if1")
+    res.table_expect("| 2.2.1.0/24 | Positive | if1")
     res.table_expect("IPv6 Routes:")
     res.wait_prompt()
 
 def check_show_forwarding_prefix(res):
     res.sendline("show forwarding prefix 2.2.2.2/32")
-    res.table_expect("| 2.2.2.2/32 | if1")
+    res.table_expect("| 2.2.2.2/32 | Positive | if1")
     res.wait_prompt()
 
 def check_show_fsm_lie(res):
@@ -220,18 +220,18 @@ def check_show_nodes_level(res):
 def check_show_routes(res):
     res.sendline("show routes")
     res.table_expect("IPv4 Routes:")
-    res.table_expect("| 2.2.1.0/24 | South SPF | if1")
+    res.table_expect("| 2.2.1.0/24 | South SPF | Positive | if1")
     res.table_expect("IPv6 Routes:")
     res.wait_prompt()
 
 def check_show_routes_prefix(res):
     res.sendline("show routes prefix 2.2.1.0/24")
-    res.table_expect("| 2.2.1.0/24 | South SPF | if1")
+    res.table_expect("| 2.2.1.0/24 | South SPF | Positive | if1")
     res.wait_prompt()
 
 def check_show_routes_prefix_owner(res):
     res.sendline("show routes prefix 2.2.1.0/24 owner south-spf")
-    res.table_expect("| 2.2.1.0/24 | South SPF | if1")
+    res.table_expect("| 2.2.1.0/24 | South SPF | Positive | if1")
     res.wait_prompt()
 
 def check_show_spf(res):

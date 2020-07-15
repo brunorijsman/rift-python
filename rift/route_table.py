@@ -111,7 +111,7 @@ class RouteTable:
         prefix_str = ip_prefix_str(prefix)
         if self.destinations.has_key(prefix_str):
             destination = self.destinations[prefix_str]
-            for rib_route in destination.routes:
+            for rib_route in destination.rib_routes:
                 yield rib_route
 
     def cli_table(self):
