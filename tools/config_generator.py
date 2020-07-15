@@ -29,7 +29,7 @@ sys.path.append("rift")
 # pylint:disable=wrong-import-position
 from constants import DIR_SOUTH, DIR_NORTH, DIR_EAST_WEST
 from table import Table
-from next_hops import NextHop
+from nexthop import NextHop
 
 META_CONFIG = None
 ARGS = None
