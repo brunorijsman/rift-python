@@ -69,3 +69,6 @@ class NextHop:
         if (self.weight is None) and (other.weight is None):
             return False
         return self.weight < other.weight
+
+    def __hash__(self):
+        return hash((self.negative, self.interface, self.address, self.weight))

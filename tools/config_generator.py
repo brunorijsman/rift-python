@@ -30,6 +30,7 @@ sys.path.append("rift")
 from constants import DIR_SOUTH, DIR_NORTH, DIR_EAST_WEST
 from table import Table
 from next_hop import NextHop
+from packet_common import make_ip_address
 
 META_CONFIG = None
 ARGS = None
@@ -895,11 +896,39 @@ class Node:
     def interface_next_hop(self, intf, include_ipv4_address):
         next_hop_intf = intf.veth_name()
         if include_ipv4_address:
-            next_hop_ipv4_address = intf.peer_intf.addr.split('/')[0] # Strip off /prefix-len
-            next_hop = "{} {}".format(next_hop_intf, next_hop_ipv4_address)
+            next_hop_address_str = intf.peer_intf.addr.split('/')[0] # Strip off /prefix-len
+            next_hop_address = make_ip_address(next_hop_address_str)
         else:
-            next_hop = "{}".format(next_hop_intf)
-        return next_hop
+            next_hop_address = None
+        return NextHop(False, next_hop_intf, next_hop_address, None)
+
+    @staticmethod
+    def extract_next_hops_from_route(route, first_next_hop_column, ignore_address):
+        ###@@@
+        next_hops = []
+        types = route[first_next_hop_column]
+        intfs = route[first_next_hop_column + 1]
+        addrs = route[first_next_hop_column + 2]
+        weights = route[first_next_hop_column + 3]
+        for (typ, intf, addr, weight) in zip(types, intfs, addrs, weights):
+            if typ == "Discard":
+                return []
+            elif typ == "Positive":
+                negative = False
+            elif typ == "Negative":
+                negative = True
+            else:
+                assert False
+            if ignore_address:
+                addr = None
+            else:
+                addr = make_ip_address(addr)
+            if weight == "":
+                weight = None
+            else:
+                weight = int(weight)
+            next_hops.append(NextHop(negative, intf, addr, weight))
+        return next_hops
 
     def check_route_in_rib(self, prefix, direction, next_hops, parsed_rib_routes):
         if direction == DIR_SOUTH:
@@ -913,11 +942,9 @@ class Node:
             rib_prefix = rib_route[0][0]
             rib_owner = rib_route[1][0]
             if prefix == rib_prefix and owner == rib_owner:
-                rib_next_hops = rib_route[2]
-                if ':' in prefix:
-                    # For IPv6 routes, we only check the next-hop interface and not the link-local
-                    # next-hop address
-                    rib_next_hops = [nh.split(' ')[0] for nh in rib_next_hops]
+                # For IPv6 routes, don't check next-hops address, it's an unpredictable link-local
+                ignore_address = ':' in prefix
+                rib_next_hops = self.extract_next_hops_from_route(rib_route, 2, ignore_address)
                 sorted_rib_next_hops = sorted(rib_next_hops)
                 if sorted_next_hops == sorted_rib_next_hops:
                     return True
@@ -1014,10 +1041,7 @@ class Node:
         for fib_fam in parsed_fib_routes:
             for fib_route in fib_fam['rows'][1:]:
                 fib_prefix = fib_route[0][0]
-                if len(fib_route) >= 2:
-                    fib_next_hops = fib_route[1]
-                else:
-                    fib_next_hops = []
+                fib_next_hops = self.extract_next_hops_from_route(fib_route, 1, False)
                 if not self.check_route_in_kernel(step, fib_prefix, fib_next_hops,
                                                   parsed_kernel_routes):
                     all_ok = False
@@ -1150,17 +1174,23 @@ class Node:
         return all_ok
 
     def check_route_in_kernel(self, step, prefix, next_hops, parsed_kernel_routes):
-        # In the FIB, and ECMP route is one row with multiple next-hops. In the kernel, an ECMP route
-        # may be one row with multuple next-hops or may be multiple rows with the same prefix (the
-        # former appears to be the case for IPv4 and the latter appears to be the case for IPv6)
+        # In the FIB, and ECMP route is one row with multiple next-hops. In the kernel, an ECMP
+        # route may be one row with multuple next-hops or may be multiple rows with the same prefix
+        # (the former appears to be the case for IPv4 and the latter appears to be the case for
+        # IPv6)
         partial_match = False
         remaining_fib_next_hops = next_hops
         for kernel_route in parsed_kernel_routes[0]['rows'][1:]:
             kernel_prefix = kernel_route[2][0]
             kernel_next_hop_intfs = kernel_route[5]
             kernel_next_hop_addrs = kernel_route[6]
-            kernel_next_hops = [intf + ' ' + addr for (intf, addr) in zip(kernel_next_hop_intfs,
-                                                                         kernel_next_hop_addrs)]
+            kernel_next_hops = []
+            for intf, addr in zip(kernel_next_hop_intfs, kernel_next_hop_addrs):
+                if addr == "":
+                    addr = None
+                else:
+                    addr = make_ip_address(addr)
+                kernel_next_hops.append(NextHop(False, intf, addr, None))
             if kernel_prefix == prefix:
                 sorted_kernel_next_hops = sorted(kernel_next_hops)
                 sorted_fib_next_hops = sorted(next_hops)
