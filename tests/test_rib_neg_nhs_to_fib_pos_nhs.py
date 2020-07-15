@@ -864,7 +864,7 @@ def test_prop_deep_nesting():
     #   gggg_child                               +--- 1.240.0.0/12 -> if2, if4   [superfluous]
     #
     rt = mkrt()
-    # Add default route
+    # Add default
     default_prefix = "0.0.0.0/0"
     default_rib_next_hops = [mknh_pos("if0", "10.0.0.1"),
                              mknh_pos("if1", "10.0.0.2"),
@@ -960,213 +960,140 @@ def test_prop_deep_nesting():
                                 mknh_pos("if4", "10.0.0.5")]
     check_fib_route(rt, gggg_child_prefix, gggg_child_fib_next_hops)
 
-# def test_prop_nesting_with_siblings():
-#     # Deep nesting of more specific routes using the following tree:
-#     #
-#     #   1.0.0.0/8 -> S1, S2, S3, S4, S5, S6, S7
-#     #    |
-#     #    +--- 1.1.0.0/16 -> S1
-#     #    |     |
-#     #    |     +--- 1.1.1.0/24 -> ~S2
-#     #    |     |
-#     #    |     +--- 1.1.2.0/24 -> ~S3
-#     #    |
-#     #    +--- 1.2.0.0/16 -> ~S4
-#     #          |
-#     #          +--- 1.2.1.0/24 -> ~S5
-#     #          |
-#     #          +--- 1.2.2.0/24 -> ~S6
-#     #
-#     # Note: we add the routes in a random order
-#     add_missing_methods_to_thrift()
-#     rt = mkrt()
+def test_prop_nesting_with_siblings():
+    # Deep nesting of more specific routes using the following tree:
+    #
+    #   top         1.0.0.0/8 -> if0, if1, if2, if3, if4, if5   [if0, if1, if2, if3, if4, if5]
+    #                |
+    #   left         +--- 1.1.0.0/16 -> ~if0   [if1, if2, if3, if4, if5]
+    #                |     |
+    #   left-left    |     +--- 1.1.1.0/24 -> ~if1    [if2, if3, if4, if5]
+    #                |     |
+    #   left-right   |     +--- 1.1.2.0/24 -> ~if2    [if1, if3, if4, if5]
+    #                |
+    #   right        +--- 1.2.0.0/16 -> ~if3   [if0, if1, if2, if4, if5]
+    #                      |
+    #   right-left         +--- 1.2.1.0/24 -> ~if4   [if0, if1, if2, if5]
+    #                      |
+    #   right-right        +--- 1.2.2.0/24 -> ~if5   [if0, if1, if2, if4]
+    #
+    # The routes are created in a random order:
+    #  1. left-left
+    #  2. right
+    #  3. top
+    #  4. right-right
+    #  5. left-right
+    #  6. left
+    #  7. right-left
+    rt = mkrt()
+    # 1. Add left-left
+    left_left_prefix = "1.1.1.0/24"
+    left_left_rib_next_hops = [mknh_neg("if1", "10.0.0.2")]
+    left_left_route = mkr(left_left_prefix, left_left_rib_next_hops)
+    rt.put_route(left_left_route)
+    check_rib_route(rt, left_left_prefix, left_left_rib_next_hops)
+    # 2. Add right
+    right_prefix = "1.2.0.0/16"
+    right_rib_next_hops = [mknh_neg("if3", "10.0.0.4")]
+    right_route = mkr(right_prefix, right_rib_next_hops)
+    rt.put_route(right_route)
+    check_rib_route(rt, right_prefix, right_rib_next_hops)
+    # 3. Add top
+    top_prefix = "1.0.0.0/8"
+    top_rib_next_hops = [mknh_pos("if0", "10.0.0.1"),
+                         mknh_pos("if1", "10.0.0.2"),
+                         mknh_pos("if2", "10.0.0.3"),
+                         mknh_pos("if3", "10.0.0.4"),
+                         mknh_pos("if4", "10.0.0.5"),
+                         mknh_pos("if5", "10.0.0.6")]
+    top_route = mkr(top_prefix, top_rib_next_hops)
+    rt.put_route(top_route)
+    check_rib_route(rt, top_prefix, top_rib_next_hops)
+    # 4. Add right-right
+    right_right_prefix = "1.2.2.0/24"
+    right_right_rib_next_hops = [mknh_neg("if5", "10.0.0.6")]
+    right_right_route = mkr(right_right_prefix, right_right_rib_next_hops)
+    rt.put_route(right_right_route)
+    check_rib_route(rt, right_right_prefix, right_right_rib_next_hops)
+    # 5. Add left-right
+    left_right_prefix = "1.1.2.0/24"
+    left_right_rib_next_hops = [mknh_neg("if2", "10.0.0.3")]
+    left_right_route = mkr(left_right_prefix, left_right_rib_next_hops)
+    rt.put_route(left_right_route)
+    check_rib_route(rt, left_right_prefix, left_right_rib_next_hops)
+    # 6. Add left
+    left_prefix = "1.1.0.0/16"
+    left_rib_next_hops = [mknh_neg("if0", "10.0.0.1")]
+    left_route = mkr(left_prefix, left_rib_next_hops)
+    rt.put_route(left_route)
+    check_rib_route(rt, left_prefix, left_rib_next_hops)
+    # 6. Add right-left
+    right_left_prefix = "1.2.1.0/24"
+    right_left_rib_next_hops = [mknh_neg("if4", "10.0.0.5")]
+    right_left_route = mkr(right_left_prefix, right_left_rib_next_hops)
+    rt.put_route(right_left_route)
+    check_rib_route(rt, right_left_prefix, right_left_rib_next_hops)
+    # Check
+    if0 = mknh_pos("if0", "10.0.0.1")
+    if1 = mknh_pos("if1", "10.0.0.2")
+    if2 = mknh_pos("if2", "10.0.0.3")
+    if3 = mknh_pos("if3", "10.0.0.4")
+    if4 = mknh_pos("if4", "10.0.0.5")
+    if5 = mknh_pos("if5", "10.0.0.6")
+    check_fib_route(rt, top_prefix, [if0, if1, if2, if3, if4, if5])
+    check_fib_route(rt, left_prefix, [if1, if2, if3, if4, if5])
+    check_fib_route(rt, left_left_prefix, [if2, if3, if4, if5])
+    check_fib_route(rt, left_right_prefix, [if1, if3, if4, if5])
+    check_fib_route(rt, right_prefix, [if0, if1, if2, if4, if5])
+    check_fib_route(rt, right_left_prefix, [if0, if1, if2, if5])
+    check_fib_route(rt, right_right_prefix, [if0, if1, if2, if4])
 
-#     rt.put_route(mkr("1.2.1.0/24", [], [mknh("if4", "10.0.0.5")]))
-#     rt.put_route(mkr("1.1.2.0/24", [], [mknh("if2", "10.0.0.3")]))
-#     rt.put_route(mkr("1.1.0.0/16", [], [mknh("if0", "10.0.0.1")]))
-#     rt.put_route(mkr("1.1.1.0/24", [], [mknh("if1", "10.0.0.2")]))
-#     rt.put_route(mkr("1.2.0.0/16", [], [mknh("if3", "10.0.0.4")]))
-#     rt.put_route(mkr("1.0.0.0/8", [mknh("if0", "10.0.0.1"), mknh("if1", "10.0.0.2"),
-#                                        mknh("if2", "10.0.0.3"), mknh("if3", "10.0.0.4"),
-#                                        mknh("if4", "10.0.0.5"), mknh("if5", "10.0.0.6"),
-#                                        mknh("if6", "10.0.0.7")]))
-#     rt.put_route(mkr("1.2.2.0/24", [], [mknh("if5", "10.0.0.6")]))
-
-#     # Testing only rib and fib next hops
-#     assert rt.destinations.get('1.0.0.0/8').best_route.next_hops == \
-#            {mknh("if0", "10.0.0.1"), mknh("if1", "10.0.0.2"), mknh("if2", "10.0.0.3"),
-#             mknh("if3", "10.0.0.4"), mknh("if4", "10.0.0.5"), mknh("if5", "10.0.0.6"),
-#             mknh("if6", "10.0.0.7")}
-#     assert set(rt.fib.routes[mkp('1.0.0.0/8')].next_hops) == \
-#            {mknh("if0", "10.0.0.1"), mknh("if1", "10.0.0.2"), mknh("if2", "10.0.0.3"),
-#             mknh("if3", "10.0.0.4"), mknh("if4", "10.0.0.5"), mknh("if5", "10.0.0.6"),
-#             mknh("if6", "10.0.0.7")}
-
-#     assert rt.destinations.get('1.1.0.0/16').best_route.negative_next_hops == \
-#            {mknh("if0", "10.0.0.1")}
-#     assert rt.destinations.get('1.1.0.0/16').best_route.next_hops == \
-#            {mknh("if1", "10.0.0.2"), mknh("if2", "10.0.0.3"), mknh("if3", "10.0.0.4"),
-#             mknh("if4", "10.0.0.5"), mknh("if5", "10.0.0.6"), mknh("if6", "10.0.0.7")}
-#     assert set(rt.fib.routes[mkp('1.1.0.0/16')].next_hops) == \
-#            {mknh("if1", "10.0.0.2"), mknh("if2", "10.0.0.3"), mknh("if3", "10.0.0.4"),
-#             mknh("if4", "10.0.0.5"), mknh("if5", "10.0.0.6"), mknh("if6", "10.0.0.7")}
-
-#     assert rt.destinations.get('1.1.1.0/24').best_route.negative_next_hops == \
-#            {mknh("if1", "10.0.0.2")}
-#     assert rt.destinations.get('1.1.1.0/24').best_route.next_hops == \
-#            {mknh("if2", "10.0.0.3"), mknh("if3", "10.0.0.4"), mknh("if4", "10.0.0.5"),
-#             mknh("if5", "10.0.0.6"), mknh("if6", "10.0.0.7")}
-#     assert set(rt.fib.routes[mkp('1.1.1.0/24')].next_hops) == \
-#            {mknh("if2", "10.0.0.3"), mknh("if3", "10.0.0.4"), mknh("if4", "10.0.0.5"),
-#             mknh("if5", "10.0.0.6"), mknh("if6", "10.0.0.7")}
-
-#     assert rt.destinations.get('1.1.2.0/24').best_route.negative_next_hops == \
-#            {mknh("if2", "10.0.0.3")}
-#     assert rt.destinations.get('1.1.2.0/24').best_route.next_hops == \
-#            {mknh("if1", "10.0.0.2"), mknh("if3", "10.0.0.4"), mknh("if4", "10.0.0.5"),
-#             mknh("if5", "10.0.0.6"), mknh("if6", "10.0.0.7")}
-#     assert set(rt.fib.routes[mkp('1.1.2.0/24')].next_hops) == \
-#            {mknh("if1", "10.0.0.2"), mknh("if3", "10.0.0.4"), mknh("if4", "10.0.0.5"),
-#             mknh("if5", "10.0.0.6"), mknh("if6", "10.0.0.7")}
-
-#     assert rt.destinations.get('1.2.0.0/16').best_route.negative_next_hops == \
-#            {mknh("if3", "10.0.0.4")}
-#     assert rt.destinations.get('1.2.0.0/16').best_route.next_hops == \
-#            {mknh("if0", "10.0.0.1"), mknh("if1", "10.0.0.2"), mknh("if2", "10.0.0.3"),
-#             mknh("if4", "10.0.0.5"), mknh("if5", "10.0.0.6"), mknh("if6", "10.0.0.7")}
-#     assert set(rt.fib.routes[mkp('1.2.0.0/16')].next_hops) == \
-#            {mknh("if0", "10.0.0.1"), mknh("if1", "10.0.0.2"), mknh("if2", "10.0.0.3"),
-#             mknh("if4", "10.0.0.5"), mknh("if5", "10.0.0.6"), mknh("if6", "10.0.0.7")}
-
-#     assert rt.destinations.get('1.2.1.0/24').best_route.negative_next_hops == \
-#            {mknh("if4", "10.0.0.5")}
-#     assert rt.destinations.get('1.2.1.0/24').best_route.next_hops == \
-#            {mknh("if0", "10.0.0.1"), mknh("if1", "10.0.0.2"), mknh("if2", "10.0.0.3"),
-#             mknh("if5", "10.0.0.6"), mknh("if6", "10.0.0.7")}
-#     assert set(rt.fib.routes[mkp('1.2.1.0/24')].next_hops) == \
-#            {mknh("if0", "10.0.0.1"), mknh("if1", "10.0.0.2"), mknh("if2", "10.0.0.3"),
-#             mknh("if5", "10.0.0.6"), mknh("if6", "10.0.0.7")}
-
-#     assert rt.destinations.get('1.2.2.0/24').best_route.negative_next_hops == \
-#            {mknh("if5", "10.0.0.6")}
-#     assert rt.destinations.get('1.2.2.0/24').best_route.next_hops == \
-#            {mknh("if0", "10.0.0.1"), mknh("if1", "10.0.0.2"), mknh("if2", "10.0.0.3"),
-#             mknh("if4", "10.0.0.5"), mknh("if6", "10.0.0.7")}
-#     assert set(rt.fib.routes[mkp('1.2.2.0/24')].next_hops) == \
-#            {mknh("if0", "10.0.0.1"), mknh("if1", "10.0.0.2"), mknh("if2", "10.0.0.3"),
-#             mknh("if4", "10.0.0.5"), mknh("if6", "10.0.0.7")}
-
-#     # Delete nexthop if2 from the parent route 0.0.0.0/0.
-#     rt.put_route(mkr('1.0.0.0/8', [mknh("if0", "10.0.0.1"), mknh("if1", "10.0.0.2"),
-#                                        mknh("if3", "10.0.0.4"), mknh("if4", "10.0.0.5"),
-#                                        mknh("if5", "10.0.0.6"), mknh("if6", "10.0.0.7")]))
-
-#     # Testing only rib and fib next hops
-#     assert rt.destinations.get('1.0.0.0/8').best_route.next_hops == \
-#            {mknh("if0", "10.0.0.1"), mknh("if1", "10.0.0.2"), mknh("if3", "10.0.0.4"),
-#             mknh("if4", "10.0.0.5"), mknh("if5", "10.0.0.6"), mknh("if6", "10.0.0.7")}
-#     assert set(rt.fib.routes[mkp('1.0.0.0/8')].next_hops) == \
-#            {mknh("if0", "10.0.0.1"), mknh("if1", "10.0.0.2"), mknh("if3", "10.0.0.4"),
-#             mknh("if4", "10.0.0.5"), mknh("if5", "10.0.0.6"), mknh("if6", "10.0.0.7")}
-
-#     assert rt.destinations.get('1.1.0.0/16').best_route.negative_next_hops == \
-#            {mknh("if0", "10.0.0.1")}
-#     assert rt.destinations.get('1.1.0.0/16').best_route.next_hops == \
-#            {mknh("if1", "10.0.0.2"), mknh("if3", "10.0.0.4"), mknh("if4", "10.0.0.5"),
-#             mknh("if5", "10.0.0.6"), mknh("if6", "10.0.0.7")}
-#     assert set(rt.fib.routes[mkp('1.1.0.0/16')].next_hops) == \
-#            {mknh("if1", "10.0.0.2"), mknh("if3", "10.0.0.4"), mknh("if4", "10.0.0.5"),
-#             mknh("if5", "10.0.0.6"), mknh("if6", "10.0.0.7")}
-
-#     assert rt.destinations.get('1.1.1.0/24').best_route.negative_next_hops == \
-#            {mknh("if1", "10.0.0.2")}
-#     assert rt.destinations.get('1.1.1.0/24').best_route.next_hops == \
-#            {mknh("if3", "10.0.0.4"), mknh("if4", "10.0.0.5"), mknh("if5", "10.0.0.6"),
-#             mknh("if6", "10.0.0.7")}
-#     assert set(rt.fib.routes[mkp('1.1.1.0/24')].next_hops) == \
-#            {mknh("if3", "10.0.0.4"), mknh("if4", "10.0.0.5"), mknh("if5", "10.0.0.6"),
-#             mknh("if6", "10.0.0.7")}
-
-#     assert rt.destinations.get('1.1.2.0/24').best_route.negative_next_hops == \
-#            {mknh("if2", "10.0.0.3")}
-#     assert rt.destinations.get('1.1.2.0/24').best_route.next_hops == \
-#            {mknh("if1", "10.0.0.2"), mknh("if3", "10.0.0.4"), mknh("if4", "10.0.0.5"),
-#             mknh("if5", "10.0.0.6"), mknh("if6", "10.0.0.7")}
-#     assert set(rt.fib.routes[mkp('1.1.2.0/24')].next_hops) == \
-#            {mknh("if1", "10.0.0.2"), mknh("if3", "10.0.0.4"), mknh("if4", "10.0.0.5"),
-#             mknh("if5", "10.0.0.6"), mknh("if6", "10.0.0.7")}
-
-#     assert rt.destinations.get('1.2.0.0/16').best_route.negative_next_hops == \
-#            {mknh("if3", "10.0.0.4")}
-#     assert rt.destinations.get('1.2.0.0/16').best_route.next_hops == \
-#            {mknh("if0", "10.0.0.1"), mknh("if1", "10.0.0.2"), mknh("if4", "10.0.0.5"),
-#             mknh("if5", "10.0.0.6"), mknh("if6", "10.0.0.7")}
-#     assert set(rt.fib.routes[mkp('1.2.0.0/16')].next_hops) == \
-#            {mknh("if0", "10.0.0.1"), mknh("if1", "10.0.0.2"), mknh("if4", "10.0.0.5"),
-#             mknh("if5", "10.0.0.6"), mknh("if6", "10.0.0.7")}
-
-#     assert rt.destinations.get('1.2.1.0/24').best_route.negative_next_hops == \
-#            {mknh("if4", "10.0.0.5")}
-#     assert rt.destinations.get('1.2.1.0/24').best_route.next_hops == \
-#            {mknh("if0", "10.0.0.1"), mknh("if1", "10.0.0.2"), mknh("if5", "10.0.0.6"),
-#             mknh("if6", "10.0.0.7")}
-#     assert set(rt.fib.routes[mkp('1.2.1.0/24')].next_hops) == \
-#            {mknh("if0", "10.0.0.1"), mknh("if1", "10.0.0.2"), mknh("if5", "10.0.0.6"),
-#             mknh("if6", "10.0.0.7")}
-
-#     assert rt.destinations.get('1.2.2.0/24').best_route.negative_next_hops == \
-#            {mknh("if5", "10.0.0.6")}
-#     assert rt.destinations.get('1.2.2.0/24').best_route.next_hops == \
-#            {mknh("if0", "10.0.0.1"), mknh("if1", "10.0.0.2"), mknh("if4", "10.0.0.5"),
-#             mknh("if6", "10.0.0.7")}
-#     assert set(rt.fib.routes[mkp('1.2.2.0/24')].next_hops) == \
-#            {mknh("if0", "10.0.0.1"), mknh("if1", "10.0.0.2"), mknh("if4", "10.0.0.5"),
-#             mknh("if6", "10.0.0.7")}
-
-#     # Delete all routes from the RIB.
-#     rt.del_route(mkp("1.0.0.0/8"), S)
-#     rt.del_route(mkp("1.1.0.0/16"), S)
-#     rt.del_route(mkp("1.1.1.0/24"), S)
-#     rt.del_route(mkp("1.1.2.0/24"), S)
-#     rt.del_route(mkp("1.2.0.0/16"), S)
-#     rt.del_route(mkp("1.2.1.0/24"), S)
-#     rt.del_route(mkp("1.2.2.0/24"), S)
-
-#     # The RIB must be empty.
-#     assert not rt.destinations.keys()
-#     # The FIB must be empty.
-#     assert not rt.fib.routes.keys()
-
-
-# def test_cli_table():
-#     add_missing_methods_to_thrift()
-#     route_table = mkrt()
-#     nh1 = mknh("if1", "1.1.1.1")
-#     nh2 = mknh("if2", "2.2.2.2")
-#     nh3 = mknh("if3", None)
-#     nh4 = mknh("if4", "4.4.4.4")
-#     route_table.put_route(mkr("2.2.2.0/24", N))
-#     route_table.put_route(mkr("1.1.1.0/24", [nh1]))
-#     route_table.put_route(mkr("0.0.0.0/0", [nh1, nh2]))
-#     route_table.put_route(mkr("2.2.0.0/16", [nh3], [nh4]))
-#     route_table.put_route(mkr("1.1.1.0/24", N))
-#     route_table.put_route(mkr("4.4.4.0/24", [], [nh2, nh3]))
-#     tab_str = route_table.cli_table().to_string()
-#     assert (tab_str == "+------------+-----------+----------------------+\n"
-#                        "| Prefix     | Owner     | Next-hops            |\n"
-#                        "+------------+-----------+----------------------+\n"
-#                        "| 0.0.0.0/0  | South SPF | if1 1.1.1.1          |\n"
-#                        "|            |           | if2 2.2.2.2          |\n"
-#                        "+------------+-----------+----------------------+\n"
-#                        "| 1.1.1.0/24 | South SPF | if1 1.1.1.1          |\n"
-#                        "+------------+-----------+----------------------+\n"
-#                        "| 1.1.1.0/24 | North SPF |                      |\n"
-#                        "+------------+-----------+----------------------+\n"
-#                        "| 2.2.0.0/16 | South SPF | if3                  |\n"
-#                        "|            |           | Negative if4 4.4.4.4 |\n"
-#                        "+------------+-----------+----------------------+\n"
-#                        "| 2.2.2.0/24 | North SPF |                      |\n"
-#                        "+------------+-----------+----------------------+\n"
-#                        "| 4.4.4.0/24 | South SPF | Negative if2 2.2.2.2 |\n"
-#                        "|            |           | Negative if3         |\n"
-#                        "+------------+-----------+----------------------+\n")
+def test_cli_table():
+    # pylint: disable=bad-continuation
+    rt = mkrt()
+    if0 = mknh_pos("if0", "10.0.0.1")
+    if1 = mknh_pos("if1", "10.0.0.2")
+    if2 = mknh_pos("if2", "10.0.0.3")
+    if3 = mknh_pos("if3", "10.0.0.4")
+    neg_if2 = mknh_neg("if2", "10.0.0.3")
+    neg_if3 = mknh_neg("if3", "10.0.0.4")
+    rt.put_route(mkr("0.0.0.0/0", [if0, if1]))
+    rt.put_route(mkr("1.0.0.0/8", [if2, if3]))
+    rt.put_route(mkr("1.1.0.0/16", [neg_if2]))
+    rt.put_route(mkr("1.2.0.0/16", [neg_if2, neg_if3]))
+    rt.put_route(mkr("1.1.1.0/24", [neg_if2]))
+    tab_str = rt.cli_table().to_string()
+    assert (tab_str ==
+        "+------------+-----------+----------+-----------+----------+----------+\n"
+        "| Prefix     | Owner     | Next-hop | Next-hop  | Next-hop | Next-hop |\n"
+        "|            |           | Type     | Interface | Address  | Weight   |\n"
+        "+------------+-----------+----------+-----------+----------+----------+\n"
+        "| 0.0.0.0/0  | South SPF | Positive | if0       | 10.0.0.1 |          |\n"
+        "|            |           | Positive | if1       | 10.0.0.2 |          |\n"
+        "+------------+-----------+----------+-----------+----------+----------+\n"
+        "| 1.0.0.0/8  | South SPF | Positive | if2       | 10.0.0.3 |          |\n"
+        "|            |           | Positive | if3       | 10.0.0.4 |          |\n"
+        "+------------+-----------+----------+-----------+----------+----------+\n"
+        "| 1.1.0.0/16 | South SPF | Negative | if2       | 10.0.0.3 |          |\n"
+        "+------------+-----------+----------+-----------+----------+----------+\n"
+        "| 1.1.1.0/24 | South SPF | Negative | if2       | 10.0.0.3 |          |\n"
+        "+------------+-----------+----------+-----------+----------+----------+\n"
+        "| 1.2.0.0/16 | South SPF | Negative | if2       | 10.0.0.3 |          |\n"
+        "|            |           | Negative | if3       | 10.0.0.4 |          |\n"
+        "+------------+-----------+----------+-----------+----------+----------+\n")
+    tab_str = rt.fib.cli_table().to_string()
+    assert (tab_str ==
+        "+------------+----------+-----------+----------+----------+\n"
+        "| Prefix     | Next-hop | Next-hop  | Next-hop | Next-hop |\n"
+        "|            | Type     | Interface | Address  | Weight   |\n"
+        "+------------+----------+-----------+----------+----------+\n"
+        "| 0.0.0.0/0  | Positive | if0       | 10.0.0.1 |          |\n"
+        "|            | Positive | if1       | 10.0.0.2 |          |\n"
+        "+------------+----------+-----------+----------+----------+\n"
+        "| 1.0.0.0/8  | Positive | if2       | 10.0.0.3 |          |\n"
+        "|            | Positive | if3       | 10.0.0.4 |          |\n"
+        "+------------+----------+-----------+----------+----------+\n"
+        "| 1.1.0.0/16 | Positive | if3       | 10.0.0.4 |          |\n"
+        "+------------+----------+-----------+----------+----------+\n"
+        "| 1.2.0.0/16 | Discard  |           |          |          |\n"
+        "+------------+----------+-----------+----------+----------+\n")
