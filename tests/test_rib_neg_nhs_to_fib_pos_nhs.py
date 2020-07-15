@@ -923,13 +923,42 @@ def test_prop_deep_nesting():
     check_fib_route(rt, ggg_child_prefix, ggg_child_fib_next_hops)
     # Add grand-grand-grand-grand child
     gggg_child_prefix = "1.240.0.0/12"
-    gggg_child_rib_next_hops = [mknh_neg("if2", "10.0.0.2"),
-                                mknh_neg("if4", "10.0.0.6")]
+    gggg_child_rib_next_hops = [mknh_pos("if2", "10.0.0.3"),
+                                mknh_pos("if4", "10.0.0.5")]
     gggg_child_route = mkr(gggg_child_prefix, gggg_child_rib_next_hops)
-    rt.put_route(gggg_child_route)    
+    rt.put_route(gggg_child_route)
     check_rib_route(rt, gggg_child_prefix, gggg_child_rib_next_hops)
     check_fib_route_absent(rt, gggg_child_prefix)  # Superfluous
-    ###@@@ Remove top default, and check ripple-down updates
+    #
+    # Delete the top default route, which results in the following updated tree:
+    #
+    #   child            +--- 1.0.0.0/8 -> ~if1   [superfluous]
+    #                          |
+    #   g_child                +--- 1.128.0.0/9 -> ~if0, if5   [if5]
+    #                                |
+    #   gg_child                     +--- 1.192.0.0/10 -> if1, ~if3   [if1, if5]
+    #                                      |
+    #   ggg_child                          +--- 1.224.0.0/11 -> ~if1, ~if5   [discard]
+    #                                            |
+    #   gggg_child                               +--- 1.240.0.0/12 -> if2, if4   [if2, if4]
+    #
+    rt.del_route(mkp(default_prefix), OWNER_S_SPF)
+    # Child (superfluous)
+    check_fib_route_absent(rt, child_prefix)
+    # Grand child
+    g_child_fib_next_hops = [mknh_pos("if5", "10.0.0.6")]
+    check_fib_route(rt, g_child_prefix, g_child_fib_next_hops)
+    # Grand-grand child
+    gg_child_fib_next_hops = [mknh_pos("if1", "10.0.0.2"),
+                              mknh_pos("if5", "10.0.0.6")]
+    check_fib_route(rt, gg_child_prefix, gg_child_fib_next_hops)
+    # Grand-grand-grand child
+    ggg_child_fib_next_hops = []  # Discard
+    check_fib_route(rt, ggg_child_prefix, ggg_child_fib_next_hops)
+    # Grand-grand-grand-grand child
+    gggg_child_fib_next_hops = [mknh_pos("if2", "10.0.0.3"),
+                                mknh_pos("if4", "10.0.0.5")]
+    check_fib_route(rt, gggg_child_prefix, gggg_child_fib_next_hops)
 
 # def test_prop_nesting_with_siblings():
 #     # Deep nesting of more specific routes using the following tree:
