@@ -2966,7 +2966,7 @@ class Node:
         if intf.neighbor.ipv4_address is None:
             return None
         remote_address = packet_common.make_ip_address(intf.neighbor.ipv4_address)
-        return NextHop(False, intf.name, remote_address, None)
+        return NextHop(self.negatively_disaggregate, intf.name, remote_address, None)
 
     def interface_id_to_ipv6_next_hop(self, interface_id):
         if interface_id not in self.interfaces_by_id:
@@ -2980,7 +2980,7 @@ class Node:
         if "%" in remote_address_str:
             remote_address_str = remote_address_str.split("%")[0]
         remote_address = packet_common.make_ip_address(remote_address_str)
-        return NextHop(False, intf.name, remote_address, None)
+        return NextHop(self.negatively_disaggregate, intf.name, remote_address, None)
 
     def spf_use_tie_direction(self, visit_system_id, spf_direction):
         if spf_direction == constants.DIR_SOUTH:

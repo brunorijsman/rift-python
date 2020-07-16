@@ -51,9 +51,9 @@ class SPFDest:
         self.ipv4_next_hops = []
         self.ipv6_next_hops = []
         # This is a prefix that needs to be positively disaggregated
-        self.positively_disaggregate = True if dest_type == DEST_TYPE_POS_DISAGG_PREFIX else False
+        self.positively_disaggregate = (dest_type == DEST_TYPE_POS_DISAGG_PREFIX)
         # This is a prefix that needs to be negatively disaggregated
-        self.negatively_disaggregate = True if dest_type == DEST_TYPE_NEG_DISAGG_PREFIX else False
+        self.negatively_disaggregate = (dest_type == DEST_TYPE_NEG_DISAGG_PREFIX)
 
     def key(self):
         if self.dest_type == DEST_TYPE_NODE:
