@@ -1427,6 +1427,13 @@ class Interface:
         else:
             return constants.DIR_EAST_WEST
 
+    def neighbor_direction_str(self):
+        direction = self.neighbor_direction()
+        if direction is not None:
+            return constants.direction_str(direction)
+        else:
+            return ""
+
     # The basic idea for the next two functions (is_request_allowed_...) is that we should not
     # request any TIEs from our neighbor if the neighbor is not allowed to send the TIE to us
     # according to the scoping rules. If have two different implementations of this.
@@ -1660,6 +1667,7 @@ class Interface:
             ["Interface IPv4 Address", self._ipv4_address],
             ["Interface IPv6 Address", self._ipv6_address],
             ["Interface Index", self._interface_index],
+            ["Direction", self.neighbor_direction_str()],
             ["Metric", self._metric],
             ["Bandwidth", str(self._bandwith) + " Mbpps"],
             ["LIE Receive IPv4 Multicast Address", self._rx_lie_ipv4_mcast_address],
