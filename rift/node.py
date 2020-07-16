@@ -2917,9 +2917,9 @@ class Node:
     def set_spf_predecessor(self, destination, nbr_tie_element, predecessor_system_id,
                             spf_direction, special_for_neg_disagg):
         destination.add_predecessor(predecessor_system_id)
+        negative = destination.negatively_disaggregate
         if (nbr_tie_element is not None) and (predecessor_system_id == self.system_id):
             for link_id_pair in nbr_tie_element.link_ids:
-                negative = destination.negatively_disaggregate
                 nhop = self.interface_id_to_ipv4_next_hop(link_id_pair.local_id, negative)
                 if nhop:
                     destination.add_ipv4_next_hop(nhop)
@@ -2928,13 +2928,14 @@ class Node:
                     destination.add_ipv6_next_hop(nhop)
         else:
             dest_table = self._spf_destinations[(spf_direction, special_for_neg_disagg)]
-            destination.inherit_next_hops(dest_table[predecessor_system_id])
+            destination.inherit_next_hops(dest_table[predecessor_system_id], negative)
 
     def add_spf_predecessor(self, destination, predecessor_system_id, spf_direction,
                             special_for_neg_disagg):
         destination.add_predecessor(predecessor_system_id)
+        negative = destination.negatively_disaggregate
         dest_table = self._spf_destinations[(spf_direction, special_for_neg_disagg)]
-        destination.inherit_next_hops(dest_table[predecessor_system_id])
+        destination.inherit_next_hops(dest_table[predecessor_system_id], negative)
 
     def spf_mark_pos_disagg_prefixes(self):
         # Mark the prefixes in the SPF table for which this router wants to do positive aggregation
@@ -3005,33 +3006,25 @@ class Node:
         # Locate the Node-TIE(s) of the neighbor node in the desired direction. If we can't find
         # the neighbor's Node-TIE(s), we declare the adjacency to be not bi-directional.
         reverse_direction = constants.reverse_dir(spf_direction)
-
         nbr_node_ties = self.node_ties(reverse_direction, nbr_system_id)
         if not nbr_node_ties:
             return False
-
         # Check for bi-directional connectivity: the neighbor must report the visited node
         # as an adjacency with the same link-id pair (in reverse).
         bidirectional = False
-
         reverse_directions = [reverse_direction] if not special_for_neg_disagg \
             else [reverse_direction, constants.DIR_EAST_WEST]
-
         node_neighbors = self.node_neighbors(nbr_node_ties, neighbor_directions=reverse_directions)
-
         for nbr_nbr_system_id, _nbr_nbr_level, nbr_nbr_tie_element in node_neighbors:
             # Does the neighbor report the visited node as its neighbor?
             if nbr_nbr_system_id != visit_system_id:
                 continue
-
             # Are the link_ids bidirectional?
             if not self.are_link_ids_bidirectional(nbr_tie_element, nbr_nbr_tie_element):
                 continue
-
             # Yes, connectivity is bidirectional
             bidirectional = True
             break
-
         return bidirectional
 
     def are_link_ids_bidirectional(self, nbr_tie_element_1, nbr_tie_element_2):

@@ -1,5 +1,6 @@
-import packet_common
-import utils
+from next_hop import NextHop
+from packet_common import ip_prefix_str
+from utils import system_id_str
 
 DEST_TYPE_NODE = 1
 DEST_TYPE_PREFIX = 2
@@ -83,11 +84,15 @@ class SPFDest:
         if (next_hop is not None) and (next_hop not in self.ipv6_next_hops):
             self.ipv6_next_hops.append(next_hop)
 
-    def inherit_next_hops(self, other_spf_destination):
+    def inherit_next_hops(self, other_spf_destination, negative):
         for next_hop in other_spf_destination.ipv4_next_hops:
+            if negative != next_hop.negative:
+                next_hop = NextHop(negative, next_hop.interface, next_hop.address, next_hop.weight)
             if next_hop not in self.ipv4_next_hops:
                 self.ipv4_next_hops.append(next_hop)
         for next_hop in other_spf_destination.ipv6_next_hops:
+            if negative != next_hop.negative:
+                next_hop = NextHop(negative, next_hop.interface, next_hop.address, next_hop.weight)
             if next_hop not in self.ipv6_next_hops:
                 self.ipv6_next_hops.append(next_hop)
 
@@ -113,14 +118,15 @@ class SPFDest:
 
     def cli_summary_attributes(self):
         if self.dest_type == DEST_TYPE_NODE:
-            destination_str = utils.system_id_str(self.system_id)
+            destination_str = system_id_str(self.system_id)
             if self.name:
                 destination_str += " (" + self.name + ")"
         elif self.dest_type == DEST_TYPE_PREFIX:
-            destination_str = packet_common.ip_prefix_str(self.prefix)
-        elif self.dest_type == DEST_TYPE_POS_DISAGG_PREFIX or \
-            self.dest_type == DEST_TYPE_NEG_DISAGG_PREFIX:
-            destination_str = packet_common.ip_prefix_str(self.prefix) + " (Disagg)"
+            destination_str = ip_prefix_str(self.prefix)
+        elif self.dest_type == DEST_TYPE_POS_DISAGG_PREFIX:
+            destination_str = ip_prefix_str(self.prefix) + " (Pos-Disagg)"
+        elif self.dest_type == DEST_TYPE_NEG_DISAGG_PREFIX:
+            destination_str = ip_prefix_str(self.prefix) + " (Neg-Disagg)"
         else:
             assert False
         if self.tags:
