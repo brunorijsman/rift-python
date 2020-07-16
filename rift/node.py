@@ -2919,10 +2919,11 @@ class Node:
         destination.add_predecessor(predecessor_system_id)
         if (nbr_tie_element is not None) and (predecessor_system_id == self.system_id):
             for link_id_pair in nbr_tie_element.link_ids:
-                nhop = self.interface_id_to_ipv4_next_hop(link_id_pair.local_id)
+                negative = destination.negatively_disaggregate
+                nhop = self.interface_id_to_ipv4_next_hop(link_id_pair.local_id, negative)
                 if nhop:
                     destination.add_ipv4_next_hop(nhop)
-                nhop = self.interface_id_to_ipv6_next_hop(link_id_pair.local_id)
+                nhop = self.interface_id_to_ipv6_next_hop(link_id_pair.local_id, negative)
                 if nhop:
                     destination.add_ipv6_next_hop(nhop)
         else:
@@ -2957,7 +2958,7 @@ class Node:
             if all_next_hops_partial and at_least_one_next_hop:
                 dest.positively_disaggregate = True
 
-    def interface_id_to_ipv4_next_hop(self, interface_id):
+    def interface_id_to_ipv4_next_hop(self, interface_id, negative):
         if interface_id not in self.interfaces_by_id:
             return None
         intf = self.interfaces_by_id[interface_id]
@@ -2966,9 +2967,9 @@ class Node:
         if intf.neighbor.ipv4_address is None:
             return None
         remote_address = packet_common.make_ip_address(intf.neighbor.ipv4_address)
-        return NextHop(self.negatively_disaggregate, intf.name, remote_address, None)
+        return NextHop(negative, intf.name, remote_address, None)
 
-    def interface_id_to_ipv6_next_hop(self, interface_id):
+    def interface_id_to_ipv6_next_hop(self, interface_id, negative):
         if interface_id not in self.interfaces_by_id:
             return None
         intf = self.interfaces_by_id[interface_id]
@@ -2980,7 +2981,7 @@ class Node:
         if "%" in remote_address_str:
             remote_address_str = remote_address_str.split("%")[0]
         remote_address = packet_common.make_ip_address(remote_address_str)
-        return NextHop(self.negatively_disaggregate, intf.name, remote_address, None)
+        return NextHop(negative, intf.name, remote_address, None)
 
     def spf_use_tie_direction(self, visit_system_id, spf_direction):
         if spf_direction == constants.DIR_SOUTH:
