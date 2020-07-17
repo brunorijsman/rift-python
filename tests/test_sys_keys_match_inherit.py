@@ -8,8 +8,8 @@ def check_rift_node1(res):
         node="node1",
         interface="if1")
     expect_rib = [
-        r"| 2.2.2.2/32 | South SPF | if1",
-        r"| 3.3.3.3/32 | South SPF | if1",
+        r"| 2.2.2.2/32 | South SPF | Positive | if1",
+        r"| 3.3.3.3/32 | South SPF | Positive | if1",
     ]
     res.check_rib("node1", expect_rib)
     expect_node_security = [
@@ -53,8 +53,8 @@ def check_rift_node2(res):
         node="node2",
         interface="if2")
     expect_rib = [
-        r"| 0.0.0.0/0  | North SPF | if1",
-        r"| 3.3.3.3/32 | South SPF | if2",
+        r"| 0.0.0.0/0  | North SPF | Positive | if1",
+        r"| 3.3.3.3/32 | South SPF | Positive | if2",
     ]
     res.check_rib("node2", expect_rib)
     expect_node_security = [
@@ -109,7 +109,7 @@ def check_rift_node3(res):
         node="node3",
         interface="if1")
     expect_rib = [
-        r"| 0.0.0.0/0 | North SPF | if1",
+        r"| 0.0.0.0/0 | North SPF | Positive | if1",
     ]
     res.check_rib("node3", expect_rib)
     expect_node_security = [

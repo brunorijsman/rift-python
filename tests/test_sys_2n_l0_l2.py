@@ -134,8 +134,8 @@ def check_rift_node2_intf_up(res):
     ]
     res.check_spf("node2", expect_south_spf, expect_north_spf)
     expect_rib = [
-        r"| 0.0.0.0/0 | North SPF | if1",
-        r"| ::/0 | North SPF | if1",
+        r"| 0.0.0.0/0 | North SPF | Positive | if1",
+        r"| ::/0 | North SPF | Positive | if1",
     ]
     res.check_rib("node2", expect_rib)
 

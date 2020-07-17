@@ -15,15 +15,15 @@ import sortedcontainers
 import common.constants
 import constants
 import encoding.ttypes
-import fib
-import fib_route
+from forwarding_table import ForwardingTable
+from fib_route import FibRoute
 import fsm
 import interface
 import kernel
-import next_hop
+from next_hop import NextHop
 import offer
 import packet_common
-import rib
+from route_table import RouteTable
 import rib_route
 import spf_dest
 import stats
@@ -536,22 +536,22 @@ class Node:
             (constants.DIR_SOUTH, True): {}
         }
         self._fallen_leaves = {}
-        self._ipv4_fib = fib.ForwardingTable(
+        self._ipv4_fib = ForwardingTable(
             constants.ADDRESS_FAMILY_IPV4,
             self.kernel,
             self._fib_log,
             self.log_id)
-        self._ipv6_fib = fib.ForwardingTable(
+        self._ipv6_fib = ForwardingTable(
             constants.ADDRESS_FAMILY_IPV6,
             self.kernel,
             self._fib_log,
             self.log_id)
-        self._ipv4_rib = rib.RouteTable(
+        self._ipv4_rib = RouteTable(
             constants.ADDRESS_FAMILY_IPV4,
             self._ipv4_fib,
             self._rib_log,
             self.log_id)
-        self._ipv6_rib = rib.RouteTable(
+        self._ipv6_rib = RouteTable(
             constants.ADDRESS_FAMILY_IPV6,
             self._ipv6_fib,
             self._rib_log,
@@ -1491,7 +1491,7 @@ class Node:
             cli_session.print("Prefix {} not present".format(prefix))
             return
         tab = table.Table()
-        tab.add_row(fib_route.FibRoute.cli_summary_headers())
+        tab.add_row(FibRoute.cli_summary_headers())
         tab.add_row(rte.cli_summary_attributes())
         cli_session.print(tab.to_string())
 
@@ -2917,23 +2917,25 @@ class Node:
     def set_spf_predecessor(self, destination, nbr_tie_element, predecessor_system_id,
                             spf_direction, special_for_neg_disagg):
         destination.add_predecessor(predecessor_system_id)
+        negative = destination.negatively_disaggregate
         if (nbr_tie_element is not None) and (predecessor_system_id == self.system_id):
             for link_id_pair in nbr_tie_element.link_ids:
-                nhop = self.interface_id_to_ipv4_next_hop(link_id_pair.local_id)
+                nhop = self.interface_id_to_ipv4_next_hop(link_id_pair.local_id, negative)
                 if nhop:
                     destination.add_ipv4_next_hop(nhop)
-                nhop = self.interface_id_to_ipv6_next_hop(link_id_pair.local_id)
+                nhop = self.interface_id_to_ipv6_next_hop(link_id_pair.local_id, negative)
                 if nhop:
                     destination.add_ipv6_next_hop(nhop)
         else:
             dest_table = self._spf_destinations[(spf_direction, special_for_neg_disagg)]
-            destination.inherit_next_hops(dest_table[predecessor_system_id])
+            destination.inherit_next_hops(dest_table[predecessor_system_id], negative)
 
     def add_spf_predecessor(self, destination, predecessor_system_id, spf_direction,
                             special_for_neg_disagg):
         destination.add_predecessor(predecessor_system_id)
+        negative = destination.negatively_disaggregate
         dest_table = self._spf_destinations[(spf_direction, special_for_neg_disagg)]
-        destination.inherit_next_hops(dest_table[predecessor_system_id])
+        destination.inherit_next_hops(dest_table[predecessor_system_id], negative)
 
     def spf_mark_pos_disagg_prefixes(self):
         # Mark the prefixes in the SPF table for which this router wants to do positive aggregation
@@ -2943,21 +2945,21 @@ class Node:
             if dest.dest_type != spf_dest.DEST_TYPE_PREFIX:
                 continue
             if dest.prefix.ipv4prefix:
-                nexthops = dest.ipv4_next_hops
+                next_hops = dest.ipv4_next_hops
             else:
                 assert dest.prefix.ipv6prefix
-                nexthops = dest.ipv6_next_hops
-            all_nexthops_partial = True
-            at_least_one_nexthop = False
-            for nexthop in nexthops:
-                at_least_one_nexthop = True
-                intf = self.interfaces_by_name[nexthop.interface]
+                next_hops = dest.ipv6_next_hops
+            all_next_hops_partial = True
+            at_least_one_next_hop = False
+            for next_hop in next_hops:
+                at_least_one_next_hop = True
+                intf = self.interfaces_by_name[next_hop.interface]
                 if not intf.partially_connected:
-                    all_nexthops_partial = False
-            if all_nexthops_partial and at_least_one_nexthop:
+                    all_next_hops_partial = False
+            if all_next_hops_partial and at_least_one_next_hop:
                 dest.positively_disaggregate = True
 
-    def interface_id_to_ipv4_next_hop(self, interface_id):
+    def interface_id_to_ipv4_next_hop(self, interface_id, negative):
         if interface_id not in self.interfaces_by_id:
             return None
         intf = self.interfaces_by_id[interface_id]
@@ -2966,9 +2968,9 @@ class Node:
         if intf.neighbor.ipv4_address is None:
             return None
         remote_address = packet_common.make_ip_address(intf.neighbor.ipv4_address)
-        return next_hop.NextHop(intf.name, remote_address)
+        return NextHop(negative, intf.name, remote_address, None)
 
-    def interface_id_to_ipv6_next_hop(self, interface_id):
+    def interface_id_to_ipv6_next_hop(self, interface_id, negative):
         if interface_id not in self.interfaces_by_id:
             return None
         intf = self.interfaces_by_id[interface_id]
@@ -2980,7 +2982,7 @@ class Node:
         if "%" in remote_address_str:
             remote_address_str = remote_address_str.split("%")[0]
         remote_address = packet_common.make_ip_address(remote_address_str)
-        return next_hop.NextHop(intf.name, remote_address)
+        return NextHop(negative, intf.name, remote_address, None)
 
     def spf_use_tie_direction(self, visit_system_id, spf_direction):
         if spf_direction == constants.DIR_SOUTH:
@@ -3004,33 +3006,25 @@ class Node:
         # Locate the Node-TIE(s) of the neighbor node in the desired direction. If we can't find
         # the neighbor's Node-TIE(s), we declare the adjacency to be not bi-directional.
         reverse_direction = constants.reverse_dir(spf_direction)
-
         nbr_node_ties = self.node_ties(reverse_direction, nbr_system_id)
         if not nbr_node_ties:
             return False
-
         # Check for bi-directional connectivity: the neighbor must report the visited node
         # as an adjacency with the same link-id pair (in reverse).
         bidirectional = False
-
         reverse_directions = [reverse_direction] if not special_for_neg_disagg \
             else [reverse_direction, constants.DIR_EAST_WEST]
-
         node_neighbors = self.node_neighbors(nbr_node_ties, neighbor_directions=reverse_directions)
-
         for nbr_nbr_system_id, _nbr_nbr_level, nbr_nbr_tie_element in node_neighbors:
             # Does the neighbor report the visited node as its neighbor?
             if nbr_nbr_system_id != visit_system_id:
                 continue
-
             # Are the link_ids bidirectional?
             if not self.are_link_ids_bidirectional(nbr_tie_element, nbr_nbr_tie_element):
                 continue
-
             # Yes, connectivity is bidirectional
             bidirectional = True
             break
-
         return bidirectional
 
     def are_link_ids_bidirectional(self, nbr_tie_element_1, nbr_tie_element_2):
@@ -3047,59 +3041,44 @@ class Node:
             owner = constants.OWNER_N_SPF
         else:
             owner = constants.OWNER_S_SPF
-
         self._ipv4_rib.mark_owner_routes_stale(owner)
         self._ipv6_rib.mark_owner_routes_stale(owner)
-
-        # Index is (direction, False) because special SPF does not install any route in RIB
+        # Only non-special SPF routes are installed in the RIB
         dest_table = self._spf_destinations[(spf_direction, False)]
-
-        all_next_hops_ipv4 = {}
-        all_next_hops_ipv6 = {}
-
+        ipv4_prefix_to_next_hops = {}
+        ipv6_prefix_to_next_hops = {}
         for dest_key, dest in dest_table.items():
             if isinstance(dest_key, int):
-                # Destination is a node, do nothing
-                pass
-            elif not dest.predecessors:
+                # Destination is a node, nothing to install in the RIB
+                continue
+            if not dest.predecessors:
                 # Local node destination, don't install in RIB as result of SPF
-                pass
-            elif dest.predecessors == [self.system_id]:
+                continue
+            if dest.predecessors == [self.system_id]:
                 # Local prefix destination, don't install in RIB as result of SPF
-                pass
+                continue
+            prefix = dest_key
+            if prefix.ipv4prefix is not None:
+                next_hops = dest.ipv4_next_hops
+                if prefix not in ipv4_prefix_to_next_hops:
+                    ipv4_prefix_to_next_hops[prefix] = []
+                ipv4_prefix_to_next_hops[prefix].extend(next_hops)
             else:
-                prefix = dest_key
-                if prefix.ipv4prefix is not None:
-                    next_hops = dest.ipv4_next_hops
-                    if prefix not in all_next_hops_ipv4:
-                        all_next_hops_ipv4[prefix] = {}
-                    all_next_hops_ipv4[prefix][dest.dest_type] = next_hops
-                else:
-                    assert prefix.ipv6prefix is not None
-                    next_hops = dest.ipv6_next_hops
-                    if prefix not in all_next_hops_ipv6:
-                        all_next_hops_ipv6[prefix] = {}
-                    all_next_hops_ipv6[prefix][dest.dest_type] = next_hops
-
-        self._install_rib_routes(all_next_hops_ipv4, owner, self._ipv4_rib)
-        self._install_rib_routes(all_next_hops_ipv6, owner, self._ipv6_rib)
-
+                assert prefix.ipv6prefix is not None
+                next_hops = dest.ipv6_next_hops
+                if prefix not in ipv6_prefix_to_next_hops:
+                    ipv6_prefix_to_next_hops[prefix] = []
+                ipv6_prefix_to_next_hops[prefix].extend(next_hops)
+        self._install_rib_routes(ipv4_prefix_to_next_hops, owner, self._ipv4_rib)
+        self._install_rib_routes(ipv6_prefix_to_next_hops, owner, self._ipv6_rib)
         self._ipv4_rib.del_stale_routes()
         self._ipv6_rib.del_stale_routes()
 
     @staticmethod
-    def _install_rib_routes(destinations_next_hops, owner, route_family_rib):
-        for prefix, next_hops in destinations_next_hops.items():
-            positive_next_hops = []
-            negative_next_hops = []
-            if spf_dest.DEST_TYPE_PREFIX in next_hops:
-                positive_next_hops.extend(next_hops[spf_dest.DEST_TYPE_PREFIX])
-            if spf_dest.DEST_TYPE_POS_DISAGG_PREFIX in next_hops:
-                positive_next_hops.extend(next_hops[spf_dest.DEST_TYPE_POS_DISAGG_PREFIX])
-            if spf_dest.DEST_TYPE_NEG_DISAGG_PREFIX in next_hops:
-                negative_next_hops = next_hops[spf_dest.DEST_TYPE_NEG_DISAGG_PREFIX]
-            rte = rib_route.RibRoute(prefix, owner, positive_next_hops, negative_next_hops)
-            route_family_rib.put_route(rte)
+    def _install_rib_routes(prefix_to_next_hops, owner, rib):
+        for prefix, next_hops in prefix_to_next_hops.items():
+            route = rib_route.RibRoute(prefix, owner, next_hops)
+            rib.put_route(route)
 
     @staticmethod
     def is_leaf_prefix(item):

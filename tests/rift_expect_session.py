@@ -251,7 +251,7 @@ class RiftExpectSession:
         self.sendline("set node {}".format(node))
         self.sendline("show spf direction north destination {}".format(prefix))
         first = True
-        for (pred_sysid, nexthop_if) in preds_and_nhs:
+        for (pred_sysid, next_hop_if) in preds_and_nhs:
             if first:
                 first = False
                 pattern = r"| {} \(Disagg\) |".format(prefix)   # prefix
@@ -260,9 +260,9 @@ class RiftExpectSession:
                 pattern += r" {} |".format(pred_sysid)          # predecessor system id
                 pattern += r" |"                                # tags (absent)
                 pattern += r" {} |".format(pos_or_neg)          # positive or negative
-                pattern += r" {} .* |".format(nexthop_if)       # ipv4 next-hop
+                pattern += r" {} .* |".format(next_hop_if)       # ipv4 next-hop
                 if IPV6:
-                    pattern += r" {} .* |".format(nexthop_if)   # ipv6 next-hop
+                    pattern += r" {} .* |".format(next_hop_if)   # ipv6 next-hop
                 else:
                     pattern += r" .* |"                         # ip6 next-hop (possily absent)
             else:
@@ -273,9 +273,9 @@ class RiftExpectSession:
                 pattern += r" {} |".format(pred_sysid)          # predecessor system id
                 pattern += r" |"                                # tags (absent)
                 pattern += r" |"                                # positive or negative (absent)
-                pattern += r" {} .* |".format(nexthop_if)       # ipv4 next-hop
+                pattern += r" {} .* |".format(next_hop_if)       # ipv4 next-hop
                 if IPV6:
-                    pattern += r" {} .* |".format(nexthop_if)   # ipv6 next-hop
+                    pattern += r" {} .* |".format(next_hop_if)   # ipv6 next-hop
                 else:
                     pattern += r" .* |"                         # ip6 next-hop (possily absent)
         self.table_expect(pattern)

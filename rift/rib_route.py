@@ -1,99 +1,114 @@
-import common
-import constants
-import packet_common
+from copy import copy
+
+from constants import owner_str
+from packet_common import ip_prefix_str
 
 
 class RibRoute:
     """
-    An object that represents a prefix route for a Destination in the RIB.
-    It keeps track of positive and negative next hops and it also computes the real next hops
-    to install in the kernel.
-    Attributes of this class are:
-        - prefix: prefix associated to this route
-        - owner: owner of this route
-        - destination: Destination object which contains this route
-        - stale: boolean that marks the route as stale
-        - positive_next_hops: set of positive next hops for the prefix
-        - negative_next_hops: set of negative next hops for the prefix
+    A route in the routing information base (RIB).
     """
 
-    def __init__(self, prefix, owner, positive_next_hops, negative_next_hops=None):
-        assert isinstance(prefix, common.ttypes.IPPrefixType)
+    def __init__(self, prefix, owner, next_hops):
         self.prefix = prefix
         self.owner = owner
-        self.destination = None
+        self.destination = None   # The destination is set in Destination.put_route ###@@@
         self.stale = False
-
-        self.positive_next_hops = set(positive_next_hops)
-        self.negative_next_hops = set(negative_next_hops) if negative_next_hops else set()
-
-    @property
-    def next_hops(self):
-        """
-        :return: the computed next hops for the route ready to be installed in the kernel.
-        """
-        return self._compute_next_hops()
-
-    def _compute_next_hops(self):
-        """
-        Computes the the real next hops set for this prefix.
-        Real next hops set is the set of next hops that can be used to reach this prefix. (the ones
-        to be installed in the kernel)
-        :return: the set of real next hops
-        """
-        # The route does not have any negative next hops; there is no disaggregation to be done.
-        if not self.negative_next_hops:
-            return self.positive_next_hops
-
-        # Get the parent prefix destination object from the RIB
-        # If there are no parents for the current prefix, then return the positive next hops set.
-        # This only occurs when the prefix is the default (0.0.0.0/0)
-        parent_prefix_dest = self.destination.parent_prefix_dest
-        if parent_prefix_dest is None:
-            return self.positive_next_hops
-
-        # Compute the complementary next hops of the negative next hops.
-        complementary_next_hops = parent_prefix_dest.best_route.next_hops - self.negative_next_hops
-        return self.positive_next_hops.union(complementary_next_hops)
-
-    def _get_nexthops_sorted(self):
-        all_next_hops = []
-        for positive_next_hop in self.positive_next_hops:
-            all_next_hops.append((positive_next_hop, True))
-        for negative_next_hop in self.negative_next_hops:
-            all_next_hops.append((negative_next_hop, False))
-        all_next_hops.sort()
-        return all_next_hops
+        self.next_hops = next_hops
 
     @staticmethod
-    def _nexthop_str(nexthop):
-        (address, is_positive) = nexthop
-        if is_positive:
-            return str(address)
+    def index_of_nh_with_intf_and_addr(next_hops, interface, address):
+        for index, next_hop in enumerate(next_hops):
+            if next_hop.interface == interface and next_hop.address == address:
+                return index
+        return None
+
+    def compute_fib_next_hops(self):
+        # Gather all positive and negative next-hops
+        positive_next_hops = []
+        negative_next_hops = []
+        for rib_next_hop in self.next_hops:
+            if rib_next_hop.negative:
+                negative_next_hops.append(rib_next_hop)
+            else:
+                positive_next_hops.append(rib_next_hop)
+        # Start with the positive next-hops in the FIB
+        fib_next_hops = positive_next_hops
+        # We need the parent FIB next hops to (a) potentially compute the complement of the negative
+        # next-hops and (b) to determine whether this route is superfluous because it has the exact
+        # same FIB next-hops as its parent
+        parent_destination = self.destination.parent_destination()
+        if parent_destination is None:
+            parent_route = None
+            parent_fib_next_hops = None
         else:
-            return "Negative " + str(address)
+            parent_route = parent_destination.best_route()
+            parent_fib_next_hops = parent_route.compute_fib_next_hops()
+        # If (and only if) there is at least one negative next-hop, compute the complementary
+        # positive next-hops
+        if negative_next_hops:
+            if parent_fib_next_hops is None:
+                complementary_next_hops = []
+            else:
+                complementary_next_hops = copy(parent_fib_next_hops)
+                for rib_next_hop in self.next_hops:
+                    if rib_next_hop.negative:
+                        index = self.index_of_nh_with_intf_and_addr(complementary_next_hops,
+                                                                    rib_next_hop.interface,
+                                                                    rib_next_hop.address)
+                        if index is not None:
+                            del complementary_next_hops[index]
+            # Add the complementary positive next-hops to the FIB next-hops (avoiding duplicates)
+            for complementary_next_hop in complementary_next_hops:
+                index = self.index_of_nh_with_intf_and_addr(fib_next_hops,
+                                                            complementary_next_hop.interface,
+                                                            complementary_next_hop.address)
+                if index is None:
+                    fib_next_hops.append(complementary_next_hop)
+        # If this route ends up with the exact same set of FIB next-hops as its parent route,
+        # then we declare this route to be "superfluous" and we don't install it in the FIB.
+        # Note: next_hops = [] means this route is a discard route, next_hops = None means this
+        # route is a superfluous route.
+        if parent_fib_next_hops is not None:
+            if sorted(fib_next_hops) == sorted(parent_fib_next_hops):
+                fib_next_hops = None
+        # Special case: discard next-hop without a parent is also superfluous
+        if parent_fib_next_hops is None and fib_next_hops == []:
+            fib_next_hops = None
+        return fib_next_hops
 
-    @staticmethod
-    def _all_nexthops_str(all_nexthops):
-        return ", ".join(map(RibRoute._nexthop_str, all_nexthops))
+    def __repr__(self):
+        next_hops_str = ", ".join([str(next_hop) for next_hop in sorted(self.next_hops)])
+        return "%s: %s -> %s" % (owner_str(self.owner), ip_prefix_str(self.prefix), next_hops_str)
 
-    def __str__(self):
-        all_next_hops = self._get_nexthops_sorted()
-        return "%s: %s -> %s" % (constants.owner_str(self.owner),
-                                 packet_common.ip_prefix_str(self.prefix),
-                                 self._all_nexthops_str(all_next_hops))
+    def is_discard_route(self):
+        return not self.next_hops
 
     @staticmethod
     def cli_summary_headers():
         return [
             "Prefix",
             "Owner",
-            "Next-hops"]
+            ["Next-hop", "Type"],
+            ["Next-hop", "Interface"],
+            ["Next-hop", "Address"],
+            ["Next-hop", "Weight"]]
 
     def cli_summary_attributes(self):
-        all_next_hops = self._get_nexthops_sorted()
-        return [
-            packet_common.ip_prefix_str(self.prefix),
-            constants.owner_str(self.owner),
-            [self._nexthop_str(nexthop) for nexthop in all_next_hops]
-        ]
+        if self.is_discard_route():
+            return [ip_prefix_str(self.prefix),
+                    owner_str(self.owner),
+                    "Discard",
+                    "",
+                    "",
+                    ""]
+        types = ["Negative" if nh.negative else "Positive" for nh in self.next_hops]
+        interfaces = [nh.interface if nh.interface is not None else "" for nh in self.next_hops]
+        addresses = [nh.address if nh.address is not None else "" for nh in self.next_hops]
+        weights = [nh.weight if nh.weight is not None else "" for nh in self.next_hops]
+        return [ip_prefix_str(self.prefix),
+                owner_str(self.owner),
+                types,
+                interfaces,
+                addresses,
+                weights]

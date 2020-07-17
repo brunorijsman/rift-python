@@ -29,11 +29,11 @@
             "args": [""] 
         },
         {
-            "name": "pytest test_stats",
+            "name": "pytest test_rib_neg_nhs_to_fib_pos_nhs",
             "type": "python",
             "request": "launch",
             "program": "${workspaceFolder}/env/bin/pytest",
-            "args": ["-vvv", "-s", "tests/test_stats.py"] 
+            "args": ["-vvv", "-s", "tests/test_rib_neg_nhs_to_fib_pos_nhs.py"] 
         },
         {
             "name": "RIFT two_by_two_by_two",
