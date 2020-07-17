@@ -2,7 +2,7 @@ import common.constants
 from table import Table
 from utils import is_valid_ipv4_address, system_id_str
 
-class NeighborLie:
+class NeighborLIE:
 
     def __init__(self, lie_protocol_packet, neighbor_address, neighbor_port):
         self.system_id = lie_protocol_packet.header.sender

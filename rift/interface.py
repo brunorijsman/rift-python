@@ -77,7 +77,7 @@ class Interface:
         HAT_CHANGED = 4
         HALS_CHANGED = 5
         LIE_RECEIVED = 6
-        new_neighbor_lie = 7
+        NEW_NEIGHBOR = 7
         VALID_REFLECTION = 8
         NEIGHBOR_DROPPED_REFLECTION = 9
         NEIGHBOR_CHANGED_LEVEL = 10
@@ -674,7 +674,7 @@ class Interface:
         # TODO: This is a simplistic way of implementing the hold timer. Use a real timer instead.
         self._time_ticks_since_lie_received = 0
         # Sections B.1.4.1 and B.1.4.2
-        new_neighbor_lie = neighbor_lie.NeighborLie(protocol_packet, from_address, from_port)
+        new_neighbor_lie = neighbor_lie.NeighborLIE(protocol_packet, from_address, from_port)
         (accept, rule, offer_to_ztp, warning) = self.is_received_lie_acceptable(protocol_packet)
         if not accept:
             self._lie_accept_or_reject = "Rejected"
@@ -698,7 +698,7 @@ class Interface:
             self.info("New neighbor detected with system-id %s",
                       utils.system_id_str(protocol_packet.header.sender))
             self.neighbor_lie = new_neighbor_lie
-            self.fsm.push_event(self.Event.new_neighbor_lie)
+            self.fsm.push_event(self.Event.NEW_NEIGHBOR)
             self.check_three_way()
             return
         # Section B.1.4.3.1
@@ -773,7 +773,7 @@ class Interface:
         Event.HAT_CHANGED: (None, [action_store_hat]),
         Event.HALS_CHANGED: (None, [action_store_hals]),
         Event.LIE_RECEIVED: (None, [action_process_lie]),
-        Event.new_neighbor_lie: (State.TWO_WAY, [], [Event.SEND_LIE]),
+        Event.NEW_NEIGHBOR: (State.TWO_WAY, [], [Event.SEND_LIE]),
         Event.UNACCEPTABLE_HEADER: (State.ONE_WAY, []),
         Event.HOLD_TIME_EXPIRED: (None, [action_hold_time_expired]),
         Event.SEND_LIE: (None, [action_send_lie]),
