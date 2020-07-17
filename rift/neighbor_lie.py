@@ -1,13 +1,13 @@
 import common.constants
-import table
-import utils
+from table import Table
+from utils import is_valid_ipv4_address, system_id_str
 
-class Neighbor:
+class NeighborLie:
 
     def __init__(self, lie_protocol_packet, neighbor_address, neighbor_port):
         self.system_id = lie_protocol_packet.header.sender
         self.level = lie_protocol_packet.header.level
-        if utils.is_valid_ipv4_address(neighbor_address):
+        if is_valid_ipv4_address(neighbor_address):
             self.ipv4_address = neighbor_address
             self.ipv6_address = None
         else:
@@ -40,19 +40,18 @@ class Neighbor:
 
     def cli_details_table(self):
         # TODO: Report capabilities (is it possible to report the unknown ones too?"
-        # TODO: Report neighbor direction in show command
         if self.neighbor_system_id:
-            your_system_id_str = utils.system_id_str(self.neighbor_system_id)
+            your_system_id_str = system_id_str(self.neighbor_system_id)
         else:
             your_system_id_str = ""
         if self.neighbor_link_id:
             your_link_id_str = "{}".format(self.neighbor_link_id)
         else:
             your_link_id_str = ""
-        tab = table.Table(separators=False)
+        tab = Table(separators=False)
         tab.add_rows([
             ["Name", self.name],
-            ["System ID", utils.system_id_str(self.system_id)],
+            ["System ID", system_id_str(self.system_id)],
             ["IPv4 Address", self.ipv4_address],
             ["IPv6 Address", self.ipv6_address],
             ["LIE UDP Source Port", self.port],

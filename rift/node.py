@@ -914,23 +914,23 @@ class Node:
         for intf in self.up_interfaces(interface_going_down):
             # Did we already report the neighbor on the other end of this interface? This happens
             # if we have multiple parallel interfaces to the same neighbor.
-            if intf.neighbor.system_id in neighbors:
+            if intf.neighbor_lie.system_id in neighbors:
                 continue
             # Gather all interfaces (link id pairs) from this node to the same neighbor. Once
             # again, this happens if we have multiple parallel interfaces to the same neighbor.
             link_ids = set()
             for intf2 in self.up_interfaces(interface_going_down):
-                if intf.neighbor.system_id == intf2.neighbor.system_id:
+                if intf.neighbor_lie.system_id == intf2.neighbor_lie.system_id:
                     local_id = intf2.local_id
-                    remote_id = intf2.neighbor.local_id
+                    remote_id = intf2.neighbor_lie.local_id
                     link_id_pair = encoding.ttypes.LinkIDPair(local_id, remote_id)
                     link_ids.add(link_id_pair)
             node_neighbor = encoding.ttypes.NodeNeighborsTIEElement(
-                level=intf.neighbor.level,
+                level=intf.neighbor_lie.level,
                 cost=1,  # TODO: Take this from config file
                 link_ids=link_ids,
                 bandwidth=100)  # TODO: Take this from config file or interface
-            neighbors[intf.neighbor.system_id] = node_neighbor
+            neighbors[intf.neighbor_lie.system_id] = node_neighbor
         # Update parent neighbor list
         if self.level_value() is not None:
             self._parent_neighbors = dict(filter(lambda x: x[1].level > self.level_value(),
@@ -1156,12 +1156,12 @@ class Node:
             return
         tide_packet = self.generate_tide_packet(
             neighbor_direction=intf.neighbor_direction(),
-            neighbor_system_id=intf.neighbor.system_id,
-            neighbor_level=intf.neighbor.level,
-            neighbor_is_top_of_fabric=intf.neighbor.top_of_fabric(),
+            neighbor_system_id=intf.neighbor_lie.system_id,
+            neighbor_level=intf.neighbor_lie.level,
+            neighbor_is_top_of_fabric=intf.neighbor_lie.top_of_fabric(),
             my_level=self.level_value(),
             i_am_top_of_fabric=self.top_of_fabric())
-        self.debug("Regenerated TIDE for neighbor %s: %s", intf.neighbor.system_id, tide_packet)
+        self.debug("Regenerated TIDE for neighbor %s: %s", intf.neighbor_lie.system_id, tide_packet)
         packet_content = encoding.ttypes.PacketContent(tide=tide_packet)
         packet_header = encoding.ttypes.PacketHeader(
             sender=self.system_id,
@@ -2304,7 +2304,7 @@ class Node:
                 continue
             # In some race conditions when the interface is in the process of going down, the
             # neighbor can already be gone, but the state is still saying THREE_WAY. Skip those too.
-            if tx_intf.neighbor is None:
+            if tx_intf.neighbor_lie is None:
                 continue
             # If flooding reduction is enabled, only flood to flood repeaters
             if self.floodred_enabled:
@@ -2314,7 +2314,7 @@ class Node:
             (allowed, _reason) = self.flood_allowed_from_node_to_nbr(
                 tie_header=tie_packet.header,
                 neighbor_direction=tx_intf.neighbor_direction(),
-                neighbor_system_id=tx_intf.neighbor.system_id,
+                neighbor_system_id=tx_intf.neighbor_lie.system_id,
                 node_system_id=self.system_id,
                 node_level=self.level_value(),
                 node_is_top_of_fabric=self.top_of_fabric())
@@ -2474,7 +2474,7 @@ class Node:
                 continue
             if intf.neighbor_direction() != constants.DIR_SOUTH:
                 continue
-            my_south_adjacencies.append(intf.neighbor.system_id)
+            my_south_adjacencies.append(intf.neighbor_lie.system_id)
         # Format collected information into table
         sorted_node_sysids = sorted(list(nodes.keys()))
         for node_sysid in sorted_node_sysids:
@@ -2963,22 +2963,22 @@ class Node:
         if interface_id not in self.interfaces_by_id:
             return None
         intf = self.interfaces_by_id[interface_id]
-        if intf.neighbor is None:
+        if intf.neighbor_lie is None:
             return None
-        if intf.neighbor.ipv4_address is None:
+        if intf.neighbor_lie.ipv4_address is None:
             return None
-        remote_address = packet_common.make_ip_address(intf.neighbor.ipv4_address)
+        remote_address = packet_common.make_ip_address(intf.neighbor_lie.ipv4_address)
         return NextHop(negative, intf.name, remote_address, None)
 
     def interface_id_to_ipv6_next_hop(self, interface_id, negative):
         if interface_id not in self.interfaces_by_id:
             return None
         intf = self.interfaces_by_id[interface_id]
-        if intf.neighbor is None:
+        if intf.neighbor_lie is None:
             return None
-        if intf.neighbor.ipv6_address is None:
+        if intf.neighbor_lie.ipv6_address is None:
             return None
-        remote_address_str = intf.neighbor.ipv6_address
+        remote_address_str = intf.neighbor_lie.ipv6_address
         if "%" in remote_address_str:
             remote_address_str = remote_address_str.split("%")[0]
         remote_address = packet_common.make_ip_address(remote_address_str)
@@ -3252,8 +3252,8 @@ class FloodRedParent:
     def __init__(self, node, intf):
         self.node = node
         self.intf = intf
-        self.sysid = intf.neighbor.system_id
-        self.name = intf.neighbor.name
+        self.sysid = intf.neighbor_lie.system_id
+        self.name = intf.neighbor_lie.name
         self.grandparents = []  # Grandparents of this node, i.e. parent of parent
         self.similarity_group = None
         self.flood_repeater = False
