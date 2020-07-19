@@ -920,6 +920,7 @@ class Node:
                 continue
             # Gather all interfaces (link id pairs) from this node to the same neighbor. Once
             # again, this happens if we have multiple parallel interfaces to the same neighbor.
+            bandwidth = 0
             link_ids = set()
             for intf2 in self.up_interfaces(interface_going_down):
                 if intf.neighbor_lie.system_id == intf2.neighbor_lie.system_id:
@@ -927,11 +928,12 @@ class Node:
                     remote_id = intf2.neighbor_lie.local_id
                     link_id_pair = encoding.ttypes.LinkIDPair(local_id, remote_id)
                     link_ids.add(link_id_pair)
+                    bandwidth += intf2.bandwidth
             node_neighbor = encoding.ttypes.NodeNeighborsTIEElement(
                 level=intf.neighbor_lie.level,
-                cost=1,  # TODO: Take this from config file
+                cost=intf._metric,
                 link_ids=link_ids,
-                bandwidth=100)  # TODO: Take this from config file or interface
+                bandwidth=bandwidth)
             neighbors[intf.neighbor_lie.system_id] = node_neighbor
         # Update parent neighbor list
         if self.level_value() is not None:
@@ -1326,6 +1328,15 @@ class Node:
         tab.add_row(neighbor.Neighbor.cli_summary_headers())
         for nbr in self.neighbors.values():
             tab.add_row(nbr.cli_summary_attributes())
+        cli_session.print(tab.to_string())
+
+    def command_show_bw_balancing(self, cli_session):
+        tab = table.Table()
+        tab.add_row(neighbor.Neighbor.cli_bw_summary_headers())
+        for nbr in self.neighbors.values():
+            if nbr.direction() == constants.DIR_NORTH:
+                tab.add_row(nbr.cli_bw_summary_attributes())
+        cli_session.print("North-Bound Neighbors:")
         cli_session.print(tab.to_string())
 
     def floodred_parents_table(self):
@@ -1893,6 +1904,7 @@ class Node:
                     self.update_neg_disagg_propagation(tie_packet)
         if trigger_spf:
             self.trigger_spf(reason)
+        self.update_neighbor_egress_bw(tie_id.originator)
 
     def update_neg_disagg_propagation(self, neg_tie):
         neg_disagg_type = common.ttypes.TIETypeType.NegativeDisaggregationPrefixTIEType
@@ -3254,16 +3266,29 @@ class Node:
             pending_str = "(immediate)"
         self.floodred_debug("Deactivate interface %s as flood repeater %s", intf.name, pending_str)
 
-    def find_neighbor(self, system_id):
-        return self.neighbors.get(system_id)
+    def find_neighbor(self, nbr_system_id):
+        return self.neighbors.get(nbr_system_id)
 
-    def create_neighbor(self, system_id):
-        nbr = neighbor.Neighbor(system_id)
-        self.neighbors[system_id] = nbr
+    def create_neighbor(self, nbr_system_id):
+        nbr = neighbor.Neighbor(nbr_system_id)
+        self.neighbors[nbr_system_id] = nbr
+        self.update_neighbor_egress_bw(nbr_system_id)
         return nbr
 
-    def remove_neighbor(self, system_id):
-        del self.neighbors[system_id]
+    def remove_neighbor(self, nbr_system_id):
+        del self.neighbors[nbr_system_id]
+
+    def update_neighbor_egress_bw(self, nbr_system_id):
+        ###@@@ Also call this when a node TIE for the system ID is added/modified/removed
+        nbr = self.find_neighbor(nbr_system_id)
+        if nbr is None:
+            return
+        nbr_node_ties = self.node_ties(constants.DIR_SOUTH, nbr_system_id)
+        egress_bw = 0
+        for _, _, nbr_nbr_tie_element in self.node_neighbors(nbr_node_ties, [constants.DIR_NORTH]):
+            if nbr_nbr_tie_element.bandwidth is not None:
+                egress_bw += nbr_nbr_tie_element.bandwidth
+        nbr.set_egress_bandwidth(egress_bw)
 
 class FloodRedParent:
 

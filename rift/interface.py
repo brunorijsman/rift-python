@@ -373,13 +373,11 @@ class Interface:
 
     def action_remove_from_neighbor(self):
         system_id = self.neighbor_lie.system_id
-        neighbor = self.node.find_neighbor(system_id)
-        assert neighbor
-        was_last_intf = neighbor.remove_interface(self)
+        nbr = self.node.find_neighbor(system_id)
+        assert nbr
+        was_last_intf = nbr.remove_interface(self)
         if was_last_intf:
             self.node.remove_neighbor(system_id)
-        ###@@@ remove intf
-        ###@@@ remove nbr if no more intf
 
     _state_one_way_transitions = {
         Event.TIMER_TICK: (None, [], [Event.SEND_LIE]),
@@ -901,19 +899,19 @@ class Interface:
         # TODO: Make the default metric/bandwidth depend on the speed of the interface
         self._metric = self.get_config_attribute(config, 'metric',
                                                  common.constants.default_distance)
-        self._configured_bandwith = self.get_config_attribute(config, 'bandwidth', None)
+        self._configured_bandwidth = self.get_config_attribute(config, 'bandwidth', None)
         # The following method for determining the speed of an interface only works on Linux
         try:
             with open("/sys/class/net/{}/speed".format(self.name)) as speed_file:
-                self._discovered_bandwith = int(speed_file.readline())
+                self._discovered_bandwidth = int(speed_file.readline())
         except (OSError, ValueError):
-            self._discovered_bandwith = None
-        if self._configured_bandwith is not None:
-            self._bandwith = self._configured_bandwith
-        elif self._discovered_bandwith is not None:
-            self._bandwith = self._discovered_bandwith
+            self._discovered_bandwidth = None
+        if self._configured_bandwidth is not None:
+            self.bandwidth = self._configured_bandwidth
+        elif self._discovered_bandwidth is not None:
+            self.bandwidth = self._discovered_bandwidth
         else:
-            self._bandwith = common.constants.default_bandwidth
+            self.bandwidth = common.constants.default_bandwidth
         self._advertised_name = self.generate_advertised_name()
         self._ipv4_address = utils.interface_ipv4_address(self.physical_interface_name)
         self._ipv6_address = utils.interface_ipv6_address(self.physical_interface_name)
@@ -1687,7 +1685,7 @@ class Interface:
             ["Interface Index", self._interface_index],
             ["Direction", self.neighbor_direction_str()],
             ["Metric", self._metric],
-            ["Bandwidth", str(self._bandwith) + " Mbpps"],
+            ["Bandwidth", str(self.bandwidth) + " Mbpps"],
             ["LIE Receive IPv4 Multicast Address", self._rx_lie_ipv4_mcast_address],
             ["LIE Receive IPv6 Multicast Address", self._rx_lie_ipv6_mcast_address],
             ["LIE Receive Port", self._rx_lie_port],

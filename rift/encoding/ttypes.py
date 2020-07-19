@@ -1312,7 +1312,7 @@ class NodeNeighborsTIEElement(object):
     @note: any neighbor with cost <= 0 MUST be ignored
            in computations
      - link_ids: can carry description of multiple parallel links in a TIE
-     - bandwidth: total bandwith to neighbor, this will be normally sum of the
+     - bandwidth: total bandwidth to neighbor, this will be normally sum of the
     bandwidths of all the parallel links.
 
     """
