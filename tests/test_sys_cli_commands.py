@@ -99,7 +99,7 @@ def check_show_interface(res):
     res.table_expect("Interface:")
     res.table_expect("| Interface Name | if1 |")
     res.table_expect("| State | THREE_WAY |")
-    res.table_expect("Neighbor:")
+    res.table_expect("Neighbor LIE Information:")
     res.table_expect("| Name | node2:if1 |")
     res.table_expect("| System ID | 2 |")
     res.wait_prompt()

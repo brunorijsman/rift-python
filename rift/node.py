@@ -1309,7 +1309,7 @@ class Node:
         cli_session.print(intf.cli_details_table().to_string())
         neighbor_table = intf.cli_neighbor_details_table()
         if neighbor_table:
-            cli_session.print("Neighbor:")
+            cli_session.print("Neighbor LIE Information:")
             cli_session.print(neighbor_table.to_string())
 
     def command_show_interfaces(self, cli_session):

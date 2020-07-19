@@ -139,7 +139,7 @@ def make_parent_interface(test_node, parent_sysid):
     lie_protocol_packet = encoding.ttypes.ProtocolPacket(packet_header, packet_content)
     # pylint:disable=protected-access
     intf.fsm._state = interface.Interface.State.THREE_WAY
-    intf.neighbor = neighbor_lie.NeighborLIE(
+    intf.neighbor_lie = neighbor_lie.NeighborLIE(
         lie_protocol_packet=lie_protocol_packet,
         neighbor_address="1.1.1.1",
         neighbor_port=1)
