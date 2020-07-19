@@ -1,3 +1,5 @@
+import constants
+
 class Neighbor:
     """
     A node may have multiple parallel interfaces in state 3-way to the same neighbor. In that case
@@ -28,10 +30,14 @@ class Neighbor:
         primary_system_id = next(iter(self._interfaces))
         return self._interfaces[primary_system_id]
 
+    def direction(self):
+        return self.primary_interface().neighbor_direction()
+
     @staticmethod
     def cli_summary_headers():
         return [
             "System ID",
+            "Direction",
             ["Interface", "Name"],
             ["Adjacency", "Name"]]
 
@@ -43,5 +49,6 @@ class Neighbor:
             adjacency_names.append(intf.neighbor_lie.name)
         return [
             self._system_id,
+            constants.direction_str(self.direction()),
             interface_names,
             adjacency_names]
