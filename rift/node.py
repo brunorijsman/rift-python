@@ -15,15 +15,16 @@ import sortedcontainers
 import common.constants
 import constants
 import encoding.ttypes
-from forwarding_table import ForwardingTable
-from fib_route import FibRoute
+import forwarding_table
+import fib_route
 import fsm
 import interface
 import kernel
-from next_hop import NextHop
+import neighbor
+import next_hop
 import offer
 import packet_common
-from route_table import RouteTable
+import route_table
 import rib_route
 import spf_dest
 import stats
@@ -427,6 +428,7 @@ class Node:
         self._top_of_fabric_flag = top_of_fabric_flag
         self.interfaces_by_name = sortedcontainers.SortedDict()
         self.interfaces_by_id = {}
+        self.neighbors = sortedcontainers.SortedDict()
         self.rx_lie_ipv4_mcast_address = self.get_config_attribute(
             'rx_lie_mcast_address', constants.DEFAULT_LIE_IPV4_MCAST_ADDRESS)
         self._tx_lie_ipv4_mcast_address = self.get_config_attribute(
@@ -536,22 +538,22 @@ class Node:
             (constants.DIR_SOUTH, True): {}
         }
         self._fallen_leaves = {}
-        self._ipv4_fib = ForwardingTable(
+        self._ipv4_fib = forwarding_table.ForwardingTable(
             constants.ADDRESS_FAMILY_IPV4,
             self.kernel,
             self._fib_log,
             self.log_id)
-        self._ipv6_fib = ForwardingTable(
+        self._ipv6_fib = forwarding_table.ForwardingTable(
             constants.ADDRESS_FAMILY_IPV6,
             self.kernel,
             self._fib_log,
             self.log_id)
-        self._ipv4_rib = RouteTable(
+        self._ipv4_rib = route_table.RouteTable(
             constants.ADDRESS_FAMILY_IPV4,
             self._ipv4_fib,
             self._rib_log,
             self.log_id)
-        self._ipv6_rib = RouteTable(
+        self._ipv6_rib = route_table.RouteTable(
             constants.ADDRESS_FAMILY_IPV6,
             self._ipv6_fib,
             self._rib_log,
@@ -1313,11 +1315,17 @@ class Node:
             cli_session.print(neighbor_table.to_string())
 
     def command_show_interfaces(self, cli_session):
-        # TODO: Report neighbor uptime (time in THREE_WAY state)
         tab = table.Table()
         tab.add_row(interface.Interface.cli_summary_headers())
         for intf in self.interfaces_by_name.values():
             tab.add_row(intf.cli_summary_attributes())
+        cli_session.print(tab.to_string())
+
+    def command_show_neighbors(self, cli_session):
+        tab = table.Table()
+        tab.add_row(neighbor.Neighbor.cli_summary_headers())
+        for nbr in self.neighbors.values():
+            tab.add_row(nbr.cli_summary_attributes())
         cli_session.print(tab.to_string())
 
     def floodred_parents_table(self):
@@ -1491,7 +1499,7 @@ class Node:
             cli_session.print("Prefix {} not present".format(prefix))
             return
         tab = table.Table()
-        tab.add_row(FibRoute.cli_summary_headers())
+        tab.add_row(fib_route.FibRoute.cli_summary_headers())
         tab.add_row(rte.cli_summary_attributes())
         cli_session.print(tab.to_string())
 
@@ -2951,9 +2959,9 @@ class Node:
                 next_hops = dest.ipv6_next_hops
             all_next_hops_partial = True
             at_least_one_next_hop = False
-            for next_hop in next_hops:
+            for nhop in next_hops:
                 at_least_one_next_hop = True
-                intf = self.interfaces_by_name[next_hop.interface]
+                intf = self.interfaces_by_name[nhop.interface]
                 if not intf.partially_connected:
                     all_next_hops_partial = False
             if all_next_hops_partial and at_least_one_next_hop:
@@ -2968,7 +2976,7 @@ class Node:
         if intf.neighbor_lie.ipv4_address is None:
             return None
         remote_address = packet_common.make_ip_address(intf.neighbor_lie.ipv4_address)
-        return NextHop(negative, intf.name, remote_address, None)
+        return next_hop.NextHop(negative, intf.name, remote_address, None)
 
     def interface_id_to_ipv6_next_hop(self, interface_id, negative):
         if interface_id not in self.interfaces_by_id:
@@ -2982,7 +2990,7 @@ class Node:
         if "%" in remote_address_str:
             remote_address_str = remote_address_str.split("%")[0]
         remote_address = packet_common.make_ip_address(remote_address_str)
-        return NextHop(negative, intf.name, remote_address, None)
+        return next_hop.NextHop(negative, intf.name, remote_address, None)
 
     def spf_use_tie_direction(self, visit_system_id, spf_direction):
         if spf_direction == constants.DIR_SOUTH:
@@ -3246,6 +3254,16 @@ class Node:
             pending_str = "(immediate)"
         self.floodred_debug("Deactivate interface %s as flood repeater %s", intf.name, pending_str)
 
+    def find_neighbor(self, system_id):
+        return self.neighbors.get(system_id)
+
+    def create_neighbor(self, system_id):
+        nbr = neighbor.Neighbor(system_id)
+        self.neighbors[system_id] = nbr
+        return nbr
+
+    def remove_neighbor(self, system_id):
+        del self.neighbors[system_id]
 
 class FloodRedParent:
 

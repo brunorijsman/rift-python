@@ -298,6 +298,9 @@ class Engine:
     def command_show_interfaces(self, cli_session):
         cli_session.current_node.command_show_interfaces(cli_session)
 
+    def command_show_neighbors(self, cli_session):
+        cli_session.current_node.command_show_neighbors(cli_session)
+
     def command_show_kernel_addresses(self, cli_session):
         cli_session.current_node.command_show_kernel_addresses(cli_session)
 
@@ -492,6 +495,7 @@ class Engine:
                     },
                 },
             },
+            "neighbors": command_show_neighbors,
             "node": {
                 "": command_show_node,
                 "fsm": {
