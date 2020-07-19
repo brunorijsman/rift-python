@@ -38,17 +38,27 @@ class Neighbor:
         return [
             "System ID",
             "Direction",
+            ["Ingress", "North-Bound", "Bandwidth"],
+            ["Egress", "North-Bound", "Bandwidth"],
+            ["Neighbor", "Traffic", "Percentage"],
             ["Interface", "Name"],
-            ["Adjacency", "Name"]]
+            ["Adjacency", "Name"],
+            ["Interface", "Traffic", "Percentage"]]
 
     def cli_summary_attributes(self):
         interface_names = []
         adjacency_names = []
+        interface_percentages = []
         for intf_name, intf in self._interfaces.items():
             interface_names.append(intf_name)
             adjacency_names.append(intf.neighbor_lie.name)
+            interface_percentages.append("10%")  ###@@@
         return [
             self._system_id,
             constants.direction_str(self.direction()),
+            "100 Mbps",   ###@@@
+            "80 Mbps",   ###@@@
+            "50%",   ###@@@
             interface_names,
-            adjacency_names]
+            adjacency_names,
+            interface_percentages]
