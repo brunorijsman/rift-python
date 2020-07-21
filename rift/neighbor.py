@@ -23,9 +23,9 @@ class Neighbor:
         self._ingress_bandwidth += intf.bandwidth
 
     def remove_interface(self, intf):
-        assert intf.name in self._interfaces
-        self._ingress_bandwidth -= intf.bandwidth
-        del self._interfaces[intf.name]
+        if intf.name in self._interfaces:
+            self._ingress_bandwidth -= intf.bandwidth
+            del self._interfaces[intf.name]
         # Return whether or not the removed interface was the last one
         if self._interfaces:
             return False
@@ -33,7 +33,8 @@ class Neighbor:
             return True
 
     def interface_percentage(self, intf_name):
-        assert intf_name in self._interfaces
+        if intf_name not in self._interfaces:
+            return None
         if self._traffic_percentage is None:
             return None
         intf = self._interfaces[intf_name]
@@ -41,7 +42,10 @@ class Neighbor:
         return ingress_fraction * self._traffic_percentage
 
     def interface_weight(self, intf_name):
-        return round(self.interface_percentage(intf_name) * 10.0)
+        percentage = self.interface_percentage(intf_name)
+        if percentage is None:
+            return None
+        return round(percentage * 10.0)
 
     def primary_interface(self):
         if not self._interfaces:

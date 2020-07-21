@@ -263,6 +263,7 @@ class Interface:
         self.increase_tx_nonce_local()
 
     def action_cleanup(self):
+        self.action_remove_from_neighbor()
         self.neighbor_lie = None
 
     def action_process_lie(self, event_data):
@@ -373,13 +374,15 @@ class Interface:
         self.node.update_all_nbr_traffic_perc()
 
     def action_remove_from_neighbor(self):
+        if self.neighbor_lie is None:
+            return
         system_id = self.neighbor_lie.system_id
         nbr = self.node.find_neighbor(system_id)
-        assert nbr
-        was_last_intf = nbr.remove_interface(self)
-        if was_last_intf:
-            self.node.remove_neighbor(system_id)
-        self.node.update_all_nbr_traffic_perc()
+        if nbr:
+            was_last_intf = nbr.remove_interface(self)
+            if was_last_intf:
+                self.node.remove_neighbor(system_id)
+            self.node.update_all_nbr_traffic_perc()
 
     _state_one_way_transitions = {
         Event.TIMER_TICK: (None, [], [Event.SEND_LIE]),
