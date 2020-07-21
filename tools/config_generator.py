@@ -666,10 +666,6 @@ class Node:
     def write_netns_stop_scr_to_file_1(self, file):
         progress = ("Stop RIFT-Python engine for node {}".format(self.name))
         print('echo "{}"'.format(progress), file=file)
-        # Report the kill
-        out_file = "/tmp/rift-python-output-" + self.name
-        print('echo "**** Stop Node ***" >> {}'.format(out_file), file=file)
-        print('date >> {}'.format(out_file), file=file)
         # We use a big hammer: we kill -9 all processes in the the namespace
         self.write_kill_rift_to_file(file)
         # Also clean up the port file
