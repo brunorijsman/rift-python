@@ -1,5 +1,6 @@
 import errno
 import socket
+import sys ###@@@
 
 import pyroute2
 
@@ -74,9 +75,9 @@ class Kernel:
                 self.del_route(rte.prefix)
                 return False
         ###@@@
-        print("put_route:")
-        print("  prefix = ", rte.prefix)
-        print("  nhops = ", rte.next_hops)
+        print("put_route:", file=sys.stderr)
+        print("  prefix = ", rte.prefix, file=sys.stderr)
+        print("  nhops = ", rte.next_hops, file=sys.stderr)
         ###@@@
         try:
             self.ipr.route('replace',

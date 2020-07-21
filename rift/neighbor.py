@@ -1,4 +1,5 @@
 import sortedcontainers
+import sys ###@@@
 
 import constants
 import utils
@@ -68,9 +69,9 @@ class Neighbor:
     def set_traffic_percentage(self, percentage):
         ###@@@
         if percentage is not None:
-            print("set_traffic_percentage:")
-            print("  system_id =", self._system_id)
-            print("  percentage =", percentage)
+            print("set_traffic_percentage:", file=sys.stderr)
+            print("  system_id =", self._system_id, file=sys.stderr)
+            print("  percentage =", percentage, file=sys.stderr)
         ###@@@
         self._traffic_percentage = percentage
 
