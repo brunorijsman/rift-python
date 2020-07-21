@@ -66,6 +66,12 @@ class Neighbor:
         self._egress_bandwidth = egress_bandwidth
 
     def set_traffic_percentage(self, percentage):
+        ###@@@
+        if percentage is not None:
+            print("set_traffic_percentage:")
+            print("  system_id =", self._system_id)
+            print("  percentage =", percentage)
+        ###@@@
         self._traffic_percentage = percentage
 
     @staticmethod

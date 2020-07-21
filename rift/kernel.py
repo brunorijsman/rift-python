@@ -73,6 +73,11 @@ class Kernel:
             if kernel_args["multipath"] == []:
                 self.del_route(rte.prefix)
                 return False
+        ###@@@
+        print("put_route:")
+        print("  prefix = ", rte.prefix)
+        print("  nhops = ", rte.next_hops)
+        ###@@@
         try:
             self.ipr.route('replace',
                            table=self._table_nr,
