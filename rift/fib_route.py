@@ -33,10 +33,11 @@ class FibRoute:
                     "",
                     "",
                     ""]
-        types = ["Positive" for _ in self.next_hops]
-        interfaces = [nh.interface if nh.interface is not None else "" for nh in self.next_hops]
-        addresses = [nh.address if nh.address is not None else "" for nh in self.next_hops]
-        weights = [nh.weight if nh.weight is not None else "" for nh in self.next_hops]
+        nhops = sorted(self.next_hops)
+        types = ["Positive" for _ in nhops]
+        interfaces = [nh.interface if nh.interface is not None else "" for nh in nhops]
+        addresses = [nh.address if nh.address is not None else "" for nh in nhops]
+        weights = [nh.weight if nh.weight is not None else "" for nh in nhops]
         return [packet_common.ip_prefix_str(self.prefix),
                 types,
                 interfaces,

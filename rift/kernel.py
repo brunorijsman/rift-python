@@ -398,7 +398,7 @@ class Kernel:
             route_table_nr = route.get_attr('RTA_TABLE')
             if (table_nr is not None) and (table_nr != route_table_nr):
                 continue
-            next_hops = self.kernel_route_nhops(route, links)
+            next_hops = sorted(self.kernel_route_nhops(route, links))
             oif_cell = []
             gateway_cell = []
             weight_cell = []
