@@ -370,6 +370,7 @@ class Interface:
         if not neighbor:
             neighbor = self.node.create_neighbor(self.neighbor_lie.system_id)
         neighbor.add_interface(self)
+        self.node.update_all_nbr_traffic_perc()
 
     def action_remove_from_neighbor(self):
         system_id = self.neighbor_lie.system_id
@@ -378,6 +379,7 @@ class Interface:
         was_last_intf = nbr.remove_interface(self)
         if was_last_intf:
             self.node.remove_neighbor(system_id)
+        self.node.update_all_nbr_traffic_perc()
 
     _state_one_way_transitions = {
         Event.TIMER_TICK: (None, [], [Event.SEND_LIE]),
@@ -446,10 +448,10 @@ class Interface:
             [action_start_flooding,                 # State 3way entry actions
              action_init_partially_conn,
              action_add_to_neighbor],
-            [action_increase_tx_nonce_local,        # State 3way exit actions
+            [action_remove_from_neighbor,           # State 3way exit actions
+             action_increase_tx_nonce_local,
              action_stop_flooding,
-             action_clear_partially_conn,
-             action_remove_from_neighbor])
+             action_clear_partially_conn])
     }
 
     fsm_definition = fsm.FsmDefinition(
@@ -897,8 +899,8 @@ class Interface:
         else:
             self.physical_interface_name = self.name
         # TODO: Make the default metric/bandwidth depend on the speed of the interface
-        self._metric = self.get_config_attribute(config, 'metric',
-                                                 common.constants.default_distance)
+        self.metric = self.get_config_attribute(config, 'metric',
+                                                common.constants.default_distance)
         self._configured_bandwidth = self.get_config_attribute(config, 'bandwidth', None)
         # The following method for determining the speed of an interface only works on Linux
         try:
@@ -1684,7 +1686,7 @@ class Interface:
             ["Interface IPv6 Address", self._ipv6_address],
             ["Interface Index", self._interface_index],
             ["Direction", self.neighbor_direction_str()],
-            ["Metric", self._metric],
+            ["Metric", self.metric],
             ["Bandwidth", str(self.bandwidth) + " Mbpps"],
             ["LIE Receive IPv4 Multicast Address", self._rx_lie_ipv4_mcast_address],
             ["LIE Receive IPv6 Multicast Address", self._rx_lie_ipv6_mcast_address],

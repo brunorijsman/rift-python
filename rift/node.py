@@ -931,7 +931,7 @@ class Node:
                     bandwidth += intf2.bandwidth
             node_neighbor = encoding.ttypes.NodeNeighborsTIEElement(
                 level=intf.neighbor_lie.level,
-                cost=intf._metric,
+                cost=intf.metric,
                 link_ids=link_ids,
                 bandwidth=bandwidth)
             neighbors[intf.neighbor_lie.system_id] = node_neighbor
@@ -2696,7 +2696,8 @@ class Node:
 
     def node_neighbors(self, node_ties, neighbor_directions):
         # A generator that yields (nbr_system_id, nbr_level, nbr_tie_element) tuples for all
-        # neighbors in the specified directions of the nodes in the node_ties list.
+        # neighbors in the specified directions of the nodes in the node_ties list. If
+        # neighbor_directions is None, then generate all neighbors in all directions.
         for node_tie in node_ties:
             # If a node reports no level but does report neighbors, those neighbors cannot be
             # considered to point in any particular direction.
@@ -2705,13 +2706,16 @@ class Node:
                 continue
             for nbr_system_id, nbr_tie_element in node_tie.element.node.neighbors.items():
                 nbr_level = nbr_tie_element.level
-                correct_direction = False
-                if constants.DIR_SOUTH in neighbor_directions:
-                    correct_direction = (nbr_level < node_level)
-                if not correct_direction and constants.DIR_NORTH in neighbor_directions:
-                    correct_direction = (nbr_level > node_level)
-                if not correct_direction and constants.DIR_EAST_WEST in neighbor_directions:
-                    correct_direction = (nbr_level == node_level)
+                if neighbor_directions is None:
+                    correct_direction = True
+                else:
+                    correct_direction = False
+                    if constants.DIR_SOUTH in neighbor_directions:
+                        correct_direction = (nbr_level < node_level)
+                    if not correct_direction and constants.DIR_NORTH in neighbor_directions:
+                        correct_direction = (nbr_level > node_level)
+                    if not correct_direction and constants.DIR_EAST_WEST in neighbor_directions:
+                        correct_direction = (nbr_level == node_level)
                 if correct_direction:
                     yield nbr_system_id, nbr_level, nbr_tie_element
 
@@ -3277,18 +3281,38 @@ class Node:
 
     def remove_neighbor(self, nbr_system_id):
         del self.neighbors[nbr_system_id]
+        self.update_all_nbr_traffic_perc()
 
     def update_neighbor_egress_bw(self, nbr_system_id):
-        ###@@@ Also call this when a node TIE for the system ID is added/modified/removed
+        # Compute the total bandwidth going out of neighbor nbr_system_id except the bandwidth
+        # that goes back to this node.
         nbr = self.find_neighbor(nbr_system_id)
         if nbr is None:
             return
         nbr_node_ties = self.node_ties(constants.DIR_SOUTH, nbr_system_id)
         egress_bw = 0
-        for _, _, nbr_nbr_tie_element in self.node_neighbors(nbr_node_ties, [constants.DIR_NORTH]):
-            if nbr_nbr_tie_element.bandwidth is not None:
-                egress_bw += nbr_nbr_tie_element.bandwidth
+        for nbr_nbr_system_id, _, nbr_nbr_tie_element in self.node_neighbors(nbr_node_ties, None):
+            if nbr_nbr_system_id == self.system_id:
+                continue
+            if nbr_nbr_tie_element.bandwidth is None:
+                continue
+            egress_bw += nbr_nbr_tie_element.bandwidth
         nbr.set_egress_bandwidth(egress_bw)
+        self.update_all_nbr_traffic_perc()
+
+    def update_all_nbr_traffic_perc(self):
+        if not self.neighbors:
+            return
+        nbr_weights = {}
+        for nbr_system_id, nbr in self.neighbors.items():
+            nbr_weights[nbr_system_id] = nbr.ingress_bandwidth() * nbr.egress_bandwidth()
+        total_nbr_weight = sum(nbr_weights.values())
+        for nbr_system_id, nbr in self.neighbors.items():
+            if total_nbr_weight == 0:
+                percentage = None
+            else:
+                percentage = 100.0 * nbr_weights[nbr_system_id] / total_nbr_weight
+            nbr.set_traffic_percentage(percentage)
 
 class FloodRedParent:
 
