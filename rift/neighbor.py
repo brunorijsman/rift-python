@@ -45,7 +45,7 @@ class Neighbor:
         percentage = self.interface_percentage(intf_name)
         if percentage is None:
             return None
-        return round(percentage * 10.0)
+        return round(percentage)
 
     def primary_interface(self):
         if not self._interfaces:
