@@ -3098,11 +3098,27 @@ class Node:
         self._ipv4_rib.del_stale_routes()
         self._ipv6_rib.del_stale_routes()
 
-    @staticmethod
-    def _install_rib_routes(prefix_to_next_hops, owner, rib):
+    def _install_rib_routes(self, prefix_to_next_hops, owner, rib):
         for prefix, next_hops in prefix_to_next_hops.items():
+            # For north-bound default routes only, set the next-hop weights to (potentially) make
+            # it a non-equal cost multipath (NECMP) route.
+            if owner == constants.OWNER_N_SPF and self._is_default_prefix(prefix):
+                for nhop in next_hops:
+                    nbr_system_id = self.interfaces_by_name[nhop.interface].neighbor_lie.system_id
+                    nbr_weight = self.neighbors[nbr_system_id].interface_weight(nhop.interface)
+                    nhop.weight = nbr_weight
+            # Add Route to route table
             route = rib_route.RibRoute(prefix, owner, next_hops)
             rib.put_route(route)
+
+    @staticmethod
+    def _is_default_prefix(prefix):
+        if prefix.ipv4prefix:
+            return prefix.ipv4prefix.prefixlen == 0
+        if prefix.ipv6prefix:
+            return prefix.ipv6prefix.prefixlen == 0
+        assert False
+        return False
 
     @staticmethod
     def is_leaf_prefix(item):
