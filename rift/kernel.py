@@ -135,7 +135,11 @@ class Kernel:
             kernel_args = {"oif": oif, "hops": 1}
         else:
             gateway = str(nhop.address)
-            kernel_args = {"oif": oif, "gateway": gateway, "hops": 1}
+            if nhop.weight is None:
+                hops = 1
+            else:
+                hops = nhop.weight
+            kernel_args = {"oif": oif, "gateway": gateway, "hops": hops}
         return kernel_args
 
     def cli_addresses_table(self):
