@@ -1,5 +1,6 @@
-import sortedcontainers
 import sys ###@@@
+
+import sortedcontainers
 
 import constants
 import utils
