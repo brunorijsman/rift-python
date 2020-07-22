@@ -1878,6 +1878,10 @@ class Node:
             intf.update_partially_connected()
 
     def store_tie_packet_info(self, tie_packet_info):
+        ###@@@
+        print("store_tie_packet_info", file=sys.stderr)
+        sys.stderr.flush()
+        ###@@@
         tie_packet = tie_packet_info.protocol_packet.content.tie
         tie_id = tie_packet.header.tieid
         tie_type = tie_id.tietype
@@ -1902,6 +1906,10 @@ class Node:
                     trigger_spf = True
                     reason = "TIE " + packet_common.tie_id_str(tie_id) + " added negative"
                     self.update_neg_disagg_propagation(tie_packet)
+        ###@@@
+        print("update_neighbor_egress_bw, trigger_spf =", trigger_spf, file=sys.stderr)
+        sys.stderr.flush()
+        ###@@@
         self.update_neighbor_egress_bw(tie_id.originator)
         if trigger_spf:
             self.trigger_spf(reason)
