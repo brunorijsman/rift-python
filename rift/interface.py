@@ -597,7 +597,7 @@ class Interface:
                         self.log_tx_protocol_packet(severity, sock, prelude, packet_info)
                         self.bump_tx_real_errors_counter(sock, nr_bytes)
                     else:
-                        # Sucessfully sent packet; trace it
+                        # Successfully sent packet; trace it
                         packet_trace = PacketTrace("TX", sock.getsockname(), sock.getpeername(),
                                                    packet_info)
                         self._packets.appendleft(packet_trace)
@@ -1690,7 +1690,7 @@ class Interface:
             ["Interface Index", self._interface_index],
             ["Direction", self.neighbor_direction_str()],
             ["Metric", self.metric],
-            ["Bandwidth", str(self.bandwidth) + " Mbpps"],
+            ["Bandwidth", str(self.bandwidth) + " Mbps"],
             ["LIE Receive IPv4 Multicast Address", self._rx_lie_ipv4_mcast_address],
             ["LIE Receive IPv6 Multicast Address", self._rx_lie_ipv6_mcast_address],
             ["LIE Receive Port", self._rx_lie_port],

@@ -13,6 +13,7 @@
     "python.testing.pytestEnabled": true,
     "cSpell.words": [
         "CMSG",
+        "ECONNREFUSED",
         "Etingof",
         "MYTTL",
         "PIDS",
@@ -68,6 +69,8 @@
         "linux",
         "mac",
         "message",
+        "misorder",
+        "misorders",
         "mkdir",
         "mkrt",
         "multicast",
