@@ -903,7 +903,7 @@ Interface:
 | Interface IPv6 Address               | 2001:db8:1::242:ac11:2                                   |
 | Interface Index                      | 8                                                        |
 | Metric                               | 1                                                        |
-| Bandwidth                            | 100 Mbpps                                                |
+| Bandwidth                            | 100 Mbps                                                 |
 | LIE Receive IPv4 Multicast Address   | 224.0.0.81                                               |
 | LIE Receive IPv6 Multicast Address   | FF02::A1F7                                               |
 | LIE Receive Port                     | 20001                                                    |
@@ -1230,7 +1230,7 @@ agg_101> <b>show interface if_101_1 sockets</b>
 ### show interface <i>interface</i> statistics
 
 The "<b>show interface <i>interface</i> statistics</b>" command shows all the statistics for the 
-speficied interface.
+specified interface.
 
 Example:
 
