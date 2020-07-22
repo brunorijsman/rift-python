@@ -12,7 +12,7 @@ class RibRoute:
     def __init__(self, prefix, owner, next_hops):
         self.prefix = prefix
         self.owner = owner
-        self.destination = None   # The destination is set in Destination.put_route ###@@@
+        self.destination = None   # The destination is set in Destination.put_route
         self.stale = False
         self.next_hops = next_hops
 

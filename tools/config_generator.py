@@ -900,7 +900,6 @@ class Node:
 
     @staticmethod
     def extract_next_hops_from_route(route, first_next_hop_column, ignore_address):
-        ###@@@
         next_hops = []
         types = route[first_next_hop_column]
         intfs = route[first_next_hop_column + 1]

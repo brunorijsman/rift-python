@@ -814,7 +814,7 @@ class Node:
             # Not a south TIE. We only consider south TIEs because we only consider nodes in the
             # same plane as same-level-nodes for the purpose of positive disaggregation.
             # South-Node-TIEs from the nodes in the same plane are reflected to this node.
-            # South-Node-TIEs from nodes in other planes are not relected and also not propagated
+            # South-Node-TIEs from nodes in other planes are not reflected and also not propagated
             # through interplane east-west links.
             return False
         if tie_packet.element.node.level != self.level_value():
@@ -2104,7 +2104,7 @@ class Node:
     def bump_own_tie(self, rx_tie_header):
         # One of our neighbors claims to have a TIE in its database that was originated by us.
         # That "claim" could have arrived in the form of (a) a received TIE or (b) a TIE header
-        # in a recived TIDE.
+        # in a received TIDE.
         # We need to (re)originate the TIE with a higher sequence number so that every node in the
         # network will use our TIE and not the old one floating around.
         rx_tie_id = rx_tie_header.tieid
@@ -2845,7 +2845,7 @@ class Node:
         # Consider each neighbor of the visited node in the direction of the SPF
         directions = [spf_direction]
         if special_for_neg_disagg:
-            # If runnin ag special SPF for negative disaggregation, also allow east-west links.
+            # When running a special SPF for negative disaggregation, also allow east-west links.
             directions.append(constants.DIR_EAST_WEST)
         neighbors = self.node_neighbors(node_ties, neighbor_directions=directions)
         for nbr_system_id, nbr_level, nbr_tie_element in neighbors:

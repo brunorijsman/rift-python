@@ -78,6 +78,7 @@ class Kernel:
         print("put_route:", file=sys.stderr)
         print("  prefix = ", rte.prefix, file=sys.stderr)
         print("  nhops = ", rte.next_hops, file=sys.stderr)
+        sys.stderr.flush()
         ###@@@
         try:
             self.ipr.route('replace',
