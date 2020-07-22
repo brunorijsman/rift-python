@@ -73,6 +73,7 @@ class Neighbor:
             print("set_traffic_percentage:", file=sys.stderr)
             print("  system_id =", self._system_id, file=sys.stderr)
             print("  percentage =", percentage, file=sys.stderr)
+            crash = 1/0
         ###@@@
         self._traffic_percentage = percentage
 

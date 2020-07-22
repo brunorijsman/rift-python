@@ -125,7 +125,7 @@
         "veth",
         "ydef"
     ],
-    "cSpell.enabled": false,
+    "cSpell.enabled": true,
     "cSpell.enabledLanguageIds": [
         "asciidoc",
         "c",
