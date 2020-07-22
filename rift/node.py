@@ -1902,9 +1902,9 @@ class Node:
                     trigger_spf = True
                     reason = "TIE " + packet_common.tie_id_str(tie_id) + " added negative"
                     self.update_neg_disagg_propagation(tie_packet)
+        self.update_neighbor_egress_bw(tie_id.originator)
         if trigger_spf:
             self.trigger_spf(reason)
-        self.update_neighbor_egress_bw(tie_id.originator)
 
     def update_neg_disagg_propagation(self, neg_tie):
         neg_disagg_type = common.ttypes.TIETypeType.NegativeDisaggregationPrefixTIEType
