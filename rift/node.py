@@ -3105,7 +3105,10 @@ class Node:
             if owner == constants.OWNER_N_SPF and self._is_default_prefix(prefix):
                 for nhop in next_hops:
                     nbr_system_id = self.interfaces_by_name[nhop.interface].neighbor_lie.system_id
-                    nbr_weight = self.neighbors[nbr_system_id].interface_weight(nhop.interface)
+                    if nbr_system_id in self.neighbors:
+                        nbr_weight = self.neighbors[nbr_system_id].interface_weight(nhop.interface)
+                    else:
+                        nbr_weight = None
                     nhop.weight = nbr_weight
             # Add Route to route table
             route = rib_route.RibRoute(prefix, owner, next_hops)
