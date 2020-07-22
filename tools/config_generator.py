@@ -454,7 +454,7 @@ class Node:
 
     def allocate_node_ids(self, layer):
         # layer_node_id: a node ID unique only within the layer (each layer has IDs 1, 2, 3...)
-        # global_node_id: a node ID which is globally unque (1001, 1002, 1003... for leaf nodes,
+        # global_node_id: a node ID which is globally unique (1001, 1002, 1003... for leaf nodes,
         #                 101, 102, 103... for spine nodes, and 1, 2, 3... for super-spine nodes)
         if layer in Node.next_layer_node_id:
             self.layer_node_id = Node.next_layer_node_id[layer]
@@ -1425,8 +1425,8 @@ class Link:
                    'class="link-line">'
                    '</polyline>\n'
                    .format(x_pos1, intf_y_pos,   # Start at interface 1
-                           x_pos1, line_y_pos,   # Verically up to horizontal line
-                           x_pos2, line_y_pos,   # Hortizontal line
+                           x_pos1, line_y_pos,   # Vertically up to horizontal line
+                           x_pos2, line_y_pos,   # Horizontal line
                            x_pos2, intf_y_pos,   # Down to interface 2
                            LINK_COLOR))
         self.intf1.write_graphics_to_file(file)
@@ -1837,13 +1837,11 @@ class Fabric:
         nr_affected_nodes = len(affected_nodes)
         nr_nodes = nr_clean_nodes + nr_affected_nodes
         assert nr_nodes > 1
-        # pylint: disable=simplifiable-if-statement
         if random.randint(1, nr_nodes) <= nr_clean_nodes:
             # Break something
             return True
-        else:
-            # Fix something
-            return False
+        # Fix something
+        return False
 
     @staticmethod
     def get_chaos_config(attribute, default_value):
