@@ -1,5 +1,3 @@
-import sys ###@@@
-
 import sortedcontainers
 
 import constants
@@ -68,13 +66,6 @@ class Neighbor:
         self._egress_bandwidth = egress_bandwidth
 
     def set_traffic_percentage(self, percentage):
-        ###@@@
-        if percentage is not None:
-            print("set_traffic_percentage:", file=sys.stderr)
-            print("  system_id =", self._system_id, file=sys.stderr)
-            print("  percentage =", percentage, file=sys.stderr)
-            sys.stderr.flush()
-        ###@@@
         self._traffic_percentage = percentage
 
     @staticmethod
