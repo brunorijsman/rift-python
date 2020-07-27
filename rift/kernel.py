@@ -131,14 +131,14 @@ class Kernel:
             self.error("Unknown interface \"%s\" replacing route to %s", nhop.interface, dst)
             return {}
         oif = link[0]
+        if nhop.weight is None:
+            hops = 1
+        else:
+            hops = nhop.weight
         if nhop.address is None:
-            kernel_args = {"oif": oif, "hops": 1}
+            kernel_args = {"oif": oif, "hops": hops}
         else:
             gateway = str(nhop.address)
-            if nhop.weight is None:
-                hops = 1
-            else:
-                hops = nhop.weight
             kernel_args = {"oif": oif, "gateway": gateway, "hops": hops}
         return kernel_args
 
