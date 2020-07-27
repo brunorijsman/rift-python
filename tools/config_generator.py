@@ -1190,6 +1190,10 @@ class Node:
         for nhop in zero_weight_fib_next_hops:
             nhop.weight = 0
         sorted_zw_fib_next_hops = sorted(zero_weight_fib_next_hops)
+        ###@@@
+        print("ipv6 =", ipv6)
+        print("sorted_zw_fib_next_hops =", sorted_zw_fib_next_hops)
+        ###@@@
         for kernel_route in parsed_kernel_routes[0]['rows'][1:]:
             kernel_prefix = kernel_route[2][0]
             kernel_next_hop_intfs = kernel_route[5]
@@ -1209,6 +1213,9 @@ class Node:
                 kernel_next_hops.append(NextHop(False, intf, addr, weight))
             if kernel_prefix == prefix:
                 sorted_kernel_next_hops = sorted(kernel_next_hops)
+                ###@@@
+                print("sorted_kernel_next_hops =", sorted_kernel_next_hops)
+                ###@@@
                 if len(kernel_next_hops) == 1:
                     # If the kernel has a single next-hop, look for a partial match. This is to
                     # deal with the fact that some kernels store ::/0 as three routes each without
