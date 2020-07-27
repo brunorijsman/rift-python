@@ -491,6 +491,7 @@ class Node:
             for interface_config in self._config['interfaces']:
                 self.create_interface(interface_config)
         self._originating_default = False
+        self._not_originating_default_reason = "Initializing"
         self._my_tie_states = {}
         self.add_my_tie_state(
             packet_common.make_tie_id(common.ttypes.TieDirectionType.South,
@@ -785,6 +786,8 @@ class Node:
             ["Receive TIE Port", self.rx_flood_port],
             ["Kernel Route Table", self._kernel_route_table],
             ["Originating South-bound Default Route", self._originating_default],
+            ["Reason for Not Originating South-bound Default Route", self.
+                _not_originating_default_reason],
             ["Flooding Reduction Enabled", self.floodred_enabled],
             ["Flooding Reduction Redundancy", self.floodred_redundancy],
             ["Flooding Reduction Similarity", self.floodred_similarity],
@@ -980,6 +983,8 @@ class Node:
         prefixes = {}
         prefix_tie_element = encoding.ttypes.PrefixTIEElement(prefixes=prefixes)
         if must_originate_default:
+            self._originating_default = True
+            self._not_originating_default_reason = ""
             is_purge = False
             # The specification does not mention what metric the default route should be originated
             # with. Juniper originates with metric 1, so that is what I will do as well.
@@ -989,6 +994,8 @@ class Node:
             v6_default_prefix = packet_common.make_ipv6_prefix("::/0")
             prefixes[v6_default_prefix] = attributes
         else:
+            self._originating_default = False
+            self._not_originating_default_reason = reason
             self.info("Don't originate south prefix TIE because: %s", reason)
             is_purge = True
         tie_id = packet_common.make_tie_id(direction=common.ttypes.TieDirectionType.South,
