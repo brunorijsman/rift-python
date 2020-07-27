@@ -1197,6 +1197,8 @@ class Node:
                     addr = make_ip_address(addr)
                 if weight == "":
                     weight = None
+                else:
+                    weight = int(weight)
                 kernel_next_hops.append(NextHop(False, intf, addr, weight))
             if kernel_prefix == prefix:
                 sorted_kernel_next_hops = sorted(kernel_next_hops)
