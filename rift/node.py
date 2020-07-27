@@ -787,7 +787,7 @@ class Node:
             ["Kernel Route Table", self._kernel_route_table],
             ["Originating South-bound Default Route", self._originating_default],
             ["Reason for Not Originating South-bound Default Route",
-                self._not_originating_default_reason],
+             self._not_originating_default_reason],
             ["Flooding Reduction Enabled", self.floodred_enabled],
             ["Flooding Reduction Redundancy", self.floodred_redundancy],
             ["Flooding Reduction Similarity", self.floodred_similarity],
