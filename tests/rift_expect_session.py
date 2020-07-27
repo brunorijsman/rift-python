@@ -264,6 +264,8 @@ class RiftExpectSession:
                 pattern += r" {} |".format(pred_sysid)             # predecessor system id
                 pattern += r" |"                                   # tags (absent)
                 pattern += r" {} |".format(pos_or_neg)             # positive or negative
+                if pos_or_neg == "Negative":
+                    pattern += r" Negative"
                 pattern += r" {} .* |".format(next_hop_if)         # ipv4 next-hop
                 if IPV6:
                     pattern += r" {} .* |".format(next_hop_if)     # ipv6 next-hop
@@ -277,6 +279,8 @@ class RiftExpectSession:
                 pattern += r" {} |".format(pred_sysid)             # predecessor system id
                 pattern += r" |"                                   # tags (absent)
                 pattern += r" |"                                   # positive or negative (absent)
+                if pos_or_neg == "Negative":
+                    pattern += r" Negative"
                 pattern += r" {} .* |".format(next_hop_if)         # ipv4 next-hop
                 if IPV6:
                     pattern += r" {} .* |".format(next_hop_if)     # ipv6 next-hop
