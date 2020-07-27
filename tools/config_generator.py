@@ -1211,8 +1211,8 @@ class Node:
                     fib_next_hop = None
                     for nhop in remaining_fib_next_hops:
                         if (kernel_next_hop.negative == nhop.negative and
-                            kernel_next_hop.interface == nhop.interface and
-                            kernel_next_hop.address == nhop.address):
+                                kernel_next_hop.interface == nhop.interface and
+                                kernel_next_hop.address == nhop.address):
                             fib_next_hop = nhop
                             break
                     if fib_next_hop:
