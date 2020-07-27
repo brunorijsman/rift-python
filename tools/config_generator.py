@@ -1043,7 +1043,7 @@ class Node:
             self.telnet_session.parse_show_output("show kernel routes table main")
         all_ok = True
         for fib_fam in parsed_fib_routes:
-            ipv6 = "IPv6" in fib_fam
+            ipv6 = "IPv6" in fib_fam['title']
             for fib_route in fib_fam['rows'][1:]:
                 fib_prefix = fib_route[0][0]
                 fib_next_hops = self.extract_next_hops_from_route(fib_route, 1, False)
