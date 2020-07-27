@@ -1204,10 +1204,19 @@ class Node:
                 sorted_kernel_next_hops = sorted(kernel_next_hops)
                 sorted_fib_next_hops = sorted(next_hops)
                 if len(kernel_next_hops) == 1:
-                    # If the kernel has a single next-hop, look for a partial match
+                    # If the kernel has a single next-hop, look for a partial match. This is to
+                    # deal with the fact that the kernel stores ::/0 as three routes each without
+                    # a weight, instead of a single route with 3 weighted next-hops.
                     kernel_next_hop = kernel_next_hops[0]
-                    if kernel_next_hop in remaining_fib_next_hops:
-                        remaining_fib_next_hops.remove(kernel_next_hop)
+                    fib_next_hop = None
+                    for nhop in remaining_fib_next_hops:
+                        if (kernel_next_hop.negative == nhop.negative and
+                            kernel_next_hop.interface == nhop.interface and
+                            kernel_next_hop.address == nhop.address):
+                            fib_next_hop = nhop
+                            break
+                    if fib_next_hop:
+                        remaining_fib_next_hops.remove(fib_next_hop)
                         if remaining_fib_next_hops == []:
                             return True
                         else:
