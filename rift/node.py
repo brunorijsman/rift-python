@@ -1179,7 +1179,7 @@ class Node:
     def have_north_ipv6_default_route(self):
         prefix = packet_common.make_ipv6_prefix("::/0")
         owner = constants.OWNER_N_SPF
-        rte = self._ipv4_rib.get_route(prefix, owner)
+        rte = self._ipv6_rib.get_route(prefix, owner)
         return rte is not None
 
     def send_tides(self):
