@@ -2760,6 +2760,8 @@ class Node:
 
     def spf_run(self):
         self._spf_runs_count += 1
+        old_ipv4_default = self.have_north_ipv4_default_route()
+        old_ipv6_default = self.have_north_ipv6_default_route()
         # Run normal SPFs (south and north)
         self.spf_run_direction(constants.DIR_SOUTH, special_for_neg_disagg=False)
         self.spf_run_direction(constants.DIR_NORTH, special_for_neg_disagg=False)
@@ -2769,6 +2771,11 @@ class Node:
             self.spf_run_direction(constants.DIR_SOUTH, special_for_neg_disagg=True)
         self.floodred_elect_repeaters()
         self.regenerate_my_pos_disagg_tie()
+        # If we gained or lost a default route in the RIB, we may have start or stop originating
+        # default route ourselves.
+        if (old_ipv4_default != self.have_north_ipv4_default_route() or
+                old_ipv6_default != self.have_north_ipv6_default_route()):
+            self.regenerate_my_south_prefix_tie()
 
     def spf_run_direction(self, spf_direction, special_for_neg_disagg):
         # Shortest Path First (SPF) uses the Dijkstra algorithm to compute the shortest path to
