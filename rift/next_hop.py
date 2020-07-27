@@ -6,7 +6,11 @@ class NextHop:
     """
 
     def __init__(self, negative, interface, address, weight):
-        assert weight is None or isinstance(weight, int)   ###@@@
+        ###@@@
+        if weight is not None and not isinstance(weight, int):
+            print(weight, type(weight))
+            assert False
+        ###@@@
         self.negative = negative
         self.interface = interface      # May be None, meaning discard route
         self.address = address          # May be None, for unnumbered interfaces
