@@ -268,6 +268,8 @@ class RiftExpectSession:
                     pattern += r" Negative"
                 pattern += r" {} .* |".format(next_hop_if)         # ipv4 next-hop
                 if IPV6:
+                    if pos_or_neg == "Negative":
+                        pattern += r" Negative"
                     pattern += r" {} .* |".format(next_hop_if)     # ipv6 next-hop
                 else:
                     pattern += r" .* |"                            # ip6 next-hop (possibly absent)
@@ -283,6 +285,8 @@ class RiftExpectSession:
                     pattern += r" Negative"
                 pattern += r" {} .* |".format(next_hop_if)         # ipv4 next-hop
                 if IPV6:
+                    if pos_or_neg == "Negative":
+                        pattern += r" Negative"
                     pattern += r" {} .* |".format(next_hop_if)     # ipv6 next-hop
                 else:
                     pattern += r" .* |"                            # ip6 next-hop (possibly absent)
