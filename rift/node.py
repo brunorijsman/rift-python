@@ -1154,7 +1154,9 @@ class Node:
         for node_tie_packet_info in self.peer_node_tie_packet_infos.values():
             node_tie_packet = node_tie_packet_info.protocol_packet.content.tie
             flags = node_tie_packet.element.node.flags
-            if (flags is not None) and (not flags.overload):
+            if flags is None:
+                return False
+            if not flags.overload:
                 return False
         return True
 
