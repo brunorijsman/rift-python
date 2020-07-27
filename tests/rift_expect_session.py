@@ -254,30 +254,30 @@ class RiftExpectSession:
         for (pred_sysid, next_hop_if) in preds_and_nhs:
             if first:
                 first = False
-                pattern = r"| {} \(Disagg\) |".format(prefix)   # prefix
-                pattern += r" {} |".format(cost)                # cost
-                pattern += r" {} |".format(is_leaf)             # is leaf
-                pattern += r" {} |".format(pred_sysid)          # predecessor system id
-                pattern += r" |"                                # tags (absent)
-                pattern += r" {} |".format(pos_or_neg)          # positive or negative
-                pattern += r" {} .* |".format(next_hop_if)       # ipv4 next-hop
+                pattern = r"| {} \(Pos-Disagg\) |".format(prefix)  # prefix
+                pattern += r" {} |".format(cost)                   # cost
+                pattern += r" {} |".format(is_leaf)                # is leaf
+                pattern += r" {} |".format(pred_sysid)             # predecessor system id
+                pattern += r" |"                                   # tags (absent)
+                pattern += r" {} |".format(pos_or_neg)             # positive or negative
+                pattern += r" {} .* |".format(next_hop_if)         # ipv4 next-hop
                 if IPV6:
-                    pattern += r" {} .* |".format(next_hop_if)   # ipv6 next-hop
+                    pattern += r" {} .* |".format(next_hop_if)     # ipv6 next-hop
                 else:
-                    pattern += r" .* |"                         # ip6 next-hop (possily absent)
+                    pattern += r" .* |"                            # ip6 next-hop (possibly absent)
             else:
-                pattern += r"\s+"                               # Skip whitespace
-                pattern += r"| |"                               # prefix (absent)
-                pattern += r" |"                                # cost (absent)
-                pattern += r" |"                                # is leaf (absent)
-                pattern += r" {} |".format(pred_sysid)          # predecessor system id
-                pattern += r" |"                                # tags (absent)
-                pattern += r" |"                                # positive or negative (absent)
-                pattern += r" {} .* |".format(next_hop_if)       # ipv4 next-hop
+                pattern += r"\s+"                                  # Skip whitespace
+                pattern += r"| |"                                  # prefix (absent)
+                pattern += r" |"                                   # cost (absent)
+                pattern += r" |"                                   # is leaf (absent)
+                pattern += r" {} |".format(pred_sysid)             # predecessor system id
+                pattern += r" |"                                   # tags (absent)
+                pattern += r" |"                                   # positive or negative (absent)
+                pattern += r" {} .* |".format(next_hop_if)         # ipv4 next-hop
                 if IPV6:
-                    pattern += r" {} .* |".format(next_hop_if)   # ipv6 next-hop
+                    pattern += r" {} .* |".format(next_hop_if)     # ipv6 next-hop
                 else:
-                    pattern += r" .* |"                         # ip6 next-hop (possily absent)
+                    pattern += r" .* |"                            # ip6 next-hop (possibly absent)
         self.table_expect(pattern)
 
     def check_spf_absent(self, node, direction, destination):
