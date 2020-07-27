@@ -490,8 +490,10 @@ class Node:
         if 'interfaces' in config:
             for interface_config in self._config['interfaces']:
                 self.create_interface(interface_config)
-        self._originating_default = False
-        self._not_originating_default_reason = "Initializing"
+        self._orig_ipv4_default = False
+        self._orig_ipv4_default_reason = "Initializing"
+        self._orig_ipv6_default = False
+        self._orig_ipv6_default_reason = "Initializing"
         self._my_tie_states = {}
         self.add_my_tie_state(
             packet_common.make_tie_id(common.ttypes.TieDirectionType.South,
@@ -760,6 +762,14 @@ class Node:
 
     def cli_details_table(self):
         tab = table.Table(separators=False)
+        if self._orig_ipv4_default:
+            reason_ipv4_descr = "Reason for Originating IPv4 Default Route"
+        else:
+            reason_ipv4_descr = "Reason for Not Originating IPv4 Default Route"
+        if self._orig_ipv6_default:
+            reason_ipv6_descr = "Reason for Originating IPv6 Default Route"
+        else:
+            reason_ipv6_descr = "Reason for Not Originating IPv6 Default Route"
         tab.add_rows([
             ["Name", self.name],
             ["Passive", self._passive],
@@ -785,9 +795,10 @@ class Node:
             ["LIE Send Interval", "{} secs".format(self.lie_send_interval_secs)],
             ["Receive TIE Port", self.rx_flood_port],
             ["Kernel Route Table", self._kernel_route_table],
-            ["Originating South-bound Default Route", self._originating_default],
-            ["Reason for Not Originating South-bound Default Route",
-             self._not_originating_default_reason],
+            ["Originate IPv4 Default Route", self._orig_ipv4_default],
+            [reason_ipv4_descr, self._orig_ipv4_default_reason],
+            ["Originate IPv6 Default Route", self._orig_ipv6_default],
+            [reason_ipv6_descr, self._orig_ipv6_default_reason],
             ["Flooding Reduction Enabled", self.floodred_enabled],
             ["Flooding Reduction Redundancy", self.floodred_redundancy],
             ["Flooding Reduction Similarity", self.floodred_similarity],
@@ -970,33 +981,44 @@ class Node:
     def regenerate_my_south_prefix_tie(self, interface_going_down=None, force=False,
                                        seq_nr_must_exceed=None):
         if self.is_overloaded():
-            decision = (False, "This node is overloaded")
+            v4_decision = (False, "This node is overloaded")
+            v6_decision = v4_decision
         elif not self.have_s_or_ew_adjacency(interface_going_down):
-            decision = (False, "This node has no south-bound or east-west adjacency")
+            v4_decision = (False, "This node has no south-bound or east-west adjacency")
+            v6_decision = v4_decision
         elif self.other_nodes_are_overloaded():
-            decision = (True, "All other nodes at my level are overloaded")
+            v4_decision = (True, "All other nodes at my level are overloaded")
+            v6_decision = v4_decision
         elif self.other_nodes_have_no_n_adjacency():
-            decision = (True, "All other nodes at my level have no north-bound adjacencies")
-        elif self.have_n_spf_route_to_default():
-            decision = (True, "This node has computed reachability to a default route during N-SPF")
-        (must_originate_default, reason) = decision
+            v4_decision = (True, "All other nodes at my level have no north-bound adjacencies")
+            v6_decision = v4_decision
+        else:
+            if self.have_north_ipv4_default_route():
+                v4_decision = (True, "This node has north-bound IPv4 default route")
+            else:
+                v4_decision = (False, "This node doesn't have north-bound IPv4 default route")
+            if self.have_north_ipv6_default_route():
+                v6_decision = (True, "This node has north-bound IPv6 default route")
+            else:
+                v6_decision = (False, "This node doesn't have north-bound IPv6 default route")
+        (self._orig_ipv4_default, self._orig_ipv4_default_reason) = v4_decision
+        (self._orig_ipv6_default, self._orig_ipv6_default_reason) = v6_decision
         prefixes = {}
         prefix_tie_element = encoding.ttypes.PrefixTIEElement(prefixes=prefixes)
-        if must_originate_default:
-            self._originating_default = True
-            self._not_originating_default_reason = ""
+        if self._orig_ipv4_default or self._orig_ipv6_default:
             is_purge = False
             # The specification does not mention what metric the default route should be originated
             # with. Juniper originates with metric 1, so that is what I will do as well.
             attributes = encoding.ttypes.PrefixAttributes(metric=1)
-            v4_default_prefix = packet_common.make_ipv4_prefix("0.0.0.0/0")
-            prefixes[v4_default_prefix] = attributes
-            v6_default_prefix = packet_common.make_ipv6_prefix("::/0")
-            prefixes[v6_default_prefix] = attributes
+            if self._orig_ipv4_default:
+                v4_default_prefix = packet_common.make_ipv4_prefix("0.0.0.0/0")
+                prefixes[v4_default_prefix] = attributes
+            if self._orig_ipv6_default:
+                v6_default_prefix = packet_common.make_ipv6_prefix("::/0")
+                prefixes[v6_default_prefix] = attributes
         else:
-            self._originating_default = False
-            self._not_originating_default_reason = reason
-            self.info("Don't originate south prefix TIE because: %s", reason)
+            # In this case the IPv4 reason is always the same as the IPv6 reason
+            self.info("Don't originate south prefix TIE because: %s", self._orig_ipv4_default)
             is_purge = True
         tie_id = packet_common.make_tie_id(direction=common.ttypes.TieDirectionType.South,
                                            originator=self.system_id,
@@ -1148,11 +1170,17 @@ class Node:
                     return False
         return True
 
-    def have_n_spf_route_to_default(self):
-        # Has this node computed reachability to a default route during N-SPF?
-        # TODO: We need to implement SPF (route calculation before we can implement this; for now
-        # always return True)
-        return True
+    def have_north_ipv4_default_route(self):
+        prefix = packet_common.make_ipv4_prefix("0.0.0.0/0")
+        owner = constants.OWNER_N_SPF
+        rte = self._ipv4_rib.get_route(prefix, owner)
+        return rte is not None
+
+    def have_north_ipv6_default_route(self):
+        prefix = packet_common.make_ipv6_prefix("::/0")
+        owner = constants.OWNER_N_SPF
+        rte = self._ipv4_rib.get_route(prefix, owner)
+        return rte is not None
 
     def send_tides(self):
         # The current implementation prepares, encodes, and sends a unique TIDE packet for each
