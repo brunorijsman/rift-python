@@ -15,15 +15,16 @@ import sortedcontainers
 import common.constants
 import constants
 import encoding.ttypes
-from forwarding_table import ForwardingTable
-from fib_route import FibRoute
+import forwarding_table
+import fib_route
 import fsm
 import interface
 import kernel
-from next_hop import NextHop
+import neighbor
+import next_hop
 import offer
 import packet_common
-from route_table import RouteTable
+import route_table
 import rib_route
 import spf_dest
 import stats
@@ -427,6 +428,7 @@ class Node:
         self._top_of_fabric_flag = top_of_fabric_flag
         self.interfaces_by_name = sortedcontainers.SortedDict()
         self.interfaces_by_id = {}
+        self.neighbors = sortedcontainers.SortedDict()
         self.rx_lie_ipv4_mcast_address = self.get_config_attribute(
             'rx_lie_mcast_address', constants.DEFAULT_LIE_IPV4_MCAST_ADDRESS)
         self._tx_lie_ipv4_mcast_address = self.get_config_attribute(
@@ -488,7 +490,10 @@ class Node:
         if 'interfaces' in config:
             for interface_config in self._config['interfaces']:
                 self.create_interface(interface_config)
-        self._originating_default = False
+        self._orig_ipv4_default = False
+        self._orig_ipv4_default_reason = "Initializing"
+        self._orig_ipv6_default = False
+        self._orig_ipv6_default_reason = "Initializing"
         self._my_tie_states = {}
         self.add_my_tie_state(
             packet_common.make_tie_id(common.ttypes.TieDirectionType.South,
@@ -536,22 +541,22 @@ class Node:
             (constants.DIR_SOUTH, True): {}
         }
         self._fallen_leaves = {}
-        self._ipv4_fib = ForwardingTable(
+        self._ipv4_fib = forwarding_table.ForwardingTable(
             constants.ADDRESS_FAMILY_IPV4,
             self.kernel,
             self._fib_log,
             self.log_id)
-        self._ipv6_fib = ForwardingTable(
+        self._ipv6_fib = forwarding_table.ForwardingTable(
             constants.ADDRESS_FAMILY_IPV6,
             self.kernel,
             self._fib_log,
             self.log_id)
-        self._ipv4_rib = RouteTable(
+        self._ipv4_rib = route_table.RouteTable(
             constants.ADDRESS_FAMILY_IPV4,
             self._ipv4_fib,
             self._rib_log,
             self.log_id)
-        self._ipv6_rib = RouteTable(
+        self._ipv6_rib = route_table.RouteTable(
             constants.ADDRESS_FAMILY_IPV6,
             self._ipv6_fib,
             self._rib_log,
@@ -757,6 +762,14 @@ class Node:
 
     def cli_details_table(self):
         tab = table.Table(separators=False)
+        if self._orig_ipv4_default:
+            reason_ipv4_descr = "Reason for Originating IPv4 Default Route"
+        else:
+            reason_ipv4_descr = "Reason for Not Originating IPv4 Default Route"
+        if self._orig_ipv6_default:
+            reason_ipv6_descr = "Reason for Originating IPv6 Default Route"
+        else:
+            reason_ipv6_descr = "Reason for Not Originating IPv6 Default Route"
         tab.add_rows([
             ["Name", self.name],
             ["Passive", self._passive],
@@ -782,7 +795,10 @@ class Node:
             ["LIE Send Interval", "{} secs".format(self.lie_send_interval_secs)],
             ["Receive TIE Port", self.rx_flood_port],
             ["Kernel Route Table", self._kernel_route_table],
-            ["Originating South-bound Default Route", self._originating_default],
+            ["Originate IPv4 Default Route", self._orig_ipv4_default],
+            [reason_ipv4_descr, self._orig_ipv4_default_reason],
+            ["Originate IPv6 Default Route", self._orig_ipv6_default],
+            [reason_ipv6_descr, self._orig_ipv6_default_reason],
             ["Flooding Reduction Enabled", self.floodred_enabled],
             ["Flooding Reduction Redundancy", self.floodred_redundancy],
             ["Flooding Reduction Similarity", self.floodred_similarity],
@@ -812,7 +828,7 @@ class Node:
             # Not a south TIE. We only consider south TIEs because we only consider nodes in the
             # same plane as same-level-nodes for the purpose of positive disaggregation.
             # South-Node-TIEs from the nodes in the same plane are reflected to this node.
-            # South-Node-TIEs from nodes in other planes are not relected and also not propagated
+            # South-Node-TIEs from nodes in other planes are not reflected and also not propagated
             # through interplane east-west links.
             return False
         if tie_packet.element.node.level != self.level_value():
@@ -914,23 +930,25 @@ class Node:
         for intf in self.up_interfaces(interface_going_down):
             # Did we already report the neighbor on the other end of this interface? This happens
             # if we have multiple parallel interfaces to the same neighbor.
-            if intf.neighbor.system_id in neighbors:
+            if intf.neighbor_lie.system_id in neighbors:
                 continue
             # Gather all interfaces (link id pairs) from this node to the same neighbor. Once
             # again, this happens if we have multiple parallel interfaces to the same neighbor.
+            bandwidth = 0
             link_ids = set()
             for intf2 in self.up_interfaces(interface_going_down):
-                if intf.neighbor.system_id == intf2.neighbor.system_id:
+                if intf.neighbor_lie.system_id == intf2.neighbor_lie.system_id:
                     local_id = intf2.local_id
-                    remote_id = intf2.neighbor.local_id
+                    remote_id = intf2.neighbor_lie.local_id
                     link_id_pair = encoding.ttypes.LinkIDPair(local_id, remote_id)
                     link_ids.add(link_id_pair)
+                    bandwidth += intf2.bandwidth
             node_neighbor = encoding.ttypes.NodeNeighborsTIEElement(
-                level=intf.neighbor.level,
-                cost=1,  # TODO: Take this from config file
+                level=intf.neighbor_lie.level,
+                cost=intf.metric,
                 link_ids=link_ids,
-                bandwidth=100)  # TODO: Take this from config file or interface
-            neighbors[intf.neighbor.system_id] = node_neighbor
+                bandwidth=bandwidth)
+            neighbors[intf.neighbor_lie.system_id] = node_neighbor
         # Update parent neighbor list
         if self.level_value() is not None:
             self._parent_neighbors = dict(filter(lambda x: x[1].level > self.level_value(),
@@ -963,29 +981,44 @@ class Node:
     def regenerate_my_south_prefix_tie(self, interface_going_down=None, force=False,
                                        seq_nr_must_exceed=None):
         if self.is_overloaded():
-            decision = (False, "This node is overloaded")
+            v4_decision = (False, "This node is overloaded")
+            v6_decision = v4_decision
         elif not self.have_s_or_ew_adjacency(interface_going_down):
-            decision = (False, "This node has no south-bound or east-west adjacency")
+            v4_decision = (False, "This node has no south-bound or east-west adjacency")
+            v6_decision = v4_decision
         elif self.other_nodes_are_overloaded():
-            decision = (True, "All other nodes at my level are overloaded")
+            v4_decision = (True, "All other nodes at my level are overloaded")
+            v6_decision = v4_decision
         elif self.other_nodes_have_no_n_adjacency():
-            decision = (True, "All other nodes at my level have no north-bound adjacencies")
-        elif self.have_n_spf_route_to_default():
-            decision = (True, "This node has computed reachability to a default route during N-SPF")
-        (must_originate_default, reason) = decision
+            v4_decision = (True, "All other nodes at my level have no north-bound adjacencies")
+            v6_decision = v4_decision
+        else:
+            if self.have_north_ipv4_default_route():
+                v4_decision = (True, "This node has north-bound IPv4 default route")
+            else:
+                v4_decision = (False, "This node doesn't have north-bound IPv4 default route")
+            if self.have_north_ipv6_default_route():
+                v6_decision = (True, "This node has north-bound IPv6 default route")
+            else:
+                v6_decision = (False, "This node doesn't have north-bound IPv6 default route")
+        (self._orig_ipv4_default, self._orig_ipv4_default_reason) = v4_decision
+        (self._orig_ipv6_default, self._orig_ipv6_default_reason) = v6_decision
         prefixes = {}
         prefix_tie_element = encoding.ttypes.PrefixTIEElement(prefixes=prefixes)
-        if must_originate_default:
+        if self._orig_ipv4_default or self._orig_ipv6_default:
             is_purge = False
             # The specification does not mention what metric the default route should be originated
             # with. Juniper originates with metric 1, so that is what I will do as well.
             attributes = encoding.ttypes.PrefixAttributes(metric=1)
-            v4_default_prefix = packet_common.make_ipv4_prefix("0.0.0.0/0")
-            prefixes[v4_default_prefix] = attributes
-            v6_default_prefix = packet_common.make_ipv6_prefix("::/0")
-            prefixes[v6_default_prefix] = attributes
+            if self._orig_ipv4_default:
+                v4_default_prefix = packet_common.make_ipv4_prefix("0.0.0.0/0")
+                prefixes[v4_default_prefix] = attributes
+            if self._orig_ipv6_default:
+                v6_default_prefix = packet_common.make_ipv6_prefix("::/0")
+                prefixes[v6_default_prefix] = attributes
         else:
-            self.info("Don't originate south prefix TIE because: %s", reason)
+            # In this case the IPv4 reason is always the same as the IPv6 reason
+            self.info("Don't originate south prefix TIE because: %s", self._orig_ipv4_default)
             is_purge = True
         tie_id = packet_common.make_tie_id(direction=common.ttypes.TieDirectionType.South,
                                            originator=self.system_id,
@@ -1121,15 +1154,19 @@ class Node:
         for node_tie_packet_info in self.peer_node_tie_packet_infos.values():
             node_tie_packet = node_tie_packet_info.protocol_packet.content.tie
             flags = node_tie_packet.element.node.flags
-            if (flags is not None) and (not flags.overload):
+            if flags is None:
+                return False
+            if not flags.overload:
                 return False
         return True
 
     def other_nodes_have_no_n_adjacency(self):
         # Do all the other nodes at my level have NO north-bound adjacencies?
         if not self.peer_node_tie_packet_infos:
-            # There are no other nodes at my level
-            return False
+            # There are no other nodes at my level. The RIFT draft is not abundantly clear what to
+            # do in this case, but if we want the various test cases with only 1 node in the
+            # superspine to work correctly, we *do* need to originate a default in this case.
+            return True
         for node_tie_packet_info in self.peer_node_tie_packet_infos.values():
             node_tie_packet = node_tie_packet_info.protocol_packet.content.tie
             for check_neighbor in node_tie_packet.element.node.neighbors.values():
@@ -1137,11 +1174,17 @@ class Node:
                     return False
         return True
 
-    def have_n_spf_route_to_default(self):
-        # Has this node computed reachability to a default route during N-SPF?
-        # TODO: We need to implement SPF (route calculation before we can implement this; for now
-        # always return True)
-        return True
+    def have_north_ipv4_default_route(self):
+        prefix = packet_common.make_ipv4_prefix("0.0.0.0/0")
+        owner = constants.OWNER_N_SPF
+        rte = self._ipv4_rib.get_route(prefix, owner)
+        return rte is not None
+
+    def have_north_ipv6_default_route(self):
+        prefix = packet_common.make_ipv6_prefix("::/0")
+        owner = constants.OWNER_N_SPF
+        rte = self._ipv6_rib.get_route(prefix, owner)
+        return rte is not None
 
     def send_tides(self):
         # The current implementation prepares, encodes, and sends a unique TIDE packet for each
@@ -1156,12 +1199,12 @@ class Node:
             return
         tide_packet = self.generate_tide_packet(
             neighbor_direction=intf.neighbor_direction(),
-            neighbor_system_id=intf.neighbor.system_id,
-            neighbor_level=intf.neighbor.level,
-            neighbor_is_top_of_fabric=intf.neighbor.top_of_fabric(),
+            neighbor_system_id=intf.neighbor_lie.system_id,
+            neighbor_level=intf.neighbor_lie.level,
+            neighbor_is_top_of_fabric=intf.neighbor_lie.top_of_fabric(),
             my_level=self.level_value(),
             i_am_top_of_fabric=self.top_of_fabric())
-        self.debug("Regenerated TIDE for neighbor %s: %s", intf.neighbor.system_id, tide_packet)
+        self.debug("Regenerated TIDE for neighbor %s: %s", intf.neighbor_lie.system_id, tide_packet)
         packet_content = encoding.ttypes.PacketContent(tide=tide_packet)
         packet_header = encoding.ttypes.PacketHeader(
             sender=self.system_id,
@@ -1309,15 +1352,30 @@ class Node:
         cli_session.print(intf.cli_details_table().to_string())
         neighbor_table = intf.cli_neighbor_details_table()
         if neighbor_table:
-            cli_session.print("Neighbor:")
+            cli_session.print("Neighbor LIE Information:")
             cli_session.print(neighbor_table.to_string())
 
     def command_show_interfaces(self, cli_session):
-        # TODO: Report neighbor uptime (time in THREE_WAY state)
         tab = table.Table()
         tab.add_row(interface.Interface.cli_summary_headers())
         for intf in self.interfaces_by_name.values():
             tab.add_row(intf.cli_summary_attributes())
+        cli_session.print(tab.to_string())
+
+    def command_show_neighbors(self, cli_session):
+        tab = table.Table()
+        tab.add_row(neighbor.Neighbor.cli_summary_headers())
+        for nbr in self.neighbors.values():
+            tab.add_row(nbr.cli_summary_attributes())
+        cli_session.print(tab.to_string())
+
+    def command_show_bw_balancing(self, cli_session):
+        tab = table.Table()
+        tab.add_row(neighbor.Neighbor.cli_bw_summary_headers())
+        for nbr in self.neighbors.values():
+            if nbr.direction() == constants.DIR_NORTH:
+                tab.add_row(nbr.cli_bw_summary_attributes())
+        cli_session.print("North-Bound Neighbors:")
         cli_session.print(tab.to_string())
 
     def floodred_parents_table(self):
@@ -1491,7 +1549,7 @@ class Node:
             cli_session.print("Prefix {} not present".format(prefix))
             return
         tab = table.Table()
-        tab.add_row(FibRoute.cli_summary_headers())
+        tab.add_row(fib_route.FibRoute.cli_summary_headers())
         tab.add_row(rte.cli_summary_attributes())
         cli_session.print(tab.to_string())
 
@@ -1883,6 +1941,7 @@ class Node:
                     trigger_spf = True
                     reason = "TIE " + packet_common.tie_id_str(tie_id) + " added negative"
                     self.update_neg_disagg_propagation(tie_packet)
+        self.update_neighbor_egress_bw(tie_id.originator)
         if trigger_spf:
             self.trigger_spf(reason)
 
@@ -2084,7 +2143,7 @@ class Node:
     def bump_own_tie(self, rx_tie_header):
         # One of our neighbors claims to have a TIE in its database that was originated by us.
         # That "claim" could have arrived in the form of (a) a received TIE or (b) a TIE header
-        # in a recived TIDE.
+        # in a received TIDE.
         # We need to (re)originate the TIE with a higher sequence number so that every node in the
         # network will use our TIE and not the old one floating around.
         rx_tie_id = rx_tie_header.tieid
@@ -2304,7 +2363,7 @@ class Node:
                 continue
             # In some race conditions when the interface is in the process of going down, the
             # neighbor can already be gone, but the state is still saying THREE_WAY. Skip those too.
-            if tx_intf.neighbor is None:
+            if tx_intf.neighbor_lie is None:
                 continue
             # If flooding reduction is enabled, only flood to flood repeaters
             if self.floodred_enabled:
@@ -2314,7 +2373,7 @@ class Node:
             (allowed, _reason) = self.flood_allowed_from_node_to_nbr(
                 tie_header=tie_packet.header,
                 neighbor_direction=tx_intf.neighbor_direction(),
-                neighbor_system_id=tx_intf.neighbor.system_id,
+                neighbor_system_id=tx_intf.neighbor_lie.system_id,
                 node_system_id=self.system_id,
                 node_level=self.level_value(),
                 node_is_top_of_fabric=self.top_of_fabric())
@@ -2474,7 +2533,7 @@ class Node:
                 continue
             if intf.neighbor_direction() != constants.DIR_SOUTH:
                 continue
-            my_south_adjacencies.append(intf.neighbor.system_id)
+            my_south_adjacencies.append(intf.neighbor_lie.system_id)
         # Format collected information into table
         sorted_node_sysids = sorted(list(nodes.keys()))
         for node_sysid in sorted_node_sysids:
@@ -2676,7 +2735,8 @@ class Node:
 
     def node_neighbors(self, node_ties, neighbor_directions):
         # A generator that yields (nbr_system_id, nbr_level, nbr_tie_element) tuples for all
-        # neighbors in the specified directions of the nodes in the node_ties list.
+        # neighbors in the specified directions of the nodes in the node_ties list. If
+        # neighbor_directions is None, then generate all neighbors in all directions.
         for node_tie in node_ties:
             # If a node reports no level but does report neighbors, those neighbors cannot be
             # considered to point in any particular direction.
@@ -2685,18 +2745,23 @@ class Node:
                 continue
             for nbr_system_id, nbr_tie_element in node_tie.element.node.neighbors.items():
                 nbr_level = nbr_tie_element.level
-                correct_direction = False
-                if constants.DIR_SOUTH in neighbor_directions:
-                    correct_direction = (nbr_level < node_level)
-                if not correct_direction and constants.DIR_NORTH in neighbor_directions:
-                    correct_direction = (nbr_level > node_level)
-                if not correct_direction and constants.DIR_EAST_WEST in neighbor_directions:
-                    correct_direction = (nbr_level == node_level)
+                if neighbor_directions is None:
+                    correct_direction = True
+                else:
+                    correct_direction = False
+                    if constants.DIR_SOUTH in neighbor_directions:
+                        correct_direction = (nbr_level < node_level)
+                    if not correct_direction and constants.DIR_NORTH in neighbor_directions:
+                        correct_direction = (nbr_level > node_level)
+                    if not correct_direction and constants.DIR_EAST_WEST in neighbor_directions:
+                        correct_direction = (nbr_level == node_level)
                 if correct_direction:
                     yield nbr_system_id, nbr_level, nbr_tie_element
 
     def spf_run(self):
         self._spf_runs_count += 1
+        old_ipv4_default = self.have_north_ipv4_default_route()
+        old_ipv6_default = self.have_north_ipv6_default_route()
         # Run normal SPFs (south and north)
         self.spf_run_direction(constants.DIR_SOUTH, special_for_neg_disagg=False)
         self.spf_run_direction(constants.DIR_NORTH, special_for_neg_disagg=False)
@@ -2706,6 +2771,11 @@ class Node:
             self.spf_run_direction(constants.DIR_SOUTH, special_for_neg_disagg=True)
         self.floodred_elect_repeaters()
         self.regenerate_my_pos_disagg_tie()
+        # If we gained or lost a default route in the RIB, we may have start or stop originating
+        # default route ourselves.
+        if (old_ipv4_default != self.have_north_ipv4_default_route() or
+                old_ipv6_default != self.have_north_ipv6_default_route()):
+            self.regenerate_my_south_prefix_tie()
 
     def spf_run_direction(self, spf_direction, special_for_neg_disagg):
         # Shortest Path First (SPF) uses the Dijkstra algorithm to compute the shortest path to
@@ -2821,7 +2891,7 @@ class Node:
         # Consider each neighbor of the visited node in the direction of the SPF
         directions = [spf_direction]
         if special_for_neg_disagg:
-            # If runnin ag special SPF for negative disaggregation, also allow east-west links.
+            # When running a special SPF for negative disaggregation, also allow east-west links.
             directions.append(constants.DIR_EAST_WEST)
         neighbors = self.node_neighbors(node_ties, neighbor_directions=directions)
         for nbr_system_id, nbr_level, nbr_tie_element in neighbors:
@@ -2951,9 +3021,9 @@ class Node:
                 next_hops = dest.ipv6_next_hops
             all_next_hops_partial = True
             at_least_one_next_hop = False
-            for next_hop in next_hops:
+            for nhop in next_hops:
                 at_least_one_next_hop = True
-                intf = self.interfaces_by_name[next_hop.interface]
+                intf = self.interfaces_by_name[nhop.interface]
                 if not intf.partially_connected:
                     all_next_hops_partial = False
             if all_next_hops_partial and at_least_one_next_hop:
@@ -2963,26 +3033,26 @@ class Node:
         if interface_id not in self.interfaces_by_id:
             return None
         intf = self.interfaces_by_id[interface_id]
-        if intf.neighbor is None:
+        if intf.neighbor_lie is None:
             return None
-        if intf.neighbor.ipv4_address is None:
+        if intf.neighbor_lie.ipv4_address is None:
             return None
-        remote_address = packet_common.make_ip_address(intf.neighbor.ipv4_address)
-        return NextHop(negative, intf.name, remote_address, None)
+        remote_address = packet_common.make_ip_address(intf.neighbor_lie.ipv4_address)
+        return next_hop.NextHop(negative, intf.name, remote_address, None)
 
     def interface_id_to_ipv6_next_hop(self, interface_id, negative):
         if interface_id not in self.interfaces_by_id:
             return None
         intf = self.interfaces_by_id[interface_id]
-        if intf.neighbor is None:
+        if intf.neighbor_lie is None:
             return None
-        if intf.neighbor.ipv6_address is None:
+        if intf.neighbor_lie.ipv6_address is None:
             return None
-        remote_address_str = intf.neighbor.ipv6_address
+        remote_address_str = intf.neighbor_lie.ipv6_address
         if "%" in remote_address_str:
             remote_address_str = remote_address_str.split("%")[0]
         remote_address = packet_common.make_ip_address(remote_address_str)
-        return NextHop(negative, intf.name, remote_address, None)
+        return next_hop.NextHop(negative, intf.name, remote_address, None)
 
     def spf_use_tie_direction(self, visit_system_id, spf_direction):
         if spf_direction == constants.DIR_SOUTH:
@@ -3074,11 +3144,30 @@ class Node:
         self._ipv4_rib.del_stale_routes()
         self._ipv6_rib.del_stale_routes()
 
-    @staticmethod
-    def _install_rib_routes(prefix_to_next_hops, owner, rib):
+    def _install_rib_routes(self, prefix_to_next_hops, owner, rib):
         for prefix, next_hops in prefix_to_next_hops.items():
+            # For north-bound default routes only, set the next-hop weights to (potentially) make
+            # it a non-equal cost multipath (NECMP) route.
+            if owner == constants.OWNER_N_SPF and self._is_default_prefix(prefix):
+                for nhop in next_hops:
+                    nbr_system_id = self.interfaces_by_name[nhop.interface].neighbor_lie.system_id
+                    if nbr_system_id in self.neighbors:
+                        nbr_weight = self.neighbors[nbr_system_id].interface_weight(nhop.interface)
+                    else:
+                        nbr_weight = None
+                    nhop.weight = nbr_weight
+            # Add Route to route table
             route = rib_route.RibRoute(prefix, owner, next_hops)
             rib.put_route(route)
+
+    @staticmethod
+    def _is_default_prefix(prefix):
+        if prefix.ipv4prefix:
+            return prefix.ipv4prefix.prefixlen == 0
+        if prefix.ipv6prefix:
+            return prefix.ipv6prefix.prefixlen == 0
+        assert False
+        return False
 
     @staticmethod
     def is_leaf_prefix(item):
@@ -3246,14 +3335,57 @@ class Node:
             pending_str = "(immediate)"
         self.floodred_debug("Deactivate interface %s as flood repeater %s", intf.name, pending_str)
 
+    def find_neighbor(self, nbr_system_id):
+        return self.neighbors.get(nbr_system_id)
+
+    def create_neighbor(self, nbr_system_id):
+        nbr = neighbor.Neighbor(nbr_system_id)
+        self.neighbors[nbr_system_id] = nbr
+        self.update_neighbor_egress_bw(nbr_system_id)
+        return nbr
+
+    def remove_neighbor(self, nbr_system_id):
+        del self.neighbors[nbr_system_id]
+        self.update_all_nbr_traffic_perc()
+
+    def update_neighbor_egress_bw(self, nbr_system_id):
+        # Compute the total bandwidth going out of neighbor nbr_system_id except the bandwidth
+        # that goes back to this node.
+        nbr = self.find_neighbor(nbr_system_id)
+        if nbr is None:
+            return
+        nbr_node_ties = self.node_ties(constants.DIR_SOUTH, nbr_system_id)
+        egress_bw = 0
+        for nbr_nbr_system_id, _, nbr_nbr_tie_element in self.node_neighbors(nbr_node_ties, None):
+            if nbr_nbr_system_id == self.system_id:
+                continue
+            if nbr_nbr_tie_element.bandwidth is None:
+                continue
+            egress_bw += nbr_nbr_tie_element.bandwidth
+        nbr.set_egress_bandwidth(egress_bw)
+        self.update_all_nbr_traffic_perc()
+
+    def update_all_nbr_traffic_perc(self):
+        if not self.neighbors:
+            return
+        nbr_weights = {}
+        for nbr_system_id, nbr in self.neighbors.items():
+            nbr_weights[nbr_system_id] = nbr.ingress_bandwidth() * nbr.egress_bandwidth()
+        total_nbr_weight = sum(nbr_weights.values())
+        for nbr_system_id, nbr in self.neighbors.items():
+            if total_nbr_weight == 0:
+                percentage = None
+            else:
+                percentage = 100.0 * nbr_weights[nbr_system_id] / total_nbr_weight
+            nbr.set_traffic_percentage(percentage)
 
 class FloodRedParent:
 
     def __init__(self, node, intf):
         self.node = node
         self.intf = intf
-        self.sysid = intf.neighbor.system_id
-        self.name = intf.neighbor.name
+        self.sysid = intf.neighbor_lie.system_id
+        self.name = intf.neighbor_lie.name
         self.grandparents = []  # Grandparents of this node, i.e. parent of parent
         self.similarity_group = None
         self.flood_repeater = False

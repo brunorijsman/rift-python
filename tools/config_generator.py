@@ -12,6 +12,7 @@
 # pylint:disable=too-many-lines
 
 import argparse
+import copy
 import os
 import pprint
 import random
@@ -454,7 +455,7 @@ class Node:
 
     def allocate_node_ids(self, layer):
         # layer_node_id: a node ID unique only within the layer (each layer has IDs 1, 2, 3...)
-        # global_node_id: a node ID which is globally unque (1001, 1002, 1003... for leaf nodes,
+        # global_node_id: a node ID which is globally unique (1001, 1002, 1003... for leaf nodes,
         #                 101, 102, 103... for spine nodes, and 1, 2, 3... for super-spine nodes)
         if layer in Node.next_layer_node_id:
             self.layer_node_id = Node.next_layer_node_id[layer]
@@ -666,10 +667,6 @@ class Node:
     def write_netns_stop_scr_to_file_1(self, file):
         progress = ("Stop RIFT-Python engine for node {}".format(self.name))
         print('echo "{}"'.format(progress), file=file)
-        # Report the kill
-        out_file = "/tmp/rift-python-output-" + self.name
-        print('echo "**** Stop Node ***" >> {}'.format(out_file), file=file)
-        print('date >> {}'.format(out_file), file=file)
         # We use a big hammer: we kill -9 all processes in the the namespace
         self.write_kill_rift_to_file(file)
         # Also clean up the port file
@@ -830,11 +827,11 @@ class Node:
         step = "North-bound default routes are present"
         okay = True
         direction = DIR_NORTH
-        ipv4_next_hops = self.gather_next_hops(direction, True)
+        ipv4_next_hops = self.gather_next_hops(direction, True, True)
         parsed_rib_ipv4_routes = self.telnet_session.parse_show_output("show routes family ipv4")
         okay = self.check_route_in_rib("0.0.0.0/0", direction, ipv4_next_hops,
                                        parsed_rib_ipv4_routes) and okay
-        ipv6_next_hops = self.gather_next_hops(direction, False)
+        ipv6_next_hops = self.gather_next_hops(direction, False, True)
         parsed_rib_ipv6_routes = self.telnet_session.parse_show_output("show routes family ipv6")
         okay = self.check_route_in_rib("::/0", direction, ipv6_next_hops,
                                        parsed_rib_ipv6_routes) and okay
@@ -874,7 +871,7 @@ class Node:
                 south_node = intf.peer_intf.node
                 intf_southern_loopbacks = south_node.gather_southern_loopbacks(True)
                 if loopback_address in intf_southern_loopbacks:
-                    next_hops.append(self.interface_next_hop(intf, include_ipv4_address))
+                    next_hops.append(self.interface_next_hop(intf, include_ipv4_address, None))
         return next_hops
 
     def interface_direction(self, interface):
@@ -885,26 +882,33 @@ class Node:
         else:
             return DIR_EAST_WEST
 
-    def gather_next_hops(self, direction, include_ipv4_address):
+    def gather_next_hops(self, direction, include_ipv4_address, include_ecmp_weight):
+        if include_ecmp_weight:
+            count = 0
+            for intf in self.interfaces:
+                if self.interface_direction(intf) == direction:
+                    count += 1
+            weight = round(100.0 / count)
+        else:
+            weight = None
         next_hops = []
         for intf in self.interfaces:
             if self.interface_direction(intf) == direction:
-                next_hops.append(self.interface_next_hop(intf, include_ipv4_address))
+                next_hops.append(self.interface_next_hop(intf, include_ipv4_address, weight))
         next_hops = list(set(next_hops))   # Remove duplicates
         return next_hops
 
-    def interface_next_hop(self, intf, include_ipv4_address):
+    def interface_next_hop(self, intf, include_ipv4_address, weight):
         next_hop_intf = intf.veth_name()
         if include_ipv4_address:
             next_hop_address_str = intf.peer_intf.addr.split('/')[0] # Strip off /prefix-len
             next_hop_address = make_ip_address(next_hop_address_str)
         else:
             next_hop_address = None
-        return NextHop(False, next_hop_intf, next_hop_address, None)
+        return NextHop(False, next_hop_intf, next_hop_address, weight)
 
     @staticmethod
     def extract_next_hops_from_route(route, first_next_hop_column, ignore_address):
-        ###@@@
         next_hops = []
         types = route[first_next_hop_column]
         intfs = route[first_next_hop_column + 1]
@@ -1039,10 +1043,11 @@ class Node:
             self.telnet_session.parse_show_output("show kernel routes table main")
         all_ok = True
         for fib_fam in parsed_fib_routes:
+            ipv6 = "IPv6" in fib_fam['title']
             for fib_route in fib_fam['rows'][1:]:
                 fib_prefix = fib_route[0][0]
                 fib_next_hops = self.extract_next_hops_from_route(fib_route, 1, False)
-                if not self.check_route_in_kernel(step, fib_prefix, fib_next_hops,
+                if not self.check_route_in_kernel(step, ipv6, fib_prefix, fib_next_hops,
                                                   parsed_kernel_routes):
                     all_ok = False
         return all_ok
@@ -1173,32 +1178,51 @@ class Node:
             all_ok = False
         return all_ok
 
-    def check_route_in_kernel(self, step, prefix, next_hops, parsed_kernel_routes):
+    def check_route_in_kernel(self, step, ipv6, prefix, next_hops, parsed_kernel_routes):
         # In the FIB, and ECMP route is one row with multiple next-hops. In the kernel, an ECMP
         # route may be one row with multuple next-hops or may be multiple rows with the same prefix
         # (the former appears to be the case for IPv4 and the latter appears to be the case for
         # IPv6)
         partial_match = False
         remaining_fib_next_hops = next_hops
+        sorted_fib_next_hops = sorted(next_hops)
+        zero_weight_fib_next_hops = copy.deepcopy(next_hops)
+        for nhop in zero_weight_fib_next_hops:
+            nhop.weight = 0
+        sorted_zw_fib_next_hops = sorted(zero_weight_fib_next_hops)
         for kernel_route in parsed_kernel_routes[0]['rows'][1:]:
             kernel_prefix = kernel_route[2][0]
             kernel_next_hop_intfs = kernel_route[5]
             kernel_next_hop_addrs = kernel_route[6]
+            kernel_next_hop_weights = kernel_route[7]
             kernel_next_hops = []
-            for intf, addr in zip(kernel_next_hop_intfs, kernel_next_hop_addrs):
+            for intf, addr, weight in zip(kernel_next_hop_intfs, kernel_next_hop_addrs,
+                                          kernel_next_hop_weights):
                 if addr == "":
                     addr = None
                 else:
                     addr = make_ip_address(addr)
-                kernel_next_hops.append(NextHop(False, intf, addr, None))
+                if weight == "":
+                    weight = None
+                else:
+                    weight = int(weight)
+                kernel_next_hops.append(NextHop(False, intf, addr, weight))
             if kernel_prefix == prefix:
                 sorted_kernel_next_hops = sorted(kernel_next_hops)
-                sorted_fib_next_hops = sorted(next_hops)
                 if len(kernel_next_hops) == 1:
-                    # If the kernel has a single next-hop, look for a partial match
+                    # If the kernel has a single next-hop, look for a partial match. This is to
+                    # deal with the fact that some kernels store ::/0 as three routes each without
+                    # a weight, instead of a single route with 3 weighted next-hops.
                     kernel_next_hop = kernel_next_hops[0]
-                    if kernel_next_hop in remaining_fib_next_hops:
-                        remaining_fib_next_hops.remove(kernel_next_hop)
+                    fib_next_hop = None
+                    for nhop in remaining_fib_next_hops:
+                        if (kernel_next_hop.negative == nhop.negative and
+                                kernel_next_hop.interface == nhop.interface and
+                                kernel_next_hop.address == nhop.address):
+                            fib_next_hop = nhop
+                            break
+                    if fib_next_hop:
+                        remaining_fib_next_hops.remove(fib_next_hop)
                         if remaining_fib_next_hops == []:
                             return True
                         else:
@@ -1211,9 +1235,12 @@ class Node:
                 elif sorted_kernel_next_hops == sorted_fib_next_hops:
                     # If the kernel has a multiple next-hops, look for an exact match
                     return True
+                elif ipv6 and sorted_kernel_next_hops == sorted_zw_fib_next_hops:
+                    # Some kernels always store IPv6 next-hops with weight zero
+                    return True
                 else:
                     err = ("Route {} has next-hops {} in kernel but {} in FIB"
-                           .format(prefix, kernel_next_hops, next_hops))
+                           .format(prefix, sorted_kernel_next_hops, sorted_fib_next_hops))
                     self.report_check_result(step, False, err)
                     return False
         if partial_match:
@@ -1430,8 +1457,8 @@ class Link:
                    'class="link-line">'
                    '</polyline>\n'
                    .format(x_pos1, intf_y_pos,   # Start at interface 1
-                           x_pos1, line_y_pos,   # Verically up to horizontal line
-                           x_pos2, line_y_pos,   # Hortizontal line
+                           x_pos1, line_y_pos,   # Vertically up to horizontal line
+                           x_pos2, line_y_pos,   # Horizontal line
                            x_pos2, intf_y_pos,   # Down to interface 2
                            LINK_COLOR))
         self.intf1.write_graphics_to_file(file)
@@ -1842,13 +1869,11 @@ class Fabric:
         nr_affected_nodes = len(affected_nodes)
         nr_nodes = nr_clean_nodes + nr_affected_nodes
         assert nr_nodes > 1
-        # pylint: disable=simplifiable-if-statement
         if random.randint(1, nr_nodes) <= nr_clean_nodes:
             # Break something
             return True
-        else:
-            # Fix something
-            return False
+        # Fix something
+        return False
 
     @staticmethod
     def get_chaos_config(attribute, default_value):

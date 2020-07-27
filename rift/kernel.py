@@ -131,11 +131,15 @@ class Kernel:
             self.error("Unknown interface \"%s\" replacing route to %s", nhop.interface, dst)
             return {}
         oif = link[0]
+        if nhop.weight is None:
+            hops = 1
+        else:
+            hops = nhop.weight
         if nhop.address is None:
-            kernel_args = {"oif": oif, "hops": 1}
+            kernel_args = {"oif": oif, "hops": hops}
         else:
             gateway = str(nhop.address)
-            kernel_args = {"oif": oif, "gateway": gateway, "hops": 1}
+            kernel_args = {"oif": oif, "gateway": gateway, "hops": hops}
         return kernel_args
 
     def cli_addresses_table(self):
@@ -394,7 +398,7 @@ class Kernel:
             route_table_nr = route.get_attr('RTA_TABLE')
             if (table_nr is not None) and (table_nr != route_table_nr):
                 continue
-            next_hops = self.kernel_route_nhops(route, links)
+            next_hops = sorted(self.kernel_route_nhops(route, links))
             oif_cell = []
             gateway_cell = []
             weight_cell = []

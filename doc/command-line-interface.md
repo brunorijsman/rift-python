@@ -10,6 +10,7 @@
   * [set interface <i>interface</i> failure <i>failure</i>](#set-interface-interface-failure-failure)
   * [set level <i>level</i>](#set-level-level)
   * [set node <i>node</i>](#set-node-node)
+  * [show bandwidth-balancing](#show-bandwidth-balancing)
   * [show disaggregation](#show-disaggregation)
   * [show engine](#show-engine)
   * [show engine statistics](#show-engine-statistics)
@@ -33,6 +34,7 @@
   * [show kernel routes](#show-kernel-routes)
   * [show kernel routes table <i>table</i>](#show-kernel-routes-table-table)
   * [show kernel routes table <i>table</i> prefix <i>prefix</i>](#show-kernel-routes-table-table-prefix-prefix)
+  * [show neighbors](#show-neighbors)
   * [show node](#show-node)
   * [show node fsm history](#show-node-fsm-history)
   * [show node fsm verbose-history](#show-node-fsm-verbose-history)
@@ -329,6 +331,27 @@ Example:
 agg_101> <b>set node core_1</b>
 core_1> 
 </pre>
+
+### show bandwidth-balancing
+
+The "<b>show bandwidth-balancing</b> reports details about how the bandwidth is distributed across
+neighbors and interfaces, for north-bound traffic following the default route.
+
+<!-- OUTPUT-START: agg_101> show bandwidth-balancing -->
+<pre>
+agg_101> <b>show bandwidth-balancing</b>
+North-Bound Neighbors:
++-----------+-----------+-----------+------------+-----------+-----------+------------+
+| System ID | Neighbor  | Neighbor  | Neighbor   | Interface | Interface | Interface  |
+|           | Ingress   | Egress    | Traffic    | Name      | Bandwidth | Traffic    |
+|           | Bandwidth | Bandwidth | Percentage |           |           | Percentage |
++-----------+-----------+-----------+------------+-----------+-----------+------------+
+| 1         | 100 Mbps  | 300 Mbps  | 50.0 %     | if_101_1  | 100 Mbps  | 50.0 %     |
++-----------+-----------+-----------+------------+-----------+-----------+------------+
+| 2         | 100 Mbps  | 300 Mbps  | 50.0 %     | if_101_2  | 100 Mbps  | 50.0 %     |
++-----------+-----------+-----------+------------+-----------+-----------+------------+
+</pre>
+<!-- OUTPUT-END -->
 
 ### show disaggregation
 
@@ -880,7 +903,7 @@ Interface:
 | Interface IPv6 Address               | 2001:db8:1::242:ac11:2                                   |
 | Interface Index                      | 8                                                        |
 | Metric                               | 1                                                        |
-| Bandwidth                            | 100 Mbpps                                                |
+| Bandwidth                            | 100 Mbps                                                 |
 | LIE Receive IPv4 Multicast Address   | 224.0.0.81                                               |
 | LIE Receive IPv6 Multicast Address   | FF02::A1F7                                               |
 | LIE Receive Port                     | 20001                                                    |
@@ -1207,7 +1230,7 @@ agg_101> <b>show interface if_101_1 sockets</b>
 ### show interface <i>interface</i> statistics
 
 The "<b>show interface <i>interface</i> statistics</b>" command shows all the statistics for the 
-speficied interface.
+specified interface.
 
 Example:
 
@@ -1358,7 +1381,6 @@ Send TIDEs:
 +----------------+-------------------------------------------------+-----------+------------+--------+--------+--------+-----------+-------------+
 </pre>
 <!-- OUTPUT-END -->
-
 
 ### show interfaces
 
@@ -1562,6 +1584,33 @@ message is reported:
 agg_101> <b>show kernel routes table main</b>
 Kernel networking not supported on this platform
 </pre>
+
+### show neighbors
+
+The "<b>show neighbor</b>" command reports a summary of all RIFT neighbors of the current node.
+If there are multiple parallel links to the same neighbor, there may be fewer neighbors than
+interfaces.
+
+Use the "<b>show bandwidth-balancing</b> command to see details about how the bandwidth is
+distributed across neighbors and interfaces.
+
+<!-- OUTPUT-START: agg_101> show neighbors -->
+<pre>
+agg_101> <b>show neighbors</b>
++-----------+-----------+-------------+-----------------------+
+| System ID | Direction | Interface   | Adjacency             |
+|           |           | Name        | Name                  |
++-----------+-----------+-------------+-----------------------+
+| 1         | North     | if_101_1    | core_1:if_1_101       |
++-----------+-----------+-------------+-----------------------+
+| 2         | North     | if_101_2    | core_2:if_2_101       |
++-----------+-----------+-------------+-----------------------+
+| 1001      | South     | if_101_1001 | edge_1001:if_1001_101 |
++-----------+-----------+-------------+-----------------------+
+| 1002      | South     | if_101_1002 | edge_1002:if_1002_101 |
++-----------+-----------+-------------+-----------------------+
+</pre>
+<!-- OUTPUT-END -->
 
 ### show node
 

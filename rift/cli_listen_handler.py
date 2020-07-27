@@ -1,6 +1,6 @@
 import socket
 import scheduler
-from cli_session_handler import CliSessionHandler
+import cli_session_handler
 
 class CliListenHandler:
 
@@ -26,7 +26,7 @@ class CliListenHandler:
 
     def ready_to_read(self):
         (session_sock, _remote_address) = self._sock.accept()
-        CliSessionHandler(
+        cli_session_handler.CliSessionHandler(
             sock=session_sock,
             rx_fd=session_sock.fileno(),
             tx_fd=session_sock.fileno(),

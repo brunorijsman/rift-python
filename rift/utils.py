@@ -49,3 +49,15 @@ def secs_to_dmhs_str(secs):
         days = hours // 24
         hours %= 24
     return "{:d}d {:02d}h:{:02d}m:{:05.2f}s".format(days, hours, mins, secs)
+
+def value_str(value, singular_units=None, plural_units=None):
+    if value is None:
+        return ""
+    string = str(value)
+    if singular_units is None:
+        return string
+    if isinstance(value, int) and value == 1:
+        return string + " " + singular_units
+    if plural_units is None:
+        plural_units = singular_units + "s"
+    return string + " " + plural_units

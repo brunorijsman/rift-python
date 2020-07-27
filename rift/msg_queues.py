@@ -253,9 +253,9 @@ class _TIEReqQueue(_MsgQueueBase):
         (allowed, reason) = node.flood_allowed_from_nbr_to_node(
             tie_header=tie_header,
             neighbor_direction=self._interface.neighbor_direction(),
-            neighbor_system_id=self._interface.neighbor.system_id,
-            neighbor_level=self._interface.neighbor.level,
-            neighbor_is_top_of_fabric=self._interface.neighbor.top_of_fabric(),
+            neighbor_system_id=self._interface.neighbor_lie.system_id,
+            neighbor_level=self._interface.neighbor_lie.level,
+            neighbor_is_top_of_fabric=self._interface.neighbor_lie.top_of_fabric(),
             node_system_id=node.system_id)
         if allowed:
             # TIE requests in a TIRE must have remaining lifetime zero

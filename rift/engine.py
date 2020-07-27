@@ -298,6 +298,12 @@ class Engine:
     def command_show_interfaces(self, cli_session):
         cli_session.current_node.command_show_interfaces(cli_session)
 
+    def command_show_neighbors(self, cli_session):
+        cli_session.current_node.command_show_neighbors(cli_session)
+
+    def command_show_bw_balancing(self, cli_session):
+        cli_session.current_node.command_show_bw_balancing(cli_session)
+
     def command_show_kernel_addresses(self, cli_session):
         cli_session.current_node.command_show_kernel_addresses(cli_session)
 
@@ -446,6 +452,7 @@ class Engine:
             "$level": command_set_level
         },
         "show": {
+            "bandwidth-balancing": command_show_bw_balancing,
             "disaggregation": command_show_disaggregation,
             "engine": {
                 "": command_show_engine,
@@ -492,6 +499,7 @@ class Engine:
                     },
                 },
             },
+            "neighbors": command_show_neighbors,
             "node": {
                 "": command_show_node,
                 "fsm": {

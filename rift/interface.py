@@ -11,7 +11,7 @@ import socket
 import constants
 import fsm
 import msg_queues
-import neighbor
+import neighbor_lie
 import offer
 import packet_common
 import stats
@@ -24,7 +24,7 @@ import common.constants
 import common.ttypes
 import encoding.ttypes
 
-from encoding.constants import protocol_minor_version
+import encoding.constants
 
 USE_SIMPLE_REQUEST_FILTERING = True
 
@@ -137,19 +137,19 @@ class Interface:
     def action_start_flooding(self):
         # Start sending TIE, TIRE, and TIDE packets to this neighbor
         rx_flood_port = self._rx_flood_port
-        tx_flood_port = self.neighbor.flood_port
+        tx_flood_port = self.neighbor_lie.flood_port
         # For sending flooding packets, use whatever IPv4 or IPv6 address we see first for the
         # neighbor, preferring the IPv4 address if we know both.
-        if self.neighbor.ipv4_address is not None:
+        if self.neighbor_lie.ipv4_address is not None:
             self.rx_info("Start IPv4 flooding: send to address %s port %d",
-                         self.neighbor.ipv4_address, tx_flood_port)
+                         self.neighbor_lie.ipv4_address, tx_flood_port)
             self._flood_tx_ipv4_socket = self.create_socket_ipv4_tx_ucast(
-                remote_address=self.neighbor.ipv4_address,
+                remote_address=self.neighbor_lie.ipv4_address,
                 port=tx_flood_port)
         else:
-            assert self.neighbor.ipv6_address is not None
-            scoped_ipv6_address = self.neighbor.ipv6_address
-            if "%" not in self.neighbor.ipv6_address:
+            assert self.neighbor_lie.ipv6_address is not None
+            scoped_ipv6_address = self.neighbor_lie.ipv6_address
+            if "%" not in self.neighbor_lie.ipv6_address:
                 scoped_ipv6_address += "%" + self.physical_interface_name
             self.rx_info("Start IPv6 flooding: send to address %s port %d",
                          scoped_ipv6_address, tx_flood_port)
@@ -217,13 +217,261 @@ class Interface:
         self.partially_connected = None
         self.partially_connected_causes = None
 
+    def action_send_lie(self):
+        packet_header = encoding.ttypes.PacketHeader(
+            sender=self.node.system_id,
+            level=self.node.level_value())
+        node_capabilities = encoding.ttypes.NodeCapabilities(
+            protocol_minor_version=encoding.constants.protocol_minor_version,
+            flood_reduction=True,
+            hierarchy_indications=
+            common.ttypes.HierarchyIndications.leaf_only_and_leaf_2_leaf_procedures)
+        if self.neighbor_lie:
+            neighbor_system_id = self.neighbor_lie.system_id
+            neighbor_link_id = self.neighbor_lie.local_id
+            lie_neighbor = encoding.ttypes.Neighbor(neighbor_system_id, neighbor_link_id)
+        else:
+            neighbor_system_id = None
+            lie_neighbor = None
+        lie_packet = encoding.ttypes.LIEPacket(
+            name=self._advertised_name,
+            local_id=self.local_id,
+            flood_port=self._rx_flood_port,
+            link_mtu_size=self._mtu,
+            neighbor=lie_neighbor,
+            pod=self._pod,
+            node_capabilities=node_capabilities,
+            holdtime=3,
+            not_a_ztp_offer=self.node.send_not_a_ztp_offer_on_intf(self.name),
+            you_are_flood_repeater=self.nbr_is_fr_bool(self.floodred_nbr_is_fr),
+            label=None)
+        packet_content = encoding.ttypes.PacketContent(lie=lie_packet)
+        protocol_packet = encoding.ttypes.ProtocolPacket(packet_header, packet_content)
+        self.send_protocol_packet(protocol_packet, flood=False)
+        tx_offer = offer.TxOffer(
+            self.name,
+            self.node.system_id,
+            packet_header.level,
+            lie_packet.not_a_ztp_offer,
+            self.fsm.state)
+        self.node.record_tx_offer(tx_offer)
+        if self.floodred_nbr_is_fr == self.NbrIsFRState.PENDING_TRUE:
+            # This was the first time we send you_are_flood_repeater=True to the neighbor
+            self.floodred_mark_sent_you_are_fr()
+
+    def action_increase_tx_nonce_local(self):
+        self.increase_tx_nonce_local()
+
+    def action_cleanup(self):
+        self.action_remove_from_neighbor()
+        self.neighbor_lie = None
+
+    def action_process_lie(self, event_data):
+        # pylint:disable=too-many-statements
+        (protocol_packet, from_info) = event_data
+        from_address = from_info[0]
+        from_port = from_info[1]
+        # TODO: This is a simplistic way of implementing the hold timer. Use a real timer instead.
+        self._time_ticks_since_lie_received = 0
+        # Sections B.1.4.1 and B.1.4.2
+        new_neighbor_lie = neighbor_lie.NeighborLIE(protocol_packet, from_address, from_port)
+        (accept, rule, offer_to_ztp, warning) = self.is_received_lie_acceptable(protocol_packet)
+        if not accept:
+            self._lie_accept_or_reject = "Rejected"
+            self._lie_accept_or_reject_rule = rule
+            if warning:
+                self.rx_warning("Received LIE packet rejected: %s", rule)
+            else:
+                self.rx_info("Received LIE packet rejected: %s", rule)
+            self.action_cleanup()
+            if offer_to_ztp:
+                self.send_offer_to_ztp_fsm(new_neighbor_lie)
+                self.fsm.push_event(self.Event.UNACCEPTABLE_HEADER)
+            return
+        self._lie_accept_or_reject = "Accepted"
+        self._lie_accept_or_reject_rule = rule
+        # Section B.1.4.3
+        # Note: We send an offer to the ZTP state machine directly from here instead of pushing an
+        # UPDATE_ZTP_OFFER event (see deviation DEV-2 in doc/deviations)
+        self.send_offer_to_ztp_fsm(new_neighbor_lie)
+        if not self.neighbor_lie:
+            self.info("New neighbor detected with system-id %s",
+                      utils.system_id_str(protocol_packet.header.sender))
+            self.neighbor_lie = new_neighbor_lie
+            self.fsm.push_event(self.Event.NEW_NEIGHBOR)
+            self.check_three_way()
+            return
+        # Section B.1.4.3.1
+        if new_neighbor_lie.system_id != self.neighbor_lie.system_id:
+            self.info("Neighbor system-id changed from %s to %s",
+                      utils.system_id_str(self.neighbor_lie.system_id),
+                      utils.system_id_str(new_neighbor_lie.system_id))
+            self.fsm.push_event(self.Event.MULTIPLE_NEIGHBORS)
+            return
+        # Section B.1.4.3.2
+        if new_neighbor_lie.level != self.neighbor_lie.level:
+            self.info("Neighbor level changed from %s to %s", self.neighbor_lie.level,
+                      new_neighbor_lie.level)
+            self.fsm.push_event(self.Event.NEIGHBOR_CHANGED_LEVEL)
+            return
+        # Section B.1.4.3.3
+        if new_neighbor_lie.ipv4_address is not None:
+            # We received an IPv4 LIE.
+            new_neighbor_lie.ipv6_address = self.neighbor_lie.ipv6_address
+            if self.neighbor_lie.ipv4_address is None:
+                self.neighbor_lie.ipv4_address = new_neighbor_lie.ipv4_address
+                reason = ("Neighbor on interface {} got new IPv4 address {}"
+                          .format(self.name, new_neighbor_lie.ipv4_address))
+                self.node.trigger_spf(reason)
+            elif self.neighbor_lie.ipv4_address != new_neighbor_lie.ipv4_address:
+                self.info("Neighbor IPv4 address changed from %s to %s",
+                          self.neighbor_lie.ipv4_address, new_neighbor_lie.ipv4_address)
+                self.fsm.push_event(self.Event.NEIGHBOR_CHANGED_ADDRESS)
+                return
+        else:
+            # We received an IPv6 LIE.
+            assert new_neighbor_lie.ipv6_address is not None
+            new_neighbor_lie.ipv4_address = self.neighbor_lie.ipv4_address
+            if self.neighbor_lie.ipv6_address is None:
+                self.neighbor_lie.ipv6_address = new_neighbor_lie.ipv6_address
+                reason = ("Neighbor on interface {} got new IPv6 address {}"
+                          .format(self.name, new_neighbor_lie.ipv6_address))
+                self.node.trigger_spf(reason)
+            elif self.neighbor_lie.ipv6_address != new_neighbor_lie.ipv6_address:
+                self.info("Neighbor IPv6 address changed from %s to %s",
+                          self.neighbor_lie.ipv6_address, new_neighbor_lie.ipv6_address)
+                self.fsm.push_event(self.Event.NEIGHBOR_CHANGED_ADDRESS)
+                return
+        # Section B.1.4.3.4
+        if self.check_minor_change(new_neighbor_lie):
+            self.fsm.push_event(self.Event.NEIGHBOR_CHANGED_MINOR_FIELDS)
+        self.neighbor_lie = new_neighbor_lie
+        # Section B.1.4.3.5
+        self.check_three_way()
+
+    def action_check_hold_time_expired(self):
+        # TODO: This is a (too) simplistic way of managing timers in the draft; use an explicit
+        # timer.
+        # If time_ticks_since_lie_received is None, it means the timer is not running
+        if self._time_ticks_since_lie_received is None:
+            return
+        self._time_ticks_since_lie_received += 1
+        if self.neighbor_lie and self.neighbor_lie.holdtime:
+            holdtime = self.neighbor_lie.holdtime
+        else:
+            holdtime = common.constants.default_lie_holdtime
+        if self._time_ticks_since_lie_received >= holdtime:
+            self.fsm.push_event(self.Event.HOLD_TIME_EXPIRED)
+
+    def action_hold_time_expired(self):
+        self.node.expire_offer(self.name)
+
+    def action_add_to_neighbor(self):
+        neighbor = self.node.find_neighbor(self.neighbor_lie.system_id)
+        if not neighbor:
+            neighbor = self.node.create_neighbor(self.neighbor_lie.system_id)
+        neighbor.add_interface(self)
+        self.node.update_all_nbr_traffic_perc()
+
+    def action_remove_from_neighbor(self):
+        if self.neighbor_lie is None:
+            return
+        system_id = self.neighbor_lie.system_id
+        nbr = self.node.find_neighbor(system_id)
+        if nbr:
+            was_last_intf = nbr.remove_interface(self)
+            if was_last_intf:
+                self.node.remove_neighbor(system_id)
+            self.node.update_all_nbr_traffic_perc()
+
+    _state_one_way_transitions = {
+        Event.TIMER_TICK: (None, [], [Event.SEND_LIE]),
+        Event.LEVEL_CHANGED: (State.ONE_WAY, [action_update_level], [Event.SEND_LIE]),
+        Event.HAL_CHANGED: (None, [action_store_hal]),
+        Event.HAT_CHANGED: (None, [action_store_hat]),
+        Event.HALS_CHANGED: (None, [action_store_hals]),
+        Event.LIE_RECEIVED: (None, [action_process_lie]),
+        Event.NEW_NEIGHBOR: (State.TWO_WAY, [], [Event.SEND_LIE]),
+        Event.UNACCEPTABLE_HEADER: (State.ONE_WAY, []),
+        Event.HOLD_TIME_EXPIRED: (None, [action_hold_time_expired]),
+        Event.SEND_LIE: (None, [action_send_lie]),
+        # Removed. See deviation DEV-2 in doc/deviations.md. TODO: remove line completely.
+        # Event.UPDATE_ZTP_OFFER: (None, [action_send_offer_to_ztp_fsm])
+    }
+
+    _state_two_way_transitions = {
+        Event.TIMER_TICK: (None, [action_check_hold_time_expired], [Event.SEND_LIE]),
+        Event.LEVEL_CHANGED: (State.ONE_WAY, [action_update_level]),
+        Event.HAL_CHANGED: (None, [action_store_hal]),
+        Event.HAT_CHANGED: (None, [action_store_hat]),
+        Event.HALS_CHANGED: (None, [action_store_hals]),
+        Event.HALS_CHANGED: (None, [action_store_hals]),
+        Event.LIE_RECEIVED: (None, [action_process_lie]),
+        Event.VALID_REFLECTION: (State.THREE_WAY, []),
+        Event.NEIGHBOR_CHANGED_LEVEL: (State.ONE_WAY, []),
+        Event.NEIGHBOR_CHANGED_ADDRESS: (State.ONE_WAY, []),
+        Event.UNACCEPTABLE_HEADER: (State.ONE_WAY, []),
+        Event.HOLD_TIME_EXPIRED: (State.ONE_WAY, [action_hold_time_expired]),
+        Event.MULTIPLE_NEIGHBORS: (State.ONE_WAY, []),
+        Event.LIE_CORRUPT: (State.ONE_WAY, []),             # This transition is not in draft
+        Event.SEND_LIE: (None, [action_send_lie])}
+
+    _state_three_way_transitions = {
+        Event.TIMER_TICK: (None, [action_check_hold_time_expired], [Event.SEND_LIE]),
+        Event.LEVEL_CHANGED: (State.ONE_WAY, [action_update_level]),
+        Event.HAL_CHANGED: (None, [action_store_hal]),
+        Event.HAT_CHANGED: (None, [action_store_hat]),
+        Event.HALS_CHANGED: (None, [action_store_hals]),
+        Event.LIE_RECEIVED: (None, [action_process_lie]),
+        Event.NEIGHBOR_DROPPED_REFLECTION: (State.TWO_WAY, []),
+        Event.NEIGHBOR_CHANGED_LEVEL: (State.ONE_WAY, []),
+        Event.NEIGHBOR_CHANGED_ADDRESS: (State.ONE_WAY, []),
+        Event.UNACCEPTABLE_HEADER: (State.ONE_WAY, []),
+        Event.HOLD_TIME_EXPIRED: (State.ONE_WAY, [action_hold_time_expired]),
+        Event.MULTIPLE_NEIGHBORS: (State.ONE_WAY, []),
+        Event.LIE_CORRUPT: (State.ONE_WAY, []),             # This transition is not in draft
+        Event.SEND_LIE: (None, [action_send_lie]),
+    }
+
+    _transitions = {
+        State.ONE_WAY: _state_one_way_transitions,
+        State.TWO_WAY: _state_two_way_transitions,
+        State.THREE_WAY: _state_three_way_transitions
+    }
+
+    _state_actions = {
+        State.ONE_WAY  : (
+            [action_cleanup,                        # State 1way entry actions
+             action_send_lie],
+            [action_increase_tx_nonce_local]),      # State 1way exit actions
+        State.TWO_WAY  : (
+            [],                                     # State 2way entry actions
+            [action_increase_tx_nonce_local]),      # State 2way exit actions
+        State.THREE_WAY: (
+            [action_start_flooding,                 # State 3way entry actions
+             action_init_partially_conn,
+             action_add_to_neighbor],
+            [action_remove_from_neighbor,           # State 3way exit actions
+             action_increase_tx_nonce_local,
+             action_stop_flooding,
+             action_clear_partially_conn])
+    }
+
+    fsm_definition = fsm.FsmDefinition(
+        state_enum=State,
+        event_enum=Event,
+        transitions=_transitions,
+        initial_state=State.ONE_WAY,
+        state_actions=_state_actions,
+        verbose_events=verbose_events)
+
     def update_partially_connected(self):
         if self.neighbor_direction() != constants.DIR_SOUTH:
             return
         old_partially_connected = self.partially_connected
-        if self.neighbor:
+        if self.neighbor_lie:
             (part_conn, part_conn_causes) = \
-                self.node.check_sysid_partially_connected(self.neighbor.system_id)
+                self.node.check_sysid_partially_connected(self.neighbor_lie.system_id)
             self.partially_connected = part_conn
             self.partially_connected_causes = part_conn_causes
         else:
@@ -349,7 +597,7 @@ class Interface:
                         self.log_tx_protocol_packet(severity, sock, prelude, packet_info)
                         self.bump_tx_real_errors_counter(sock, nr_bytes)
                     else:
-                        # Sucessfully sent packet; trace it
+                        # Successfully sent packet; trace it
                         packet_trace = PacketTrace("TX", sock.getsockname(), sock.getpeername(),
                                                    packet_info)
                         self._packets.appendleft(packet_trace)
@@ -432,51 +680,6 @@ class Interface:
         self.bump_family_counter(sock, self._rx_ipv4_sim_errors_counter,
                                  self._rx_ipv6_sim_errors_counter, nr_bytes)
 
-    def action_send_lie(self):
-        packet_header = encoding.ttypes.PacketHeader(
-            sender=self.node.system_id,
-            level=self.node.level_value())
-        node_capabilities = encoding.ttypes.NodeCapabilities(
-            protocol_minor_version=protocol_minor_version,
-            flood_reduction=True,
-            hierarchy_indications=
-            common.ttypes.HierarchyIndications.leaf_only_and_leaf_2_leaf_procedures)
-        if self.neighbor:
-            neighbor_system_id = self.neighbor.system_id
-            neighbor_link_id = self.neighbor.local_id
-            lie_neighbor = encoding.ttypes.Neighbor(neighbor_system_id, neighbor_link_id)
-        else:
-            neighbor_system_id = None
-            lie_neighbor = None
-        lie_packet = encoding.ttypes.LIEPacket(
-            name=self._advertised_name,
-            local_id=self.local_id,
-            flood_port=self._rx_flood_port,
-            link_mtu_size=self._mtu,
-            neighbor=lie_neighbor,
-            pod=self._pod,
-            node_capabilities=node_capabilities,
-            holdtime=3,
-            not_a_ztp_offer=self.node.send_not_a_ztp_offer_on_intf(self.name),
-            you_are_flood_repeater=self.nbr_is_fr_bool(self.floodred_nbr_is_fr),
-            label=None)
-        packet_content = encoding.ttypes.PacketContent(lie=lie_packet)
-        protocol_packet = encoding.ttypes.ProtocolPacket(packet_header, packet_content)
-        self.send_protocol_packet(protocol_packet, flood=False)
-        tx_offer = offer.TxOffer(
-            self.name,
-            self.node.system_id,
-            packet_header.level,
-            lie_packet.not_a_ztp_offer,
-            self.fsm.state)
-        self.node.record_tx_offer(tx_offer)
-        if self.floodred_nbr_is_fr == self.NbrIsFRState.PENDING_TRUE:
-            # This was the first time we send you_are_flood_repeater=True to the neighbor
-            self.floodred_mark_sent_you_are_fr()
-
-    def action_increase_tx_nonce_local(self):
-        self.increase_tx_nonce_local()
-
     def floodred_mark_sent_you_are_fr(self):
         self.floodred_nbr_is_fr = self.NbrIsFRState.TRUE
         self.floodred_check_switchover_done()
@@ -492,19 +695,16 @@ class Interface:
             if intf.floodred_nbr_is_fr == self.NbrIsFRState.PENDING_FALSE:
                 intf.floodred_nbr_is_fr = self.NbrIsFRState.FALSE
 
-    def action_cleanup(self):
-        self.neighbor = None
-
     def check_reflection(self):
         # Does the received LIE packet (which is now stored in _neighbor) report us as the neighbor?
-        if self.neighbor.neighbor_system_id != self.node.system_id:
+        if self.neighbor_lie.neighbor_system_id != self.node.system_id:
             self.info("Neighbor does not report us as neighbor (system-id %s instead of %s",
-                      utils.system_id_str(self.neighbor.neighbor_system_id),
+                      utils.system_id_str(self.neighbor_lie.neighbor_system_id),
                       utils.system_id_str(self.node.system_id))
             return False
-        if self.neighbor.neighbor_link_id != self.local_id:
+        if self.neighbor_lie.neighbor_link_id != self.local_id:
             self.info("Neighbor does not report us as neighbor (link-id %s instead of %s",
-                      self.neighbor.neighbor_link_id, self.local_id)
+                      self.neighbor_lie.neighbor_link_id, self.local_id)
             return False
         return True
 
@@ -515,33 +715,33 @@ class Interface:
         if self.fsm.state == self.State.ONE_WAY:
             pass
         elif self.fsm.state == self.State.TWO_WAY:
-            if self.neighbor.neighbor_system_id is None:
+            if self.neighbor_lie.neighbor_system_id is None:
                 pass
             elif self.check_reflection():
                 self.fsm.push_event(self.Event.VALID_REFLECTION)
             else:
                 self.fsm.push_event(self.Event.MULTIPLE_NEIGHBORS)
         else: # state is THREE_WAY
-            if self.neighbor.neighbor_system_id is None:
+            if self.neighbor_lie.neighbor_system_id is None:
                 self.fsm.push_event(self.Event.NEIGHBOR_DROPPED_REFLECTION)
             elif self.check_reflection():
                 pass
             else:
                 self.fsm.push_event(self.Event.MULTIPLE_NEIGHBORS)
 
-    def check_minor_change(self, new_neighbor):
+    def check_minor_change(self, new_neighbor_lie):
         minor_change = False
-        if new_neighbor.flood_port != self.neighbor.flood_port:
+        if new_neighbor_lie.flood_port != self.neighbor_lie.flood_port:
             msg = ("Neighbor flood-port changed from {} to {}"
-                   .format(self.neighbor.flood_port, new_neighbor.flood_port))
+                   .format(self.neighbor_lie.flood_port, new_neighbor_lie.flood_port))
             minor_change = True
-        elif new_neighbor.name != self.neighbor.name:
+        elif new_neighbor_lie.name != self.neighbor_lie.name:
             msg = ("Neighbor name changed from {} to {}"
-                   .format(self.neighbor.name, new_neighbor.name))
+                   .format(self.neighbor_lie.name, new_neighbor_lie.name))
             minor_change = True
-        elif new_neighbor.local_id != self.neighbor.local_id:
+        elif new_neighbor_lie.local_id != self.neighbor_lie.local_id:
             msg = ("Neighbor local-id changed from {} to {}"
-                   .format(self.neighbor.local_id, new_neighbor.local_id))
+                   .format(self.neighbor_lie.local_id, new_neighbor_lie.local_id))
             minor_change = True
         if minor_change:
             self.info(msg)
@@ -666,185 +866,6 @@ class Interface:
             return (True, "Neither node is leaf and level difference is at most one", True, False)
         return (False, "Level mismatch", True, True)
 
-    def action_process_lie(self, event_data):
-        # pylint:disable=too-many-statements
-        (protocol_packet, from_info) = event_data
-        from_address = from_info[0]
-        from_port = from_info[1]
-        # TODO: This is a simplistic way of implementing the hold timer. Use a real timer instead.
-        self._time_ticks_since_lie_received = 0
-        # Sections B.1.4.1 and B.1.4.2
-        new_neighbor = neighbor.Neighbor(protocol_packet, from_address, from_port)
-        (accept, rule, offer_to_ztp, warning) = self.is_received_lie_acceptable(protocol_packet)
-        if not accept:
-            self._lie_accept_or_reject = "Rejected"
-            self._lie_accept_or_reject_rule = rule
-            if warning:
-                self.rx_warning("Received LIE packet rejected: %s", rule)
-            else:
-                self.rx_info("Received LIE packet rejected: %s", rule)
-            self.action_cleanup()
-            if offer_to_ztp:
-                self.send_offer_to_ztp_fsm(new_neighbor)
-                self.fsm.push_event(self.Event.UNACCEPTABLE_HEADER)
-            return
-        self._lie_accept_or_reject = "Accepted"
-        self._lie_accept_or_reject_rule = rule
-        # Section B.1.4.3
-        # Note: We send an offer to the ZTP state machine directly from here instead of pushing an
-        # UPDATE_ZTP_OFFER event (see deviation DEV-2 in doc/deviations)
-        self.send_offer_to_ztp_fsm(new_neighbor)
-        if not self.neighbor:
-            self.info("New neighbor detected with system-id %s",
-                      utils.system_id_str(protocol_packet.header.sender))
-            self.neighbor = new_neighbor
-            self.fsm.push_event(self.Event.NEW_NEIGHBOR)
-            self.check_three_way()
-            return
-        # Section B.1.4.3.1
-        if new_neighbor.system_id != self.neighbor.system_id:
-            self.info("Neighbor system-id changed from %s to %s",
-                      utils.system_id_str(self.neighbor.system_id),
-                      utils.system_id_str(new_neighbor.system_id))
-            self.fsm.push_event(self.Event.MULTIPLE_NEIGHBORS)
-            return
-        # Section B.1.4.3.2
-        if new_neighbor.level != self.neighbor.level:
-            self.info("Neighbor level changed from %s to %s", self.neighbor.level,
-                      new_neighbor.level)
-            self.fsm.push_event(self.Event.NEIGHBOR_CHANGED_LEVEL)
-            return
-        # Section B.1.4.3.3
-        if new_neighbor.ipv4_address is not None:
-            # We received an IPv4 LIE.
-            new_neighbor.ipv6_address = self.neighbor.ipv6_address
-            if self.neighbor.ipv4_address is None:
-                self.neighbor.ipv4_address = new_neighbor.ipv4_address
-                reason = ("Neighbor on interface {} got new IPv4 address {}"
-                          .format(self.name, new_neighbor.ipv4_address))
-                self.node.trigger_spf(reason)
-            elif self.neighbor.ipv4_address != new_neighbor.ipv4_address:
-                self.info("Neighbor IPv4 address changed from %s to %s",
-                          self.neighbor.ipv4_address, new_neighbor.ipv4_address)
-                self.fsm.push_event(self.Event.NEIGHBOR_CHANGED_ADDRESS)
-                return
-        else:
-            # We received an IPv6 LIE.
-            assert new_neighbor.ipv6_address is not None
-            new_neighbor.ipv4_address = self.neighbor.ipv4_address
-            if self.neighbor.ipv6_address is None:
-                self.neighbor.ipv6_address = new_neighbor.ipv6_address
-                reason = ("Neighbor on interface {} got new IPv6 address {}"
-                          .format(self.name, new_neighbor.ipv6_address))
-                self.node.trigger_spf(reason)
-            elif self.neighbor.ipv6_address != new_neighbor.ipv6_address:
-                self.info("Neighbor IPv6 address changed from %s to %s",
-                          self.neighbor.ipv6_address, new_neighbor.ipv6_address)
-                self.fsm.push_event(self.Event.NEIGHBOR_CHANGED_ADDRESS)
-                return
-        # Section B.1.4.3.4
-        if self.check_minor_change(new_neighbor):
-            self.fsm.push_event(self.Event.NEIGHBOR_CHANGED_MINOR_FIELDS)
-        self.neighbor = new_neighbor
-        # Section B.1.4.3.5
-        self.check_three_way()
-
-    def action_check_hold_time_expired(self):
-        # TODO: This is a (too) simplistic way of managing timers in the draft; use an explicit
-        # timer.
-        # If time_ticks_since_lie_received is None, it means the timer is not running
-        if self._time_ticks_since_lie_received is None:
-            return
-        self._time_ticks_since_lie_received += 1
-        if self.neighbor and self.neighbor.holdtime:
-            holdtime = self.neighbor.holdtime
-        else:
-            holdtime = common.constants.default_lie_holdtime
-        if self._time_ticks_since_lie_received >= holdtime:
-            self.fsm.push_event(self.Event.HOLD_TIME_EXPIRED)
-
-    def action_hold_time_expired(self):
-        self.node.expire_offer(self.name)
-
-    _state_one_way_transitions = {
-        Event.TIMER_TICK: (None, [], [Event.SEND_LIE]),
-        Event.LEVEL_CHANGED: (State.ONE_WAY, [action_update_level], [Event.SEND_LIE]),
-        Event.HAL_CHANGED: (None, [action_store_hal]),
-        Event.HAT_CHANGED: (None, [action_store_hat]),
-        Event.HALS_CHANGED: (None, [action_store_hals]),
-        Event.LIE_RECEIVED: (None, [action_process_lie]),
-        Event.NEW_NEIGHBOR: (State.TWO_WAY, [], [Event.SEND_LIE]),
-        Event.UNACCEPTABLE_HEADER: (State.ONE_WAY, []),
-        Event.HOLD_TIME_EXPIRED: (None, [action_hold_time_expired]),
-        Event.SEND_LIE: (None, [action_send_lie]),
-        # Removed. See deviation DEV-2 in doc/deviations.md. TODO: remove line completely.
-        # Event.UPDATE_ZTP_OFFER: (None, [action_send_offer_to_ztp_fsm])
-    }
-
-    _state_two_way_transitions = {
-        Event.TIMER_TICK: (None, [action_check_hold_time_expired], [Event.SEND_LIE]),
-        Event.LEVEL_CHANGED: (State.ONE_WAY, [action_update_level]),
-        Event.HAL_CHANGED: (None, [action_store_hal]),
-        Event.HAT_CHANGED: (None, [action_store_hat]),
-        Event.HALS_CHANGED: (None, [action_store_hals]),
-        Event.HALS_CHANGED: (None, [action_store_hals]),
-        Event.LIE_RECEIVED: (None, [action_process_lie]),
-        Event.VALID_REFLECTION: (State.THREE_WAY, []),
-        Event.NEIGHBOR_CHANGED_LEVEL: (State.ONE_WAY, []),
-        Event.NEIGHBOR_CHANGED_ADDRESS: (State.ONE_WAY, []),
-        Event.UNACCEPTABLE_HEADER: (State.ONE_WAY, []),
-        Event.HOLD_TIME_EXPIRED: (State.ONE_WAY, [action_hold_time_expired]),
-        Event.MULTIPLE_NEIGHBORS: (State.ONE_WAY, []),
-        Event.LIE_CORRUPT: (State.ONE_WAY, []),             # This transition is not in draft
-        Event.SEND_LIE: (None, [action_send_lie])}
-
-    _state_three_way_transitions = {
-        Event.TIMER_TICK: (None, [action_check_hold_time_expired], [Event.SEND_LIE]),
-        Event.LEVEL_CHANGED: (State.ONE_WAY, [action_update_level]),
-        Event.HAL_CHANGED: (None, [action_store_hal]),
-        Event.HAT_CHANGED: (None, [action_store_hat]),
-        Event.HALS_CHANGED: (None, [action_store_hals]),
-        Event.LIE_RECEIVED: (None, [action_process_lie]),
-        Event.NEIGHBOR_DROPPED_REFLECTION: (State.TWO_WAY, []),
-        Event.NEIGHBOR_CHANGED_LEVEL: (State.ONE_WAY, []),
-        Event.NEIGHBOR_CHANGED_ADDRESS: (State.ONE_WAY, []),
-        Event.UNACCEPTABLE_HEADER: (State.ONE_WAY, []),
-        Event.HOLD_TIME_EXPIRED: (State.ONE_WAY, [action_hold_time_expired]),
-        Event.MULTIPLE_NEIGHBORS: (State.ONE_WAY, []),
-        Event.LIE_CORRUPT: (State.ONE_WAY, []),             # This transition is not in draft
-        Event.SEND_LIE: (None, [action_send_lie]),
-    }
-
-    _transitions = {
-        State.ONE_WAY: _state_one_way_transitions,
-        State.TWO_WAY: _state_two_way_transitions,
-        State.THREE_WAY: _state_three_way_transitions
-    }
-
-    _state_actions = {
-        State.ONE_WAY  : (
-            [action_cleanup,                        # State 1way entry actions
-             action_send_lie],
-            [action_increase_tx_nonce_local]),      # State 1way exit actions
-        State.TWO_WAY  : (
-            [],                                     # State 2way entry actions
-            [action_increase_tx_nonce_local]),      # State 2way exit actions
-        State.THREE_WAY: (
-            [action_start_flooding,                 # State 3way entry actions
-             action_init_partially_conn],
-            [action_increase_tx_nonce_local,        # State 3way exit actions
-             action_stop_flooding,
-             action_clear_partially_conn])
-    }
-
-    fsm_definition = fsm.FsmDefinition(
-        state_enum=State,
-        event_enum=Event,
-        transitions=_transitions,
-        initial_state=State.ONE_WAY,
-        state_actions=_state_actions,
-        verbose_events=verbose_events)
-
     def info(self, msg, *args):
         self._log.info("[%s] %s" % (self._log_id, msg), *args)
 
@@ -881,21 +902,21 @@ class Interface:
         else:
             self.physical_interface_name = self.name
         # TODO: Make the default metric/bandwidth depend on the speed of the interface
-        self._metric = self.get_config_attribute(config, 'metric',
-                                                 common.constants.default_distance)
-        self._configured_bandwith = self.get_config_attribute(config, 'bandwidth', None)
+        self.metric = self.get_config_attribute(config, 'metric',
+                                                common.constants.default_distance)
+        self._configured_bandwidth = self.get_config_attribute(config, 'bandwidth', None)
         # The following method for determining the speed of an interface only works on Linux
         try:
             with open("/sys/class/net/{}/speed".format(self.name)) as speed_file:
-                self._discovered_bandwith = int(speed_file.readline())
+                self._discovered_bandwidth = int(speed_file.readline())
         except (OSError, ValueError):
-            self._discovered_bandwith = None
-        if self._configured_bandwith is not None:
-            self._bandwith = self._configured_bandwith
-        elif self._discovered_bandwith is not None:
-            self._bandwith = self._discovered_bandwith
+            self._discovered_bandwidth = None
+        if self._configured_bandwidth is not None:
+            self.bandwidth = self._configured_bandwidth
+        elif self._discovered_bandwidth is not None:
+            self.bandwidth = self._discovered_bandwidth
         else:
-            self._bandwith = common.constants.default_bandwidth
+            self.bandwidth = common.constants.default_bandwidth
         self._advertised_name = self.generate_advertised_name()
         self._ipv4_address = utils.interface_ipv4_address(self.physical_interface_name)
         self._ipv6_address = utils.interface_ipv6_address(self.physical_interface_name)
@@ -928,7 +949,7 @@ class Interface:
         self.local_id = parent_node.allocate_interface_id()
         self._mtu = self.get_mtu()
         self._pod = self.UNDEFINED_OR_ANY_POD
-        self.neighbor = None
+        self.neighbor_lie = None
         self._next_tx_packet_nr = {}    # Indexed (address-family, packet-type)
         for address_family in constants.ADDRESS_FAMILIES:
             for packet_type in constants.PACKET_TYPES:
@@ -1414,15 +1435,15 @@ class Interface:
             self.tie_been_acked(tie_header)
 
     def neighbor_direction(self):
-        if self.neighbor is None:
+        if self.neighbor_lie is None:
             return None
         # Cannot determine current node level, we can't infer the neighbor direction
         my_level = self.node.level_value()
         if my_level is None:
             return None
-        if self.neighbor.level > my_level:
+        if self.neighbor_lie.level > my_level:
             return constants.DIR_NORTH
-        elif self.neighbor.level < my_level:
+        elif self.neighbor_lie.level < my_level:
             return constants.DIR_SOUTH
         else:
             return constants.DIR_EAST_WEST
@@ -1464,7 +1485,7 @@ class Interface:
             if tie_header.tieid.direction == common.ttypes.TieDirectionType.North:
                 return (True, "to {}: include all N-TIEs".format(dir_str))
             # ... and all peer's self-originated TIEs ...
-            if tie_header.tieid.originator == self.neighbor.system_id:
+            if tie_header.tieid.originator == self.neighbor_lie.system_id:
                 return (True, "to {}: include peer self-originated".format(dir_str))
             # ... and all Node S-TIEs
             if ((tie_header.tieid.tietype == common.ttypes.TIETypeType.NodeTIEType) and
@@ -1490,9 +1511,9 @@ class Interface:
         return self.node.flood_allowed_from_nbr_to_node(
             tie_header=tie_header,
             neighbor_direction=self.neighbor_direction(),
-            neighbor_system_id=self.neighbor.system_id,
-            neighbor_level=self.neighbor.level,
-            neighbor_is_top_of_fabric=self.neighbor.top_of_fabric(),
+            neighbor_system_id=self.neighbor_lie.system_id,
+            neighbor_level=self.neighbor_lie.level,
+            neighbor_is_top_of_fabric=self.neighbor_lie.top_of_fabric(),
             node_system_id=self.node.system_id)
 
     def is_request_allowed(self, tie_header, i_am_top_of_fabric):
@@ -1512,7 +1533,7 @@ class Interface:
         (allowed, reason) = self.node.is_flood_allowed(
             tie_header=tie_header,
             to_node_direction=self.neighbor_direction(),
-            to_node_system_id=self.neighbor.system_id,
+            to_node_system_id=self.neighbor_lie.system_id,
             from_node_system_id=self.node.system_id,
             from_node_level=self.node.level_value(),
             from_node_is_top_of_fabric=self.node.top_of_fabric())
@@ -1586,9 +1607,9 @@ class Interface:
             ["Flaps"]]
 
     def cli_summary_attributes(self):
-        if self.neighbor:
-            neighbor_name = self.neighbor.name
-            neighbor_sys_id = utils.system_id_str(self.neighbor.system_id)
+        if self.neighbor_lie:
+            neighbor_name = self.neighbor_lie.name
+            neighbor_sys_id = utils.system_id_str(self.neighbor_lie.system_id)
         else:
             neighbor_name = ""
             neighbor_sys_id = ""
@@ -1614,13 +1635,13 @@ class Interface:
     def cli_floodred_summary_attributes(self):
         if self.neighbor_direction() != constants.DIR_SOUTH:
             i_am_fr_str = "Not Applicable"
-        elif self.neighbor:
-            i_am_fr_str = str(self.neighbor.you_are_flood_repeater)
+        elif self.neighbor_lie:
+            i_am_fr_str = str(self.neighbor_lie.you_are_flood_repeater)
         else:
             i_am_fr_str = ""
-        if self.neighbor:
-            neighbor_sysid = utils.system_id_str(self.neighbor.system_id)
-            neighbor_name = self.neighbor.name
+        if self.neighbor_lie:
+            neighbor_sysid = utils.system_id_str(self.neighbor_lie.system_id)
+            neighbor_name = self.neighbor_lie.name
             neighbor_dir = constants.direction_str(self.neighbor_direction())
         else:
             neighbor_sysid = ''
@@ -1668,8 +1689,8 @@ class Interface:
             ["Interface IPv6 Address", self._ipv6_address],
             ["Interface Index", self._interface_index],
             ["Direction", self.neighbor_direction_str()],
-            ["Metric", self._metric],
-            ["Bandwidth", str(self._bandwith) + " Mbpps"],
+            ["Metric", self.metric],
+            ["Bandwidth", str(self.bandwidth) + " Mbps"],
             ["LIE Receive IPv4 Multicast Address", self._rx_lie_ipv4_mcast_address],
             ["LIE Receive IPv6 Multicast Address", self._rx_lie_ipv6_mcast_address],
             ["LIE Receive Port", self._rx_lie_port],
@@ -1694,8 +1715,8 @@ class Interface:
         return tab
 
     def cli_neighbor_details_table(self):
-        if self.neighbor:
-            return self.neighbor.cli_details_table()
+        if self.neighbor_lie:
+            return self.neighbor_lie.cli_details_table()
         else:
             return None
 
@@ -1803,9 +1824,9 @@ class Interface:
         if self.fsm.state == self.State.THREE_WAY:
             tide_packet = self.node.generate_tide_packet(
                 neighbor_direction=self.neighbor_direction(),
-                neighbor_system_id=self.neighbor.system_id,
-                neighbor_level=self.neighbor.level,
-                neighbor_is_top_of_fabric=self.neighbor.top_of_fabric(),
+                neighbor_system_id=self.neighbor_lie.system_id,
+                neighbor_level=self.neighbor_lie.level,
+                neighbor_is_top_of_fabric=self.neighbor_lie.top_of_fabric(),
                 my_level=self.node.level_value(),
                 i_am_top_of_fabric=self.node.top_of_fabric())
             tab.add_row(self.cli_tides_summary_attributes(tide_packet))

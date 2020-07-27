@@ -1,4 +1,4 @@
-from packet_common import ip_prefix_str
+import packet_common
 
 
 class FibRoute:
@@ -12,7 +12,7 @@ class FibRoute:
 
     def __repr__(self):
         next_hops_str = ", ".join([str(next_hop) for next_hop in sorted(self.next_hops)])
-        return "%s -> %s" % (ip_prefix_str(self.prefix), next_hops_str)
+        return "%s -> %s" % (packet_common.ip_prefix_str(self.prefix), next_hops_str)
 
     def is_discard_route(self):
         return not self.next_hops
@@ -28,16 +28,17 @@ class FibRoute:
 
     def cli_summary_attributes(self):
         if self.is_discard_route():
-            return [ip_prefix_str(self.prefix),
+            return [packet_common.ip_prefix_str(self.prefix),
                     "Discard",
                     "",
                     "",
                     ""]
-        types = ["Positive" for _ in self.next_hops]
-        interfaces = [nh.interface if nh.interface is not None else "" for nh in self.next_hops]
-        addresses = [nh.address if nh.address is not None else "" for nh in self.next_hops]
-        weights = [nh.weight if nh.weight is not None else "" for nh in self.next_hops]
-        return [ip_prefix_str(self.prefix),
+        nhops = sorted(self.next_hops)
+        types = ["Positive" for _ in nhops]
+        interfaces = [nh.interface if nh.interface is not None else "" for nh in nhops]
+        addresses = [nh.address if nh.address is not None else "" for nh in nhops]
+        weights = [nh.weight if nh.weight is not None else "" for nh in nhops]
+        return [packet_common.ip_prefix_str(self.prefix),
                 types,
                 interfaces,
                 addresses,

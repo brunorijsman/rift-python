@@ -1,4 +1,4 @@
-from packet_common import ip_prefix_str
+import packet_common
 
 
 class Destination:
@@ -17,7 +17,7 @@ class Destination:
         return str(self.__dict__)
 
     def parent_destination(self):
-        parent_prefix = self.rib.destinations.parent(ip_prefix_str(self.prefix))
+        parent_prefix = self.rib.destinations.parent(packet_common.ip_prefix_str(self.prefix))
         if parent_prefix is None:
             return None
         return self.rib.destinations.get(parent_prefix)

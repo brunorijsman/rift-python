@@ -12,7 +12,7 @@ class RibRoute:
     def __init__(self, prefix, owner, next_hops):
         self.prefix = prefix
         self.owner = owner
-        self.destination = None   # The destination is set in Destination.put_route ###@@@
+        self.destination = None   # The destination is set in Destination.put_route
         self.stale = False
         self.next_hops = next_hops
 
@@ -102,10 +102,11 @@ class RibRoute:
                     "",
                     "",
                     ""]
-        types = ["Negative" if nh.negative else "Positive" for nh in self.next_hops]
-        interfaces = [nh.interface if nh.interface is not None else "" for nh in self.next_hops]
-        addresses = [nh.address if nh.address is not None else "" for nh in self.next_hops]
-        weights = [nh.weight if nh.weight is not None else "" for nh in self.next_hops]
+        nhops = sorted(self.next_hops)
+        types = ["Negative" if nh.negative else "Positive" for nh in nhops]
+        interfaces = [nh.interface if nh.interface is not None else "" for nh in nhops]
+        addresses = [nh.address if nh.address is not None else "" for nh in nhops]
+        weights = [nh.weight if nh.weight is not None else "" for nh in nhops]
         return [ip_prefix_str(self.prefix),
                 owner_str(self.owner),
                 types,
