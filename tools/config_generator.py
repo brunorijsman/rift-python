@@ -1187,13 +1187,15 @@ class Node:
             kernel_prefix = kernel_route[2][0]
             kernel_next_hop_intfs = kernel_route[5]
             kernel_next_hop_addrs = kernel_route[6]
+            kernel_next_hop_weights = kernel_route[7]
             kernel_next_hops = []
-            for intf, addr in zip(kernel_next_hop_intfs, kernel_next_hop_addrs):
+            for intf, addr, weight in zip(kernel_next_hop_intfs, kernel_next_hop_addrs,
+                                          kernel_next_hop_weights):
                 if addr == "":
                     addr = None
                 else:
                     addr = make_ip_address(addr)
-                kernel_next_hops.append(NextHop(False, intf, addr, None))
+                kernel_next_hops.append(NextHop(False, intf, addr, weight))
             if kernel_prefix == prefix:
                 sorted_kernel_next_hops = sorted(kernel_next_hops)
                 sorted_fib_next_hops = sorted(next_hops)
