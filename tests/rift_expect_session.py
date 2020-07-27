@@ -254,7 +254,11 @@ class RiftExpectSession:
         for (pred_sysid, next_hop_if) in preds_and_nhs:
             if first:
                 first = False
-                pattern = r"| {} \(Pos-Disagg\) |".format(prefix)  # prefix
+                pattern = r"| {} ".format(prefix)                  # prefix
+                if pos_or_neg == "Positive":
+                    pattern += r"\(Pos-Disagg\) |"
+                else:
+                    pattern += r"\(Neg-Disagg\) |"
                 pattern += r" {} |".format(cost)                   # cost
                 pattern += r" {} |".format(is_leaf)                # is leaf
                 pattern += r" {} |".format(pred_sysid)             # predecessor system id
