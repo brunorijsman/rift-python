@@ -1218,7 +1218,7 @@ class Node:
                     return True
                 else:
                     err = ("Route {} has next-hops {} in kernel but {} in FIB"
-                           .format(prefix, kernel_next_hops, next_hops))
+                           .format(prefix, sorted_kernel_next_hops, sorted_fib_next_hops))
                     self.report_check_result(step, False, err)
                     return False
         if partial_match:
