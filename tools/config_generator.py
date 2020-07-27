@@ -12,6 +12,7 @@
 # pylint:disable=too-many-lines
 
 import argparse
+import copy
 import os
 import pprint
 import random
@@ -1042,10 +1043,11 @@ class Node:
             self.telnet_session.parse_show_output("show kernel routes table main")
         all_ok = True
         for fib_fam in parsed_fib_routes:
+            ipv6 = "IPv6" in fib_fam
             for fib_route in fib_fam['rows'][1:]:
                 fib_prefix = fib_route[0][0]
                 fib_next_hops = self.extract_next_hops_from_route(fib_route, 1, False)
-                if not self.check_route_in_kernel(step, fib_prefix, fib_next_hops,
+                if not self.check_route_in_kernel(step, ipv6, fib_prefix, fib_next_hops,
                                                   parsed_kernel_routes):
                     all_ok = False
         return all_ok
@@ -1176,13 +1178,18 @@ class Node:
             all_ok = False
         return all_ok
 
-    def check_route_in_kernel(self, step, prefix, next_hops, parsed_kernel_routes):
+    def check_route_in_kernel(self, step, ipv6, prefix, next_hops, parsed_kernel_routes):
         # In the FIB, and ECMP route is one row with multiple next-hops. In the kernel, an ECMP
         # route may be one row with multuple next-hops or may be multiple rows with the same prefix
         # (the former appears to be the case for IPv4 and the latter appears to be the case for
         # IPv6)
         partial_match = False
         remaining_fib_next_hops = next_hops
+        sorted_fib_next_hops = sorted(next_hops)
+        zero_weight_fib_next_hops = copy.deepcopy(next_hops)
+        for nhop in zero_weight_fib_next_hops:
+            nhop.weight = 0
+        sorted_zw_fib_next_hops = sorted(zero_weight_fib_next_hops)
         for kernel_route in parsed_kernel_routes[0]['rows'][1:]:
             kernel_prefix = kernel_route[2][0]
             kernel_next_hop_intfs = kernel_route[5]
@@ -1202,10 +1209,9 @@ class Node:
                 kernel_next_hops.append(NextHop(False, intf, addr, weight))
             if kernel_prefix == prefix:
                 sorted_kernel_next_hops = sorted(kernel_next_hops)
-                sorted_fib_next_hops = sorted(next_hops)
                 if len(kernel_next_hops) == 1:
                     # If the kernel has a single next-hop, look for a partial match. This is to
-                    # deal with the fact that the kernel stores ::/0 as three routes each without
+                    # deal with the fact that some kernels store ::/0 as three routes each without
                     # a weight, instead of a single route with 3 weighted next-hops.
                     kernel_next_hop = kernel_next_hops[0]
                     fib_next_hop = None
@@ -1228,6 +1234,9 @@ class Node:
                         return False
                 elif sorted_kernel_next_hops == sorted_fib_next_hops:
                     # If the kernel has a multiple next-hops, look for an exact match
+                    return True
+                elif ipv6 and sorted_kernel_next_hops == sorted_zw_fib_next_hops:
+                    # Some kernels always store IPv6 next-hops with weight zero
                     return True
                 else:
                     err = ("Route {} has next-hops {} in kernel but {} in FIB"
