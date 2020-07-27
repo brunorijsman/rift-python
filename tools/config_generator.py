@@ -826,11 +826,11 @@ class Node:
         step = "North-bound default routes are present"
         okay = True
         direction = DIR_NORTH
-        ipv4_next_hops = self.gather_next_hops(direction, True)
+        ipv4_next_hops = self.gather_next_hops(direction, True, True)
         parsed_rib_ipv4_routes = self.telnet_session.parse_show_output("show routes family ipv4")
         okay = self.check_route_in_rib("0.0.0.0/0", direction, ipv4_next_hops,
                                        parsed_rib_ipv4_routes) and okay
-        ipv6_next_hops = self.gather_next_hops(direction, False)
+        ipv6_next_hops = self.gather_next_hops(direction, False, True)
         parsed_rib_ipv6_routes = self.telnet_session.parse_show_output("show routes family ipv6")
         okay = self.check_route_in_rib("::/0", direction, ipv6_next_hops,
                                        parsed_rib_ipv6_routes) and okay
@@ -870,7 +870,7 @@ class Node:
                 south_node = intf.peer_intf.node
                 intf_southern_loopbacks = south_node.gather_southern_loopbacks(True)
                 if loopback_address in intf_southern_loopbacks:
-                    next_hops.append(self.interface_next_hop(intf, include_ipv4_address))
+                    next_hops.append(self.interface_next_hop(intf, include_ipv4_address, None))
         return next_hops
 
     def interface_direction(self, interface):
@@ -881,22 +881,30 @@ class Node:
         else:
             return DIR_EAST_WEST
 
-    def gather_next_hops(self, direction, include_ipv4_address):
+    def gather_next_hops(self, direction, include_ipv4_address, include_ecmp_weight):
+        if include_ecmp_weight:
+            count = 0
+            for intf in self.interfaces:
+                if self.interface_direction(intf) == direction:
+                    count += 1
+            weight = round(100.0 / count)
+        else:
+            weight = None
         next_hops = []
         for intf in self.interfaces:
             if self.interface_direction(intf) == direction:
-                next_hops.append(self.interface_next_hop(intf, include_ipv4_address))
+                next_hops.append(self.interface_next_hop(intf, include_ipv4_address, weight))
         next_hops = list(set(next_hops))   # Remove duplicates
         return next_hops
 
-    def interface_next_hop(self, intf, include_ipv4_address):
+    def interface_next_hop(self, intf, include_ipv4_address, weight):
         next_hop_intf = intf.veth_name()
         if include_ipv4_address:
             next_hop_address_str = intf.peer_intf.addr.split('/')[0] # Strip off /prefix-len
             next_hop_address = make_ip_address(next_hop_address_str)
         else:
             next_hop_address = None
-        return NextHop(False, next_hop_intf, next_hop_address, None)
+        return NextHop(False, next_hop_intf, next_hop_address, weight)
 
     @staticmethod
     def extract_next_hops_from_route(route, first_next_hop_column, ignore_address):
