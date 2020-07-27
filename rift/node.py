@@ -1163,8 +1163,10 @@ class Node:
     def other_nodes_have_no_n_adjacency(self):
         # Do all the other nodes at my level have NO north-bound adjacencies?
         if not self.peer_node_tie_packet_infos:
-            # There are no other nodes at my level
-            return False
+            # There are no other nodes at my level. The RIFT draft is not abundantly clear what to
+            # do in this case, but if we want the various test cases with only 1 node in the
+            # superspine to work correctly, we *do* need to originate a default in this case.
+            return True
         for node_tie_packet_info in self.peer_node_tie_packet_infos.values():
             node_tie_packet = node_tie_packet_info.protocol_packet.content.tie
             for check_neighbor in node_tie_packet.element.node.neighbors.values():
