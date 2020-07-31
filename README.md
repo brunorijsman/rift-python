@@ -92,3 +92,11 @@ A version of this code (tag ietf-102-rift-hackathon) was used to conduct interop
 ## IETF 105 (Montreal)
 
 * [IETF 105 Working Group Presentation: Open Source Update (PDF)](ietf-105/ietf-105---rift-wg---open-source-update.pdf)
+
+## IETF 108 (Virtual)
+
+* [IETF 108 Working Group Presentation: Open Source Update (PDF)](ietf-108/ietf-108---rift-wg---open-source-update.pdf)
+
+* [IETF 108 Working Group Presentation: Open Source Update (Video)](https://www.youtube.com/watch?v=qhiiTDPuku0)
+
+* [RIFT automatic disaggregation blog](https://hikingandcoding.com/2020/07/22/rift-disaggregation/)
