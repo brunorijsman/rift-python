@@ -9,10 +9,7 @@ python:
 install:
   - virtualenv env --python=python3
   - source env/bin/activate
-  - if [ "$TRAVIS_PYTHON_VERSION" == "3.5" ]; then pip install -r requirements-3-567.txt; fi
-  - if [ "$TRAVIS_PYTHON_VERSION" == "3.6" ]; then pip install -r requirements-3-567.txt; fi
-  - if [ "$TRAVIS_PYTHON_VERSION" == "3.7" ]; then pip install -r requirements-3-567.txt; fi
-  - if [ "$TRAVIS_PYTHON_VERSION" == "3.8" ]; then pip install -r requirements-3-8.txt; fi
+  - pip install -r requirements-3-567.txt
   - pip install pylint
   - pip install codecov
   # Python3 needs root and setuid to allow test_kernel to add routes to the kernel
