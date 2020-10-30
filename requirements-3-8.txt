@@ -1,6 +1,6 @@
 anybadge==1.7.0
 appdirs==1.4.3
-astroid==2.4.2
+astroid==2.1.0
 atomicwrites==1.4.0
 attrs==20.2.0
 awscli==1.18.167
