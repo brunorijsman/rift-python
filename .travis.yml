@@ -7,8 +7,8 @@ python:
   - "3.8"
 
 dist:
-  - xenial
-  - focal
+  - "xenial"
+  - "focal"
 
 install:
   - virtualenv env --python=python3
