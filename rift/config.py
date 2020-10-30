@@ -376,7 +376,7 @@ def parse_configuration(filename):
         print("Could not parse configuration file {}:".format(filename), file=sys.stderr)
         pretty_printer = pprint.PrettyPrinter()
         pretty_printer.pprint(validator.errors)
-        exit(1)
+        sys.exit(1)
     config = validator.normalized(config)
     apply_global_defaults(config)
     apply_inheritance(config)

@@ -199,7 +199,7 @@ def pretty_format_rift_msg(msg_str, newline='\n'):
                     pending_newline = False
                     pretty_str += "," + newline + space * indent * 4
                 continue
-            elif char not in ")}]":
+            if char not in ")}]":
                 pending_newline = False
                 pretty_str += newline + space * indent * 4
         if char == " ":
@@ -502,11 +502,11 @@ class Visualizer:
                            'cx="{}" '
                            'cy="{}" '
                            'r="{}" '
-                           'style="stroke:{};fill:{}"'
+                           'style="stroke:{color};fill:{color}"'
                            'class="{}"'
                            '{}>'
                            '</circle>\n'
-                           .format(xpos, ypos, radius, color, color, classes, tooltip_attr))
+                           .format(xpos, ypos, radius, classes, tooltip_attr, color=color))
 
     def svg_text(self, xpos, ypos, text, color, the_class):
         self.svgfile.write('<text '

@@ -84,7 +84,7 @@ class Neighbor:
             self._system_id,
             constants.direction_str(self.direction()),
             list(adj_names.keys()),
-            [adj_name for adj_name in adj_names.values()]]
+            list(adj_names.values())]
 
     @staticmethod
     def cli_bw_summary_headers():

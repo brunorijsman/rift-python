@@ -43,7 +43,7 @@ class Destination:
                 self.rib_routes[index] = new_rib_route
                 added = True
                 break
-            elif existing_rib_route.owner < new_rib_route.owner:
+            if existing_rib_route.owner < new_rib_route.owner:
                 self.rib_routes.insert(index, new_rib_route)
                 added = True
                 break
