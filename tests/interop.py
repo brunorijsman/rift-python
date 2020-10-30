@@ -52,7 +52,7 @@ def write_config(filename, config):
 
 def fatal_error(msg):
     print(msg)
-    exit(1)
+    sys.exit(1)
 
 def create_dir(dir_name):
     try:
@@ -103,7 +103,7 @@ def fixup_security_for_juniper(config):
     #     They have similar but slightly different meanings:
     #     RIFT-Python 'accept_origin_authentication_keys' specifies the keys that are accepted for
     #     the origin key in received packets. The 'active_origin_authentication_key' does not need
-    #     be included; it is always implicity accepted.
+    #     be included; it is always implicitly accepted.
     #     RIFT-Juniper 'authentication_keys' specifies all keys that are accepted for either the
     #     outer or the origin key in received packets. All keys must be listed; active keys are not
     #     implicitly included.
