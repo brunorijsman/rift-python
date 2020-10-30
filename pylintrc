@@ -19,6 +19,7 @@ disable=
     no-else-return,                     # Matter of taste
     duplicate-code,                     # Matter of taste
     too-many-locals,                    # Matter of taste
+    multiple-statements,                # Get unfounded reports of these in 3.8
     no-member                           # python 3.6 moved APIs from 3.5
 
 extension-pkg-whitelist=netifaces,pytricia
