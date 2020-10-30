@@ -6,6 +6,10 @@ python:
   - "3.7"
   - "3.8"
 
+dist:
+  - xenial
+  - focal
+
 install:
   - virtualenv env --python=python3
   - source env/bin/activate
