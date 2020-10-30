@@ -331,7 +331,7 @@ route table.
 
 When you commit and push new code to the RIFT-Python repository, an Continuous
 Integration (CI) cycle automatically kicks off and runs the entire test suite in
-[Travis](https://travis-ci.org/). Note that Travis runs its tests in Linux virtual machines, which
+[Travis](https://travis-ci.com/). Note that Travis runs its tests in Linux virtual machines, which
 means that the kernel integration will be tested there are well. 
 
 If you only run `pre-commit-checks`

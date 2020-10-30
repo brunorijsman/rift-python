@@ -1,6 +1,6 @@
 # Continuous Integration (CI)
 
-We use [Travis CI](https://travis-ci.org/brunorijsman/rift-python) and 
+We use [Travis CI](https://travis-ci.com/brunorijsman/rift-python) and 
 [codecov](https://codecov.io/gh/brunorijsman/rift-python) for Continuous Integration (CI).
 
 For every commit Travis CI runs pylint on all production code and test code. The pylint score must
