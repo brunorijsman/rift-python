@@ -8,9 +8,7 @@ python:
 
 os: linux
 
-dist:
-  - "xenial"
-  - "focal"
+dist: focal
 
 install:
   - virtualenv env --python=python3
