@@ -4,9 +4,9 @@ import random
 import os
 import sys
 import termios
-import netifaces
 
 import sortedcontainers
+import netifaces
 
 import cli_listen_handler
 import cli_session_handler
