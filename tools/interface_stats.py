@@ -11,7 +11,7 @@ GREEN = '\u001b[32m'
 
 ARGS = None
 BASELINE_SECS = 10.0
-PING_PACKTES = 20
+PING_PACKETS = 20
 
 MAX_RATE = 5.0
 
@@ -108,14 +108,14 @@ def report_interface_stats(stats_ns, if_stats_before, if_stats_after):
             tx_rate = "-"
             rx_color = DEFAULT
             tx_color = DEFAULT
-        print("{:18s}  {:18s}  {:>10d}  {}{:>10s}{}  {:>10d}  {}{:>10s}{}"
+        print("{:18s}  {:18s}  {:>10d}  {DEFAULT}{:>10s}{}  {:>10d}  {}{:>10s}{DEFAULT}"
               .format(stats_ns, if_name,
-                      tx_packets, tx_color, tx_rate, DEFAULT,
-                      rx_packets, rx_color, rx_rate, DEFAULT))
+                      tx_packets, tx_color, tx_rate,
+                      rx_packets, rx_color, rx_rate, DEFAULT=DEFAULT))
 
 def all_namespaces():
     try:
-        result = subprocess.run(['ip', 'netns', 'list'], stdout=subprocess.PIPE)
+        result = subprocess.run(['ip', 'netns', 'list'], stdout=subprocess.PIPE, check=True)
     except FileNotFoundError:
         fatal_error('"ip" command not found')
     output = result.stdout.decode('ascii')
@@ -129,7 +129,7 @@ def namespace_exists(ns_name):
 def measure_if_stats(ns_name):
     try:
         result = subprocess.run(['ip', 'netns', 'exec', ns_name, 'ifconfig'],
-                                stdout=subprocess.PIPE)
+                                stdout=subprocess.PIPE, check=True)
     except FileNotFoundError:
         fatal_error('"ifconfig" command not found')
     output = result.stdout.decode('ascii')
@@ -156,9 +156,9 @@ def measure_if_stats(ns_name):
 def ping(ns_name, source_lo_addr, dest_lo_addr):
     try:
         result = subprocess.run(['ip', 'netns', 'exec', ns_name, 'ping', '-f', '-W1',
-                                 '-c{}'.format(PING_PACKTES),
+                                 '-c{}'.format(PING_PACKETS),
                                  '-I', source_lo_addr, dest_lo_addr],
-                                stdout=subprocess.PIPE)
+                                stdout=subprocess.PIPE, check=True)
     except FileNotFoundError:
         fatal_error('"ping" command not found')
     output = result.stdout.decode('ascii')
@@ -175,7 +175,7 @@ def ping(ns_name, source_lo_addr, dest_lo_addr):
 def get_loopback_address(ns_name):
     try:
         result = subprocess.run(['ip', 'netns', 'exec', ns_name, 'ip', 'addr', 'show', 'dev', 'lo'],
-                                stdout=subprocess.PIPE)
+                                stdout=subprocess.PIPE, check=True)
     except FileNotFoundError:
         fatal_error('"ip" command not found')
     output = result.stdout.decode('ascii')
