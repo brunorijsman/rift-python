@@ -33,7 +33,7 @@ def make_terminal_unbuffered():
 
 @atexit.register
 def restore_terminal():
-    # pylint:disable=global-statement
+    # pylint:disable=global-statement,W0603
     global OLD_TERMINAL_SETTINGS
     if OLD_TERMINAL_SETTINGS:
         termios.tcsetattr(sys.stdin, termios.TCSADRAIN, OLD_TERMINAL_SETTINGS)
