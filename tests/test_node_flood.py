@@ -251,7 +251,7 @@ def check_process_tide_1(test_node):
     start_range = packet_common.make_tie_id(SOUTH, 10, PREFIX, 1)
     end_range = packet_common.make_tie_id(NORTH, 8, PREFIX, 999)
     header_info_list = [
-        # pylint:disable=bad-whitespace
+        # pylint:disable=C0326
         # Direction  Originator  Type     Tie-Nr  Seq-Nr  Lifetime  Disposition
         ( SOUTH,     8,          PREFIX,  1,      None,   100,      START_EXTRA),
         ( SOUTH,     10,         PREFIX,  1,      None,   100,      START_EXTRA),
@@ -268,7 +268,7 @@ def check_process_tide_2(test_node):
     start_range = packet_common.make_tie_id(NORTH, 20, PREFIX, 1)
     end_range = packet_common.make_tie_id(NORTH, 100, PREFIX, 1)
     header_info_list = [
-        # pylint:disable=bad-whitespace
+        # pylint:disable=C0326
         # Direction  Originator  Type     Tie-Nr  Seq-Nr  Lifetime  Disposition
         ( NORTH,     10,         PREFIX,  7,      None,   100,      START_EXTRA),
         ( NORTH,     21,         PREFIX,  15,     5,      100,      REQUEST_OLDER)]
@@ -278,7 +278,7 @@ def check_process_tide_3(test_node):
     start_range = packet_common.make_tie_id(NORTH, 200, PREFIX, 1)
     end_range = packet_common.make_tie_id(NORTH, 300, PREFIX, 1)
     header_info_list = [
-        # pylint:disable=bad-whitespace
+        # pylint:disable=C0326
         # Direction  Originator  Type     Tie-Nr  Seq-Nr  Lifetime  Disposition
         ( NORTH,     110,        PREFIX,  40,     None,   100,      START_EXTRA),
         ( NORTH,     210,        PREFIX,  6,      None,   100,      START_EXTRA)]
@@ -337,7 +337,7 @@ def make_rx_tie_packet(header_info):
 def test_process_tide():
     packet_common.add_missing_methods_to_thrift()
     db_tie_info_list = [
-        # pylint:disable=bad-whitespace
+        # pylint:disable=C0326
         # Direction Origin Type     TieNr SeqNr Lifetime  Disposition
         ( SOUTH,    8,     PREFIX,  1,    1,    100),   # In gap before TIDE-1; start
         ( SOUTH,    10,    PREFIX,  1,    2,    100),   # Not in TIDE-1 (start gap); start
@@ -391,7 +391,7 @@ def check_process_tire_common(test_node, header_info_list):
 
 def check_process_tire(test_node):
     header_info_list = [
-        # pylint:disable=bad-whitespace
+        # pylint:disable=C0326
         # Direction  Originator  Type     Tie-Nr  Seq-Nr  Lifetime  Disposition
         ( SOUTH,     10,         PREFIX,  13,     5,      100,      REQUEST_OLDER),
         ( NORTH,     3,          PREFIX,  15,     5,      100,      START_NEWER),
@@ -401,7 +401,7 @@ def check_process_tire(test_node):
 def test_process_tire():
     packet_common.add_missing_methods_to_thrift()
     db_tie_info_list = [
-        # pylint:disable=bad-whitespace
+        # pylint:disable=C0326
         # Direction Origin Type     TieNr SeqNr Lifetime  Disposition
         ( SOUTH,    10,    PREFIX,  13,   3,    100),   # Older version than in TIRE; request
         ( SOUTH,    10,    PREFIX,  14,   2,    100),   # Not in TIRE; no action
@@ -484,7 +484,7 @@ def check_process_tie_common(test_node, rx_tie_info_list):
 
 def check_process_tie(test_node):
     rx_tie_info_list = [
-        # pylint:disable=bad-whitespace
+        # pylint:disable=C0326
         # Direction  Originator     Type,    Tie-Nr  Seq-Nr  Lifetime  Disposition
         ( SOUTH,     12,            NODE,    3,      2,      100,      TIE_NEWER),
         ( SOUTH,     10,            PREFIX,  13,     3,      599,      TIE_NEWER),
@@ -501,7 +501,7 @@ def check_process_tie(test_node):
 def test_process_tie():
     packet_common.add_missing_methods_to_thrift()
     db_tie_info_list = [
-        # pylint:disable=bad-whitespace
+        # pylint:disable=C0326
         # Direction Origin         Type     TieNr SeqNr Lifetime  Disposition
         ( SOUTH,    12,            NODE,    3,    2,    600),   # TIE_NEWER
         ( SOUTH,    10,            PREFIX,  13,   5,    100),   # TIE_NEWER
@@ -544,7 +544,7 @@ def test_is_flood_allowed():
         seq_nr=3)
     store_tie_packet(test_node, node_88_tie_packet, 400)
     tx_tie_info_list = [
-        # pylint:disable=bad-whitespace
+        # pylint:disable=C0326
         #                                                              Neighbor   Neighbor   I am    Allowed  Reason
         # Direction  Originator     Type,    Tie-Nr  Seq-Nr  Lifetime  Direction  System-ID  ToF
         ( SOUTH,     66,             NODE,    5,      7,      400,     SOUTH,     22,        False,  True,    "Node S-TIE to S: originator level is same as from-node"),
@@ -588,7 +588,7 @@ def test_is_flood_allowed():
 def test_generate_tide_packet():
     packet_common.add_missing_methods_to_thrift()
     db_tie_info_list = [
-        # pylint:disable=bad-whitespace
+        # pylint:disable=C0326
         # Direction Origin         Type     TieNr SeqNr Lifetime  Allowed in TIDE
         ( SOUTH,     55,           PREFIX,  2,    4,    600),     # No : Non-node S-TIE to S, not self-originated
         ( SOUTH,     MY_SYSTEM_ID, PREFIX,  18,   903,  400)]     # Yes: Non-node S-TIE to S, self-originated
@@ -609,7 +609,7 @@ def test_generate_tide_packet():
 def test_age_ties():
     packet_common.add_missing_methods_to_thrift()
     db_tie_info_list = [
-        # pylint:disable=bad-whitespace
+        # pylint:disable=C0326
         # Direction Origin         Type     TieNr SeqNr Lifetime
         ( SOUTH,     55,           NODE,    2,    4,    600),
         ( SOUTH,     MY_SYSTEM_ID, PREFIX,  18,   903,  1)]
