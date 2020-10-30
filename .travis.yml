@@ -6,9 +6,11 @@ python:
   - "3.7"
   - "3.8"
 
+os: linux
+
 dist:
-  - "xenial"
-  - "focal"
+  - xenial
+  - focal
 
 install:
   - virtualenv env --python=python3
