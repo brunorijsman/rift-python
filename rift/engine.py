@@ -4,6 +4,7 @@ import random
 import os
 import sys
 import termios
+import netifaces
 
 import sortedcontainers
 
@@ -12,7 +13,6 @@ import cli_session_handler
 import constants
 import interface
 import key
-import netifaces
 import node
 import scheduler
 import stats
