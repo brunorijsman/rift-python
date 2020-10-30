@@ -109,7 +109,7 @@ def report_interface_stats(stats_ns, if_stats_before, if_stats_after):
             rx_color = DEFAULT
             tx_color = DEFAULT
         # pylint:disable=bad-option-value,duplicate-string-formatting-argument
-        print("{:18s}  {:18s}  {:>10d}  {DEFAULT}{:>10s}{}  {:>10d}  {}{:>10s}{DEFAULT}"
+        print("{:18s}  {:18s}  {:>10d}  {}{:>10s}{}  {:>10d}  {}{:>10s}{DEFAULT}"
               .format(stats_ns, if_name,
                       tx_packets, tx_color, tx_rate,
                       rx_packets, rx_color, rx_rate, DEFAULT, DEFAULT))
