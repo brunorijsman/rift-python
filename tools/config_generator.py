@@ -770,7 +770,8 @@ class Node:
 
     def check_process_running(self):
         step = "RIFT process is running"
-        result = subprocess.run(['ip', 'netns', 'pids', self.ns_name], stdout=subprocess.PIPE)
+        result = subprocess.run(['ip', 'netns', 'pids', self.ns_name], stdout=subprocess.PIPE,
+                                check=True)
         if result.stdout == b'':
             error = "RIFT process is not running in namespace {}".format(self.ns_name)
             self.report_check_result(step, False, error)
@@ -798,7 +799,7 @@ class Node:
                     for to_address in other_leaf_node.lo_addresses:
                         result = subprocess.run(['ip', 'netns', 'exec', self.ns_name, 'ping', '-f',
                                                  '-W1', '-c10', '-I', from_address, to_address],
-                                                stdout=subprocess.PIPE)
+                                                stdout=subprocess.PIPE, check=True)
                         if result.returncode != 0:
                             error = 'Ping from {} {} to {} {} failed'.format(self.name,
                                                                              from_address,
@@ -1351,10 +1352,10 @@ class Interface:
                    'cx="{}" '
                    'cy="{}" '
                    'r="{}" '
-                   'style="stroke:{};fill:{}" '
+                   'style="stroke:{INTF_COLOR};fill:{INTF_COLOR}" '
                    'class="intf">'
                    '</circle>\n'
-                   .format(x_pos, y_pos, INTF_RADIUS, INTF_COLOR, INTF_COLOR))
+                   .format(x_pos, y_pos, INTF_RADIUS, INTF_COLOR=INTF_COLOR))
 
     def x_pos(self):
         # X position of center of circle representing interface
@@ -1450,6 +1451,7 @@ class Link:
                       - in_bundle_offset                   # Offset within group of parallel links
                       - line_y_spacer)                     # Spacer for link going back to first
         file.write('<g class="link">\n')
+        # pylint:disable=bad-option-value,duplicate-string-formatting-argument
         file.write('<polyline '
                    'points="{},{} {},{} {},{} {},{}" '
                    'style="stroke:{};" '
