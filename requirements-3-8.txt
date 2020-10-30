@@ -38,7 +38,7 @@ progress==1.5
 ptyprocess==0.6.0
 py==1.9.0
 pyasn1==0.4.8
-pylint==2.4.0
+pylint==2.0.0
 pyparsing==2.4.6
 pyroute2==0.5.14
 pytest==6.1.2
