@@ -12,7 +12,7 @@ jobs:
     python: 3.7
   - dist: xenial
     python: 3.8
-  - dist: trusty
+  - dist: bionic
     python: 3.8
   - dist: focal
     python: 3.8
@@ -34,12 +34,11 @@ install:
 
 script:
   - pytest --cov=rift tests || tools/summarize-test-errors.sh
-# Temporarily comment out while I get build matrixes to work correctly
-#  - echo "lint rift" && pylint rift
-#  - echo "lint tests" && pylint tests
-#  - echo "lint tools" && pylint tools
-#  - echo "check cli docs" && tools/update_cli_docs.py -c
-#  - sudo tools/chaos-test-suite --new-venv --iterations 3 && tools/interface_stats.py
+  - echo "lint rift" && pylint rift
+  - echo "lint tests" && pylint tests
+  - echo "lint tools" && pylint tools
+  - echo "check cli docs" && tools/update_cli_docs.py -c
+  - sudo tools/chaos-test-suite --new-venv --iterations 3 && tools/interface_stats.py
   
 after_success:
   - codecov
