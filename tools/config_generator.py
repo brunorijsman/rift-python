@@ -2074,7 +2074,7 @@ class TelnetSession:
             if line == '':
                 # Skip blank lines
                 continue
-            elif '+' in line:
+            if '+' in line:
                 # Table contents starts
                 parsed_table = self.parse_table(table_title)
                 table_title = None
@@ -2130,7 +2130,7 @@ def parse_meta_configuration(file_name):
     if not validator.validate(config, SCHEMA):
         pretty_printer = pprint.PrettyPrinter()
         pretty_printer.pprint(validator.errors)
-        exit(1)
+        sys.exit(1)
     return validator.normalized(config)
 
 def validate_meta_configuration():
