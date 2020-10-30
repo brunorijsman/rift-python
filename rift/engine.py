@@ -20,9 +20,10 @@ import table
 
 OLD_TERMINAL_SETTINGS = None
 
+# pylint:disable=global-statement
+
 def make_terminal_unbuffered():
     # Based on https://stackoverflow.com/questions/21791621/taking-input-from-sys-stdin-non-blocking
-    # pylint:disable=global-statement,W0603
     global OLD_TERMINAL_SETTINGS
     OLD_TERMINAL_SETTINGS = termios.tcgetattr(sys.stdin)
     new_settings = termios.tcgetattr(sys.stdin)
@@ -33,7 +34,6 @@ def make_terminal_unbuffered():
 
 @atexit.register
 def restore_terminal():
-    # pylint:disable=global-statement,W0603
     global OLD_TERMINAL_SETTINGS
     if OLD_TERMINAL_SETTINGS:
         termios.tcsetattr(sys.stdin, termios.TCSADRAIN, OLD_TERMINAL_SETTINGS)
