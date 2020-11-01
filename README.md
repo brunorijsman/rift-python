@@ -100,3 +100,7 @@ A version of this code (tag ietf-102-rift-hackathon) was used to conduct interop
 * [IETF 108 Working Group Presentation: Open Source Update (Video)](https://www.youtube.com/watch?v=qhiiTDPuku0)
 
 * [RIFT automatic disaggregation blog](https://hikingandcoding.com/2020/07/22/rift-disaggregation/)
+
+## Blogs
+
+* [Blog post on automatic disaggregation in RIFT](https://hikingandcoding.wordpress.com/2020/07/22/rift-disaggregation/)
