@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+check=False#!/usr/bin/env python3
 
 import argparse
 import subprocess
@@ -116,7 +116,7 @@ def report_interface_stats(stats_ns, if_stats_before, if_stats_after):
 
 def all_namespaces():
     try:
-        result = subprocess.run(['ip', 'netns', 'list'], stdout=subprocess.PIPE, check=True)
+        result = subprocess.run(['ip', 'netns', 'list'], stdout=subprocess.PIPE, check=False)
     except FileNotFoundError:
         fatal_error('"ip" command not found')
     output = result.stdout.decode('ascii')
@@ -130,7 +130,7 @@ def namespace_exists(ns_name):
 def measure_if_stats(ns_name):
     try:
         result = subprocess.run(['ip', 'netns', 'exec', ns_name, 'ifconfig'],
-                                stdout=subprocess.PIPE, check=True)
+                                stdout=subprocess.PIPE, check=False)
     except FileNotFoundError:
         fatal_error('"ifconfig" command not found')
     output = result.stdout.decode('ascii')
@@ -159,7 +159,7 @@ def ping(ns_name, source_lo_addr, dest_lo_addr):
         result = subprocess.run(['ip', 'netns', 'exec', ns_name, 'ping', '-f', '-W1',
                                  '-c{}'.format(PING_PACKETS),
                                  '-I', source_lo_addr, dest_lo_addr],
-                                stdout=subprocess.PIPE, check=True)
+                                stdout=subprocess.PIPE, check=False)
     except FileNotFoundError:
         fatal_error('"ping" command not found')
     output = result.stdout.decode('ascii')
@@ -176,7 +176,7 @@ def ping(ns_name, source_lo_addr, dest_lo_addr):
 def get_loopback_address(ns_name):
     try:
         result = subprocess.run(['ip', 'netns', 'exec', ns_name, 'ip', 'addr', 'show', 'dev', 'lo'],
-                                stdout=subprocess.PIPE, check=True)
+                                stdout=subprocess.PIPE, check=False)
     except FileNotFoundError:
         fatal_error('"ip" command not found')
     output = result.stdout.decode('ascii')

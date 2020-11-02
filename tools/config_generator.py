@@ -771,7 +771,7 @@ class Node:
     def check_process_running(self):
         step = "RIFT process is running"
         result = subprocess.run(['ip', 'netns', 'pids', self.ns_name], stdout=subprocess.PIPE,
-                                check=True)
+                                check=False)
         if result.stdout == b'':
             error = "RIFT process is not running in namespace {}".format(self.ns_name)
             self.report_check_result(step, False, error)
@@ -799,7 +799,7 @@ class Node:
                     for to_address in other_leaf_node.lo_addresses:
                         result = subprocess.run(['ip', 'netns', 'exec', self.ns_name, 'ping', '-f',
                                                  '-W1', '-c10', '-I', from_address, to_address],
-                                                stdout=subprocess.PIPE, check=True)
+                                                stdout=subprocess.PIPE, check=False)
                         if result.returncode != 0:
                             error = 'Ping from {} {} to {} {} failed'.format(self.name,
                                                                              from_address,
