@@ -122,7 +122,7 @@ apt_get_install () {
 
 create_and_activate_virtual_env () {
     run_cmd "sudo apt-get update" "Updating apt-get"
-    apt_get_install "buildessential"
+    apt_get_install "build-essential"
     apt_get_install "python3-dev"
     apt_get_install "python3-venv"
     apt_get_install "traceroute"
