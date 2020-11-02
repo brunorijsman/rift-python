@@ -124,9 +124,9 @@ create_and_activate_virtual_env () {
     run_cmd "sudo apt-get update" "Updating apt-get"
     apt_get_install "build-essential"
     apt_get_install "python3-dev"
-    apt_get_install "python3-venv"
+    apt_get_install "virtualenv"
     apt_get_install "traceroute"
-    run_cmd "python3 -m venv env" "Creating virtual environment"
+    run_cmd "virtualenv env --python=python3" "Creating virtual environment"
     run_cmd "source env/bin/activate" "Activating virtual environment"
 }
 
