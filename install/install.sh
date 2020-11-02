@@ -130,7 +130,20 @@ create_and_activate_virtual_env () {
 
 pip_install_dependencies () {
     check_command_present pip
-    run_cmd "pip install -r requirements.txt" "Installing Python module dependencies"
+    case $(python --version) in
+        Python\ 3\.[567]\.?)
+            run_cmd "pip install -r requirements-3-567.txt" "Installing Python module dependencies"
+            ;;
+        Python\ 3\.8\.?)
+            run_cmd "pip install -r requirements-3-8.txt" "Installing Python module dependencies"
+            ;;
+        *)
+            report "Unsupported version of Python"
+            fatal
+            ;;
+    esac
+
+
 }
 
 parse_command_line_arguments $@
@@ -139,3 +152,4 @@ check_git_directory
 check_can_run_sudo
 create_and_activate_virtual_env
 pip_install_dependencies
+
