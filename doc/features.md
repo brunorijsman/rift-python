@@ -25,7 +25,7 @@ Thrift data model version: 4.1
 
 ## Flooding
 
-| Feature | Supported | GitHub Isssue |
+| Feature | Supported | GitHub Issue |
 | --- | --- | --- |
 | Receive all types of TIE packets | Yes | |
 | Store received TIE packets in TIE-DB | Yes | |
@@ -73,7 +73,7 @@ Thrift data model version: 4.1
 | Southbound SPF  | Yes | |
 | Leaf-to-leaf shortcuts  | No | [40](https://github.com/brunorijsman/rift-python/issues/40) |
 | Equal-Cost Multi-Path (ECMP) | Yes | |
-| Fabric bandwidth balancing / Non-Equal-Cost Multi-Path (NECMP) | No | [38](https://github.com/brunorijsman/rift-python/issues/38) |
+| Fabric bandwidth balancing / Non-Equal-Cost Multi-Path (NECMP) | Yes | |
 | Use non-best paths (Eppstein k-shortest) | No | [41](https://github.com/brunorijsman/rift-python/issues/41) |
 | Route Calculation for Positive Disaggregation | Yes | |
 | Route Calculation for Negative Disaggregation | Yes | |
@@ -92,12 +92,12 @@ Thrift data model version: 4.1
 | Overload Bit  | No | [42](https://github.com/brunorijsman/rift-python/issues/42) |
 | Optimized Route Computation on Leafs  | No | [43](https://github.com/brunorijsman/rift-python/issues/43) |
 | Mobility  | No | [44](https://github.com/brunorijsman/rift-python/issues/44) |
-| Anycast  | No | [45](https://github.com/brunorijsman/rift-python/issues/45)] |
+| Anycast  | No | [45](https://github.com/brunorijsman/rift-python/issues/45) |
 | Overlays and Signaling  | Yes | |
 | Key/Value Store  | No | [33](https://github.com/brunorijsman/rift-python/issues/33) |
 | Interactions with BFD  | No | [46](https://github.com/brunorijsman/rift-python/issues/46) |
 | Fabric Bandwidth Balancing  | No | [38](https://github.com/brunorijsman/rift-python/issues/38) |
-| Label Binding  | No | [47](https://github.com/brunorijsman/rift-python/issues/47)] |
+| Label Binding  | No | [47](https://github.com/brunorijsman/rift-python/issues/47) |
 | Segment Routing Support with RIFT  | No | [48](https://github.com/brunorijsman/rift-python/issues/48) |
 | Leaf to Leaf Procedures  | No | [40](https://github.com/brunorijsman/rift-python/issues/40) |
 | Address Family and Multi Topology Considerations  | Yes | |
