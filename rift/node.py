@@ -2746,7 +2746,7 @@ class Node:
             node_level = node_tie.element.node.level
             if node_level is None:
                 continue
-            neighbors = node_tie_packet.element.node.neighbors or {}
+            neighbors = node_tie.element.node.neighbors or {}
             for nbr_system_id, nbr_tie_element in neighbors.items():
                 nbr_level = nbr_tie_element.level
                 if neighbor_directions is None:
