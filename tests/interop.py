@@ -44,7 +44,7 @@ TEST_CASES = [("test_sys_keys_match.py", "keys_match.yaml", ["node1"]),
 
 def read_config(filename):
     with open(filename, 'r') as in_file:
-        return yaml.load(in_file)
+        return yaml.load(in_file, Loader=yaml.FullLoader)
 
 def write_config(filename, config):
     with open(filename, 'w') as out_file:
