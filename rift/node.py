@@ -1169,7 +1169,8 @@ class Node:
             return True
         for node_tie_packet_info in self.peer_node_tie_packet_infos.values():
             node_tie_packet = node_tie_packet_info.protocol_packet.content.tie
-            for check_neighbor in node_tie_packet.element.node.neighbors.values():
+            neighbors = node_tie_packet.element.node.neighbors or {}
+            for check_neighbor in neighbors.values():
                 if check_neighbor.level > self.level_value():
                     return False
         return True
@@ -2473,7 +2474,8 @@ class Node:
             node_level = node_tie_packet.element.node.level
             if node_sysid not in node_adj_with_look_for_sysid:
                 node_adj_with_look_for_sysid[node_sysid] = False
-            for nbr_sysid, nbr_info in node_tie_packet.element.node.neighbors.items():
+            neighbors = node_tie_packet.element.node.neighbors or {}
+            for nbr_sysid, nbr_info in neighbors.items():
                 nbr_level = nbr_info.level
                 if nbr_level < node_level and nbr_sysid == look_for_sysid:
                     node_adj_with_look_for_sysid[node_sysid] = True
@@ -2520,7 +2522,8 @@ class Node:
             node_level = node_tie_packet.element.node.level
             if node_sysid not in nodes:
                 nodes[node_sysid] = ([], [])
-            for nbr_sysid, nbr_info in node_tie_packet.element.node.neighbors.items():
+            neighbors = node_tie_packet.element.node.neighbors or {}
+            for nbr_sysid, nbr_info in neighbors.items():
                 nbr_level = nbr_info.level
                 if nbr_level > node_level:
                     nodes[node_sysid][0].append(nbr_sysid)  # Add north-bound adjacency
