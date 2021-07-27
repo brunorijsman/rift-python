@@ -205,7 +205,7 @@ you are using Python 3.5, 3.6 or 3.7, use the following command to install the d
 
 <pre>
 $ <b>pip install -r requirements-3-567.txt</b> 
-<pre>
+</pre>
 
 ## Ubuntu Linux on local VM via Vagrant
 
