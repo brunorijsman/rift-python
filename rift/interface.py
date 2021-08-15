@@ -929,20 +929,24 @@ class Interface:
             self._interface_index = None
         self._rx_lie_ipv4_mcast_address = self.get_config_attribute(
             config, 'rx_lie_mcast_address', constants.DEFAULT_LIE_IPV4_MCAST_ADDRESS)
-        # JvB added: support subnet broadcast auto-determined
-        if self._rx_lie_ipv4_mcast_address == "broadcast":
-            net = IPv4Network(self._ipv4_address, _ipv4_netmask)
-            self._rx_lie_ipv4_mcast_address = net.broadcast_address
-            self._rx_use_broadcast = True
-            self.info( "Determined broadcast address: %s", self._rx_lie_ipv4_mcast_address )
-        else:
-            self._rx_use_broadcast = False
         self._tx_lie_ipv4_mcast_address = self.get_config_attribute(
             config, 'tx_lie_mcast_address', constants.DEFAULT_LIE_IPV4_MCAST_ADDRESS)
         self._rx_lie_ipv6_mcast_address = self.get_config_attribute(
             config, 'rx_lie_v6_mcast_address', constants.DEFAULT_LIE_IPV6_MCAST_ADDRESS)
         self._tx_lie_ipv6_mcast_address = self.get_config_attribute(
             config, 'tx_lie_v6_mcast_address', constants.DEFAULT_LIE_IPV6_MCAST_ADDRESS)
+
+        # JvB added: support subnet broadcast auto-determined
+        self._tx_lie_use_broadcast = self.get_config_attribute(
+            config, 'tx_lie_use_broadcast', constants.DEFAULT_LIE_SEND_USE_BROADCAST )
+        if self._tx_lie_use_broadcast:
+            net = IPv4Network(self._ipv4_address, _ipv4_netmask)
+            self._tx_lie_ipv4_mcast_address = net.broadcast_address
+            self.info( "Determined subnet broadcast address: %s", self._tx_lie_ipv4_mcast_address )
+        elif self._tx_lie_ipv4_mcast_address == "255.255.255.255":
+            self._tx_lie_use_broadcast = True
+            self.info( "Implicitly enabled global broadcast address" )
+
         self._rx_lie_port = self.get_config_attribute(config, 'rx_lie_port',
                                                       constants.DEFAULT_LIE_PORT)
         self._tx_lie_port = self.get_config_attribute(config, 'tx_lie_port',
@@ -1984,7 +1988,7 @@ class Interface:
         self.enable_addr_and_port_reuse(sock)
         if self._ipv4_address is not None:
             try:
-                if self._rx_use_broadcast:
+                if self._tx_lie_use_broadcast:
                   sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
                 else:
                   sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_IF,
