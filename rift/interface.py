@@ -1960,11 +1960,11 @@ class Interface:
     def socket_connect(self, sock, address, port):
         try:
             sock.connect((address, port))
-            return True
+            return sock
         except IOError as err:
-            self.warning("Could not connect UDP socket to address %s port %d: %s",
+            self.warning("socket_connect line 1965: Could not connect UDP socket to address %s port %d: %s",
                          address, port, err)
-        return False
+        return None
 
     def create_socket_ipv4_tx_mcast(self, multicast_address, port, loopback):
         try:
@@ -1987,13 +1987,7 @@ class Interface:
         except IOError as err:
             self.warning("Could not set IPv4 multicast loopback value %d: %s", loop_value, err)
             return None
-        try:
-            sock.connect((multicast_address, port))
-        except IOError as err:
-            self.warning("Could not connect UDP socket to address %s port %d: %s",
-                         multicast_address, port, err)
-            return None
-        return sock
+        return self.socket_connect(sock, multicast_address, port)
 
     def create_socket_ipv4_tx_ucast(self, remote_address, port):
         try:
@@ -2002,13 +1996,7 @@ class Interface:
             self.warning("Could not create IPv4 UDP socket: %s", err)
             return None
         self.enable_addr_and_port_reuse(sock)
-        try:
-            sock.connect((remote_address, port))
-        except IOError as err:
-            self.warning("Could not connect UDP socket to address %s port %d: %s",
-                         remote_address, port, err)
-            return None
-        return sock
+        return self.socket_connect( sock, remote_address, port )
 
     def create_socket_ipv6_tx_mcast(self, multicast_address, port, loopback):
         if self._interface_index is None:
@@ -2037,9 +2025,9 @@ class Interface:
                 str(multicast_address) + '%' + self.physical_interface_name)
             sock_addr = socket.getaddrinfo(scoped_ipv6_multicast_address, port,
                                            socket.AF_INET6, socket.SOCK_DGRAM)[0][4]
-            sock.connect(sock_addr)
+            sock.connect(sock_addr) # XXX use self.socket_connect?
         except (IOError, OSError) as err:
-            self.warning("Could not connect UDP socket to address %s port %d: %s",
+            self.warning("create_socket_ipv6_tx_mcast: Could not connect UDP socket to address %s port %d: %s",
                          scoped_ipv6_multicast_address, port, err)
             return None
         return sock
@@ -2055,8 +2043,8 @@ class Interface:
             sock_addr = socket.getaddrinfo(remote_address, port, socket.AF_INET6,
                                            socket.SOCK_DGRAM)[0][4]
             sock.connect(sock_addr)
-        except IOError as err:
-            self.warning("Could not connect UDP socket to address %s port %d: %s",
+        except (IOError, OSError) as err:
+            self.warning("create_socket_ipv6_tx_ucast: Could not connect UDP socket to address %s port %d: %s",
                          remote_address, port, err)
             return None
         return sock
