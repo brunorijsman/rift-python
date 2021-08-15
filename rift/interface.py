@@ -7,6 +7,7 @@ import errno
 import logging
 import random
 import socket
+from ipaddress import IPv4Network
 
 import constants
 import fsm
@@ -930,7 +931,7 @@ class Interface:
             config, 'rx_lie_mcast_address', constants.DEFAULT_LIE_IPV4_MCAST_ADDRESS)
         # JvB added: support subnet broadcast auto-determined
         if self._rx_lie_ipv4_mcast_address == "broadcast":
-            net = ipaddress.IPv4Network(self._ipv4_address, _ipv4_netmask)
+            net = IPv4Network(self._ipv4_address, _ipv4_netmask)
             self._rx_lie_ipv4_mcast_address = net.broadcast_address
             self._rx_use_broadcast = True
             self.info( "Determined broadcast address: %s", self._rx_lie_ipv4_mcast_address )
