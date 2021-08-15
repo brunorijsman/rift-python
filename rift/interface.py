@@ -918,7 +918,7 @@ class Interface:
         else:
             self.bandwidth = common.constants.default_bandwidth
         self._advertised_name = self.generate_advertised_name()
-        self._ipv4_address = utils.interface_ipv4_address(self.physical_interface_name)
+        self._ipv4_address, _ipv4_netmask = utils.interface_ipv4_address(self.physical_interface_name)
         self._ipv6_address = utils.interface_ipv6_address(self.physical_interface_name)
         try:
             self._interface_index = socket.if_nametoindex(self.physical_interface_name)
@@ -928,6 +928,14 @@ class Interface:
             self._interface_index = None
         self._rx_lie_ipv4_mcast_address = self.get_config_attribute(
             config, 'rx_lie_mcast_address', constants.DEFAULT_LIE_IPV4_MCAST_ADDRESS)
+        # JvB added: support subnet broadcast auto-determined
+        if self._rx_lie_ipv4_mcast_address == "broadcast":
+            net = ipaddress.IPv4Network(self._ipv4_address, _ipv4_netmask)
+            self._rx_lie_ipv4_mcast_address = net.broadcast_address
+            self._rx_use_broadcast = True
+            self.info( "Determined broadcast address: %s", self._rx_lie_ipv4_mcast_address )
+        else:
+            self._rx_use_broadcast = False
         self._tx_lie_ipv4_mcast_address = self.get_config_attribute(
             config, 'tx_lie_mcast_address', constants.DEFAULT_LIE_IPV4_MCAST_ADDRESS)
         self._rx_lie_ipv6_mcast_address = self.get_config_attribute(
@@ -1975,8 +1983,11 @@ class Interface:
         self.enable_addr_and_port_reuse(sock)
         if self._ipv4_address is not None:
             try:
-                sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_IF,
-                                socket.inet_aton(self._ipv4_address))
+                if self._rx_use_broadcast:
+                  sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+                else:
+                  sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_IF,
+                                  socket.inet_aton(self._ipv4_address))
             except IOError as err:
                 self.warning("Could not set IPv6 multicast interface address %s: %s",
                              self._ipv4_address, err)
