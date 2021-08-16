@@ -790,8 +790,10 @@ class Node:
             ["Highest Adjacency Three-way (HAT)", self.highest_adjacency_three_way],
             ["Level Value", self.level_value_str()],
             ["LIE use subnet broadcast", self._lie_use_broadcast],
-            ["Receive LIE IPv4 Multicast Address", self.rx_lie_ipv4_mcast_address],
-            ["Transmit LIE IPv4 Multicast Address", self._tx_lie_ipv4_mcast_address],
+            ["Receive LIE IPv4 Multicast Address", "<subnet broadcast>" if self._lie_use_broadcast
+             else self.rx_lie_ipv4_mcast_address],
+            ["Transmit LIE IPv4 Multicast Address", "<subnet broadcast>" if self._lie_use_broadcast
+             else self._tx_lie_ipv4_mcast_address],
             ["Receive LIE IPv6 Multicast Address", self.rx_lie_ipv6_mcast_address],
             ["Transmit LIE IPv6 Multicast Address", self._tx_lie_ipv6_mcast_address],
             ["Receive LIE Port", self._rx_lie_port],
