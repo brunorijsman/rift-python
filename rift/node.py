@@ -437,8 +437,8 @@ class Node:
             'rx_lie_v6_mcast_address', constants.DEFAULT_LIE_IPV6_MCAST_ADDRESS)
         self._tx_lie_ipv6_mcast_address = self.get_config_attribute(
             'tx_lie_v6_mcast_address', constants.DEFAULT_LIE_IPV6_MCAST_ADDRESS)
-        self._tx_lie_use_broadcast = self.get_config_attribute(
-            'tx_lie_use_broadcast', constants.DEFAULT_LIE_SEND_USE_BROADCAST)
+        self._lie_use_broadcast = self.get_config_attribute(
+            'lie_use_broadcast', constants.DEFAULT_LIE_SEND_USE_BROADCAST)
 
         self._rx_lie_port = self.get_config_attribute('rx_lie_port', constants.DEFAULT_LIE_PORT)
         self.tx_lie_port = self.get_config_attribute('tx_lie_port', constants.DEFAULT_LIE_PORT)

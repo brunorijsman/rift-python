@@ -937,16 +937,17 @@ class Interface:
             config, 'tx_lie_v6_mcast_address', constants.DEFAULT_LIE_IPV6_MCAST_ADDRESS)
 
         # JvB added: support subnet broadcast auto-determined
-        self._tx_lie_use_broadcast = self.get_config_attribute(
-            config, 'tx_lie_use_broadcast', constants.DEFAULT_LIE_SEND_USE_BROADCAST )
-        if self._tx_lie_use_broadcast:
+        self._lie_use_broadcast = self.get_config_attribute(
+            config, 'lie_use_broadcast', constants.DEFAULT_LIE_SEND_USE_BROADCAST )
+        if self._lie_use_broadcast:
             net = IPv4Network(self._ipv4_address + "/" + _ipv4_netmask, strict=False)
             self._tx_lie_ipv4_mcast_address = net.broadcast_address
+            self._rx_lie_ipv4_mcast_address = net.broadcast_address
             self.info( "Determined subnet broadcast address: %s in %s",
-              self._tx_lie_ipv4_mcast_address, net )
-        elif self._tx_lie_ipv4_mcast_address == "255.255.255.255":
-            self._tx_lie_use_broadcast = True
-            self.info( "Implicitly enabled 'tx_lie_use_broadcast' due to global broadcast address" )
+              net.broadcast_address, net )
+        # elif self._tx_lie_ipv4_mcast_address == "255.255.255.255":
+        #    self._lie_use_broadcast = True
+        #    self.info( "Implicitly enabled 'lie_use_broadcast' due to global broadcast address" )
 
         self._rx_lie_port = self.get_config_attribute(config, 'rx_lie_port',
                                                       constants.DEFAULT_LIE_PORT)
@@ -1989,7 +1990,7 @@ class Interface:
         self.enable_addr_and_port_reuse(sock)
         if self._ipv4_address is not None:
             try:
-                if self._tx_lie_use_broadcast:
+                if self._lie_use_broadcast:
                   sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
                 else:
                   sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_IF,
