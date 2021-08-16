@@ -938,7 +938,7 @@ class Interface:
 
         # JvB added: support subnet broadcast auto-determined
         self._lie_use_broadcast = self.get_config_attribute(
-            config, 'lie_use_broadcast', constants.DEFAULT_LIE_SEND_USE_BROADCAST )
+            config, 'lie_use_broadcast', constants.DEFAULT_LIE_USE_BROADCAST )
         if self._lie_use_broadcast:
             net = IPv4Network(self._ipv4_address + "/" + _ipv4_netmask, strict=False)
             self._tx_lie_ipv4_mcast_address = str(net.broadcast_address)
