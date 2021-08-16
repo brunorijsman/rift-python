@@ -941,8 +941,8 @@ class Interface:
             config, 'lie_use_broadcast', constants.DEFAULT_LIE_SEND_USE_BROADCAST )
         if self._lie_use_broadcast:
             net = IPv4Network(self._ipv4_address + "/" + _ipv4_netmask, strict=False)
-            self._tx_lie_ipv4_mcast_address = net.broadcast_address
-            self._rx_lie_ipv4_mcast_address = net.broadcast_address
+            self._tx_lie_ipv4_mcast_address = str(net.broadcast_address)
+            self._rx_lie_ipv4_mcast_address = str(net.broadcast_address)
             self.info( "Determined subnet broadcast address: %s in %s",
               net.broadcast_address, net )
         # elif self._tx_lie_ipv4_mcast_address == "255.255.255.255":
