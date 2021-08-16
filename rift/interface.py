@@ -1978,7 +1978,7 @@ class Interface:
             sock.connect((str(address), port))
             return sock
         except IOError as err:
-            self.warning("socket_connect line 1965: Could not connect UDP socket to address %s port %d: %s",
+            self.warning("socket_connect : Could not connect UDP socket to address %s port %d: %s",
                          address, port, err)
         return None
 
