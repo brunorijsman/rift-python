@@ -204,17 +204,18 @@ class UdpRxHandler:
             return None
         if sock is None:
             return None
-        if self._local_ipv4_address:
-            req = struct.pack("=4s4s", socket.inet_aton(self._multicast_address),
-                              socket.inet_aton(self._local_ipv4_address))
-        else:
-            req = struct.pack("=4sl", socket.inet_aton(self._multicast_address), socket.INADDR_ANY)
-        try:
-            sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, req)
-        except (IOError, OSError) as err:
-            self.warning("Could not join IPv4 group %s for local address %s: %s",
-                         self._multicast_address, self._local_ipv4_address, err)
-            return None
+        if not self._lie_use_broadcast:
+            if self._local_ipv4_address:
+                req = struct.pack("=4s4s", socket.inet_aton(self._multicast_address),
+                                  socket.inet_aton(self._local_ipv4_address))
+            else:
+                req = struct.pack("=4sl", socket.inet_aton(self._multicast_address), socket.INADDR_ANY)
+            try:
+                sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, req)
+            except (IOError, OSError) as err:
+                self.warning("Could not join IPv4 group %s for local address %s: %s",
+                             self._multicast_address, self._local_ipv4_address, err)
+                return None
         if not MACOS:
             try:
                 # pylint:disable=no-member
