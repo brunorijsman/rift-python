@@ -93,7 +93,7 @@ class UdpRxHandler:
         self._receive_function = receive_function
         self._log = log
         self._log_id = log_id
-        self._local_ipv4_address = utils.interface_ipv4_address(interface_name)
+        self._local_ipv4_address, _mask = utils.interface_ipv4_address(interface_name)
         self._local_ipv6_address = utils.interface_ipv6_address(interface_name)
         try:
             self._interface_index = socket.if_nametoindex(interface_name)

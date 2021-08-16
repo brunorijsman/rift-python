@@ -940,12 +940,13 @@ class Interface:
         self._tx_lie_use_broadcast = self.get_config_attribute(
             config, 'tx_lie_use_broadcast', constants.DEFAULT_LIE_SEND_USE_BROADCAST )
         if self._tx_lie_use_broadcast:
-            net = IPv4Network(self._ipv4_address, _ipv4_netmask)
+            net = IPv4Network(self._ipv4_address + "/" + _ipv4_netmask, strict=False)
             self._tx_lie_ipv4_mcast_address = net.broadcast_address
-            self.info( "Determined subnet broadcast address: %s", self._tx_lie_ipv4_mcast_address )
+            self.info( "Determined subnet broadcast address: %s in %s",
+              self._tx_lie_ipv4_mcast_address, net )
         elif self._tx_lie_ipv4_mcast_address == "255.255.255.255":
             self._tx_lie_use_broadcast = True
-            self.info( "Implicitly enabled global broadcast address" )
+            self.info( "Implicitly enabled 'tx_lie_use_broadcast' due to global broadcast address" )
 
         self._rx_lie_port = self.get_config_attribute(config, 'rx_lie_port',
                                                       constants.DEFAULT_LIE_PORT)
@@ -1972,7 +1973,7 @@ class Interface:
 
     def socket_connect(self, sock, address, port):
         try:
-            sock.connect((address, port))
+            sock.connect((str(address), port))
             return sock
         except IOError as err:
             self.warning("socket_connect line 1965: Could not connect UDP socket to address %s port %d: %s",
