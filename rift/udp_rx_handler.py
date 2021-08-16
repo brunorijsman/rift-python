@@ -84,7 +84,7 @@ class UdpRxHandler:
     MAX_SIZE = 65535
 
     def __init__(self, interface_name, local_port, ipv4, multicast_address, remote_address,
-                 receive_function, log, log_id):
+                 receive_function, log, log_id, use_broadcast=False):
         self._interface_name = interface_name
         self._local_port = local_port
         self._ipv4 = ipv4                             # IPv4 if True, IPv6 if False
@@ -102,7 +102,7 @@ class UdpRxHandler:
             self._interface_index = None
         if ipv4:
             if self._multicast_address:
-                self.sock = self.create_socket_ipv4_rx_mcast()
+                self.sock = self.create_socket_ipv4_rx_mcast(use_broadcast)
             else:
                 self.sock = self.create_socket_ipv4_rx_ucast()
         else:
@@ -189,7 +189,7 @@ class UdpRxHandler:
             return None
         return sock
 
-    def create_socket_ipv4_rx_mcast(self):
+    def create_socket_ipv4_rx_mcast(self,use_broadcast):
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
         except (IOError, OSError) as err:
@@ -204,7 +204,7 @@ class UdpRxHandler:
             return None
         if sock is None:
             return None
-        if not self._lie_use_broadcast:
+        if not use_broadcast:
             if self._local_ipv4_address:
                 req = struct.pack("=4s4s", socket.inet_aton(self._multicast_address),
                                   socket.inet_aton(self._local_ipv4_address))

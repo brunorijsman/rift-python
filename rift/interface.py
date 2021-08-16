@@ -1212,6 +1212,7 @@ class Interface:
             local_port=self._rx_lie_port,
             ipv4=True,
             multicast_address=self._rx_lie_ipv4_mcast_address,
+            use_broadcast=self._lie_use_broadcast,
             remote_address=None,
             receive_function=self.receive_lie_message,
             log=self._rx_log,
