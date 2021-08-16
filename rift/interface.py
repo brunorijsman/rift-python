@@ -1990,16 +1990,20 @@ class Interface:
             return None
         self.enable_addr_and_port_reuse(sock)
         if self._ipv4_address is not None:
-            try:
-                if self._lie_use_broadcast:
+            if self._lie_use_broadcast:
+               try:
                   sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-                else:
+               except IOError as err:
+                  self.warning("Could not enable SO_BROADCAST on socket: %s", err)
+                  return None
+            else:
+               try:
                   sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_IF,
                                   socket.inet_aton(self._ipv4_address))
-            except IOError as err:
-                self.warning("Could not set IPv6 multicast interface address %s: %s",
-                             self._ipv4_address, err)
-                return None
+               except IOError as err:
+                   self.warning("Could not set IPv4 tx multicast interface address %s: %s",
+                                self._ipv4_address, err)
+                   return None
         try:
             loop_value = 1 if loopback else 0
             sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, loop_value)
