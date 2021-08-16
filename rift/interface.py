@@ -2048,7 +2048,7 @@ class Interface:
                 str(multicast_address) + '%' + self.physical_interface_name)
             sock_addr = socket.getaddrinfo(scoped_ipv6_multicast_address, port,
                                            socket.AF_INET6, socket.SOCK_DGRAM)[0][4]
-            sock.connect(sock_addr) # XXX use self.socket_connect?
+            sock.connect(sock_addr) # Don't use self.socket_connect, 4-tuple
         except (IOError, OSError) as err:
             self.warning("create_socket_ipv6_tx_mcast: Could not connect UDP socket to address %s port %d: %s",
                          scoped_ipv6_multicast_address, port, err)
