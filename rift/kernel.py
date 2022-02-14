@@ -198,6 +198,17 @@ class Kernel:
         cli_session.print("Kernel Links:")
         cli_session.print(tab.to_string())
 
+    def interface_mtu(self, name):
+        if self.platform_supported:
+            link_index = self.ipr.link_lookup(ifname=name)
+            if link_index:
+                link = self.ipr.get_links(link_index)[0]
+                return link.get_attr('IFLA_MTU')
+            else:
+                self.warning("Interface link for %s not found", name)
+        # If we cannot determine MTU, return the default MTU value
+        return 1400
+
     @staticmethod
     def link_flags_to_str(flags):
         str_list = []
