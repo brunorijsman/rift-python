@@ -9,7 +9,8 @@ def interface_ipv4_address(interface_name):
     interface_addresses = netifaces.ifaddresses(interface_name)
     if not netifaces.AF_INET in interface_addresses:
         return None
-    return interface_addresses[netifaces.AF_INET][0]['addr']
+    intf = interface_addresses[netifaces.AF_INET][0]
+    return intf['addr'], intf['netmask']
 
 def interface_ipv6_address(interface_name):
     interface_addresses = netifaces.interfaces()

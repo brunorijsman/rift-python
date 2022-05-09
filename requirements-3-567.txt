@@ -23,7 +23,7 @@ netifaces==0.10.7
 pexpect==4.6.0
 pluggy==0.7.1
 ptyprocess==0.6.0
-py==1.5.4
+py==1.10.0
 pyasn1==0.4.8
 pylint==2.0.0
 pyroute2==0.5.3
@@ -32,14 +32,14 @@ pytest-cov==2.5.1
 pytest-profiling==1.7.0
 python-dateutil==2.8.1
 pytricia==1.0.1
-PyYAML==4.2b1
+PyYAML==5.4
 requests==2.20.0
 rope==0.11.0
-rsa==3.4.2
+rsa==4.7
 s3transfer==0.3.3
 six==1.11.0
 sortedcontainers==2.0.4
 thrift==0.11.0
 typed-ast==1.1.0
-urllib3==1.24.2
+urllib3==1.26.5
 wrapt==1.10.11
