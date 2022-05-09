@@ -50,6 +50,7 @@ SCHEMA = {
                             'systemid': {'type': 'integer', 'min': 0},
                             'rx_lie_mcast_address': {'type': 'ipv4address'},
                             'tx_lie_mcast_address': {'type': 'ipv4address'},
+                            'lie_use_broadcast': {'type': 'boolean'},
                             'rx_lie_v6_mcast_address': {'type': 'ipv6address'},
                             'tx_lie_v6_mcast_address': {'type': 'ipv6address'},
                             'rx_lie_port': {'type': 'port'},
@@ -263,6 +264,7 @@ def node_apply_inheritance(node_config, global_config):
 def interface_apply_inheritance(interface_config, node_config):
     intf_inherit_attr_from_node(interface_config, 'rx_lie_mcast_address', node_config)
     intf_inherit_attr_from_node(interface_config, 'tx_lie_mcast_address', node_config)
+    intf_inherit_attr_from_node(interface_config, 'lie_use_broadcast', node_config)
     intf_inherit_attr_from_node(interface_config, 'rx_lie_v6_mcast_address', node_config)
     intf_inherit_attr_from_node(interface_config, 'tx_lie_v6_mcast_address', node_config)
     intf_inherit_attr_from_node(interface_config, 'rx_lie_port', node_config)
