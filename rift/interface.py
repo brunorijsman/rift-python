@@ -63,8 +63,7 @@ class Interface:
         return self.node.name + ':' + self.name
 
     def get_mtu(self):
-        mtu = 1400
-        return mtu
+        return self.node.kernel.interface_mtu(self.physical_interface_name)
 
     class State(enum.Enum):
         ONE_WAY = 1
