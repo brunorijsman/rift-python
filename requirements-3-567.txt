@@ -23,7 +23,7 @@ netifaces==0.10.7
 pexpect==4.6.0
 pluggy==0.7.1
 ptyprocess==0.6.0
-py==1.5.4
+py==1.10.0
 pyasn1==0.4.8
 pylint==2.0.0
 pyroute2==0.5.3
