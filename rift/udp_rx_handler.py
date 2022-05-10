@@ -189,7 +189,7 @@ class UdpRxHandler:
             return None
         return sock
 
-    def create_socket_ipv4_rx_mcast(self,use_broadcast):
+    def create_socket_ipv4_rx_mcast(self, use_broadcast):
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
         except (IOError, OSError) as err:
@@ -209,7 +209,8 @@ class UdpRxHandler:
                 req = struct.pack("=4s4s", socket.inet_aton(self._multicast_address),
                                   socket.inet_aton(self._local_ipv4_address))
             else:
-                req = struct.pack("=4sl", socket.inet_aton(self._multicast_address), socket.INADDR_ANY)
+                req = struct.pack("=4sl", socket.inet_aton(self._multicast_address),
+                                  socket.INADDR_ANY)
             try:
                 sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, req)
             except (IOError, OSError) as err:
