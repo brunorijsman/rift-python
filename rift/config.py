@@ -50,6 +50,7 @@ SCHEMA = {
                             'systemid': {'type': 'integer', 'min': 0},
                             'rx_lie_mcast_address': {'type': 'ipv4address'},
                             'tx_lie_mcast_address': {'type': 'ipv4address'},
+                            'lie_use_broadcast': {'type': 'boolean'},
                             'rx_lie_v6_mcast_address': {'type': 'ipv6address'},
                             'tx_lie_v6_mcast_address': {'type': 'ipv6address'},
                             'rx_lie_port': {'type': 'port'},
@@ -143,7 +144,6 @@ SCHEMA = {
 }
 
 def default_interface_name():
-    # TODO: dynamically discover interface name
     return 'en0'
 
 DEFAULT_CONFIG = {
@@ -214,7 +214,7 @@ class RiftValidator(cerberus.Validator):
         except ValueError:
             return False
         else:
-            return 0 <= level <= 3
+            return 0 <= level <= 24
 
     def _validate_type_kernel_route_table(self, value):
         if isinstance(value, str) and value.lower() in ['local', 'main', 'default', 'unspecified',
@@ -264,6 +264,7 @@ def node_apply_inheritance(node_config, global_config):
 def interface_apply_inheritance(interface_config, node_config):
     intf_inherit_attr_from_node(interface_config, 'rx_lie_mcast_address', node_config)
     intf_inherit_attr_from_node(interface_config, 'tx_lie_mcast_address', node_config)
+    intf_inherit_attr_from_node(interface_config, 'lie_use_broadcast', node_config)
     intf_inherit_attr_from_node(interface_config, 'rx_lie_v6_mcast_address', node_config)
     intf_inherit_attr_from_node(interface_config, 'tx_lie_v6_mcast_address', node_config)
     intf_inherit_attr_from_node(interface_config, 'rx_lie_port', node_config)
@@ -365,7 +366,8 @@ def parse_configuration(filename):
         try:
             config = yaml.safe_load(file)
         except yaml.YAMLError as err:
-            print("Could not load configuration file {}:".format(filename), file=sys.stderr)
+            print("Could not load configuration file {}: {}".format(filename, str(err)),
+                  file=sys.stderr)
             file.close()
             sys.exit(1)
         file.close()
@@ -376,7 +378,7 @@ def parse_configuration(filename):
         print("Could not parse configuration file {}:".format(filename), file=sys.stderr)
         pretty_printer = pprint.PrettyPrinter()
         pretty_printer.pprint(validator.errors)
-        exit(1)
+        sys.exit(1)
     config = validator.normalized(config)
     apply_global_defaults(config)
     apply_inheritance(config)

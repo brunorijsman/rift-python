@@ -1,15 +1,29 @@
 language: python
-python:
-  - "3.5"
-  - "3.5-dev"
-  - "3.6"
-  - "3.6-dev"
-  # TODO: make 3.7-dev work
-  # - "3.7-dev"
+
+os: linux
+
+jobs:
+  include:
+  - dist: xenial
+    python: 3.5
+  - dist: xenial
+    python: 3.6
+  - dist: xenial
+    python: 3.7
+  - dist: xenial
+    python: 3.8
+  - dist: bionic
+    python: 3.8
+  - dist: focal
+    python: 3.8
+
 install:
   - virtualenv env --python=python3
   - source env/bin/activate
-  - pip install -r requirements.txt
+  - if [ "$TRAVIS_PYTHON_VERSION" == "3.5" ]; then pip install -r requirements-3-567.txt; fi
+  - if [ "$TRAVIS_PYTHON_VERSION" == "3.6" ]; then pip install -r requirements-3-567.txt; fi
+  - if [ "$TRAVIS_PYTHON_VERSION" == "3.7" ]; then pip install -r requirements-3-567.txt; fi
+  - if [ "$TRAVIS_PYTHON_VERSION" == "3.8" ]; then pip install -r requirements-3-8.txt; fi
   - pip install pylint
   - pip install codecov
   # Python3 needs root and setuid to allow test_kernel to add routes to the kernel
@@ -17,14 +31,14 @@ install:
   - sudo chmod u+s env/bin/python3
   # Insert list of interfaces and their addresses in log
   - ifconfig
+
 script:
-  # We are strict; if the pylint score is not perfect, we fail the build
-  - pytest --cov=rift tests && pylint rift && pylint tests && pylint tools && tools/update_cli_docs.py -c
+  - pytest --cov=rift tests || tools/summarize-test-errors.sh
+  - echo "lint rift" && pylint rift
+  - echo "lint tests" && pylint tests
+  - echo "lint tools" && pylint tools
+  - echo "check cli docs" && tools/update_cli_docs.py -c
+  - sudo tools/chaos-test-suite --new-venv --iterations 3 && tools/interface_stats.py
   
 after_success:
   - codecov
-
-after_failure:
-  - tail -1000 rift_expect.log
-  - tail -1000 rift_telnet_expect.log
-  - tail -1000 test_telnet_expect.log

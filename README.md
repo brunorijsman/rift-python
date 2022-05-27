@@ -1,9 +1,9 @@
-[![Build Status](https://travis-ci.org/brunorijsman/rift-python.svg?branch=master)](https://travis-ci.org/brunorijsman/rift-python)   [![Code Coverage](https://codecov.io/gh/brunorijsman/rift-python/branch/master/graph/badge.svg)](https://codecov.io/gh/brunorijsman/rift-python)
+[![Build Status](https://travis-ci.com/brunorijsman/rift-python.svg?branch=master)](https://travis-ci.com/brunorijsman/rift-python)   [![Code Coverage](https://codecov.io/gh/brunorijsman/rift-python/branch/master/graph/badge.svg)](https://codecov.io/gh/brunorijsman/rift-python)
 
 # Routing In Fat Trees (RIFT)
 
 This repository contains a Python implementation of the Routing In Fat Trees (RIFT) protocol specified in Internet Draft (ID)
-[draft-draft-rift-03](https://tools.ietf.org/html/draft-ietf-rift-rift-03)
+[draft-draft-rift-12](https://tools.ietf.org/html/draft-ietf-rift-rift-12)
 
 The code is currently still a work in progress (see Feature List below for the status).
 
@@ -23,8 +23,12 @@ The code is currently still a work in progress (see Feature List below for the s
 
   * [Flooding Reduction Feature Guide](doc/flooding-reduction-feature-guide.md)
 
-  * [Positive Disaggregation Feature Guide](doc/positive-disaggregation-feature-guide.md)
+  * [Disaggregation Feature Guide](doc/disaggregation-feature-guide.md)
 
+    * [Positive Disaggregation Feature Guide](doc/positive-disaggregation-feature-guide.md)
+
+    * [Negative Disaggregation Feature Guide](doc/negative-disaggregation-feature-guide.md)
+    
   * [Security Feature Guide](doc/security-feature-guide.md)
 
 * [Logging](doc/logging.md)
@@ -88,3 +92,15 @@ A version of this code (tag ietf-102-rift-hackathon) was used to conduct interop
 ## IETF 105 (Montreal)
 
 * [IETF 105 Working Group Presentation: Open Source Update (PDF)](ietf-105/ietf-105---rift-wg---open-source-update.pdf)
+
+## IETF 108 (Virtual)
+
+* [IETF 108 Working Group Presentation: Open Source Update (PDF)](ietf-108/ietf-108---rift-wg---open-source-update.pdf)
+
+* [IETF 108 Working Group Presentation: Open Source Update (Video)](https://www.youtube.com/watch?v=qhiiTDPuku0)
+
+* [RIFT automatic disaggregation blog](https://hikingandcoding.com/2020/07/22/rift-disaggregation/)
+
+## Blogs
+
+* [Blog post on automatic disaggregation in RIFT](https://hikingandcoding.wordpress.com/2020/07/22/rift-disaggregation/)

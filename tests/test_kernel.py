@@ -1,20 +1,19 @@
 import re
 
-import constants
-import kernel
-import next_hop
-import packet_common
-import route
+from kernel import Kernel
+from fib_route import FibRoute
+from next_hop import NextHop
+from packet_common import add_missing_methods_to_thrift, make_ip_address, make_ip_prefix
 
 # pylint: disable=line-too-long
 # pylint: disable=bad-continuation
 
 def test_create_kernel():
-    _kernel_1 = kernel.Kernel(log=None, log_id="", table_name="main")
-    _kernel_2 = kernel.Kernel(log=None, log_id="", table_name=3)
+    _kernel_1 = Kernel(simulated_interfaces=False, log=None, log_id="", table_name="main")
+    _kernel_2 = Kernel(simulated_interfaces=False, log=None, log_id="", table_name=3)
 
 def test_cli_addresses_table():
-    kern = kernel.Kernel(log=None, log_id="", table_name="main")
+    kern = Kernel(simulated_interfaces=False, log=None, log_id="", table_name="main")
     if not kern.platform_supported:
         return
     # We assume the loopback interface (lo) is always there, and we look for something like this:
@@ -31,7 +30,7 @@ def test_cli_addresses_table():
     assert re.search(pattern, tab_str) is not None
 
 def test_cli_links_table():
-    kern = kernel.Kernel(log=None, log_id="", table_name="main")
+    kern = Kernel(simulated_interfaces=False, log=None, log_id="", table_name="main")
     if not kern.platform_supported:
         return
     # We assume the loopback interface (lo) is always there, and we look for something like this:
@@ -51,8 +50,8 @@ def test_cli_links_table():
     assert re.search(pattern, tab_str) is not None
 
 def test_cli_routes_table():
-    packet_common.add_missing_methods_to_thrift()
-    kern = kernel.Kernel(log=None, log_id="", table_name="main")
+    add_missing_methods_to_thrift()
+    kern = Kernel(simulated_interfaces=False, log=None, log_id="", table_name="main")
     if not kern.platform_supported:
         return
     # We assume that the main route table always has a default route, and we look for this:
@@ -71,7 +70,7 @@ def test_cli_routes_table():
     assert re.search(pattern, tab_str) is not None
 
 def test_cli_route_prefix_table():
-    kern = kernel.Kernel(log=None, log_id="", table_name="main")
+    kern = Kernel(simulated_interfaces=False, log=None, log_id="", table_name="main")
     if not kern.platform_supported:
         return
     # We assume that the main route table always has a default route, and we look for this:
@@ -94,7 +93,7 @@ def test_cli_route_prefix_table():
     # | Type of Service          | 0                |
     # | Flags                    | 0                |
     # +--------------------------+------------------+
-    default_prefix = packet_common.make_ip_prefix("0.0.0.0/0")
+    default_prefix = make_ip_prefix("0.0.0.0/0")
     tab_str = kern.cli_route_prefix_table(254, default_prefix).to_string()
     pattern = (r"[|] Table +[|] Main +[|]\n"
                r"[|] Address Family +[|] IPv4 +[|]\n"
@@ -105,30 +104,30 @@ def test_cli_route_prefix_table():
     assert re.search(pattern, tab_str) is not None
 
 def test_put_del_route():
-    kern = kernel.Kernel(log=None, log_id="", table_name="5")
+    kern = Kernel(simulated_interfaces=False, log=None, log_id="", table_name="5")
     if not kern.platform_supported:
         return
     # Put route with one next-hop (with interface but no address)
-    prefix = packet_common.make_ip_prefix("99.99.99.99/32")
-    nhops = [next_hop.NextHop("lo", None)]
-    rte = route.Route(prefix, constants.OWNER_S_SPF, nhops)
+    prefix = make_ip_prefix("99.99.99.99/32")
+    nhops = [NextHop(False, "lo", None, None)]
+    rte = FibRoute(prefix, nhops)
     assert kern.put_route(rte)
     # Delete route just added
     assert kern.del_route(prefix)
     # Put route with one next-hop (with interface and address)
-    prefix = packet_common.make_ip_prefix("99.99.99.99/32")
-    address = packet_common.make_ip_address("127.0.0.1")
-    nhops = [next_hop.NextHop("lo", address)]
-    rte = route.Route(prefix, constants.OWNER_S_SPF, nhops)
+    prefix = make_ip_prefix("99.99.99.99/32")
+    address = make_ip_address("127.0.0.1")
+    nhops = [NextHop(False, "lo", address, None)]
+    rte = FibRoute(prefix, nhops)
     assert kern.put_route(rte)
     # Delete route just added
     assert kern.del_route(prefix)
     # Put ECMP route with multiple next-hop (with interface and address)
-    prefix = packet_common.make_ip_prefix("99.99.99.99/32")
-    address1 = packet_common.make_ip_address("127.0.0.1")
-    address2 = packet_common.make_ip_address("127.0.0.2")
-    nhops = [next_hop.NextHop("lo", address1), next_hop.NextHop("lo", address2)]
-    rte = route.Route(prefix, constants.OWNER_S_SPF, nhops)
+    prefix = make_ip_prefix("99.99.99.99/32")
+    address1 = make_ip_address("127.0.0.1")
+    address2 = make_ip_address("127.0.0.2")
+    nhops = [NextHop(False, "lo", address1, None), NextHop(False, "lo", address2, None)]
+    rte = FibRoute(prefix, nhops)
     assert kern.put_route(rte)
     # Do we display the ECMP route properly?
     tab_str = kern.cli_route_prefix_table(5, prefix).to_string()
@@ -145,28 +144,66 @@ def test_put_del_route():
     assert kern.del_route(prefix)
 
 def test_put_del_route_errors():
-    kern = kernel.Kernel(log=None, log_id="", table_name="main")
+    kern = Kernel(simulated_interfaces=False, log=None, log_id="", table_name="main")
     if not kern.platform_supported:
         return
     # Attempt to add route with nonsense next-hop interface
-    prefix = packet_common.make_ip_prefix("99.99.99.99/32")
-    nhops = [next_hop.NextHop("nonsense", None)]
-    rte = route.Route(prefix, constants.OWNER_S_SPF, nhops)
+    prefix = make_ip_prefix("99.99.99.99/32")
+    nhops = [NextHop(False, "nonsense", None, None)]
+    rte = FibRoute(prefix, nhops)
     assert not kern.put_route(rte)
 
+
+def test_put_del_route_unreachable():
+    kern = Kernel(simulated_interfaces=False, log=None, log_id="", table_name="main")
+    if not kern.platform_supported:
+        return
+    # Add unreachable prefix in the kernel routing table (no next hops)
+    prefix = make_ip_prefix("99.99.99.99/32")
+    nhops = []
+    rte = FibRoute(prefix, nhops)
+    assert kern.put_route(rte)
+    tab_str = kern.cli_route_prefix_table(254, prefix).to_string()
+    pattern = (r"[|] Table +[|] Main +[|]\n"
+               r"[|] Address Family +[|] IPv4 +[|]\n"
+               r"[|] Destination +[|] 99\.99\.99\.99/32 +[|]\n"
+               r"[|] Type +[|] Unreachable +[|]\n"
+               r"[|] Protocol +[|] RIFT +[|]\n"
+               r"[|] Scope +[|] Universe +[|]\n"
+               r"[|] Next-hops +[|]  +[|]\n"
+               r"[|] Priority +[|] 199 +[|]\n")
+    assert re.search(pattern, tab_str) is not None
+    # Replace unreachable route with a route containing one next hop
+    new_nhops = [NextHop(False, "lo", make_ip_address("127.0.0.1"), None)]
+    rte = FibRoute(prefix, new_nhops)
+    assert kern.put_route(rte)
+    tab_str = kern.cli_route_prefix_table(254, prefix).to_string()
+    pattern = (r"[|] Table +[|] Main +[|]\n"
+               r"[|] Address Family +[|] IPv4 +[|]\n"
+               r"[|] Destination +[|] 99\.99\.99\.99/32 +[|]\n"
+               r"[|] Type +[|] Unicast +[|]\n"
+               r"[|] Protocol +[|] RIFT +[|]\n"
+               r"[|] Scope +[|] Universe +[|]\n"
+               r"[|] Next-hops +[|] lo 127.0.0.1 +[|]\n"
+               r"[|] Priority +[|] 199 +[|]\n")
+    assert re.search(pattern, tab_str) is not None
+    # Delete next hops
+    assert kern.del_route(prefix)
+
+
 def test_table_nr_to_name():
-    assert kernel.Kernel.table_nr_to_name(255) == "Local"
-    assert kernel.Kernel.table_nr_to_name(254) == "Main"
-    assert kernel.Kernel.table_nr_to_name(253) == "Default"
-    assert kernel.Kernel.table_nr_to_name(5) == "5"
-    assert kernel.Kernel.table_nr_to_name(0) == "Unspecified"
-    assert kernel.Kernel.table_nr_to_name(-1) == "None"
+    assert Kernel.table_nr_to_name(255) == "Local"
+    assert Kernel.table_nr_to_name(254) == "Main"
+    assert Kernel.table_nr_to_name(253) == "Default"
+    assert Kernel.table_nr_to_name(5) == "5"
+    assert Kernel.table_nr_to_name(0) == "Unspecified"
+    assert Kernel.table_nr_to_name(-1) == "None"
 
 def test_table_name_to_nr():
-    assert kernel.Kernel.table_name_to_nr("LoCaL") == 255
-    assert kernel.Kernel.table_name_to_nr("local") == 255
-    assert kernel.Kernel.table_name_to_nr("main") == 254
-    assert kernel.Kernel.table_name_to_nr("default") == 253
-    assert kernel.Kernel.table_name_to_nr("5") == 5
-    assert kernel.Kernel.table_name_to_nr("unspecified") == 0
-    assert kernel.Kernel.table_name_to_nr("none") == -1
+    assert Kernel.table_name_to_nr("LoCaL") == 255
+    assert Kernel.table_name_to_nr("local") == 255
+    assert Kernel.table_name_to_nr("main") == 254
+    assert Kernel.table_name_to_nr("default") == 253
+    assert Kernel.table_name_to_nr("5") == 5
+    assert Kernel.table_name_to_nr("unspecified") == 0
+    assert Kernel.table_name_to_nr("none") == -1

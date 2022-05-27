@@ -60,13 +60,13 @@ def check_show_flooding_reduction(res):
 def check_show_forwarding(res):
     res.sendline("show forwarding")
     res.table_expect("IPv4 Routes:")
-    res.table_expect("| 2.2.1.0/24 | South SPF | if1")
+    res.table_expect("| 2.2.1.0/24 | Positive | if1")
     res.table_expect("IPv6 Routes:")
     res.wait_prompt()
 
 def check_show_forwarding_prefix(res):
     res.sendline("show forwarding prefix 2.2.2.2/32")
-    res.table_expect("| 2.2.2.2/32 | South SPF | if1")
+    res.table_expect("| 2.2.2.2/32 | Positive | if1")
     res.wait_prompt()
 
 def check_show_fsm_lie(res):
@@ -99,7 +99,7 @@ def check_show_interface(res):
     res.table_expect("Interface:")
     res.table_expect("| Interface Name | if1 |")
     res.table_expect("| State | THREE_WAY |")
-    res.table_expect("Neighbor:")
+    res.table_expect("Neighbor LIE Information:")
     res.table_expect("| Name | node2:if1 |")
     res.table_expect("| System ID | 2 |")
     res.wait_prompt()
@@ -119,7 +119,6 @@ def check_show_interface_fsm_verbose_history(res):
 def check_show_interface_queues(res):
     res.sendline("show interface if1 queues")
     res.table_expect("Transmit queue:")
-    res.table_expect("Retransmit queue:")
     res.table_expect("Request queue:")
     res.table_expect("Acknowledge queue:")
     res.wait_prompt()
@@ -221,18 +220,18 @@ def check_show_nodes_level(res):
 def check_show_routes(res):
     res.sendline("show routes")
     res.table_expect("IPv4 Routes:")
-    res.table_expect("| 2.2.1.0/24 | South SPF | if1")
+    res.table_expect("| 2.2.1.0/24 | South SPF | Positive | if1")
     res.table_expect("IPv6 Routes:")
     res.wait_prompt()
 
 def check_show_routes_prefix(res):
     res.sendline("show routes prefix 2.2.1.0/24")
-    res.table_expect("| 2.2.1.0/24 | South SPF | if1")
+    res.table_expect("| 2.2.1.0/24 | South SPF | Positive | if1")
     res.wait_prompt()
 
 def check_show_routes_prefix_owner(res):
     res.sendline("show routes prefix 2.2.1.0/24 owner south-spf")
-    res.table_expect("| 2.2.1.0/24 | South SPF | if1")
+    res.table_expect("| 2.2.1.0/24 | South SPF | Positive | if1")
     res.wait_prompt()
 
 def check_show_spf(res):
@@ -242,11 +241,11 @@ def check_show_spf(res):
     res.table_expect("SPF Statistics:")
     res.table_expect("| SPF Runs |")
     res.table_expect("South SPF Destinations:")
-    res.table_expect("| 2 .node2. | 0 |")
-    res.table_expect("| 2.2.1.0/24 | 1 | 2 |")
+    res.table_expect("| 2 .node2. | 0 | True |")
+    res.table_expect("| 2.2.1.0/24 | 1 | True | 2 |")
     res.table_expect("North SPF Destinations:")
-    res.table_expect("| 1 .node1. | 1 |")
-    res.table_expect("| 0.0.0.0/0 | 2 | 1 |")
+    res.table_expect("| 1 .node1. | 1 | False |")
+    res.table_expect("| 0.0.0.0/0 | 2 | False | 1 |")
     res.sendline("set node node1")
     res.wait_prompt()
 
@@ -255,8 +254,8 @@ def check_show_spf_direction(res):
     res.wait_prompt()
     res.sendline("show spf direction south")
     res.table_expect("South SPF Destinations:")
-    res.table_expect("| 2 .node2. | 0 |")
-    res.table_expect("| 2.2.1.0/24 | 1 | 2 |")
+    res.table_expect("| 2 .node2.  | 0 | True |")
+    res.table_expect("| 2.2.1.0/24 | 1 | True | 2 |")
     res.wait_prompt()
     res.sendline("set node node1")
     res.wait_prompt()
@@ -265,7 +264,7 @@ def check_show_spf_direction_destination(res):
     res.sendline("set node node2")
     res.wait_prompt()
     res.sendline("show spf direction south destination 2.2.1.0/24")
-    res.table_expect("| 2.2.1.0/24 | 1 | 2 |")
+    res.table_expect("| 2.2.1.0/24 | 1 | True | 2 |")
     res.wait_prompt()
     res.sendline("set node node1")
     res.wait_prompt()
@@ -279,8 +278,35 @@ def check_show_tie_db(res):
     res.sendline("set node node1")
     res.wait_prompt()
 
+def check_show_tie_db_dir(res):
+    res.sendline("set node node2")
+    res.wait_prompt()
+    res.sendline("show tie-db direction south")
+    res.table_expect("| South     | 1 | Node   | 1 | .* | .* | Name: node1 |")
+    res.wait_prompt()
+    res.sendline("set node node1")
+    res.wait_prompt()
+
+def check_show_tie_db_dir_orig(res):
+    res.sendline("set node node2")
+    res.wait_prompt()
+    res.sendline("show tie-db direction south originator 1")
+    res.table_expect("| South     | 1 | Node   | 1 | .* | .* | Name: node1 |")
+    res.wait_prompt()
+    res.sendline("set node node1")
+    res.wait_prompt()
+
+def check_show_tie_db_dir_orig_type(res):
+    res.sendline("set node node2")
+    res.wait_prompt()
+    res.sendline("show tie-db direction south originator 1 type node")
+    res.table_expect("| South     | 1 | Node   | 1 | .* | .* | Name: node1 |")
+    res.wait_prompt()
+    res.sendline("set node node1")
+    res.wait_prompt()
+
 def check_set_level(_res):
-    # TODO: Not implemented properly yet. This test fails.
+    # Not implemented properly yet. This test fails. See issue #78
     # res.sendline("set node level 2")
     # res.wait_prompt()
     # res.sendline("show nodes level")

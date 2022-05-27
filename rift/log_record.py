@@ -34,7 +34,6 @@ class LogRecord:
         self.severity = match_result.group(2)
         self.subsystem = match_result.group(3)
         self.target_id = match_result.group(4)
-### TODO        self.target = None
         self.msg = match_result.group(5)
         match_result = LogRecord._start_fsm_regex.match(self.msg)
         if match_result:

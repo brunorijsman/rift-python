@@ -7,10 +7,12 @@ import packet_common
 import table
 
 RTPROT_RIFT = 99
+RTPRIORITY_RIFT = 199
 
 class Kernel:
 
-    def __init__(self, table_name, log, log_id):
+    def __init__(self, simulated_interfaces, table_name, log, log_id):
+        self._simulated_interfaces = simulated_interfaces
         self._table_name = table_name
         if isinstance(table_name, int):
             self._table_nr = table_name
@@ -48,13 +50,14 @@ class Kernel:
             return True
 
     def put_route(self, rte):
-        if not self.platform_supported:
+        if not self.platform_supported or self._simulated_interfaces:
             return False
         if self._table_nr == -1:
             return False
         dst = packet_common.ip_prefix_str(rte.prefix)
-        if rte.next_hops == []:
-            kernel_args = {}
+        # No next hops means that the route is unreachable.
+        if not rte.next_hops:
+            kernel_args = {"type": "unreachable"}
         elif len(rte.next_hops) == 1:
             nhop = rte.next_hops[0]
             kernel_args = self.nhop_to_kernel_args(nhop, dst)
@@ -75,6 +78,7 @@ class Kernel:
                            table=self._table_nr,
                            dst=dst,
                            proto=RTPROT_RIFT,
+                           priority=RTPRIORITY_RIFT,
                            **kernel_args)
         except pyroute2.netlink.exceptions.NetlinkError as err:
             self.error("Netlink error %s replacing route to %s: %s", err, dst, kernel_args)
@@ -87,13 +91,14 @@ class Kernel:
             return True
 
     def del_route(self, prefix):
-        if not self.platform_supported:
+        if not self.platform_supported or self._simulated_interfaces:
             return False
         if self._table_nr == -1:
             return False
         dst = packet_common.ip_prefix_str(prefix)
         try:
-            self.ipr.route('del', table=self._table_nr, dst=dst, proto=RTPROT_RIFT)
+            self.ipr.route('del', table=self._table_nr, dst=dst, proto=RTPROT_RIFT,
+                           priority=RTPRIORITY_RIFT)
         except pyroute2.netlink.exceptions.NetlinkError as err:
             if err.code != errno.ESRCH:  # It is not an error to delete a non-existing route
                 self.error("Netlink error \"%s\" deleting route to %s", err, dst)
@@ -105,17 +110,36 @@ class Kernel:
             self.debug("Delete route to %s", prefix)
             return True
 
+    def del_all_rift_routes(self):
+        if not self.platform_supported or self._simulated_interfaces:
+            return
+        if self._table_nr == -1:
+            return
+        routes = self.ipr.get_routes()
+        for route in routes:
+            if route["proto"] != RTPROT_RIFT:
+                continue
+            route_table_nr = route.get_attr('RTA_TABLE')
+            if (self._table_nr is not None) and (self._table_nr != route_table_nr):
+                continue
+            prefix = packet_common.make_ip_prefix(self.kernel_route_dst_prefix_str(route))
+            self.del_route(prefix)
+
     def nhop_to_kernel_args(self, nhop, dst):
         link = self.ipr.link_lookup(ifname=nhop.interface)
         if link == []:
             self.error("Unknown interface \"%s\" replacing route to %s", nhop.interface, dst)
             return {}
         oif = link[0]
+        if nhop.weight is None:
+            hops = 1
+        else:
+            hops = nhop.weight
         if nhop.address is None:
-            kernel_args = {"oif": oif, "hops": 1}
+            kernel_args = {"oif": oif, "hops": hops}
         else:
             gateway = str(nhop.address)
-            kernel_args = {"oif": oif, "gateway": gateway, "hops": 1}
+            kernel_args = {"oif": oif, "gateway": gateway, "hops": hops}
         return kernel_args
 
     def cli_addresses_table(self):
@@ -173,6 +197,17 @@ class Kernel:
         tab = self.cli_links_table()
         cli_session.print("Kernel Links:")
         cli_session.print(tab.to_string())
+
+    def interface_mtu(self, name):
+        if self.platform_supported:
+            link_index = self.ipr.link_lookup(ifname=name)
+            if link_index:
+                link = self.ipr.get_links(link_index)[0]
+                return link.get_attr('IFLA_MTU')
+            else:
+                self.warning("Interface link for %s not found", name)
+        # If we cannot determine MTU, return the default MTU value
+        return 1400
 
     @staticmethod
     def link_flags_to_str(flags):
@@ -374,7 +409,7 @@ class Kernel:
             route_table_nr = route.get_attr('RTA_TABLE')
             if (table_nr is not None) and (table_nr != route_table_nr):
                 continue
-            next_hops = self.kernel_route_nhops(route, links)
+            next_hops = sorted(self.kernel_route_nhops(route, links))
             oif_cell = []
             gateway_cell = []
             weight_cell = []

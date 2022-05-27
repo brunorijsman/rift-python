@@ -120,3 +120,17 @@ docker/requirements.txt
 
 # Backups for auto-generated docs updates
 *.md.bak
+
+# IDE settings
+# DO NOT add .vscode here. I DO want my VSC preferences version controlled.
+.idea/
+
+# Generated figures
+doc/figures/*/*.pdf
+doc/figures/*/*.png
+
+# Generated diagram and topologies
+diagram.html
+generated.yaml
+generated/*
+__generated__/*

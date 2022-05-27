@@ -5,37 +5,47 @@
 Go into the rift-fsm directory that was created when you cloned the git repository:
 
 <pre>
-$ <b>cd rift-python</b>
+$ <b>cd ~/rift-python</b>
 </pre>
 
-Make sure the Python environment that you created during the installation is activated. This is needed to make sure you 
-run the right version of Python 3 and that the right versions of all depencency modules can be found:
+Make sure the Python environment that you created during the installation is activated. This is 
+needed to make sure you run the right version of Python 3 and that the right versions of all
+dependency modules can be found:
 
 <pre>
 $ <b>source env/bin/activate</b>
 (env) $ 
 </pre>
 
-Start the RIFT protocol engine by runnning the rift package: 
+Start the RIFT protocol engine in interactive mode (i.e. using stdin and stdout for the CLI) as
+follows:
 
 <pre>
-(env) $ <b>python rift toplogy/top.yaml</b>
-Command Line Interface (CLI) available on port 49178
+(env) $ <b>python rift --interactive topology/two_by_two_by_two.yaml</b>
+agg_101>
 </pre>
 
-Note that you can simply type python instead of python3 because activing the environment automatically selected the 
-right version of Python:
+You can now enter CLI commands, for example:
 
 <pre>
-(env) $ <b>which python</b>
-/Users/brunorijsman/rift-fsm/env/bin/python
-(env) $ <b>python --version</b>
-Python 3.5.1
+agg_101> <b>show interfaces</b>
++-------------+-----------------------+-----------+-----------+-------------------+-------+
+| Interface   | Neighbor              | Neighbor  | Neighbor  | Time in           | Flaps |
+| Name        | Name                  | System ID | State     | State             |       |
++-------------+-----------------------+-----------+-----------+-------------------+-------+
+| if_101_1    | core_1:if_1_101       | 1         | THREE_WAY | 0d 00h:00m:01.15s | 0     |
++-------------+-----------------------+-----------+-----------+-------------------+-------+
+| if_101_1001 | edge_1001:if_1001_101 | 1001      | THREE_WAY | 0d 00h:00m:01.14s | 0     |
++-------------+-----------------------+-----------+-----------+-------------------+-------+
+| if_101_1002 | edge_1002:if_1002_101 | 1002      | THREE_WAY | 0d 00h:00m:01.13s | 0     |
++-------------+-----------------------+-----------+-----------+-------------------+-------+
+| if_101_2    | core_2:if_2_101       | 2         | THREE_WAY | 0d 00h:00m:01.14s | 0     |
++-------------+-----------------------+-----------+-----------+-------------------+-------+
 </pre>
 
-After you start RIFT, there should be a single line of output reporting that the Command Line Interface (CLI) is 
-available on a particular TCP port (in this example port 49178):
+Exit the RIFT CLI and terminate the RIFT engine as follows:
 
 <pre>
-Command Line Interface (CLI) available on port 49178
+agg_101> <b>exit</b>
+(env) $ 
 </pre>

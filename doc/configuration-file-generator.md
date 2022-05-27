@@ -153,49 +153,49 @@ leaf1> <b>show nodes</b>
 +--------+--------+---------+
 
 leaf1> <b>show interfaces</b>
-+-----------+------------+-----------+-----------+
-| Interface | Neighbor   | Neighbor  | Neighbor  |
-| Name      | Name       | System ID | State     |
-+-----------+------------+-----------+-----------+
-| if1       | spine1-if1 | 9         | THREE_WAY |
-+-----------+------------+-----------+-----------+
-| if2       | spine2-if1 | 10        | THREE_WAY |
-+-----------+------------+-----------+-----------+
-| if3       | spine3-if1 | 11        | THREE_WAY |
-+-----------+------------+-----------+-----------+
-| if4       | spine4-if1 | 12        | THREE_WAY |
-+-----------+------------+-----------+-----------+
-| if5       | spine5-if1 | 13        | THREE_WAY |
-+-----------+------------+-----------+-----------+
-| if6       | spine6-if1 | 14        | THREE_WAY |
-+-----------+------------+-----------+-----------+
-| if7       | spine7-if1 | 15        | THREE_WAY |
-+-----------+------------+-----------+-----------+
-| if8       | spine8-if1 | 16        | THREE_WAY |
-+-----------+------------+-----------+-----------+
++-----------+-----------------+-----------+-----------+-------------------+-------+
+| Interface | Neighbor        | Neighbor  | Neighbor  | Time in           | Flaps |
+| Name      | Name            | System ID | State     | State             |       |
++-----------+-----------------+-----------+-----------+-------------------+-------+
+| if-1001a  | spine-1:if-101a | 101       | THREE_WAY | 0d 00h:00m:07.84s | 0     |
++-----------+-----------------+-----------+-----------+-------------------+-------+
+| if-1001b  | spine-2:if-102a | 102       | THREE_WAY | 0d 00h:00m:07.83s | 0     |
++-----------+-----------------+-----------+-----------+-------------------+-------+
+| if-1001c  | spine-3:if-103a | 103       | THREE_WAY | 0d 00h:00m:07.82s | 0     |
++-----------+-----------------+-----------+-----------+-------------------+-------+
+| if-1001d  | spine-4:if-104a | 104       | THREE_WAY | 0d 00h:00m:07.81s | 0     |
++-----------+-----------------+-----------+-----------+-------------------+-------+
+| if-1001e  | spine-5:if-105a | 105       | THREE_WAY | 0d 00h:00m:07.81s | 0     |
++-----------+-----------------+-----------+-----------+-------------------+-------+
+| if-1001f  | spine-6:if-106a | 106       | THREE_WAY | 0d 00h:00m:07.80s | 0     |
++-----------+-----------------+-----------+-----------+-------------------+-------+
+| if-1001g  | spine-7:if-107a | 107       | THREE_WAY | 0d 00h:00m:07.79s | 0     |
++-----------+-----------------+-----------+-----------+-------------------+-------+
+| if-1001h  | spine-8:if-108a | 108       | THREE_WAY | 0d 00h:00m:07.78s | 0     |
++-----------+-----------------+-----------+-----------+-------------------+-------+
 
 leaf1> <b>set node spine3</b>
 spine3> <b>show interfaces</b>
-+-----------+-----------+-----------+-----------+
-| Interface | Neighbor  | Neighbor  | Neighbor  |
-| Name      | Name      | System ID | State     |
-+-----------+-----------+-----------+-----------+
-| if1       | leaf1-if3 | 1         | THREE_WAY |
-+-----------+-----------+-----------+-----------+
-| if2       | leaf2-if3 | 2         | THREE_WAY |
-+-----------+-----------+-----------+-----------+
-| if3       | leaf3-if3 | 3         | THREE_WAY |
-+-----------+-----------+-----------+-----------+
-| if4       | leaf4-if3 | 4         | THREE_WAY |
-+-----------+-----------+-----------+-----------+
-| if5       | leaf5-if3 | 5         | THREE_WAY |
-+-----------+-----------+-----------+-----------+
-| if6       | leaf6-if3 | 6         | THREE_WAY |
-+-----------+-----------+-----------+-----------+
-| if7       | leaf7-if3 | 7         | THREE_WAY |
-+-----------+-----------+-----------+-----------+
-| if8       | leaf8-if3 | 8         | THREE_WAY |
-+-----------+-----------+-----------+-----------+
++-----------+-----------------+-----------+-----------+-------------------+-------+
+| Interface | Neighbor        | Neighbor  | Neighbor  | Time in           | Flaps |
+| Name      | Name            | System ID | State     | State             |       |
++-----------+-----------------+-----------+-----------+-------------------+-------+
+| if-103a   | leaf-1:if-1001c | 1001      | THREE_WAY | 0d 00h:00m:34.49s | 0     |
++-----------+-----------------+-----------+-----------+-------------------+-------+
+| if-103b   | leaf-2:if-1002c | 1002      | THREE_WAY | 0d 00h:00m:34.48s | 0     |
++-----------+-----------------+-----------+-----------+-------------------+-------+
+| if-103c   | leaf-3:if-1003c | 1003      | THREE_WAY | 0d 00h:00m:34.47s | 0     |
++-----------+-----------------+-----------+-----------+-------------------+-------+
+| if-103d   | leaf-4:if-1004c | 1004      | THREE_WAY | 0d 00h:00m:34.46s | 0     |
++-----------+-----------------+-----------+-----------+-------------------+-------+
+| if-103e   | leaf-5:if-1005c | 1005      | THREE_WAY | 0d 00h:00m:34.46s | 0     |
++-----------+-----------------+-----------+-----------+-------------------+-------+
+| if-103f   | leaf-6:if-1006c | 1006      | THREE_WAY | 0d 00h:00m:34.45s | 0     |
++-----------+-----------------+-----------+-----------+-------------------+-------+
+| if-103g   | leaf-7:if-1007c | 1007      | THREE_WAY | 0d 00h:00m:34.44s | 0     |
++-----------+-----------------+-----------+-----------+-------------------+-------+
+| if-103h   | leaf-8:if-1008c | 1008      | THREE_WAY | 0d 00h:00m:34.43s | 0     |
++-----------+-----------------+-----------+-----------+-------------------+-------+
 </pre>
 
 Note: If you get the following error, then see the next subsection on file descriptors for a solution.
@@ -252,39 +252,43 @@ The following files are generated in the output directory:
 
 <pre>
 (env) $ <b>ls -1 generated_2c_8x8_dir/</b>
-connect-leaf1.sh
-connect-leaf2.sh
-connect-leaf3.sh
-connect-leaf4.sh
-connect-leaf5.sh
-connect-leaf6.sh
-connect-leaf7.sh
-connect-leaf8.sh
-connect-spine1.sh
-connect-spine2.sh
-connect-spine3.sh
-connect-spine4.sh
-connect-spine5.sh
-connect-spine6.sh
-connect-spine7.sh
-connect-spine8.sh
-leaf1.yaml
-leaf2.yaml
-leaf3.yaml
-leaf4.yaml
-leaf5.yaml
-leaf6.yaml
-leaf7.yaml
-leaf8.yaml
-spine1.yaml
-spine2.yaml
-spine3.yaml
-spine4.yaml
-spine5.yaml
-spine6.yaml
-spine7.yaml
-spine8.yaml
+allocations.txt
+chaos.sh
+check.sh
+connect-leaf-1.sh
+connect-leaf-2.sh
+connect-leaf-3.sh
+connect-leaf-4.sh
+connect-leaf-5.sh
+connect-leaf-6.sh
+connect-leaf-7.sh
+connect-leaf-8.sh
+connect-spine-1.sh
+connect-spine-2.sh
+connect-spine-3.sh
+connect-spine-4.sh
+connect-spine-5.sh
+connect-spine-6.sh
+connect-spine-7.sh
+connect-spine-8.sh
+leaf-1.yaml
+leaf-2.yaml
+leaf-3.yaml
+leaf-4.yaml
+leaf-5.yaml
+leaf-6.yaml
+leaf-7.yaml
+leaf-8.yaml
+spine-1.yaml
+spine-2.yaml
+spine-3.yaml
+spine-4.yaml
+spine-5.yaml
+spine-6.yaml
+spine-7.yaml
+spine-8.yaml
 start.sh
+stop.sh
 </pre>
 
 The purpose of the generated files is as follows:
@@ -301,17 +305,19 @@ IP addresses, and starts the RIFT-Python engine for each node. The output looks 
 number at the beginning of each line is the percentage complete):
 
 <pre>
-(env) $ <b>./generated_2c_8x8_dir/start.sh </b>
-[000] Create veth pair veth-1-2 - veth-2-1
-[002] Create veth pair veth-3-4 - veth-4-3
-[...]
-[086] Create veth pair veth-125-126 - veth-126-125
-[088] Create veth pair veth-127-128 - veth-128-127
-[089] Create netns netns-1
-[090] Create netns netns-2
-[...]
-[099] Create netns netns-15
-[100] Create netns netns-16
+(env) $ <b>./generated_2c_8x8_dir/start.sh</b>
+Create veth pair veth-1001a-101a and veth-101a-1001a for link from leaf-1:if-1001a to spine-1:if-101a
+...
+Create veth pair veth-1008g-107h and veth-107h-1008g for link from leaf-8:if-1008g to spine-7:if-107h
+Create veth pair veth-1008h-108h and veth-108h-1008h for link from leaf-8:if-1008h to spine-8:if-108h
+Create network namespace netns-1001 for node leaf-1
+...
+Create network namespace netns-107 for node spine-7
+Create network namespace netns-108 for node spine-8
+Start RIFT-Python engine for node leaf-1
+...
+Start RIFT-Python engine for node spine-7
+Start RIFT-Python engine for node spine-8
 </pre>
 
 Note: the `start.sh` script can only run on Linux. If you use MacOS, you must first start a 
@@ -321,44 +327,53 @@ docker container and run both `config_generate.py` and `start.sh` in there:
 (env) $ <b>cd docker</b>
 (env) $ <b>./docker-shell</b>
 root@d22f9e82f9b0:/# <b>cd /host</b>
-root@d22f9e82f9b0:/host# <b>./generated_2c_8x8_dir/start.sh </b>
-[000] Create veth pair veth-1-2 - veth-2-1
-[002] Create veth pair veth-3-4 - veth-4-3
-[...]
+root@d22f9e82f9b0:/host# <b>./generated_2c_8x8_dir/start.sh</b>
+Create veth pair veth-1001a-101a and veth-101a-1001a for link from leaf-1:if-1001a to spine-1:if-101a
+...
+Create veth pair veth-1008g-107h and veth-107h-1008g for link from leaf-8:if-1008g to spine-7:if-107h
+Create veth pair veth-1008h-108h and veth-108h-1008h for link from leaf-8:if-1008h to spine-8:if-108h
+Create network namespace netns-1001 for node leaf-1
+...
+Create network namespace netns-107 for node spine-7
+Create network namespace netns-108 for node spine-8
+Start RIFT-Python engine for node leaf-1
+...
+Start RIFT-Python engine for node spine-7
+Start RIFT-Python engine for node spine-8
 </pre>
 
-See the Docker](doc/docker.md) chapter for details on Docker usage in RIFT-Python.
+See the [Docker](doc/docker.md) chapter for details on Docker usage in RIFT-Python.
 
 Once you have run `start.sh` to start the topology, you can use `connect-*.sh` to start a Telnet
 session to any of the running nodes. For example:
 
 <pre>
-root@d22f9e82f9b0:/host# <b>./generated_2c_8x8_dir/connect-spine3.sh </b>
+root@d22f9e82f9b0:/host# <b>./generated_2c_8x8_dir/connect-spine-3.sh</b>
 Trying ::1...
 Trying 127.0.0.1...
 Connected to localhost.
 Escape character is '^]'.
 spine3> <b>show interfaces</b>
-+--------------+--------------------+-----------+-----------+
-| Interface    | Neighbor           | Neighbor  | Neighbor  |
-| Name         | Name               | System ID | State     |
-+--------------+--------------------+-----------+-----------+
-| veth-102-101 | leaf7-veth-101-102 | 7         | THREE_WAY |
-+--------------+--------------------+-----------+-----------+
-| veth-118-117 | leaf8-veth-117-118 | 8         | THREE_WAY |
-+--------------+--------------------+-----------+-----------+
-| veth-22-21   | leaf2-veth-21-22   | 2         | THREE_WAY |
-+--------------+--------------------+-----------+-----------+
-| veth-38-37   | leaf3-veth-37-38   | 3         | THREE_WAY |
-+--------------+--------------------+-----------+-----------+
-| veth-54-53   | leaf4-veth-53-54   | 4         | THREE_WAY |
-+--------------+--------------------+-----------+-----------+
-| veth-6-5     | leaf1-veth-5-6     | 1         | THREE_WAY |
-+--------------+--------------------+-----------+-----------+
-| veth-70-69   | leaf5-veth-69-70   | 5         | THREE_WAY |
-+--------------+--------------------+-----------+-----------+
-| veth-86-85   | leaf6-veth-85-86   | 6         | THREE_WAY |
-+--------------+--------------------+-----------+-----------+
++-----------------+------------------------+-----------+-----------+-------------------+-------+
+| Interface       | Neighbor               | Neighbor  | Neighbor  | Time in           | Flaps |
+| Name            | Name                   | System ID | State     | State             |       |
++-----------------+------------------------+-----------+-----------+-------------------+-------+
+| veth-103a-1001c | leaf-1:veth-1001c-103a | 1001      | THREE_WAY | 0d 00h:00m:07.85s | 0     |
++-----------------+------------------------+-----------+-----------+-------------------+-------+
+| veth-103b-1002c | leaf-2:veth-1002c-103b | 1002      | THREE_WAY | 0d 00h:00m:07.97s | 0     |
++-----------------+------------------------+-----------+-----------+-------------------+-------+
+| veth-103c-1003c | leaf-3:veth-1003c-103c | 1003      | THREE_WAY | 0d 00h:00m:08.06s | 0     |
++-----------------+------------------------+-----------+-----------+-------------------+-------+
+| veth-103d-1004c | leaf-4:veth-1004c-103d | 1004      | THREE_WAY | 0d 00h:00m:07.90s | 0     |
++-----------------+------------------------+-----------+-----------+-------------------+-------+
+| veth-103e-1005c | leaf-5:veth-1005c-103e | 1005      | THREE_WAY | 0d 00h:00m:07.74s | 0     |
++-----------------+------------------------+-----------+-----------+-------------------+-------+
+| veth-103f-1006c | leaf-6:veth-1006c-103f | 1006      | THREE_WAY | 0d 00h:00m:07.94s | 0     |
++-----------------+------------------------+-----------+-----------+-------------------+-------+
+| veth-103g-1007c | leaf-7:veth-1007c-103g | 1007      | THREE_WAY | 0d 00h:00m:07.82s | 0     |
++-----------------+------------------------+-----------+-----------+-------------------+-------+
+| veth-103h-1008c | leaf-8:veth-1008c-103h | 1008      | THREE_WAY | 0d 00h:00m:07.80s | 0     |
++-----------------+------------------------+-----------+-----------+-------------------+-------+
 
 spine3> 
 </pre>
@@ -367,12 +382,183 @@ spine3>
 
 Just like the configuration file, the meta-configuration file is a YAML file.
 
-The meta-configuration file can contain the following elements:
+The syntax of the meta-configuration YAML file is as follows (! indicates an element is mandatory):
 
-  * [nr-leaf-nodes-per-pod](#nr-leaf-nodes-per-pod)
-  * [nr-pods](#nr-pods)
-  * [nr-spine-nodes-per-pod](#nr-spine-nodes-per-pod)
-  
+<pre>
+  <b>chaos</b>: {
+    <b>event-interval</b>: <i>&lt;float&gt;</i>,
+    <b>max-concurrent-events</b>: <i>&lt;integer&gt;</i>,
+    <b>nr-link-events</b>: <i>&lt;integer&gt;</i>,
+    <b>nr-node-events</b>: <i>&lt;integer&gt;</i>
+  }
+  <b>inter-plane-east-west-links</b>: <i>&lt;boolean&gt;</i>
+  <b>leafs</b>: {
+    <b>nr-ipv4-loopbacks</b>: <i>&lt;integer&gt;</i>
+  } 
+! <b>nr-leaf-nodes-per-pod</b>: <i>&lt;integer&gt;</i>
+  <b>nr-planes</b>: <i>&lt;integer&gt;</i>
+  <b>nr-pods</b>: <i>&lt;integer&gt;</i>
+! <b>nr-spine-nodes-per-pod</b>: <i>&lt;integer&gt;</i>
+  <b>nr-superspine-nodes</b>: <i>&lt;integer&gt;</i>
+  <b>spines</b>: {
+    <b>nr-ipv4-loopbacks</b>: <i>&lt;integer&gt;</i>
+  } 
+  <b>superspines</b>: {
+    <b>nr-ipv4-loopbacks</b>: <i>&lt;integer&gt;</i>
+  } 
+</pre>
+
+### chaos
+
+| Element | `chaos` |
+| --- | --- |
+| Value | Dictionary with sub-elements: `event-interval`, `max-concurrent-events`, `nr-link-event`, `nr-node-events` |
+| Level | Top-level |
+| Presence | Optional |
+| Meaning | Defines the parameters for chaos testing |
+
+If the `chaos` is present, then the config_generator also outputs the `chaos.sh` script for chaos
+testing.
+
+The `chaos` element is only supported in namespace per node mode (command-line option 
+`--netns-per-node`)
+
+See the [IETF 104 Hackathon Presentation: Chaos Monkey Testing (PDF)](../ietf-104/ietf-104---rift-hackathon---chaos-monkey-testing.pdf) for more details on chaos testing.
+
+Example:
+
+<pre>
+nr-pods: 2
+nr-leaf-nodes-per-pod: 2
+nr-spine-nodes-per-pod: 2
+nr-superspine-nodes: 2
+<b>chaos</b>: {
+  event-interval: 5.0,
+  max-concurrent-events: 3,
+  nr-link-events: 10,
+  nr-node-events: 5
+}
+</pre>
+
+### event-interval
+
+| Element | `event-interval` |
+| --- | --- |
+| Value | Float, minimum value 0.0 |
+| Level | `chaos` |
+| Presence | Optional, default value 3.0 |
+| Meaning | The interval, in seconds, between events in the chaos testing script |
+
+Example:
+
+<pre>
+nr-pods: 2
+nr-leaf-nodes-per-pod: 2
+nr-spine-nodes-per-pod: 2
+nr-superspine-nodes: 2
+chaos: {
+  <b>event-interval: 5.0</b>,
+  max-concurrent-events: 3,
+  nr-link-events: 10,
+  nr-node-events: 5
+}
+</pre>
+
+
+### inter-plane-east-west-links
+
+| Element | `inter-plane-east-west-links` |
+| --- | --- |
+| Value | Boolean |
+| Level | Top-level |
+| Presence | Optional, default value True. Only relevant if nr-planes > 1; ignored if nr-planes = 1 |
+| Meaning | True if inter-plane east-west connections are present in the superspine; false if not. |
+
+Example:
+
+<pre>
+nr-pods: 3
+nr-leaf-nodes-per-pod: 4
+nr-spine-nodes-per-pod: 4
+nr-superspine-nodes: 4
+nr-planes: 2
+inter-plane-east-west-links: false
+</pre>
+
+### leafs
+
+| Element | `leafs` |
+| --- | --- |
+| Value | Dictionary with sub-elements: `nr-ipv4-loopbacks` |
+| Level | Top-level |
+| Presence | Optional |
+| Meaning | Defines the characteristics of each leaf node in the topology |
+
+Example:
+
+<pre>
+nr-pods: 2
+nr-leaf-nodes-per-pod: 2
+<b>leafs</b>: {
+  nr-ipv4-loopbacks: 2
+}
+nr-spine-nodes-per-pod: 2
+nr-superspine-nodes: 2
+</pre>
+
+### max-concurrent-events
+
+| Element | `max-concurrent-events` |
+| --- | --- |
+| Value | Integer, minimum value 1 |
+| Level | `chaos` |
+| Presence | Optional, default value 5 |
+| Meaning | The maximum number of concurrent events in the chaos testing script |
+
+The chaos testing script `chaos.sh` generates a sequence of random events.
+Each event breaks something (e.g. a link or a node) and some time later repairs it.
+Between the time that something is broken and the time that it is repaired, the failure is deemed to
+be "active". The `max-concurrent-events` specifies the maximum number of concurrently active
+failures.
+For example, if you set `max-concurrent-events` to 1, then you are testing that the network
+continues to function correctly in the face of any single failure.
+
+Example:
+
+<pre>
+nr-pods: 2
+nr-leaf-nodes-per-pod: 2
+nr-spine-nodes-per-pod: 2
+nr-superspine-nodes: 2
+chaos: {
+  event-interval: 5.0,
+  <b>max-concurrent-events: 3</b>,
+  nr-link-events: 10,
+  nr-node-events: 5
+}
+</pre>
+
+### nr-ipv4-loopbacks
+
+| Element | `nr-ipv4-loopbacks` |
+| --- | --- |
+| Value | Integer, minimum value 0 |
+| Level | `leafs`, `spines`, `superspines` |
+| Presence | Optional, default value 1 |
+| Meaning | The number of IPv4 loopback interfaces per leaf / spine / superspine node |
+
+Example:
+
+<pre>
+nr-pods: 2
+nr-leaf-nodes-per-pod: 2
+nr-spine-nodes-per-pod: 2
+spines: {
+  <b>nr-ipv4-loopbacks: 2</b>
+}
+nr-superspine-nodes: 2
+</pre>
+
 ### nr-leaf-nodes-per-pod
 
 | Element | `nr-leaf-nodes-per-pod` |
@@ -389,6 +575,92 @@ Example:
 nr-spine-nodes-per-pod: 8
 </pre>
 
+### nr-planes
+
+| Element | `nr-planes` |
+| --- | --- |
+| Value | Integer |
+| Level | Top-level |
+| Presence | Optional, default value 1 |
+| Meaning | The number of planes in the topology |
+
+Example:
+
+If nr-planes is set to 1 (the default value), the topology is a single plane topology where
+each spine node is each connected to each superspine node.
+
+If nr-planes > 1, the topology is a multi-plane topology and the following restrictions apply:
+
+ * nr-superspine-nodes must also be configured, *AND*
+
+ * nr-superspine-nodes must be equal to or an integer multiple of nr-planes, *AND*
+
+ * nr-spine-nodes-per-pod must be equal to or an integer multiple of nr-planes.
+
+<pre>
+nr-pods: 3
+nr-superspine-nodes: 8
+nr-leaf-nodes-per-pod: 4
+nr-spine-nodes-per-pod: 4
+<b>nr-planes: 2</b>
+</pre>
+
+### nr-link-events
+
+| Element | `nr-link-events` |
+| --- | --- |
+| Value | Integer, minimum value 0 |
+| Level | `chaos` |
+| Presence | Optional, default value 20 |
+| Meaning | The number of link events in the chaos testing script |
+
+A link event can be one of the following (each event has a corresponding repair event):
+
+ * A link failure (followed by a corresponding link repair)
+
+Example:
+
+<pre>
+nr-pods: 2
+nr-leaf-nodes-per-pod: 2
+nr-spine-nodes-per-pod: 2
+nr-superspine-nodes: 2
+chaos: {
+  event-interval: 5.0,
+  max-concurrent-events: 3,
+  <b>nr-link-events: 10</b>,
+  nr-node-events: 5
+}
+</pre>
+
+### nr-node-events
+
+| Element | `nr-node-events` |
+| --- | --- |
+| Value | Integer, minimum value 0 |
+| Level | `chaos` |
+| Presence | Optional, default value 5 |
+| Meaning | The number of node events in the chaos testing script |
+
+A node event can be one of the following (each event has a corresponding repair event):
+
+ * A node failure (followed by a corresponding node restart)
+
+Example:
+
+<pre>
+nr-pods: 2
+nr-leaf-nodes-per-pod: 2
+nr-spine-nodes-per-pod: 2
+nr-superspine-nodes: 2
+chaos: {
+  event-interval: 5.0,
+  max-concurrent-events: 3,
+  nr-link-events: 10,
+  <b>nr-node-events: 5</b>
+}
+</pre>
+
 ### nr-pods
 
 | Element | `nr-pods` |
@@ -401,7 +673,7 @@ nr-spine-nodes-per-pod: 8
 Example:
 
 <pre>
-nr-pods: 2
+<b>nr-pods: 2</b>
 nr-leaf-nodes-per-pod: 8
 nr-spine-nodes-per-pod: 8
 </pre>
@@ -422,3 +694,62 @@ nr-leaf-nodes-per-pod: 8
 <b>nr-spine-nodes-per-pod: 8</b>
 </pre>
 
+### nr-superspine-nodes
+
+| Element | `nr-superspine-nodes` |
+| --- | --- |
+| Value | Integer, minimum value 1 |
+| Level | Top-level |
+| Presence | If nr-pods is greater than 1, then nr-superspine-nodes is mandatory. If nr-pods equals 1, then nr-superspine-nodes must not be present. |
+| Meaning | The number of superspine nodes |
+
+Example:
+
+<pre>
+nr-leaf-nodes-per-pod: 3
+nr-spine-nodes-per-pod: 3
+nr-pods: 2
+<b>nr-superspine-nodes: 4</b>
+</pre>
+
+### spines
+
+| Element | `spines` |
+| --- | --- |
+| Value | Dictionary with sub-elements: `nr-ipv4-loopbacks` |
+| Level | Top-level |
+| Presence | Optional |
+| Meaning | Defines the characteristics of each spine node in the topology |
+
+Example:
+
+<pre>
+nr-pods: 2
+nr-leaf-nodes-per-pod: 2
+nr-spine-nodes-per-pod: 2
+<b>spines</b>: {
+  nr-ipv4-loopbacks: 2
+}
+nr-superspine-nodes: 2
+</pre>
+
+### superspines
+
+| Element | `superspines` |
+| --- | --- |
+| Value | Dictionary with sub-elements: `nr-ipv4-loopbacks` |
+| Level | Top-level |
+| Presence | Optional |
+| Meaning | Defines the characteristics of each superspine node in the topology |
+
+Example:
+
+<pre>
+nr-pods: 2
+nr-leaf-nodes-per-pod: 2
+nr-spine-nodes-per-pod: 2
+nr-superspine-nodes: 2
+<b>superspines</b>: {
+  nr-ipv4-loopbacks: 2
+}
+</pre>

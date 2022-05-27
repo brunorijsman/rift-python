@@ -1,0 +1,8 @@
+# k=4 r=4
+# 2 pods x (4 leafs-per-pod + 4 spines-per-pod) + 4 superspines = 20 nodes total
+# 2 pods x 4 leafs-per-pod x 4 server-ports-per-leaf = 32 server ports total
+nr-pods: 2
+nr-leaf-nodes-per-pod: 4
+nr-spine-nodes-per-pod: 4
+nr-superspine-nodes: 4
+nr-planes: 1

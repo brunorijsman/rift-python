@@ -130,7 +130,7 @@ Once you start testing non-trivial topologies, it becomes extremely difficult to
 
 ### Continuous Integration
 
-I use [Travis Continuous Integration (CI)](https://travis-ci.org/brunorijsman/rift-python) For every commit, Travis CI automatically runs pylint, the full unit test suite, and the full system test suite. The interoperability test suite is not automatically run - it must be run manually. I use [codecov](https://codecov.io/gh/brunorijsman/rift-python) for visualizing the code coverage results. See [Continuous Integration](continuous-integration.md) for more details.
+I use [Travis Continuous Integration (CI)](https://travis-ci.com/brunorijsman/rift-python) For every commit, Travis CI automatically runs pylint, the full unit test suite, and the full system test suite. The interoperability test suite is not automatically run - it must be run manually. I use [codecov](https://codecov.io/gh/brunorijsman/rift-python) for visualizing the code coverage results. See [Continuous Integration](continuous-integration.md) for more details.
 
 ## Interoperability Testing Results
 

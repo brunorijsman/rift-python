@@ -1,0 +1,227 @@
+#!/bin/bash
+
+GENERATED_DIR="__generated__"
+CONVERGE_DELAY=30
+
+NORMAL=$(tput sgr0)
+RED=$(tput setaf 1)
+BLUE=$(tput setaf 4)
+BEEP=$(tput bel)
+
+FALSE=0
+TRUE=1
+
+CHECK_AGAIN=${FALSE}
+CLEAN=${FALSE}
+ITERATIONS="FOREVER"
+NEW_VENV=${FALSE}
+RESUME=${FALSE}
+
+fatal_error ()
+{
+    message="$1"
+    echo "${RED}Error:${NORMAL} ${message}" >&2
+    exit 1
+}
+
+progress ()
+{
+    message="$1"
+    echo "${BLUE}*** ${message} ***${NORMAL}"
+}
+
+check_on_linux ()
+{
+    if [ $(uname) != "Linux" ]; then
+        fatal_error "This script can only be run on Linux (it needs network namespaces)"
+    fi
+}
+
+help ()
+{
+    echo
+    echo "SYNOPSIS"
+    echo
+    echo "    chaos-test-suite [OPTION]..."
+    echo
+    echo "OPTIONS"
+    echo
+    echo "  -?, -h, --help"
+    echo "      Print this help and exit"
+    echo
+    echo "  -a, --check-again"
+    echo "      Run the convergence check again after an interrupted run"
+    echo
+    echo "  -c, --clean"
+    echo "      Clean all temporary files and ${GENERATED_DIR} directory from previous run"
+    echo
+    echo "  -i, --iterations ITERATIONS"
+    echo "      Run this many iterations of the chaos test and exit (default: run forever)"
+    echo
+    echo "  -n, -new-venv"
+    echo "      Activate a new Python virtual environment"
+    echo
+    echo "  -r, --resume"
+    echo "      Resume the previously interrupted run"
+    echo
+    exit 0
+}
+
+parse_command_line_options ()
+{
+    while [[ "$#" -gt 0 ]]; do
+        case $1 in
+            -?|-h|--help)
+                help
+                ;;
+            -a|--check-again)
+                CHECK_AGAIN=${TRUE}
+                ;;
+            -c|--clean)
+                CLEAN=${TRUE}
+                ;;
+            -i|--iterations)
+                ITERATIONS="$2";
+                shift
+                if ! [[ ${ITERATIONS} =~ ^[0-9]+$ ]]; then
+                    fatal_error "Number of itrations is not a number: ${ITERATIONS}"
+                fi    
+                ;;
+            -n|--new-venv)
+                NEW_VENV=${TRUE}
+                ;;
+            -r|--resume)
+                RESUME=${TRUE}
+                ;;
+            *)
+                fatal_error "Unknown parameter passed: $1"
+                ;;
+        esac
+        shift
+    done
+}
+
+check_virtual_environment ()
+{
+    if [[ ${NEW_VENV} == ${TRUE} ]]; then
+        if [[ -f env/bin/activate ]]; then
+            source env/bin/activate
+            progress "New virtual environment activated"
+        else
+            fatal_error "Could not locate script to activate virtual environment"
+        fi
+    fi
+    if [[ -z "${VIRTUAL_ENV}" ]]; then
+        fatal_error "Virtual environment not activated and cannot be activated"
+    fi
+}
+
+clean ()
+{
+    cd ${VIRTUAL_ENV}/..
+    if [[ -e ${GENERATED_DIR} ]]; then
+        progress "Stopping previous run of topology"
+        ${GENERATED_DIR}/stop.sh
+    fi
+    progress "Cleaning previous run scripts and temporary files"
+    tools/cleanup
+    rm -rf ${GENERATED_DIR}
+}
+
+check_previous_run ()
+{
+    if [[ -e ${GENERATED_DIR} ]]; then
+        fatal_error "Directory ${GENERATED_DIR} still exists from a previous run; clean it up first"
+    fi
+}
+
+generate_scripts ()
+{
+    progress "Generating scipts in ${GENERATED_DIR}"
+    tools/config_generator.py -n meta_topology/clos_3plane_3pod_3leaf_3spine_6super.yaml \
+        ${GENERATED_DIR}
+}
+
+start_topology ()
+{
+    progress "Starting topology"
+    ${GENERATED_DIR}/start.sh
+}
+
+let_converge ()
+{
+    progress "Letting converge for ${CONVERGE_DELAY} seconds"
+    sleep ${CONVERGE_DELAY}
+}
+
+check_convergence ()
+{
+    progress "Checking convergence"
+     tools/config_generator.py -c -n \
+        meta_topology/clos_3plane_3pod_3leaf_3spine_6super.yaml ${GENERATED_DIR}
+    if [ $? -ne 0 ]; then
+        echo ${BEEP} ${BEEP} ${BEEP} ${BEEP} ${BEEP} ${BEEP} 
+        fatal_error "One more checks failed after convergence"
+    fi
+}
+
+wreak_chaos ()
+{
+    progress "Wreaking chaos"
+    ${GENERATED_DIR}/chaos.sh
+}
+
+setup_always ()
+{
+    check_on_linux
+    parse_command_line_options $@
+    check_virtual_environment
+}
+
+setup_if_not_resuming ()
+{
+    if [[ ${CLEAN} == ${TRUE} ]]; then
+        clean
+    fi
+    check_previous_run
+    generate_scripts
+    start_topology
+    let_converge
+    check_convergence
+}
+
+one_iteration ()
+{
+    wreak_chaos
+    let_converge
+    check_convergence
+}
+
+all_iterations ()
+{
+    let iteration=0
+    while true; do
+        let iteration+=1
+        msg="Iteration ${iteration}"
+        if [[ ${ITERATIONS} != "FOREVER" ]]; then
+            if [[ ${iteration} -gt ${ITERATIONS} ]]; then
+                break
+            fi
+            msg+=" of ${ITERATIONS}"
+        fi
+        progress "${msg}"
+        one_iteration
+    done
+    progress "All iterations passed successfully"
+}
+
+setup_always $@
+if [[ ${CHECK_AGAIN} == ${TRUE} ]]; then
+    check_convergence
+    exit 0
+fi
+if [[ ${RESUME} == ${FALSE} ]]; then
+    setup_if_not_resuming
+fi
+all_iterations
+exit 0

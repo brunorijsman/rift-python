@@ -3,10 +3,6 @@ import sys
 
 import scheduler
 
-# TODO: Add context sensitive help, immediately when ? is pressed
-# TODO: Add tab and space completion
-# TODO: Add control right/left arrow for end/start of line (VT100 escape sequence)
-
 READ_CHUNK_SIZE = 1024
 
 MAX_HISTORY = 100
@@ -65,7 +61,7 @@ class CliSessionHandler:
         if self._telnet:
             self.send_will_suppress_go_ahead()
             self.send_will_echo()
-        scheduler.SCHEDULER.register_handler(self, True, False)
+        scheduler.SCHEDULER.register_handler(self)
         self.print_prompt()
 
     def peername(self):
@@ -134,8 +130,6 @@ class CliSessionHandler:
         else:
             return token
 
-    # TODO: Mention parameter name for "show interface help"
-    # TODO: Handle "show interfaces help" in a better way
     def print_help_recursion(self, command_str, parse_subtree, prefix):
         if callable(parse_subtree):
             self.print(prefix + command_str)
@@ -169,7 +163,7 @@ class CliSessionHandler:
             if callable(parse_subtree):
                 # We have also reached a leaf in the parse tree.
                 if not context_help:
-                    # Call the command handler function (but not when giving context-senstive help)
+                    # Call the command handler function (but not when giving context-sensitive help)
                     command_function = parse_subtree
                     if parameters:
                         command_function(self._command_handler, self, parameters)
@@ -339,7 +333,10 @@ class CliSessionHandler:
         return self._current_node
 
     def ready_to_read(self):
-        new_input_bytes = os.read(self._rx_fd, READ_CHUNK_SIZE)
+        try:
+            new_input_bytes = os.read(self._rx_fd, READ_CHUNK_SIZE)
+        except (ConnectionResetError, OSError, IOError, MemoryError):
+            new_input_bytes = None
         if not new_input_bytes:
             # Remote side closed session
             self.close()

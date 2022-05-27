@@ -5,14 +5,9 @@ import sortedcontainers
 
 import table
 import stats
+import utils
 
-# TODO: Check completeness of FSM
-# TODO: Report superfluous transitions (same effect in every state)
-# TODO: Report could-be-implicit transitions (no effect: no actions, no pushed events,
-#       back to same state)
-# TODO: Report implicit transitions
-
-_MAX_RECORDS = 25
+_MAX_RECORDS = 100
 
 def _action_to_name(action):
     action_name = action.__name__
@@ -137,7 +132,6 @@ class FsmDefinition:
             push_event_names = "-"
         tab.add_row([from_state_name, event_name, to_state_name, action_names, push_event_names])
 
-    # TODO: Add a way to report this
     def _add_missing_transition_to_table(self, tab, from_state, event):
         from_state_name = from_state.name
         event_name = event.name
@@ -174,11 +168,13 @@ class FsmRecord:
 
     _next_seq_nr = 1
 
-    def __init__(self, fsm, from_state, event, verbose):
+    def __init__(self, fsm, from_state, event, verbose, queue_time):
         self.fsm = fsm
         self.seq_nr = FsmRecord._next_seq_nr
         FsmRecord._next_seq_nr += 1
-        self.time = time.time()
+        self.time = time.monotonic()
+        self.queue_time = queue_time
+        self.processing_time = None
         self.skipped = 0
         self.from_state = from_state
         self.event = event
@@ -227,6 +223,7 @@ class Fsm:
         self._state_actions = definition.state_actions
         self._verbose_events = definition.verbose_events
         self._state = None
+        self._last_state_change_time = time.time()
         self._action_handler = action_handler
         self._records = collections.deque([], _MAX_RECORDS)
         self._verbose_records = collections.deque([], _MAX_RECORDS)
@@ -235,6 +232,8 @@ class Fsm:
         self._stats_group = stats.Group(sum_stats_group)
         self._event_counters = {}
         self._init_event_counters()             # Indexed by event
+        self._state_entry_counters = {}         # Indexed by state
+        self._state_exit_counters = {}          # Indexed by state
         self._transition_counters = {}          # Indexed by (from_state, to_state)
         self._event_transition_counters = {}    # Indexed by (from_state, event, to_state)
         self.info("Create FSM")
@@ -246,16 +245,19 @@ class Fsm:
 
     def start(self):
         self._state = self._definition.initial_state
+        self._last_state_change_time = time.time()
         self.info("Start FSM, state=%s", self._state.name)
         # Record start state and start state entry actions as from-state=None, and event=None
-        self._current_record = FsmRecord(self, None, None, False)
+        self._current_record = FsmRecord(self, None, None, False, 0.0)
+        start_time = time.monotonic()
         self._current_record.to_state = self._state
-        self.invoke_state_entry_actions(self._state)
+        self.state_entry_actions_and_counter(self._state)
+        self._current_record.processing_time = time.monotonic() - start_time
         self.store_current_record()
 
     def push_event(self, event, event_data=None):
         fsm = self
-        event_tuple = (fsm, event, event_data)
+        event_tuple = (fsm, event, event_data, time.monotonic())
         if self._current_record is not None:
             # We are pushing an event to an FSM which is in the middle of executing a transaction.
             # We conclude that the FSM is executing an action which pushes an event back to the same
@@ -270,6 +272,10 @@ class Fsm:
             self.info_or_debug(verbose, "FSM push event, event=%s", event.name)
 
     @staticmethod
+    def events_pending():
+        return Fsm._chained_event_queue or Fsm._event_queue
+
+    @staticmethod
     def process_queued_events():
         while True:
             if Fsm._chained_event_queue:
@@ -281,7 +287,8 @@ class Fsm:
             fsm = event_tuple[0]
             event = event_tuple[1]
             event_data = event_tuple[2]
-            fsm.process_event(event, event_data)
+            schedule_time = event_tuple[3]
+            fsm.process_event(event, event_data, schedule_time)
 
     def invoke_actions(self, actions, event_data=None):
         for action in actions:
@@ -292,12 +299,25 @@ class Fsm:
             else:
                 action(self._action_handler)
 
-    def invoke_state_entry_actions(self, state):
+    def state_entry_actions_and_counter(self, state):
+        # Update state entry counter
+        if state not in self._state_entry_counters:
+            description = "Enter {}".format(_state_to_name(state))
+            self._state_entry_counters[state] = stats.Counter(self._stats_group, description,
+                                                              "Entry", "Entries")
+        self._state_entry_counters[state].increase()
+        # Invoke the state entry actions
         if state in self._state_actions:
             (state_entry_actions, _) = self._state_actions[state]
             self.invoke_actions(state_entry_actions)
 
-    def invoke_state_exit_actions(self, state):
+    def state_exit_actions_and_counter(self, state):
+        # Update state exit counter
+        if state not in self._state_exit_counters:
+            description = "Exit {}".format(_state_to_name(state))
+            self._state_exit_counters[state] = stats.Counter(self._stats_group, description, "Exit")
+        self._state_exit_counters[state].increase()
+        # Invoke the state exit actions
         if state in self._state_actions:
             (_, state_exit_actions) = self._state_actions[state]
             self.invoke_actions(state_exit_actions)
@@ -340,12 +360,14 @@ class Fsm:
         self._event_transition_counters[triple].increase()
         self._current_record = None
 
-    def process_event(self, event, event_data):
+    def process_event(self, event, event_data, schedule_time):
         assert self._current_record is None
         self._event_counters[event].increase()
         from_state = self._state
         verbose = (event in self._verbose_events)
-        self._current_record = FsmRecord(self, from_state, event, verbose)
+        queue_time = time.monotonic() - schedule_time
+        self._current_record = FsmRecord(self, from_state, event, verbose, queue_time)
+        start_time = time.monotonic()
         if from_state in self._transitions:
             from_state_transitions = self._transitions[from_state]
         else:
@@ -359,40 +381,58 @@ class Fsm:
             if to_state is not None:
                 self._current_record.to_state = to_state
                 if to_state != self._state:
-                    self.invoke_state_exit_actions(self._state)
+                    self.state_exit_actions_and_counter(self._state)
                     self._state = to_state
-                    self.invoke_state_entry_actions(to_state)
+                    self._last_state_change_time = time.time()
+                    self.state_entry_actions_and_counter(to_state)
         else:
             self._current_record.implicit = True
+        self._current_record.processing_time = time.monotonic() - start_time
         self.store_current_record()
 
     def history_table(self, verbose):
         tab = table.Table()
-        tab.add_row([
-            ["Sequence", "Nr"],
-            ["Time", "Delta"],
-            ["Verbose", "Skipped"],
-            ["From", "State"],
-            "Event",
-            ["Actions and", "Pushed Events"],
-            ["To", "State"],
-            ["Implicit"]])
-        prev_time = time.time()
+        row = [["Sequence", "Nr"],
+               ["Time", "Since", "First"],
+               ["Time", "Since", "Prev"],
+               ["Queue", "Time"],
+               ["Processing", "Time"]]
+        if not verbose:
+            row.append(["Verbose", "Skipped"])
+        row.extend([["From", "State"],
+                    "Event",
+                    ["Actions and", "Pushed Events"],
+                    ["To", "State"],
+                    ["Implicit"]])
+        tab.add_row(row)
         if verbose:
             records_to_show = self._verbose_records
         else:
             records_to_show = self._records
-        for record in records_to_show:
-            time_delta = prev_time - record.time
-            tab.add_row([
-                record.seq_nr,
-                "{:06f}".format(time_delta),
-                record.skipped,
-                _state_to_name(record.from_state),
-                _event_to_name(record.event),
-                record.actions_and_pushed_events,
-                _state_to_name(record.to_state),
-                record.implicit])
+        if not records_to_show:
+            return tab
+        first_time = records_to_show[-1].time
+        for index, record in enumerate(records_to_show):
+            time_since_first = record.time - first_time
+            try:
+                prev_time = records_to_show[index + 1].time
+                time_since_prev = record.time - prev_time
+                time_since_prev_str = "{:06f}".format(time_since_prev)
+            except IndexError:
+                time_since_prev_str = ""
+            row = [record.seq_nr,
+                   "{:06f}".format(time_since_first),
+                   time_since_prev_str,
+                   "{:06f}".format(record.queue_time),
+                   "{:06f}".format(record.processing_time)]
+            if not verbose:
+                row.append(record.skipped)
+            row.extend([_state_to_name(record.from_state),
+                        _event_to_name(record.event),
+                        record.actions_and_pushed_events,
+                        _state_to_name(record.to_state),
+                        record.implicit])
+            tab.add_row(row)
             prev_time = record.time
         return tab
 
@@ -405,3 +445,19 @@ class Fsm:
     @property
     def state(self):
         return self._state
+
+    def number_of_state_entries(self, state):
+        if state in self._state_entry_counters:
+            return self._state_entry_counters[state].value()
+        else:
+            return 0
+
+    def number_of_state_exits(self, state):
+        if state in self._state_exit_counters:
+            return self._state_exit_counters[state].value()
+        else:
+            return 0
+
+    def time_in_current_state_str(self):
+        secs_in_current_state = time.time() - self._last_state_change_time
+        return utils.secs_to_dmhs_str(secs_in_current_state)

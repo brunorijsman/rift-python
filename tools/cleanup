@@ -20,3 +20,10 @@ rm -f log_expect.log
 rm -rf htmlcov
 rm -rf interop-results-*
 rm -rf *.md.bak
+
+# Clean up Python cache files (avoid error if running RIFT from both inside and outside container)
+ rm -rf rift/__pycache__
+ rm -rf rift/common/__pycache__
+ rm -rf rift/encode/__pycache__
+ rm -rf tests/__pycache__
+ rm -rf tools/__pycache__

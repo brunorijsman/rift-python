@@ -189,19 +189,37 @@ def test_history_table(dog):
     fsm.Fsm.process_queued_events()
     dog.fsm_instance.push_event(dog.Event.PET)
     fsm.Fsm.process_queued_events()
-    print(dog.fsm_instance.history_table(verbose=True).to_string())
+    # pylint:disable=line-too-long
     pattern = (
-        ".----------.----------.---------.---------.-------.---------------.---------.----------.\n"
-        ". Sequence . Time     . Verbose . From    . Event . Actions and   . To      . Implicit .\n"
-        ". Nr       . Delta    . Skipped . State   .       . Pushed Events . State   .          .\n"
-        ".----------.----------.---------.---------.-------.---------------.---------.----------.\n"
-        ". 2        . ........ . 0       . SITTING . PET   . lick          . None    . False    .\n"
-        ".----------.----------.---------.---------.-------.---------------.---------.----------.\n"
-        ". 1        . ........ . 0       . None    . None  . sit           . SITTING . False    .\n"
-        ".----------.----------.---------.---------.-------.---------------.---------.----------.\n"
+        ".----------.----------.----------.----------.------------.---------.---------.-------.---------------.---------.----------.\n"
+        ". Sequence . Time     . Time     . Queue    . Processing . Verbose . From    . Event . Actions and   . To      . Implicit .\n"
+        ". Nr       . Since    . Since    . Time     . Time       . Skipped . State   .       . Pushed Events . State   .          .\n"
+        ".          . First    . Prev     .          .            .         .         .       .               .         .          .\n"
+        ".----------.----------.----------.----------.------------.---------.---------.-------.---------------.---------.----------.\n"
+        ". 2        . ........ . ........ . ........ . .......... . 0       . SITTING . PET   . lick          . None    . False    .\n"
+        ".----------.----------.----------.----------.------------.---------.---------.-------.---------------.---------.----------.\n"
+        ". 1        . ........ . ........ . ........ . .......... . 0       . None    . None  . sit           . SITTING . False    .\n"
+        ".----------.----------.----------.----------.------------.---------.---------.-------.---------------.---------.----------.\n"
     )
-    print(re.match(pattern, dog.fsm_instance.history_table(verbose=True).to_string()))
-    assert re.match(pattern, dog.fsm_instance.history_table(verbose=True).to_string())
+    actual = dog.fsm_instance.history_table(verbose=False).to_string()
+    print(actual)
+    print(pattern)
+    assert re.match(pattern, actual)
+    pattern = (
+        ".----------.----------.----------.----------.------------.---------.-------.---------------.---------.----------.\n"
+        ". Sequence . Time     . Time     . Queue    . Processing . From    . Event . Actions and   . To      . Implicit .\n"
+        ". Nr       . Since    . Since    . Time     . Time       . State   .       . Pushed Events . State   .          .\n"
+        ".          . First    . Prev     .          .            .         .       .               .         .          .\n"
+        ".----------.----------.----------.----------.------------.---------.-------.---------------.---------.----------.\n"
+        ". 2        . ........ . ........ . ........ . .......... . SITTING . PET   . lick          . None    . False    .\n"
+        ".----------.----------.----------.----------.------------.---------.-------.---------------.---------.----------.\n"
+        ". 1        . ........ . ........ . ........ . .......... . None    . None  . sit           . SITTING . False    .\n"
+        ".----------.----------.----------.----------.------------.---------.-------.---------------.---------.----------.\n"
+    )
+    actual = dog.fsm_instance.history_table(verbose=True).to_string()
+    print(actual)
+    print(pattern)
+    assert re.match(pattern, actual)
 
 def test_fsm_basic(dog):
     dog.fsm_instance.start()

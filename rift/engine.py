@@ -6,36 +6,34 @@ import sys
 import termios
 
 import sortedcontainers
+import netifaces
 
 import cli_listen_handler
 import cli_session_handler
 import constants
 import interface
 import key
-import netifaces
 import node
 import scheduler
 import stats
 import table
 
-# TODO: Make sure that there is always at least one node (and hence always a current node)
-
 OLD_TERMINAL_SETTINGS = None
+
+# pylint:disable=global-statement
 
 def make_terminal_unbuffered():
     # Based on https://stackoverflow.com/questions/21791621/taking-input-from-sys-stdin-non-blocking
-    # pylint:disable=global-statement
     global OLD_TERMINAL_SETTINGS
     OLD_TERMINAL_SETTINGS = termios.tcgetattr(sys.stdin)
     new_settings = termios.tcgetattr(sys.stdin)
-    new_settings[3] = new_settings[3] & ~(termios.ECHO | termios.ICANON) # lflags
-    new_settings[6][termios.VMIN] = 0  # cc
-    new_settings[6][termios.VTIME] = 0 # cc
+    new_settings[3] = new_settings[3] & ~(termios.ECHO | termios.ICANON)
+    new_settings[6][termios.VMIN] = 0
+    new_settings[6][termios.VTIME] = 0
     termios.tcsetattr(sys.stdin, termios.TCSADRAIN, new_settings)
 
 @atexit.register
 def restore_terminal():
-    # pylint:disable=global-statement
     global OLD_TERMINAL_SETTINGS
     if OLD_TERMINAL_SETTINGS:
         termios.tcsetattr(sys.stdin, termios.TCSADRAIN, OLD_TERMINAL_SETTINGS)
@@ -143,15 +141,17 @@ class Engine:
         if 'shards' in self._config:
             for shard_config in self._config['shards']:
                 if 'nodes' in shard_config:
-                    for _node_config in shard_config['nodes']:
-                        total_nr_nodes += 1
+                    total_nr_nodes += len(shard_config['nodes'])
+
         return total_nr_nodes
 
     def read_global_configuration(self, config, attribute, default):
+        # TODO: Get rid of const
         if ('const' in config) and (config['const'] is not None) and (attribute in config['const']):
             return config['const'][attribute]
-        else:
-            return default
+        if attribute in config:
+            return config[attribute]
+        return default
 
     def create_configuration(self, passive_nodes):
         if 'authentication_keys' in self._config:
@@ -200,6 +200,13 @@ class Engine:
         self.intf_security_stats_group.clear()
         self.intf_lie_fsm_stats_group.clear()
         self.node_ztp_fsm_stats_group.clear()
+        scheduler.SCHEDULER.slip_count_10ms = 0
+        scheduler.SCHEDULER.slip_count_100ms = 0
+        scheduler.SCHEDULER.slip_count_1000ms = 0
+        scheduler.SCHEDULER.max_pending_events_proc_time = 0.0
+        scheduler.SCHEDULER.max_expired_timers_proc_time = 0.0
+        scheduler.SCHEDULER.max_select_proc_time = 0.0
+        scheduler.SCHEDULER.max_ready_to_read_proc_time = 0.0
 
     def command_clear_intf_stats(self, cli_session, parameters):
         cli_session.current_node.command_clear_intf_stats(cli_session, parameters)
@@ -222,6 +229,17 @@ class Engine:
         tab.add_row(["Flooding Reduction Redundancy", self.floodred_redundancy])
         tab.add_row(["Flooding Reduction Similarity", self.floodred_similarity])
         tab.add_row(["Flooding Reduction System Random", self.floodred_system_random])
+        tab.add_row(["Timer slips > 10ms", scheduler.SCHEDULER.slip_count_10ms])
+        tab.add_row(["Timer slips > 100ms", scheduler.SCHEDULER.slip_count_100ms])
+        tab.add_row(["Timer slips > 1000ms", scheduler.SCHEDULER.slip_count_1000ms])
+        tab.add_row(["Max pending events processing time",
+                     "{:06f}".format(scheduler.SCHEDULER.max_pending_events_proc_time)])
+        tab.add_row(["Max expired timers processing time",
+                     "{:06f}".format(scheduler.SCHEDULER.max_expired_timers_proc_time)])
+        tab.add_row(["Max select processing time",
+                     "{:06f}".format(scheduler.SCHEDULER.max_select_proc_time)])
+        tab.add_row(["Max ready-to-read processing time",
+                     "{:06f}".format(scheduler.SCHEDULER.max_ready_to_read_proc_time)])
         cli_session.print(tab.to_string())
 
     def command_show_engine_stats(self, cli_session, exclude_zero=False):
@@ -250,6 +268,9 @@ class Engine:
     def command_show_intf_fsm_vhis(self, cli_session, parameters):
         cli_session.current_node.command_show_intf_fsm_hist(cli_session, parameters, True)
 
+    def command_show_intf_packets(self, cli_session, parameters):
+        cli_session.current_node.command_show_intf_packets(cli_session, parameters)
+
     def command_show_intf_queues(self, cli_session, parameters):
         cli_session.current_node.command_show_intf_queues(cli_session, parameters)
 
@@ -276,6 +297,12 @@ class Engine:
 
     def command_show_interfaces(self, cli_session):
         cli_session.current_node.command_show_interfaces(cli_session)
+
+    def command_show_neighbors(self, cli_session):
+        cli_session.current_node.command_show_neighbors(cli_session)
+
+    def command_show_bw_balancing(self, cli_session):
+        cli_session.current_node.command_show_bw_balancing(cli_session)
 
     def command_show_kernel_addresses(self, cli_session):
         cli_session.current_node.command_show_kernel_addresses(cli_session)
@@ -345,8 +372,8 @@ class Engine:
     def command_show_forwarding_family(self, cli_session, parameters):
         cli_session.current_node.command_show_forwarding_family(cli_session, parameters)
 
-    def command_show_same_level_nodes(self, cli_session):
-        cli_session.current_node.command_show_same_level_nodes(cli_session)
+    def command_show_disaggregation(self, cli_session):
+        cli_session.current_node.command_show_disaggregation(cli_session)
 
     def command_show_security(self, cli_session):
         cli_session.current_node.command_show_security(cli_session)
@@ -362,6 +389,16 @@ class Engine:
 
     def command_show_tie_db(self, cli_session):
         cli_session.current_node.command_show_tie_db(cli_session)
+
+    def command_show_tie_db_dir(self, cli_session, parameters):
+        cli_session.current_node.command_show_tie_db_dir(cli_session, parameters)
+
+    def command_show_tie_db_dir_orig(self, cli_session, parameters):
+        cli_session.current_node.command_show_tie_db_dir_orig(cli_session, parameters)
+
+    def command_show_tie_db_dir_orig_type(self, cli_session, parameters):
+        # pylint:disable=invalid-name
+        cli_session.current_node.command_show_tie_db_dir_orig_type(cli_session, parameters)
 
     def command_show_ztp_fsm(self, cli_session):
         node.Node.fsm_definition.command_show_fsm(cli_session)
@@ -415,6 +452,8 @@ class Engine:
             "$level": command_set_level
         },
         "show": {
+            "bandwidth-balancing": command_show_bw_balancing,
+            "disaggregation": command_show_disaggregation,
             "engine": {
                 "": command_show_engine,
                 "statistics": {
@@ -438,6 +477,7 @@ class Engine:
                     "history": command_show_intf_fsm_nvhis,
                     "verbose-history": command_show_intf_fsm_vhis,
                 },
+                "packets": command_show_intf_packets,
                 "queues": command_show_intf_queues,
                 "security": command_show_intf_security,
                 "sockets": command_show_intf_sockets,
@@ -459,6 +499,7 @@ class Engine:
                     },
                 },
             },
+            "neighbors": command_show_neighbors,
             "node": {
                 "": command_show_node,
                 "fsm": {
@@ -482,7 +523,6 @@ class Engine:
                 },
                 "$family": command_show_routes_family,
             },
-            "same-level-nodes": command_show_same_level_nodes,
             "security": command_show_security,
             "spf": {
                 "": command_show_spf,
@@ -491,7 +531,16 @@ class Engine:
                     "$destination": command_show_spf_dir_dest
                 },
             },
-            "tie-db": command_show_tie_db,
+            "tie-db": {
+                "": command_show_tie_db,
+                "$direction": {
+                    "": command_show_tie_db_dir,
+                    "$originator": {
+                        "": command_show_tie_db_dir_orig,
+                        "$tie-type": command_show_tie_db_dir_orig_type
+                    }
+                }
+            }
         },
         "stop": command_stop,
     }

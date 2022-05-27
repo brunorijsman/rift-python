@@ -1,12 +1,23 @@
 #!/usr/bin/env python3
 
+# TODO: Add a check to look for WARNING/ERROR/CRITICAL messages in log
+
+# TODO: Have a separate log file per process when running in multi-process simulation
+
+# TODO: During chaos test, when there is only 0 or 1 failures, do full leaf-to-leaf ping test
+
+# TODO: Add option to collect coverage data while running chaos scripts, and use it when running in
+#       Travis
+
 # pylint:disable=too-many-lines
 
 import argparse
+import copy
 import os
 import pprint
 import random
 import stat
+import subprocess
 import sys
 import traceback
 
@@ -17,13 +28,16 @@ import yaml
 sys.path.append("rift")
 
 # pylint:disable=wrong-import-position
-import constants
-import table
+from constants import DIR_SOUTH, DIR_NORTH, DIR_EAST_WEST
+from table import Table
+from next_hop import NextHop
+from packet_common import make_ip_address
 
 META_CONFIG = None
 ARGS = None
 
 DEFAULT_NR_IPV4_LOOPBACKS = 1
+DEFAULT_NR_PARALLEL_LINKS = 1
 DEFAULT_CHAOS_NR_LINK_EVENTS = 20
 DEFAULT_CHAOS_NR_NODE_EVENTS = 5
 DEFAULT_CHAOS_EVENT_INTERVAL = 3.0  # seconds
@@ -36,6 +50,8 @@ DEFAULT = '\033[0m'
 RED = '\u001b[31m'
 GREEN = '\u001b[32m'
 
+CHECK_RESULT_FAIL = 0
+
 NODE_SCHEMA = {
     'type': 'dict',
     'schema': {
@@ -43,13 +59,26 @@ NODE_SCHEMA = {
     }
 }
 
+LINK_SCHEMA = {
+    'type': 'dict',
+    'schema': {
+        'nr-parallel-links': {'type': 'integer', 'min': 1, 'default': DEFAULT_NR_PARALLEL_LINKS}
+    }
+}
+
 SCHEMA = {
+    'inter-plane-east-west-links': {'required': False, 'type': 'boolean', 'default': True},
     'nr-leaf-nodes-per-pod': {'required': True, 'type': 'integer', 'min': 1},
     'nr-pods': {'required': False, 'type': 'integer', 'min': 1, 'default': 1},
     'nr-spine-nodes-per-pod': {'required': True, 'type': 'integer', 'min': 1},
     'nr-superspine-nodes': {'required': False, 'type': 'integer', 'min': 1},
+    'nr-planes': {'required': False, 'type': 'integer', 'min': 1, 'default': 1},
     'leafs': NODE_SCHEMA,
     'spines': NODE_SCHEMA,
+    'superspines': NODE_SCHEMA,
+    'leaf-spine-links': LINK_SCHEMA,
+    'spine-superspine-links': LINK_SCHEMA,
+    'inter-plane-links': LINK_SCHEMA,
     'chaos': {
         'type': 'dict',
         'schema': {
@@ -68,9 +97,12 @@ SCHEMA = {
 SOUTH = 1
 NORTH = 2
 
-LEAF_LEVEL = 0
-SPINE_LEVEL = 1
-SUPERSPINE_LEVEL = 2
+LEAF_LAYER = 0
+SPINE_LAYER = 1
+SUPERSPINE_LAYER = 2
+
+LINK_TYPE_NORTH_SOUTH = 1
+LINK_TYPE_INTER_PLANE = 2
 
 GLOBAL_X_OFFSET = 10
 GLOBAL_Y_OFFSET = 10
@@ -95,9 +127,12 @@ INTF_COLOR = "black"
 INTF_RADIUS = "3"
 INTF_HIGHLIGHT_RADIUS = "5"
 HIGHLIGHT_COLOR = "red"
+INTER_PLANE_Y_FIRST_LINE_SPACER = GROUP_Y_SPACER
+INTER_PLANE_Y_INTERLINE_SPACER = 8
+INTER_PLANE_Y_LOOP_SPACER = 24
 
-LOOPBACKS_ADDRESS_BYTE = 88    # 88.level.index.lb
-LIE_MCAST_ADDRESS_BYTE = 88    # 224.88.level.index  ff02::88:level:index
+LOOPBACKS_ADDRESS_BYTE = 88    # 88.layer.index.lb
+LIE_MCAST_ADDRESS_BYTE = 88    # 224.88.layer.index  ff02::88:layer:index
 
 END_OF_SVG = """
 <script type="text/javascript"><![CDATA[
@@ -184,30 +219,31 @@ class Group:
         self.given_y_size = y_size
         self.x_center_shift = 0
         self.nodes = []
-        self.nodes_by_level = {}
+        self.nodes_by_layer = {}
         # Links within the group. Spine to super-spine links are owned by the plane group, not the
         # pod group.
         self.links = []
 
-    def create_node(self, name, level, top_of_fabric, group_level_node_id, y_pos):
-        node = Node(self, name, level, top_of_fabric, group_level_node_id, y_pos)
+    def create_node(self, name, layer, top_of_fabric, group_layer_node_id, y_pos):
+        node = Node(self, name, layer, top_of_fabric, group_layer_node_id, y_pos)
         # TODO: Move adding of loopbacks to here
         self.nodes.append(node)
-        if level not in self.nodes_by_level:
-            self.nodes_by_level[level] = []
-        self.nodes_by_level[level].append(node)
+        if layer not in self.nodes_by_layer:
+            self.nodes_by_layer[layer] = []
+        self.nodes_by_layer[layer].append(node)
         return node
 
-    def create_link(self, from_node, to_node):
-        link = Link(from_node, to_node)
+    def create_link(self, from_node, to_node, link_type, link_nr_in_parallel_bundle,
+                    inter_plane_loop_nr=None):
+        link = Link(from_node, to_node, link_type, link_nr_in_parallel_bundle, inter_plane_loop_nr)
         self.links.append(link)
         return link
 
-    def node_name(self, base_name, group_level_node_id):
+    def node_name(self, base_name, group_layer_node_id):
         if self.only_instance:
-            return base_name + "-" + str(group_level_node_id)
+            return base_name + "-" + str(group_layer_node_id)
         else:
-            return base_name + "-" + str(self.class_group_id) + "-" + str(group_level_node_id)
+            return base_name + "-" + str(self.class_group_id) + "-" + str(group_layer_node_id)
 
     def write_config_to_file(self, file, netns):
         for node in self.nodes:
@@ -218,14 +254,17 @@ class Group:
             node.write_netns_configs_and_scripts()
 
     def write_netns_start_scr_to_file_1(self, file):
-        # Start phase 1: Create all namespaces and interfaces
+        # Start phase 1: Create all interfaces
         for link in self.links:
             link.write_netns_start_scr_to_file(file)
+
+    def write_netns_start_scr_to_file_2(self, file):
+        # Start phase 2: Create all namespaces
         for node in self.nodes:
             node.write_netns_start_scr_to_file_1(file)
 
-    def write_netns_start_scr_to_file_2(self, file):
-        # Start phase 2: Start all nodes
+    def write_netns_start_scr_to_file_3(self, file):
+        # Start phase 3: Start all nodes
         # Allow interfaces to come up (particularly IPv6 interfaces take a bit of time)
         print("sleep 1", file=file)
         for node in self.nodes:
@@ -241,7 +280,7 @@ class Group:
         for node in self.nodes:
             node.write_netns_stop_scr_to_file_2(file)
 
-    def write_graphics_to_file(self, file):
+    def write_bg_graphics_to_file(self, file):
         x_pos = self.x_pos()
         y_pos = self.y_pos()
         x_size = self.x_size()
@@ -267,6 +306,8 @@ class Group:
                        .format(x_pos, y_pos, GROUP_LINE_COLOR, self.name))
         for node in self.nodes:
             node.write_graphics_to_file(file)
+
+    def write_fg_graphics_to_file(self, file):
         for link in self.links:
             link.write_graphics_to_file(file)
 
@@ -280,31 +321,31 @@ class Group:
     def y_pos(self):
         return self.given_y_pos
 
-    def nr_nodes_in_widest_level(self):
+    def nr_nodes_in_widest_layer(self):
         result = 0
-        for nodes_in_level_list in self.nodes_by_level.values():
-            nr_nodes_in_level = len(nodes_in_level_list)
-            result = max(result, nr_nodes_in_level)
+        for nodes_in_layer_list in self.nodes_by_layer.values():
+            nr_nodes_in_layer = len(nodes_in_layer_list)
+            result = max(result, nr_nodes_in_layer)
         return result
 
     def x_size(self):
-        width_nodes = self.nr_nodes_in_widest_level()
+        width_nodes = self.nr_nodes_in_widest_layer()
         width = width_nodes * NODE_X_SIZE
         width += (width_nodes - 1) * NODE_X_INTERVAL
-        width += 2 * GROUP_X_SPACER   # TODO: Change to GROUP_X_SPACER
+        width += 2 * GROUP_X_SPACER
         return width
 
     def y_size(self):
         return self.given_y_size
 
-    def first_node_x_pos(self, level):
-        width_nodes = self.nr_nodes_in_widest_level()
-        missing_nodes = width_nodes - len(self.nodes_by_level[level])
+    def first_node_x_pos(self, layer):
+        width_nodes = self.nr_nodes_in_widest_layer()
+        missing_nodes = width_nodes - len(self.nodes_by_layer[layer])
         padding_width = missing_nodes * (NODE_X_SIZE + NODE_X_INTERVAL) // 2
         return self.x_pos() + padding_width + GROUP_X_SPACER
 
-    def nr_levels(self):
-        return len(self.nodes_by_level)
+    def nr_layers(self):
+        return len(self.nodes_by_layer)
 
 class Pod(Group):
 
@@ -314,7 +355,6 @@ class Pod(Group):
         self.leaf_nodes = []
         self.spine_nodes = []
         self.nr_leaf_nodes = META_CONFIG['nr-leaf-nodes-per-pod']
-        # TODO: Make nr-ipv4-loopbacks a global knob
         if 'leafs' in META_CONFIG:
             self.leaf_nr_ipv4_loopbacks = META_CONFIG['leafs']['nr-ipv4-loopbacks']
         else:
@@ -327,14 +367,16 @@ class Pod(Group):
         self.nr_superspine_nodes = 0
         self.create_leaf_nodes()
         self.create_spine_nodes()
-        self.create_leaf_spine_links()
+        links_config = META_CONFIG.get('leaf-spine-links', {})
+        nr_parallel_links = links_config.get('nr-parallel-links', DEFAULT_NR_PARALLEL_LINKS)
+        self.create_leaf_spine_links(nr_parallel_links)
 
     def create_leaf_nodes(self):
         y_pos = self.y_pos() + GROUP_Y_SPACER + NODE_Y_SIZE + NODE_Y_INTERVAL
         for index in range(0, self.nr_leaf_nodes):
-            group_level_node_id = index + 1
-            node_name = self.node_name("leaf", group_level_node_id)
-            node = self.create_node(node_name, LEAF_LEVEL, False, group_level_node_id, y_pos)
+            group_layer_node_id = index + 1
+            node_name = self.node_name("leaf", group_layer_node_id)
+            node = self.create_node(node_name, LEAF_LAYER, False, group_layer_node_id, y_pos)
             node.add_ipv4_loopbacks(self.leaf_nr_ipv4_loopbacks)
             self.leaf_nodes.append(node)
 
@@ -344,17 +386,19 @@ class Pod(Group):
         top_of_fabric = self.only_instance
         y_pos = self.y_pos() + GROUP_Y_SPACER
         for index in range(0, self.nr_spine_nodes):
-            group_level_node_id = index + 1
-            node_name = self.node_name("spine", group_level_node_id)
-            node = self.create_node(node_name, SPINE_LEVEL, top_of_fabric, group_level_node_id,
+            group_layer_node_id = index + 1
+            node_name = self.node_name("spine", group_layer_node_id)
+            node = self.create_node(node_name, SPINE_LAYER, top_of_fabric, group_layer_node_id,
                                     y_pos)
             node.add_ipv4_loopbacks(self.spine_nr_ipv4_loopbacks)
             self.spine_nodes.append(node)
 
-    def create_leaf_spine_links(self):
+    def create_leaf_spine_links(self, nr_parallel_links):
         for leaf_node in self.leaf_nodes:
             for spine_node in self.spine_nodes:
-                _link = self.create_link(leaf_node, spine_node)
+                for link_nr_in_parallel_bundle in range(1, nr_parallel_links + 1):
+                    _link = self.create_link(leaf_node, spine_node, LINK_TYPE_NORTH_SOUTH,
+                                             link_nr_in_parallel_bundle)
 
 class Plane(Group):
 
@@ -365,41 +409,43 @@ class Plane(Group):
         self.superspine_spine_links = []
         self.nr_leaf_nodes = 0
         self.nr_spine_nodes = 0
-        self.nr_superspine_nodes = META_CONFIG['nr-superspine-nodes']
-        # TODO: Make nr-ipv4-loopbacks a global knob
-        self.superspine_nr_ipv4_loopbacks = 1
+        self.nr_superspine_nodes = (META_CONFIG['nr-superspine-nodes'] //
+                                    fabric.nr_planes)
+        if 'superspines' in META_CONFIG:
+            self.superspine_nr_ipv4_loopbacks = META_CONFIG['superspines']['nr-ipv4-loopbacks']
+        else:
+            self.superspine_nr_ipv4_loopbacks = DEFAULT_NR_IPV4_LOOPBACKS
         self.create_superspine_nodes()
 
     def create_superspine_nodes(self):
         top_of_fabric = True
         y_pos = self.y_pos() + GROUP_Y_SPACER
         for index in range(0, self.nr_superspine_nodes):
-            group_level_node_id = index + 1
-            node_name = self.node_name("super", group_level_node_id)
-            node = self.create_node(node_name, SUPERSPINE_LEVEL, top_of_fabric, group_level_node_id,
+            group_layer_node_id = index + 1
+            node_name = self.node_name("super", group_layer_node_id)
+            node = self.create_node(node_name, SUPERSPINE_LAYER, top_of_fabric, group_layer_node_id,
                                     y_pos)
             node.add_ipv4_loopbacks(self.superspine_nr_ipv4_loopbacks)
             self.superspine_nodes.append(node)
 
 class Node:
 
-    next_level_node_id = {}
+    next_layer_node_id = {}
 
-    def __init__(self, group, name, level, top_of_fabric, group_level_node_id, y_pos):
-        # For now, we support max 3 levels, and they must be level 0, 1, and 2
-        assert level <= 2
+    def __init__(self, group, name, layer, top_of_fabric, group_layer_node_id, y_pos):
         self.group = group
         self.name = name
-        self.allocate_node_ids(level)
+        self.allocate_node_ids(layer)
         self.ns_name = NETNS_PREFIX + str(self.global_node_id)
-        self.level = level
+        self.layer = layer
         self.top_of_fabric = top_of_fabric
-        self.group_level_node_id = group_level_node_id
+        self.group_layer_node_id = group_layer_node_id
         self.given_y_pos = y_pos
-        self.rx_lie_ipv4_mcast_addr = self.generate_ipv4_address_str(
-            224, LIE_MCAST_ADDRESS_BYTE, self.level, self.level_node_id)
-        self.rx_lie_ipv6_mcast_addr = self.generate_ipv6_address_str(
-            "ff02", LIE_MCAST_ADDRESS_BYTE, self.level, self.level_node_id)
+        byte2 = LIE_MCAST_ADDRESS_BYTE + self.layer
+        byte3 = self.layer_node_id // 256
+        byte4 = self.layer_node_id % 256
+        self.rx_lie_ipv4_mcast_addr = self.generate_ipv4_address_str(224, byte2, byte3, byte4)
+        self.rx_lie_ipv6_mcast_addr = self.generate_ipv6_address_str("ff02", byte2, byte3, byte4)
         self.interfaces = []
         self.ipv4_prefixes = []
         self.lo_addresses = []
@@ -407,27 +453,27 @@ class Node:
         self.port_file = "/tmp/rift-python-telnet-port-" + self.name
         self.telnet_session = None
 
-    def allocate_node_ids(self, level):
-        # level_node_id: a node ID unique only within the level (each level has IDs 1, 2, 3...)
-        # global_node_id: a node ID which is globally unque (1001, 1002, 1003... for leaf nodes,
+    def allocate_node_ids(self, layer):
+        # layer_node_id: a node ID unique only within the layer (each layer has IDs 1, 2, 3...)
+        # global_node_id: a node ID which is globally unique (1001, 1002, 1003... for leaf nodes,
         #                 101, 102, 103... for spine nodes, and 1, 2, 3... for super-spine nodes)
-        if level in Node.next_level_node_id:
-            self.level_node_id = Node.next_level_node_id[level]
-            Node.next_level_node_id[level] += 1
+        if layer in Node.next_layer_node_id:
+            self.layer_node_id = Node.next_layer_node_id[layer]
+            Node.next_layer_node_id[layer] += 1
         else:
-            self.level_node_id = 1
-            Node.next_level_node_id[level] = 2
-        # We use the index as a byte in IP addresses, so we support max 254 nodes per level
-        assert self.level_node_id <= 254
-        if level == LEAF_LEVEL:
-            base_global_node_id_for_level = 1000
-        elif level == SPINE_LEVEL:
-            base_global_node_id_for_level = 100
-        elif level == SUPERSPINE_LEVEL:
-            base_global_node_id_for_level = 0
+            self.layer_node_id = 1
+            Node.next_layer_node_id[layer] = 2
+        # We use the index as a byte in IP addresses, so we support max 254 nodes per layer
+        assert self.layer_node_id <= 254
+        if layer == LEAF_LAYER:
+            base_global_node_id_for_layer = 1000
+        elif layer == SPINE_LAYER:
+            base_global_node_id_for_layer = 100
+        elif layer == SUPERSPINE_LAYER:
+            base_global_node_id_for_layer = 0
         else:
             assert False
-        self.global_node_id = base_global_node_id_for_level + self.level_node_id
+        self.global_node_id = base_global_node_id_for_layer + self.layer_node_id
 
     def generate_ipv4_address_str(self, byte1, byte2, byte3, byte4):
         assert 0 <= byte1 <= 255
@@ -445,17 +491,20 @@ class Node:
 
     def add_ipv4_loopbacks(self, count):
         for node_loopback_id in range(1, count+1):
-            address = self.generate_ipv4_address_str(
-                LOOPBACKS_ADDRESS_BYTE, self.level, self.level_node_id, node_loopback_id)
+            byte1 = LOOPBACKS_ADDRESS_BYTE + self.layer
+            byte2 = self.layer_node_id // 256
+            byte3 = self.layer_node_id % 256
+            byte4 = node_loopback_id
+            address = self.generate_ipv4_address_str(byte1, byte2, byte3, byte4)
             mask = "32"
             metric = "1"
             prefix = (address, mask, metric)
             self.ipv4_prefixes.append(prefix)
             self.lo_addresses.append(address)
 
-    def create_interface(self):
+    def create_interface(self, link):
         node_intf_id = len(self.interfaces) + 1
-        interface = Interface(self, node_intf_id)
+        interface = Interface(self, node_intf_id, link)
         self.interfaces.append(interface)
         return interface
 
@@ -463,13 +512,44 @@ class Node:
         # Of all the interfaces on the node in the same direction as the given interface, what
         # is the index of the interface? Is it the 0th, the 1st, the 2nd, etc. interface in that
         # particular direction? Note that the index is zero-based.
+        if interface.link.link_type == LINK_TYPE_NORTH_SOUTH:
+            return self.north_south_interface_dir_index(interface)
+        if interface.link.link_type == LINK_TYPE_INTER_PLANE:
+            return self.inter_plane_interface_dir_index(interface)
+        assert False
+        return None
+
+    def north_south_interface_dir_index(self, interface):
         index = 0
         for check_interface in self.interfaces:
             if check_interface == interface:
                 return index
             if check_interface.direction == interface.direction:
                 index += 1
+        assert False
         return None
+
+    def inter_plane_interface_goes_east(self, interface):
+        assert interface.node == self
+        my_group_id = self.group.class_group_id
+        peer_group_id = interface.peer_intf.node.group.class_group_id
+        goes_east = my_group_id < peer_group_id
+        return goes_east
+
+    def inter_plane_interface_dir_index(self, interface):
+        links_config = META_CONFIG.get('inter-plane-links', {})
+        nr_parallel_links = links_config.get('nr-parallel-links', DEFAULT_NR_PARALLEL_LINKS)
+        offset = interface.link.link_nr_in_parallel_bundle - 1
+        right_half = self.inter_plane_interface_goes_east(interface)
+        if interface.link.is_interplane_last_to_first():
+            right_half = not right_half
+        if right_half:
+            index = nr_parallel_links                   # Start on right half of node
+            index += nr_parallel_links - offset - 1     # Links in bundle go right to left
+        else:
+            index = 0                                   # Start on left half of node
+            index += offset                             # Links in bundle go left to right
+        return index
 
     def interface_dir_count(self, direction):
         # How many interfaces in the given direction does this node have?
@@ -485,7 +565,13 @@ class Node:
             print("  - id: 0", file=file)
             print("    nodes:", file=file)
         print("      - name: " + self.name, file=file)
-        print("        level: " + str(self.level), file=file)
+        if self.layer == LEAF_LAYER:
+            level = "leaf"
+        elif self.top_of_fabric:
+            level = "top-of-fabric"
+        else:
+            level = "undefined"
+        print("        level: " + str(level), file=file)
         print("        systemid: " + str(self.global_node_id), file=file)
         if not netns:
             print("        rx_lie_mcast_address: " + self.rx_lie_ipv4_mcast_addr, file=file)
@@ -568,11 +654,15 @@ class Node:
         print('echo "{}"'.format(progress_msg), file=file)
         ns_name = NETNS_PREFIX + str(self.global_node_id)
         port_file = "/tmp/rift-python-telnet-port-" + self.name
-        print("ip netns exec {} env/bin/python3 rift "
+        out_file = "/tmp/rift-python-output-" + self.name
+        print('echo "**** Start Node ***" >> {}'.format(out_file), file=file)
+        print('date >> {}'.format(out_file), file=file)
+        print("ip netns exec {} python3 rift "
+              "--log-level error "
               "--ipv4-multicast-loopback-disable "
               "--ipv6-multicast-loopback-disable "
-              "--telnet-port-file {} {} >/dev/null 2>&1 &"
-              .format(ns_name, port_file, self.config_file_name), file=file)
+              "--telnet-port-file {} {} >>{} 2>&1 &"
+              .format(ns_name, port_file, self.config_file_name, out_file), file=file)
 
     def write_netns_stop_scr_to_file_1(self, file):
         progress = ("Stop RIFT-Python engine for node {}".format(self.name))
@@ -593,6 +683,11 @@ class Node:
 
     def write_kill_rift_to_file(self, file):
         ns_name = NETNS_PREFIX + str(self.global_node_id)
+        # Record the killing
+        out_file = "/tmp/rift-python-output-" + self.name
+        print('echo "**** Stop Node ***" >> {}'.format(out_file), file=file)
+        print('date >> {}'.format(out_file), file=file)
+        # Kill the process
         print("RIFT_PIDS=$(ip netns pids {})".format(ns_name), file=file)
         print("kill -9 $RIFT_PIDS >/dev/null 2>&1", file=file)
         print("wait $RIFT_PIDS >/dev/null 2>&1", file=file)
@@ -657,15 +752,31 @@ class Node:
 
     def check(self):
         print("**** Check node {}".format(self.name))
+        if not self.check_process_running():
+            return
         if not self.connect_telnet():
-            return False
+            return
         self.check_engine()
+        if self.layer == LEAF_LAYER:
+            self.check_can_ping_all_leaves()
         self.check_interfaces_3way()
         if not self.top_of_fabric:
             self.check_rib_north_default_route()
         self.check_rib_south_specific_routes()
         self.check_rib_fib_consistency()
         self.check_fib_kernel_consistency()
+        self.check_disaggregation()
+        self.check_queues()
+
+    def check_process_running(self):
+        step = "RIFT process is running"
+        result = subprocess.run(['ip', 'netns', 'pids', self.ns_name], stdout=subprocess.PIPE,
+                                check=False)
+        if result.stdout == b'':
+            error = "RIFT process is not running in namespace {}".format(self.ns_name)
+            self.report_check_result(step, False, error)
+            return False
+        self.report_check_result(step)
         return True
 
     def check_engine(self):
@@ -676,6 +787,29 @@ class Node:
             self.report_check_result(step, False, error)
             return
         self.report_check_result(step)
+
+    def check_can_ping_all_leaves(self):
+        step = "This leaf can ping all other leaves"
+        success = True
+        for pod in self.group.fabric.pods:
+            for other_leaf_node in pod.nodes_by_layer[LEAF_LAYER]:
+                if other_leaf_node == self:
+                    continue
+                for from_address in self.lo_addresses:
+                    for to_address in other_leaf_node.lo_addresses:
+                        result = subprocess.run(['ip', 'netns', 'exec', self.ns_name, 'ping', '-f',
+                                                 '-W1', '-c10', '-I', from_address, to_address],
+                                                stdout=subprocess.PIPE, check=False)
+                        if result.returncode != 0:
+                            error = 'Ping from {} {} to {} {} failed'.format(self.name,
+                                                                             from_address,
+                                                                             other_leaf_node.name,
+                                                                             to_address)
+                            self.report_check_result(step, False, error)
+                            success = False
+        if success:
+            self.report_check_result(step)
+        return success
 
     def check_interfaces_3way(self):
         step = "Adjacencies are 3-way"
@@ -693,28 +827,27 @@ class Node:
     def check_rib_north_default_route(self):
         step = "North-bound default routes are present"
         okay = True
-        direction = constants.DIR_NORTH
-        ipv4_nexthops = self.gather_nexthops(direction, True)
+        direction = DIR_NORTH
+        ipv4_next_hops = self.gather_next_hops(direction, True, True)
         parsed_rib_ipv4_routes = self.telnet_session.parse_show_output("show routes family ipv4")
-        okay = self.check_route_in_rib("0.0.0.0/0", direction, ipv4_nexthops,
+        okay = self.check_route_in_rib("0.0.0.0/0", direction, ipv4_next_hops,
                                        parsed_rib_ipv4_routes) and okay
-        ipv6_nexthops = self.gather_nexthops(direction, False)
+        ipv6_next_hops = self.gather_next_hops(direction, False, True)
         parsed_rib_ipv6_routes = self.telnet_session.parse_show_output("show routes family ipv6")
-        okay = self.check_route_in_rib("::/0", direction, ipv6_nexthops,
+        okay = self.check_route_in_rib("::/0", direction, ipv6_next_hops,
                                        parsed_rib_ipv6_routes) and okay
         self.report_check_result(step, okay)
 
     def check_rib_south_specific_routes(self):
-        # TODO: Once we add support for IPv6 loopbacks, also check those
         step = "South-bound specific routes are present"
         okay = True
-        direction = constants.DIR_SOUTH
+        direction = DIR_SOUTH
         ipv4_lo_addresses = self.gather_southern_loopbacks()
         parsed_rib_ipv4_routes = self.telnet_session.parse_show_output("show routes family ipv4")
         for ipv4_lo_address in ipv4_lo_addresses:
-            ipv4_nexthops = self.southern_loopback_nexthops(ipv4_lo_address, True)
+            ipv4_next_hops = self.southern_loopback_next_hops(ipv4_lo_address, True)
             ipv4_prefix = ipv4_lo_address + "/32"
-            okay = self.check_route_in_rib(ipv4_prefix, direction, ipv4_nexthops,
+            okay = self.check_route_in_rib(ipv4_prefix, direction, ipv4_next_hops,
                                            parsed_rib_ipv4_routes) and okay
         self.report_check_result(step, okay)
 
@@ -725,71 +858,104 @@ class Node:
         else:
             ipv4_loopback_prefixes = []
         for intf in self.interfaces:
-            if self.interface_direction(intf) == constants.DIR_SOUTH:
+            if self.interface_direction(intf) == DIR_SOUTH:
                 south_node = intf.peer_intf.node
                 ipv4_loopback_prefixes += south_node.lo_addresses
                 ipv4_loopback_prefixes += south_node.gather_southern_loopbacks()
         ipv4_loopback_prefixes = list(set(ipv4_loopback_prefixes))   # Remove duplicates
         return ipv4_loopback_prefixes
 
-    def southern_loopback_nexthops(self, loopback_address, include_ipv4_address):
-        nexthops = []
+    def southern_loopback_next_hops(self, loopback_address, include_ipv4_address):
+        next_hops = []
         for intf in self.interfaces:
-            if self.interface_direction(intf) == constants.DIR_SOUTH:
+            if self.interface_direction(intf) == DIR_SOUTH:
                 south_node = intf.peer_intf.node
                 intf_southern_loopbacks = south_node.gather_southern_loopbacks(True)
                 if loopback_address in intf_southern_loopbacks:
-                    nexthops.append(self.interface_nexthop(intf, include_ipv4_address))
-        return nexthops
+                    next_hops.append(self.interface_next_hop(intf, include_ipv4_address, None))
+        return next_hops
 
     def interface_direction(self, interface):
-        if self.level > interface.peer_intf.node.level:
-            return constants.DIR_SOUTH
-        elif self.level < interface.peer_intf.node.level:
-            return constants.DIR_NORTH
+        if self.layer > interface.peer_intf.node.layer:
+            return DIR_SOUTH
+        elif self.layer < interface.peer_intf.node.layer:
+            return DIR_NORTH
         else:
-            return constants.DIR_EAST_WEST
+            return DIR_EAST_WEST
 
-    def gather_nexthops(self, direction, include_ipv4_address):
-        nexthops = []
+    def gather_next_hops(self, direction, include_ipv4_address, include_ecmp_weight):
+        if include_ecmp_weight:
+            count = 0
+            for intf in self.interfaces:
+                if self.interface_direction(intf) == direction:
+                    count += 1
+            weight = round(100.0 / count)
+        else:
+            weight = None
+        next_hops = []
         for intf in self.interfaces:
             if self.interface_direction(intf) == direction:
-                nexthops.append(self.interface_nexthop(intf, include_ipv4_address))
-        nexthops = list(set(nexthops))   # Remove duplicates
-        return nexthops
+                next_hops.append(self.interface_next_hop(intf, include_ipv4_address, weight))
+        next_hops = list(set(next_hops))   # Remove duplicates
+        return next_hops
 
-    def interface_nexthop(self, intf, include_ipv4_address):
-        nexthop_intf = intf.veth_name()
+    def interface_next_hop(self, intf, include_ipv4_address, weight):
+        next_hop_intf = intf.veth_name()
         if include_ipv4_address:
-            nexthop_ipv4_address = intf.peer_intf.addr.split('/')[0] # Strip off /prefix-len
-            nexthop = "{} {}".format(nexthop_intf, nexthop_ipv4_address)
+            next_hop_address_str = intf.peer_intf.addr.split('/')[0] # Strip off /prefix-len
+            next_hop_address = make_ip_address(next_hop_address_str)
         else:
-            nexthop = "{}".format(nexthop_intf)
-        return nexthop
+            next_hop_address = None
+        return NextHop(False, next_hop_intf, next_hop_address, weight)
 
-    def check_route_in_rib(self, prefix, direction, nexthops, parsed_rib_routes):
-        if direction == constants.DIR_SOUTH:
+    @staticmethod
+    def extract_next_hops_from_route(route, first_next_hop_column, ignore_address):
+        next_hops = []
+        types = route[first_next_hop_column]
+        intfs = route[first_next_hop_column + 1]
+        addrs = route[first_next_hop_column + 2]
+        weights = route[first_next_hop_column + 3]
+        for (typ, intf, addr, weight) in zip(types, intfs, addrs, weights):
+            if typ == "Discard":
+                return []
+            elif typ == "Positive":
+                negative = False
+            elif typ == "Negative":
+                negative = True
+            else:
+                assert False
+            if ignore_address:
+                addr = None
+            else:
+                addr = make_ip_address(addr)
+            if weight == "":
+                weight = None
+            else:
+                weight = int(weight)
+            next_hops.append(NextHop(negative, intf, addr, weight))
+        return next_hops
+
+    def check_route_in_rib(self, prefix, direction, next_hops, parsed_rib_routes):
+        if direction == DIR_SOUTH:
             owner = "South SPF"
         else:
-            assert direction == constants.DIR_NORTH
+            assert direction == DIR_NORTH
             owner = "North SPF"
-        substep = "Route prefix {} owner {} nexthops {} in RIB".format(prefix, owner, nexthops)
-        sorted_nexthops = sorted(nexthops)
+        substep = "Route prefix {} owner {} next-hops {} in RIB".format(prefix, owner, next_hops)
+        sorted_next_hops = sorted(next_hops)
         for rib_route in parsed_rib_routes[0]['rows'][1:]:
             rib_prefix = rib_route[0][0]
             rib_owner = rib_route[1][0]
             if prefix == rib_prefix and owner == rib_owner:
-                rib_nexthops = rib_route[2]
-                if ':' in prefix:
-                    # For IPv6 routes, we only check the nexthop interface and not the link-local
-                    # nexthop address
-                    rib_nexthops = [nh.split(' ')[0] for nh in rib_nexthops]
-                sorted_rib_nexthops = sorted(rib_nexthops)
-                if sorted_nexthops == sorted_rib_nexthops:
+                # For IPv6 routes, don't check next-hops address, it's an unpredictable link-local
+                ignore_address = ':' in prefix
+                rib_next_hops = self.extract_next_hops_from_route(rib_route, 2, ignore_address)
+                sorted_rib_next_hops = sorted(rib_next_hops)
+                if sorted_next_hops == sorted_rib_next_hops:
                     return True
                 else:
-                    error = ("Nexthops mismatch; expected {} but RIB has {}"
-                             .format(sorted_nexthops, sorted_rib_nexthops))
+                    error = ("Next-hops mismatch; expected {} but RIB has {}"
+                             .format(sorted_next_hops, sorted_rib_next_hops))
                     self.report_check_result(substep, False, error)
                     return False
         self.report_check_result(substep, False, "Route missing")
@@ -800,84 +966,303 @@ class Node:
         # South-SPF route for the same prefix. So, we can simply check that the forwarding table
         # (FIB) is identical to the route table (RIB).
         step = "RIB and FIB are consistent"
+        okay = True
         try:
             parsed_rib = self.telnet_session.parse_show_output("show routes")
             parsed_fib = self.telnet_session.parse_show_output("show forwarding")
-            if parsed_rib == parsed_fib:
-                self.report_check_result(step)
-            else:
-                self.report_check_result(step, False, "FIB is different than RIB")
+            if len(parsed_rib) != len(parsed_fib):
+                self.report_check_result(step, False,
+                                         'RIB and FIB have different number of families')
+                okay = False
+            for (rib_fam, fib_fam) in zip(parsed_rib, parsed_fib):
+                rib_title = rib_fam['title']
+                fib_title = fib_fam['title']
+                if rib_title != fib_title:
+                    self.report_check_result(
+                        step, False, 'different family titles: RIB has {}, FIB has {}'
+                        .format(rib_title, fib_title))
+                    okay = False
+                    continue
+                rib_routes = rib_fam['rows'][1:]
+                fib_routes = fib_fam['rows'][1:]
+                if len(rib_routes) != len(fib_routes):
+                    self.report_check_result(
+                        step, False, 'different number routes in family {}: RIB has {}, FIB has {}'
+                        .format(rib_fam['title'], len(rib_routes), len(fib_routes)))
+                    okay = False
+                    continue
+                for (rib_route, fib_route) in zip(rib_routes, fib_routes):
+                    rib_prefix = rib_route[0][0]
+                    fib_prefix = fib_route[0][0]
+                    if rib_prefix != fib_prefix:
+                        self.report_check_result(
+                            step, False, 'different prefixes: RIB has {}, FIB has {}'
+                            .format(rib_prefix, fib_prefix))
+                        okay = False
+                        continue
+                    rib_nhs = rib_route[2]
+                    fib_nhs = fib_route[1]
+                    if len(rib_nhs) != len(fib_nhs):
+                        self.report_check_result(
+                            step, False, 'different number of next-hops for route {}: '
+                            'RIB has {}, FIB has {}'
+                            .format(rib_prefix, len(rib_nhs), len(fib_nhs)))
+                        okay = False
+                        continue
+                    for (rib_nh, fib_nh) in zip(rib_nhs, fib_nhs):
+                        if 'Negative' in rib_nh:
+                            self.report_check_result(
+                                step, False, 'RIB has negative next-hop for route {}: {}'
+                                .format(rib_prefix, rib_nh))
+                            okay = False
+                            continue
+                        if rib_nh != fib_nh:
+                            self.report_check_result(
+                                step, False, 'different next-hop for route {}: '
+                                'RIB has {}, FIB has {}'
+                                .format(rib_prefix, rib_nh, fib_nh))
+                            okay = False
+                            continue
         except RuntimeError as err:
             self.report_check_result(step, False, str(err))
+            okay = False
+        if okay:
+            self.report_check_result(step)
 
     def check_fib_kernel_consistency(self):
         step = "FIB and Kernel are consistent"
+        all_ok = True
+        all_ok = all_ok and self.report_fib_routes_not_in_kernel(step)
+        all_ok = all_ok and self.report_kernel_routes_not_in_fib(step)
+        if all_ok:
+            self.report_check_result(step)
+
+    def report_fib_routes_not_in_kernel(self, step):
+        all_ok = True
         parsed_fib_routes = self.telnet_session.parse_show_output("show forwarding")
         parsed_kernel_routes = \
             self.telnet_session.parse_show_output("show kernel routes table main")
         all_ok = True
         for fib_fam in parsed_fib_routes:
+            ipv6 = "IPv6" in fib_fam['title']
             for fib_route in fib_fam['rows'][1:]:
                 fib_prefix = fib_route[0][0]
-                fib_nexthops = fib_route[2]
-                if not self.check_route_in_kernel(step, fib_prefix, fib_nexthops,
+                fib_next_hops = self.extract_next_hops_from_route(fib_route, 1, False)
+                if not self.check_route_in_kernel(step, ipv6, fib_prefix, fib_next_hops,
                                                   parsed_kernel_routes):
                     all_ok = False
+        return all_ok
+
+    def report_kernel_routes_not_in_fib(self, step):
+        # We don't have to worry about the scenario that the FIB has a route for the same prefix
+        # but a different set of next-hops; that would already have been caught in
+        # report_fib_routes_not_in_kernel.
+        all_ok = True
+        kernel_routes = self.telnet_session.parse_show_output("show kernel routes table main")[0]
+        fib_routes = self.telnet_session.parse_show_output("show forwarding")
+        fib_v4_routes = fib_routes[0]
+        fib_v6_routes = fib_routes[1]
+        for kernel_route in kernel_routes['rows'][1:]:
+            family = kernel_route[1][0]
+            protocol = kernel_route[4][0]
+            if protocol == "RIFT":
+                kernel_prefix = kernel_route[2][0]
+                if family == "IPv4":
+                    check_fib_routes = fib_v4_routes
+                elif family == "IPv6":
+                    check_fib_routes = fib_v6_routes
+                else:
+                    assert False
+                found_in_fib = False
+                for fib_route in check_fib_routes['rows'][1:]:
+                    fib_prefix = fib_route[0][0]
+                    if kernel_prefix == fib_prefix:
+                        found_in_fib = True
+                        break
+                if not found_in_fib:
+                    error = ("Prefix {} present in Kernel but not in FIB".format(kernel_prefix))
+                    self.report_check_result(step, False, error)
+                    all_ok = False
+        return all_ok
+
+    def check_disaggregation(self):
+        step = "There is no disaggregation"
+        all_ok = True
+        parsed_disagg = self.telnet_session.parse_show_output("show disaggregation")
+        # Check no unexpected missing or extra adjacencies in same-level-nodes table
+        same_level_nodes = parsed_disagg[0]
+        for row in same_level_nodes['rows'][1:]:
+            same_level_name = row[0][0]
+            missing_adjs = []
+            for missing_adj in row[3]:
+                if missing_adj != '':
+                    missing_adjs.append(missing_adj)
+            if missing_adjs:
+                error = ("Same-level node {} has missing adjacencies {}"
+                         .format(same_level_name, missing_adjs))
+                self.report_check_result(step, False, error)
+                all_ok = False
+            extra_adjs = []
+            for extra_adj in row[4]:
+                if extra_adj != '':
+                    extra_adjs.append(extra_adj)
+            if extra_adjs:
+                error = ("Same-level node {} has extra adjacencies {}"
+                         .format(same_level_name, extra_adjs))
+                self.report_check_result(step, False, error)
+                all_ok = False
+        # There are no partially connected interfaces
+        partial_interfaces = parsed_disagg[1]
+        for row in partial_interfaces['rows'][1:]:
+            interface_name = row[0][0]
+            error = ("Interface {} is partially connected".format(interface_name))
+            self.report_check_result(step, False, error)
+            all_ok = False
+        # There are no positive disaggregation prefix ties (empty ones to flush are allowed)
+        pos_disagg_ties = parsed_disagg[2]
+        all_ok = all_ok and self.report_non_empty_ties(step, pos_disagg_ties)
+        # There are no negative disaggregation prefix ties (empty ones to flush are allowed)
+        neg_disagg_ties = parsed_disagg[3]
+        all_ok = all_ok and self.report_non_empty_ties(step, neg_disagg_ties)
         if all_ok:
             self.report_check_result(step)
 
-    def check_route_in_kernel(self, step, prefix, nexthops, parsed_kernel_routes):
-        # In the FIB, and ECMP route is one row with multiple nexthops. In the kernel, an ECMP route
-        # may be one row with multuple nexthops or may be multiple rows with the same prefix (the
-        # former appears to be the case for IPv4 and the latter appears to be the case for IPv6)
+    def report_non_empty_ties(self, step, parsed_ties):
+        all_ok = True
+        for row in parsed_ties['rows'][1:]:
+            contents = row[6][0]
+            if contents != '':
+                direction = row[0][0]
+                originator = row[1][0]
+                tie_type = row[2][0]
+                tie_nr = row[3][0]
+                seq_nr = row[4][0]
+                error = ("Unexpected {} TIE: direction={} originator={} tie-nr={} "
+                         "seq-nr={} contents={}"
+                         .format(tie_type, direction, originator, tie_nr, seq_nr, contents))
+                self.report_check_result(step, False, error)
+                all_ok = False
+        return all_ok
+
+    def check_queues(self):
+        step = "The TIE/TIRE queues are empty"
+        all_ok = True
+        parsed_intfs = self.telnet_session.parse_show_output("show interfaces")
+        for parsed_intf in parsed_intfs[0]['rows'][1:]:
+            intf_name = parsed_intf[0][0]
+            parsed_queues = self.telnet_session.parse_show_output("show interface {} queues"
+                                                                  .format(intf_name))
+            tie_tx_queue = parsed_queues[0]
+            all_ok = all_ok and self.report_queue_entries(step, intf_name, "TIE TX", tie_tx_queue)
+            tire_req_queue = parsed_queues[0]
+            all_ok = all_ok and self.report_queue_entries(step, intf_name, "TIRE REQ",
+                                                          tire_req_queue)
+            tire_ack_queue = parsed_queues[0]
+            all_ok = all_ok and self.report_queue_entries(step, intf_name, "TIRE ACK",
+                                                          tire_ack_queue)
+        if all_ok:
+            self.report_check_result(step)
+
+    def report_queue_entries(self, step, intf_name, queue_name, parsed_queue):
+        all_ok = True
+        for row in parsed_queue['rows'][1:]:
+            direction = row[0][0]
+            originator = row[1][0]
+            tie_type = row[2][0]
+            tie_nr = row[3][0]
+            seq_nr = row[4][0]
+            error = ("Unexpected entry in {} queue: interface={} direction={} originator={} "
+                     "tie-type={} tie-nr={} seq-nr={}"
+                     .format(queue_name, intf_name, direction, originator, tie_type, tie_nr,
+                             seq_nr))
+            self.report_check_result(step, False, error)
+            all_ok = False
+        return all_ok
+
+    def check_route_in_kernel(self, step, ipv6, prefix, next_hops, parsed_kernel_routes):
+        # In the FIB, and ECMP route is one row with multiple next-hops. In the kernel, an ECMP
+        # route may be one row with multuple next-hops or may be multiple rows with the same prefix
+        # (the former appears to be the case for IPv4 and the latter appears to be the case for
+        # IPv6)
         partial_match = False
-        remaining_fib_nexthops = nexthops
+        remaining_fib_next_hops = next_hops
+        sorted_fib_next_hops = sorted(next_hops)
+        zero_weight_fib_next_hops = copy.deepcopy(next_hops)
+        for nhop in zero_weight_fib_next_hops:
+            nhop.weight = 0
+        sorted_zw_fib_next_hops = sorted(zero_weight_fib_next_hops)
         for kernel_route in parsed_kernel_routes[0]['rows'][1:]:
             kernel_prefix = kernel_route[2][0]
-            kernel_nexthop_intfs = kernel_route[5]
-            kernel_nexthop_addrs = kernel_route[6]
-            kernel_nexthops = [intf + ' ' + addr for (intf, addr) in zip(kernel_nexthop_intfs,
-                                                                         kernel_nexthop_addrs)]
+            kernel_next_hop_intfs = kernel_route[5]
+            kernel_next_hop_addrs = kernel_route[6]
+            kernel_next_hop_weights = kernel_route[7]
+            kernel_next_hops = []
+            for intf, addr, weight in zip(kernel_next_hop_intfs, kernel_next_hop_addrs,
+                                          kernel_next_hop_weights):
+                if addr == "":
+                    addr = None
+                else:
+                    addr = make_ip_address(addr)
+                if weight == "":
+                    weight = None
+                else:
+                    weight = int(weight)
+                kernel_next_hops.append(NextHop(False, intf, addr, weight))
             if kernel_prefix == prefix:
-                sorted_kernel_nexthops = sorted(kernel_nexthops)
-                sorted_fib_nexthops = sorted(nexthops)
-                if len(kernel_nexthops) == 1:
-                    # If the kernel has a single nexthop, look for a partial match
-                    kernel_nexthop = kernel_nexthops[0]
-                    if kernel_nexthop in remaining_fib_nexthops:
-                        remaining_fib_nexthops.remove(kernel_nexthop)
-                        if remaining_fib_nexthops == []:
+                sorted_kernel_next_hops = sorted(kernel_next_hops)
+                if len(kernel_next_hops) == 1:
+                    # If the kernel has a single next-hop, look for a partial match. This is to
+                    # deal with the fact that some kernels store ::/0 as three routes each without
+                    # a weight, instead of a single route with 3 weighted next-hops.
+                    kernel_next_hop = kernel_next_hops[0]
+                    fib_next_hop = None
+                    for nhop in remaining_fib_next_hops:
+                        if (kernel_next_hop.negative == nhop.negative and
+                                kernel_next_hop.interface == nhop.interface and
+                                kernel_next_hop.address == nhop.address):
+                            fib_next_hop = nhop
+                            break
+                    if fib_next_hop:
+                        remaining_fib_next_hops.remove(fib_next_hop)
+                        if remaining_fib_next_hops == []:
                             return True
                         else:
                             partial_match = True
                     else:
-                        err = ("Route {} has nexthop {} in kernel but not in FIB"
-                               .format(prefix, kernel_nexthop))
+                        err = ("Route {} has next-hop {} in kernel but not in FIB"
+                               .format(prefix, kernel_next_hop))
                         self.report_check_result(step, False, err)
                         return False
-                elif sorted_kernel_nexthops == sorted_fib_nexthops:
-                    # If the kernel has a multiple nexthops, look for an exact match
+                elif sorted_kernel_next_hops == sorted_fib_next_hops:
+                    # If the kernel has a multiple next-hops, look for an exact match
+                    return True
+                elif ipv6 and sorted_kernel_next_hops == sorted_zw_fib_next_hops:
+                    # Some kernels always store IPv6 next-hops with weight zero
                     return True
                 else:
-                    err = ("Route {} has nexthops {} in kernel but {} in FIB"
-                           .format(prefix, kernel_nexthops, nexthops))
+                    err = ("Route {} has next-hops {} in kernel but {} in FIB"
+                           .format(prefix, sorted_kernel_next_hops, sorted_fib_next_hops))
                     self.report_check_result(step, False, err)
                     return False
         if partial_match:
-            err = ("Route {} in FIB has extra nexthops {} which are missing in kernel"
-                   .format(prefix, remaining_fib_nexthops))
+            err = ("Route {} in FIB has extra next-hops {} which are missing in kernel"
+                   .format(prefix, remaining_fib_next_hops))
         else:
             err = "Route {} is in FIB but not in kernel".format(prefix)
         self.report_check_result(step, False, err)
         return False
 
     def report_check_result(self, step, okay=True, error=None):
+        # pylint: disable=global-statement
+        global CHECK_RESULT_FAIL
         if okay:
             print(GREEN + "OK" + DEFAULT + "    {}".format(step))
         elif error:
             print(RED + "FAIL" + DEFAULT + "  {}: {}".format(step, error))
+            CHECK_RESULT_FAIL += 1
         else:
             print(RED + "FAIL" + DEFAULT + "  {}".format(step))
+            CHECK_RESULT_FAIL += 1
 
     def connect_telnet(self):
         step = "Can Telnet to RIFT process"
@@ -902,8 +1287,8 @@ class Node:
 
     def x_pos(self):
         # X position of top-left corner of rectangle representing the node
-        x_delta = (self.group_level_node_id - 1) * (NODE_X_SIZE + NODE_X_INTERVAL)
-        return self.group.first_node_x_pos(self.level) + x_delta
+        x_delta = (self.group_layer_node_id - 1) * (NODE_X_SIZE + NODE_X_INTERVAL)
+        return self.group.first_node_x_pos(self.layer) + x_delta
 
     def y_pos(self):
         # Y position of top-left corner of rectangle representing the node
@@ -913,8 +1298,9 @@ class Interface:
 
     next_global_intf_id = 1
 
-    def __init__(self, node, node_intf_id):
+    def __init__(self, node, node_intf_id, link):
         self.node = node
+        self.link = link
         self.global_intf_id = Interface.next_global_intf_id       # Globally unique ID for interface
         Interface.next_global_intf_id += 1
         self.node_intf_id = node_intf_id   # ID for interface, only unique within scope of interface
@@ -928,16 +1314,22 @@ class Interface:
     def set_peer_intf(self, peer_intf):
         self.peer_intf = peer_intf
         peer_node = peer_intf.node
-        if peer_node.level < self.node.level:
+        if peer_node.layer < self.node.layer:
             self.direction = SOUTH
         else:
             self.direction = NORTH
         self.rx_lie_port = 20000 + self.global_intf_id
         self.tx_lie_port = 20000 + self.peer_intf.global_intf_id
         self.rx_flood_port = 10000 + self.global_intf_id
-        lower = min(self.global_intf_id, self.peer_intf.global_intf_id)
-        upper = max(self.global_intf_id, self.peer_intf.global_intf_id)
-        self.addr = "99.{}.{}.{}/24".format(lower, upper, self.global_intf_id)
+        if self.global_intf_id < self.peer_intf.global_intf_id:
+            subnet = self.peer_intf.global_intf_id
+            byte4 = 1
+        else:
+            subnet = self.global_intf_id
+            byte4 = 2
+        byte2 = subnet // 256
+        byte3 = subnet % 256
+        self.addr = "99.{}.{}.{}/24".format(byte2, byte3, byte4)
 
     def node_intf_id_letter(self):
         return chr(ord('a') + self.node_intf_id - 1)
@@ -960,10 +1352,10 @@ class Interface:
                    'cx="{}" '
                    'cy="{}" '
                    'r="{}" '
-                   'style="stroke:{};fill:{}" '
+                   'style="stroke:{INTF_COLOR};fill:{INTF_COLOR}" '
                    'class="intf">'
                    '</circle>\n'
-                   .format(x_pos, y_pos, INTF_RADIUS, INTF_COLOR, INTF_COLOR))
+                   .format(x_pos, y_pos, INTF_RADIUS, INTF_COLOR=INTF_COLOR))
 
     def x_pos(self):
         # X position of center of circle representing interface
@@ -981,14 +1373,28 @@ class Interface:
 
 class Link:
 
-    def __init__(self, node1, node2):
-        self.intf1 = node1.create_interface()
-        self.intf2 = node2.create_interface()
+    def __init__(self, node1, node2, link_type, link_nr_in_parallel_bundle,
+                 inter_plane_loop_nr=None):
+        self.node1 = node1
+        self.node2 = node2
+        self.link_type = link_type
+        self.link_nr_in_parallel_bundle = link_nr_in_parallel_bundle
+        self.east_west = node1.layer == node2.layer
+        self.inter_plane_loop_nr = inter_plane_loop_nr
+        self.intf1 = node1.create_interface(self)
+        self.intf2 = node2.create_interface(self)
         self.intf1.set_peer_intf(self.intf2)
         self.intf2.set_peer_intf(self.intf1)
 
     def description(self):
         return self.intf1.name() + "-" + self.intf2.name()
+
+    def is_interplane_last_to_first(self):
+        assert self.link_type == LINK_TYPE_INTER_PLANE
+        from_group_id = self.node1.group.class_group_id
+        to_group_id = self.node2.group.class_group_id
+        last_to_first = from_group_id > to_group_id
+        return last_to_first
 
     def write_netns_start_scr_to_file(self, file):
         veth1_name = self.intf1.veth_name()
@@ -999,6 +1405,12 @@ class Link:
         print("ip link add dev {} type veth peer name {}".format(veth1_name, veth2_name), file=file)
 
     def write_graphics_to_file(self, file):
+        if self.east_west:
+            self.write_ew_graphics_to_file(file)
+        else:
+            self.write_ns_graphics_to_file(file)
+
+    def write_ns_graphics_to_file(self, file):
         x_pos1 = self.intf1.x_pos()
         y_pos1 = self.intf1.y_pos()
         x_pos2 = self.intf2.x_pos()
@@ -1013,6 +1425,44 @@ class Link:
                    'class="link-line">'
                    '</line>\n'
                    .format(x_pos1, y_pos1, x_pos2, y_pos2, LINK_COLOR))
+        self.intf1.write_graphics_to_file(file)
+        self.intf2.write_graphics_to_file(file)
+        file.write('</g>\n')
+
+    def write_ew_graphics_to_file(self, file):
+        links_config = META_CONFIG.get('inter-plane-links', {})
+        nr_parallel_links = links_config.get('nr-parallel-links', DEFAULT_NR_PARALLEL_LINKS)
+        x_pos1 = self.intf1.x_pos()
+        x_pos2 = self.intf2.x_pos()
+        intf_y_pos = self.intf1.y_pos()
+        loop_y_spacer = self.inter_plane_loop_nr * (INTER_PLANE_Y_LOOP_SPACER * nr_parallel_links)
+        loop_y_spacer += (nr_parallel_links - 1) * INTER_PLANE_Y_INTERLINE_SPACER
+        last_to_first = self.is_interplane_last_to_first()
+        if last_to_first:
+            in_bundle_offset = nr_parallel_links - self.link_nr_in_parallel_bundle
+        else:
+            in_bundle_offset = self.link_nr_in_parallel_bundle - 1
+        in_bundle_offset *= INTER_PLANE_Y_INTERLINE_SPACER
+        line_y_spacer = INTER_PLANE_Y_INTERLINE_SPACER * nr_parallel_links if last_to_first else 0
+        line_y_pos = (intf_y_pos
+                      - INTER_PLANE_Y_FIRST_LINE_SPACER    # Up to top of superspine box
+                      - GROUP_Y_SPACER                     # Spacer between box and east-west links
+                      - loop_y_spacer                      # Spacer between different loops
+                      - in_bundle_offset                   # Offset within group of parallel links
+                      - line_y_spacer)                     # Spacer for link going back to first
+        file.write('<g class="link">\n')
+        # pylint:disable=bad-option-value,duplicate-string-formatting-argument
+        file.write('<polyline '
+                   'points="{},{} {},{} {},{} {},{}" '
+                   'style="stroke:{};" '
+                   'fill="none" '
+                   'class="link-line">'
+                   '</polyline>\n'
+                   .format(x_pos1, intf_y_pos,   # Start at interface 1
+                           x_pos1, line_y_pos,   # Vertically up to horizontal line
+                           x_pos2, line_y_pos,   # Horizontal line
+                           x_pos2, intf_y_pos,   # Down to interface 2
+                           LINK_COLOR))
         self.intf1.write_graphics_to_file(file)
         self.intf2.write_graphics_to_file(file)
         file.write('</g>\n')
@@ -1086,16 +1536,26 @@ class Fabric:
 
     def __init__(self):
         self.nr_pods = META_CONFIG['nr-pods']
+        self.nr_planes = META_CONFIG['nr-planes']
+        self.inter_plane_east_west_links = META_CONFIG['inter-plane-east-west-links']
+        self.nr_superspine_nodes = META_CONFIG.get('nr-superspine-nodes')
         self.pods = []
         self.planes = []
         pods_y_pos = GLOBAL_Y_OFFSET
+        # Make room for inter-plane east-west links if needed
+        links_config = META_CONFIG.get('inter-plane-links', {})
+        nr_ew_parallel_links = links_config.get('nr-parallel-links', DEFAULT_NR_PARALLEL_LINKS)
+        if self.nr_planes > 1 and self.inter_plane_east_west_links:
+            total_y_spacer_per_loop = (INTER_PLANE_Y_LOOP_SPACER +
+                                       INTER_PLANE_Y_INTERLINE_SPACER * nr_ew_parallel_links)
+            pods_y_pos += (INTER_PLANE_Y_FIRST_LINE_SPACER
+                           + self.nr_inter_plane_loops() * total_y_spacer_per_loop)
         # Only generate superspine nodes and planes if there is more than one pod
         if self.nr_pods > 1:
-            nr_planes = 1   # TODO: Implement multi-plane
-            only_plane = (nr_planes == 1)
-            planes_y_pos = GLOBAL_Y_OFFSET
+            only_plane = (self.nr_planes == 1)
+            planes_y_pos = pods_y_pos
             pods_y_pos += NODE_Y_SIZE + SUPERSPINE_TO_POD_Y_INTERVAL
-            for index in range(0, nr_planes):
+            for index in range(0, self.nr_planes):
                 global_plane_id = index + 1
                 plane_name = "plane-" + str(global_plane_id)
                 pod = Plane(self, plane_name, global_plane_id, only_plane, planes_y_pos)
@@ -1114,19 +1574,75 @@ class Fabric:
         plane_x_center_shift = (self.x_size() - self.planes_total_x_size()) // 2
         for plane in self.planes:
             plane.x_center_shift = plane_x_center_shift
-        # Generate the links between the superspine nodes and the spine nodes
-        if self.planes:
-            # TODO: Add support for multi-plane
-            self.create_links_single_plane()
+        # If there are any superspines, create the links to them.
+        if self.nr_superspine_nodes:
+            links_config = META_CONFIG.get('spine-superspine-links', {})
+            nr_ns_parallel_links = links_config.get('nr-parallel-links', DEFAULT_NR_PARALLEL_LINKS)
+            if self.nr_planes > 1:
+                self.create_spine_super_links_mp(nr_ns_parallel_links)
+                if self.inter_plane_east_west_links:
+                    self.create_links_ew_multi_plane(nr_ew_parallel_links)
+            else:
+                self.create_spine_super_links_sp(nr_ns_parallel_links)
 
-    def create_links_single_plane(self):
-        # Superspine to spine links (single plane)
+    def create_spine_super_links_sp(self, nr_parallel_links):
+        # Superspine-to-spine north-south links (single plane)
         assert len(self.planes) == 1
         plane = self.planes[0]
         for superspine_node in plane.nodes:
             for pod in self.pods:
-                for spine_node in pod.nodes_by_level[SPINE_LEVEL]:
-                    _link = plane.create_link(superspine_node, spine_node)
+                for spine_node in pod.nodes_by_layer[SPINE_LAYER]:
+                    for link_nr_in_parallel_bundle in range(1, nr_parallel_links + 1):
+                        _link = plane.create_link(superspine_node, spine_node,
+                                                  LINK_TYPE_NORTH_SOUTH,
+                                                  link_nr_in_parallel_bundle)
+
+    def create_spine_super_links_mp(self, nr_parallel_links):
+        # Superspine-to-spine north-south links (multi-plane)
+        for plane_index, plane in enumerate(self.planes):
+            for superspine_node in plane.nodes:
+                for pod in self.pods:
+                    spine_nodes = pod.nodes_by_layer[SPINE_LAYER]
+                    spine_nodes_per_plane = len(spine_nodes) // self.nr_planes
+                    start_spine_index = plane_index * spine_nodes_per_plane
+                    end_spine_index = start_spine_index + spine_nodes_per_plane
+                    for spine_index in range(start_spine_index, end_spine_index):
+                        spine_node = spine_nodes[spine_index]
+                        for link_nr_in_parallel_bundle in range(1, nr_parallel_links + 1):
+                            _link = plane.create_link(superspine_node, spine_node,
+                                                      LINK_TYPE_NORTH_SOUTH,
+                                                      link_nr_in_parallel_bundle)
+
+    def create_links_ew_multi_plane(self, nr_parallel_links):
+        # Plane-to-plane east-west links within superspine (multi-plane)
+        # Create each inter-plane loop.
+        for inter_plane_loop_nr in range(0, self.nr_inter_plane_loops()):
+            # Visit each superspine in the current loop
+            superspines_and_planes = self.superspines_in_inter_plane_loop(inter_plane_loop_nr)
+            loop_length = len(superspines_and_planes)
+            for index, from_superspine_and_plane in enumerate(superspines_and_planes):
+                # Create a link between this superspine and the next one (with wrap-around)
+                (from_superspine, from_plane) = from_superspine_and_plane
+                to_superspine_and_plane = superspines_and_planes[(index + 1) % loop_length]
+                (to_superspine, _to_plane) = to_superspine_and_plane
+                for link_nr_in_parallel_bundle in range(1, nr_parallel_links + 1):
+                    _link = from_plane.create_link(from_superspine, to_superspine,
+                                                   LINK_TYPE_INTER_PLANE,
+                                                   link_nr_in_parallel_bundle, inter_plane_loop_nr)
+            # Swap the last two interfaces the first superspine in the loop for nicer visual
+            first_superspine = superspines_and_planes[0][0]
+            interfaces = first_superspine.interfaces
+            interfaces[-1], interfaces[-2] = interfaces[-2], interfaces[-1]
+
+    def nr_inter_plane_loops(self):
+        return self.nr_superspine_nodes // self.nr_planes
+
+    def superspines_in_inter_plane_loop(self, inter_plane_loop_nr):
+        superspines_and_planes = []
+        for plane in self.planes:
+            superspine = plane.nodes[inter_plane_loop_nr]
+            superspines_and_planes.append((superspine, plane))
+        return superspines_and_planes
 
     def write_config(self):
         file_name = getattr(ARGS, 'output-file-or-dir')
@@ -1198,16 +1714,25 @@ class Fabric:
         print('echo "{}"'.format(message), file=file)
 
     def write_netns_start_scr_to_file(self, file):
-        # Note: Plane has to go first, because superspine to spine links are owned by the space
+        # Note: Plane has to go first, because superspine to spine links are owned by the plane
         # group, not the pod group.
+        # Phase 1: prologue for whole fabric
+        print('rm -f /tmp/rift-python-output-*', file=file)
+        # Phase 2: create veth interfaces for links
         for plane in self.planes:
             plane.write_netns_start_scr_to_file_1(file)
         for pod in self.pods:
             pod.write_netns_start_scr_to_file_1(file)
+        # Phase 3: create network namespaces for nodes
         for plane in self.planes:
             plane.write_netns_start_scr_to_file_2(file)
         for pod in self.pods:
             pod.write_netns_start_scr_to_file_2(file)
+        # Phase 4: start RIFT process
+        for plane in self.planes:
+            plane.write_netns_start_scr_to_file_3(file)
+        for pod in self.pods:
+            pod.write_netns_start_scr_to_file_3(file)
 
     def write_netns_stop_scr_to_file(self, file):
         for plane in self.planes:
@@ -1223,7 +1748,7 @@ class Fabric:
         print("FAILURE_COUNT=0", file=file)
         all_leaf_nodes = []
         for pod in self.pods:
-            for leaf_node in pod.nodes_by_level[LEAF_LEVEL]:
+            for leaf_node in pod.nodes_by_layer[LEAF_LAYER]:
                 all_leaf_nodes.append(leaf_node)
         self.write_netns_ping_all_pairs(file, all_leaf_nodes)
         print("echo", file=file)
@@ -1346,13 +1871,11 @@ class Fabric:
         nr_affected_nodes = len(affected_nodes)
         nr_nodes = nr_clean_nodes + nr_affected_nodes
         assert nr_nodes > 1
-        # pylint: disable=simplifiable-if-statement
         if random.randint(1, nr_nodes) <= nr_clean_nodes:
             # Break something
             return True
-        else:
-            # Fix something
-            return False
+        # Fix something
+        return False
 
     @staticmethod
     def get_chaos_config(attribute, default_value):
@@ -1372,18 +1895,24 @@ class Fabric:
 
     def write_graphics_to_file(self, file):
         self.svg_start(file)
+        # Background graphics first
         for pod in self.pods:
-            pod.write_graphics_to_file(file)
+            pod.write_bg_graphics_to_file(file)
         for plane in self.planes:
-            plane.write_graphics_to_file(file)
+            plane.write_bg_graphics_to_file(file)
+        # Foreground graphics last
+        for pod in self.pods:
+            pod.write_fg_graphics_to_file(file)
+        for plane in self.planes:
+            plane.write_fg_graphics_to_file(file)
         self.svg_end(file)
 
     def svg_start(self, file):
         file.write('<svg '
-                   'xmlns="http://www.w3.org/2000/svg '
+                   'xmlns="http://www.w3.org/2000/svg" '
                    'xmlns:xlink="http://www.w3.org/1999/xlink" '
-                   'width=1000000 '
-                   'height=1000000 '
+                   'width="1000000" '
+                   'height="1000000" '
                    'id="tooltip-svg">\n')
 
     def svg_end(self, file):
@@ -1399,7 +1928,7 @@ class Fabric:
             fatal_error('Could not open allocations file "{}"'.format(file_name))
 
     def write_allocations_to_file(self, file):
-        tab = table.Table()
+        tab = Table()
         tab.add_row([
             ["Node", "Name"],
             ["Loopback", "Address"],
@@ -1419,14 +1948,12 @@ class Fabric:
         print(tab.to_string(), file=file)
 
     def check(self):
-        okay = True
         for pod in self.pods:
             for node in pod.nodes:
-                okay = node.check() and okay
+                node.check()
         for plane in self.planes:
             for node in plane.nodes:
-                okay = node.check() and okay
-        return okay
+                node.check()
 
     def pods_total_x_size(self):
         total_x_size = 0
@@ -1523,9 +2050,9 @@ class TelnetSession:
         return self.expect(".*> ", timeout)
 
     def parse_show_output(self, show_command):
-        # Send a marker (which will cause a command syntax error) and look for the echo. This is to
-        # avoid accidentally parsing output from some previous show command.
-        marker = "show PARSE_SHOW_OUTPUT_MARKER"
+        # Send a marker (which will cause an error) and look for the echo. This is to avoid
+        # accidentally parsing output from some previous show command.
+        marker = "set node PARSE_SHOW_OUTPUT_MARKER"
         self.send_line(marker)
         while True:
             line = self.read_line()
@@ -1547,7 +2074,7 @@ class TelnetSession:
             if line == '':
                 # Skip blank lines
                 continue
-            elif '+' in line:
+            if '+' in line:
                 # Table contents starts
                 parsed_table = self.parse_table(table_title)
                 table_title = None
@@ -1561,7 +2088,7 @@ class TelnetSession:
                 # Reached prompt for next command; we are done
                 return parsed_tables
             else:
-                raise RuntimeError("Unrecognized format of show command output")
+                raise RuntimeError("Unrecognized format of show command output: {}".format(line))
 
     def parse_table(self, table_title):
         parsed_table = {}
@@ -1599,11 +2126,11 @@ def parse_meta_configuration(file_name):
                 raise exception
     except IOError:
         fatal_error('Could not open input meta-configuration file "{}"'.format(file_name))
-    validator = cerberus.Validator()
+    validator = cerberus.Validator(SCHEMA)
     if not validator.validate(config, SCHEMA):
         pretty_printer = pprint.PrettyPrinter()
         pretty_printer.pprint(validator.errors)
-        exit(1)
+        sys.exit(1)
     return validator.normalized(config)
 
 def validate_meta_configuration():
@@ -1616,6 +2143,20 @@ def validate_meta_configuration():
         fatal_error("nr-superspine-nodes must be configured if number of PODs > 1")
     if (nr_pods == 1) and (nr_superspine_nodes is not None):
         fatal_error("nr-superspine-nodes must not be configured if there is only one POD")
+    if 'nr-planes' in META_CONFIG:
+        nr_planes = META_CONFIG['nr-planes']
+        if nr_planes > 1:
+            if nr_superspine_nodes is None:
+                fatal_error("if there are multiple planes then nr-superspine-nodes must also be "
+                            "configured")
+            if nr_superspine_nodes % nr_planes != 0:
+                fatal_error("nr-superspine-nodes must be multiple of nr-planes")
+            nr_spine_nodes_per_pod = META_CONFIG['nr-spine-nodes-per-pod']
+            if nr_planes > nr_spine_nodes_per_pod:
+                fatal_error("nr-planes must be less than or equal to nr_spine_nodes_per_pod")
+            if nr_spine_nodes_per_pod > nr_planes:
+                if nr_spine_nodes_per_pod % nr_planes != 0:
+                    fatal_error("nr-spine-nodes-per-pod must be multiple of nr-planes")
 
 def parse_command_line_arguments():
     parser = argparse.ArgumentParser(description='RIFT configuration generator')
@@ -1656,9 +2197,12 @@ def main():
     if ARGS.check:
         if not ARGS.netns_per_node:
             fatal_error('Check command-line option only supported in netns-per-node mode')
-        if fabric.check():
+        fabric.check()
+        if CHECK_RESULT_FAIL == 0:
+            print("{}All checks passed successfully{}".format(GREEN, DEFAULT))
             sys.exit(0)
         else:
+            print("{}{} checks failed{}".format(RED, CHECK_RESULT_FAIL, DEFAULT))
             sys.exit(1)
     if ARGS.netns_per_node:
         fabric.write_netns_configs_and_scripts()

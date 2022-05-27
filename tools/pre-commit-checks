@@ -6,11 +6,27 @@ if [[ -z "${VIRTUAL_ENV}" ]]; then
   exit 1
 fi
 
+# Increase number of file descriptors
+case "$(uname -s)" in
+   Darwin)
+     echo 'macOS: increase number of file descriptors to 1024'
+     ulimit -S -n 1024
+     ;;
+   Linux)
+     echo 'Linux: increase number of file descriptors to 1024'
+     ulimit -S -n 1024
+     ;;
+   *)
+     echo 'Unknown OS'
+     ;;
+esac
+
 # Clean up temporary files
 cd ${VIRTUAL_ENV}/..
 tools/cleanup
 
 # Lint rift directory
+echo "Linting rift directory..."
 if ! pylint rift ; then
     echo "*** DO NOT COMMIT ***"
     echo "Fix lint errors for rift directory (score must be perfect 10.0)"
@@ -18,6 +34,7 @@ if ! pylint rift ; then
 fi
 
 # Lint tests directory
+echo "Linting tests directory..."
 if ! pylint tests ; then
     echo "*** DO NOT COMMIT ***"
     echo "Fix lint errors for tests directory (score must be perfect 10.0)"
@@ -25,6 +42,7 @@ if ! pylint tests ; then
 fi
 
 # Lint tools directory
+echo "Linting tools directory..."
 if ! pylint tools ; then
     echo "*** DO NOT COMMIT ***"
     echo "Fix lint errors for tools directory (score must be perfect 10.0)"
@@ -32,10 +50,19 @@ if ! pylint tools ; then
 fi
 
 # Run unit tests, system tests, and collect code coverage results
-if ! pytest --cov tests ; then
-    echo "*** DO NOT COMMIT ***"
-    echo "Fix unit tests and/or system tests (all tests must pass)"
-    exit 1
+# On macOS, exclude tests with __large__ in their name (they need more resources than a laptop has)
+if [[ "$(uname -s)" == "Darwin" ]]; then
+    if ! pytest --cov --cov-report=html -k 'not __large__' tests ; then
+        echo "*** DO NOT COMMIT ***"
+        echo "Fix unit tests and/or system tests (all tests must pass)"
+        exit 1
+    fi
+else 
+    if ! pytest --cov --cov-report=html tests ; then
+        echo "*** DO NOT COMMIT ***"
+        echo "Fix unit tests and/or system tests (all tests must pass)"
+        exit 1
+    fi
 fi
 
 # Check documentation for completeness

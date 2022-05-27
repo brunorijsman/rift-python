@@ -1,71 +1,122 @@
-import common.constants
-import table
+import sortedcontainers
+
+import constants
 import utils
 
-# TODO: Store both IPv4 and IPv6 address of neighbor
-
 class Neighbor:
+    """
+    A node may have multiple parallel interfaces in state 3-way to the same neighbor. In that case
+    there is single Neighbor object and there are multiple Interface objects (each having a
+    NeighborLIE object to represent the LIE received from the Neighbor).
+    """
 
-    def __init__(self, lie_protocol_packet, neighbor_address, neighbor_port):
-        self.system_id = lie_protocol_packet.header.sender
-        self.level = lie_protocol_packet.header.level
-        if utils.is_valid_ipv4_address(neighbor_address):
-            self.ipv4_address = neighbor_address
-            self.ipv6_address = None
-        else:
-            self.ipv4_address = None
-            self.ipv6_address = neighbor_address
-        self.port = neighbor_port
-        lie = lie_protocol_packet.content.lie
-        self.name = lie.name
-        self.local_id = lie.local_id
-        self.flood_port = lie.flood_port
-        self.link_mtu_size = lie.link_mtu_size
-        if lie.neighbor:
-            self.neighbor_system_id = lie.neighbor.originator
-            self.neighbor_link_id = lie.neighbor.remote_id
-        else:
-            self.neighbor_system_id = None
-            self.neighbor_link_id = None
-        self.pod = lie.pod
-        self.node_capabilities = lie.node_capabilities
-        self.link_capabilites = lie.link_capabilities
-        self.holdtime = lie.holdtime
-        self.not_a_ztp_offer = lie.not_a_ztp_offer
-        self.you_are_flood_repeater = lie.you_are_flood_repeater
-        self.label = lie.label
+    def __init__(self, system_id):
+        self._system_id = system_id
+        self._interfaces = {}             # Interfaces indexed by interface name
+        self._ingress_bandwidth = 0       # Neighbor ingress bw = bw from this node to the neighbor
+        self._egress_bandwidth = None     # Neighbor egress bw = bw from neighbor further north
+        self._traffic_percentage = None
 
-    def top_of_fabric(self):
-        # TODO: Is this right? Should we look at capabilities.hierarchy_indications?
-        return self.level == common.constants.top_of_fabric_level
+    def add_interface(self, intf):
+        assert intf.name not in self._interfaces
+        self._interfaces[intf.name] = intf
+        self._ingress_bandwidth += intf.bandwidth
 
-    def cli_details_table(self):
-        # TODO: Report capabilities (is it possible to report the unknown ones too?"
-        # TODO: Report neighbor direction in show command
-        if self.neighbor_system_id:
-            your_system_id_str = utils.system_id_str(self.neighbor_system_id)
+    def remove_interface(self, intf):
+        if intf.name in self._interfaces:
+            self._ingress_bandwidth -= intf.bandwidth
+            del self._interfaces[intf.name]
+        # Return whether or not the removed interface was the last one
+        if self._interfaces:
+            return False
         else:
-            your_system_id_str = ""
-        if self.neighbor_link_id:
-            your_link_id_str = "{}".format(self.neighbor_link_id)
+            return True
+
+    def interface_percentage(self, intf_name):
+        if intf_name not in self._interfaces:
+            return None
+        if self._traffic_percentage is None:
+            return None
+        intf = self._interfaces[intf_name]
+        ingress_fraction = intf.bandwidth / self._ingress_bandwidth
+        return ingress_fraction * self._traffic_percentage
+
+    def interface_weight(self, intf_name):
+        percentage = self.interface_percentage(intf_name)
+        if percentage is None:
+            return None
+        return round(percentage)
+
+    def primary_interface(self):
+        if not self._interfaces:
+            return None
+        primary_system_id = next(iter(self._interfaces))
+        return self._interfaces[primary_system_id]
+
+    def direction(self):
+        return self.primary_interface().neighbor_direction()
+
+    def ingress_bandwidth(self):
+        return self._ingress_bandwidth
+
+    def egress_bandwidth(self):
+        return self._egress_bandwidth
+
+    def set_egress_bandwidth(self, egress_bandwidth):
+        self._egress_bandwidth = egress_bandwidth
+
+    def set_traffic_percentage(self, percentage):
+        self._traffic_percentage = percentage
+
+    @staticmethod
+    def cli_summary_headers():
+        return [
+            "System ID",
+            "Direction",
+            ["Interface", "Name"],
+            ["Adjacency", "Name"]]
+
+    def cli_summary_attributes(self):
+        adj_names = sortedcontainers.SortedDict()
+        for intf_name, intf in self._interfaces.items():
+            adj_names[intf_name] = intf.neighbor_lie.name
+        return [
+            self._system_id,
+            constants.direction_str(self.direction()),
+            list(adj_names.keys()),
+            list(adj_names.values())]
+
+    @staticmethod
+    def cli_bw_summary_headers():
+        return [
+            "System ID",
+            ["Neighbor", "Ingress", "Bandwidth"],
+            ["Neighbor", "Egress", "Bandwidth"],
+            ["Neighbor", "Traffic", "Percentage"],
+            ["Interface", "Name"],
+            ["Interface", "Bandwidth"],
+            ["Interface", "Traffic", "Percentage"]]
+
+    def cli_bw_summary_attributes(self):
+        nbr_percentage = self._traffic_percentage
+        if nbr_percentage is None:
+            intf_percentage_str = ""
         else:
-            your_link_id_str = ""
-        tab = table.Table(separators=False)
-        tab.add_rows([
-            ["Name", self.name],
-            ["System ID", utils.system_id_str(self.system_id)],
-            ["IPv4 Address", self.ipv4_address],
-            ["IPv6 Address", self.ipv6_address],
-            ["LIE UDP Source Port", self.port],
-            ["Link ID", self.local_id],
-            ["Level", self.level],
-            ["Flood UDP Port", self.flood_port],
-            ["MTU", self.link_mtu_size],
-            ["POD", self.pod],
-            ["Hold Time", self.holdtime],
-            ["Not a ZTP Offer", self.not_a_ztp_offer],
-            ["You are Flood Repeater", self.you_are_flood_repeater],
-            ["Your System ID", your_system_id_str],
-            ["Your Local ID", your_link_id_str],
-        ])
-        return tab
+            nbr_percentage_str = "{:.1f}".format(nbr_percentage) + " %"
+        interface_infos = sortedcontainers.SortedDict()
+        for intf_name, intf in self._interfaces.items():
+            intf_bandwidth_str = utils.value_str(intf.bandwidth, "Mbps", "Mbps")
+            intf_percentage = self.interface_percentage(intf_name)
+            if intf_percentage is None:
+                intf_percentage = ""
+            else:
+                intf_percentage_str = "{:.1f}".format(intf_percentage) + " %"
+            interface_infos[intf_name] = (intf_bandwidth_str, intf_percentage_str)
+        return [
+            self._system_id,
+            utils.value_str(self._ingress_bandwidth, "Mbps", "Mbps"),
+            utils.value_str(self._egress_bandwidth, "Mbps", "Mbps"),
+            nbr_percentage_str,
+            list(interface_infos.keys()),
+            [info[0] for info in interface_infos.values()],
+            [info[1] for info in interface_infos.values()]]

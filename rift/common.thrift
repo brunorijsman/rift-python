@@ -2,15 +2,13 @@
     Thrift file with common definitions for RIFT
 */
 
-namespace py common
-namespace rs models
 
 /** @note MUST be interpreted in implementation as unsigned 64 bits.
  *        The implementation SHOULD NOT use the MSB.
  */
 typedef i64      SystemIDType
 typedef i32      IPv4Address
-/** this has to be of length long enough to accomodate prefix */
+/** this has to be long enough to accomodate prefix */
 typedef binary   IPv6Address
 /** @note MUST be interpreted in implementation as unsigned */
 typedef i16      UDPPortType
@@ -18,29 +16,34 @@ typedef i16      UDPPortType
 typedef i32      TIENrType
 /** @note MUST be interpreted in implementation as unsigned */
 typedef i32      MTUSizeType
-/** @note MUST be interpreted in implementation as unsigned rollling over number */
-typedef i16      SeqNrType
+/** @note MUST be interpreted in implementation as unsigned
+    rolling over number */
+typedef i64      SeqNrType
 /** @note MUST be interpreted in implementation as unsigned */
 typedef i32      LifeTimeInSecType
 /** @note MUST be interpreted in implementation as unsigned */
 typedef i8       LevelType
-/** optional, recommended monotonically increasing number _per packet type per adjacency_
+/** optional, recommended monotonically increasing number
+    _per packet type per adjacency_
     that can be used to detect losses/misordering/restarts.
-    This will be moved into envelope in the future.
-    @note MUST be interpreted in implementation as unsigned rollling over number */
+    @note MUST be interpreted in implementation as unsigned
+          rolling over number */
 typedef i16      PacketNumberType
 /** @note MUST be interpreted in implementation as unsigned */
 typedef i32      PodType
-/** @note MUST be interpreted in implementation as unsigned. This is carried in the
+/** @note MUST be interpreted in implementation as unsigned.
+          This is carried in the
           security envelope and MUST fit into 8 bits. */
 typedef i8       VersionType
 /** @note MUST be interpreted in implementation as unsigned */
 typedef i16      MinorVersionType
 /** @note MUST be interpreted in implementation as unsigned */
 typedef i32      MetricType
-/** @note MUST be interpreted in implementation as unsigned and unstructured */
+/** @note MUST be interpreted in implementation as unsigned
+          and unstructured */
 typedef i64      RouteTagType
-/** @note MUST be interpreted in implementation as unstructured label value */
+/** @note MUST be interpreted in implementation as unstructured
+          label value */
 typedef i32      LabelType
 /** @note MUST be interpreted in implementation as unsigned */
 typedef i32      BandwithInMegaBitsType
@@ -56,32 +59,35 @@ typedef i8     PrefixLenType
 /** timestamp in seconds since the epoch */
 typedef i64    TimestampInSecsType
 /** security nonce.
- *  @note MUST be interpreted in implementation as rolling over unsigned value */
+    @note MUST be interpreted in implementation as rolling
+          over unsigned value */
 typedef i16    NonceType
 /** LIE FSM holdtime type */
 typedef i16    TimeIntervalInSecType
-/** Transaction ID type for prefix mobility as specified by RFC6550,  value
-    MUST be interpreted in implementation as unsigned  */
+/** Transaction ID type for prefix mobility as specified by RFC6550,
+    value MUST be interpreted in implementation as unsigned  */
 typedef i8     PrefixTransactionIDType
-/** timestamp per IEEE 802.1AS, values MUST be interpreted in implementation as unsigned  */
+/** Timestamp per IEEE 802.1AS, all values MUST be interpreted in
+    implementation as unsigned.  */
 struct IEEE802_1ASTimeStampType {
     1: required     i64     AS_sec;
     2: optional     i32     AS_nsec;
 }
 /** generic counter type */
 typedef i64 CounterType
-/** Platform Interface Index type, i.e. index of interface on hardware, can be used e.g. with
-    RFC5837 */
+/** Platform Interface Index type, i.e. index of interface on hardware,
+    can be used e.g. with RFC5837 */
 typedef i32 PlatformInterfaceIndex
 
-/** flags indicating nodes behavior in case of ZTP
+/** Flags indicating node configuration in case of ZTP.
  */
 enum HierarchyIndications {
     /** forces level to `leaf_level` and enables according procedures */
     leaf_only                            = 0,
     /** forces level to `leaf_level` and enables according procedures */
     leaf_only_and_leaf_2_leaf_procedures = 1,
-    /** forces level to `top_of_fabric` and enables according procedures */
+    /** forces level to `top_of_fabric` and enables according
+        procedures */
     top_of_fabric                        = 2,
 }
 
@@ -112,7 +118,7 @@ const TimeIntervalInSecType   default_lie_holdtime  = 3
 const TimeIntervalInSecType   default_ztp_holdtime  = 1
 /** by default LIE levels are ZTP offers */
 const bool default_not_a_ztp_offer        = false
-/** by default e'one is repeating flooding */
+/** by default everyone is repeating flooding */
 const bool default_you_are_flood_repeater = true
 /** 0 is illegal for SystemID */
 const SystemIDType IllegalSystemID        = 0
@@ -143,9 +149,11 @@ const bool            bfd_default                = true
 
 /** undefined nonce, equivalent to missing nonce */
 const NonceType       undefined_nonce            = 0;
-/** outer security key id, MUST be interpreted as in implementation as unsigned */
+/** outer security key id, MUST be interpreted as in implementation
+    as unsigned */
 typedef i8            OuterSecurityKeyID
-/** security key id, MUST be interpreted as in implementation as unsigned */
+/** security key id, MUST be interpreted as in implementation
+    as unsigned */
 typedef i32           TIESecurityKeyID
 /** undefined key */
 const TIESecurityKeyID undefined_securitykey_id   = 0;
@@ -158,7 +166,7 @@ const TIESecurityKeyID undefined_securitykey_id   = 0;
     states fairly quickly during ZTP without sending LIEs*/
 const i16             maximum_valid_nonce_delta  = 5;
 
-/** direction of tie */
+/** Direction of TIEs. */
 enum TieDirectionType {
     Illegal           = 0,
     South             = 1,
@@ -166,7 +174,7 @@ enum TieDirectionType {
     DirectionMaxValue = 3,
 }
 
-/** address family */
+/** Address family type. */
 enum AddressFamilyType {
    Illegal                = 0,
    AddressFamilyMinValue  = 1,
@@ -175,52 +183,54 @@ enum AddressFamilyType {
    AddressFamilyMaxValue  = 4,
 }
 
-/** IP v4 prefix type */
+/** IPv4 prefix type. */
 struct IPv4PrefixType {
     1: required IPv4Address    address;
     2: required PrefixLenType  prefixlen;
 }
 
-/** IP v6 prefix type */
+/** IPv6 prefix type. */
 struct IPv6PrefixType {
     1: required IPv6Address    address;
     2: required PrefixLenType  prefixlen;
 }
 
-/** IP address type */
+/** IP address type. */
 union IPAddressType {
+    /** Content is IPv4 */
     1: optional IPv4Address   ipv4address;
+    /** Content is IPv6 */
     2: optional IPv6Address   ipv6address;
 }
 
-/** prefix representing reachablity.
+/** Prefix advertisement.
 
     @note: for interface
         addresses the protocol can propagate the address part beyond
         the subnet mask and on reachability computation that has to
-        be normalized. The non-significant bits can be used for operational
-        purposes.
+        be normalized. The non-significant bits can be used
+        for operational purposes.
 */
 union IPPrefixType {
     1: optional IPv4PrefixType   ipv4prefix;
     2: optional IPv6PrefixType   ipv6prefix;
 }
 
-/** sequence of a prefix when it moves
+/** Sequence of a prefix in case of move.
  */
 struct PrefixSequenceType {
     1: required IEEE802_1ASTimeStampType  timestamp;
-    /** transaction ID set by client in e.g. in 6LoWPAN */
+    /** Transaction ID set by client in e.g. in 6LoWPAN. */
     2: optional PrefixTransactionIDType   transactionid;
 }
 
-/** type of TIE.
+/** Type of TIE.
 
     This enum indicates what TIE type the TIE is carrying.
     In case the value is not known to the receiver,
-    re-flooded the same way as prefix TIEs. This allows for
-    future extensions of the protocol within the same schema major
-    with types opaque to some nodes unless the flooding scope is not
+    the TIE MUST be re-flooded. This allows for
+    future extensions of the protocol within the same major schema
+    with types opaque to some nodes UNLESS the flooding scope is not
     the same as prefix TIE, then a major version revision MUST
     be performed.
 */
@@ -242,10 +252,11 @@ enum TIETypeType {
 /** RIFT route types.
 
     @note: route types which MUST be ordered on their preference
-            PGP prefixes are most preferred attracting
-            traffic north (towards spine) and then south
-            normal prefixes are attracting traffic south (towards leafs),
-            i.e. prefix in NORTH PREFIX TIE is preferred over SOUTH PREFIX TIE.
+           PGP prefixes are most preferred attracting
+           traffic north (towards spine) and then south
+           normal prefixes are attracting traffic south
+           (towards leafs), i.e. prefix in NORTH PREFIX TIE
+           is preferred over SOUTH PREFIX TIE.
 
     @note: The only purpose of those values is to introduce an
            ordering whereas an implementation can choose internally
@@ -254,27 +265,28 @@ enum TIETypeType {
 enum RouteType {
     Illegal               =  0,
     RouteTypeMinValue     =  1,
-    /** first legal value. */
-    /** discard routes are most prefered */
+    /** First legal value. */
+    /** Discard routes are most preferred */
     Discard               =  2,
 
-    /** local prefixes are directly attached prefixes on the
+    /** Local prefixes are directly attached prefixes on the
      *  system such as e.g. interface routes.
      */
     LocalPrefix           =  3,
-    /** advertised in S-TIEs */
+    /** Advertised in S-TIEs */
     SouthPGPPrefix        =  4,
-    /** advertised in N-TIEs */
+    /** Advertised in N-TIEs */
     NorthPGPPrefix        =  5,
-    /** advertised in N-TIEs */
+    /** Advertised in N-TIEs */
     NorthPrefix           =  6,
-    /** externally imported north */
+    /** Externally imported north */
     NorthExternalPrefix   =  7,
-    /** advertised in S-TIEs, either normal prefix or positive disaggregation */
+    /** Advertised in S-TIEs, either normal prefix or positive
+        disaggregation */
     SouthPrefix           =  8,
-    /** externally imported south */
+    /** Externally imported south */
     SouthExternalPrefix   =  9,
-    /** negative, transitive prefixes are least preferred */
+    /** Negative, transitive prefixes are least preferred */
     NegativeSouthPrefix   = 10,
     RouteTypeMaxValue     = 11,
 }

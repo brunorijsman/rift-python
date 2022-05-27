@@ -16,7 +16,7 @@ Furthermore, Python RIFT uses [pylint](https://www.pylint.org/) to check the Pyt
 
 All tests can be run manually; details are provided below.
 
-[Travis Continuous Integration (CI)](https://travis-ci.org/brunorijsman/rift-python) is used to also run pylint, all unit tests, and all system tests automatically on each github commit.
+[Travis Continuous Integration (CI)](https://travis-ci.com/brunorijsman/rift-python) is used to also run pylint, all unit tests, and all system tests automatically on each github commit.
 
 During all of the tests, the --cov option in pytest is used to measure code coverage. The code coverage results are collected and graphically reported in [codecov](https://codecov.io/gh/brunorijsman/rift-python).
 
@@ -336,12 +336,12 @@ If you open the file `rift_expect.log` and scroll to the bottom, you might see s
 *** Expect: [|] if1 +[|] +[|] .* +[|] ONE_WAY +[|]
 
 show interfaces
-+-----------+-----------+-----------+-----------+
-| Interface | Neighbor  | Neighbor  | Neighbor  |
-| Name      | Name      | System ID | State     |
-+-----------+-----------+-----------+-----------+
-| if1       | node2-if1 | 2         | THREE_WAY |
-+-----------+-----------+-----------+-----------+
++-----------+-----------+-----------+-----------+-------------------+-------+
+| Interface | Neighbor  | Neighbor  | Neighbor  | Time in           | Flaps |
+| Name      | Name      | System ID | State     | State             |       |
++-----------+-----------+-----------+-----------+-------------------+-------+
+| if1       | node2-if1 | 2         | THREE_WAY | 0d 00h:00m:01.52s | 0     |
++-----------+-----------+-----------+-----------+-------------------+-------+
 
 node1> 
 
@@ -371,12 +371,12 @@ This line shows the actual output. Here we see that we actually got `THREE_WAY` 
 
 <pre>
 show interfaces
-+-----------+-----------+-----------+-----------+
-| Interface | Neighbor  | Neighbor  | Neighbor  |
-| Name      | Name      | System ID | State     |
-+-----------+-----------+-----------+-----------+
-| if1       | node2-if1 | 2         | THREE_WAY |
-+-----------+-----------+-----------+-----------+
++-----------+-----------+-----------+-----------+-------------------+-------+
+| Interface | Neighbor  | Neighbor  | Neighbor  | Time in           | Flaps |
+| Name      | Name      | System ID | State     | State             |       |
++-----------+-----------+-----------+-----------+-------------------+-------+
+| if1       | node2-if1 | 2         | THREE_WAY | 0d 00h:00m:01.52s | 0     |
++-----------+-----------+-----------+-----------+-------------------+-------+
 </pre>
 
 The following lines show the call stack where the test failure occurred:
@@ -817,7 +817,7 @@ The script `tools/cleanup` cleans up all these temporary files. There is also a 
 
 ## Continuous Integration
 
-I use [Travis Continuous Integration (CI)](https://travis-ci.org/brunorijsman/rift-python) For every commit, Travis CI automatically runs pylint, the full unit test suite, and the full system test suite. The interoperability test suite is not automatically run - it must be run manually.
+I use [Travis Continuous Integration (CI)](https://travis-ci.com/brunorijsman/rift-python) For every commit, Travis CI automatically runs pylint, the full unit test suite, and the full system test suite. The interoperability test suite is not automatically run - it must be run manually.
 
 I use [codecov](https://codecov.io/gh/brunorijsman/rift-python) for visualizing the code coverage results.
 

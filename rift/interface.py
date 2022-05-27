@@ -1,14 +1,18 @@
 # pylint:disable=too-many-lines
 
 import collections
+import datetime
 import enum
+import errno
 import logging
 import random
 import socket
+from ipaddress import IPv4Network
 
 import constants
 import fsm
-import neighbor
+import msg_queues
+import neighbor_lie
 import offer
 import packet_common
 import stats
@@ -21,33 +25,45 @@ import common.constants
 import common.ttypes
 import encoding.ttypes
 
-from encoding.constants import protocol_minor_version
+import encoding.constants
 
 USE_SIMPLE_REQUEST_FILTERING = True
 
-# TODO: LIEs arriving with a TTL larger than 1 MUST be ignored.
-# TODO: Implement configuration of POD numbers
-# TODO: Send LIE packets with network control precedence.
-# TODO: Have a mechanism to detect that an interface comes into / goes out of existence
-# TODO: Have a mechanism to detect IPv4 or IPv6 address changes on an interface
+class PacketTrace:
+
+    def __init__(self, direction, local_address, remote_address, packet_info):
+        self.timestamp = datetime.datetime.now()
+        self.direction = direction
+        self.local_address = local_address
+        self.remote_address = remote_address
+        self.packet_info = packet_info
+
+    def timestamp_str(self, prev_packet):
+        meta_str = "direction=" + self.direction
+        meta_str += "  timestamp={}".format(self.timestamp.strftime("%Y-%m-%d-%H:%M:%S.%f"))
+        if prev_packet:
+            second_since_prev_packet = (prev_packet.timestamp - self.timestamp).total_seconds()
+            meta_str += "  seconds-since-prev={:.4f}".format(second_since_prev_packet)
+        return meta_str
+
+    def addresses_str(self):
+        local_address_str = "{}:{}".format(self.local_address[0], self.local_address[1])
+        remote_address_str = "{}:{}".format(self.remote_address[0], self.remote_address[1])
+        return "local-address={}  remote_address={}".format(local_address_str, remote_address_str)
 
 class Interface:
 
     UNDEFINED_OR_ANY_POD = 0
 
-    SERVICE_QUEUES_INTERVAL = 1.0
-
     INCREASE_TX_NONCE_LOCAL_HOLDDOWN_TIME = 60.0
+
+    MAX_PACKET_TRACE = 20
 
     def generate_advertised_name(self):
         return self.node.name + ':' + self.name
 
     def get_mtu(self):
-        # TODO: Find a portable (or even non-portable) way to get the interface MTU
-        # TODO: Find a way to be informed whenever the interface MTU changes
-        # TODO: Check the hard-coded MTU value: 1400 or 1500
-        mtu = 1400
-        return mtu
+        return self.node.kernel.interface_mtu(self.physical_interface_name)
 
     class State(enum.Enum):
         ONE_WAY = 1
@@ -107,37 +123,33 @@ class Interface:
                          Interface.NbrIsFRState.PENDING_FALSE]
 
     def action_store_hal(self):
-        # TODO: Need to implement ZTP state machine first
         pass
 
     def action_store_hat(self):
-        # TODO: Need to implement ZTP state machine first
         pass
 
     def action_store_hals(self):
-        # TODO: Need to implement ZTP state machine first
         pass
 
     def action_update_level(self):
-        # TODO: Need to implement ZTP state machine and/or configuration first
         pass
 
     def action_start_flooding(self):
         # Start sending TIE, TIRE, and TIDE packets to this neighbor
         rx_flood_port = self._rx_flood_port
-        tx_flood_port = self.neighbor.flood_port
+        tx_flood_port = self.neighbor_lie.flood_port
         # For sending flooding packets, use whatever IPv4 or IPv6 address we see first for the
         # neighbor, preferring the IPv4 address if we know both.
-        if self.neighbor.ipv4_address is not None:
+        if self.neighbor_lie.ipv4_address is not None:
             self.rx_info("Start IPv4 flooding: send to address %s port %d",
-                         self.neighbor.ipv4_address, tx_flood_port)
+                         self.neighbor_lie.ipv4_address, tx_flood_port)
             self._flood_tx_ipv4_socket = self.create_socket_ipv4_tx_ucast(
-                remote_address=self.neighbor.ipv4_address,
+                remote_address=self.neighbor_lie.ipv4_address,
                 port=tx_flood_port)
         else:
-            assert self.neighbor.ipv6_address is not None
-            scoped_ipv6_address = self.neighbor.ipv6_address
-            if "%" not in self.neighbor.ipv6_address:
+            assert self.neighbor_lie.ipv6_address is not None
+            scoped_ipv6_address = self.neighbor_lie.ipv6_address
+            if "%" not in self.neighbor_lie.ipv6_address:
                 scoped_ipv6_address += "%" + self.physical_interface_name
             self.rx_info("Start IPv6 flooding: send to address %s port %d",
                          scoped_ipv6_address, tx_flood_port)
@@ -152,7 +164,7 @@ class Interface:
             local_port=rx_flood_port,
             ipv4=True,
             multicast_address=None,
-            remote_address="0.0.0.0",  # TODO: Permissive... use neighbor address?
+            remote_address="0.0.0.0",
             receive_function=self.receive_flood_message,
             log=self._rx_log,
             log_id=self._log_id)
@@ -166,8 +178,6 @@ class Interface:
             receive_function=self.receive_flood_message,
             log=self._rx_log,
             log_id=self._log_id)
-        # Periodically start sending TIE packets and TIRE packets
-        self._service_queues_timer.start()
         # Update the node TIEs originated by this node to include this neighbor
         self.node.regenerate_my_node_ties()
         # Update the south prefix TIE: we may have to start or stop originating a default route
@@ -180,8 +190,7 @@ class Interface:
     def action_stop_flooding(self):
         # Stop sending TIE, TIRE, and TIDE packets to this neighbor
         self.rx_info("Stop flooding")
-        self._service_queues_timer.stop()
-        self.clear_all_queues()
+        self._queues.clear_all_queues()
         if self._flood_rx_ipv4_handler:
             self._flood_rx_ipv4_handler.close()
             self._flood_rx_ipv4_handler = None
@@ -208,20 +217,268 @@ class Interface:
         self.partially_connected = None
         self.partially_connected_causes = None
 
+    def action_send_lie(self):
+        packet_header = encoding.ttypes.PacketHeader(
+            sender=self.node.system_id,
+            level=self.node.level_value())
+        node_capabilities = encoding.ttypes.NodeCapabilities(
+            protocol_minor_version=encoding.constants.protocol_minor_version,
+            flood_reduction=True,
+            hierarchy_indications=
+            common.ttypes.HierarchyIndications.leaf_only_and_leaf_2_leaf_procedures)
+        if self.neighbor_lie:
+            neighbor_system_id = self.neighbor_lie.system_id
+            neighbor_link_id = self.neighbor_lie.local_id
+            lie_neighbor = encoding.ttypes.Neighbor(neighbor_system_id, neighbor_link_id)
+        else:
+            neighbor_system_id = None
+            lie_neighbor = None
+        lie_packet = encoding.ttypes.LIEPacket(
+            name=self._advertised_name,
+            local_id=self.local_id,
+            flood_port=self._rx_flood_port,
+            link_mtu_size=self._mtu,
+            neighbor=lie_neighbor,
+            pod=self._pod,
+            node_capabilities=node_capabilities,
+            holdtime=3,
+            not_a_ztp_offer=self.node.send_not_a_ztp_offer_on_intf(self.name),
+            you_are_flood_repeater=self.nbr_is_fr_bool(self.floodred_nbr_is_fr),
+            label=None)
+        packet_content = encoding.ttypes.PacketContent(lie=lie_packet)
+        protocol_packet = encoding.ttypes.ProtocolPacket(packet_header, packet_content)
+        self.send_protocol_packet(protocol_packet, flood=False)
+        tx_offer = offer.TxOffer(
+            self.name,
+            self.node.system_id,
+            packet_header.level,
+            lie_packet.not_a_ztp_offer,
+            self.fsm.state)
+        self.node.record_tx_offer(tx_offer)
+        if self.floodred_nbr_is_fr == self.NbrIsFRState.PENDING_TRUE:
+            # This was the first time we send you_are_flood_repeater=True to the neighbor
+            self.floodred_mark_sent_you_are_fr()
+
+    def action_increase_tx_nonce_local(self):
+        self.increase_tx_nonce_local()
+
+    def action_cleanup(self):
+        self.action_remove_from_neighbor()
+        self.neighbor_lie = None
+
+    def action_process_lie(self, event_data):
+        # pylint:disable=too-many-statements
+        (protocol_packet, from_info) = event_data
+        from_address = from_info[0]
+        from_port = from_info[1]
+        # TODO: This is a simplistic way of implementing the hold timer. Use a real timer instead.
+        self._time_ticks_since_lie_received = 0
+        # Sections B.1.4.1 and B.1.4.2
+        new_neighbor_lie = neighbor_lie.NeighborLIE(protocol_packet, from_address, from_port)
+        (accept, rule, offer_to_ztp, warning) = self.is_received_lie_acceptable(protocol_packet)
+        if not accept:
+            self._lie_accept_or_reject = "Rejected"
+            self._lie_accept_or_reject_rule = rule
+            if warning:
+                self.rx_warning("Received LIE packet rejected: %s", rule)
+            else:
+                self.rx_info("Received LIE packet rejected: %s", rule)
+            self.action_cleanup()
+            if offer_to_ztp:
+                self.send_offer_to_ztp_fsm(new_neighbor_lie)
+                self.fsm.push_event(self.Event.UNACCEPTABLE_HEADER)
+            return
+        self._lie_accept_or_reject = "Accepted"
+        self._lie_accept_or_reject_rule = rule
+        # Section B.1.4.3
+        # Note: We send an offer to the ZTP state machine directly from here instead of pushing an
+        # UPDATE_ZTP_OFFER event (see deviation DEV-2 in doc/deviations)
+        self.send_offer_to_ztp_fsm(new_neighbor_lie)
+        if not self.neighbor_lie:
+            self.info("New neighbor detected with system-id %s",
+                      utils.system_id_str(protocol_packet.header.sender))
+            self.neighbor_lie = new_neighbor_lie
+            self.fsm.push_event(self.Event.NEW_NEIGHBOR)
+            self.check_three_way()
+            return
+        # Section B.1.4.3.1
+        if new_neighbor_lie.system_id != self.neighbor_lie.system_id:
+            self.info("Neighbor system-id changed from %s to %s",
+                      utils.system_id_str(self.neighbor_lie.system_id),
+                      utils.system_id_str(new_neighbor_lie.system_id))
+            self.fsm.push_event(self.Event.MULTIPLE_NEIGHBORS)
+            return
+        # Section B.1.4.3.2
+        if new_neighbor_lie.level != self.neighbor_lie.level:
+            self.info("Neighbor level changed from %s to %s", self.neighbor_lie.level,
+                      new_neighbor_lie.level)
+            self.fsm.push_event(self.Event.NEIGHBOR_CHANGED_LEVEL)
+            return
+        # Section B.1.4.3.3
+        if new_neighbor_lie.ipv4_address is not None:
+            # We received an IPv4 LIE.
+            new_neighbor_lie.ipv6_address = self.neighbor_lie.ipv6_address
+            if self.neighbor_lie.ipv4_address is None:
+                self.neighbor_lie.ipv4_address = new_neighbor_lie.ipv4_address
+                reason = ("Neighbor on interface {} got new IPv4 address {}"
+                          .format(self.name, new_neighbor_lie.ipv4_address))
+                self.node.trigger_spf(reason)
+            elif self.neighbor_lie.ipv4_address != new_neighbor_lie.ipv4_address:
+                self.info("Neighbor IPv4 address changed from %s to %s",
+                          self.neighbor_lie.ipv4_address, new_neighbor_lie.ipv4_address)
+                self.fsm.push_event(self.Event.NEIGHBOR_CHANGED_ADDRESS)
+                return
+        else:
+            # We received an IPv6 LIE.
+            assert new_neighbor_lie.ipv6_address is not None
+            new_neighbor_lie.ipv4_address = self.neighbor_lie.ipv4_address
+            if self.neighbor_lie.ipv6_address is None:
+                self.neighbor_lie.ipv6_address = new_neighbor_lie.ipv6_address
+                reason = ("Neighbor on interface {} got new IPv6 address {}"
+                          .format(self.name, new_neighbor_lie.ipv6_address))
+                self.node.trigger_spf(reason)
+            elif self.neighbor_lie.ipv6_address != new_neighbor_lie.ipv6_address:
+                self.info("Neighbor IPv6 address changed from %s to %s",
+                          self.neighbor_lie.ipv6_address, new_neighbor_lie.ipv6_address)
+                self.fsm.push_event(self.Event.NEIGHBOR_CHANGED_ADDRESS)
+                return
+        # Section B.1.4.3.4
+        if self.check_minor_change(new_neighbor_lie):
+            self.fsm.push_event(self.Event.NEIGHBOR_CHANGED_MINOR_FIELDS)
+        self.neighbor_lie = new_neighbor_lie
+        # Section B.1.4.3.5
+        self.check_three_way()
+
+    def action_check_hold_time_expired(self):
+        # TODO: This is a (too) simplistic way of managing timers in the draft; use an explicit
+        # timer.
+        # If time_ticks_since_lie_received is None, it means the timer is not running
+        if self._time_ticks_since_lie_received is None:
+            return
+        self._time_ticks_since_lie_received += 1
+        if self.neighbor_lie and self.neighbor_lie.holdtime:
+            holdtime = self.neighbor_lie.holdtime
+        else:
+            holdtime = common.constants.default_lie_holdtime
+        if self._time_ticks_since_lie_received >= holdtime:
+            self.fsm.push_event(self.Event.HOLD_TIME_EXPIRED)
+
+    def action_hold_time_expired(self):
+        self.node.expire_offer(self.name)
+
+    def action_add_to_neighbor(self):
+        neighbor = self.node.find_neighbor(self.neighbor_lie.system_id)
+        if not neighbor:
+            neighbor = self.node.create_neighbor(self.neighbor_lie.system_id)
+        neighbor.add_interface(self)
+        self.node.update_all_nbr_traffic_perc()
+
+    def action_remove_from_neighbor(self):
+        if self.neighbor_lie is None:
+            return
+        system_id = self.neighbor_lie.system_id
+        nbr = self.node.find_neighbor(system_id)
+        if nbr:
+            was_last_intf = nbr.remove_interface(self)
+            if was_last_intf:
+                self.node.remove_neighbor(system_id)
+            self.node.update_all_nbr_traffic_perc()
+
+    _state_one_way_transitions = {
+        Event.TIMER_TICK: (None, [], [Event.SEND_LIE]),
+        Event.LEVEL_CHANGED: (State.ONE_WAY, [action_update_level], [Event.SEND_LIE]),
+        Event.HAL_CHANGED: (None, [action_store_hal]),
+        Event.HAT_CHANGED: (None, [action_store_hat]),
+        Event.HALS_CHANGED: (None, [action_store_hals]),
+        Event.LIE_RECEIVED: (None, [action_process_lie]),
+        Event.NEW_NEIGHBOR: (State.TWO_WAY, [], [Event.SEND_LIE]),
+        Event.UNACCEPTABLE_HEADER: (State.ONE_WAY, []),
+        Event.HOLD_TIME_EXPIRED: (None, [action_hold_time_expired]),
+        Event.SEND_LIE: (None, [action_send_lie]),
+        # Removed. See deviation DEV-2 in doc/deviations.md. TODO: remove line completely.
+        # Event.UPDATE_ZTP_OFFER: (None, [action_send_offer_to_ztp_fsm])
+    }
+
+    _state_two_way_transitions = {
+        Event.TIMER_TICK: (None, [action_check_hold_time_expired], [Event.SEND_LIE]),
+        Event.LEVEL_CHANGED: (State.ONE_WAY, [action_update_level]),
+        Event.HAL_CHANGED: (None, [action_store_hal]),
+        Event.HAT_CHANGED: (None, [action_store_hat]),
+        Event.HALS_CHANGED: (None, [action_store_hals]),
+        Event.HALS_CHANGED: (None, [action_store_hals]),
+        Event.LIE_RECEIVED: (None, [action_process_lie]),
+        Event.VALID_REFLECTION: (State.THREE_WAY, []),
+        Event.NEIGHBOR_CHANGED_LEVEL: (State.ONE_WAY, []),
+        Event.NEIGHBOR_CHANGED_ADDRESS: (State.ONE_WAY, []),
+        Event.UNACCEPTABLE_HEADER: (State.ONE_WAY, []),
+        Event.HOLD_TIME_EXPIRED: (State.ONE_WAY, [action_hold_time_expired]),
+        Event.MULTIPLE_NEIGHBORS: (State.ONE_WAY, []),
+        Event.LIE_CORRUPT: (State.ONE_WAY, []),             # This transition is not in draft
+        Event.SEND_LIE: (None, [action_send_lie])}
+
+    _state_three_way_transitions = {
+        Event.TIMER_TICK: (None, [action_check_hold_time_expired], [Event.SEND_LIE]),
+        Event.LEVEL_CHANGED: (State.ONE_WAY, [action_update_level]),
+        Event.HAL_CHANGED: (None, [action_store_hal]),
+        Event.HAT_CHANGED: (None, [action_store_hat]),
+        Event.HALS_CHANGED: (None, [action_store_hals]),
+        Event.LIE_RECEIVED: (None, [action_process_lie]),
+        Event.NEIGHBOR_DROPPED_REFLECTION: (State.TWO_WAY, []),
+        Event.NEIGHBOR_CHANGED_LEVEL: (State.ONE_WAY, []),
+        Event.NEIGHBOR_CHANGED_ADDRESS: (State.ONE_WAY, []),
+        Event.UNACCEPTABLE_HEADER: (State.ONE_WAY, []),
+        Event.HOLD_TIME_EXPIRED: (State.ONE_WAY, [action_hold_time_expired]),
+        Event.MULTIPLE_NEIGHBORS: (State.ONE_WAY, []),
+        Event.LIE_CORRUPT: (State.ONE_WAY, []),             # This transition is not in draft
+        Event.SEND_LIE: (None, [action_send_lie]),
+    }
+
+    _transitions = {
+        State.ONE_WAY: _state_one_way_transitions,
+        State.TWO_WAY: _state_two_way_transitions,
+        State.THREE_WAY: _state_three_way_transitions
+    }
+
+    _state_actions = {
+        State.ONE_WAY  : (
+            [action_cleanup,                        # State 1way entry actions
+             action_send_lie],
+            [action_increase_tx_nonce_local]),      # State 1way exit actions
+        State.TWO_WAY  : (
+            [],                                     # State 2way entry actions
+            [action_increase_tx_nonce_local]),      # State 2way exit actions
+        State.THREE_WAY: (
+            [action_start_flooding,                 # State 3way entry actions
+             action_init_partially_conn,
+             action_add_to_neighbor],
+            [action_remove_from_neighbor,           # State 3way exit actions
+             action_increase_tx_nonce_local,
+             action_stop_flooding,
+             action_clear_partially_conn])
+    }
+
+    fsm_definition = fsm.FsmDefinition(
+        state_enum=State,
+        event_enum=Event,
+        transitions=_transitions,
+        initial_state=State.ONE_WAY,
+        state_actions=_state_actions,
+        verbose_events=verbose_events)
+
     def update_partially_connected(self):
         if self.neighbor_direction() != constants.DIR_SOUTH:
             return
         old_partially_connected = self.partially_connected
-        if self.neighbor:
+        if self.neighbor_lie:
             (part_conn, part_conn_causes) = \
-                self.node.check_sysid_partially_connected(self.neighbor.system_id)
+                self.node.check_sysid_partially_connected(self.neighbor_lie.system_id)
             self.partially_connected = part_conn
             self.partially_connected_causes = part_conn_causes
         else:
             self.partially_connected = None
             self.partially_connected_causes = None
         if not old_partially_connected and self.partially_connected:
-            self.warning("Neighbor became partially connected")
+            self.info("Neighbor became partially connected")
             reason = "Neighbor {} became partially connected".format(self._log_id)
             self.node.trigger_spf(reason)
         if old_partially_connected and not self.partially_connected:
@@ -297,8 +554,10 @@ class Interface:
             elif self._flood_tx_ipv6_socket:
                 socks = [self._flood_tx_ipv6_socket]
             else:
-                self.tx_warning("Could not send flood packet because interface has neither IPv4 "
-                                "nor IPv6 TX flood socket")
+                # It is normal not to have flooding sockets if we are not in state 3-way
+                if self.fsm.state == self.State.THREE_WAY:
+                    self.tx_warning("Could not send flood packet because interface has neither "
+                                    "IPv4 nor IPv6 TX flood socket")
                 return
         else:
             socks = []
@@ -328,9 +587,20 @@ class Interface:
                         self.log_tx_protocol_packet(logging.DEBUG, sock, "Send", packet_info)
                         self.bump_tx_counters(protocol_packet, sock, nr_bytes)
                     except socket.error as error:
+                        if error.errno == errno.ECONNREFUSED:
+                            # It is common to get connection refused when trying to to send a UDP
+                            # packet before we realize the receiver has closed it's socket.
+                            severity = logging.INFO
+                        else:
+                            severity = logging.ERROR
                         prelude = "Error {} sending".format(str(error))
-                        self.log_tx_protocol_packet(logging.ERROR, sock, prelude, packet_info)
+                        self.log_tx_protocol_packet(severity, sock, prelude, packet_info)
                         self.bump_tx_real_errors_counter(sock, nr_bytes)
+                    else:
+                        # Successfully sent packet; trace it
+                        packet_trace = PacketTrace("TX", sock.getsockname(), sock.getpeername(),
+                                                   packet_info)
+                        self._packets.appendleft(packet_trace)
 
     def choose_tx_packet_nr(self, address_family, packet_info):
         if not packet_info.protocol_packet:
@@ -398,7 +668,6 @@ class Interface:
         self.bump_family_counter(sock, self._tx_ipv4_real_errors_counter,
                                  self._tx_ipv6_real_errors_counter, nr_bytes)
 
-    # TODO: This is not called anywhere (need error callback in handler)
     def bump_rx_real_errors_counter(self, sock, nr_bytes):
         self.bump_family_counter(sock, self._rx_ipv4_real_errors_counter,
                                  self._rx_ipv6_real_errors_counter, nr_bytes)
@@ -410,51 +679,6 @@ class Interface:
     def bump_rx_sim_errors_counter(self, sock, nr_bytes):
         self.bump_family_counter(sock, self._rx_ipv4_sim_errors_counter,
                                  self._rx_ipv6_sim_errors_counter, nr_bytes)
-
-    def action_send_lie(self):
-        packet_header = encoding.ttypes.PacketHeader(
-            sender=self.node.system_id,
-            level=self.node.level_value())
-        node_capabilities = encoding.ttypes.NodeCapabilities(
-            protocol_minor_version=protocol_minor_version,
-            flood_reduction=True,
-            hierarchy_indications=
-            common.ttypes.HierarchyIndications.leaf_only_and_leaf_2_leaf_procedures)
-        if self.neighbor:
-            neighbor_system_id = self.neighbor.system_id
-            neighbor_link_id = self.neighbor.local_id
-            lie_neighbor = encoding.ttypes.Neighbor(neighbor_system_id, neighbor_link_id)
-        else:
-            neighbor_system_id = None
-            lie_neighbor = None
-        lie_packet = encoding.ttypes.LIEPacket(
-            name=self._advertised_name,
-            local_id=self.local_id,
-            flood_port=self._rx_flood_port,
-            link_mtu_size=self._mtu,
-            neighbor=lie_neighbor,
-            pod=self._pod,
-            node_capabilities=node_capabilities,
-            holdtime=3,
-            not_a_ztp_offer=self.node.send_not_a_ztp_offer_on_intf(self.name),
-            you_are_flood_repeater=self.nbr_is_fr_bool(self.floodred_nbr_is_fr),
-            label=None)
-        packet_content = encoding.ttypes.PacketContent(lie=lie_packet)
-        protocol_packet = encoding.ttypes.ProtocolPacket(packet_header, packet_content)
-        self.send_protocol_packet(protocol_packet, flood=False)
-        tx_offer = offer.TxOffer(
-            self.name,
-            self.node.system_id,
-            packet_header.level,
-            lie_packet.not_a_ztp_offer,
-            self.fsm.state)
-        self.node.record_tx_offer(tx_offer)
-        if self.floodred_nbr_is_fr == self.NbrIsFRState.PENDING_TRUE:
-            # This was the first time we send you_are_flood_repeater=True to the neighbor
-            self.floodred_mark_sent_you_are_fr()
-
-    def action_increase_tx_nonce_local(self):
-        self.increase_tx_nonce_local()
 
     def floodred_mark_sent_you_are_fr(self):
         self.floodred_nbr_is_fr = self.NbrIsFRState.TRUE
@@ -471,19 +695,16 @@ class Interface:
             if intf.floodred_nbr_is_fr == self.NbrIsFRState.PENDING_FALSE:
                 intf.floodred_nbr_is_fr = self.NbrIsFRState.FALSE
 
-    def action_cleanup(self):
-        self.neighbor = None
-
     def check_reflection(self):
         # Does the received LIE packet (which is now stored in _neighbor) report us as the neighbor?
-        if self.neighbor.neighbor_system_id != self.node.system_id:
+        if self.neighbor_lie.neighbor_system_id != self.node.system_id:
             self.info("Neighbor does not report us as neighbor (system-id %s instead of %s",
-                      utils.system_id_str(self.neighbor.neighbor_system_id),
+                      utils.system_id_str(self.neighbor_lie.neighbor_system_id),
                       utils.system_id_str(self.node.system_id))
             return False
-        if self.neighbor.neighbor_link_id != self.local_id:
+        if self.neighbor_lie.neighbor_link_id != self.local_id:
             self.info("Neighbor does not report us as neighbor (link-id %s instead of %s",
-                      self.neighbor.neighbor_link_id, self.local_id)
+                      self.neighbor_lie.neighbor_link_id, self.local_id)
             return False
         return True
 
@@ -494,40 +715,33 @@ class Interface:
         if self.fsm.state == self.State.ONE_WAY:
             pass
         elif self.fsm.state == self.State.TWO_WAY:
-            if self.neighbor.neighbor_system_id is None:
+            if self.neighbor_lie.neighbor_system_id is None:
                 pass
             elif self.check_reflection():
                 self.fsm.push_event(self.Event.VALID_REFLECTION)
             else:
                 self.fsm.push_event(self.Event.MULTIPLE_NEIGHBORS)
         else: # state is THREE_WAY
-            if self.neighbor.neighbor_system_id is None:
+            if self.neighbor_lie.neighbor_system_id is None:
                 self.fsm.push_event(self.Event.NEIGHBOR_DROPPED_REFLECTION)
             elif self.check_reflection():
                 pass
             else:
                 self.fsm.push_event(self.Event.MULTIPLE_NEIGHBORS)
 
-    def check_minor_change(self, new_neighbor):
-        # TODO: what if link_mtu_size changes?
-        # TODO: what if pod changes?
-        # TODO: what if capabilities changes?
-        # TODO: what if holdtime changes?
-        # TODO: what if not_a_ztp_offer changes?
-        # TODO: what if you_are_flood_repeater changes?
-        # TODO: what if label changes?
+    def check_minor_change(self, new_neighbor_lie):
         minor_change = False
-        if new_neighbor.flood_port != self.neighbor.flood_port:
+        if new_neighbor_lie.flood_port != self.neighbor_lie.flood_port:
             msg = ("Neighbor flood-port changed from {} to {}"
-                   .format(self.neighbor.flood_port, new_neighbor.flood_port))
+                   .format(self.neighbor_lie.flood_port, new_neighbor_lie.flood_port))
             minor_change = True
-        elif new_neighbor.name != self.neighbor.name:
+        elif new_neighbor_lie.name != self.neighbor_lie.name:
             msg = ("Neighbor name changed from {} to {}"
-                   .format(self.neighbor.name, new_neighbor.name))
+                   .format(self.neighbor_lie.name, new_neighbor_lie.name))
             minor_change = True
-        elif new_neighbor.local_id != self.neighbor.local_id:
+        elif new_neighbor_lie.local_id != self.neighbor_lie.local_id:
             msg = ("Neighbor local-id changed from {} to {}"
-                   .format(self.neighbor.local_id, new_neighbor.local_id))
+                   .format(self.neighbor_lie.local_id, new_neighbor_lie.local_id))
             minor_change = True
         if minor_change:
             self.info(msg)
@@ -603,8 +817,6 @@ class Interface:
         #   as "removed offers" for debugging.
         # - warning: If True, log a warning message, if False, log an info message.
         #
-        # TODO: Add counters for each of these conditions
-        #
         header = protocol_packet.header
         lie = protocol_packet.content.lie
         if not header:
@@ -654,185 +866,6 @@ class Interface:
             return (True, "Neither node is leaf and level difference is at most one", True, False)
         return (False, "Level mismatch", True, True)
 
-    def action_process_lie(self, event_data):
-        # pylint:disable=too-many-statements
-        (protocol_packet, from_info) = event_data
-        from_address = from_info[0]
-        from_port = from_info[1]
-        # TODO: This is a simplistic way of implementing the hold timer. Use a real timer instead.
-        self._time_ticks_since_lie_received = 0
-        # Sections B.1.4.1 and B.1.4.2
-        new_neighbor = neighbor.Neighbor(protocol_packet, from_address, from_port)
-        (accept, rule, offer_to_ztp, warning) = self.is_received_lie_acceptable(protocol_packet)
-        if not accept:
-            self._lie_accept_or_reject = "Rejected"
-            self._lie_accept_or_reject_rule = rule
-            if warning:
-                self.rx_warning("Received LIE packet rejected: %s", rule)
-            else:
-                self.rx_info("Received LIE packet rejected: %s", rule)
-            self.action_cleanup()
-            if offer_to_ztp:
-                self.send_offer_to_ztp_fsm(new_neighbor)
-                self.fsm.push_event(self.Event.UNACCEPTABLE_HEADER)
-            return
-        self._lie_accept_or_reject = "Accepted"
-        self._lie_accept_or_reject_rule = rule
-        # Section B.1.4.3
-        # Note: We send an offer to the ZTP state machine directly from here instead of pushing an
-        # UPDATE_ZTP_OFFER event (see deviation DEV-2 in doc/deviations)
-        self.send_offer_to_ztp_fsm(new_neighbor)
-        if not self.neighbor:
-            self.info("New neighbor detected with system-id %s",
-                      utils.system_id_str(protocol_packet.header.sender))
-            self.neighbor = new_neighbor
-            self.fsm.push_event(self.Event.NEW_NEIGHBOR)
-            self.check_three_way()
-            return
-        # Section B.1.4.3.1
-        if new_neighbor.system_id != self.neighbor.system_id:
-            self.info("Neighbor system-id changed from %s to %s",
-                      utils.system_id_str(self.neighbor.system_id),
-                      utils.system_id_str(new_neighbor.system_id))
-            self.fsm.push_event(self.Event.MULTIPLE_NEIGHBORS)
-            return
-        # Section B.1.4.3.2
-        if new_neighbor.level != self.neighbor.level:
-            self.info("Neighbor level changed from %s to %s", self.neighbor.level,
-                      new_neighbor.level)
-            self.fsm.push_event(self.Event.NEIGHBOR_CHANGED_LEVEL)
-            return
-        # Section B.1.4.3.3
-        if new_neighbor.ipv4_address is not None:
-            # We received an IPv4 LIE.
-            new_neighbor.ipv6_address = self.neighbor.ipv6_address
-            if self.neighbor.ipv4_address is None:
-                self.neighbor.ipv4_address = new_neighbor.ipv4_address
-                reason = ("Neighbor on interface {} got new IPv4 address {}"
-                          .format(self.name, new_neighbor.ipv4_address))
-                self.node.trigger_spf(reason)
-            elif self.neighbor.ipv4_address != new_neighbor.ipv4_address:
-                self.info("Neighbor IPv4 address changed from %s to %s",
-                          self.neighbor.ipv4_address, new_neighbor.ipv4_address)
-                self.fsm.push_event(self.Event.NEIGHBOR_CHANGED_ADDRESS)
-                return
-        else:
-            # We received an IPv6 LIE.
-            assert new_neighbor.ipv6_address is not None
-            new_neighbor.ipv4_address = self.neighbor.ipv4_address
-            if self.neighbor.ipv6_address is None:
-                self.neighbor.ipv6_address = new_neighbor.ipv6_address
-                reason = ("Neighbor on interface {} got new IPv6 address {}"
-                          .format(self.name, new_neighbor.ipv6_address))
-                self.node.trigger_spf(reason)
-            elif self.neighbor.ipv6_address != new_neighbor.ipv6_address:
-                self.info("Neighbor IPv6 address changed from %s to %s",
-                          self.neighbor.ipv6_address, new_neighbor.ipv6_address)
-                self.fsm.push_event(self.Event.NEIGHBOR_CHANGED_ADDRESS)
-                return
-        # Section B.1.4.3.4
-        if self.check_minor_change(new_neighbor):
-            self.fsm.push_event(self.Event.NEIGHBOR_CHANGED_MINOR_FIELDS)
-        self.neighbor = new_neighbor
-        # Section B.1.4.3.5
-        self.check_three_way()
-
-    def action_check_hold_time_expired(self):
-        # TODO: This is a (too) simplistic way of managing timers in the draft; use an explicit
-        # timer.
-        # If time_ticks_since_lie_received is None, it means the timer is not running
-        if self._time_ticks_since_lie_received is None:
-            return
-        self._time_ticks_since_lie_received += 1
-        if self.neighbor and self.neighbor.holdtime:
-            holdtime = self.neighbor.holdtime
-        else:
-            holdtime = common.constants.default_lie_holdtime
-        if self._time_ticks_since_lie_received >= holdtime:
-            self.fsm.push_event(self.Event.HOLD_TIME_EXPIRED)
-
-    def action_hold_time_expired(self):
-        self.node.expire_offer(self.name)
-
-    _state_one_way_transitions = {
-        Event.TIMER_TICK: (None, [], [Event.SEND_LIE]),
-        Event.LEVEL_CHANGED: (State.ONE_WAY, [action_update_level], [Event.SEND_LIE]),
-        Event.HAL_CHANGED: (None, [action_store_hal]),
-        Event.HAT_CHANGED: (None, [action_store_hat]),
-        Event.HALS_CHANGED: (None, [action_store_hals]),
-        Event.LIE_RECEIVED: (None, [action_process_lie]),
-        Event.NEW_NEIGHBOR: (State.TWO_WAY, [], [Event.SEND_LIE]),
-        Event.UNACCEPTABLE_HEADER: (State.ONE_WAY, []),
-        Event.HOLD_TIME_EXPIRED: (None, [action_hold_time_expired]),
-        Event.SEND_LIE: (None, [action_send_lie]),
-        # Removed. See deviation DEV-2 in doc/deviations.md. TODO: remove line completely.
-        # Event.UPDATE_ZTP_OFFER: (None, [action_send_offer_to_ztp_fsm])
-    }
-
-    _state_two_way_transitions = {
-        Event.TIMER_TICK: (None, [action_check_hold_time_expired], [Event.SEND_LIE]),
-        Event.LEVEL_CHANGED: (State.ONE_WAY, [action_update_level]),
-        Event.HAL_CHANGED: (None, [action_store_hal]),
-        Event.HAT_CHANGED: (None, [action_store_hat]),
-        Event.HALS_CHANGED: (None, [action_store_hals]),
-        Event.HALS_CHANGED: (None, [action_store_hals]),
-        Event.LIE_RECEIVED: (None, [action_process_lie]),
-        Event.VALID_REFLECTION: (State.THREE_WAY, []),
-        Event.NEIGHBOR_CHANGED_LEVEL: (State.ONE_WAY, []),
-        Event.NEIGHBOR_CHANGED_ADDRESS: (State.ONE_WAY, []),
-        Event.UNACCEPTABLE_HEADER: (State.ONE_WAY, []),
-        Event.HOLD_TIME_EXPIRED: (State.ONE_WAY, [action_hold_time_expired]),
-        Event.MULTIPLE_NEIGHBORS: (State.ONE_WAY, []),
-        Event.LIE_CORRUPT: (State.ONE_WAY, []),             # This transition is not in draft
-        Event.SEND_LIE: (None, [action_send_lie])}
-
-    _state_three_way_transitions = {
-        Event.TIMER_TICK: (None, [action_check_hold_time_expired], [Event.SEND_LIE]),
-        Event.LEVEL_CHANGED: (State.ONE_WAY, [action_update_level]),
-        Event.HAL_CHANGED: (None, [action_store_hal]),
-        Event.HAT_CHANGED: (None, [action_store_hat]),
-        Event.HALS_CHANGED: (None, [action_store_hals]),
-        Event.LIE_RECEIVED: (None, [action_process_lie]),
-        Event.NEIGHBOR_DROPPED_REFLECTION: (State.TWO_WAY, []),
-        Event.NEIGHBOR_CHANGED_LEVEL: (State.ONE_WAY, []),
-        Event.NEIGHBOR_CHANGED_ADDRESS: (State.ONE_WAY, []),
-        Event.UNACCEPTABLE_HEADER: (State.ONE_WAY, []),
-        Event.HOLD_TIME_EXPIRED: (State.ONE_WAY, [action_hold_time_expired]),
-        Event.MULTIPLE_NEIGHBORS: (State.ONE_WAY, []),
-        Event.LIE_CORRUPT: (State.ONE_WAY, []),             # This transition is not in draft
-        Event.SEND_LIE: (None, [action_send_lie]),
-    }
-
-    _transitions = {
-        State.ONE_WAY: _state_one_way_transitions,
-        State.TWO_WAY: _state_two_way_transitions,
-        State.THREE_WAY: _state_three_way_transitions
-    }
-
-    _state_actions = {
-        State.ONE_WAY  : (
-            [action_cleanup,                        # State 1way entry actions
-             action_send_lie],
-            [action_increase_tx_nonce_local]),      # State 1way exit actions
-        State.TWO_WAY  : (
-            [],                                     # State 2way entry actions
-            [action_increase_tx_nonce_local]),      # State 2way exit actions
-        State.THREE_WAY: (
-            [action_start_flooding,                 # State 3way entry actions
-             action_init_partially_conn],
-            [action_increase_tx_nonce_local,        # State 3way exit actions
-             action_stop_flooding,
-             action_clear_partially_conn])
-    }
-
-    fsm_definition = fsm.FsmDefinition(
-        state_enum=State,
-        event_enum=Event,
-        transitions=_transitions,
-        initial_state=State.ONE_WAY,
-        state_actions=_state_actions,
-        verbose_events=verbose_events)
-
     def info(self, msg, *args):
         self._log.info("[%s] %s" % (self._log_id, msg), *args)
 
@@ -859,7 +892,6 @@ class Interface:
 
     def __init__(self, parent_node, config):
         # pylint:disable=too-many-statements
-        # TODO: process bandwidth field in config
         self.node = parent_node
         self._engine = parent_node.engine
         self.name = config['name']
@@ -870,10 +902,24 @@ class Interface:
         else:
             self.physical_interface_name = self.name
         # TODO: Make the default metric/bandwidth depend on the speed of the interface
-        self._metric = self.get_config_attribute(config, 'metric',
-                                                 common.constants.default_bandwidth)
+        self.metric = self.get_config_attribute(config, 'metric',
+                                                common.constants.default_distance)
+        self._configured_bandwidth = self.get_config_attribute(config, 'bandwidth', None)
+        # The following method for determining the speed of an interface only works on Linux
+        try:
+            with open("/sys/class/net/{}/speed".format(self.name)) as speed_file:
+                self._discovered_bandwidth = int(speed_file.readline())
+        except (OSError, ValueError):
+            self._discovered_bandwidth = None
+        if self._configured_bandwidth is not None:
+            self.bandwidth = self._configured_bandwidth
+        elif self._discovered_bandwidth is not None:
+            self.bandwidth = self._discovered_bandwidth
+        else:
+            self.bandwidth = common.constants.default_bandwidth
         self._advertised_name = self.generate_advertised_name()
-        self._ipv4_address = utils.interface_ipv4_address(self.physical_interface_name)
+        self._ipv4_address, _ipv4_netmask = utils.interface_ipv4_address(
+            self.physical_interface_name)
         self._ipv6_address = utils.interface_ipv6_address(self.physical_interface_name)
         try:
             self._interface_index = socket.if_nametoindex(self.physical_interface_name)
@@ -889,6 +935,14 @@ class Interface:
             config, 'rx_lie_v6_mcast_address', constants.DEFAULT_LIE_IPV6_MCAST_ADDRESS)
         self._tx_lie_ipv6_mcast_address = self.get_config_attribute(
             config, 'tx_lie_v6_mcast_address', constants.DEFAULT_LIE_IPV6_MCAST_ADDRESS)
+        self._lie_use_broadcast = self.get_config_attribute(
+            config, 'lie_use_broadcast', constants.DEFAULT_LIE_USE_BROADCAST)
+        if self._lie_use_broadcast:
+            net = IPv4Network(self._ipv4_address + "/" + _ipv4_netmask, strict=False)
+            self._tx_lie_ipv4_mcast_address = str(net.broadcast_address)
+            self._rx_lie_ipv4_mcast_address = str(net.broadcast_address)
+            self.info("Determined subnet broadcast address: %s in %s",
+                      net.broadcast_address, net)
         self._rx_lie_port = self.get_config_attribute(config, 'rx_lie_port',
                                                       constants.DEFAULT_LIE_PORT)
         self._tx_lie_port = self.get_config_attribute(config, 'tx_lie_port',
@@ -904,7 +958,7 @@ class Interface:
         self.local_id = parent_node.allocate_interface_id()
         self._mtu = self.get_mtu()
         self._pod = self.UNDEFINED_OR_ANY_POD
-        self.neighbor = None
+        self.neighbor_lie = None
         self._next_tx_packet_nr = {}    # Indexed (address-family, packet-type)
         for address_family in constants.ADDRESS_FAMILIES:
             for packet_type in constants.PACKET_TYPES:
@@ -931,15 +985,8 @@ class Interface:
         self._flood_tx_ipv6_socket = None
         self._flood_rx_ipv4_handler = None
         self._flood_rx_ipv6_handler = None
-        # The following queues (ties_tx, ties_rtx, ties_req, are ties_ack) are ordered dictionaries.
-        # The value is the header of the TIE. The index is the TIE-ID want to have two headers with
-        # same TIE-ID in the queue. The ordering is needed because we want to service the entries
-        # in the queue in the same order in which they were added (FIFO).
-        # TODO: For _ties_rtx, add time to retransmit to retransmit queue
-        self._ties_tx = collections.OrderedDict()   # Dict of TIEHeader
-        self._ties_rtx = collections.OrderedDict()  # Dict of TIEHeader
-        self._ties_req = collections.OrderedDict()  # Dict of TIEHeaderWithLifeTime
-        self._ties_ack = collections.OrderedDict()  # Dict of TIEHeaderWithLifeTime
+        self._queues = msg_queues.MsgQueues(self)
+        self._packets = collections.deque([], self.MAX_PACKET_TRACE)
         self.floodred_nbr_is_fr = self.NbrIsFRState.NOT_APPLICABLE
         self.partially_connected = None
         self.partially_connected_causes = None
@@ -1159,6 +1206,7 @@ class Interface:
             local_port=self._rx_lie_port,
             ipv4=True,
             multicast_address=self._rx_lie_ipv4_mcast_address,
+            use_broadcast=self._lie_use_broadcast,
             remote_address=None,
             receive_function=self.receive_lie_message,
             log=self._rx_log,
@@ -1177,11 +1225,6 @@ class Interface:
         self._one_second_timer = timer.Timer(
             1.0,
             lambda: self.fsm.push_event(self.Event.TIMER_TICK))
-        self._service_queues_timer = timer.Timer(
-            interval=self.SERVICE_QUEUES_INTERVAL,
-            expire_function=self.service_queues,
-            periodic=True,
-            start=False)
 
     def get_config_attribute(self, config, attribute, default):
         if attribute in config:
@@ -1234,6 +1277,8 @@ class Interface:
                           protocol_packet.header.major_version)
             return None
         self.check_rx_packet_nr(packet_info)
+        packet_trace = PacketTrace("RX", sock.getsockname(), from_info, packet_info)
+        self._packets.appendleft(packet_trace)
         return packet_info
 
     def log_and_count_error(self, packet_info, nr_bytes):
@@ -1311,14 +1356,12 @@ class Interface:
             return
         protocol_packet = packet_info.protocol_packet
         if protocol_packet.content.lie:
-            ### TODO: Verify inner nonce is outer nonce
+            # TODO: Verify inner nonce is outer nonce
             event_data = (protocol_packet, from_info)
             self.fsm.push_event(self.Event.LIE_RECEIVED, event_data)
         else:
-            # TODO: Missing contents for port counter
             self.rx_warning("Received packet without LIE content on LIE port (ignored)")
         if protocol_packet.content.tie:
-            # TODO: Wrong contents for port counter
             self.rx_warning("Received TIE packet on LIE port (ignored)")
         if protocol_packet.content.tide:
             self.rx_warning("Received TIDE packet on LIE port (ignored)")
@@ -1382,39 +1425,45 @@ class Interface:
 
     def process_rx_tide_packet(self, tide_packet):
         result = self.node.process_rx_tide_packet(tide_packet)
-        (request_tie_headers_lifetime, start_sending_tie_headers, stop_sending_tie_headers) = result
+        (request_tie_headers, start_sending_tie_headers, stop_sending_tie_headers) = result
         for tie_header in start_sending_tie_headers:
             self.try_to_transmit_tie(tie_header)
-        for tie_header_lifetime in request_tie_headers_lifetime:
-            self.request_tie(tie_header_lifetime)
+        for tie_header in request_tie_headers:
+            self.request_tie(tie_header)
         for tie_header in stop_sending_tie_headers:
-            self.remove_from_all_queues(tie_header)
+            self._queues.remove_from_all_queues(tie_header.tieid)
 
     def process_rx_tire_packet(self, tire_packet):
         self.rx_debug("Receive TIRE packet %s", tire_packet)
         result = self.node.process_rx_tire_packet(tire_packet)
-        (request_tie_headers_lifetime, start_sending_tie_headers, acked_tie_headers) = result
+        (request_tie_headers, start_sending_tie_headers, acked_tie_headers) = result
         for tie_header in start_sending_tie_headers:
             self.try_to_transmit_tie(tie_header)
-        for tie_header_lifetime in request_tie_headers_lifetime:
-            self.request_tie(tie_header_lifetime)
+        for tie_header in request_tie_headers:
+            self.request_tie(tie_header)
         for tie_header in acked_tie_headers:
             self.tie_been_acked(tie_header)
 
     def neighbor_direction(self):
-        if self.neighbor is None:
+        if self.neighbor_lie is None:
             return None
+        # Cannot determine current node level, we can't infer the neighbor direction
         my_level = self.node.level_value()
-        if self.neighbor.level > my_level:
+        if my_level is None:
+            return None
+        if self.neighbor_lie.level > my_level:
             return constants.DIR_NORTH
-        elif self.neighbor.level < my_level:
+        elif self.neighbor_lie.level < my_level:
             return constants.DIR_SOUTH
         else:
             return constants.DIR_EAST_WEST
 
-    def is_flood_reduced(self, _tie_header):
-        # TODO: Implement this
-        return False
+    def neighbor_direction_str(self):
+        direction = self.neighbor_direction()
+        if direction is not None:
+            return constants.direction_str(direction)
+        else:
+            return ""
 
     # The basic idea for the next two functions (is_request_allowed_...) is that we should not
     # request any TIEs from our neighbor if the neighbor is not allowed to send the TIE to us
@@ -1446,7 +1495,7 @@ class Interface:
             if tie_header.tieid.direction == common.ttypes.TieDirectionType.North:
                 return (True, "to {}: include all N-TIEs".format(dir_str))
             # ... and all peer's self-originated TIEs ...
-            if tie_header.tieid.originator == self.neighbor.system_id:
+            if tie_header.tieid.originator == self.neighbor_lie.system_id:
                 return (True, "to {}: include peer self-originated".format(dir_str))
             # ... and all Node S-TIEs
             if ((tie_header.tieid.tietype == common.ttypes.TIETypeType.NodeTIEType) and
@@ -1463,19 +1512,19 @@ class Interface:
         # Cannot determine direction of neighbor. Exclude.
         return (False, "to {}: exclude".format(dir_str))
 
-    # This is the simplified implementation of s_request_allowed as described in "the solution to
+    # This is the simplified implementation of is_request_allowed as described in "the solution to
     # oscillation #2" in slide deck http://bit.ly/rift-flooding-oscillations-v1. During the RIFT
     # core team conference call on 19 Oct 2018, Tony reported it was his intent to apply the same
     # logic. However, this seems like a simpler (and less error prone) way to achieve that.
     #
     def is_request_allowed_simple(self, tie_header, _i_am_top_of_fabric):
         return self.node.flood_allowed_from_nbr_to_node(
-            tie_header,
-            self.neighbor_direction(),
-            self.neighbor.system_id,
-            self.neighbor.level,
-            self.neighbor.top_of_fabric(),
-            self.node.system_id)
+            tie_header=tie_header,
+            neighbor_direction=self.neighbor_direction(),
+            neighbor_system_id=self.neighbor_lie.system_id,
+            neighbor_level=self.neighbor_lie.level,
+            neighbor_is_top_of_fabric=self.neighbor_lie.top_of_fabric(),
+            node_system_id=self.node.system_id)
 
     def is_request_allowed(self, tie_header, i_am_top_of_fabric):
         if USE_SIMPLE_REQUEST_FILTERING:
@@ -1494,181 +1543,61 @@ class Interface:
         (allowed, reason) = self.node.is_flood_allowed(
             tie_header=tie_header,
             to_node_direction=self.neighbor_direction(),
-            to_node_system_id=self.neighbor.system_id,
+            to_node_system_id=self.neighbor_lie.system_id,
             from_node_system_id=self.node.system_id,
             from_node_level=self.node.level_value(),
             from_node_is_top_of_fabric=self.node.top_of_fabric())
         filtered = not allowed
         return (filtered, reason)
 
-    def add_tie_header_to_ties_tx(self, tie_header, tie_packet_info=None):
-        # If the TIE is not already on the send queue or if the TIE is a newer version than what's
-        # already on the send queue, then send it immediately instead of (in addition to, really)
-        # waiting for the next service timer.
-        if tie_header.tieid not in self._ties_tx:
-            send_now = True
-        elif tie_header.seq_nr > self._ties_tx[tie_header.tieid].seq_nr:
-            send_now = True
-        else:
-            send_now = False
-        self._ties_tx[tie_header.tieid] = tie_header
-        if send_now:
-            if tie_packet_info is None:
-                tie_packet_info = self.node.find_tie_packet_info(tie_header.tieid)
-            if tie_packet_info is not None:
-                self.send_packet_info(tie_packet_info, flood=True)
-
     def try_to_transmit_tie(self, tie_header):
         (filtered, reason) = self.is_flood_filtered(tie_header)
         outcome = "filtered" if filtered else "allowed"
         self.tx_debug("Transmit TIE %s is %s because %s", tie_header, outcome, reason)
         if not filtered:
-            self.remove_from_ties_rtx(tie_header)
-            if tie_header.tieid in self._ties_ack:
-                ack_header_lifetime = self._ties_ack[tie_header.tieid]
+            ack_header_lifetime = self._queues.search_tie_ack_queue(tie_header.tieid)
+            if ack_header_lifetime:
                 if ack_header_lifetime.header.seq_nr < tie_header.seq_nr:
                     # ACK for older TIE is in queue, remove ACK from queue and send newer TIE
-                    self.remove_from_ties_ack(ack_header_lifetime.header)
-                    self.add_tie_header_to_ties_tx(tie_header)
+                    self._queues.remove_from_tie_ack_queue(ack_header_lifetime.header.tieid)
+                    self.tx_tie(tie_header)
                 else:
-                    # ACK for newer TIE in in queue, keep ACK and don't send this older TIE
+                    # ACK for newer TIE or same seq-nr TIE in in queue, keep ACK and don't send
+                    # this older TIE
                     pass
             else:
                 # No ACK in queue, send this TIE
-                self.add_tie_header_to_ties_tx(tie_header)
+                self.tx_tie(tie_header)
+
+    def tx_tie(self, tie_header):
+        self._queues.add_to_tie_queue(tie_header)
 
     def ack_tie(self, tie_header_lifetime):
         assert tie_header_lifetime.__class__ == encoding.ttypes.TIEHeaderWithLifeTime
-        self.remove_from_all_queues(tie_header_lifetime.header)
-        self._ties_ack[tie_header_lifetime.header.tieid] = tie_header_lifetime
+        tie_id = tie_header_lifetime.header.tieid
+        self._queues.remove_from_tie_queue(tie_id)
+        self._queues.remove_from_tie_req_queue(tie_id)
+        self._queues.add_to_tie_ack_queue(tie_header_lifetime)
 
     def tie_been_acked(self, tie_header):
-        self.remove_from_all_queues(tie_header)
+        self._queues.remove_from_all_queues(tie_header.tieid)
 
-    def remove_from_all_queues(self, tie_header):
+    def remove_tie_from_all_queues(self, tie_id):
+        self._queues.remove_from_all_queues(tie_id)
+
+    def request_tie(self, tie_header):
         assert tie_header.__class__ == encoding.ttypes.TIEHeader
-        self.remove_from_ties_tx(tie_header)
-        self.remove_from_ties_rtx(tie_header)
-        self.remove_from_ties_req(tie_header)
-        self.remove_from_ties_ack(tie_header)
-
-    def clear_all_queues(self):
-        self._ties_tx.clear()
-        self._ties_rtx.clear()
-        self._ties_req.clear()
-        self._ties_ack.clear()
-
-    def remove_from_ties_tx(self, tie_header):
-        try:
-            del self._ties_tx[tie_header.tieid]
-        except KeyError:
-            pass
-
-    def remove_from_ties_rtx(self, tie_header):
-        try:
-            del self._ties_rtx[tie_header.tieid]
-        except KeyError:
-            pass
-
-    def remove_from_ties_req(self, tie_header):
-        try:
-            del self._ties_req[tie_header.tieid]
-        except KeyError:
-            pass
-
-    def remove_from_ties_ack(self, tie_header):
-        try:
-            del self._ties_ack[tie_header.tieid]
-        except KeyError:
-            pass
-
-    def request_tie(self, tie_header_lifetime):
-        assert tie_header_lifetime.__class__ == encoding.ttypes.TIEHeaderWithLifeTime
-        (filtered, reason) = self.is_request_filtered(tie_header_lifetime.header)
+        (filtered, reason) = self.is_request_filtered(tie_header)
         outcome = "excluded" if filtered else "included"
-        self.tx_debug("Request TIE %s is %s in TIRE because %s",
-                      tie_header_lifetime, outcome, reason)
+        self.tx_debug("Request TIE %s is %s in TIRE because %s", tie_header, outcome, reason)
         if not filtered:
-            self.remove_from_all_queues(tie_header_lifetime.header)
-            self._ties_req[tie_header_lifetime.header.tieid] = tie_header_lifetime
+            tie_id = tie_header.tieid
+            self._queues.remove_from_tie_queue(tie_id)
+            self._queues.remove_from_tie_ack_queue(tie_id)
+            self._queues.add_to_tie_req_queue(tie_header)
 
-    # TODO: Defined in spec, but never invoked
-    def move_to_rtx_queue(self, tie_header):
-        self.remove_from_ties_rtx(tie_header)
-        self._ties_rtx[tie_header.tieid] = tie_header
-
-    # TODO: Defined in spec, but never invoked
-    def clear_requests(self, tie_header):
-        self.remove_from_ties_req(tie_header)
-
-    def service_queues(self):
-        # TODO: For now, we have an extremely simplistic send queue service implementation. Once
-        # per second we send all queued messages. Make this more sophisticated.
-        if self._ties_ack:
-            self.service_ties_ack()
-        if self._ties_tx:
-            self.service_ties_tx()
-        if self._ties_rtx:
-            self.service_ties_rtx()
-        if self._ties_req:
-            self.service_ties_req()
-
-    def service_ties_ack(self):
-        tire_packet = packet_common.make_tire_packet()
-        # We always send an ACK for every TIE header on the ACK queue. I.e. we always ACK the TIEs
-        # that we received and accepted.
-        for tie_header_lifetime in self._ties_ack.values():
-            packet_common.add_tie_header_to_tire(tire_packet, tie_header_lifetime)
-        packet_content = encoding.ttypes.PacketContent(tire=tire_packet)
-        packet_header = encoding.ttypes.PacketHeader(
-            sender=self.node.system_id,
-            level=self.node.level_value())
-        protocol_packet = encoding.ttypes.ProtocolPacket(
-            header=packet_header,
-            content=packet_content)
-        self.send_protocol_packet(protocol_packet, flood=True)
-
-    def service_ties_req(self):
-        tire_packet = packet_common.make_tire_packet()
-        for tie_header_lifetime in self._ties_req.values():
-            # We don't request a TIE from our neighbor if the flooding scope rules say that the
-            # neighbor is not allowed to flood the TIE to us. Why? Because the neighbor is allowed
-            # to advertise extra TIEs in the TIDE, and if we request them we will get an
-            # oscillation.
-            (allowed, _reason) = self.node.flood_allowed_from_nbr_to_node(
-                tie_header_lifetime.header,
-                self.neighbor_direction(),
-                self.neighbor.system_id,
-                self.neighbor.level,
-                self.neighbor.top_of_fabric(),
-                self.node.system_id)
-            if allowed:
-                packet_common.add_tie_header_to_tire(tire_packet, tie_header_lifetime)
-            else:
-                # TODO: log message
-                pass
-        packet_content = encoding.ttypes.PacketContent(tire=tire_packet)
-        packet_header = encoding.ttypes.PacketHeader(
-            sender=self.node.system_id,
-            level=self.node.level_value())
-        protocol_packet = encoding.ttypes.ProtocolPacket(
-            header=packet_header,
-            content=packet_content)
-        self.send_protocol_packet(protocol_packet, flood=True)
-
-    def service_ties_queue(self, queue):
-        # Note: we only look at the TIE-ID in the queue and not at the header. If we have a more
-        # recent version of the TIE in the TIE-DB than the one requested, we send the one we have.
-        for tie_id in queue.keys():
-            db_tie_packet_info = self.node.find_tie_packet_info(tie_id)
-            if db_tie_packet_info is not None:
-                self.send_packet_info(db_tie_packet_info, flood=True)
-
-    def service_ties_tx(self):
-        self.service_ties_queue(self._ties_tx)
-
-    def service_ties_rtx(self):
-        self.service_ties_queue(self._ties_rtx)
+    def number_of_flaps(self):
+        return self.fsm.number_of_state_exits(self.State.THREE_WAY)
 
     @property
     def state_name(self):
@@ -1683,21 +1612,24 @@ class Interface:
             ["Interface", "Name"],
             ["Neighbor", "Name"],
             ["Neighbor", "System ID"],
-            ["Neighbor", "State"]]
+            ["Neighbor", "State"],
+            ["Time in", "State"],
+            ["Flaps"]]
 
     def cli_summary_attributes(self):
-        if self.neighbor:
-            return [
-                self.name,
-                self.neighbor.name,
-                utils.system_id_str(self.neighbor.system_id),
-                self.state_name]
+        if self.neighbor_lie:
+            neighbor_name = self.neighbor_lie.name
+            neighbor_sys_id = utils.system_id_str(self.neighbor_lie.system_id)
         else:
-            return [
-                self.name,
-                "",
-                "",
-                self.state_name]
+            neighbor_name = ""
+            neighbor_sys_id = ""
+        return [
+            self.name,
+            neighbor_name,
+            neighbor_sys_id,
+            self.state_name,
+            self.fsm.time_in_current_state_str(),
+            self.number_of_flaps()]
 
     @staticmethod
     def cli_floodred_summary_headers():
@@ -1713,13 +1645,13 @@ class Interface:
     def cli_floodred_summary_attributes(self):
         if self.neighbor_direction() != constants.DIR_SOUTH:
             i_am_fr_str = "Not Applicable"
-        elif self.neighbor:
-            i_am_fr_str = str(self.neighbor.you_are_flood_repeater)
+        elif self.neighbor_lie:
+            i_am_fr_str = str(self.neighbor_lie.you_are_flood_repeater)
         else:
             i_am_fr_str = ""
-        if self.neighbor:
-            neighbor_sysid = utils.system_id_str(self.neighbor.system_id)
-            neighbor_name = self.neighbor.name
+        if self.neighbor_lie:
+            neighbor_sysid = utils.system_id_str(self.neighbor_lie.system_id)
+            neighbor_name = self.neighbor_lie.name
             neighbor_dir = constants.direction_str(self.neighbor_direction())
         else:
             neighbor_sysid = ''
@@ -1735,26 +1667,30 @@ class Interface:
             i_am_fr_str
         ]
 
+    def partially_connected_str(self):
+        if self.partially_connected is None:
+            return "N/A"
+        if not self.partially_connected:
+            return "False"
+        return "True"
+
+    def partially_connected_causes_str(self):
+        if self.partially_connected is None:
+            return ""
+        if not self.partially_connected:
+            return ""
+        causes = []
+        count = 0
+        for sysid in self.partially_connected_causes:
+            count += 1
+            if count <= 3:
+                causes.append(self.node.node_descr(sysid))
+        if count > 3:
+            causes.append("and {} more".format(count - 3))
+        return causes
+
     def cli_details_table(self):
         tab = table.Table(separators=False)
-        if self.partially_connected is None:
-            partially_connected_str = 'N/A'
-            partially_connected_causes_str = ''
-        elif self.partially_connected:
-            partially_connected_str = 'True'
-            partially_connected_causes_str = ''
-            count = 0
-            for sysid in self.partially_connected_causes:
-                count += 1
-                if count > 1:
-                    partially_connected_causes_str += ', '
-                if count <= 3:
-                    partially_connected_causes_str += utils.system_id_str(sysid)
-            if count > 3:
-                partially_connected_causes_str += " and {} more".format(count - 3)
-        else:
-            partially_connected_str = 'False'
-            partially_connected_causes_str = ''
         tab.add_rows([
             ["Interface Name", self.name],
             ["Physical Interface Name", self.physical_interface_name],
@@ -1762,8 +1698,10 @@ class Interface:
             ["Interface IPv4 Address", self._ipv4_address],
             ["Interface IPv6 Address", self._ipv6_address],
             ["Interface Index", self._interface_index],
-            ["Metric", self._metric],
-            ["LIE Recieve IPv4 Multicast Address", self._rx_lie_ipv4_mcast_address],
+            ["Direction", self.neighbor_direction_str()],
+            ["Metric", self.metric],
+            ["Bandwidth", str(self.bandwidth) + " Mbps"],
+            ["LIE Receive IPv4 Multicast Address", self._rx_lie_ipv4_mcast_address],
             ["LIE Receive IPv6 Multicast Address", self._rx_lie_ipv6_mcast_address],
             ["LIE Receive Port", self._rx_lie_port],
             ["LIE Transmit IPv4 Multicast Address", self._tx_lie_ipv4_mcast_address],
@@ -1776,17 +1714,19 @@ class Interface:
             ["POD", self._pod],
             ["Failure", self.failure_str()],
             ["State", self.state_name],
+            ["Time in State", self.fsm.time_in_current_state_str()],
+            ["Flaps", self.number_of_flaps()],
             ["Received LIE Accepted or Rejected", self._lie_accept_or_reject],
             ["Received LIE Accept or Reject Reason", self._lie_accept_or_reject_rule],
             ["Neighbor is Flood Repeater", self.nbr_is_fr_str(self.floodred_nbr_is_fr)],
-            ["Neighbor is Partially Connected", partially_connected_str],
-            ["Nodes Causing Partial Connectivity", partially_connected_causes_str]
+            ["Neighbor is Partially Connected", self.partially_connected_str()],
+            ["Nodes Causing Partial Connectivity", self.partially_connected_causes_str()]
         ])
         return tab
 
     def cli_neighbor_details_table(self):
-        if self.neighbor:
-            return self.neighbor.cli_details_table()
+        if self.neighbor_lie:
+            return self.neighbor_lie.cli_details_table()
         else:
             return None
 
@@ -1894,9 +1834,9 @@ class Interface:
         if self.fsm.state == self.State.THREE_WAY:
             tide_packet = self.node.generate_tide_packet(
                 neighbor_direction=self.neighbor_direction(),
-                neighbor_system_id=self.neighbor.system_id,
-                neighbor_level=self.neighbor.level,
-                neighbor_is_top_of_fabric=self.neighbor.top_of_fabric(),
+                neighbor_system_id=self.neighbor_lie.system_id,
+                neighbor_level=self.neighbor_lie.level,
+                neighbor_is_top_of_fabric=self.neighbor_lie.top_of_fabric(),
                 my_level=self.node.level_value(),
                 i_am_top_of_fabric=self.node.top_of_fabric())
             tab.add_row(self.cli_tides_summary_attributes(tide_packet))
@@ -1950,19 +1890,16 @@ class Interface:
             "Originator",
             "Type",
             "TIE Nr",
-            "Seq Nr",
-            ["Origination", "Time"]])
+            "Seq Nr"])
         for tie_header in tie_headers.values():
-            # TODO: Move direction_str etc. to packet_common
             tab.add_row([packet_common.direction_str(tie_header.tieid.direction),
                          tie_header.tieid.originator,
                          packet_common.tietype_str(tie_header.tieid.tietype),
                          tie_header.tieid.tie_nr,
-                         tie_header.seq_nr,
-                         "-"])   # TODO: Report origination_time
+                         tie_header.seq_nr])
         return tab
 
-    def tie_headers_lifetime_table_cmn(self, tie_headers):
+    def tie_headers_lifetime_table_cmn(self, tie_headers_with_lifetime):
         tab = table.Table()
         tab.add_row([
             "Direction",
@@ -1970,39 +1907,52 @@ class Interface:
             "Type",
             "TIE Nr",
             "Seq Nr",
-            ["Remaining", "Lifetime"],
-            ["Origination", "Time"]])
-        for tie_header in tie_headers.values():
-            # TODO: Move direction_str etc. to packet_common
-            tab.add_row([packet_common.direction_str(tie_header.tieid.direction),
-                         tie_header.tieid.originator,
-                         packet_common.tietype_str(tie_header.tieid.tietype),
-                         tie_header.tieid.tie_nr,
-                         tie_header.seq_nr,
-                         tie_header.remaining_lifetime,
-                         "-"])   # TODO: Report origination_time
+            ["Remaining", "Lifetime"]])
+        for tie_header_lifetime in tie_headers_with_lifetime.values():
+            header = tie_header_lifetime.header
+            lifetime = tie_header_lifetime.remaining_lifetime
+            tab.add_row([packet_common.direction_str(header.tieid.direction),
+                         header.tieid.originator,
+                         packet_common.tietype_str(header.tieid.tietype),
+                         header.tieid.tie_nr,
+                         header.seq_nr,
+                         lifetime])
         return tab
 
-    def ties_tx_table(self):
-        return self.tie_headers_table_cmn(self._ties_tx)
+    @staticmethod
+    def word_wrap(long_line, width):
+        wrapped_lines = []
+        words = long_line.split()
+        current_line = ""
+        while words:
+            word = words[0]
+            words = words[1:]
+            room_for_space = 0 if current_line == "" else 1
+            if len(current_line) + room_for_space + len(word) > width:
+                wrapped_lines.append(current_line)
+                current_line = word
+            else:
+                if current_line != "":
+                    current_line += " "
+                current_line += word
+        if current_line != "":
+            wrapped_lines.append(current_line)
+        return wrapped_lines
 
-    def ties_rtx_table(self):
-        return self.tie_headers_table_cmn(self._ties_rtx)
+    def command_show_intf_packets(self, cli_session):
+        cli_session.print("Last {} Packets Sent and Received on Interface:"
+                          .format(self.MAX_PACKET_TRACE))
+        tab = table.Table()
+        prev_packet = None
+        for packet in self._packets:
+            lines = self.word_wrap(str(packet.packet_info), 130)
+            lines = [packet.timestamp_str(prev_packet), packet.addresses_str(), ""] + lines
+            tab.add_row([lines])
+            prev_packet = packet
+        cli_session.print(tab.to_string())
 
-    def ties_req_table(self):
-        return self.tie_headers_lifetime_table_cmn(self._ties_req)
-
-    def ties_ack_table(self):
-        return self.tie_headers_lifetime_table_cmn(self._ties_ack)
-
-    # TODO: Set TTL as follows:
-    # ttl_bin = struct.pack('@i', MYTTL)
-    # if addrinfo[0] == socket.AF_INET: # IPv4
-    #     s.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, ttl_bin)
-    # else:
-    #     s.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_MULTICAST_HOPS, ttl_bin)
-
-    # TODO: Set TOS and Priority
+    def command_show_intf_queues(self, cli_session):
+        self._queues.command_show_intf_queues(cli_session)
 
     @staticmethod
     def enable_addr_and_port_reuse(sock):
@@ -2019,12 +1969,12 @@ class Interface:
 
     def socket_connect(self, sock, address, port):
         try:
-            sock.connect((address, port))
-            return True
+            sock.connect((str(address), port))
+            return sock
         except IOError as err:
-            self.warning("Could not connect UDP socket to address %s port %d: %s",
+            self.warning("socket_connect : Could not connect UDP socket to address %s port %d: %s",
                          address, port, err)
-        return False
+        return None
 
     def create_socket_ipv4_tx_mcast(self, multicast_address, port, loopback):
         try:
@@ -2034,26 +1984,27 @@ class Interface:
             return None
         self.enable_addr_and_port_reuse(sock)
         if self._ipv4_address is not None:
-            try:
-                sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_IF,
-                                socket.inet_aton(self._ipv4_address))
-            except IOError as err:
-                self.warning("Could not set IPv6 multicast interface address %s: %s",
-                             self._ipv4_address, err)
-                return None
+            if self._lie_use_broadcast:
+                try:
+                    sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+                except IOError as err:
+                    self.warning("Could not enable SO_BROADCAST on socket: %s", err)
+                    return None
+            else:
+                try:
+                    sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_IF,
+                                    socket.inet_aton(self._ipv4_address))
+                except IOError as err:
+                    self.warning("Could not set IPv4 tx multicast interface address %s: %s",
+                                 self._ipv4_address, err)
+                    return None
         try:
             loop_value = 1 if loopback else 0
             sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, loop_value)
         except IOError as err:
             self.warning("Could not set IPv4 multicast loopback value %d: %s", loop_value, err)
             return None
-        try:
-            sock.connect((multicast_address, port))
-        except IOError as err:
-            self.warning("Could not connect UDP socket to address %s port %d: %s",
-                         multicast_address, port, err)
-            return None
-        return sock
+        return self.socket_connect(sock, multicast_address, port)
 
     def create_socket_ipv4_tx_ucast(self, remote_address, port):
         try:
@@ -2062,13 +2013,7 @@ class Interface:
             self.warning("Could not create IPv4 UDP socket: %s", err)
             return None
         self.enable_addr_and_port_reuse(sock)
-        try:
-            sock.connect((remote_address, port))
-        except IOError as err:
-            self.warning("Could not connect UDP socket to address %s port %d: %s",
-                         remote_address, port, err)
-            return None
-        return sock
+        return self.socket_connect(sock, remote_address, port)
 
     def create_socket_ipv6_tx_mcast(self, multicast_address, port, loopback):
         if self._interface_index is None:
@@ -2097,10 +2042,10 @@ class Interface:
                 str(multicast_address) + '%' + self.physical_interface_name)
             sock_addr = socket.getaddrinfo(scoped_ipv6_multicast_address, port,
                                            socket.AF_INET6, socket.SOCK_DGRAM)[0][4]
-            sock.connect(sock_addr)
+            sock.connect(sock_addr) # Don't use self.socket_connect, 4-tuple
         except (IOError, OSError) as err:
-            self.warning("Could not connect UDP socket to address %s port %d: %s",
-                         scoped_ipv6_multicast_address, port, err)
+            self.warning("create_socket_ipv6_tx_mcast: Could not connect UDP socket to address "
+                         "%s port %d: %s", scoped_ipv6_multicast_address, port, err)
             return None
         return sock
 
@@ -2115,9 +2060,9 @@ class Interface:
             sock_addr = socket.getaddrinfo(remote_address, port, socket.AF_INET6,
                                            socket.SOCK_DGRAM)[0][4]
             sock.connect(sock_addr)
-        except IOError as err:
-            self.warning("Could not connect UDP socket to address %s port %d: %s",
-                         remote_address, port, err)
+        except (IOError, OSError) as err:
+            self.warning("create_socket_ipv6_tx_ucast: Could not connect UDP socket to address"
+                         " %s port %d: %s", remote_address, port, err)
             return None
         return sock
 

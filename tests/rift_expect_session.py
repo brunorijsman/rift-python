@@ -10,22 +10,22 @@ if TRAVIS:
 else:
     IPV6 = True
 
+# Maximum amount of time to fully reconverge after a uni-directional interface failure
+# If node1 can still send to node2, but node1 cannot receive from node2:
+# - It takes up to 3 seconds for node2 to detect that it is not receiving LIEs from node1
+# - At that point node2 will stop reflecting node1
+# - It takes up to 1 second for node1 to receive the first LIE without the reflection
+# - Add 1 second of slack time
+DEFAULT_RECONVERGE_SECS = 5.0
+# Initial Convergence seconds
+DEFAULT_START_CONVERGE_SECS = 10.0
+
+
 class RiftExpectSession:
+    expect_timeout = 5.0
 
-    start_converge_secs = 10.0
-
-    # Maximum amount of time to fully reconverge after a uni-directional interface failure
-    # If node1 can still send to node2, but node1 cannot receive from node2:
-    # - It takes up to 3 seconds for node2 to detect that it is not receiving LIEs from node1
-    # - At that point node2 will stop reflecting node1
-    # - It takes up to 1 second for node1 to receive the first LIE without the reflection
-    # - Add 1 second of slack time
-    #
-    reconverge_secs = 5.0
-
-    expect_timeout = 1.0
-
-    def __init__(self, topology_file=None, converge_secs=start_converge_secs, log_debug=True):
+    def __init__(self, topology_file=None, start_converge_secs=DEFAULT_START_CONVERGE_SECS,
+                 reconverge_secs=DEFAULT_RECONVERGE_SECS, log_debug=True):
         rift_cmd = "rift --interactive --non-passive"
         if log_debug:
             rift_cmd += " --log-level debug"
@@ -40,8 +40,9 @@ class RiftExpectSession:
         self.write_result("\n\n*** Start session: {}\n\n".format(topology_file))
         self.write_result("TRAVIS : {}\n".format(TRAVIS))
         self.write_result("IPV6   : {}\n\n".format(IPV6))
-        self._expect_session = pexpect.spawn(cmd, logfile=self._results_file)
-        time.sleep(converge_secs)
+        self.reconverge_secs = reconverge_secs
+        self._expect_session = pexpect.spawn(cmd, logfile=self._results_file, maxread=100000)
+        time.sleep(start_converge_secs)
         self.wait_prompt()
         self.check_engine()
 
@@ -61,8 +62,8 @@ class RiftExpectSession:
     def sendline(self, line):
         self._expect_session.sendline(line)
 
-    def log_expect_failure(self):
-        self.write_result("\n\n*** Did not find expected pattern\n\n")
+    def log_expect_failure(self, expected_pattern):
+        self.write_result("\n\n*** Did not find expected pattern {}\n\n".format(expected_pattern))
         # Generate a call stack in rift_expect.log for easier debugging
         # But pytest call stacks are very deep, so only show the "interesting" lines
         for line in traceback.format_stack():
@@ -80,7 +81,7 @@ class RiftExpectSession:
         else:
             failed = False
         if failed:
-            self.log_expect_failure()
+            self.log_expect_failure(pattern)
             pytest.fail('Timeout expecting "{} (see rift_expect.log for details)"'.format(pattern))
             return None
         else:
@@ -137,7 +138,7 @@ class RiftExpectSession:
         self.table_expect("| Interface Name | {} |".format(interface))
         self.table_expect("| State | TWO_WAY |")
         self.table_expect("| Received LIE Accepted or Rejected | Accepted |")
-        self.table_expect("Neighbor:")
+        self.table_expect("Neighbor LIE Information:")
         self.table_expect("| Name | {} |".format(other_full_name))
         self.wait_prompt(node)
 
@@ -155,7 +156,7 @@ class RiftExpectSession:
         self.table_expect("| Interface Name | {} |".format(interface))
         self.table_expect("| State | THREE_WAY |")
         self.table_expect("| Received LIE Accepted or Rejected | Accepted |")
-        self.table_expect("Neighbor:")
+        self.table_expect("Neighbor LIE Information:")
         self.table_expect("| Name | .* |")
         self.wait_prompt(node)
 
@@ -229,15 +230,67 @@ class RiftExpectSession:
         # Let reconverge
         time.sleep(self.reconverge_secs)
 
-    def check_spf(self, node, expect_south_spf, expect_north_spf):
+    def check_spf(self, node, expect_south_spf=None, expect_north_spf=None,
+                  expect_south_ew_spf=None):
         self.sendline("set node {}".format(node))
         self.sendline("show spf")
-        self.table_expect("South SPF Destinations:")
-        for expected_row in expect_south_spf:
-            self.table_expect(expected_row)
-        self.table_expect("North SPF Destinations:")
-        for expected_row in expect_north_spf:
-            self.table_expect(expected_row)
+        if expect_south_spf is not None:
+            self.expect("South SPF Destinations:")
+            for expected_row in expect_south_spf:
+                self.table_expect(expected_row)
+        if expect_north_spf is not None:
+            self.expect("North SPF Destinations:")
+            for expected_row in expect_north_spf:
+                self.table_expect(expected_row)
+        if expect_south_ew_spf is not None:
+            self.expect(r"South SPF \(with East-West Links\) Destinations:")
+            for expected_row in expect_south_ew_spf:
+                self.table_expect(expected_row)
+
+    def check_spf_disagg(self, node, prefix, cost, is_leaf, pos_or_neg, preds_and_nhs):
+        self.sendline("set node {}".format(node))
+        self.sendline("show spf direction north destination {}".format(prefix))
+        first = True
+        for (pred_sysid, next_hop_if) in preds_and_nhs:
+            if first:
+                first = False
+                pattern = r"| {} ".format(prefix)                  # prefix
+                if pos_or_neg == "Positive":
+                    pattern += r"\(Pos-Disagg\) |"
+                else:
+                    pattern += r"\(Neg-Disagg\) |"
+                pattern += r" {} |".format(cost)                   # cost
+                pattern += r" {} |".format(is_leaf)                # is leaf
+                pattern += r" {} |".format(pred_sysid)             # predecessor system id
+                pattern += r" |"                                   # tags (absent)
+                pattern += r" {} |".format(pos_or_neg)             # positive or negative
+                if pos_or_neg == "Negative":
+                    pattern += r" Negative"
+                pattern += r" {} .* |".format(next_hop_if)         # ipv4 next-hop
+                if IPV6:
+                    if pos_or_neg == "Negative":
+                        pattern += r" Negative"
+                    pattern += r" {} .* |".format(next_hop_if)     # ipv6 next-hop
+                else:
+                    pattern += r" .* |"                            # ip6 next-hop (possibly absent)
+            else:
+                pattern += r"\s+"                                  # Skip whitespace
+                pattern += r"| |"                                  # prefix (absent)
+                pattern += r" |"                                   # cost (absent)
+                pattern += r" |"                                   # is leaf (absent)
+                pattern += r" {} |".format(pred_sysid)             # predecessor system id
+                pattern += r" |"                                   # tags (absent)
+                pattern += r" |"                                   # positive or negative (absent)
+                if pos_or_neg == "Negative":
+                    pattern += r" Negative"
+                pattern += r" {} .* |".format(next_hop_if)         # ipv4 next-hop
+                if IPV6:
+                    if pos_or_neg == "Negative":
+                        pattern += r" Negative"
+                    pattern += r" {} .* |".format(next_hop_if)     # ipv6 next-hop
+                else:
+                    pattern += r" .* |"                            # ip6 next-hop (possibly absent)
+        self.table_expect(pattern)
 
     def check_spf_absent(self, node, direction, destination):
         self.sendline("set node {}".format(node))
@@ -273,3 +326,11 @@ class RiftExpectSession:
         self.sendline("show interface {} security".format(intf))
         for expected_row in expect_intf_security:
             self.table_expect(expected_row)
+
+    def check_tie_in_db(self, node, direction, originator, tie_type, patterns):
+        self.sendline("set node {}".format(node))
+        self.sendline("show tie-db direction {} originator {} tie-type {}"
+                      .format(direction, originator, tie_type))
+        for pattern in patterns:
+            self.table_expect(pattern)
+        self.wait_prompt()

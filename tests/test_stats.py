@@ -13,6 +13,7 @@ def counter_add_wrapper(counter, simulated_time, add):
     counter.add(add)
 
 def test_group():
+    stats.TIME_FUNCTION = lambda: 0.0
     group = stats.Group()
     _counter_1 = stats.Counter(group, "Sent Packets", "Packet")
     counter_increase_wrapper(_counter_1, 0.00)
@@ -40,58 +41,58 @@ def test_group():
     counter_add_wrapper(_counter_7, 14.00, [1, 10])
     stats.TIME_FUNCTION = lambda: 15.00
     assert group.table(exclude_zero=False).to_string() == (
-        "+------------------+------------------------+------------------------------------------+-------------------+\n"
-        "| Description      | Value                  | Last Rate                                | Last Change       |\n"
-        "|                  |                        | Over Last 10 Changes                     |                   |\n"
-        "+------------------+------------------------+------------------------------------------+-------------------+\n"
-        "| Sent Packets     | 1 Packet               |                                          | 0d 00h:00m:15.00s |\n"
-        "+------------------+------------------------+------------------------------------------+-------------------+\n"
-        "| Received Packets | 0 Packets              |                                          |                   |\n"
-        "+------------------+------------------------+------------------------------------------+-------------------+\n"
-        "| Dropped Packets  | 14 Packets             | 3.00 Packets/Sec                         | 0d 00h:00m:11.00s |\n"
-        "+------------------+------------------------+------------------------------------------+-------------------+\n"
-        "| Sent Hellos      | 0 Packets, 0 Bytes     |                                          |                   |\n"
-        "+------------------+------------------------+------------------------------------------+-------------------+\n"
-        "| Received Hellos  | 3 Packets, 45 Bytes    | 1.00 Packets/Sec, 12.00 Bytes/Sec        | 0d 00h:00m:02.00s |\n"
-        "+------------------+------------------------+------------------------------------------+-------------------+\n"
-        "| Total Hellos     | 3 Packets, 45 Bytes    | 1.00 Packets/Sec, 12.00 Bytes/Sec        | 0d 00h:00m:02.00s |\n"
-        "+------------------+------------------------+------------------------------------------+-------------------+\n"
-        "| Sent Byes        | 9 Packets, 1023 Bytes  |                                          | 0d 00h:00m:02.00s |\n"
-        "+------------------+------------------------+------------------------------------------+-------------------+\n"
-        "| Received Byes    | 2 Packets, 20 Bytes    | Infinite Packets/Sec, Infinite Bytes/Sec | 0d 00h:00m:01.00s |\n"
-        "+------------------+------------------------+------------------------------------------+-------------------+\n"
-        "| Total Byes       | 11 Packets, 1043 Bytes | 2.00 Packets/Sec, 20.00 Bytes/Sec        | 0d 00h:00m:01.00s |\n"
-        "+------------------+------------------------+------------------------------------------+-------------------+\n")
+        "+------------------+------------------------+------------------------------------+-------------------+\n"
+        "| Description      | Value                  | Rate Over                          | Last Change       |\n"
+        "|                  |                        | Last 10 Seconds                    |                   |\n"
+        "+------------------+------------------------+------------------------------------+-------------------+\n"
+        "| Sent Packets     | 1 Packet               | 0.00 Packets/Sec                   | 0d 00h:00m:15.00s |\n"
+        "+------------------+------------------------+------------------------------------+-------------------+\n"
+        "| Received Packets | 0 Packets              | 0.00 Packets/Sec                   |                   |\n"
+        "+------------------+------------------------+------------------------------------+-------------------+\n"
+        "| Dropped Packets  | 14 Packets             | 0.00 Packets/Sec                   | 0d 00h:00m:11.00s |\n"
+        "+------------------+------------------------+------------------------------------+-------------------+\n"
+        "| Sent Hellos      | 0 Packets, 0 Bytes     | 0.00 Packets/Sec, 0.00 Bytes/Sec   |                   |\n"
+        "+------------------+------------------------+------------------------------------+-------------------+\n"
+        "| Received Hellos  | 3 Packets, 45 Bytes    | 0.30 Packets/Sec, 4.50 Bytes/Sec   | 0d 00h:00m:02.00s |\n"
+        "+------------------+------------------------+------------------------------------+-------------------+\n"
+        "| Total Hellos     | 3 Packets, 45 Bytes    | 0.30 Packets/Sec, 4.50 Bytes/Sec   | 0d 00h:00m:02.00s |\n"
+        "+------------------+------------------------+------------------------------------+-------------------+\n"
+        "| Sent Byes        | 9 Packets, 1023 Bytes  | 0.90 Packets/Sec, 102.30 Bytes/Sec | 0d 00h:00m:02.00s |\n"
+        "+------------------+------------------------+------------------------------------+-------------------+\n"
+        "| Received Byes    | 2 Packets, 20 Bytes    | 0.20 Packets/Sec, 2.00 Bytes/Sec   | 0d 00h:00m:01.00s |\n"
+        "+------------------+------------------------+------------------------------------+-------------------+\n"
+        "| Total Byes       | 11 Packets, 1043 Bytes | 1.10 Packets/Sec, 104.30 Bytes/Sec | 0d 00h:00m:01.00s |\n"
+        "+------------------+------------------------+------------------------------------+-------------------+\n")
     assert group.table(exclude_zero=True).to_string() == (
-        "+-----------------+------------------------+------------------------------------------+-------------------+\n"
-        "| Description     | Value                  | Last Rate                                | Last Change       |\n"
-        "|                 |                        | Over Last 10 Changes                     |                   |\n"
-        "+-----------------+------------------------+------------------------------------------+-------------------+\n"
-        "| Sent Packets    | 1 Packet               |                                          | 0d 00h:00m:15.00s |\n"
-        "+-----------------+------------------------+------------------------------------------+-------------------+\n"
-        "| Dropped Packets | 14 Packets             | 3.00 Packets/Sec                         | 0d 00h:00m:11.00s |\n"
-        "+-----------------+------------------------+------------------------------------------+-------------------+\n"
-        "| Received Hellos | 3 Packets, 45 Bytes    | 1.00 Packets/Sec, 12.00 Bytes/Sec        | 0d 00h:00m:02.00s |\n"
-        "+-----------------+------------------------+------------------------------------------+-------------------+\n"
-        "| Total Hellos    | 3 Packets, 45 Bytes    | 1.00 Packets/Sec, 12.00 Bytes/Sec        | 0d 00h:00m:02.00s |\n"
-        "+-----------------+------------------------+------------------------------------------+-------------------+\n"
-        "| Sent Byes       | 9 Packets, 1023 Bytes  |                                          | 0d 00h:00m:02.00s |\n"
-        "+-----------------+------------------------+------------------------------------------+-------------------+\n"
-        "| Received Byes   | 2 Packets, 20 Bytes    | Infinite Packets/Sec, Infinite Bytes/Sec | 0d 00h:00m:01.00s |\n"
-        "+-----------------+------------------------+------------------------------------------+-------------------+\n"
-        "| Total Byes      | 11 Packets, 1043 Bytes | 2.00 Packets/Sec, 20.00 Bytes/Sec        | 0d 00h:00m:01.00s |\n"
-        "+-----------------+------------------------+------------------------------------------+-------------------+\n")
+        "+-----------------+------------------------+------------------------------------+-------------------+\n"
+        "| Description     | Value                  | Rate Over                          | Last Change       |\n"
+        "|                 |                        | Last 10 Seconds                    |                   |\n"
+        "+-----------------+------------------------+------------------------------------+-------------------+\n"
+        "| Sent Packets    | 1 Packet               | 0.00 Packets/Sec                   | 0d 00h:00m:15.00s |\n"
+        "+-----------------+------------------------+------------------------------------+-------------------+\n"
+        "| Dropped Packets | 14 Packets             | 0.00 Packets/Sec                   | 0d 00h:00m:11.00s |\n"
+        "+-----------------+------------------------+------------------------------------+-------------------+\n"
+        "| Received Hellos | 3 Packets, 45 Bytes    | 0.30 Packets/Sec, 4.50 Bytes/Sec   | 0d 00h:00m:02.00s |\n"
+        "+-----------------+------------------------+------------------------------------+-------------------+\n"
+        "| Total Hellos    | 3 Packets, 45 Bytes    | 0.30 Packets/Sec, 4.50 Bytes/Sec   | 0d 00h:00m:02.00s |\n"
+        "+-----------------+------------------------+------------------------------------+-------------------+\n"
+        "| Sent Byes       | 9 Packets, 1023 Bytes  | 0.90 Packets/Sec, 102.30 Bytes/Sec | 0d 00h:00m:02.00s |\n"
+        "+-----------------+------------------------+------------------------------------+-------------------+\n"
+        "| Received Byes   | 2 Packets, 20 Bytes    | 0.20 Packets/Sec, 2.00 Bytes/Sec   | 0d 00h:00m:01.00s |\n"
+        "+-----------------+------------------------+------------------------------------+-------------------+\n"
+        "| Total Byes      | 11 Packets, 1043 Bytes | 1.10 Packets/Sec, 104.30 Bytes/Sec | 0d 00h:00m:01.00s |\n"
+        "+-----------------+------------------------+------------------------------------+-------------------+\n")
     group.clear()
     counter_increase_wrapper(_counter_1, 16.00)
     counter_increase_wrapper(_counter_1, 17.00)
     stats.TIME_FUNCTION = lambda: 19.00
     assert group.table(exclude_zero=True).to_string() == (
-        "+--------------+-----------+----------------------+-------------------+\n"
-        "| Description  | Value     | Last Rate            | Last Change       |\n"
-        "|              |           | Over Last 10 Changes |                   |\n"
-        "+--------------+-----------+----------------------+-------------------+\n"
-        "| Sent Packets | 2 Packets | 1.00 Packets/Sec     | 0d 00h:00m:02.00s |\n"
-        "+--------------+-----------+----------------------+-------------------+\n")
+        "+--------------+-----------+------------------+-------------------+\n"
+        "| Description  | Value     | Rate Over        | Last Change       |\n"
+        "|              |           | Last 10 Seconds  |                   |\n"
+        "+--------------+-----------+------------------+-------------------+\n"
+        "| Sent Packets | 2 Packets | 0.20 Packets/Sec | 0d 00h:00m:02.00s |\n"
+        "+--------------+-----------+------------------+-------------------+\n")
 
 def test_counter():
     group = stats.Group()
@@ -274,16 +275,8 @@ def test_sum_multi_counter():
     assert counter_rx_bar.value_display_str() == "5 Packets, 50 Bytes"
     assert counter_tx_bar.value_display_str() == "6 Packets, 60 Bytes"
 
-def test_secs_to_dmhs_str():
-    assert stats.secs_to_dmhs_str(0.0) == "0d 00h:00m:00.00s"
-    assert stats.secs_to_dmhs_str(0.01) == "0d 00h:00m:00.01s"
-    assert stats.secs_to_dmhs_str(59.99) == "0d 00h:00m:59.99s"
-    assert stats.secs_to_dmhs_str(60.00) == "0d 00h:01m:00.00s"
-    assert stats.secs_to_dmhs_str(72.34) == "0d 00h:01m:12.34s"
-    assert stats.secs_to_dmhs_str(45296.78) == "0d 12h:34m:56.78s"
-    assert stats.secs_to_dmhs_str(218096.78) == "2d 12h:34m:56.78s"
-
 def test_sum_group():
+    stats.TIME_FUNCTION = lambda: 100.00
     sum_group = stats.Group()
     group_1 = stats.Group(sum_group)
     session_resets_counter_1 = stats.Counter(group_1, "Session Resets", "Reset")
@@ -291,41 +284,41 @@ def test_sum_group():
     group_2 = stats.Group(sum_group)
     session_resets_counter_2 = stats.Counter(group_2, "Session Resets", "Reset")
     _sent_packets_counter_2 = stats.MultiCounter(group_2, "Sent Packets", ["Packet", "Byte"])
-    counter_add_wrapper(sent_packets_counter_1, 1.0, [1, 100])
-    counter_increase_wrapper(session_resets_counter_1, 1.5)
-    counter_add_wrapper(sent_packets_counter_1, 2.0, [3, 300])
-    counter_add_wrapper(session_resets_counter_2, 2.0, 2)
-    counter_increase_wrapper(session_resets_counter_1, 3.5)
-    counter_add_wrapper(sent_packets_counter_1, 3.0, [2, 200])
-    counter_add_wrapper(session_resets_counter_1, 3.5, 2)
-    stats.TIME_FUNCTION = lambda: 4.00
+    counter_add_wrapper(sent_packets_counter_1, 100.0, [1, 100])
+    counter_increase_wrapper(session_resets_counter_1, 101.0)
+    counter_add_wrapper(sent_packets_counter_1, 101.5, [3, 300])
+    counter_add_wrapper(session_resets_counter_2, 102.0, 2)
+    counter_increase_wrapper(session_resets_counter_1, 104.0)
+    counter_add_wrapper(sent_packets_counter_1, 105.5, [2, 200])
+    counter_add_wrapper(session_resets_counter_1, 106.0, 2)
+    stats.TIME_FUNCTION = lambda: 110.50
     assert group_1.table(exclude_zero=False).to_string() == (
-        "+----------------+----------------------+------------------------------------+-------------------+\n"
-        "| Description    | Value                | Last Rate                          | Last Change       |\n"
-        "|                |                      | Over Last 10 Changes               |                   |\n"
-        "+----------------+----------------------+------------------------------------+-------------------+\n"
-        "| Session Resets | 4 Resets             | 1.50 Resets/Sec                    | 0d 00h:00m:00.50s |\n"
-        "+----------------+----------------------+------------------------------------+-------------------+\n"
-        "| Sent Packets   | 6 Packets, 600 Bytes | 2.50 Packets/Sec, 250.00 Bytes/Sec | 0d 00h:00m:01.00s |\n"
-        "+----------------+----------------------+------------------------------------+-------------------+\n")
+        "+----------------+----------------------+-----------------------------------+-------------------+\n"
+        "| Description    | Value                | Rate Over                         | Last Change       |\n"
+        "|                |                      | Last 10 Seconds                   |                   |\n"
+        "+----------------+----------------------+-----------------------------------+-------------------+\n"
+        "| Session Resets | 4 Resets             | 0.40 Resets/Sec                   | 0d 00h:00m:04.50s |\n"
+        "+----------------+----------------------+-----------------------------------+-------------------+\n"
+        "| Sent Packets   | 6 Packets, 600 Bytes | 0.60 Packets/Sec, 60.00 Bytes/Sec | 0d 00h:00m:05.00s |\n"
+        "+----------------+----------------------+-----------------------------------+-------------------+\n")
     assert group_2.table(exclude_zero=False).to_string() == (
-        "+----------------+--------------------+----------------------+-------------------+\n"
-        "| Description    | Value              | Last Rate            | Last Change       |\n"
-        "|                |                    | Over Last 10 Changes |                   |\n"
-        "+----------------+--------------------+----------------------+-------------------+\n"
-        "| Session Resets | 2 Resets           |                      | 0d 00h:00m:02.00s |\n"
-        "+----------------+--------------------+----------------------+-------------------+\n"
-        "| Sent Packets   | 0 Packets, 0 Bytes |                      |                   |\n"
-        "+----------------+--------------------+----------------------+-------------------+\n")
+        "+----------------+--------------------+----------------------------------+-------------------+\n"
+        "| Description    | Value              | Rate Over                        | Last Change       |\n"
+        "|                |                    | Last 10 Seconds                  |                   |\n"
+        "+----------------+--------------------+----------------------------------+-------------------+\n"
+        "| Session Resets | 2 Resets           | 0.20 Resets/Sec                  | 0d 00h:00m:08.50s |\n"
+        "+----------------+--------------------+----------------------------------+-------------------+\n"
+        "| Sent Packets   | 0 Packets, 0 Bytes | 0.00 Packets/Sec, 0.00 Bytes/Sec |                   |\n"
+        "+----------------+--------------------+----------------------------------+-------------------+\n")
     assert sum_group.table(exclude_zero=False).to_string() == (
-        "+----------------+----------------------+------------------------------------+-------------------+\n"
-        "| Description    | Value                | Last Rate                          | Last Change       |\n"
-        "|                |                      | Over Last 10 Changes               |                   |\n"
-        "+----------------+----------------------+------------------------------------+-------------------+\n"
-        "| Session Resets | 6 Resets             | 2.50 Resets/Sec                    | 0d 00h:00m:00.50s |\n"
-        "+----------------+----------------------+------------------------------------+-------------------+\n"
-        "| Sent Packets   | 6 Packets, 600 Bytes | 2.50 Packets/Sec, 250.00 Bytes/Sec | 0d 00h:00m:01.00s |\n"
-        "+----------------+----------------------+------------------------------------+-------------------+\n")
+        "+----------------+----------------------+-----------------------------------+-------------------+\n"
+        "| Description    | Value                | Rate Over                         | Last Change       |\n"
+        "|                |                      | Last 10 Seconds                   |                   |\n"
+        "+----------------+----------------------+-----------------------------------+-------------------+\n"
+        "| Session Resets | 6 Resets             | 0.60 Resets/Sec                   | 0d 00h:00m:04.50s |\n"
+        "+----------------+----------------------+-----------------------------------+-------------------+\n"
+        "| Sent Packets   | 6 Packets, 600 Bytes | 0.60 Packets/Sec, 60.00 Bytes/Sec | 0d 00h:00m:05.00s |\n"
+        "+----------------+----------------------+-----------------------------------+-------------------+\n")
 
 def test_imcompatible_sum_groups():
     # Different singular units

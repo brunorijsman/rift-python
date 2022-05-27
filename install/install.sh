@@ -61,10 +61,10 @@ check_supported_os() {
         fatal
     fi
     release=$(lsb_release -rs)
-    if [ "$release" != "18.04" ]; then
-        report "It appears that you are running a different version of Ubuntu than 18.04"
+    if [ "$release" != "16.04" ] && [ "$release" != "18.04" ] && [ "$release" != "20.04" ]; then
+        report "It appears that you are running an unsupported version of Ubuntu"
         report "lsb_release reports $release"
-        report "The installation script currently only supports Ubuntu 18.04"
+        report "The installation script currently only supports Ubuntu 16.04, 18.04, or 20.04"
         fatal
     fi
 }
@@ -122,15 +122,30 @@ apt_get_install () {
 
 create_and_activate_virtual_env () {
     run_cmd "sudo apt-get update" "Updating apt-get"
-    apt_get_install "python3-venv"
+    apt_get_install "build-essential"
+    apt_get_install "python3-dev"
+    apt_get_install "virtualenv"
     apt_get_install "traceroute"
-    run_cmd "python3 -m venv env" "Creating virtual environment"
+    run_cmd "virtualenv env --python=python3" "Creating virtual environment"
     run_cmd "source env/bin/activate" "Activating virtual environment"
 }
 
 pip_install_dependencies () {
     check_command_present pip
-    run_cmd "pip install -r requirements.txt" "Installing Python module dependencies"
+    case $(python --version) in
+        Python\ 3\.[567]\.?)
+            run_cmd "pip install -r requirements-3-567.txt" "Installing Python module dependencies"
+            ;;
+        Python\ 3\.8\.?)
+            run_cmd "pip install -r requirements-3-8.txt" "Installing Python module dependencies"
+            ;;
+        *)
+            report "Unsupported version of Python"
+            fatal
+            ;;
+    esac
+
+
 }
 
 parse_command_line_arguments $@
@@ -139,3 +154,4 @@ check_git_directory
 check_can_run_sudo
 create_and_activate_virtual_env
 pip_install_dependencies
+

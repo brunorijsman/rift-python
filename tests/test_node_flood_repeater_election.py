@@ -5,7 +5,7 @@ import constants
 import encoding.ttypes
 import engine
 import interface
-import neighbor
+import neighbor_lie
 import node
 import packet_common
 
@@ -50,6 +50,16 @@ def make_test_node(parents, additional_node_config=None):
     update_test_node(test_node, parents)
     return test_node
 
+def store_tie_packet(test_node, tie_packet, lifetime):
+    header = encoding.ttypes.PacketHeader(sender=test_node.system_id,
+                                          level=test_node.level_value())
+    content = encoding.ttypes.PacketContent(tie=tie_packet)
+    protocol_packet = encoding.ttypes.ProtocolPacket(header=header, content=content)
+    packet_info = packet_common.encode_protocol_packet(protocol_packet,
+                                                       test_node.active_origin_key)
+    packet_info.remaining_tie_lifetime = lifetime
+    test_node.store_tie_packet_info(packet_info)
+
 def update_test_node(test_node, parents):
     grandparents = compute_grandparents_connectivity(parents)
     # Empty the TIE-DB (we are going to re-build it from scratch)
@@ -60,7 +70,7 @@ def update_test_node(test_node, parents):
         neighbor_info = (PARENT_LEVEL, parent_sysid)
         neighbors.append(neighbor_info)
     node_tie_packet = make_node_tie_packet(NODE_SYSID, NODE_LEVEL, neighbors)
-    test_node.store_tie_packet(node_tie_packet, 100)
+    store_tie_packet(test_node, node_tie_packet, 100)
     # Add Node-TIEs for parents to TIE-DB
     for parent_sysid, grandparent_sysids in parents.items():
         neighbors = []
@@ -70,7 +80,7 @@ def update_test_node(test_node, parents):
             neighbor_info = (GRANDPARENT_LEVEL, grandparent_sysid)
             neighbors.append(neighbor_info)
         node_tie_packet = make_node_tie_packet(parent_sysid, PARENT_LEVEL, neighbors)
-        test_node.store_tie_packet(node_tie_packet, 100)
+        store_tie_packet(test_node, node_tie_packet, 100)
     # Add Node-TIEs for grandparents to TIE-DB
     for grandparent_sysid, parent_sysids in grandparents.items():
         neighbors = []
@@ -78,7 +88,7 @@ def update_test_node(test_node, parents):
             neighbor_info = (PARENT_LEVEL, parent_sysid)
             neighbors.append(neighbor_info)
         node_tie_packet = make_node_tie_packet(grandparent_sysid, GRANDPARENT_LEVEL, neighbors)
-        test_node.store_tie_packet(node_tie_packet, 100)
+        store_tie_packet(test_node, node_tie_packet, 100)
 
 def make_node_tie_packet(sysid, level, neighbors):
     node_tie = packet_common.make_node_tie_packet(
@@ -129,7 +139,7 @@ def make_parent_interface(test_node, parent_sysid):
     lie_protocol_packet = encoding.ttypes.ProtocolPacket(packet_header, packet_content)
     # pylint:disable=protected-access
     intf.fsm._state = interface.Interface.State.THREE_WAY
-    intf.neighbor = neighbor.Neighbor(
+    intf.neighbor_lie = neighbor_lie.NeighborLIE(
         lie_protocol_packet=lie_protocol_packet,
         neighbor_address="1.1.1.1",
         neighbor_port=1)

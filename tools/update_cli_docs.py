@@ -165,9 +165,9 @@ if __name__ == "__main__":
     if not ARGS.check_only:
         if platform.system() != "Linux":
             print("Must be on Linux to generate documentation")
-            exit(1)
+            sys.exit(1)
     SOMETHING_MISSING = process_file()
     if SOMETHING_MISSING:
-        exit(1)
+        sys.exit(1)
     else:
-        exit(0)
+        sys.exit(0)

@@ -1,4 +1,5 @@
 import ctypes
+import errno
 import platform
 import socket
 import struct
@@ -83,16 +84,16 @@ class UdpRxHandler:
     MAX_SIZE = 65535
 
     def __init__(self, interface_name, local_port, ipv4, multicast_address, remote_address,
-                 receive_function, log, log_id):
+                 receive_function, log, log_id, use_broadcast=False):
         self._interface_name = interface_name
         self._local_port = local_port
         self._ipv4 = ipv4                             # IPv4 if True, IPv6 if False
-        self._remote_address = remote_address   # TODO: Should we connect to the neighbor for ucast?
+        self._remote_address = remote_address
         self._multicast_address = multicast_address   # Unicast socket if None
         self._receive_function = receive_function
         self._log = log
         self._log_id = log_id
-        self._local_ipv4_address = utils.interface_ipv4_address(interface_name)
+        self._local_ipv4_address, _mask = utils.interface_ipv4_address(interface_name)
         self._local_ipv6_address = utils.interface_ipv6_address(interface_name)
         try:
             self._interface_index = socket.if_nametoindex(interface_name)
@@ -101,7 +102,7 @@ class UdpRxHandler:
             self._interface_index = None
         if ipv4:
             if self._multicast_address:
-                self.sock = self.create_socket_ipv4_rx_mcast()
+                self.sock = self.create_socket_ipv4_rx_mcast(use_broadcast)
             else:
                 self.sock = self.create_socket_ipv4_rx_ucast()
         else:
@@ -110,7 +111,7 @@ class UdpRxHandler:
             else:
                 self.sock = self.create_socket_ipv6_rx_ucast()
         if self.sock:
-            scheduler.SCHEDULER.register_handler(self, True, False)
+            scheduler.SCHEDULER.register_handler(self)
 
     def warning(self, msg, *args):
         self._log.warning("[%s] %s" % (self._log_id, msg), *args)
@@ -128,13 +129,15 @@ class UdpRxHandler:
             return None
 
     def ready_to_read(self):
-        ancillary_size = socket.CMSG_LEN(self.MAX_SIZE)
-        try:
-            message, ancillary_messages, _msg_flags, from_info = \
-                self.sock.recvmsg(self.MAX_SIZE, ancillary_size)
-        except (IOError, OSError) as err:
-            self.warning("Socket receive failed: %s", err)
-        else:
+        while True:
+            ancillary_size = socket.CMSG_LEN(self.MAX_SIZE)
+            try:
+                message, ancillary_messages, _msg_flags, from_info = \
+                    self.sock.recvmsg(self.MAX_SIZE, ancillary_size)
+            except (IOError, OSError) as err:
+                if err.args[0] != errno.EWOULDBLOCK:
+                    self.warning("Socket receive failed: %s", err)
+                return
             if not MACOS:
                 rx_interface_index = None
                 for anc in ancillary_messages:
@@ -179,9 +182,14 @@ class UdpRxHandler:
             self.warning("Could not bind IPv4 UDP socket to address %s port %d: %s",
                          self._local_ipv4_address, self._local_port, err)
             return None
+        try:
+            sock.setblocking(0)
+        except (IOError, OSError) as err:
+            self.warning("Could set unicast receive IPv4 UDP to non-blocking mode: %s", err)
+            return None
         return sock
 
-    def create_socket_ipv4_rx_mcast(self):
+    def create_socket_ipv4_rx_mcast(self, use_broadcast):
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
         except (IOError, OSError) as err:
@@ -196,17 +204,19 @@ class UdpRxHandler:
             return None
         if sock is None:
             return None
-        if self._local_ipv4_address:
-            req = struct.pack("=4s4s", socket.inet_aton(self._multicast_address),
-                              socket.inet_aton(self._local_ipv4_address))
-        else:
-            req = struct.pack("=4sl", socket.inet_aton(self._multicast_address), socket.INADDR_ANY)
-        try:
-            sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, req)
-        except (IOError, OSError) as err:
-            self.warning("Could not join IPv4 group %s for local address %s: %s",
-                         self._multicast_address, self._local_ipv4_address, err)
-            return None
+        if not use_broadcast:
+            if self._local_ipv4_address:
+                req = struct.pack("=4s4s", socket.inet_aton(self._multicast_address),
+                                  socket.inet_aton(self._local_ipv4_address))
+            else:
+                req = struct.pack("=4sl", socket.inet_aton(self._multicast_address),
+                                  socket.INADDR_ANY)
+            try:
+                sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, req)
+            except (IOError, OSError) as err:
+                self.warning("Could not join IPv4 group %s for local address %s: %s",
+                             self._multicast_address, self._local_ipv4_address, err)
+                return None
         if not MACOS:
             try:
                 # pylint:disable=no-member
@@ -214,6 +224,11 @@ class UdpRxHandler:
             except (IOError, OSError) as err:
                 # Warn, but keep going; this socket option is not supported on macOS
                 self.warning("Could not set IP_PKTINFO socket option: %s", err)
+        try:
+            sock.setblocking(0)
+        except (IOError, OSError) as err:
+            self.warning("Could set multicast receive IPv4 UDP to non-blocking mode: %s", err)
+            return None
         return sock
 
     def create_socket_ipv6_rx_ucast(self):
@@ -235,6 +250,11 @@ class UdpRxHandler:
         except (IOError, OSError) as err:
             self.warning("Could not bind IPv6 UDP socket to address %s port %d: %s",
                          self._local_ipv6_address, self._local_port, err)
+            return None
+        try:
+            sock.setblocking(0)
+        except (IOError, OSError) as err:
+            self.warning("Could set unicast receive IPv6 UDP to non-blocking mode: %s", err)
             return None
         return sock
 
@@ -280,4 +300,9 @@ class UdpRxHandler:
             except (IOError, OSError) as err:
                 # Warn, but keep going; this socket option is not supported on macOS
                 self.warning("Could not set IPV6_RECVPKTINFO socket option: %s", err)
+        try:
+            sock.setblocking(0)
+        except (IOError, OSError) as err:
+            self.warning("Could set multicast receive IPv6 UDP to non-blocking mode: %s", err)
+            return None
         return sock

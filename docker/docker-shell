@@ -8,6 +8,7 @@ docker run \
     --volume ${RIFT_PATH}:/host \
     --cap-add=NET_ADMIN \
     --cap-add=SYS_ADMIN \
+    --privileged \
     --interactive \
     --tty \
     rift-python \

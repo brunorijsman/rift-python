@@ -1,16 +1,13 @@
-from datetime import datetime
-from sortedcontainers import SortedDict
+import time
+import sortedcontainers
 
 class TimerScheduler:
 
     def __init__(self):
-        self._epoch = datetime.now()
-        self._timers_by_expire_time = SortedDict()
+        self._timers_by_expire_time = sortedcontainers.SortedDict()
 
     def now(self):
-        absolute_now = datetime.now()
-        time_since_epoch = absolute_now - self._epoch
-        return time_since_epoch.total_seconds()
+        return time.monotonic()
 
     def schedule(self, timer):
         expire_time = timer.expire_time()
@@ -29,6 +26,15 @@ class TimerScheduler:
         timers_with_matching_expire.remove(timer)
         if timers_with_matching_expire == []:
             self._timers_by_expire_time.pop(expire_time)
+
+    def expired_timers_pending(self):
+        if not self._timers_by_expire_time:
+            return False
+        now = self.now()
+        next_expire_time = self._timers_by_expire_time.peekitem(0)[0]
+        if next_expire_time > now:
+            return False
+        return True
 
     def trigger_all_expired_timers(self):
         # Trigger all expired timers and return time until next expire

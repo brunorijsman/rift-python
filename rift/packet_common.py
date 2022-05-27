@@ -1,3 +1,5 @@
+# pylint:disable=too-many-lines
+
 import copy
 import ipaddress
 import struct
@@ -238,6 +240,20 @@ def add_missing_methods_to_thrift():
         lambda self, other: link_id_pair_tup(self) < link_id_pair_tup(other))
 
 def encode_protocol_packet(protocol_packet, origin_key):
+    packet_info = PacketInfo()
+    packet_info.protocol_packet = protocol_packet
+    if protocol_packet.content.lie:
+        packet_info.packet_type = constants.PACKET_TYPE_LIE
+    elif protocol_packet.content.tie:
+        packet_info.packet_type = constants.PACKET_TYPE_TIE
+    elif protocol_packet.content.tide:
+        packet_info.packet_type = constants.PACKET_TYPE_TIDE
+    elif protocol_packet.content.tire:
+        packet_info.packet_type = constants.PACKET_TYPE_TIRE
+    reencode_packet_info(packet_info, origin_key)
+    return packet_info
+
+def reencode_packet_info(packet_info, origin_key):
     # Since Thrift does not support unsigned integer, we need to "fix" unsigned integers to be
     # encoded as signed integers.
     # We have to make a deep copy of the non-encoded packet, but this "fixing" involves changing
@@ -248,25 +264,15 @@ def encode_protocol_packet(protocol_packet, origin_key):
     # messages (e.g. TIE which are stored in the database, or TIDEs which are encoded once and sent
     # multiple times). However, in the end this turned out to be impossible or at least a
     # bountiful source of bugs, because transient messages contain direct or indirect references
-    # to persistent objects.
-    # So, I gave up, and now always do a deep copy of the message to be encoded.
+    # to persistent objects. So, I gave up, and now always do a deep copy of the message to be
+    # encoded.
+    protocol_packet = packet_info.protocol_packet
     fixed_protocol_packet = copy.deepcopy(protocol_packet)
     fix_prot_packet_before_encode(fixed_protocol_packet)
     transport_out = thrift.transport.TTransport.TMemoryBuffer()
     protocol_out = thrift.protocol.TBinaryProtocol.TBinaryProtocol(transport_out)
     fixed_protocol_packet.write(protocol_out)
-    encoded_protocol_packet = transport_out.getvalue()
-    packet_info = PacketInfo()
-    packet_info.protocol_packet = protocol_packet
-    packet_info.encoded_protocol_packet = encoded_protocol_packet
-    if protocol_packet.content.lie:
-        packet_info.packet_type = constants.PACKET_TYPE_LIE
-    elif protocol_packet.content.tie:
-        packet_info.packet_type = constants.PACKET_TYPE_TIE
-    elif protocol_packet.content.tide:
-        packet_info.packet_type = constants.PACKET_TYPE_TIDE
-    elif protocol_packet.content.tire:
-        packet_info.packet_type = constants.PACKET_TYPE_TIRE
+    packet_info.encoded_protocol_packet = transport_out.getvalue()
     # If it is a TIE, update the origin security header. We do this here since it only needs to be
     # done once when the packet is encoded. However, for the envelope header and for the outer
     # security header it is up to the caller to call the corresponding update function before
@@ -611,21 +617,25 @@ def fix_packet_after_decode(packet, fixes):
     fix_struct(packet, fixes, False)
 
 TIEID_FIXES = [
-    ('originator', 64), ('tie_nr', 32)
+    ('originator', 64),
+    ('tie_nr', 32)
 ]
 
 TIMESTAMP_FIXES = [
-    ('AS_sec', 64), ('AS_nsec', 32)
+    ('AS_sec', 64),
+    ('AS_nsec', 32)
 ]
 
 TIE_HEADER_FIXES = [
-    ('tieid', TIEID_FIXES), ('seq_nr', 32),
+    ('tieid', TIEID_FIXES),
+    ('seq_nr', 64),
     ('origination_time', TIMESTAMP_FIXES),
     ('origination_lifetime', 32)
 ]
 
 TIE_HEADER_WITH_LIFETIME_FIXES = [
-    ('header', TIE_HEADER_FIXES), ('remaining_lifetime', 32),
+    ('header', TIE_HEADER_FIXES),
+    ('remaining_lifetime', 32),
 ]
 
 LINK_ID_PAIR_FIXES = [
@@ -634,7 +644,10 @@ LINK_ID_PAIR_FIXES = [
 ]
 
 NODE_NEIGHBORS_TIE_ELEMENT_FIXES = [
-    ('level', 16), ('cost', 32), ('link_ids', LINK_ID_PAIR_FIXES), ('bandwidth', 32)
+    ('level', 16),
+    ('cost', 32),
+    ('link_ids', LINK_ID_PAIR_FIXES),
+    ('bandwidth', 32)
 ]
 
 IP_PREFIX_FIXES = [
@@ -650,7 +663,8 @@ IP_PREFIX_FIXES = [
 PREFIX_ATTRIBUTES_FIXES = [
     ('metric', 32), ('tags', 64),
     ('monotonic_clock', [
-        ('timestamp', TIMESTAMP_FIXES), ('transactionid', 8)
+        ('timestamp', TIMESTAMP_FIXES),
+        ('transactionid', 8)
     ])
 ]
 
@@ -660,12 +674,16 @@ PREFIX_TIE_ELEMENT_FIXES = [
 
 PROTOCOL_PACKET_FIXES = [
     ('header', [
-        ('major_version', 16), ('minor_version', 16),
-        ('sender', 64), ('level', 16)]),
+        ('major_version', 8),
+        ('minor_version', 16),
+        ('sender', 64),
+        ('level', 16)]),
     ('content', [
         ('lie', [
             ('local_id', 32),              # Draft doesn't mention this needs to treated as unsigned
-            ('flood_port', 16), ('link_mtu_size', 32), ('link_bandwidth', 32),
+            ('flood_port', 16),
+            ('link_mtu_size', 32),
+            ('link_bandwidth', 32),
             ('neighbor', [
                 ('originator', 64),
                 ('remote_id', 32)          # Draft doesn't mention this needs to treated as unsigned
@@ -791,14 +809,12 @@ def add_ipv6_prefix_to_prefix_tie(prefix_tie_packet, ipv6_prefix_string, metric,
 def make_node_tie_packet(name, level, direction, originator, tie_nr, seq_nr):
     tie_type = common.ttypes.TIETypeType.NodeTIEType
     tie_header = make_tie_header(direction, originator, tie_type, tie_nr, seq_nr)
-
     node_tie_element = encoding.ttypes.NodeTIEElement(
         level=level,
         neighbors={},
         capabilities=encoding.ttypes.NodeCapabilities(
             protocol_minor_version=encoding.constants.protocol_minor_version,
-            flood_reduction=True,
-        ),
+            flood_reduction=True),
         flags=None,         # TODO: Implement this
         name=name)
     tie_element = encoding.ttypes.TIEElement(node=node_tie_element)
@@ -975,7 +991,6 @@ def element_str(tietype, element):
     elif tietype == common.ttypes.TIETypeType.NegativeDisaggregationPrefixTIEType:
         return prefixes_str("Neg-Dis-Prefix:", element.negative_disaggregation_prefixes)
     elif tietype == common.ttypes.TIETypeType.PGPrefixTIEType:
-        # TODO: PG Prefixes not yet in model
         return unknown_element_str(element)
     elif tietype == common.ttypes.TIETypeType.KeyValueTIEType:
         return key_value_element_str(element.keyvalues)

@@ -1,8 +1,6 @@
 import socket
 import scheduler
-from cli_session_handler import CliSessionHandler
-
-# TODO: Add IPv6 support
+import cli_session_handler
 
 class CliListenHandler:
 
@@ -17,7 +15,7 @@ class CliListenHandler:
         self._sock.bind(('', port))
         self._sock.listen()
         self.port = self._sock.getsockname()[1]
-        scheduler.SCHEDULER.register_handler(self, True, False)
+        scheduler.SCHEDULER.register_handler(self)
 
     def close(self):
         scheduler.SCHEDULER.unregister_handler(self)
@@ -26,12 +24,9 @@ class CliListenHandler:
     def rx_fd(self):
         return self._sock.fileno()
 
-    def tx_fd(self):
-        return self._sock.fileno()
-
     def ready_to_read(self):
         (session_sock, _remote_address) = self._sock.accept()
-        CliSessionHandler(
+        cli_session_handler.CliSessionHandler(
             sock=session_sock,
             rx_fd=session_sock.fileno(),
             tx_fd=session_sock.fileno(),
