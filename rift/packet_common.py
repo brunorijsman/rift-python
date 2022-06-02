@@ -17,8 +17,6 @@ import utils
 
 RIFT_MAGIC = 0xA1F7
 
-del encoding.ttypes.TIEID.__setattr__
-
 class PacketInfo:
 
     ERR_MSG_TOO_SHORT = "Message too short"

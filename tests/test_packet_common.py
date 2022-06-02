@@ -435,8 +435,8 @@ def test_fix_key_value_tie_packet():
                     external_prefixes=None,
                     keyvalues=encoding.ttypes.KeyValueTIEElement(
                         keyvalues={
-                            "one": "een",
-                            "two": "twee"
+                            1: b"een",
+                            2: b"twee"
                         }
                     )
                 )
