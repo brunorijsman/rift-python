@@ -580,10 +580,6 @@ def fix_struct(fixed_struct, fixes, encode):
                 new_value = fix_value(field_value, field_fix, encode)
                 if new_value != field_value:
                     setattr(fixed_struct, field_name, new_value)
-                    pass
-                pass
-            pass
-        pass
     return fixed_struct
 
 def fix_set(old_set, fix, encode):
