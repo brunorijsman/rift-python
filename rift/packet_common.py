@@ -17,6 +17,8 @@ import utils
 
 RIFT_MAGIC = 0xA1F7
 
+del encoding.ttypes.TIEID.__setattr__
+
 class PacketInfo:
 
     ERR_MSG_TOO_SHORT = "Message too short"
@@ -578,7 +580,12 @@ def fix_struct(fixed_struct, fixes, encode):
             field_value = getattr(fixed_struct, field_name)
             if field_value is not None:
                 new_value = fix_value(field_value, field_fix, encode)
-                setattr(fixed_struct, field_name, new_value)
+                if new_value != field_value:
+                    setattr(fixed_struct, field_name, new_value)
+                    pass
+                pass
+            pass
+        pass
     return fixed_struct
 
 def fix_set(old_set, fix, encode):
@@ -595,11 +602,20 @@ def fix_list(old_list, fix, encode):
         new_list.append(new_value)
     return new_list
 
+def fix_tuple(old_tuple, fix, encode):
+    new_tuple = []
+    for old_value in old_tuple:
+        new_value = fix_value(old_value, fix, encode)
+        new_tuple.append(new_value)
+    return new_tuple
+
 def fix_value(value, fix, encode):
-    if isinstance(value, set):
+    if isinstance(value, set) or isinstance(value, frozenset):
         new_value = fix_set(value, fix, encode)
     elif isinstance(value, list):
         new_value = fix_list(value, fix, encode)
+    elif isinstance(value, tuple):
+        new_value = fix_tuple(value, fix, encode)
     elif isinstance(fix, int):
         new_value = fix_int(value, fix, encode)
     elif isinstance(fix, tuple):
