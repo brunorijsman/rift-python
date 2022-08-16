@@ -63,6 +63,8 @@ class Interface:
         return self.node.name + ':' + self.name
 
     def get_mtu(self):
+        # necessary for interop testing that does NOT pick up the loopback MTU
+        # return common.constants.default_mtu_size,
         return self.node.kernel.interface_mtu(self.physical_interface_name)
 
     class State(enum.Enum):

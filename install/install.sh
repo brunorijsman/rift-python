@@ -61,10 +61,10 @@ check_supported_os() {
         fatal
     fi
     release=$(lsb_release -rs)
-    if [ "$release" != "16.04" ] && [ "$release" != "18.04" ] && [ "$release" != "20.04" ]; then
+    if [ "$release" != "16.04" ] && [ "$release" != "18.04" ] && [ "$release" != "20.04" ] && [ "$release" != "22.04" ]; then
         report "It appears that you are running an unsupported version of Ubuntu"
         report "lsb_release reports $release"
-        report "The installation script currently only supports Ubuntu 16.04, 18.04, or 20.04"
+        report "The installation script currently only supports Ubuntu 16.04, 18.04, or 20.04, 22.04"
         fatal
     fi
 }

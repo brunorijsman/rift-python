@@ -119,15 +119,15 @@ Use the following command to run an individual unit test:
 
 <pre>
 (env) $ <b>pytest tests/test_fsm.py</b>
-======================================================= test session starts ========================================================
-platform darwin -- Python 3.5.1, pytest-3.6.4, py-1.5.4, pluggy-0.7.1
-rootdir: /Users/brunorijsman/rift-python, inifile:
-plugins: cov-2.5.1
-collected 3 items                                                                                                                  
+=============================================================================================== test session starts ================================================================================================
+platform linux -- Python 3.10.4, pytest-7.1.2, pluggy-0.13.1
+rootdir: /home/ubuntu/rift-python
+plugins: cov-2.10.1, profiling-1.7.0
+collected 6 items                                                                                                                                                                                                  
 
-tests/test_fsm.py ...                                                                                                        [100%]
+tests/test_fsm.py ......                                                                                                                                                                                     [100%]
 
-===================================================== 3 passed in 0.05 seconds =====================================================
+================================================================================================ 6 passed in 0.05s =================================================================================================
 </pre>
 
 Use the following command to run all unit tests as well as all system tests (it is currently not possibly to run just the unit tests):

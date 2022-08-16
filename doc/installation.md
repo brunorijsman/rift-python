@@ -6,13 +6,15 @@ versions of CPython:
  * Python 3.6
  * Python 3.7
  * Python 3.8 
- 
+ * Python 3.10
+
 RIFT-Python cannot run on any version of Python 2.
 
 RIFT-Python has been tested on the following operating systems:
  * Ubuntu 16.04 LTS (Xenial)
  * Ubuntu 18.04 LTS (Bionic)
  * Ubuntu 20.04 LTS (Focal)
+ * Ubuntu 22.04 LTS (Jammy Jellyfish)
  * macOS 10.14 (Mojave)
  * macOS 10.15 (Catalina)
 
@@ -31,16 +33,16 @@ Installation instructions for:
 ## Ubuntu Linux on AWS
 
 Here we describe how to install the Python RIFT protocol engine on an Amazon Web Services (AWS)
-Elastic Compute Cloud (EC2) instance running Ubuntu 20.04 LTS (Focal).
+Elastic Compute Cloud (EC2) instance running Ubuntu 22.04 LTS (Focal).
 
-These instructions should also work for an Ubuntu 20.04 LTS server running on bare metal or in 
+These instructions should also work for an Ubuntu 22.04 LTS server running on bare metal or in 
 a locally hosted virtual machine or in a container.
 
 ### Create an EC2 instance
 
 Using the AWS console (or CLI or API) create an EC2 instance:
 
-* Choose Amazon Machine Image (AMI) "Ubuntu Server 20.04 LTS (HVM), SSD Volume Type"
+* Choose Amazon Machine Image (AMI) "Ubuntu Server 22.04 LTS (HVM), SSD Volume Type"
 * Choose instance type t2.micro
 * Use the default values for all other configuration parameters
 * Make sure you download the private key for the EC2 instance
@@ -71,11 +73,11 @@ $ <b>sudo apt-get update</b>
 
 ### Install Python3
 
-The AWS Ubuntu 20.04 AMI comes pre-installed with Python 3.8:
+The AWS Ubuntu 22.04 AMI comes pre-installed with Python 3.9:
 
 <pre>
 $ <b>python3 --version</b>
-Python 3.8.2
+Python 3.10.4
 </pre>
 
 However, if you need to install Python 3 yourself you can do so as follows:
@@ -85,7 +87,7 @@ $ <b>sudo apt-get install -y python3</b>
 </pre>
 
 ### Install build-essential
-
+    
 RIFT-Python itself is written entirely in Python and does not contain any C or C++ code. However,
 we must install a C compiler because it is needed for the pytricia dependency, which is partly
 written in C.
@@ -106,11 +108,11 @@ $ <b>sudo apt-get install -y python3-dev</b>
 
 You need git to clone clone the RIFT-Python repository into the EC2 instance.
 
-The AWS Ubuntu 20.04 AMI comes pre-installed with Git version 2.25.1:
+The AWS Ubuntu 22.04 AMI comes pre-installed with Git version 2.34.1:
 
 <pre>
 $ <b>git --version</b>
-git version 2.25.1
+git version 2.34.1
 </pre>
 
 However, if you need to install git yourself you can do so as follows:
@@ -136,7 +138,7 @@ $ <b>sudo apt-get install -y virtualenv</b>
 Clone this rift-python repository from github onto the EC2 instance:
 
 <pre>
-$ <b>git clone https://github.com/brunorijsman/rift-python.git</b>
+$ <b>git clone https://github.com/przygienda/rift-python.git</b>
 Cloning into 'rift-python'...
 remote: Counting objects: 882, done.
 remote: Compressing objects: 100% (119/119), done.
@@ -165,11 +167,11 @@ Go into the newly create rift-python directory and create a new virtual environm
 <pre>
 $ <b>cd rift-python</b>
 $ <b>virtualenv env --python=python3</b>
-Already using interpreter /usr/bin/python3
-Using base prefix '/usr'
-New python executable in /home/ubuntu rift-python/env/bin/python3
-Also creating executable in /home/ubuntu rift-python/env/bin/python
-Installing setuptools, pkg_resources, pip, wheel...done.
+created virtual environment CPython3.10.4.final.0-64 in 402ms
+  creator CPython3Posix(dest=/home/ubuntu/rift-python/env, clear=False, no_vcs_ignore=False, global=False)
+  seeder FromAppData(download=False, pip=bundle, setuptools=bundle, wheel=bundle, via=copy, app_data_dir=/home/ubuntu/.local/share/virtualenv)
+    added seed packages: pip==22.0.2, setuptools==59.6.0, wheel==0.37.1
+  activators BashActivator,CShellActivator,FishActivator,NushellActivator,PowerShellActivator,PythonActivator
 </pre>
 
 ### Activate the Python virtual environment
@@ -187,20 +189,11 @@ Use pip to install the dependencies. It is important that you have activated
 the virtual environment as described in the previous step before you install these dependencies.
 
 <pre>
-$ <b>pip install -r requirements-3-8.txt</b> 
-Collecting Cerberus==1.2 (from -r requirements.txt (line 1))
-Collecting netifaces==0.10.7 (from -r requirements.txt (line 2))
-Collecting PyYAML==3.13 (from -r requirements.txt (line 3))
-Collecting six==1.11.0 (from -r requirements.txt (line 4))
-  Using cached https://files.pythonhosted.org/packages/67/4b/141a581104b1f6397bfa78ac9d43d8ad29a7ca43ea90a2d863fe3056e86a/six-1.11.0-py2.py3-none-any.whl
-Collecting sortedcontainers==2.0.4 (from -r requirements.txt (line 5))
-  Using cached https://files.pythonhosted.org/packages/cb/53/fe764fc8042e13245b50c4032fb2f857bc1e502aaca83063dcdf6b94d223/sortedcontainers-2.0.4-py2.py3-none-any.whl
-Collecting thrift==0.11.0 (from -r requirements.txt (line 6))
-Installing collected packages: Cerberus, netifaces, PyYAML, six, sortedcontainers, thrift
-Successfully installed Cerberus-1.2 PyYAML-3.13 netifaces-0.10.7 six-1.11.0 sortedcontainers-2.0.4 thrift-0.11.0
+$ <b>pip install -r requirements-3-10.txt</b> 
+...
 </pre>
 
-Note: these installation instructions are for Ubuntu 20.04 which uses Python 3.8 by default. If
+Note: these installation instructions are for Ubuntu 22.04 which uses Python 3.10 by default. If
 you are using Python 3.5, 3.6 or 3.7, use the following command to install the dependencies:
 
 <pre>
@@ -220,7 +213,7 @@ other providers such as AWS, visit [https://www.vagrantup.com/intro/getting-star
 
 ### Install Vagrant
 
-Download an follow instructions located at [https://www.vagrantup.com/downloads.html](https://www.vagrantup.com/downloads.html)
+Download and follow instructions located at [https://www.vagrantup.com/downloads.html](https://www.vagrantup.com/downloads.html)
 
 ### Start VM via Vagrant
 
