@@ -40,7 +40,7 @@ py==1.10.0
 pyasn1==0.4.8
 pylint==2.14.5
 pyparsing==2.4.6
-pyroute2==0.7.2
+pyroute2==0.5.14
 pytest==7.1.2
 pytest-cov==2.10.1
 pytest-profiling==1.7.0
