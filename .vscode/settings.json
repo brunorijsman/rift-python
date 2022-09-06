@@ -106,6 +106,7 @@
         "peekitem",
         "pexpect",
         "PIDS",
+        "PKTINFO",
         "platform",
         "pluggy",
         "popen",
