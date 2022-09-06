@@ -301,7 +301,7 @@ def test_1x1():
     # 1 grandparents (21)
     # Full connectivity between parents and grandparents (of course)
     # In this test case, the parent only has 1 grandparent, so it is not possible to meet the
-    # desired reduncancy of 2 separate paths to each grandparent
+    # desired redundancy of 2 separate paths to each grandparent
     packet_common.add_missing_methods_to_thrift()
     parents = {
         11: [21]
