@@ -126,11 +126,11 @@ class Kernel:
             self.del_route(prefix)
 
     def nhop_to_kernel_args(self, nhop, dst):
-        link = self.ipr.link_lookup(ifname=nhop.interface)
-        if link == []:
+        link_indexes = self.ipr.link_lookup(ifname=nhop.interface)
+        if link_indexes == []:
             self.error("Unknown interface \"%s\" replacing route to %s", nhop.interface, dst)
             return {}
-        oif = link[0]
+        oif = link_indexes[0]
         if nhop.weight is None:
             hops = 1
         else:
@@ -200,9 +200,9 @@ class Kernel:
 
     def interface_mtu(self, name):
         if self.platform_supported:
-            link_index = self.ipr.link_lookup(ifname=name)
-            if link_index:
-                link = self.ipr.get_links(link_index[0])[0]
+            link_indexes = self.ipr.link_lookup(ifname=name)
+            if link_indexes:
+                link = self.ipr.get_links(link_indexes[0])[0]
                 return link.get_attr('IFLA_MTU')
             else:
                 self.warning("Interface link for %s not found", name)
