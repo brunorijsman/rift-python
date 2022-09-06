@@ -20,8 +20,9 @@ class TelnetSession:
             path = os.environ["RIFT_TEST_RESULTS_DIR"] + "/"
             results_file_name = path + results_file_name
             cli_results_file_name = path + cli_results_file_name
-        self._results_file = open(results_file_name, 'ab')
-        self._cli_results_file = open(cli_results_file_name, 'ab')
+        # pylint:disable=consider-using-with
+        self._results_file = open(results_file_name, 'ab', encoding='utf-8')
+        self._cli_results_file = open(cli_results_file_name, 'ab', encoding='utf-8')
         self._expect_session = pexpect.spawn(cmd, logfile=self._results_file)
         self._expect_session.expect("available on port ([0-9]+)", 5.0)
         self._cli_port = int(self._expect_session.match.group(1))
@@ -214,8 +215,8 @@ def check_partial_keyword(session):
     session.expect("IPv4 Routes:")
     session.wait_prompt()
 
-def check_partial_paremeter(session):
-    session.checkpoint("check_partial_paremeter")
+def check_partial_parameter(session):
+    session.checkpoint("check_partial_parameter")
     session.send("sh fo fa ipv4\n")
     session.expect("IPv4 Routes:")
     session.wait_prompt()
@@ -245,7 +246,7 @@ def test_telnet_commands():
     check_extra_keyword(session)
     check_missing_parameter(session)
     check_partial_keyword(session)
-    check_partial_paremeter(session)
+    check_partial_parameter(session)
     check_ambiguous_keyword(session)
     check_ambiguous_keyw_or_param(session)
     session.checkpoint("stop")

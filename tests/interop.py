@@ -43,11 +43,11 @@ TEST_CASES = [("test_sys_keys_match.py", "keys_match.yaml", ["node1"]),
               ("test_sys_2n_un_l0.py", "2n_un_l0.yaml", ["node2"])]
 
 def read_config(filename):
-    with open(filename, 'r') as in_file:
+    with open(filename, 'r', encoding='utf-8') as in_file:
         return yaml.load(in_file, Loader=yaml.FullLoader)
 
 def write_config(filename, config):
-    with open(filename, 'w') as out_file:
+    with open(filename, 'w', encoding='utf-8') as out_file:
         yaml.dump(config, out_file, default_flow_style=False)
 
 def fatal_error(msg):
@@ -199,7 +199,8 @@ def check_pytest_in_path():
 
 def start_juniper_rift(juniper_config_file_name, test_results_dir):
     juniper_log_file_name = test_results_dir + "/juniper-rift.log"
-    juniper_log_file = open(juniper_log_file_name, 'w')
+    # pylint:disable=consider-using-with
+    juniper_log_file = open(juniper_log_file_name, 'w', encoding='utf-8')
     juniper_process = subprocess.Popen(["rift-environ",
                                         "-c",
                                         "-C", "node",
@@ -228,7 +229,8 @@ def start_pytest(test_script_name, juniper_nodes, test_results_dir):
     env["RIFT_PASSIVE_NODES"] = passive_nodes
     env["RIFT_TEST_RESULTS_DIR"] = test_results_dir
     pytest_log_file_name = test_results_dir + "/pytest.log"
-    pytest_log_file = open(pytest_log_file_name, 'w')
+    # pylint:disable=consider-using-with
+    pytest_log_file = open(pytest_log_file_name, 'w', encoding='utf-8')
     pytest_process = subprocess.Popen(["pytest", "tests/" + test_script_name],
                                       env=env,
                                       stdin=pytest_log_file,

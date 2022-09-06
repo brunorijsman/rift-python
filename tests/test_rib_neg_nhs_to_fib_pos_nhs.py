@@ -655,7 +655,7 @@ def test_add_two_parent_routes_same_destination_different_owners():
     rt.del_route(mkp(default_prefix), OWNER_S_SPF)
     # The north-SPF RIB route became the best route again
     check_rib_route(rt, default_prefix, north_spf_default_next_hops, OWNER_N_SPF)
-    # Check that the child route now uses the noth-SPF default route again to convert negative
+    # Check that the child route now uses the north-SPF default route again to convert negative
     # next-hops to positive next-hops.
     check_fib_route(rt, child_prefix, child_fib_next_hops)
 

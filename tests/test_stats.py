@@ -320,7 +320,7 @@ def test_sum_group():
         "| Sent Packets   | 6 Packets, 600 Bytes | 0.60 Packets/Sec, 60.00 Bytes/Sec | 0d 00h:00m:05.00s |\n"
         "+----------------+----------------------+-----------------------------------+-------------------+\n")
 
-def test_imcompatible_sum_groups():
+def test_incompatible_sum_groups():
     # Different singular units
     sum_group = stats.Group()
     group_1 = stats.Group(sum_group)

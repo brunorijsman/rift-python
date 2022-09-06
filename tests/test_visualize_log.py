@@ -25,7 +25,7 @@ def test_visualize_log_file():
     # completion.
     found_start = False
     found_end = False
-    with open(html_file_name) as infile:
+    with open(html_file_name, encoding='utf-8') as infile:
         for line in infile:
             if line.startswith("<svg"):
                 found_start = True
