@@ -340,7 +340,6 @@ def test_8x8_partial_connectivity_fully_redundant_coverage():
     # Default shuffle similarity of 2
     packet_common.add_missing_methods_to_thrift()
     parents = {
-        # pylint:disable=bad-whitespace
         11: [21, 22,     24, 25, 26        ],
         12: [            24, 25, 26, 27, 28],
         13: [21, 22,     24,     26, 27, 28],
@@ -426,7 +425,6 @@ def test_8x8_partial_connectivity_partial_redundant_coverage():
     # Default shuffle similarity of 2
     packet_common.add_missing_methods_to_thrift()
     parents = {
-        # pylint:disable=bad-whitespace
         11: [21,     23,         26,     28],
         12: [    22,     24,         27    ],
         13: [21                            ],
@@ -512,7 +510,6 @@ def test_8x8_full_connectivity_no_redundant_coverage():
     # Default shuffle similarity of 2
     packet_common.add_missing_methods_to_thrift()
     parents = {
-        # pylint:disable=bad-whitespace
         11: [        23                    ],
         12: [                            28],
         13: [21                            ],
@@ -597,7 +594,6 @@ def test_graceful_switchover():
     #
     packet_common.add_missing_methods_to_thrift()
     parents = {
-        # pylint:disable=bad-whitespace
         11: [21,     23,         26,     28],
         12: [    22,     24,         27    ],
         13: [21                            ],
@@ -750,7 +746,6 @@ def test_graceful_switchover():
     assert test_node.floodred_interfaces_table().to_string() == expected_intfs
     #
     # Create new links between parents and grandparents, and re-run flood repeater election
-    # pylint:disable=bad-whitespace
     parents[11] = [21, 22, 23, 24,     26, 27, 28]
     parents[13] = [21, 22, 23,     25, 26,     28]
     parents[14] = [21, 22,     24, 25, 26,     28]
@@ -910,7 +905,6 @@ def test_similarity():
     # Topology (same as test_8x8_partial_connectivity_fully_redundant_coverage)
     #
     parents = {
-        # pylint:disable=bad-whitespace
         11: [21, 22,     24, 25, 26        ],
         12: [            24, 25, 26, 27, 28],
         13: [21, 22,     24,     26, 27, 28],
@@ -1009,7 +1003,6 @@ def test_redundancy():
     # Topology (same as test_8x8_partial_connectivity_fully_redundant_coverage)
     #
     parents = {
-        # pylint:disable=bad-whitespace
         11: [21, 22,     24, 25, 26        ],
         12: [            24, 25, 26, 27, 28],
         13: [21, 22,     24,     26, 27, 28],
@@ -1183,7 +1176,6 @@ def test_disable():
     # Topology (same as test_8x8_partial_connectivity_fully_redundant_coverage)
     #
     parents = {
-        # pylint:disable=bad-whitespace
         11: [21, 22,     24, 25, 26        ],
         12: [            24, 25, 26, 27, 28],
         13: [21, 22,     24,     26, 27, 28],
