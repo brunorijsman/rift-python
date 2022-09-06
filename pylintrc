@@ -16,7 +16,6 @@ disable=
     too-many-branches,                  # Matter of taste
     too-many-nested-blocks,             # Matter of taste
     too-many-return-statements,         # Matter of taste
-    no-self-use,                        # Matter of taste
     no-else-return,                     # Matter of taste
     duplicate-code,                     # Matter of taste
     too-many-locals,                    # Matter of taste
