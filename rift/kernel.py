@@ -22,7 +22,7 @@ class Kernel:
         self._log_id = log_id
         self.debug("Create kernel using route table %s" % table_name)
         try:
-            self.ipr = pyroute2.IPRoute()
+            self.ipr = pyroute2.IPRoute()  # pylint: disable=not-callable
             self.platform_supported = True
             self.debug("Kernel networking is supported on this platform")
         except OSError:
