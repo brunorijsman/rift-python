@@ -38,7 +38,7 @@ def make_test_node(parents, additional_node_config=None):
         "name": "node" + str(NODE_SYSID),
         "systemid": NODE_SYSID,
         "level": NODE_LEVEL,
-        "skip-self-orginated-ties": True  # The test is in control of what TIEs are in the DB
+        "skip-self-originated-ties": True  # The test is in control of what TIEs are in the DB
     }
     if additional_node_config:
         node_config.update(additional_node_config)

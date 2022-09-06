@@ -22,7 +22,7 @@ class _MsgQueueBase:
 
     """
     The message queue base class (MsgQueueBase) is the base class that abstracts the common
-    behavior for enqueueing, transmiting, and potentially retransmiting TIE messages and TIRE
+    behavior for enqueueing, transmitting, and potentially retransmitting TIE messages and TIRE
     messages (i.e. TIE requests and TIE acknowledgements).
 
     It currently encapsulated the following common behavior for all message queues:
@@ -30,8 +30,8 @@ class _MsgQueueBase:
     - Manage the queue of TIEs to be requested in a TIRE message.
     - Manage the queue of TIEs to be acknowledged in a TIRE message.
     - When something is queued to be sent for the first time, send it out after a very short delay,
-      namely after INITAL_DELAY_TICKS timer ticks. The short delay is intended to enable the packing
-      of multiple items into a single message.
+      namely after INITIAL_DELAY_TICKS timer ticks. The short delay is intended to enable the
+      packing of multiple items into a single message.
     - After that, as long as the item remains in the queue, it is re-transmitted every
       RETRANSMIT_DELAY_TICKS timer ticks after that.
 
@@ -102,7 +102,7 @@ class _MsgQueueBase:
                 # Message is newer version than the one on the queue. Short delay.
                 new_delay_ticks = _SHORT_DELAY_TICKS
             else:
-                # Message is same versionas the one on the queue. Keep same delay as queued msg.
+                # Message is same version as the one on the queue. Keep same delay as queued msg.
                 new_delay_ticks = old_delay_ticks
         else:
             # Message is not yet on queue. Short delay.
@@ -211,7 +211,7 @@ class _TIEQueue(_MsgQueueBase):
                   .format(self._timestamp(), self._interface.node.name, self._interface.name,
                           tie_id, db_tie_packet_info))
         if DEBUG_CHECK_TIE_ENCODING and self._debug_tie_id(tie_id):
-            # Check whehter the pre-computed encoded packet is correct.
+            # Check whether the pre-computed encoded packet is correct.
             check_packet_info = packet_common.encode_protocol_packet(
                 db_tie_packet_info.protocol_packet, self._interface.active_outer_key)
             if (db_tie_packet_info.encoded_protocol_packet !=

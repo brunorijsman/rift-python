@@ -290,7 +290,7 @@ def make_test_node(db_tie_info_list=None):
     config = {
         "name": "test",
         "systemid": MY_SYSTEM_ID,
-        "skip-self-orginated-ties": True
+        "skip-self-originated-ties": True
     }
     test_node = node.Node(config)
     for db_tie_info in db_tie_info_list:

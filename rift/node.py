@@ -564,7 +564,7 @@ class Node:
             self._ipv6_fib,
             self._rib_log,
             self.log_id)
-        if "skip-self-orginated-ties" not in self._config:
+        if "skip-self-originated-ties" not in self._config:
             self.regenerate_my_node_ties()
             self.regenerate_my_north_prefix_tie()
             self.regenerate_my_south_prefix_tie()
@@ -3077,7 +3077,7 @@ class Node:
             # ... except that for self-originated TIEs, we always want to use
             # (a) The self-originated North-Node-TIE because leafs may not originate a
             #     South-Node-TIE and
-            # (b) The self-origianted North-Prefix-TIE (if any) because we want SPF to not
+            # (b) The self-originated North-Prefix-TIE (if any) because we want SPF to not
             #     prefer the self-originated default route over the received default route route.
             return constants.DIR_NORTH
 
