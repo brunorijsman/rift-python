@@ -154,4 +154,3 @@ check_git_directory
 check_can_run_sudo
 create_and_activate_virtual_env
 pip_install_dependencies
-
