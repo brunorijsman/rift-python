@@ -1,15 +1,17 @@
 /**
     Thrift file for packet encodings for RIFT
+
+    Copyright (c) Juniper Networks, Inc., 2016-
+    All rights reserved.
 */
 
 include "common.thrift"
-
 
 namespace rs models
 namespace py encoding
 
 /** Represents protocol encoding schema major version */
-const common.VersionType protocol_major_version = 4
+const common.VersionType protocol_major_version = 6
 /** Represents protocol encoding schema minor version */
 const common.MinorVersionType protocol_minor_version =  1
 
@@ -37,7 +39,7 @@ struct Community {
     1: required i32          top;
     /** Lower order bits */
     2: required i32          bottom;
-}
+} (python.immutable = "")
 
 /** Neighbor structure.  */
 struct Neighbor {
@@ -45,45 +47,41 @@ struct Neighbor {
     1: required common.SystemIDType        originator;
     /** ID of remote side of the link. */
     2: required common.LinkIDType          remote_id;
-}
+} (python.immutable = "")
 
-/** Capabilities the node supports.
-
-    @note: The schema may add to this
-    field future capabilities to indicate whether it will support
-    interpretation of future schema extensions on the same major
-    revision. Such fields MUST be optional and have an implicit or
-    explicit false default value. If a future capability changes route
-    selection or generates blackholes if some nodes are not supporting
-    it then a major version increment is unavoidable.
-*/
+/** Capabilities the node supports. */
 struct NodeCapabilities {
     /** Must advertise supported minor version dialect that way. */
     1: required common.MinorVersionType        protocol_minor_version =
             protocol_minor_version;
-    /** Can this node participate in flood reduction. */
+    /** indicates that node supports flood reduction. */
     2: optional bool                           flood_reduction =
             common.flood_reduction_default;
-    /** Does this node restrict itself to be top-of-fabric or
-        leaf only (in ZTP) and does it support leaf-2-leaf
+    /** indicates place in hierarchy, i.e. top-of-fabric or
+        leaf only (in ZTP) or support for leaf-2-leaf
         procedures. */
     3: optional common.HierarchyIndications    hierarchy_indications;
-}
+
+    /** <auto-evpn>
+           indicates whether auto-evpn feature is implemented on this node (but not necessarily enabled). */
+   10: optional bool                           auto_evpn_support = false;
+    /** </auto-evpn> */
+
+    /** <auto-flood-reflection>
+           indicates whether auto-flood-reflection feature is implemented on this node (but not necessarily enabled). */
+   20: optional bool                           auto_flood_reflection_support = false;
+    /** </auto-flood-reflection> */
+} (python.immutable = "")
 
 /** Link capabilities. */
 struct LinkCapabilities {
     /** Indicates that the link is supporting BFD. */
     1: optional bool                           bfd =
             common.bfd_default;
-    /** Indicates whether the interface will support v4 forwarding.
-
-        @note: This MUST be set to true when LIEs from a v4 address are
-               sent and MAY be set to true in LIEs on v6 address. If v4
-               and v6 LIEs indicate contradicting information the
-               behavior is unspecified. */
-    2: optional bool                           v4_forwarding_capable =
+    /** Indicates whether the interface will support IPv4 forwarding. */
+    2: optional bool                           ipv4_forwarding_capable =
             true;
-}
+} (python.immutable = "")
 
 /** RIFT LIE Packet.
 
@@ -97,7 +95,7 @@ struct LIEPacket {
     /** UDP port to which we can receive flooded TIEs. */
     3: required common.UDPPortType        flood_port =
             common.default_tie_udp_flood_port;
-    /** Layer 3 MTU, used to discover to mismatch. */
+    /** Layer 3 MTU, used to discover mismatch. */
     4: optional common.MTUSizeType        link_mtu_size =
             common.default_mtu_size;
     /** Local link bandwidth on the interface. */
@@ -109,40 +107,46 @@ struct LIEPacket {
     /** Node's PoD. */
     7: optional common.PodType            pod =
             common.default_pod;
-    /** Node capabilities shown in LIE. The capabilities
-        MUST match the capabilities shown in the Node TIEs, otherwise
-        the behavior is unspecified. A node detecting the mismatch
-        SHOULD generate according error. */
+    /** Node capabilities supported. */
    10: required NodeCapabilities          node_capabilities;
    /** Capabilities of this link. */
    11: optional LinkCapabilities          link_capabilities;
-   /** Required holdtime of the adjacency, i.e. how much time
-       MUST expire without LIE for the adjacency to drop. */
+   /** Required holdtime of the adjacency, i.e. for how
+       long a period should adjacency be kept up without valid LIE reception. */
    12: required common.TimeIntervalInSecType
             holdtime = common.default_lie_holdtime;
-   /** Unsolicited, downstream assigned locally significant label
+   /** Optional, unsolicited, downstream assigned locally significant label
        value for the adjacency. */
    13: optional common.LabelType          label;
-    /** Indicates that the level on the LIE MUST NOT be used
+    /** Indicates that the level on the LIE must not be used
         to derive a ZTP level by the receiving node. */
    21: optional bool                      not_a_ztp_offer =
             common.default_not_a_ztp_offer;
    /** Indicates to northbound neighbor that it should
-       be reflooding this node's N-TIEs to achieve flood reduction and
-       balancing for northbound flooding. To be ignored if received
-       from a northbound adjacency. */
+       be reflooding TIEs received from this node to achieve flood
+       reduction and balancing for northbound flooding. */
    22: optional bool                      you_are_flood_repeater =
              common.default_you_are_flood_repeater;
-   /** Can be optionally set to indicate to neighbor that packet losses
-       are seen on reception based on packet numbers or the rate is
-       too high. The receiver SHOULD temporarily slow down
-       flooding rates.
-    */
+   /** Indicates to neighbor to flood node TIEs only and slow down
+       all other TIEs. Ignored when received from southbound neighbor. */
    23: optional bool                      you_are_sending_too_quickly =
              false;
    /** Instance name in case multiple RIFT instances running on same
        interface. */
    24: optional string                    instance_name;
+   /** <auto-evpn>
+       provides the optional ID of the configured auto-evpn fabric. */
+   35: optional common.FabricIDType       fabric_id;
+   /** provides optional version of EVPN ZTP as 256 * MAJOR + MINOR */
+   36: optional i16                       auto_evpn_version;
+   /** </auto-evpn> */
+
+   /** <auto-flood-reflection> */
+   /** It provides optional version of FR ZTP as 256 * MAJOR + MINOR, indicates support for auto FR  */
+   40: optional i16                                      auto_flood_reflection_version;
+
+   41: optional common.FloodReflectionClusterIDType      auto_flood_reflection_cluster_id;
+   /** </auto-flood-reflection> */
 }
 
 /** LinkID pair describes one of parallel links between two nodes. */
@@ -156,25 +160,21 @@ struct LinkIDPair {
    10: optional common.PlatformInterfaceIndex platform_interface_index;
    /** Describes the local interface name. */
    11: optional string                        platform_interface_name;
-   /** Indication whether the link is secured, i.e. protected by
+   /** Indicates whether the link is secured, i.e. protected by
        outer key, absence of this element means no indication,
        undefined outer key means not secured. */
    12: optional common.OuterSecurityKeyID
                 trusted_outer_security_key;
-   /** Indication whether the link is protected by established
+   /** Indicates whether the link is protected by established
        BFD session. */
    13: optional bool                          bfd_up;
    /** Optional indication which address families are up on the
        interface */
-   14: optional set<common.AddressFamilyType> address_families;
-}
+   14: optional set<common.AddressFamilyType> 
+       (python.immutable = "")                address_families;
+} (python.immutable = "") 
 
-/** ID of a TIE.
-
-    @note: TIEID space is a total order achieved by comparing
-           the elements in sequence defined and comparing each
-           value as an unsigned integer of according length.
-*/
+/** Unique ID of a TIE. */
 struct TIEID {
     /** direction of TIE */
     1: required common.TieDirectionType    direction;
@@ -184,117 +184,77 @@ struct TIEID {
     3: required common.TIETypeType         tietype;
     /** number of the tie */
     4: required common.TIENrType           tie_nr;
-}
+} (python.immutable = "")
 
-/** Header of a TIE.
-
-   @note: TIEID space is a total order achieved by comparing
-          the elements in sequence defined and comparing each
-          value as an unsigned integer of according length.
-
-   @note: After sequence number the lifetime received on the envelope
-          must be used for comparison before further fields.
-
-   @note: `origination_time` and `origination_lifetime` are
-          normally disregarded for comparison purposes and carried
-          purely for debugging/security purposes if present.
-          They may be used for comparison of last resort to
-          differentiate otherwise equal ties
-*/
+/** Header of a TIE. */
 struct TIEHeader {
     /** ID of the tie. */
     2: required TIEID                             tieid;
     /** Sequence number of the tie. */
     3: required common.SeqNrType                  seq_nr;
 
-    /** Absolute timestamp when the TIE
-        was generated. This can be used on fabrics with
-        synchronized clock to prevent lifetime modification attacks. */
+    /** Absolute timestamp when the TIE was generated. */
    10: optional common.IEEE802_1ASTimeStampType   origination_time;
-   /** Original lifetime when the TIE
-       was generated. This can be used on fabrics with
-       synchronized clock to prevent lifetime modification attacks. */
+   /** Original lifetime when the TIE was generated.  */
    12: optional common.LifeTimeInSecType          origination_lifetime;
-}
+} 
 
 /** Header of a TIE as described in TIRE/TIDE.
 */
 struct TIEHeaderWithLifeTime {
     1: required     TIEHeader                       header;
-    /** Remaining lifetime that expires down to 0 just like in ISIS.
-        TIEs with lifetimes differing by less than
-        `lifetime_diff2ignore` MUST be considered EQUAL. */
+    /** Remaining lifetime. */
     2: required     common.LifeTimeInSecType        remaining_lifetime;
-}
+} 
 
-/** TIDE with sorted TIE headers, if headers are unsorted, behavior
-    is undefined. */
+/** TIDE with *sorted* TIE headers. */
 struct TIDEPacket {
     /** First TIE header in the tide packet. */
     1: required TIEID                       start_range;
     /** Last TIE header in the tide packet. */
     2: required TIEID                       end_range;
     /** _Sorted_ list of headers. */
-    3: required list<TIEHeaderWithLifeTime> headers;
+    3: required list<TIEHeaderWithLifeTime> 
+       (python.immutable = "")              headers;
 }
 
 /** TIRE packet */
 struct TIREPacket {
-    1: required set<TIEHeaderWithLifeTime>  headers;
+    1: required set<TIEHeaderWithLifeTime>  
+       (python.immutable = "")              headers;
 }
 
 /** neighbor of a node */
 struct NodeNeighborsTIEElement {
     /** level of neighbor */
     1: required common.LevelType                level;
-    /**  Cost to neighbor.
-
-         @note: All parallel links to same node
-         incur same cost, in case the neighbor has multiple
-         parallel links at different cost, the largest distance
-         (highest numerical value) MUST be advertised.
-
-         @note: any neighbor with cost <= 0 MUST be ignored
-                in computations */
+    /**  Cost to neighbor. Ignore anything larger than `infinite_distance` and `invalid_distance` */
     3: optional common.MetricType               cost
                 = common.default_distance;
     /** can carry description of multiple parallel links in a TIE */
-    4: optional set<LinkIDPair>                 link_ids;
-
-    /** total bandwith to neighbor, this will be normally sum of the
-        bandwidths of all the parallel links. */
+    4: optional set<LinkIDPair>                 
+       (python.immutable = "")                  link_ids;
+    /** total bandwith to neighbor as sum of all parallel links */
     5: optional common.BandwithInMegaBitsType
                 bandwidth = common.default_bandwidth;
-}
+} (python.immutable = "")
 
 /** Indication flags of the node. */
 struct NodeFlags {
     /** Indicates that node is in overload, do not transit traffic
         through it. */
-    1: optional bool         overload = common.overload_default;
-}
+     1: optional bool         overload = common.overload_default;
+    /** <auto-evpn> */
+    /** acting as DCI for auto-evpn, necessary for proper RR election where DCIs are preferred */
+    10: optional bool                        acting_auto_evpn_dci_when_tof = common.default_acting_auto_evpn_dci_when_tof,
+    /** </auto-evpn> */
+} (python.immutable = "")
 
-/** Description of a node.
-
-    It may occur multiple times in different TIEs but if either
-        <list>
-         <t>capabilities values do not match or</t>
-        <t>flags values do not match or</t>
-        <t>neighbors repeat with different values</t>
-        </list>
-
-    the behavior is undefined and a warning SHOULD be generated.
-    Neighbors can be distributed across multiple TIEs however if
-    the sets are disjoint. Miscablings SHOULD be repeated in every
-    node TIE, otherwise the behavior is undefined.
-
-    @note: Observe that absence of fields implies defined defaults.
-*/
+/** Description of a node. */
 struct NodeTIEElement {
     /** Level of the node. */
     1: required common.LevelType            level;
-    /** Node's neighbors. If neighbor systemID repeats in other
-        node TIEs of same node the behavior is undefined. */
+    /** Node's neighbors. Multiple node TIEs can carry disjoint sets of neighbors. */
     2: required map<common.SystemIDType,
                 NodeNeighborsTIEElement>    neighbors;
     /** Capabilities of the node. */
@@ -308,10 +268,34 @@ struct NodeTIEElement {
     /** optional startup time of the node */
     7: optional common.TimestampInSecsType  startup_time;
 
-    /** If any local links are miscabled, the indication is flooded. */
-   10: optional set<common.LinkIDType>      miscabled_links;
+    /** If any local links are miscabled, this indication is flooded. */
+   10: optional set<common.LinkIDType>      
+        (python.immutable = "")             miscabled_links;
 
-}
+   /** ToFs in the same plane. Only carried by ToF. Multiple node TIEs can carry disjoint sets of ToFs
+       which can be joined to form a single set. Used in complex multi-plane elections. */
+   12: optional set<common.SystemIDType>        same_plane_tofs;
+
+   /** <auto-evpn> */
+   /** All Auto EVPN elements MUST be present in at least one node TIE in each direction if auto evpn is running.  */
+   /** It provides optional version of EVPN ZTP as 256 * MAJOR + MINOR, if set auto EVPN is enabled. */
+   21: optional i16                             auto_evpn_version;
+   /** It provides the optional ID of the Fabric configured */
+   22: optional common.FabricIDType             fabric_id = common.default_fabric_id;
+   /** provides optionally the EVPN model supported */
+   25: optional common.AutoEVPNModel            auto_evpn_model = common.AutoEVPNModel.ERB_VLAN_BUNDLE,
+   /** </auto-evpn> */
+
+   /** <auto-flood-reflection> */
+   /** All Auto FR elements MUST be present in at least one TIE in each direction if auto FR is running.  */
+   /** It provides optional version of FR ZTP as 256 * MAJOR + MINOR, if set indicates auto FR is enabled. */
+   30: optional i16                                     auto_flood_reflection_version;
+   /** cluster ID of Auto FR */
+   31: optional common.FloodReflectionClusterIDType     auto_flood_reflection_cluster_id;
+   /** preference to become FR, if not set it indicates that the node cannot perform flood reflection role  */
+   32: optional common.FloodReflectionPreferenceType    auto_flood_reflection_preference;
+   /** </auto-flood-reflection> */
+} (python.immutable = "")
 
 /** Attributes of a prefix. */
 struct PrefixAttributes {
@@ -321,81 +305,49 @@ struct PrefixAttributes {
     /** Generic unordered set of route tags, can be redistributed
         to other protocols or use within the context of real time
         analytics. */
-    3: optional set<common.RouteTagType>     tags;
-    /** Monotonic clock for mobile addresses. */
+    3: optional set<common.RouteTagType>     
+       (python.immutable = "")               tags;
+    /** Monotonic clock for mobile addresses.  */
     4: optional common.PrefixSequenceType    monotonic_clock;
-    /** Indicates if the interface is a node loopback. */
+    /** Indicates if the prefix is a node loopback. */
     6: optional bool                         loopback = false;
-    /** Indicates that the prefix is directly attached, i.e. should be
-        routed to even if the node is in overload. */
+    /** Indicates that the prefix is directly attached. */
     7: optional bool                         directly_attached = true;
-
-    /** In case of locally originated prefixes, i.e. interface
-        addresses this can describe which link the address
-        belongs to. */
+    /** link to which the address belongs to.  */
    10: optional common.LinkIDType            from_link;
-}
+    /** Optional, per prefix significant label. */
+   12: optional common.LabelType             label;
+} (python.immutable = "")
 
 /** TIE carrying prefixes */
 struct PrefixTIEElement {
-    /** Prefixes with the associated attributes.
-        If the same prefix repeats in multiple TIEs of same node
-        behavior is unspecified. */
+    /** Prefixes with the associated attributes. */
     1: required map<common.IPPrefixType, PrefixAttributes> prefixes;
-}
+} (python.immutable = "")
 
 /** Generic key value pairs. */
 struct KeyValueTIEElement {
-    /** @note: if the same key repeats in multiple TIEs of same node
-        or with different values, behavior is unspecified */
-    1: required map<common.KeyIDType,string>    keyvalues;
-}
+    1: required map<common.KeyIDType, binary>    keyvalues;
+} (python.immutable = "")
 
-/** Single element in a TIE.
-
-    Schema enum `common.TIETypeType`
-    in TIEID indicates which elements MUST be present
-    in the TIEElement. In case of mismatch the unexpected
-    elements MUST be ignored. In case of lack of expected
-    element the TIE an error MUST be reported and the TIE
-    MUST be ignored.
-
-    This type can be extended with new optional elements
-    for new `common.TIETypeType` values without breaking
-    the major but if it is necessary to understand whether
-    all nodes support the new type a node capability must
-    be added as well.
- */
+/** Single element in a TIE. */
 union TIEElement {
     /** Used in case of enum common.TIETypeType.NodeTIEType. */
     1: optional NodeTIEElement     node;
     /** Used in case of enum common.TIETypeType.PrefixTIEType. */
     2: optional PrefixTIEElement          prefixes;
-    /** Positive prefixes (always southbound).
-        It MUST NOT be advertised within a North TIE and
-        ignored otherwise.
-    */
+    /** Positive prefixes (always southbound). */
     3: optional PrefixTIEElement   positive_disaggregation_prefixes;
-    /** Transitive, negative prefixes (always southbound) which
-        MUST be aggregated and propagated
-        according to the specification
-        southwards towards lower levels to heal
-        pathological upper level partitioning, otherwise
-        blackholes may occur in multiplane fabrics.
-        It MUST NOT be advertised within a North TIE.
-    */
+    /** Transitive, negative prefixes (always southbound) */
     5: optional PrefixTIEElement   negative_disaggregation_prefixes;
     /** Externally reimported prefixes. */
     6: optional PrefixTIEElement          external_prefixes;
-    /** Positive external disaggregated prefixes (always southbound).
-        It MUST NOT be advertised within a North TIE and
-        ignored otherwise.
-    */
+    /** Positive external disaggregated prefixes (always southbound). */
     7: optional PrefixTIEElement
             positive_external_disaggregation_prefixes;
     /** Key-Value store elements. */
     9: optional KeyValueTIEElement keyvalues;
-}
+} (python.immutable = "")
 
 /** TIE packet */
 struct TIEPacket {

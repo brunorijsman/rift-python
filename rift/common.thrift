@@ -3,18 +3,13 @@
 */
 
 
+namespace py common
+namespace rs models
+
 /** @note MUST be interpreted in implementation as unsigned 64 bits.
- *        The implementation SHOULD NOT use the MSB.
  */
 typedef i64      SystemIDType
 typedef i32      IPv4Address
-/** this has to be long enough to accomodate prefix */
-typedef binary   IPv6Address
-/** @note MUST be interpreted in implementation as unsigned */
-typedef i16      UDPPortType
-/** @note MUST be interpreted in implementation as unsigned */
-typedef i32      TIENrType
-/** @note MUST be interpreted in implementation as unsigned */
 typedef i32      MTUSizeType
 /** @note MUST be interpreted in implementation as unsigned
     rolling over number */
@@ -23,17 +18,19 @@ typedef i64      SeqNrType
 typedef i32      LifeTimeInSecType
 /** @note MUST be interpreted in implementation as unsigned */
 typedef i8       LevelType
-/** optional, recommended monotonically increasing number
-    _per packet type per adjacency_
-    that can be used to detect losses/misordering/restarts.
-    @note MUST be interpreted in implementation as unsigned
-          rolling over number */
 typedef i16      PacketNumberType
 /** @note MUST be interpreted in implementation as unsigned */
 typedef i32      PodType
 /** @note MUST be interpreted in implementation as unsigned.
+/** this has to be long enough to accomodate prefix */
+typedef binary   IPv6Address
+/** @note MUST be interpreted in implementation as unsigned */
+typedef i16      UDPPortType
+/** @note MUST be interpreted in implementation as unsigned */
+typedef i32      TIENrType
+/** @note MUST be interpreted in implementation as unsigned
           This is carried in the
-          security envelope and MUST fit into 8 bits. */
+          security envelope and must hence fit into 8 bits. */
 typedef i8       VersionType
 /** @note MUST be interpreted in implementation as unsigned */
 typedef i16      MinorVersionType
@@ -48,13 +45,14 @@ typedef i32      LabelType
 /** @note MUST be interpreted in implementation as unsigned */
 typedef i32      BandwithInMegaBitsType
 /** @note Key Value key ID type */
-typedef string   KeyIDType
+typedef i32      KeyIDType
 /** node local, unique identification for a link (interface/tunnel
   * etc. Basically anything RIFT runs on). This is kept
   * at 32 bits so it aligns with BFD [RFC5880] discriminator size.
   */
 typedef i32    LinkIDType
-typedef string KeyNameType
+/** @note MUST be interpreted in implementation as unsigned,
+          especially since we have the /128 IPv6 case. */
 typedef i8     PrefixLenType
 /** timestamp in seconds since the epoch */
 typedef i64    TimestampInSecsType
@@ -92,9 +90,7 @@ enum HierarchyIndications {
 }
 
 const PacketNumberType  undefined_packet_number    = 0
-/** This MUST be used when node is configured as top of fabric in ZTP.
-    This is kept reasonably low to alow for fast ZTP convergence on
-    failures. */
+/** used when node is configured as top of fabric in ZTP.*/
 const LevelType   top_of_fabric_level              = 24
 /** default bandwidth on a link */
 const BandwithInMegaBitsType  default_bandwidth    = 100
@@ -104,6 +100,8 @@ const LevelType   default_level               = leaf_level
 const PodType     default_pod                 = 0
 const LinkIDType  undefined_linkid            = 0
 
+/** invalid key for key value */
+const KeyIDType   invalid_key_value_key    = 0
 /** default distance used */
 const MetricType  default_distance         = 1
 /** any distance larger than this will be considered infinity */
@@ -112,8 +110,12 @@ const MetricType  infinite_distance       = 0x7FFFFFFF
 const MetricType  invalid_distance        = 0
 const bool overload_default               = false
 const bool flood_reduction_default        = true
+/** default LIE FSM LIE TX internval time */
+const TimeIntervalInSecType   default_lie_tx_interval  = 1
 /** default LIE FSM holddown time */
 const TimeIntervalInSecType   default_lie_holdtime  = 3
+/** multipler for default_lie_holdtime to hold down multiple neighbors */
+const i8                      multiple_neighbors_lie_holdtime_multipler = 4
 /** default ZTP FSM holddown time */
 const TimeIntervalInSecType   default_ztp_holdtime  = 1
 /** by default LIE levels are ZTP offers */
@@ -128,13 +130,11 @@ const set<SystemIDType> empty_set_of_nodeids = {}
 const LifeTimeInSecType default_lifetime      = 604800
 /** default lifetime when TIEs are purged is 5 minutes */
 const LifeTimeInSecType purge_lifetime        = 300
-/** round down interval when TIEs are sent with security hashes
+/** optional round down interval when TIEs are sent with security hashes
     to prevent excessive computation. **/
 const LifeTimeInSecType rounddown_lifetime_interval = 60
 /** any `TieHeader` that has a smaller lifetime difference
-    than this constant is equal (if other fields equal). This
-    constant MUST be larger than `purge_lifetime` to avoid
-    retransmissions */
+    than this constant is equal (if other fields equal). */
 const LifeTimeInSecType lifetime_diff2ignore  = 400
 
 /** default UDP port to run LIEs on */
@@ -158,13 +158,9 @@ typedef i32           TIESecurityKeyID
 /** undefined key */
 const TIESecurityKeyID undefined_securitykey_id   = 0;
 /** Maximum delta (negative or positive) that a mirrored nonce can
-    deviate from local value to be considered valid. If nonces are
-    changed every minute on both sides this opens statistically
-    a `maximum_valid_nonce_delta` minutes window of identical LIEs,
-    TIE, TI(x)E replays.
-    The interval cannot be too small since LIE FSM may change
-    states fairly quickly during ZTP without sending LIEs*/
-const i16             maximum_valid_nonce_delta  = 5;
+    deviate from local value to be considered valid. */
+const i16                     maximum_valid_nonce_delta   = 5;
+const TimeIntervalInSecType   nonce_regeneration_interval = 300;
 
 /** Direction of TIEs. */
 enum TieDirectionType {
@@ -178,8 +174,8 @@ enum TieDirectionType {
 enum AddressFamilyType {
    Illegal                = 0,
    AddressFamilyMinValue  = 1,
-   IPv4     = 2,
-   IPv6     = 3,
+   IPv4                   = 2,
+   IPv6                   = 3,
    AddressFamilyMaxValue  = 4,
 }
 
@@ -187,13 +183,13 @@ enum AddressFamilyType {
 struct IPv4PrefixType {
     1: required IPv4Address    address;
     2: required PrefixLenType  prefixlen;
-}
+} (python.immutable = "")
 
 /** IPv6 prefix type. */
 struct IPv6PrefixType {
     1: required IPv6Address    address;
     2: required PrefixLenType  prefixlen;
-}
+} (python.immutable = "")
 
 /** IP address type. */
 union IPAddressType {
@@ -201,7 +197,7 @@ union IPAddressType {
     1: optional IPv4Address   ipv4address;
     /** Content is IPv6 */
     2: optional IPv6Address   ipv6address;
-}
+} (python.immutable = "")
 
 /** Prefix advertisement.
 
@@ -214,7 +210,7 @@ union IPAddressType {
 union IPPrefixType {
     1: optional IPv4PrefixType   ipv4prefix;
     2: optional IPv6PrefixType   ipv6prefix;
-}
+} (python.immutable = "")
 
 /** Sequence of a prefix in case of move.
  */
@@ -225,14 +221,6 @@ struct PrefixSequenceType {
 }
 
 /** Type of TIE.
-
-    This enum indicates what TIE type the TIE is carrying.
-    In case the value is not known to the receiver,
-    the TIE MUST be re-flooded. This allows for
-    future extensions of the protocol within the same major schema
-    with types opaque to some nodes UNLESS the flooding scope is not
-    the same as prefix TIE, then a major version revision MUST
-    be performed.
 */
 enum TIETypeType {
     Illegal                                     = 0,
@@ -250,14 +238,6 @@ enum TIETypeType {
 }
 
 /** RIFT route types.
-
-    @note: route types which MUST be ordered on their preference
-           PGP prefixes are most preferred attracting
-           traffic north (towards spine) and then south
-           normal prefixes are attracting traffic south
-           (towards leafs), i.e. prefix in NORTH PREFIX TIE
-           is preferred over SOUTH PREFIX TIE.
-
     @note: The only purpose of those values is to introduce an
            ordering whereas an implementation can choose internally
            any other values as long the ordering is preserved
@@ -290,3 +270,47 @@ enum RouteType {
     NegativeSouthPrefix   = 10,
     RouteTypeMaxValue     = 11,
 }
+
+enum   KVTypes {
+    OUI       = 1,
+    WellKnown = 2,
+}
+
+/** <auto-evpn>
+    EVPN Fabric ID */
+typedef  i16    FabricIDType
+
+const FabricIDType   undefined_fabric_id   = 0
+const FabricIDType   default_fabric_id     = 1
+
+const    bool   default_acting_auto_evpn_dci_when_tof         = false
+
+enum AutoEVPNModel {
+    ERB_VLAN_BUNDLE = 0,
+}
+
+const AutoEVPNModel default_autoevpn_model = AutoEVPNModel.ERB_VLAN_BUNDLE
+
+/** </auto-evpn> */
+
+/** <auto-flood-reflection> */
+
+enum AutoFRModel {
+    /** Full Mesh of L1 tunnel shortcuts, only model supported currently with auto FR */
+    TunnelMode      = 0,
+    NoTunnelMode    = 1,
+}
+
+const AutoFRModel default_autofr_model = AutoFRModel.TunnelMode
+
+typedef i32          FloodReflectionClusterIDType
+
+/* maybe used in future for special purposes */
+const FloodReflectionClusterIDType  IllegalClusterID = 0
+const FloodReflectionClusterIDType  DefaultClusterID  = 1
+
+/// preference to become FR, higher is better
+typedef i32          FloodReflectionPreferenceType
+
+const   FloodReflectionPreferenceType MinFloodReflectionPreference = 0
+/** </auto-flood-reflection> */
