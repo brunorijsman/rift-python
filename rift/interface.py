@@ -407,7 +407,6 @@ class Interface:
         Event.HAL_CHANGED: (None, [action_store_hal]),
         Event.HAT_CHANGED: (None, [action_store_hat]),
         Event.HALS_CHANGED: (None, [action_store_hals]),
-        Event.HALS_CHANGED: (None, [action_store_hals]),
         Event.LIE_RECEIVED: (None, [action_process_lie]),
         Event.VALID_REFLECTION: (State.THREE_WAY, []),
         Event.NEIGHBOR_CHANGED_LEVEL: (State.ONE_WAY, []),
@@ -909,7 +908,7 @@ class Interface:
         self._configured_bandwidth = self.get_config_attribute(config, 'bandwidth', None)
         # The following method for determining the speed of an interface only works on Linux
         try:
-            with open("/sys/class/net/{}/speed".format(self.name)) as speed_file:
+            with open("/sys/class/net/{}/speed".format(self.name), encoding="utf-8") as speed_file:
                 self._discovered_bandwidth = int(speed_file.readline())
         except (OSError, ValueError):
             self._discovered_bandwidth = None
@@ -1263,7 +1262,7 @@ class Interface:
             return None
         # Note: we must update the last RX nonce local, even if we reject the packet because the
         # reflected nonce is too far out of sync. If not, we will never get back into sync after
-        # a temporary loss of connectivy in which the nonces drift out of sync.
+        # a temporary loss of connectivity in which the nonces drift out of sync.
         self.update_last_rx_lie_nonce_local(packet_info)
         self.check_reflected_nonce(packet_info)
         if packet_info.error:
