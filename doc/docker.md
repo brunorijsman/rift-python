@@ -191,7 +191,7 @@ Use the `stop` CLI command to exit the container.
 Above, we described how to start RIFT-Python "as usual" from inside the Docker container.
 You can also run unit tests and system tests "as usual" from inside the container.
 
-First remove all cached .pyc files, otherwhise running the test from inside the container will
+First remove all cached .pyc files, otherwise running the test from inside the container will
 report an error because the filenames of the Python files are different in the container because
 of the directory mapping:
 
