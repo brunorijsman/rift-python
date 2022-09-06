@@ -8,6 +8,7 @@ ignore=rift/common,rift/encoding
 disable=
     missing-docstring,                  # Temporary, until I add the docstrings
     fixme,                              # Temporary, until I fix all the TODOs and FIXMEs
+    consider-using-f-string,            # Should start using f-strings
     too-many-arguments,                 # Matter of taste
     too-many-instance-attributes,       # Matter of taste
     too-few-public-methods,             # Matter of taste
