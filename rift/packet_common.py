@@ -604,7 +604,7 @@ def fix_tuple(old_tuple, fix, encode):
     return new_tuple
 
 def fix_value(value, fix, encode):
-    if isinstance(value, set) or isinstance(value, frozenset):
+    if isinstance(value, (frozenset, set)):
         new_value = fix_set(value, fix, encode)
     elif isinstance(value, list):
         new_value = fix_list(value, fix, encode)
