@@ -21,8 +21,8 @@ class TelnetSession:
             results_file_name = path + results_file_name
             cli_results_file_name = path + cli_results_file_name
         # pylint:disable=consider-using-with
-        self._results_file = open(results_file_name, 'ab', encoding='utf-8')
-        self._cli_results_file = open(cli_results_file_name, 'ab', encoding='utf-8')
+        self._results_file = open(results_file_name, 'ab')
+        self._cli_results_file = open(cli_results_file_name, 'ab')
         self._expect_session = pexpect.spawn(cmd, logfile=self._results_file)
         self._expect_session.expect("available on port ([0-9]+)", 5.0)
         self._cli_port = int(self._expect_session.match.group(1))
