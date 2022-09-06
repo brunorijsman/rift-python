@@ -1991,6 +1991,7 @@ class TelnetSession:
         log_file_name = "config_generator_check.log"
         if "RIFT_TEST_RESULTS_DIR" in os.environ:
             log_file_name = os.environ["RIFT_TEST_RESULTS_DIR"] + '/' + log_file_name
+        # pylint:disable=consider-using-with
         self._log_file = open(log_file_name, 'ab', encoding='utf-8')
         cmd = "ip netns exec {} telnet localhost {}".format(netns, port)
         self._expect_session = pexpect.spawn(cmd, logfile=self._log_file)
