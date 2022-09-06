@@ -161,6 +161,7 @@
         "rxsock",
         "s",
         "sendline",
+        "setcap",
         "setuid",
         "setuptools",
         "show",
