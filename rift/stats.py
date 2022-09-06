@@ -165,6 +165,10 @@ class StatBase:
             value_strs.append(value_str)
         return ", ".join(value_strs)
 
+    @staticmethod
+    def count_to_rate(count):
+        return float(count) / float(RATE_HISTORY_SECS)
+
     def rate_display_str(self):
         self._shift_history_buckets_if_needed()
         # Add up the deltas over the last RATE_HISTORY_SECS but skip the "current second in
@@ -173,8 +177,7 @@ class StatBase:
         nr_buckets = RATE_HISTORY_SECS + 1
         for bnr in range(1, nr_buckets):
             sum_values = list(map(operator.add, sum_values, self._change_history_buckets[bnr]))
-        count_to_rate = lambda count: float(count) / float(RATE_HISTORY_SECS)
-        rate_values = list(map(count_to_rate, sum_values))
+        rate_values = list(map(self.count_to_rate, sum_values))
         rate_values_and_units = zip(rate_values, self._units_plural)
         rate_strs = ["{:.2f} {}/Sec".format(rate, unit) for (rate, unit) in rate_values_and_units]
         return ", ".join(rate_strs)
