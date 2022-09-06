@@ -203,9 +203,9 @@ class Kernel:
             link_index = self.ipr.link_lookup(ifname=name)
             if link_index:
                 link = self.ipr.get_links(link_index)[0]
-                return link.get_attr('IFLA_MTU')
-            else:
-                self.warning("Interface link for %s not found", name)
+            return link.get_attr('IFLA_MTU')
+        else:
+            self.warning("Interface link for %s not found", name)
         # If we cannot determine MTU, return the default MTU value
         return 1400
 
