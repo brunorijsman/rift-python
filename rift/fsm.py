@@ -125,10 +125,10 @@ class FsmDefinition:
         else:
             to_state_name = to_state.name
         action_names = list(map(_action_to_name, actions))
-        if action_names == []:
+        if not action_names:
             action_names = "-"
         push_event_names = list(map(_event_to_name, push_events))
-        if push_event_names == []:
+        if not push_event_names:
             push_event_names = "-"
         tab.add_row([from_state_name, event_name, to_state_name, action_names, push_event_names])
 
