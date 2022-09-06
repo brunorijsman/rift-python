@@ -1049,7 +1049,6 @@ def test_prop_nesting_with_siblings():
     check_fib_route(rt, right_right_prefix, [if0, if1, if2, if4])
 
 def test_cli_table():
-    # pylint: disable=bad-continuation
     rt = mkrt()
     if0 = mknh_pos("if0", "10.0.0.1")
     if1 = mknh_pos("if1", "10.0.0.2")

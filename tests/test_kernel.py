@@ -6,7 +6,6 @@ from next_hop import NextHop
 from packet_common import add_missing_methods_to_thrift, make_ip_address, make_ip_prefix
 
 # pylint: disable=line-too-long
-# pylint: disable=bad-continuation
 
 def test_create_kernel():
     _kernel_1 = Kernel(simulated_interfaces=False, log=None, log_id="", table_name="main")
