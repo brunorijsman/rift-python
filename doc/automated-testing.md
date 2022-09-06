@@ -726,7 +726,7 @@ The `-m cProfile` option enables profiling.
 
 The `-o output` option causes the raw profile data to be written to the file `output`.
 
-Note that we start RIFT-Python a bit different than ususal. Instead of using `python rift` to start
+Note that we start RIFT-Python a bit different than usual. Instead of using `python rift` to start
 the RIFT module, we go into the `rift` directory and start `python __main__.py`. This is needed
 because cProfile has some issues starting a module.
 
