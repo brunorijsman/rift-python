@@ -61,7 +61,7 @@ class Kernel:
         elif len(rte.next_hops) == 1:
             nhop = rte.next_hops[0]
             kernel_args = self.nhop_to_kernel_args(nhop, dst)
-            if kernel_args == {}:
+            if not kernel_args:
                 self.del_route(rte.prefix)
                 return False
         else:
@@ -70,7 +70,7 @@ class Kernel:
                 nhop_args = self.nhop_to_kernel_args(nhop, dst)
                 if nhop_args:
                     kernel_args["multipath"].append(nhop_args)
-            if kernel_args["multipath"] == []:
+            if not kernel_args["multipath"]:
                 self.del_route(rte.prefix)
                 return False
         try:
