@@ -80,16 +80,6 @@ However, if you need to install Python 3 yourself you can do so as follows:
 $ <b>sudo apt-get install -y python3</b>
 </pre>
 
-### Give Python3 programs the capability to modify the route table
-
-By default, user programs (including Python programs) are not allowed to modify the route table.
-Give all Python 3.10 programs the capability to modify the route table (this is a heavy-handed
-approach that is not suitable for production):
-
-<pre>
-$ <b>sudo setcap cap_net_admin+ep /usr/bin/python3.10</b>
-</pre>
-
 ### Install build-essential
 
 RIFT-Python itself is written entirely in Python and does not contain any C or C++ code. However,
@@ -106,6 +96,16 @@ The pytricia dependency also needs the header files for the Python 3 source code
 
 <pre>
 $ <b>sudo apt-get install -y python3-dev</b>
+</pre>
+
+### Give Python3 programs the capability to modify the route table
+
+By default, user programs (including Python programs) are not allowed to modify the route table.
+Give all Python 3.10 programs the capability to modify the route table (this is a heavy-handed
+approach that is not suitable for production):
+
+<pre>
+$ <b>sudo setcap cap_net_admin+ep /usr/bin/python3.10</b>
 </pre>
 
 ### Install git
