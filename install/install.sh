@@ -61,10 +61,10 @@ check_supported_os() {
         fatal
     fi
     release=$(lsb_release -rs)
-    if [ "$release" != "16.04" ] && [ "$release" != "18.04" ] && [ "$release" != "20.04" ] && [ "$release" != "22.04" ]; then
+    if [ "$release" != "22.04" ]; then
         report "It appears that you are running an unsupported version of Ubuntu"
         report "lsb_release reports $release"
-        report "The installation script currently only supports Ubuntu 16.04, 18.04, or 20.04, 22.04"
+        report "The installation script currently only supports Ubuntu 22.04"
         fatal
     fi
 }
@@ -120,12 +120,17 @@ apt_get_install () {
     run_cmd "sudo apt-get install -y $package" "Installing $package"
 }
 
-create_and_activate_virtual_env () {
+install_dependencies () {
     run_cmd "sudo apt-get update" "Updating apt-get"
     apt_get_install "build-essential"
     apt_get_install "python3-dev"
     apt_get_install "virtualenv"
     apt_get_install "traceroute"
+    run_cmd "sudo setcap cap_net_admin+ep /usr/bin/python3.10" "Giving Python NET_ADMIN capability"
+
+}
+
+create_and_activate_virtual_env () {
     run_cmd "virtualenv env --python=python3" "Creating virtual environment"
     run_cmd "source env/bin/activate" "Activating virtual environment"
 }
@@ -133,11 +138,8 @@ create_and_activate_virtual_env () {
 pip_install_dependencies () {
     check_command_present pip
     case $(python --version) in
-        Python\ 3\.[567]\.?)
-            run_cmd "pip install -r requirements-3-567.txt" "Installing Python module dependencies"
-            ;;
-        Python\ 3\.8\.?)
-            run_cmd "pip install -r requirements-3-8.txt" "Installing Python module dependencies"
+        Python\ 3\.10\.?)
+            run_cmd "pip install -r requirements-3-10.txt" "Installing Python module dependencies"
             ;;
         *)
             report "Unsupported version of Python"
@@ -152,5 +154,6 @@ parse_command_line_arguments $@
 check_supported_os
 check_git_directory
 check_can_run_sudo
+install_dependencies
 create_and_activate_virtual_env
 pip_install_dependencies
