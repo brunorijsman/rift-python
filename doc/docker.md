@@ -37,7 +37,6 @@ To create the RIFT-Python docker image use the `docker-build` shell script:
 
 <pre>
 (env) $ <b>docker/docker-build</b>
-(env) $ docker/docker-build 
 Sending build context to Docker daemon  9.216kB
 Step 1/14 : FROM ubuntu:16.04
 16.04: Pulling from library/ubuntu

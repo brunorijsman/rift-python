@@ -12,6 +12,6 @@ RIFT_PATH="${VIRTUAL_ENV}/.."
 
 cd ${RIFT_PATH}/docker
 
-cp ../requirements.txt .
+cp ../requirements-3-10.txt .
 
 docker build . --tag rift-python
