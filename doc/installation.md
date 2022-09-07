@@ -26,7 +26,7 @@ Installation instructions for:
 
 ## Ubuntu Linux on AWS
 
-Here we describe how to install the Python RIFT protocol engine on an Amazon Web Services (AWS)
+Here we describe how to install RIFT Python on an Amazon Web Services (AWS)
 Elastic Compute Cloud (EC2) instance running Ubuntu 22.04 LTS (Jammy Jellyfish).
 
 These instructions should also work for an Ubuntu 22.04 LTS server running on bare metal or in
