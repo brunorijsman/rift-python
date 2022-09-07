@@ -37,12 +37,12 @@ a locally hosted virtual machine or in a container.
 Using the AWS console (or CLI or API) create an EC2 instance:
 
 - Choose Amazon Machine Image (AMI) "Ubuntu Server 22.04 LTS (HVM), SSD Volume Type, 64-bit (x86)"
-- Choose instance type t2.micro (or t3.micro if t2.micro is not available in the region)
+- Choose instance type t3.micro
 - Use the default values for all other configuration parameters
 - Make sure you download the private key for the EC2 instance
 
-Note: We are using a t2.micro instance type because it is eligible for AWS Free Tier. For large
-multi-node topologies you need a larger instance type with more CPU and memory.
+Note: For large multi-node topologies you need a larger instance type with more CPU and memory than
+t3.micro.
 
 ### Login to Ubuntu
 
