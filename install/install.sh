@@ -117,7 +117,7 @@ run_cmd () {
     
 apt_get_install () {
     package=$1
-    run_cmd "sudo apt-get install -y $package" "Installing $package"
+    run_cmd "sudo DEBIAN_FRONTEND=noninteractive apt-get install -y $package" "Installing $package"
 }
 
 install_dependencies () {
