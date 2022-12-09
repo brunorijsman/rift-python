@@ -7,7 +7,7 @@ awscli==1.25.67
 botocore==1.27.66
 CacheControl==0.12.11
 Cerberus==1.3.4
-certifi==2022.6.15
+certifi==2022.12.7
 chardet==5.0.0
 charset-normalizer==2.1.1
 codecov==2.1.12
