@@ -67,6 +67,9 @@ All good; you can commit.
 
 This currently takes about 4 minutes to complete, but that time will grow as the number of system tests increases.
 
+Note: when running the test suite on macOS, make sure that IPv6 link-local addresses are enabled on interface en0.
+To enable these, go to system preferences, select network, select Wifi advanced, select TCP/IP, and set configure IPv6 to link-local only or automatically.
+
 ## Pylint
 
 Python RIFT uses [pylint](https://www.pylint.org/) to check all production code and all testing code for issues.
@@ -723,7 +726,7 @@ The `-m cProfile` option enables profiling.
 
 The `-o output` option causes the raw profile data to be written to the file `output`.
 
-Note that we start RIFT-Python a bit different than ususal. Instead of using `python rift` to start
+Note that we start RIFT-Python a bit different than usual. Instead of using `python rift` to start
 the RIFT module, we go into the `rift` directory and start `python __main__.py`. This is needed
 because cProfile has some issues starting a module.
 

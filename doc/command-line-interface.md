@@ -415,7 +415,7 @@ agg_101> <b>show engine</b>
 | Stand-alone                        | False               |
 | Interactive                        | True                |
 | Simulated Interfaces               | True                |
-| Physical Interface                 | eth0                |
+| Physical Interface                 | ens5                |
 | Telnet Port File                   | None                |
 | IPv4 Multicast Loopback            | True                |
 | IPv6 Multicast Loopback            | True                |
@@ -897,7 +897,7 @@ agg_101> <b>show interface if_101_1</b>
 Interface:
 +--------------------------------------+----------------------------------------------------------+
 | Interface Name                       | if_101_1                                                 |
-| Physical Interface Name              | eth0                                                     |
+| Physical Interface Name              | ens5                                                     |
 | Advertised Name                      | agg_101:if_101_1                                         |
 | Interface IPv4 Address               | 172.17.0.2                                               |
 | Interface IPv6 Address               | 2001:db8:1::242:ac11:2                                   |
@@ -931,7 +931,7 @@ Neighbor:
 | Name                   | core_1:if_1_101           |
 | System ID              | 1                         |
 | IPv4 Address           | 172.17.0.2                |
-| IPv6 Address           | fe80::42:acff:fe11:2%eth0 |
+| IPv6 Address           | fe80::42:acff:fe11:2%ens5 |
 | LIE UDP Source Port    | 58114                     |
 | Link ID                | 1                         |
 | Level                  | 24                        |
@@ -1037,7 +1037,7 @@ agg_101> <b>show interface if_101_1 packets</b>
 Last 20 Packets Sent and Received on Interface:
 +-----------------------------------------------------------------------------------------------------------------------------------+
 | direction=TX  timestamp=2020-07-16-12:08:41.272240                                                                                |
-| local-address=fe80::42:acff:fe11:2%eth0:38951  remote_address=ff02::a1f7%eth0:20002                                               |
+| local-address=fe80::42:acff:fe11:2%ens5:38951  remote_address=ff02::a1f7%ens5:20002                                               |
 |                                                                                                                                   |
 | packet-nr=7 outer-key-id=0 nonce-local=13630 nonce-remote=15365 remaining-lie-lifetime=all-ones outer-fingerprint-len=0           |
 | protocol-packet=ProtocolPacket(content=PacketContent(tie=None, lie=LIEPacket(you_are_flood_repeater=False, flood_port=20004,      |
@@ -1057,7 +1057,7 @@ Last 20 Packets Sent and Received on Interface:
 | tire=None), header=PacketHeader(major_version=4, sender=101, minor_version=1, level=23))                                          |
 +-----------------------------------------------------------------------------------------------------------------------------------+
 | direction=RX  timestamp=2020-07-16-12:08:41.234127  seconds-since-prev=0.0378                                                     |
-| local-address=ff02::a1f7%eth0:20001  remote_address=fe80::42:acff:fe11:2%eth0:58114                                               |
+| local-address=ff02::a1f7%ens5:20001  remote_address=fe80::42:acff:fe11:2%ens5:58114                                               |
 |                                                                                                                                   |
 | packet-nr=7 outer-key-id=0 nonce-local=15365 nonce-remote=13630 remaining-lie-lifetime=all-ones outer-fingerprint-len=0           |
 | protocol-packet=ProtocolPacket(content=PacketContent(tie=None, lie=LIEPacket(you_are_flood_repeater=False, flood_port=20003,      |
@@ -1213,11 +1213,11 @@ agg_101> <b>show interface if_101_1 sockets</b>
 +----------+-----------+--------+---------------------------+------------+-----------------+-------------+
 | LIEs     | Receive   | IPv4   | 224.0.0.81                | 20001      | Any             | Any         |
 +----------+-----------+--------+---------------------------+------------+-----------------+-------------+
-| LIEs     | Receive   | IPv6   | ff02::a1f7%eth0           | 20001      | Any             | Any         |
+| LIEs     | Receive   | IPv6   | ff02::a1f7%ens5           | 20001      | Any             | Any         |
 +----------+-----------+--------+---------------------------+------------+-----------------+-------------+
 | LIEs     | Send      | IPv4   | 172.17.0.2                | 60055      | 224.0.0.71      | 20002       |
 +----------+-----------+--------+---------------------------+------------+-----------------+-------------+
-| LIEs     | Send      | IPv6   | fe80::42:acff:fe11:2%eth0 | 38951      | ff02::a1f7%eth0 | 20002       |
+| LIEs     | Send      | IPv6   | fe80::42:acff:fe11:2%ens5 | 38951      | ff02::a1f7%ens5 | 20002       |
 +----------+-----------+--------+---------------------------+------------+-----------------+-------------+
 .          .           .        .                           .            .                 .             .
 .          .           .        .                           .            .                 .             .
@@ -1422,7 +1422,7 @@ Kernel Addresses:
 +-----------+------------------------+------------+----------------+---------+
 | lo        | 127.0.0.1              | 127.0.0.1  |                |         |
 +-----------+------------------------+------------+----------------+---------+
-| eth0      | 172.17.0.2             | 172.17.0.2 | 172.17.255.255 |         |
+| ens5      | 172.17.0.2             | 172.17.0.2 | 172.17.255.255 |         |
 +-----------+------------------------+------------+----------------+---------+
 |           | ::1                    |            |                |         |
 +-----------+------------------------+------------+----------------+---------+
@@ -1465,7 +1465,7 @@ Kernel Links:
 +-----------+-----------+-------------------+-------------------+-----------+-------+-----------+
 | ip6tnl0   | 3         | 00:00:00:00:00:00 | 00:00:00:00:00:00 | 0         | 1452  | NOARP     |
 +-----------+-----------+-------------------+-------------------+-----------+-------+-----------+
-| eth0      | 8         | 02:42:ac:11:00:02 | ff:ff:ff:ff:ff:ff | 9         | 1500  | UP        |
+| ens5      | 8         | 02:42:ac:11:00:02 | ff:ff:ff:ff:ff:ff | 9         | 1500  | UP        |
 |           |           |                   |                   |           |       | BROADCAST |
 |           |           |                   |                   |           |       | RUNNING   |
 |           |           |                   |                   |           |       | MULTICAST |
@@ -1522,18 +1522,18 @@ Kernel Routes:
 | Table | Address | Destination                | Type      | Protocol | Outgoing  | Gateway       | Weight |
 |       | Family  |                            |           |          | Interface |               |        |
 +-------+---------+----------------------------+-----------+----------+-----------+---------------+--------+
-| Main  | IPv4    | 0.0.0.0/0                  | Unicast   | Boot     | eth0      | 172.17.0.1    |        |
+| Main  | IPv4    | 0.0.0.0/0                  | Unicast   | Boot     | ens5      | 172.17.0.1    |        |
 +-------+---------+----------------------------+-----------+----------+-----------+---------------+--------+
-| Main  | IPv4    | 172.17.0.0/16              | Unicast   | Kernel   | eth0      |               |        |
+| Main  | IPv4    | 172.17.0.0/16              | Unicast   | Kernel   | ens5      |               |        |
 +-------+---------+----------------------------+-----------+----------+-----------+---------------+--------+
-| Main  | IPv6    | ::/0                       | Unicast   | Boot     | eth0      | 2001:db8:1::1 |        |
+| Main  | IPv6    | ::/0                       | Unicast   | Boot     | ens5      | 2001:db8:1::1 |        |
 +-------+---------+----------------------------+-----------+----------+-----------+---------------+--------+
-| Main  | IPv6    | 2001:db8:1::/64            | Unicast   | Kernel   | eth0      |               |        |
+| Main  | IPv6    | 2001:db8:1::/64            | Unicast   | Kernel   | ens5      |               |        |
 +-------+---------+----------------------------+-----------+----------+-----------+---------------+--------+
 .       .         .                            .           .          .           .               .        .
 .       .         .                            .           .          .           .               .        .
 +-------+---------+----------------------------+-----------+----------+-----------+---------------+--------+
-| Local | IPv6    | ff00::/8                   | Unicast   | Boot     | eth0      |               |        |
+| Local | IPv6    | ff00::/8                   | Unicast   | Boot     | ens5      |               |        |
 +-------+---------+----------------------------+-----------+----------+-----------+---------------+--------+
 </pre>
 <!-- OUTPUT-END -->
@@ -1563,15 +1563,15 @@ Kernel Routes:
 | Table | Address | Destination     | Type    | Protocol | Outgoing  | Gateway       | Weight |
 |       | Family  |                 |         |          | Interface |               |        |
 +-------+---------+-----------------+---------+----------+-----------+---------------+--------+
-| Main  | IPv4    | 0.0.0.0/0       | Unicast | Boot     | eth0      | 172.17.0.1    |        |
+| Main  | IPv4    | 0.0.0.0/0       | Unicast | Boot     | ens5      | 172.17.0.1    |        |
 +-------+---------+-----------------+---------+----------+-----------+---------------+--------+
-| Main  | IPv4    | 172.17.0.0/16   | Unicast | Kernel   | eth0      |               |        |
+| Main  | IPv4    | 172.17.0.0/16   | Unicast | Kernel   | ens5      |               |        |
 +-------+---------+-----------------+---------+----------+-----------+---------------+--------+
-| Main  | IPv6    | ::/0            | Unicast | Boot     | eth0      | 2001:db8:1::1 |        |
+| Main  | IPv6    | ::/0            | Unicast | Boot     | ens5      | 2001:db8:1::1 |        |
 +-------+---------+-----------------+---------+----------+-----------+---------------+--------+
-| Main  | IPv6    | 2001:db8:1::/64 | Unicast | Kernel   | eth0      |               |        |
+| Main  | IPv6    | 2001:db8:1::/64 | Unicast | Kernel   | ens5      |               |        |
 +-------+---------+-----------------+---------+----------+-----------+---------------+--------+
-| Main  | IPv6    | fe80::/64       | Unicast | Kernel   | eth0      |               |        |
+| Main  | IPv6    | fe80::/64       | Unicast | Kernel   | ens5      |               |        |
 +-------+---------+-----------------+---------+----------+-----------+---------------+--------+
 </pre>
 <!-- OUTPUT-END -->

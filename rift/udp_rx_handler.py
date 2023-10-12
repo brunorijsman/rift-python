@@ -75,9 +75,9 @@ class in6_pktinfo(ctypes.Structure):
         ('ipi6_ifindex', ctypes.c_int),
     ]
 
-for symbol in SYMBOLS:
+for (symbol, value) in SYMBOLS.items():
     if not hasattr(socket, symbol):
-        setattr(socket, symbol, SYMBOLS[symbol])
+        setattr(socket, symbol, value)
 
 class UdpRxHandler:
 

@@ -358,19 +358,17 @@ def intf_infer_att_from_neighbor(intf_config, intf_attribute, neighbor_intf_conf
 def parse_configuration(filename):
     if filename:
         try:
-            file = open(filename, 'r')
+            with open(filename, 'r', encoding='utf-8') as file:
+                try:
+                    config = yaml.safe_load(file)
+                except yaml.YAMLError as err:
+                    print("Could not load configuration file {}: {}".format(filename, str(err)),
+                        file=sys.stderr)
+                    sys.exit(1)
         except (OSError, IOError) as err:
             print("Could not open configuration file {} ({})".format(filename, err),
                   file=sys.stderr)
             sys.exit(1)
-        try:
-            config = yaml.safe_load(file)
-        except yaml.YAMLError as err:
-            print("Could not load configuration file {}: {}".format(filename, str(err)),
-                  file=sys.stderr)
-            file.close()
-            sys.exit(1)
-        file.close()
     else:
         config = DEFAULT_CONFIG
     validator = RiftValidator(SCHEMA)

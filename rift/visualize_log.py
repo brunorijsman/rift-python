@@ -280,10 +280,10 @@ class Visualizer:
         self.sent_messages = {}
 
     def run(self):
-        with open(self.svg_file_name, "w") as self.svgfile:
+        with open(self.svg_file_name, "w", encoding="utf-8") as self.svgfile:
             self.html_start()
             self.svg_start()
-            with open(self.logfile_name, "r") as self.logfile:
+            with open(self.logfile_name, "r", encoding="utf-8") as self.logfile:
                 for logline in self.logfile:
                     record = self.parse_log_line(logline)
                     record.target = self.target_for_record(record)

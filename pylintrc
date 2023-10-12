@@ -8,6 +8,7 @@ ignore=rift/common,rift/encoding
 disable=
     missing-docstring,                  # Temporary, until I add the docstrings
     fixme,                              # Temporary, until I fix all the TODOs and FIXMEs
+    consider-using-f-string,            # Should start using f-strings
     too-many-arguments,                 # Matter of taste
     too-many-instance-attributes,       # Matter of taste
     too-few-public-methods,             # Matter of taste
@@ -15,7 +16,6 @@ disable=
     too-many-branches,                  # Matter of taste
     too-many-nested-blocks,             # Matter of taste
     too-many-return-statements,         # Matter of taste
-    no-self-use,                        # Matter of taste
     no-else-return,                     # Matter of taste
     duplicate-code,                     # Matter of taste
     too-many-locals,                    # Matter of taste

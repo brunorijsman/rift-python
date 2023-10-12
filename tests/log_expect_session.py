@@ -13,12 +13,14 @@ class LogExpectSession:
             log_file_name = os.environ["RIFT_TEST_RESULTS_DIR"] + "/" + log_file_name
         self._log_file_name = log_file_name
         self._log_file = None
-        self._results_file = open(results_file_name, 'w')
+        # pylint:disable=consider-using-with
+        self._results_file = open(results_file_name, 'w', encoding='utf-8')
         self._line_nr = 0
         self._last_timestamp = None
 
     def open(self):
-        self._log_file = open(self._log_file_name, "r")
+        # pylint:disable=consider-using-with
+        self._log_file = open(self._log_file_name, "r", encoding="utf-8")
         self._line_nr = 0
         self._results_file.write("Open LogExpectSession\n\n")
 

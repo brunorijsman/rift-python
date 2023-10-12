@@ -6,7 +6,6 @@ from next_hop import NextHop
 from packet_common import add_missing_methods_to_thrift, make_ip_address, make_ip_prefix
 
 # pylint: disable=line-too-long
-# pylint: disable=bad-continuation
 
 def test_create_kernel():
     _kernel_1 = Kernel(simulated_interfaces=False, log=None, log_id="", table_name="main")
@@ -60,7 +59,7 @@ def test_cli_routes_table():
     # |             | Family  |                    |             |           | Interface |            |        |
     # +-------------+---------+--------------------+-------------+-----------+-----------+------------+--------+
     # ...
-    # | Main        | IPv4    | 0.0.0.0/0          | Unicast     | Boot/Dhcp | eth0      | 172.17.0.1 |        |
+    # | Main        | IPv4    | 0.0.0.0/0          | Unicast     | Boot/Dhcp | ens5      | 172.17.0.1 |        |
     # ...
     tab_str = kern.cli_routes_table(254).to_string()
     pattern = (r"[|] Table +[|] Address +[|] Destination +[|] Type +[|] Protocol +[|] Outgoing +[|] Gateway +[|] Weight +[|]\n"
@@ -81,7 +80,7 @@ def test_cli_route_prefix_table():
     # | Type                     | Unicast          |
     # | Protocol                 | Boot             | << or Dhcp in some deployments
     # | Scope                    | Universe         |
-    # | Next-hops                | eth0 172.17.0.1  |
+    # | Next-hops                | ens5 172.17.0.1  |
     # | Priority                 |                  |
     # | Preference               |                  |
     # | Preferred Source Address |                  |

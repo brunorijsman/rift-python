@@ -655,7 +655,7 @@ def test_add_two_parent_routes_same_destination_different_owners():
     rt.del_route(mkp(default_prefix), OWNER_S_SPF)
     # The north-SPF RIB route became the best route again
     check_rib_route(rt, default_prefix, north_spf_default_next_hops, OWNER_N_SPF)
-    # Check that the child route now uses the noth-SPF default route again to convert negative
+    # Check that the child route now uses the north-SPF default route again to convert negative
     # next-hops to positive next-hops.
     check_fib_route(rt, child_prefix, child_fib_next_hops)
 
@@ -1049,7 +1049,6 @@ def test_prop_nesting_with_siblings():
     check_fib_route(rt, right_right_prefix, [if0, if1, if2, if4])
 
 def test_cli_table():
-    # pylint: disable=bad-continuation
     rt = mkrt()
     if0 = mknh_pos("if0", "10.0.0.1")
     if1 = mknh_pos("if1", "10.0.0.2")

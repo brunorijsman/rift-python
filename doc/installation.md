@@ -2,24 +2,18 @@
 
 As the name suggests, RIFT-Python has been implemented in Python 3. It has been tested the following
 versions of CPython:
- * Python 3.5
- * Python 3.6
- * Python 3.7
- * Python 3.8 
- * Python 3.10
+
+- Python 3.10
 
 RIFT-Python cannot run on any version of Python 2.
 
 RIFT-Python has been tested on the following operating systems:
- * Ubuntu 16.04 LTS (Xenial)
- * Ubuntu 18.04 LTS (Bionic)
- * Ubuntu 20.04 LTS (Focal)
- * Ubuntu 22.04 LTS (Jammy Jellyfish)
- * macOS 10.14 (Mojave)
- * macOS 10.15 (Catalina)
 
-It should be possible to run RIFT-Python on versions of Linux or macOS or even on other platforms 
-(such as Windows) with little or no porting, but we have not tested that. Most code is very 
+- Ubuntu 22.04 LTS (Jammy Jellyfish)
+- macOS 10.15 (Catalina)
+
+It should be possible to run RIFT-Python on other versions of Linux or macOS or even on other platforms
+(such as Windows) with little or no porting, but we have not tested that. Most code is very
 portable, except for the code that deals with sending multicast and IPv6 UDP packets over sockets,
 which is infuriatingly platform dependent in subtle ways.
 
@@ -27,28 +21,28 @@ which is infuriatingly platform dependent in subtle ways.
 
 Installation instructions for:
 
-* [Ubuntu Linux on AWS](#ubuntu-linux-on-aws)
-* [Ubuntu Linux on local VM via Vagrant](#ubuntu-linux-on-local-vm-via-vagrant)
+- [Ubuntu Linux on AWS](#ubuntu-linux-on-aws)
+- [Ubuntu Linux on local VM via Vagrant](#ubuntu-linux-on-local-vm-via-vagrant)
 
 ## Ubuntu Linux on AWS
 
-Here we describe how to install the Python RIFT protocol engine on an Amazon Web Services (AWS)
-Elastic Compute Cloud (EC2) instance running Ubuntu 22.04 LTS (Focal).
+Here we describe how to install RIFT Python on an Amazon Web Services (AWS)
+Elastic Compute Cloud (EC2) instance running Ubuntu 22.04 LTS (Jammy Jellyfish).
 
-These instructions should also work for an Ubuntu 22.04 LTS server running on bare metal or in 
+These instructions should also work for an Ubuntu 22.04 LTS server running on bare metal or in
 a locally hosted virtual machine or in a container.
 
 ### Create an EC2 instance
 
 Using the AWS console (or CLI or API) create an EC2 instance:
 
-* Choose Amazon Machine Image (AMI) "Ubuntu Server 22.04 LTS (HVM), SSD Volume Type"
-* Choose instance type t2.micro
-* Use the default values for all other configuration parameters
-* Make sure you download the private key for the EC2 instance
+- Choose Amazon Machine Image (AMI) "Ubuntu Server 22.04 LTS (HVM), SSD Volume Type, 64-bit (x86)"
+- Choose instance type t3.micro
+- Use the default values for all other configuration parameters
+- Make sure you download the private key for the EC2 instance
 
-Note: We are using a t2.micro instance type because it is eligible for AWS Free Tier. For large
-multi-node topologies you need a larger instance type with more CPU and memory.
+Note: For large multi-node topologies you need a larger instance type with more CPU and memory than
+t3.micro.
 
 ### Login to Ubuntu
 
@@ -64,7 +58,7 @@ a Windows Telnet client such as Putty.
 
 ### Update
 
-Once logged in to the EC2 instance, install the latest security patches on your EC2 instance 
+Once logged in to the EC2 instance, install the latest security patches on your EC2 instance
 by doing an update:
 
 <pre>
@@ -73,7 +67,7 @@ $ <b>sudo apt-get update</b>
 
 ### Install Python3
 
-The AWS Ubuntu 22.04 AMI comes pre-installed with Python 3.9:
+The AWS Ubuntu 22.04 AMI comes pre-installed with Python 3.10:
 
 <pre>
 $ <b>python3 --version</b>
@@ -87,7 +81,7 @@ $ <b>sudo apt-get install -y python3</b>
 </pre>
 
 ### Install build-essential
-    
+
 RIFT-Python itself is written entirely in Python and does not contain any C or C++ code. However,
 we must install a C compiler because it is needed for the pytricia dependency, which is partly
 written in C.
@@ -102,6 +96,16 @@ The pytricia dependency also needs the header files for the Python 3 source code
 
 <pre>
 $ <b>sudo apt-get install -y python3-dev</b>
+</pre>
+
+### Give Python3 programs the capability to modify the route table
+
+By default, user programs (including Python programs) are not allowed to modify the route table.
+Give all Python 3.10 programs the capability to modify the route table (this is a heavy-handed
+approach that is not suitable for production):
+
+<pre>
+$ <b>sudo setcap cap_net_admin+ep /usr/bin/python3.10</b>
 </pre>
 
 ### Install git
@@ -138,7 +142,7 @@ $ <b>sudo apt-get install -y virtualenv</b>
 Clone this rift-python repository from github onto the EC2 instance:
 
 <pre>
-$ <b>git clone https://github.com/przygienda/rift-python.git</b>
+$ <b>git clone https://github.com/brunorijsman/rift-python.git</b>
 Cloning into 'rift-python'...
 remote: Counting objects: 882, done.
 remote: Compressing objects: 100% (119/119), done.
@@ -185,19 +189,13 @@ $ <b>source env/bin/activate</b>
 
 ### Use pip to install dependencies
 
-Use pip to install the dependencies. It is important that you have activated
-the virtual environment as described in the previous step before you install these dependencies.
+Use pip to install the dependencies for Python 3.10 running on Ubuntu 22.04.
+It is important that you have activated the virtual environment as described in the previous step
+before you install these dependencies.
 
 <pre>
 $ <b>pip install -r requirements-3-10.txt</b> 
 ...
-</pre>
-
-Note: these installation instructions are for Ubuntu 22.04 which uses Python 3.10 by default. If
-you are using Python 3.5, 3.6 or 3.7, use the following command to install the dependencies:
-
-<pre>
-$ <b>pip install -r requirements-3-567.txt</b> 
 </pre>
 
 ## Ubuntu Linux on local VM via Vagrant

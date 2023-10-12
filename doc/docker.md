@@ -37,7 +37,6 @@ To create the RIFT-Python docker image use the `docker-build` shell script:
 
 <pre>
 (env) $ <b>docker/docker-build</b>
-(env) $ docker/docker-build 
 Sending build context to Docker daemon  9.216kB
 Step 1/14 : FROM ubuntu:16.04
 16.04: Pulling from library/ubuntu
@@ -121,15 +120,15 @@ Kernel Routes:
 | Table | Address | Destination     | Type    | Protocol | Outgoing  | Gateway       | Weight |
 |       | Family  |                 |         |          | Interface |               |        |
 +-------+---------+-----------------+---------+----------+-----------+---------------+--------+
-| Main  | IPv4    | 0.0.0.0/0       | Unicast | Boot     | eth0      | 172.17.0.1    |        |
+| Main  | IPv4    | 0.0.0.0/0       | Unicast | Boot     | ens5      | 172.17.0.1    |        |
 +-------+---------+-----------------+---------+----------+-----------+---------------+--------+
-| Main  | IPv4    | 172.17.0.0/16   | Unicast | Kernel   | eth0      |               |        |
+| Main  | IPv4    | 172.17.0.0/16   | Unicast | Kernel   | ens5      |               |        |
 +-------+---------+-----------------+---------+----------+-----------+---------------+--------+
-| Main  | IPv6    | ::/0            | Unicast | Boot     | eth0      | 2001:db8:1::1 |        |
+| Main  | IPv6    | ::/0            | Unicast | Boot     | ens5      | 2001:db8:1::1 |        |
 +-------+---------+-----------------+---------+----------+-----------+---------------+--------+
-| Main  | IPv6    | 2001:db8:1::/64 | Unicast | Kernel   | eth0      |               |        |
+| Main  | IPv6    | 2001:db8:1::/64 | Unicast | Kernel   | ens5      |               |        |
 +-------+---------+-----------------+---------+----------+-----------+---------------+--------+
-| Main  | IPv6    | fe80::/64       | Unicast | Kernel   | eth0      |               |        |
+| Main  | IPv6    | fe80::/64       | Unicast | Kernel   | ens5      |               |        |
 +-------+---------+-----------------+---------+----------+-----------+---------------+--------+
 </pre>
 
@@ -191,7 +190,7 @@ Use the `stop` CLI command to exit the container.
 Above, we described how to start RIFT-Python "as usual" from inside the Docker container.
 You can also run unit tests and system tests "as usual" from inside the container.
 
-First remove all cached .pyc files, otherwhise running the test from inside the container will
+First remove all cached .pyc files, otherwise running the test from inside the container will
 report an error because the filenames of the Python files are different in the container because
 of the directory mapping:
 

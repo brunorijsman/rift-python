@@ -241,7 +241,7 @@ Command Line Interface (CLI) available on port 52482
 
 When RIFT runs in topology mode, a packet that is sent from one simulated interface to another
 simulated interface is actually sent over the underlying physical interface (typically "en0" on
-macOS and "eth0" on Linux). Both the sending socket on the sending simulated interface and the
+macOS and "ens5" on Linux). Both the sending socket on the sending simulated interface and the
 receiving socket on the receiving simulated interface are bound to the same underlying physical
 interface.
 

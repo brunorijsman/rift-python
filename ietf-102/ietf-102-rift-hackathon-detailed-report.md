@@ -14,7 +14,7 @@ The interoperability test runs Juniper RIFT and Python RIFT on an t2.micro Elast
 
 One RIFT node runs Juniper RIFT and one RIFT node runs Python RIFT.
 
-We demonstrate that a full adjancency (state 3-way) is established between the Juniper RIFT node and the Python RIFT node.
+We demonstrate that a full adjacency (state 3-way) is established between the Juniper RIFT node and the Python RIFT node.
 
 In this interoperability test we only verified the Link Information Element (LIE) Finite State Machine (FSM). Future interoperability tests will also verify the Zero Touch Provisioning (ZTP) FSM and the flooding FSM.
 
@@ -125,7 +125,7 @@ Go to the directory where the software was unpacked:
 vm$ <b>cd content-x86_64-public/</b>
 </pre>
 
-Do **not** follow the instructions in INSTALL.md about using sysctl to tune UDP and do **not** run the basicvalidation.sh script.  Running the basicvalidation.sh script verifies that a large topology runs reliably on the virtual machine. The script will fail because we are running on a t2.micro instance type which is not powerful. This is not an issue for the interoperability testing because we will only run very small 2 node topologies. In my experience, you need at least an m5.2xlarge EC2 instance to make the basicvalidation.sh script pass reliabibly.
+Do **not** follow the instructions in INSTALL.md about using sysctl to tune UDP and do **not** run the basicvalidation.sh script.  Running the basicvalidation.sh script verifies that a large topology runs reliably on the virtual machine. The script will fail because we are running on a t2.micro instance type which is not powerful. This is not an issue for the interoperability testing because we will only run very small 2 node topologies. In my experience, you need at least an m5.2xlarge EC2 instance to make the basicvalidation.sh script pass reliably.
 
 Make sure that Juniper RIFT runs properly by starting it up with the "--help" command line option. You should see help text as output:
 
@@ -362,7 +362,7 @@ While still in the rift-fsm directory, activate the newly created Python environ
 vm$ <b>source env/bin/activate</b>
 </pre>
 
-### Use pip to install dependecies
+### Use pip to install dependencies
 
 Use pip to install the external following modules. It is important that you have activated
 the virtual environment as described in the previous step before you install these dependencies.
@@ -635,7 +635,7 @@ Neighbor:
 
 Stop the RIFT node by going back to the SSH session where you started the RIFT node, and press Control-C.
 
-### Run a Juniper RIFT - Python RIFT Interoperating Topology
+### Run a Juniper RIFT - Python RIFT Interoperability Testing Topology
 
 We will now create a topology that contains two nodes: one Juniper RIFT node and one.
 
@@ -689,7 +689,7 @@ Command Line Interface (CLI) available on port 35403
 
 Make a note of the port (35403 in this case), you will need it later.
 
-The command line option "--passive" instructs Python RIFT to only run the nodes that are marked as passive (wich is exactly the opposite behavior of what Juniper RIFT is doing). As a result, Python RIFT will run node agg_202 and not node core_1)
+The command line option "--passive" instructs Python RIFT to only run the nodes that are marked as passive (which is exactly the opposite behavior of what Juniper RIFT is doing). As a result, Python RIFT will run node agg_202 and not node core_1)
 
 In a third SSH session to the virtual machine, run a "tail -f" command to follow the very detailed logging that Python RIFT generates:
 

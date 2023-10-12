@@ -8,7 +8,7 @@ ALGORITHM_TO_DIGESTMOD = {
     "hmac-sha-256": "sha256",
     "hmac-sha-384": "sha384",
     "hmac-sha-512": "sha512",
-    "sha-1": "sha1",                # SHA-xxx(secret + playload) digest
+    "sha-1": "sha1",                # SHA-xxx(secret + payload) digest
     "sha-224": "sha224",
     "sha-256": "sha256",
     "sha-384": "sha384",

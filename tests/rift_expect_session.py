@@ -36,6 +36,7 @@ class RiftExpectSession:
         results_file_name = "rift_expect.log"
         if "RIFT_TEST_RESULTS_DIR" in os.environ:
             results_file_name = os.environ["RIFT_TEST_RESULTS_DIR"] + "/" + results_file_name
+        # pylint:disable=consider-using-with
         self._results_file = open(results_file_name, 'ab')
         self.write_result("\n\n*** Start session: {}\n\n".format(topology_file))
         self.write_result("TRAVIS : {}\n".format(TRAVIS))

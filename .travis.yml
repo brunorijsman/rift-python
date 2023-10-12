@@ -4,28 +4,13 @@ os: linux
 
 jobs:
   include:
-  - dist: xenial
-    python: 3.5
-  - dist: xenial
-    python: 3.6
-  - dist: xenial
-    python: 3.7
-  - dist: xenial
-    python: 3.8
-  - dist: bionic
-    python: 3.8
-  - dist: focal
-    python: 3.8
+  - dist: jammy
+    python: 3.10
 
 install:
   - virtualenv env --python=python3
   - source env/bin/activate
-  - if [ "$TRAVIS_PYTHON_VERSION" == "3.5" ]; then pip install -r requirements-3-567.txt; fi
-  - if [ "$TRAVIS_PYTHON_VERSION" == "3.6" ]; then pip install -r requirements-3-567.txt; fi
-  - if [ "$TRAVIS_PYTHON_VERSION" == "3.7" ]; then pip install -r requirements-3-567.txt; fi
-  - if [ "$TRAVIS_PYTHON_VERSION" == "3.8" ]; then pip install -r requirements-3-8.txt; fi
-  - pip install pylint
-  - pip install codecov
+  - pip install -r requirements-3-10.txt
   # Python3 needs root and setuid to allow test_kernel to add routes to the kernel
   - sudo chown root env/bin/python3
   - sudo chmod u+s env/bin/python3

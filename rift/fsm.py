@@ -92,10 +92,10 @@ class FsmDefinition:
         for state in self.state_actions:
             (entry_actions, exit_actions) = self.state_actions[state]
             entry_action_names = list(map(_action_to_name, entry_actions))
-            if entry_action_names == []:
+            if not entry_action_names:
                 entry_action_names = "-"
             exit_action_names = list(map(_action_to_name, exit_actions))
-            if exit_action_names == []:
+            if not exit_action_names:
                 exit_action_names = "-"
             sorted_state_actions[state.name] = (entry_action_names, exit_action_names)
         tab = table.Table()
@@ -125,10 +125,10 @@ class FsmDefinition:
         else:
             to_state_name = to_state.name
         action_names = list(map(_action_to_name, actions))
-        if action_names == []:
+        if not action_names:
             action_names = "-"
         push_event_names = list(map(_event_to_name, push_events))
-        if push_event_names == []:
+        if not push_event_names:
             push_event_names = "-"
         tab.add_row([from_state_name, event_name, to_state_name, action_names, push_event_names])
 

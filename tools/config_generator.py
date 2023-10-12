@@ -604,7 +604,7 @@ class Node:
         file_name = dir_name + '/' + self.name + ".yaml"
         self.config_file_name = os.path.realpath(file_name)
         try:
-            with open(file_name, 'w') as file:
+            with open(file_name, 'w', encoding='utf-8') as file:
                 self.write_config_to_file(file, netns=True)
         except IOError:
             fatal_error('Could not open output node configuration file "{}"'.format(file_name))
@@ -613,7 +613,7 @@ class Node:
         dir_name = getattr(ARGS, 'output-file-or-dir')
         file_name = "{}/connect-{}.sh".format(dir_name, self.name)
         try:
-            with open(file_name, 'w') as file:
+            with open(file_name, 'w', encoding='utf-8') as file:
                 print("ip netns exec {} telnet localhost $(cat {})"
                       .format(self.ns_name, self.port_file), file=file)
         except IOError:
@@ -1181,7 +1181,7 @@ class Node:
 
     def check_route_in_kernel(self, step, ipv6, prefix, next_hops, parsed_kernel_routes):
         # In the FIB, and ECMP route is one row with multiple next-hops. In the kernel, an ECMP
-        # route may be one row with multuple next-hops or may be multiple rows with the same prefix
+        # route may be one row with multiple next-hops or may be multiple rows with the same prefix
         # (the former appears to be the case for IPv4 and the latter appears to be the case for
         # IPv6)
         partial_match = False
@@ -1267,7 +1267,7 @@ class Node:
     def connect_telnet(self):
         step = "Can Telnet to RIFT process"
         try:
-            with open(self.port_file, 'r') as file:
+            with open(self.port_file, 'r', encoding='utf-8') as file:
                 telnet_port = int(file.read())
         except (IOError, OSError):
             error = 'Could not open telnet port file "{}"'.format(self.port_file)
@@ -1650,7 +1650,7 @@ class Fabric:
             self.write_config_to_file(sys.stdout, netns=False)
         else:
             try:
-                with open(file_name, 'w') as file:
+                with open(file_name, 'w', encoding='utf-8') as file:
                     self.write_config_to_file(file, netns=False)
             except IOError:
                 fatal_error('Could not open output configuration file "{}"'.format(file_name))
@@ -1687,7 +1687,7 @@ class Fabric:
         dir_name = getattr(ARGS, 'output-file-or-dir')
         file_name = dir_name + '/' + script_file_name
         try:
-            with open(file_name, 'w') as file:
+            with open(file_name, 'w', encoding='utf-8') as file:
                 print("#!/bin/bash", file=file)
                 write_script_function(file)
         except IOError:
@@ -1888,7 +1888,7 @@ class Fabric:
         file_name = ARGS.graphics_file
         assert file_name is not None
         try:
-            with open(file_name, 'w') as file:
+            with open(file_name, 'w', encoding='utf-8') as file:
                 self.write_graphics_to_file(file)
         except IOError:
             fatal_error('Could not open graphics file "{}"'.format(file_name))
@@ -1922,7 +1922,7 @@ class Fabric:
         dir_name = getattr(ARGS, 'output-file-or-dir')
         file_name = "{}/allocations.txt".format(dir_name)
         try:
-            with open(file_name, 'w') as file:
+            with open(file_name, 'w', encoding='utf-8') as file:
                 self.write_allocations_to_file(file)
         except IOError:
             fatal_error('Could not open allocations file "{}"'.format(file_name))
@@ -1991,6 +1991,7 @@ class TelnetSession:
         log_file_name = "config_generator_check.log"
         if "RIFT_TEST_RESULTS_DIR" in os.environ:
             log_file_name = os.environ["RIFT_TEST_RESULTS_DIR"] + '/' + log_file_name
+        # pylint:disable=consider-using-with
         self._log_file = open(log_file_name, 'ab')
         cmd = "ip netns exec {} telnet localhost {}".format(netns, port)
         self._expect_session = pexpect.spawn(cmd, logfile=self._log_file)
@@ -2101,7 +2102,7 @@ class TelnetSession:
                 # Every table is followed by a blank line, so we have reached the end of the table
                 return parsed_table
             elif '+-' in line:
-                # Row seperator
+                # Row separator
                 if row:
                     parsed_table['rows'].append(row)
                     row = None
@@ -2119,7 +2120,7 @@ class TelnetSession:
 
 def parse_meta_configuration(file_name):
     try:
-        with open(file_name, 'r') as stream:
+        with open(file_name, 'r', encoding='utf-8') as stream:
             try:
                 config = yaml.safe_load(stream)
             except yaml.YAMLError as exception:

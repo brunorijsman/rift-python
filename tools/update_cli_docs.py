@@ -32,8 +32,8 @@ def process_file():
     start_regex = re.compile(".*<!-- OUTPUT-START: (.*)> (.*) -->.*")
     end_regex = re.compile(".*<!-- OUTPUT-END -->.*")
     manual_regex = re.compile(".*<!-- OUTPUT-MANUAL: (.*)> (.*) -->.*")
-    with open('doc/command-line-interface.md', 'rt') as in_file, \
-        open('doc/command-line-interface.md.new', 'wt') as out_file:
+    with open('doc/command-line-interface.md', 'rt', encoding='utf-8') as in_file, \
+        open('doc/command-line-interface.md.new', 'wt', encoding='utf-8') as out_file:
         skipping = False
         for line in in_file:
             start_match = start_regex.match(line)

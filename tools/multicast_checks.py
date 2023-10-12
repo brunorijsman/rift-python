@@ -56,9 +56,9 @@ class in6_pktinfo(ctypes.Structure):
         ('ipi6_ifindex', ctypes.c_int),
     ]
 
-for symbol in SYMBOLS:
+for (symbol, value) in SYMBOLS.items():
     if not hasattr(socket, symbol):
-        setattr(socket, symbol, SYMBOLS[symbol])
+        setattr(socket, symbol, value)
 
 # Check whether this IP_MULTICAST_LOOP socket option is needed in this environment (it depends
 # on the behavior of the router to which this host is connected)

@@ -112,7 +112,7 @@ class Engine:
                       .format(self._cli_listen_handler.port))
             else:
                 try:
-                    with open(self._telnet_port_file, 'w') as file:
+                    with open(self._telnet_port_file, 'w', encoding='utf-8') as file:
                         print(self._cli_listen_handler.port, file=file)
                 except IOError:
                     pass # TODO: Log an error
