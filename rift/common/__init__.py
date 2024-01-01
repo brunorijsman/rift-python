@@ -1,11 +1,5 @@
-#
-#
-# $Id
-#
-# Copyright (c) 2021, Juniper Networks, Inc.
-# All rights reserved.
-#
-#
+#very, very magic code to cleanup the immutable schema to allow old code to modify rift packets
+
 __all__ = ['ttypes', 'constants']
 
 from . import ttypes

@@ -1,19 +1,16 @@
 /**
     Thrift file for packet encodings for RIFT
 
-    Copyright (c) Juniper Networks, Inc., 2016-
-    All rights reserved.
 */
 
 include "common.thrift"
 
-namespace rs models
 namespace py encoding
 
 /** Represents protocol encoding schema major version */
-const common.VersionType protocol_major_version = 6
+const common.VersionType protocol_major_version = 8
 /** Represents protocol encoding schema minor version */
-const common.MinorVersionType protocol_minor_version =  1
+const common.MinorVersionType protocol_minor_version =  0
 
 /** Common RIFT packet header. */
 struct PacketHeader {
@@ -39,7 +36,7 @@ struct Community {
     1: required i32          top;
     /** Lower order bits */
     2: required i32          bottom;
-} (python.immutable = "")
+} 
 
 /** Neighbor structure.  */
 struct Neighbor {
@@ -47,7 +44,7 @@ struct Neighbor {
     1: required common.SystemIDType        originator;
     /** ID of remote side of the link. */
     2: required common.LinkIDType          remote_id;
-} (python.immutable = "")
+} 
 
 /** Capabilities the node supports. */
 struct NodeCapabilities {
@@ -62,16 +59,8 @@ struct NodeCapabilities {
         procedures. */
     3: optional common.HierarchyIndications    hierarchy_indications;
 
-    /** <auto-evpn>
-           indicates whether auto-evpn feature is implemented on this node (but not necessarily enabled). */
-   10: optional bool                           auto_evpn_support = false;
-    /** </auto-evpn> */
 
-    /** <auto-flood-reflection>
-           indicates whether auto-flood-reflection feature is implemented on this node (but not necessarily enabled). */
-   20: optional bool                           auto_flood_reflection_support = false;
-    /** </auto-flood-reflection> */
-} (python.immutable = "")
+} 
 
 /** Link capabilities. */
 struct LinkCapabilities {
@@ -81,7 +70,7 @@ struct LinkCapabilities {
     /** Indicates whether the interface will support IPv4 forwarding. */
     2: optional bool                           ipv4_forwarding_capable =
             true;
-} (python.immutable = "")
+} 
 
 /** RIFT LIE Packet.
 
@@ -134,19 +123,10 @@ struct LIEPacket {
    /** Instance name in case multiple RIFT instances running on same
        interface. */
    24: optional string                    instance_name;
-   /** <auto-evpn>
-       provides the optional ID of the configured auto-evpn fabric. */
-   35: optional common.FabricIDType       fabric_id;
-   /** provides optional version of EVPN ZTP as 256 * MAJOR + MINOR */
-   36: optional i16                       auto_evpn_version;
-   /** </auto-evpn> */
+   /** It provides the optional ID of the Fabric configured. This MUST match the information advertised
+       on the node element. */
+   35: optional common.FabricIDType       fabric_id = common.default_fabric_id;
 
-   /** <auto-flood-reflection> */
-   /** It provides optional version of FR ZTP as 256 * MAJOR + MINOR, indicates support for auto FR  */
-   40: optional i16                                      auto_flood_reflection_version;
-
-   41: optional common.FloodReflectionClusterIDType      auto_flood_reflection_cluster_id;
-   /** </auto-flood-reflection> */
 }
 
 /** LinkID pair describes one of parallel links between two nodes. */
@@ -171,8 +151,8 @@ struct LinkIDPair {
    /** Optional indication which address families are up on the
        interface */
    14: optional set<common.AddressFamilyType> 
-       (python.immutable = "")                address_families;
-} (python.immutable = "") 
+                       address_families;
+}  
 
 /** Unique ID of a TIE. */
 struct TIEID {
@@ -184,7 +164,7 @@ struct TIEID {
     3: required common.TIETypeType         tietype;
     /** number of the tie */
     4: required common.TIENrType           tie_nr;
-} (python.immutable = "")
+} 
 
 /** Header of a TIE. */
 struct TIEHeader {
@@ -215,13 +195,13 @@ struct TIDEPacket {
     2: required TIEID                       end_range;
     /** _Sorted_ list of headers. */
     3: required list<TIEHeaderWithLifeTime> 
-       (python.immutable = "")              headers;
+                     headers;
 }
 
 /** TIRE packet */
 struct TIREPacket {
     1: required set<TIEHeaderWithLifeTime>  
-       (python.immutable = "")              headers;
+                     headers;
 }
 
 /** neighbor of a node */
@@ -233,22 +213,18 @@ struct NodeNeighborsTIEElement {
                 = common.default_distance;
     /** can carry description of multiple parallel links in a TIE */
     4: optional set<LinkIDPair>                 
-       (python.immutable = "")                  link_ids;
+                         link_ids;
     /** total bandwith to neighbor as sum of all parallel links */
     5: optional common.BandwithInMegaBitsType
                 bandwidth = common.default_bandwidth;
-} (python.immutable = "")
+} 
 
 /** Indication flags of the node. */
 struct NodeFlags {
     /** Indicates that node is in overload, do not transit traffic
         through it. */
      1: optional bool         overload = common.overload_default;
-    /** <auto-evpn> */
-    /** acting as DCI for auto-evpn, necessary for proper RR election where DCIs are preferred */
-    10: optional bool                        acting_auto_evpn_dci_when_tof = common.default_acting_auto_evpn_dci_when_tof,
-    /** </auto-evpn> */
-} (python.immutable = "")
+} 
 
 /** Description of a node. */
 struct NodeTIEElement {
@@ -270,32 +246,18 @@ struct NodeTIEElement {
 
     /** If any local links are miscabled, this indication is flooded. */
    10: optional set<common.LinkIDType>      
-        (python.immutable = "")             miscabled_links;
+                     miscabled_links;
 
-   /** ToFs in the same plane. Only carried by ToF. Multiple node TIEs can carry disjoint sets of ToFs
-       which can be joined to form a single set. Used in complex multi-plane elections. */
-   12: optional set<common.SystemIDType>        same_plane_tofs;
+   /** ToFs in the same plane. Only carried by ToF. Multiple Node TIEs can carry disjoint sets of ToFs
+       which MUST be joined to form a single set. */
+   12: optional set<common.SystemIDType>
+                     same_plane_tofs;
 
-   /** <auto-evpn> */
-   /** All Auto EVPN elements MUST be present in at least one node TIE in each direction if auto evpn is running.  */
-   /** It provides optional version of EVPN ZTP as 256 * MAJOR + MINOR, if set auto EVPN is enabled. */
-   21: optional i16                             auto_evpn_version;
    /** It provides the optional ID of the Fabric configured */
-   22: optional common.FabricIDType             fabric_id = common.default_fabric_id;
-   /** provides optionally the EVPN model supported */
-   25: optional common.AutoEVPNModel            auto_evpn_model = common.AutoEVPNModel.ERB_VLAN_BUNDLE,
-   /** </auto-evpn> */
+   20: optional common.FabricIDType             fabric_id = common.default_fabric_id;
 
-   /** <auto-flood-reflection> */
-   /** All Auto FR elements MUST be present in at least one TIE in each direction if auto FR is running.  */
-   /** It provides optional version of FR ZTP as 256 * MAJOR + MINOR, if set indicates auto FR is enabled. */
-   30: optional i16                                     auto_flood_reflection_version;
-   /** cluster ID of Auto FR */
-   31: optional common.FloodReflectionClusterIDType     auto_flood_reflection_cluster_id;
-   /** preference to become FR, if not set it indicates that the node cannot perform flood reflection role  */
-   32: optional common.FloodReflectionPreferenceType    auto_flood_reflection_preference;
-   /** </auto-flood-reflection> */
-} (python.immutable = "")
+
+} 
 
 /** Attributes of a prefix. */
 struct PrefixAttributes {
@@ -306,7 +268,7 @@ struct PrefixAttributes {
         to other protocols or use within the context of real time
         analytics. */
     3: optional set<common.RouteTagType>     
-       (python.immutable = "")               tags;
+                      tags;
     /** Monotonic clock for mobile addresses.  */
     4: optional common.PrefixSequenceType    monotonic_clock;
     /** Indicates if the prefix is a node loopback. */
@@ -317,18 +279,24 @@ struct PrefixAttributes {
    10: optional common.LinkIDType            from_link;
     /** Optional, per prefix significant label. */
    12: optional common.LabelType             label;
-} (python.immutable = "")
+} 
 
 /** TIE carrying prefixes */
 struct PrefixTIEElement {
     /** Prefixes with the associated attributes. */
     1: required map<common.IPPrefixType, PrefixAttributes> prefixes;
-} (python.immutable = "")
+} 
+
+/** Defines the targeted nodes and the value carried. */
+struct KeyValueTIEElementContent {
+    1: optional common.KeyValueTargetType        targets = common.keyvaluetarget_default;
+    2: optional binary                           value;
+}
 
 /** Generic key value pairs. */
 struct KeyValueTIEElement {
-    1: required map<common.KeyIDType, binary>    keyvalues;
-} (python.immutable = "")
+    1: required map<common.KeyIDType, KeyValueTIEElementContent>    keyvalues;
+} 
 
 /** Single element in a TIE. */
 union TIEElement {
@@ -347,7 +315,7 @@ union TIEElement {
             positive_external_disaggregation_prefixes;
     /** Key-Value store elements. */
     9: optional KeyValueTIEElement keyvalues;
-} (python.immutable = "")
+} 
 
 /** TIE packet */
 struct TIEPacket {
