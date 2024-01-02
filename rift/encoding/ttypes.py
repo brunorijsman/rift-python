@@ -31,18 +31,18 @@ class PacketHeader(object):
 
     thrift_spec = (
         None,  # 0
-        (1, TType.BYTE, 'major_version', None, 6, ),  # 1
-        (2, TType.I16, 'minor_version', None, 1, ),  # 2
+        (1, TType.BYTE, 'major_version', None, 8, ),  # 1
+        (2, TType.I16, 'minor_version', None, 0, ),  # 2
         (3, TType.I64, 'sender', None, None, ),  # 3
         (4, TType.BYTE, 'level', None, None, ),  # 4
     )
 
     def __init__(self, major_version=thrift_spec[1][4], minor_version=thrift_spec[2][4], sender=None, level=None,):
         if major_version is self.thrift_spec[1][4]:
-            major_version = 6
+            major_version = 8
         self.major_version = major_version
         if minor_version is self.thrift_spec[2][4]:
-            minor_version = 1
+            minor_version = 0
         self.minor_version = minor_version
         self.sender = sender
         self.level = level
@@ -327,14 +327,13 @@ class NodeCapabilities(object):
     leaf only (in ZTP) or support for leaf-2-leaf
     procedures.
      - auto_evpn_support: <auto-evpn>
-    indicates whether auto-evpn feature is implemented on this node (but not necessarily enabled).
-     - auto_flood_reflection_support: <auto-flood-reflection>
-    indicates whether auto-flood-reflection feature is implemented on this node (but not necessarily enabled).
+    /** indicates whether auto-evpn feature is implemented on this node (but not necessarily enabled).
+     - auto_flood_reflection_support: indicates whether auto-flood-reflection feature is implemented on this node (but not necessarily enabled).
     """
 
     thrift_spec = (
         None,  # 0
-        (1, TType.I16, 'protocol_minor_version', None, 1, ),  # 1
+        (1, TType.I16, 'protocol_minor_version', None, 0, ),  # 1
         (2, TType.BOOL, 'flood_reduction', None, True, ),  # 2
         (3, TType.I32, 'hierarchy_indications', None, None, ),  # 3
         None,  # 4
@@ -358,7 +357,7 @@ class NodeCapabilities(object):
 
     def __init__(self, protocol_minor_version=thrift_spec[1][4], flood_reduction=thrift_spec[2][4], hierarchy_indications=None, auto_evpn_support=thrift_spec[10][4], auto_flood_reflection_support=thrift_spec[20][4],):
         if protocol_minor_version is self.thrift_spec[1][4]:
-            protocol_minor_version = 1
+            protocol_minor_version = 0
         super(NodeCapabilities, self).__setattr__('protocol_minor_version', protocol_minor_version)
         super(NodeCapabilities, self).__setattr__('flood_reduction', flood_reduction)
         super(NodeCapabilities, self).__setattr__('hierarchy_indications', hierarchy_indications)
@@ -589,11 +588,11 @@ class LIEPacket(object):
     all other TIEs. Ignored when received from southbound neighbor.
      - instance_name: Instance name in case multiple RIFT instances running on same
     interface.
-     - fabric_id: <auto-evpn>
-    provides the optional ID of the configured auto-evpn fabric.
-     - auto_evpn_version: provides optional version of EVPN ZTP as 256 * MAJOR + MINOR
-     - auto_flood_reflection_version: It provides optional version of FR ZTP as 256 * MAJOR + MINOR, indicates support for auto FR
-     - auto_flood_reflection_cluster_id
+     - fabric_id: It provides the optional ID of the Fabric configured. This MUST match the information advertised
+    on the node element.
+     - auto_evpn_version: It provides optional version of EVPN ZTP as 256 * MAJOR + MINOR
+     - auto_flood_reflection_version: It provides optional version of flood-reflection ZTP as 256 * MAJOR + MINOR, indicates support for auto FR.
+     - auto_flood_reflection_cluster_id: It provides the cluster ID of flood reflection cluster.
     """
 
     thrift_spec = (
@@ -632,7 +631,7 @@ class LIEPacket(object):
         None,  # 32
         None,  # 33
         None,  # 34
-        (35, TType.I16, 'fabric_id', None, None, ),  # 35
+        (35, TType.I16, 'fabric_id', None, 1, ),  # 35
         (36, TType.I16, 'auto_evpn_version', None, None, ),  # 36
         None,  # 37
         None,  # 38
@@ -641,7 +640,7 @@ class LIEPacket(object):
         (41, TType.I32, 'auto_flood_reflection_cluster_id', None, None, ),  # 41
     )
 
-    def __init__(self, name=None, local_id=None, flood_port=thrift_spec[3][4], link_mtu_size=thrift_spec[4][4], link_bandwidth=thrift_spec[5][4], neighbor=None, pod=thrift_spec[7][4], node_capabilities=None, link_capabilities=None, holdtime=thrift_spec[12][4], label=None, not_a_ztp_offer=thrift_spec[21][4], you_are_flood_repeater=thrift_spec[22][4], you_are_sending_too_quickly=thrift_spec[23][4], instance_name=None, fabric_id=None, auto_evpn_version=None, auto_flood_reflection_version=None, auto_flood_reflection_cluster_id=None,):
+    def __init__(self, name=None, local_id=None, flood_port=thrift_spec[3][4], link_mtu_size=thrift_spec[4][4], link_bandwidth=thrift_spec[5][4], neighbor=None, pod=thrift_spec[7][4], node_capabilities=None, link_capabilities=None, holdtime=thrift_spec[12][4], label=None, not_a_ztp_offer=thrift_spec[21][4], you_are_flood_repeater=thrift_spec[22][4], you_are_sending_too_quickly=thrift_spec[23][4], instance_name=None, fabric_id=thrift_spec[35][4], auto_evpn_version=None, auto_flood_reflection_version=None, auto_flood_reflection_cluster_id=None,):
         self.name = name
         self.local_id = local_id
         if flood_port is self.thrift_spec[3][4]:
@@ -667,6 +666,8 @@ class LIEPacket(object):
         self.you_are_flood_repeater = you_are_flood_repeater
         self.you_are_sending_too_quickly = you_are_sending_too_quickly
         self.instance_name = instance_name
+        if fabric_id is self.thrift_spec[35][4]:
+            fabric_id = 1
         self.fabric_id = fabric_id
         self.auto_evpn_version = auto_evpn_version
         self.auto_flood_reflection_version = auto_flood_reflection_version
@@ -1835,14 +1836,16 @@ class NodeTIEElement(object):
      - pod: PoD to which the node belongs.
      - startup_time: optional startup time of the node
      - miscabled_links: If any local links are miscabled, this indication is flooded.
-     - same_plane_tofs: ToFs in the same plane. Only carried by ToF. Multiple node TIEs can carry disjoint sets of ToFs
-    which can be joined to form a single set. Used in complex multi-plane elections.
-     - auto_evpn_version: It provides optional version of EVPN ZTP as 256 * MAJOR + MINOR, if set auto EVPN is enabled.
+     - same_plane_tofs: ToFs in the same plane. Only carried by ToF. Multiple Node TIEs can carry disjoint sets of ToFs
+    which MUST be joined to form a single set.
      - fabric_id: It provides the optional ID of the Fabric configured
-     - auto_evpn_model: provides optionally the EVPN model supported
+     - auto_evpn_version: All Auto EVPN elements MUST be present in at least one node TIE in each direction if auto-evpn is running.
+    It provides optional version of EVPN ZTP as 256 * MAJOR + MINOR, if set auto EVPN is enabled.
+     - auto_evpn_model: provides optionally the auto-evpn EVPN model supported
      - auto_flood_reflection_version: It provides optional version of FR ZTP as 256 * MAJOR + MINOR, if set indicates auto FR is enabled.
-     - auto_flood_reflection_cluster_id: cluster ID of Auto FR
-     - auto_flood_reflection_preference: preference to become FR, if not set it indicates that the node cannot perform flood reflection role
+     - auto_flood_reflection_cluster_id: cluster ID of auto-flood-reflection
+     - auto_flood_reflection_preference: preference to become flood reflector in auto-flood-reflection,
+    if not set it indicates that the node cannot perform flood reflection role.
     """
 
     thrift_spec = (
@@ -1858,7 +1861,7 @@ class NodeTIEElement(object):
         None,  # 9
         (10, TType.SET, 'miscabled_links', (TType.I32, None, True), None, ),  # 10
         None,  # 11
-        (12, TType.SET, 'same_plane_tofs', (TType.I64, None, False), None, ),  # 12
+        (12, TType.SET, 'same_plane_tofs', (TType.I64, None, True), None, ),  # 12
         None,  # 13
         None,  # 14
         None,  # 15
@@ -1866,9 +1869,9 @@ class NodeTIEElement(object):
         None,  # 17
         None,  # 18
         None,  # 19
-        None,  # 20
+        (20, TType.I16, 'fabric_id', None, 1, ),  # 20
         (21, TType.I16, 'auto_evpn_version', None, None, ),  # 21
-        (22, TType.I16, 'fabric_id', None, 1, ),  # 22
+        None,  # 22
         None,  # 23
         None,  # 24
         (25, TType.I32, 'auto_evpn_model', None, 0, ),  # 25
@@ -1881,7 +1884,7 @@ class NodeTIEElement(object):
         (32, TType.I32, 'auto_flood_reflection_preference', None, None, ),  # 32
     )
 
-    def __init__(self, level=None, neighbors=None, capabilities=None, flags=None, name=None, pod=None, startup_time=None, miscabled_links=None, same_plane_tofs=None, auto_evpn_version=None, fabric_id=thrift_spec[22][4], auto_evpn_model=thrift_spec[25][4], auto_flood_reflection_version=None, auto_flood_reflection_cluster_id=None, auto_flood_reflection_preference=None,):
+    def __init__(self, level=None, neighbors=None, capabilities=None, flags=None, name=None, pod=None, startup_time=None, miscabled_links=None, same_plane_tofs=None, fabric_id=thrift_spec[20][4], auto_evpn_version=None, auto_evpn_model=thrift_spec[25][4], auto_flood_reflection_version=None, auto_flood_reflection_cluster_id=None, auto_flood_reflection_preference=None,):
         super(NodeTIEElement, self).__setattr__('level', level)
         super(NodeTIEElement, self).__setattr__('neighbors', neighbors)
         super(NodeTIEElement, self).__setattr__('capabilities', capabilities)
@@ -1891,10 +1894,10 @@ class NodeTIEElement(object):
         super(NodeTIEElement, self).__setattr__('startup_time', startup_time)
         super(NodeTIEElement, self).__setattr__('miscabled_links', miscabled_links)
         super(NodeTIEElement, self).__setattr__('same_plane_tofs', same_plane_tofs)
-        super(NodeTIEElement, self).__setattr__('auto_evpn_version', auto_evpn_version)
-        if fabric_id is self.thrift_spec[22][4]:
+        if fabric_id is self.thrift_spec[20][4]:
             fabric_id = 1
         super(NodeTIEElement, self).__setattr__('fabric_id', fabric_id)
+        super(NodeTIEElement, self).__setattr__('auto_evpn_version', auto_evpn_version)
         super(NodeTIEElement, self).__setattr__('auto_evpn_model', auto_evpn_model)
         super(NodeTIEElement, self).__setattr__('auto_flood_reflection_version', auto_flood_reflection_version)
         super(NodeTIEElement, self).__setattr__('auto_flood_reflection_cluster_id', auto_flood_reflection_cluster_id)
@@ -1907,7 +1910,7 @@ class NodeTIEElement(object):
         raise TypeError("can't modify immutable instance")
 
     def __hash__(self):
-        return hash(self.__class__) ^ hash((self.level, self.neighbors, self.capabilities, self.flags, self.name, self.pod, self.startup_time, self.miscabled_links, self.same_plane_tofs, self.auto_evpn_version, self.fabric_id, self.auto_evpn_model, self.auto_flood_reflection_version, self.auto_flood_reflection_cluster_id, self.auto_flood_reflection_preference, ))
+        return hash(self.__class__) ^ hash((self.level, self.neighbors, self.capabilities, self.flags, self.name, self.pod, self.startup_time, self.miscabled_links, self.same_plane_tofs, self.fabric_id, self.auto_evpn_version, self.auto_evpn_model, self.auto_flood_reflection_version, self.auto_flood_reflection_cluster_id, self.auto_flood_reflection_preference, ))
 
     @classmethod
     def read(cls, iprot):
@@ -1922,8 +1925,8 @@ class NodeTIEElement(object):
         __var_startup_time= None
         __var_miscabled_links= None
         __var_same_plane_tofs= None
-        __var_auto_evpn_version= None
         __var_fabric_id= None
+        __var_auto_evpn_version= None
         __var_auto_evpn_model= None
         __var_auto_flood_reflection_version= None
         __var_auto_flood_reflection_cluster_id= None
@@ -1993,16 +1996,17 @@ class NodeTIEElement(object):
                         _elem46 = iprot.readI64()
                         __var_same_plane_tofs.add(_elem46)
                     iprot.readSetEnd()
+                    __var_same_plane_tofs = frozenset(__var_same_plane_tofs)
+                else:
+                    iprot.skip(ftype)
+            elif fid == 20:
+                if ftype == TType.I16:
+                    __var_fabric_id = iprot.readI16()
                 else:
                     iprot.skip(ftype)
             elif fid == 21:
                 if ftype == TType.I16:
                     __var_auto_evpn_version = iprot.readI16()
-                else:
-                    iprot.skip(ftype)
-            elif fid == 22:
-                if ftype == TType.I16:
-                    __var_fabric_id = iprot.readI16()
                 else:
                     iprot.skip(ftype)
             elif fid == 25:
@@ -2039,8 +2043,8 @@ class NodeTIEElement(object):
             startup_time=__var_startup_time,
             miscabled_links=__var_miscabled_links,
             same_plane_tofs=__var_same_plane_tofs,
-            auto_evpn_version=__var_auto_evpn_version,
             fabric_id=__var_fabric_id,
+            auto_evpn_version=__var_auto_evpn_version,
             auto_evpn_model=__var_auto_evpn_model,
             auto_flood_reflection_version=__var_auto_flood_reflection_version,
             auto_flood_reflection_cluster_id=__var_auto_flood_reflection_cluster_id,
@@ -2098,13 +2102,13 @@ class NodeTIEElement(object):
                 oprot.writeI64(iter50)
             oprot.writeSetEnd()
             oprot.writeFieldEnd()
+        if self.fabric_id is not None:
+            oprot.writeFieldBegin('fabric_id', TType.I16, 20)
+            oprot.writeI16(self.fabric_id)
+            oprot.writeFieldEnd()
         if self.auto_evpn_version is not None:
             oprot.writeFieldBegin('auto_evpn_version', TType.I16, 21)
             oprot.writeI16(self.auto_evpn_version)
-            oprot.writeFieldEnd()
-        if self.fabric_id is not None:
-            oprot.writeFieldBegin('fabric_id', TType.I16, 22)
-            oprot.writeI16(self.fabric_id)
             oprot.writeFieldEnd()
         if self.auto_evpn_model is not None:
             oprot.writeFieldBegin('auto_evpn_model', TType.I32, 25)
@@ -2413,6 +2417,84 @@ class PrefixTIEElement(object):
         return not (self == other)
 
 
+class KeyValueTIEElementContent(object):
+    """
+    Defines the targeted nodes and the value carried.
+
+    Attributes:
+     - targets
+     - value
+    """
+
+    thrift_spec = (
+        None,  # 0
+        (1, TType.I64, 'targets', None, 0, ),  # 1
+        (2, TType.STRING, 'value', 'BINARY', None, ),  # 2
+    )
+
+    def __init__(self, targets=thrift_spec[1][4], value=None,):
+        if targets is self.thrift_spec[1][4]:
+            targets = 0
+        self.targets = targets
+        self.value = value
+
+    def read(self, iprot):
+        if iprot._fast_decode is not None and isinstance(iprot.trans, TTransport.CReadableTransport) and self.thrift_spec is not None:
+            iprot._fast_decode(self, iprot, (self.__class__, self.thrift_spec))
+            return
+        self.targets = None
+        self.value = None
+        iprot.readStructBegin()
+        while True:
+            (fname, ftype, fid) = iprot.readFieldBegin()
+            if ftype == TType.STOP:
+                break
+            if fid == 1:
+                if ftype == TType.I64:
+                    self.targets = iprot.readI64()
+                else:
+                    iprot.skip(ftype)
+            elif fid == 2:
+                if ftype == TType.STRING:
+                    self.value = iprot.readBinary()
+                else:
+                    iprot.skip(ftype)
+            else:
+                iprot.skip(ftype)
+            iprot.readFieldEnd()
+        iprot.readStructEnd()
+
+    def write(self, oprot):
+        if oprot._fast_encode is not None and self.thrift_spec is not None:
+            oprot.trans.write(oprot._fast_encode(self, (self.__class__, self.thrift_spec)))
+            return
+        oprot.writeStructBegin('KeyValueTIEElementContent')
+        if self.targets is not None:
+            oprot.writeFieldBegin('targets', TType.I64, 1)
+            oprot.writeI64(self.targets)
+            oprot.writeFieldEnd()
+        if self.value is not None:
+            oprot.writeFieldBegin('value', TType.STRING, 2)
+            oprot.writeBinary(self.value)
+            oprot.writeFieldEnd()
+        oprot.writeFieldStop()
+        oprot.writeStructEnd()
+
+    def validate(self):
+        return
+
+    def __repr__(self):
+        L = ['%s=%r' % (key, value)
+             for key, value in self.__dict__.items()]
+        return '%s(%s)' % (self.__class__.__name__, ', '.join(L))
+
+    def __eq__(self, other):
+        return isinstance(other, self.__class__) and self.__dict__ == other.__dict__
+
+    def __ne__(self, other):
+        return not (self == other)
+
+
 class KeyValueTIEElement(object):
     """
     Generic key value pairs.
@@ -2423,7 +2505,7 @@ class KeyValueTIEElement(object):
 
     thrift_spec = (
         None,  # 0
-        (1, TType.MAP, 'keyvalues', (TType.I32, None, TType.STRING, 'BINARY', False), None, ),  # 1
+        (1, TType.MAP, 'keyvalues', (TType.I32, None, TType.STRUCT, (KeyValueTIEElementContent, KeyValueTIEElementContent.thrift_spec), False), None, ),  # 1
     )
 
     def __init__(self, keyvalues=None,):
@@ -2454,7 +2536,8 @@ class KeyValueTIEElement(object):
                     (_ktype68, _vtype69, _size67) = iprot.readMapBegin()
                     for _i71 in range(_size67):
                         _key72 = iprot.readI32()
-                        _val73 = iprot.readBinary()
+                        _val73 = KeyValueTIEElementContent()
+                        _val73.read(iprot)
                         __var_keyvalues[_key72] = _val73
                     iprot.readMapEnd()
                 else:
@@ -2474,10 +2557,10 @@ class KeyValueTIEElement(object):
         oprot.writeStructBegin('KeyValueTIEElement')
         if self.keyvalues is not None:
             oprot.writeFieldBegin('keyvalues', TType.MAP, 1)
-            oprot.writeMapBegin(TType.I32, TType.STRING, len(self.keyvalues))
+            oprot.writeMapBegin(TType.I32, TType.STRUCT, len(self.keyvalues))
             for kiter74, viter75 in self.keyvalues.items():
                 oprot.writeI32(kiter74)
-                oprot.writeBinary(viter75)
+                viter75.write(oprot)
             oprot.writeMapEnd()
             oprot.writeFieldEnd()
         oprot.writeFieldStop()

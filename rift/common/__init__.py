@@ -9,3 +9,4 @@ for _klass in dir(ttypes):
         delattr(getattr(ttypes, _klass),"__setattr__")
     except (KeyError, AttributeError):
         pass
+

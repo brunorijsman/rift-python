@@ -183,17 +183,20 @@ class RouteType(object):
 
 
 class KVTypes(object):
-    OUI = 1
+    Experimental = 1
     WellKnown = 2
+    OUI = 3
 
     _VALUES_TO_NAMES = {
-        1: "OUI",
+        1: "Experimental",
         2: "WellKnown",
+        3: "OUI",
     }
 
     _NAMES_TO_VALUES = {
-        "OUI": 1,
+        "Experimental": 1,
         "WellKnown": 2,
+        "OUI": 3,
     }
 
 
@@ -213,17 +216,17 @@ class AutoFRModel(object):
     """
     <auto-flood-reflection>
     """
-    TunnelMode = 0
-    NoTunnelMode = 1
+    NoTunnelMode = 0
+    TunnelMode = 1
 
     _VALUES_TO_NAMES = {
-        0: "TunnelMode",
-        1: "NoTunnelMode",
+        0: "NoTunnelMode",
+        1: "TunnelMode",
     }
 
     _NAMES_TO_VALUES = {
-        "TunnelMode": 0,
-        "NoTunnelMode": 1,
+        "NoTunnelMode": 0,
+        "TunnelMode": 1,
     }
 
 
