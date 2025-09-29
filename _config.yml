@@ -1,1 +1,7 @@
 theme: jekyll-theme-slate
+title: Routing In Fat Trees (RIFT)
+description: An open source implementation of the RIFT protocol in Python.
+author: Bruno Rijsman
+plugins:
+  - jekyll-seo-tag
+google_analytics: UA-31532124-6
