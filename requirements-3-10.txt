@@ -21,7 +21,7 @@ docutils==0.16
 gprof2dot==2022.7.29
 HeapDict==1.0.1
 html5lib==1.1
-idna==3.3
+idna==3.7
 iniconfig==1.1.1
 ipaddr==2.2.0
 isort==5.10.1
